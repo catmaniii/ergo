@@ -181,7 +181,7 @@ ergo keeps a copy of everything you said on this PC (immutable, indexed by keywo
 
 - **Calendar**: working days and holidays for two regions, manual marks, the day's reminders, scheduled tasks and each run; external calendars (phone calendar, Google Calendar…) can be connected through data-source plugins.
 - **Reminders**: just tell the secretary; the reminder card lets you reschedule or cancel; due reminders show at the top of the page, or as system notifications in the phone app.
-- **Browse**: a built-in browser that opens your project services' pages and renders attachments; tap the floating button with ergo's icon next to a web form's input box to have ergo fill it in.
+- **Browse**: a built-in browser that opens your project services' pages and renders attachments; tap the floating button with ergo's icon next to a web form's input box to have ergo fill it in. Long-press an image, video, link or text on a page (right-click with a mouse) and the system menu appears as usual, along with an ergo button beside it: tap to type or hold to talk, and say whatever you want done with it, such as "what is this", "translate this into English", "remember this picture", "download it to my phone" or "send it to the bookkeeping project". The button has no menu of actions; ergo does what you say. Words written on the page don't count as yours, and things like downloading only happen when you ask in that turn. The button won't appear on pages that block long-press or cover content with a transparent layer. Seeing what's in an image needs a model that can read images; without one, ergo tells you so.
 
 ### 4.9 Plugins
 

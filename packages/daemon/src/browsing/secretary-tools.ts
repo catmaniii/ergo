@@ -24,6 +24,7 @@
 //   才点，支付、删除、发布这一档带了也不点；框（文本框、上传框、下拉框）按编号点不了。164 号票当时没加 confirm，是怕模型自己带上它绕过拦截；
 //   现在照"功能先跑通、安全后接"接受这个风险，工具说明写明只在用户这一轮明确说了"提交""运行"时才带；
 // - 日志记"对 e3（textbox）填了 N 字 / 对 e5（upload）交了 1 个文件"，不记正文。
+// 359 号票（长按网页元素的圆钮）：那一轮的消息带着元素（BrowsingMark.element），取内容、下载的两个工具在 element-tools.ts，排在最后，文件编号和这里同一份。
 // @i18n-ignore-file model：工具的结果、拒绝的原因都是给秘书（模型）看的（173 号票）；工具的名字在 texts.ts 的 TOOL_TITLES
 import {
   BROWSER_PAGE_TEXT_MAX,
@@ -51,11 +52,13 @@ import { defineHostTool, type HostTool, type HostToolCall } from "../agent-manag
 import type { CardService } from "../cards/cards.ts";
 import { getMessage } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
+import { elementTools } from "./element-tools.ts";
 import { PAGE_FILE_TOKEN_TTL_MS, type PageFileTokens } from "./file-tokens.ts";
 import { FILE_REF, FileRefs, type FileToolsDeps, findFilesTool, sizeText, viewFilesTool } from "./file-tools.ts";
 import type { FoundFile } from "./find-files.ts";
 import type { PageThumbnails } from "./page-thumbnails.ts";
 import type { BrowserLinks } from "./browser-links.ts";
+import type { MediaStore } from "../media/media-store.ts";
 import {
   BROWSE_ATTACH_FILES_TOOL,
   BROWSE_CLICK_TOOL,
@@ -92,6 +95,8 @@ export interface BrowsingToolDeps {
   thumbs?: Pick<PageThumbnails, "warm">;
   /** 找文件、看图 */
   files: FileToolsDeps;
+  /** 取长按的元素的内容（359 号票）：媒体库（设备传进来的）、草稿区（放一份给别的工具用） */
+  element: { media: MediaStore; scratchDir: string };
   now?: () => number;
 }
 
@@ -452,5 +457,6 @@ export function browsingTools(deps: BrowsingToolDeps): HostTool[] {
     open,
     snapshot,
     click,
+    ...elementTools({ links, media: deps.element.media, scratchDir: deps.element.scratchDir, files: deps.files, refs, browsingOf, now }),
   ];
 }

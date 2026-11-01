@@ -129,5 +129,10 @@
   "app.ws.offline": "Not connected to the daemon",
   "app.ws.timeout": "The daemon didn't reply within {seconds} seconds",
   "app.ws.dropped": "The connection dropped",
-  "app.ws.daemonTooOld": "The daemon is too old for this request ({message})"
+  "app.ws.daemonTooOld": "The daemon is too old for this request ({message})",
+  "app.pageCommands.target.image": "this image",
+  "app.pageCommands.target.video": "this video",
+  "app.pageCommands.target.link": "this link",
+  "app.pageCommands.target.text": "this text",
+  "app.pageBubble.placeholder.element": "Say what you'd like done with it"
 }

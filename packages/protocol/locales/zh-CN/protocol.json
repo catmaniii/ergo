@@ -947,5 +947,9 @@
   "protocol.interview.topic.cares": "在意什么和烦什么",
   "protocol.interview.topic.help": "想要什么样的帮忙",
   "protocol.interview.topic.changes": "最近有什么变化",
-  "protocol.timeline.kind.skill": "skill 变更"
+  "protocol.timeline.kind.skill": "skill 变更",
+  "protocol.browsing.label.whereImage": "图片",
+  "protocol.browsing.label.whereVideo": "视频",
+  "protocol.browsing.label.whereLink": "链接",
+  "protocol.browsing.label.whereText": "文字"
 }

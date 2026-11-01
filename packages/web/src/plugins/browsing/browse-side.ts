@@ -28,6 +28,7 @@
 // 编号认得、元素还在、种类没变）再照它的框编号填；交文件先找一次上传框（找不到就不取字节），交的时候按编号交（页面桥再核对一次）。
 // 旧版 App 不认按编号找框，回"App 太旧，装新版才能按编号填和交"。
 import type { PageBridgeEvent } from "../../page-bridge/protocol.ts";
+import type { ElementFiles } from "./element-files.ts";
 import {
   type BrowserOutcome,
   type BrowserRequest,
@@ -216,6 +217,8 @@ export interface BrowseSideDeps {
   now(): number;
   /** 过 ms 毫秒调 fn，回取消的函数（164 号票：点完等地址变；不给用 setTimeout） */
   timer?(ms: number, fn: () => void): () => void;
+  /** 长按的元素：取内容、下载（359 号票） */
+  elements?: Pick<ElementFiles, "file" | "download">;
 }
 
 /** 原因最多多少字（协议里的上限） */
@@ -231,6 +234,9 @@ const BRIDGE_GONE = "网页上的二狗页面桥不在（网页还没加载完�
 const APP_TOO_OLD = "这台设备上的二狗 App 太旧，装新版才能点（看网页上能点的东西、点击都要新版 App）"; // @i18n-ignore model：交回去的原因进秘书的网页工具结果（给模型看）
 /** 旧版 App 不认按编号找框（184 号票） */
 const APP_TOO_OLD_REF = "这台设备上的二狗 App 太旧，装新版才能按编号填字、交文件"; // @i18n-ignore model：交回去的原因进秘书的网页工具结果（给模型看）
+
+/** 取长按的元素的内容、下载（359 号票）要新版 App */
+const APP_TOO_OLD_ELEMENT = "这台设备上的二狗 App 太旧，装新版才能取网页元素的内容、下载"; // @i18n-ignore model：交回去的原因进秘书的网页工具结果
 
 const defaultTimer = (ms: number, fn: () => void): (() => void) => {
   const id = setTimeout(fn, ms);
@@ -473,6 +479,10 @@ export class BrowseSide implements SidebarControl {
         this.deps.stage.logDelivery("守护进程转来的", taken, this.deps.now() - staged, this.deps.now() - began); // @i18n-ignore log：日志里写的来路
         return delivered.ok ? { ok: true, count: delivered.count ?? taken.files.length } : { ok: false, reason: delivered.reason ?? "没交进去" }; // @i18n-ignore model：交回去的原因进秘书的网页工具结果（给模型看）
       }
+      case "element_file":
+        return this.deps.elements ? this.deps.elements.file(request.element, request.url) : { ok: false, reason: APP_TOO_OLD_ELEMENT };
+      case "element_download":
+        return this.deps.elements ? this.deps.elements.download(request.element, request.url) : { ok: false, reason: APP_TOO_OLD_ELEMENT };
       case "open": {
         if (!/^https?:\/\//i.test(request.url)) return { ok: false, reason: "只能开 http、https 的网址" }; // @i18n-ignore model：交回去的原因进秘书的网页工具结果（给模型看）
         this.deps.load(request.url);

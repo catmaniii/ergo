@@ -37,10 +37,12 @@
 // 184 号票（用户 2026-10-20：希望在一页里自动交图 → 自动填字 → 自动点按钮，不用每次都由人先点中框）：snapshot 也列文本框、上传框
 // （藏起来的也列）、下拉框（只能看），和能点的同一套编号；refField 按编号找要填的文本框、要交的上传框（照点的核对：还是那一页、
 // 编号认得、元素还在、种类没变），回框的说法（页面桥的框编号 f…），宿主再照原来的 fill、attachFiles 填、交。
+// 359 号票（长按元素的圆钮，element.ts）：长按、右键认出图片、链接、文字时多出一个圆钮，和悬浮按钮同一个样子、同一个气泡，互不干扰（气泡的 fieldId 是元素的编号）。
 // 用到的内置函数（JSON、原型上的 setter、DataTransfer、File、atob……）都在注入的那一刻记下来，网页的脚本之后再改它们也碍不着。
 import type { PageField, PageFieldKind } from "@ergo/protocol";
 import { BUBBLE_STYLE, bubbleViewOf, createBubble, nameTagStyle } from "./bubble.ts";
 import { createClickables } from "./clickables.ts";
+import { createElementButton } from "./element.ts";
 import { paintFabIcon } from "./fab-icon.ts";
 import { createPickWindow, PICK_STYLE, pickViewOf } from "./pick.ts";
 import type { PageBridgeApi, PageBridgeEvent, PageBridgeMark, PageBubbleAction, PageBubbleView, PageInfo, PageNamedText, PagePickView } from "./protocol.ts";
@@ -415,10 +417,21 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     fab.classList.add("has-icon");
     fab.replaceChildren(canvas);
   });
+  // 长按元素的圆钮（359 号票）：和悬浮按钮一个样子，另一个元素
+  const elementFab = doc.createElement("div");
+  elementFab.className = "fab";
+  elementFab.setAttribute("role", "button");
+  elementFab.setAttribute("aria-label", texts.get("bridge.fab.label"));
+  elementFab.innerHTML = ICON_IDLE;
+  void paintFabIcon(doc, { decode, makeBitmap, BlobCtor }).then((canvas) => {
+    if (!canvas) return;
+    elementFab.classList.add("has-icon");
+    elementFab.replaceChildren(canvas);
+  });
   const bubble = createBubble(doc, { now, texts }, (action) => bubbleAction(action));
   // 挑图片窗口（149 号票）：排在最上面
   const pickWindow = createPickWindow(doc, { decode, makeBitmap, BlobCtor, texts }, (action) => send({ type: "pick", ...action }));
-  shadow.append(bubble.el, fab, pickWindow.el);
+  shadow.append(bubble.el, fab, elementFab, pickWindow.el);
   // 能点的东西（164 号票）：页面桥自己这一层（hostEl）不列；184 号票起连同能填、能交、能选的框（认框用上面这一套）
   const clickables = createClickables({
     win,
@@ -426,6 +439,27 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     pageInfo,
     ...(innerText ? { innerText } : {}),
     fields: { kindOf: fillable, describe, valueOf, anchorOf: triggerOf, areaOf, labelOf, sensitive: isSensitive, reason: (key, ref) => texts.get(key, { ref }) },
+  });
+
+  const encode = win.btoa.bind(win);
+  const elementButton = createElementButton({
+    win,
+    doc,
+    hostEl,
+    button: elementFab,
+    bubble,
+    texts,
+    setTimer: (fn, ms) => setTimer(fn, ms),
+    clearTimer: (id) => clearTimer(id),
+    decode,
+    encode,
+    ...(innerText ? { innerText } : {}),
+    send,
+    pageInfo,
+    visibleArea: () => visibleArea(),
+    ensureHost: () => ensureHost(),
+    startTracking: () => startTracking(),
+    closeBubble: () => closeBubble(false),
   });
 
   /** 按钮挂在哪个框上（填字的框本身，或选文件的框）、贴着哪个元素摆 */
@@ -490,6 +524,11 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
   const placeBubble = (area: Rect, at: { x: number; y: number } | undefined) => {
     const view = bubble.view;
     const fieldId = view.kind === "none" ? "" : view.fieldId;
+    // 气泡跟着长按元素的圆钮（359 号票）：贴着圆钮摆，没有框要避开
+    if (fieldId !== "" && elementButton.owns(fieldId)) {
+      bubble.frame(elementButton.rect(), area);
+      return;
+    }
     const anchored = fieldId !== "" && current !== undefined && idOf(current.el) === fieldId;
     let field: Rect | undefined;
     if (anchored && current) {
@@ -569,9 +608,11 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
   /** 收起气泡、报给宿主；reevaluate：焦点已经不在框里的话按钮也跟着收（上传处的按钮照旧等点到别处才收） */
   const closeBubble = (reevaluate = true) => {
     if (!bubble.open) return;
+    const shown = bubble.view;
     bubble.hide();
     send({ type: "bubble", action: "close" });
     if (reevaluate) afterBubbleClosed();
+    if (shown.kind !== "none" && elementButton.owns(shown.fieldId)) elementButton.bubbleClosed();
   };
 
   const afterBubbleClosed = () => {
@@ -592,16 +633,28 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     const view = bubble.view;
     if (action.action === "ergo" && view.kind === "chooser") bubble.openInput(view.fieldId, texts.parts("bridge.talkTo.ergo"));
     if (action.action === "send" && current && view.kind !== "none" && view.fieldId === idOf(current.el)) action = { ...action, field: describeNow(current.el, current.kind) };
+    // 圆钮上打的字（359 号票）：带上元素（选中的文字是这一刻的）
+    if (action.action === "send" && view.kind !== "none" && elementButton.owns(view.fieldId)) {
+      const element = elementButton.fresh();
+      if (element) action = { ...action, element };
+    }
     send({ type: "bubble", ...action });
-    if (action.action === "close" || action.action === "sidebar") afterBubbleClosed();
+    if (action.action === "close" || action.action === "sidebar") {
+      afterBubbleClosed();
+      if (view.kind !== "none" && elementButton.owns(view.fieldId)) elementButton.bubbleClosed();
+    }
   };
 
   /** 宿主交来气泡的样子：要跟着的框按钮没挂在上面（拦下的对话框认出来的框）就挪过去；收起时焦点不在框里的按钮也收 */
   const applyBubble = (view: PageBubbleView) => {
     if (view.kind === "none") {
       const was = bubble.open;
+      const shown = bubble.view;
       bubble.show(view);
-      if (was) afterBubbleClosed();
+      if (was) {
+        afterBubbleClosed();
+        if (shown.kind !== "none" && elementButton.owns(shown.fieldId)) elementButton.bubbleClosed();
+      }
       return;
     }
     if (view.fieldId && (!current || idOf(current.el) !== view.fieldId)) {
@@ -656,6 +709,7 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
       const el = t instanceof win.HTMLElement && t.isContentEditable ? editingHost(t) : t;
       const kind = el ? fillable(el) : undefined;
       if (el && kind && kind !== "file") {
+        elementButton.fieldFocused();
         show(el, kind, el);
         select(el, kind);
       }
@@ -710,7 +764,10 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
   doc.addEventListener(
     "scroll",
     () => {
-      if (now() - lastGesture < GESTURE_SCROLL_MS) lastScroll = now();
+      if (now() - lastGesture < GESTURE_SCROLL_MS) {
+        lastScroll = now();
+        elementButton.scrolled();
+      }
     },
     { capture: true, passive: true },
   );
@@ -941,8 +998,33 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
       if (!found.ok) return reply(found);
       return reply({ ok: true, page: pageInfo(), field: describe(found.el, found.kind) });
     },
+    elementInfo(key, id, url) {
+      if (key !== nonce) return "";
+      return reply(elementButton.info(String(id), String(url)));
+    },
+    elementPrepare(key, id, url) {
+      if (key !== nonce) return "";
+      return reply(elementButton.prepare(String(id), String(url)));
+    },
+    elementChunk(key, id, offset) {
+      if (key !== nonce) return "";
+      return reply(elementButton.chunk(String(id), Math.max(0, Number(offset) || 0)));
+    },
+    elementRect(key, id, url) {
+      if (key !== nonce) return "";
+      return reply(elementButton.shotRect(String(id), String(url)));
+    },
+    elementShotDone(key) {
+      if (key !== nonce) return "";
+      return reply(elementButton.shotDone());
+    },
     mark(key, fieldId, next) {
       if (key !== nonce) return "";
+      // 长按元素的圆钮（359 号票）：已经不在圆钮上的元素不管，也不碰悬浮按钮
+      if (typeof fieldId === "string" && fieldId.startsWith("x")) {
+        if ((next === "idle" || next === "listening" || next === "busy") && elementButton.owns(fieldId)) elementButton.mark(next);
+        return reply({ ok: true });
+      }
       if (next === "idle" || next === "listening" || next === "busy") {
         if (!current || idOf(current.el) === fieldId || next === "idle") setMark(next);
       }
@@ -978,6 +1060,7 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
         texts.set(next);
         tagSheet.replaceSync(nameTagStyle(texts.tag()));
         fab.setAttribute("aria-label", texts.get("bridge.fab.label"));
+        elementFab.setAttribute("aria-label", texts.get("bridge.fab.label"));
         bubble.relabel();
         pickWindow.relabel();
       }

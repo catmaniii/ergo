@@ -961,5 +961,9 @@
   "protocol.interview.topic.cares": "What you care about and what bothers you",
   "protocol.interview.topic.help": "What kind of help you want",
   "protocol.interview.topic.changes": "What's changed lately",
-  "protocol.timeline.kind.skill": "Skill change"
+  "protocol.timeline.kind.skill": "Skill change",
+  "protocol.browsing.label.whereImage": "an image",
+  "protocol.browsing.label.whereVideo": "a video",
+  "protocol.browsing.label.whereLink": "a link",
+  "protocol.browsing.label.whereText": "some text"
 }

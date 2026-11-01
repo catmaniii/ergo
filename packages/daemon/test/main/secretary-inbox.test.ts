@@ -106,6 +106,8 @@ const SECRETARY_TOOLS = [
   // 164 号票：看网页上能点的东西、按编号点
   "browse_snapshot",
   "browse_click",
+  "browse_element_content",
+  "browse_element_download",
 ].toSorted();
 
 describe("待我处理", () => {

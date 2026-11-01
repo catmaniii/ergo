@@ -52,6 +52,7 @@ import com.catmaniii.ergo.bridge.NativeBridge
 import com.catmaniii.ergo.bridge.webViewSupportsBridge
 import com.catmaniii.ergo.browser.BrowserFrame
 import com.catmaniii.ergo.browser.BrowserTools
+import com.catmaniii.ergo.browser.ElementFiles
 import com.catmaniii.ergo.browser.FileDocs
 import com.catmaniii.ergo.browser.FilePicker
 import com.catmaniii.ergo.browser.InAppBrowser
@@ -174,7 +175,8 @@ class MainActivity : Activity() {
         override fun browserChooser(choice: String, reply: (String) -> Unit) = pageControl.choose(choice, reply)
         override fun browserDiscard(json: String, reply: (String) -> Unit) = reply(pageControl.discard(json))
         override fun browserDoc(op: String, id: String, reply: (String) -> Unit) = fileDocs.run(op, id, reply)
-        override fun browserTool(op: String, json: String, reply: (String) -> Unit) = browserTools.run(op, json, reply)
+        override fun browserTool(op: String, json: String, reply: (String) -> Unit) =
+            if (op.startsWith("element")) elementFiles.run(op, json, reply) else browserTools.run(op, json, reply)
     }
 
     /** 系统通知（110 号票）：整个 App 一份，换地址不重建；记着 App 在不在前台（在前台不发，页面顶上已经有了） */
@@ -296,6 +298,10 @@ class MainActivity : Activity() {
     private val pageControl: PageControl by lazy { PageControl(this, { pushBrowser(it) }, { browser.attached }, filePicker) }
     /** "浏览"的 ⋮ 菜单用到的原生能力（165 号票） */
     private val browserTools: BrowserTools by lazy { BrowserTools(this, { browser.web }, { pushBrowser(it) }, { server }, { browser.currentUrl() }) }
+    /** 长按网页元素的圆钮要的：取元素的内容、下载（359 号票） */
+    private val elementFiles: ElementFiles by lazy {
+        ElementFiles(this, { browser.web }, { server?.origin ?: "" }, { showToast(it) }, { file, name, mime -> browserDownloads.saveFile(file, name, false, mime) })
+    }
     /** 浏览器里能渲染的文件（160 号票） */
     private val fileDocs: FileDocs by lazy {
         FileDocs(this, { browser.web }, { pushBrowser(it) }, { file, name, keep -> browserDownloads.saveFile(file, name, keep) }, { url -> forceBrowserDownload(url) }, { openOutside(it) })

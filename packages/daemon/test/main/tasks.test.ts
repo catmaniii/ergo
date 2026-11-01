@@ -219,6 +219,8 @@ describe("发起任务的三条路", () => {
       // 164 号票：看网页上能点的东西、按编号点
       "[tool] browse_snapshot",
       "[tool] browse_click",
+      "[tool] browse_element_content",
+      "[tool] browse_element_download",
       // 70 号票：联网搜索、读网页
       "[tool] web_search",
       "[tool] web_fetch",

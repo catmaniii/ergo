@@ -30,5 +30,13 @@
   "bridge.reason.refGone": "That field is no longer on the page",
   "bridge.reason.refChanged": "That field changed since it was listed",
   "bridge.reason.notTextbox": "{ref} isn't a text box, so it can't be filled",
-  "bridge.reason.notUpload": "{ref} isn't an upload field, so it can't take files"
+  "bridge.reason.notUpload": "{ref} isn't an upload field, so it can't take files",
+  "bridge.talkTo.image": "Talk about this image",
+  "bridge.talkTo.video": "Talk about this video",
+  "bridge.talkTo.link": "Talk about this link",
+  "bridge.talkTo.text": "Talk about this text",
+  "bridge.reason.elementUnknown": "This element is no longer on the page; the page may have reloaded",
+  "bridge.reason.elementGone": "This element is no longer on the page",
+  "bridge.reason.elementUnreadable": "This element's content can't be read from the page",
+  "bridge.reason.elementHidden": "This element isn't visible right now, so it can't be captured"
 }

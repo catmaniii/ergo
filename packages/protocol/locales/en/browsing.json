@@ -34,5 +34,7 @@
   "browsing.tool.viewFiles": "View images",
   "browsing.voice.notRecognized": "Couldn't make out what was said: {reason}",
   "browsing.voice.empty": "Didn't catch that. Say it again?",
-  "browsing.voice.onlyFiller": "Only heard the model's own filler phrases (like \"please like and subscribe\"), so they were discarded. Say it again?"
+  "browsing.voice.onlyFiller": "Only heard the model's own filler phrases (like \"please like and subscribe\"), so they were discarded. Say it again?",
+  "browsing.tools.elementContent": "Get a web element's content",
+  "browsing.tools.elementDownload": "Download a web element"
 }

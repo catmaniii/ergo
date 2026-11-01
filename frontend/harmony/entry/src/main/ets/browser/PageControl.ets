@@ -24,7 +24,7 @@ const NONCE_MARK = '__ERGO_PAGE_NONCE__';
  * 184 号票多一个 refField：按编号找要填的文本框、要交的上传框（页面桥核对还是那一页、编号认得、种类没变，回框的编号，二狗的网页再照它
  * fill、经 browserFiles 交）；旧版 App 没有时回空串，二狗的网页据此说"App 太旧，装新版才能按编号填和交"
  */
-const PAGE_OPS: string[] = ['fields', 'fill', 'mark', 'bubble', 'pick', 'selected', 'text', 'clearSelection', 'snapshot', 'click', 'refField', 'texts'];
+const PAGE_OPS: string[] = ['fields', 'fill', 'mark', 'bubble', 'pick', 'selected', 'text', 'clearSelection', 'snapshot', 'click', 'refField', 'texts', 'elementInfo', 'elementPrepare', 'elementChunk', 'elementRect', 'elementShotDone'];
 /** 收起气泡、挑图片窗口（宿主交给页面桥的样子） */
 const BUBBLE_NONE = '{"kind":"none"}';
 /** 一个文件最大多少字节（和协议的 PAGE_FILE_MAX_BYTES 一样）；往网页里交时一段多大（原始字节，base64 之后约 512 KB） */

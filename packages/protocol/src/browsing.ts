@@ -21,9 +21,63 @@
 // 列出带编号的 PageElement）和"按编号点"（click），照 agent-browser 的 snapshot / click @e1 的形状。
 // 184 号票（用户 2026-10-20：希望在一页里能自动交图 → 自动填字 → 自动点按钮，不用每次都由人先点中框）：snapshot 也列可填、可交、
 // 可选的控件（textbox、upload、select），fill、attach 能按编号（ref）指到 snapshot 列的框上，不用先选中；网页候选卡也能记着编号（ref）。
+// 359 号票（用户 2026-11-01：长按网页元素或右键时，系统菜单照常，多出一个二狗圆钮，让二狗处理这个元素；做什么由用户说了算）：圆钮上打的字、
+// 说的话也是这种消息（via: "button"），带上这个元素（PickedElement）；秘书这一轮的工具不收窄，多两样通用能力——取元素的内容（element_file）、
+// 在设备上下载它（element_download）。元素的地址、文字是网页上的，交给秘书时标成外部数据。
 import { type Static, Type } from "typebox";
 import { forModel, t, tTable } from "./i18n/runtime.ts";
-import { PAGE_CANDIDATES_MAX, PageChooser, PageCommandFile, PageField, PageFieldValue, pageUrlForModel } from "./page-commands.ts";
+import { PAGE_CANDIDATES_MAX, PAGE_FILE_MAX_BYTES, PageChooser, PageCommandFile, PageField, PageFieldValue, pageUrlForModel } from "./page-commands.ts";
+
+/** 长按、右键认出来的元素的种类（359 号票）：图片（含 canvas、CSS 背景图、SVG）、视频、链接、文字（含选中的文字） */
+export const PICKED_ELEMENT_KINDS = ["image", "video", "link", "text"] as const;
+export type PickedElementKind = (typeof PICKED_ELEMENT_KINDS)[number];
+
+/** 元素的内容从哪取：http 地址（App 带登录状态和来源页取）、data: 和 blob:、canvas（都由页面桥在页面里读）、svg（只能截图） */
+export const PICKED_ELEMENT_SOURCES = ["http", "data", "blob", "canvas", "svg"] as const;
+export type PickedElementSource = (typeof PICKED_ELEMENT_SOURCES)[number];
+
+/** 元素的编号的写法：页面桥给 x1、x2……（只在这一页有效） */
+export const PICKED_ELEMENT_ID = "^x[0-9]{1,6}$";
+/** 元素的地址最长多少（多了不交，只说有） */
+export const PICKED_ELEMENT_URL_MAX = 2048;
+/** 元素的说明文字（alt、title）最多多少字 */
+export const PICKED_ELEMENT_LABEL_MAX = 300;
+
+/**
+ * 长按、右键认出来的网页元素（359 号票）：编号（秘书要取内容、下载时凭它，页面桥核对还是那一页、元素还在）、种类、内容从哪取、图片和视频的地址（http、https 才有，
+ * 全地址：用户指着它问的就是它）、链接的地址（链接本身，或者图片外面包着的链接）、说明文字（alt、title）、文字（元素上的字或选中的字，selected 是选中的字）、
+ * 选中的字所在的那段（around：手指长按时系统只选中一个词，秘书要知道他指的是哪一段）。
+ * 这些都是网页上的东西，交给秘书时标成外部数据
+ */
+export const PickedElement = Type.Object({
+  id: Type.String({ pattern: PICKED_ELEMENT_ID }),
+  kind: Type.Enum(PICKED_ELEMENT_KINDS),
+  source: Type.Optional(Type.Enum(PICKED_ELEMENT_SOURCES)),
+  src: Type.Optional(Type.String({ maxLength: PICKED_ELEMENT_URL_MAX })),
+  href: Type.Optional(Type.String({ maxLength: PICKED_ELEMENT_URL_MAX })),
+  label: Type.Optional(Type.String({ maxLength: PICKED_ELEMENT_LABEL_MAX })),
+  text: Type.Optional(PageFieldValue),
+  selected: Type.Optional(Type.Literal(true)),
+  around: Type.Optional(PageFieldValue),
+});
+export type PickedElement = Static<typeof PickedElement>;
+
+/** 取元素的内容最多多少字节（和要交给网页的文件一个上限）：多了回原因，让用户下载 */
+export const ELEMENT_FILE_MAX_BYTES = PAGE_FILE_MAX_BYTES;
+
+/** 取到的内容是怎么来的：original 元素本身（图片文件、链接指向的文件）、screenshot 截的这个元素的图（原图取不到时） */
+export const ELEMENT_FILE_VIAS = ["original", "screenshot"] as const;
+
+/** 设备取到的元素内容（已经传进媒体库）：媒体编号、名字、类型、大小、怎么来的；截图截不全时 partial */
+export const ElementFile = Type.Object({
+  mediaId: Type.String({ maxLength: 128 }),
+  name: Type.String({ maxLength: 255 }),
+  mime: Type.String({ maxLength: 200 }),
+  size: Type.Integer({ minimum: 0 }),
+  via: Type.Enum(ELEMENT_FILE_VIAS),
+  partial: Type.Optional(Type.Literal(true)),
+});
+export type ElementFile = Static<typeof ElementFile>;
 
 /** 浏览器的编号：二狗的网页每次打开随机生成（b- 加 16 个十六进制字），重连后不变，刷新页面就换一个 */
 export const BROWSER_ID = "^b-[0-9a-f]{16}$";
@@ -47,13 +101,16 @@ export const BrowsingContext = Type.Object({
   spoken: Type.Optional(Type.Literal(true)),
   /** 悬浮按钮这一轮的目标是网页弹出、App 拦下的选文件对话框（"让二狗选"）：要什么类型、能不能选好几个 */
   chooser: Type.Optional(PageChooser),
+  /** 圆钮上发的（359 号票）：长按、右键认出来的元素 */
+  element: Type.Optional(PickedElement),
 });
 export type BrowsingContext = Static<typeof BrowsingContext>;
 
 /**
  * 记在消息上的网页上下文（MessageEnvelope.browsing）：哪个浏览器（秘书的网页工具据此找到发消息的那台设备）、网页的标题和地址、
  * 选中的框的说法（"「标题」（单行文本）"，没选中就没有）。149 号票：悬浮按钮发的另记 via、目标框（field，不带内容）、
- * 拦下的对话框（chooser）、是不是说的（spoken）；选中的框那时的内容（value，侧边栏、悬浮按钮都记）
+ * 拦下的对话框（chooser）、是不是说的（spoken）；选中的框那时的内容（value，侧边栏、悬浮按钮都记）。
+ * 359 号票：圆钮上发的另记元素（element）
  */
 export const BrowsingMark = Type.Object({
   browser: Type.String(),
@@ -65,6 +122,7 @@ export const BrowsingMark = Type.Object({
   chooser: Type.Optional(PageChooser),
   spoken: Type.Optional(Type.Literal(true)),
   value: Type.Optional(PageFieldValue),
+  element: Type.Optional(PickedElement),
 });
 export type BrowsingMark = Static<typeof BrowsingMark>;
 
@@ -168,7 +226,10 @@ export type PageElement = Static<typeof PageElement>;
  * - click：按编号点一个元素。url 是看的时候那一页的地址（去掉查询串）：设备核对还是这一页、编号还在、元素还在页面上、文字和看的时候一样，
  *   不是就回"页面变了，请重新 snapshot"，不会点错。
  * 184 号票：fill、attach 另有按编号的那一种（ref 是 snapshot 列的 textbox、upload 的编号，不用先选中）：url 同样是看的时候那一页的地址，
- * 设备（页面桥）核对还是这一页、编号认得、元素还在、种类没变才填、才交
+ * 设备（页面桥）核对还是这一页、编号认得、元素还在、种类没变才填、才交。
+ * 359 号票多两种（element 是长按认出来的元素的编号，url 是那一页的地址）：
+ * - element_file：取元素的内容传进媒体库（图、文件：App 带登录状态和来源页取，blob、data、canvas 页面桥读，取不到截这个元素的图）；
+ * - element_download：在设备上把元素下载下来（走 App 的下载，进下载记录）
  */
 export const BrowserRequest = Type.Union([
   Type.Object({ id: Type.String(), op: Type.Literal("read") }),
@@ -179,6 +240,8 @@ export const BrowserRequest = Type.Union([
   Type.Object({ id: Type.String(), op: Type.Literal("open"), url: Type.String() }),
   Type.Object({ id: Type.String(), op: Type.Literal("snapshot"), max: Type.Optional(Type.Integer({ minimum: 1, maximum: PAGE_ELEMENTS_MAX })) }),
   Type.Object({ id: Type.String(), op: Type.Literal("click"), ref: Type.String(), url: Type.String() }),
+  Type.Object({ id: Type.String(), op: Type.Literal("element_file"), element: Type.String(), url: Type.String() }),
+  Type.Object({ id: Type.String(), op: Type.Literal("element_download"), element: Type.String(), url: Type.String() }),
 ]);
 export type BrowserRequest = Static<typeof BrowserRequest>;
 
@@ -186,7 +249,8 @@ export type BrowserRequest = Static<typeof BrowserRequest>;
  * 设备办完的结果：不成是原因（浏览器换了网页、框没了、取不到文件……）；成了的——read 带网页、文字、截没截、一共多少字，
  * 还有选中的框和框里现在的内容（selected，149 号票：正文文字里没有框里的值）；attach 带交进去几个。
  * 164 号票：snapshot 带网页、能点的东西（elements，最多 PAGE_ELEMENTS_MAX 个，超出时屏幕上看得见的、上半屏的优先）、页面上一共几个
- * （total）、截没截（truncated）；click 带点了什么（clicked，"种类:文字"）、地址变没变（navigated）、点完之后的网页（page）
+ * （total）、截没截（truncated）；click 带点了什么（clicked，"种类:文字"）、地址变没变（navigated）、点完之后的网页（page）。
+ * 359 号票：element_file 带传进媒体库的内容（file）
  */
 export const BrowserOutcome = Type.Union([
   Type.Object({ ok: Type.Literal(false), reason: Type.String({ maxLength: 500 }) }),
@@ -201,6 +265,7 @@ export const BrowserOutcome = Type.Union([
     elements: Type.Optional(Type.Array(PageElement, { maxItems: PAGE_ELEMENTS_MAX })),
     clicked: Type.Optional(Type.String({ maxLength: 300 })),
     navigated: Type.Optional(Type.Boolean()),
+    file: Type.Optional(ElementFile),
   }),
 ]);
 export type BrowserOutcome = Static<typeof BrowserOutcome>;
@@ -245,6 +310,14 @@ export const BrowsePickConfirmInput = Type.Object({
 });
 export type BrowsePickConfirmInput = Static<typeof BrowsePickConfirmInput>;
 
+/** 圆钮发的那条下面的小字里元素怎么称呼（359 号票） */
+const ELEMENT_WHERE: Readonly<Record<PickedElementKind, string>> = tTable({
+  image: "protocol.browsing.label.whereImage",
+  video: "protocol.browsing.label.whereVideo",
+  link: "protocol.browsing.label.whereLink",
+  text: "protocol.browsing.label.whereText",
+});
+
 const FIELD_KIND_TEXT: Readonly<Record<PageField["kind"], string>> = tTable({
   text: "protocol.browsing.field.text",
   textarea: "protocol.browsing.field.textarea",
@@ -281,18 +354,22 @@ export function browsingMarkOf(context: BrowsingContext): BrowsingMark {
       ? { via: "button" as const, ...(selected ? { field: selected } : {}), ...(context.chooser ? { chooser: context.chooser } : {}), ...(context.spoken ? { spoken: true as const } : {}) }
       : {}),
     ...(value && selected?.kind !== "file" ? { value } : {}),
+    ...(context.via === "button" && context.element ? { element: context.element } : {}),
   };
 }
 
 /**
  * 会话里侧边栏发的那条消息下面的小字："在网页「X」上说"（网页没标题写地址，去掉 http(s)://；还没打开网页时"在浏览侧边栏里说"）。
- * 悬浮按钮发的照 134 号票网页指令的写法（149 号票）："在网页「X」的「标题」上打字"、"……的上传框上说"
+ * 悬浮按钮发的照 134 号票网页指令的写法（149 号票）："在网页「X」的「标题」上打字"、"……的上传框上说"；
+ * 圆钮发的（359 号票）："在网页「X」的图片上说"
  */
-export function browsingLabel(mark: Pick<BrowsingMark, "title" | "url" | "via" | "field" | "chooser" | "spoken">): string {
+export function browsingLabel(mark: Pick<BrowsingMark, "title" | "url" | "via" | "field" | "chooser" | "spoken" | "element">): string {
   const page = mark.title.trim() || mark.url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
   if (mark.via === "button") {
     const name = mark.field ? mark.field.label || mark.field.placeholder || "" : "";
-    const where = name
+    const where = mark.element
+      ? ELEMENT_WHERE[mark.element.kind]
+      : name
       ? t("protocol.browsing.label.whereNamed", { name: name.slice(0, 30) })
       : mark.field?.kind === "file"
         ? t("protocol.browsing.label.whereUpload")

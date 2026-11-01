@@ -237,7 +237,7 @@ describe("浏览插件", () => {
   it("移除并连数据一起彻底删除：网页候选卡的每个版本、候选缩略图的缓存删掉；存进素材的网页不动（素材属于内核）", async () => {
     const { td, frontend } = await withWeb([say("好")]);
     const view = (await pluginsApi.view(td.url)).body.plugins.find((p) => p.name === "browsing")!;
-    expect(view).toMatchObject({ title: "内置浏览器", state: "running", brings: { tools: ["读网页", "填选中的框", "找文件", "看图", "给选中的上传框交文件", "在内置浏览器里开网址", "看网页上能点的东西", "点网页上的一个元素"], cards: ["网页候选卡"] } });
+    expect(view).toMatchObject({ title: "内置浏览器", state: "running", brings: { tools: ["读网页", "填选中的框", "找文件", "看图", "给选中的上传框交文件", "在内置浏览器里开网址", "看网页上能点的东西", "点网页上的一个元素", "取网页元素的内容", "下载网页元素"], cards: ["网页候选卡"] } });
     expect(view.removal!.keeps[0]).toContain("素材属于内核，要删请去 记忆 · 素材 的成批删除");
     // 存一页网页、留一张网页候选卡（处理过一次，两个版本）、缩略图缓存里有一张
     const saved = (await materialsApi.saveWebPage(td.url, { title: "攻略", url: "https://example.org/a", text: "灵隐寺", truncated: false, total: 3, idempotencyKey: "save-1" })).body as SaveWebPageResult;

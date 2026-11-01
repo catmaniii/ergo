@@ -63,6 +63,54 @@ export interface Rect {
   bottom: number;
 }
 
+// ---------- 长按元素的圆钮（359 号票） ----------
+
+/** 圆钮没人用时留多久（毫秒）：按到第一下实测用不到 2 秒，再长就挡内容（359 号票 Comments，真机上再看够不够） */
+export const ELEMENT_KEEP_MS = 5000;
+/** 元素的地址最长多少（和协议的 PICKED_ELEMENT_URL_MAX 一样）、说明文字最多多少字（PICKED_ELEMENT_LABEL_MAX） */
+export const ELEMENT_URL_MAX = 2048;
+export const ELEMENT_LABEL_MAX = 300;
+
+/** 说明文字（alt、title）：空白并成一个空格，最多 ELEMENT_LABEL_MAX 字 */
+export function cleanElementLabel(text: string | null | undefined): string {
+  return (text ?? "").replace(/\s+/g, " ").trim().slice(0, ELEMENT_LABEL_MAX);
+}
+
+/** 图片、视频的地址从哪取：http、https 由 App 取，data:、blob: 页面桥读；别的（没有地址、about:）是 undefined */
+export function elementSourceOf(url: string): "http" | "data" | "blob" | undefined {
+  if (/^https?:\/\//i.test(url)) return "http";
+  if (/^data:/i.test(url)) return "data";
+  if (/^blob:/i.test(url)) return "blob";
+  return undefined;
+}
+
+/** 系统选文字的浮动工具条占选区上方多高（两个模拟器量的，安卓约 60、鸿蒙约 66，留点余量） */
+const TOOLBAR_CLEARANCE = 74;
+/** 选区手柄往选区下方伸出多少（安卓约 24、鸿蒙约 18） */
+const HANDLE_CLEARANCE = 30;
+
+/**
+ * 圆钮摆在哪（左上角，视口坐标）。系统选文字的工具条是原生层，盖在网页上（两个平台都贴在选区上方）：
+ * - 有选区：放选区下方让开手柄；下面放不下放到工具条上方；都不行贴着看得见的部分的下边（选区比屏幕还长时工具条在别处）；
+ * - 没选区（图、链接，它们没有系统菜单）：放按的点右上方（手指还按着时看得见），上面放不下放下方。
+ * 左右夹在看得见的部分里
+ */
+export function placeElementButton(point: { x: number; y: number }, selection: Rect | undefined, area: Rect, size = BUTTON_SIZE): { x: number; y: number } {
+  const x = Math.max(area.left + EDGE, Math.min(point.x + 16, area.right - size - EDGE));
+  const maxY = area.bottom - size - EDGE;
+  const minY = area.top + EDGE;
+  if (selection) {
+    const below = selection.bottom + HANDLE_CLEARANCE;
+    if (below <= maxY) return { x, y: Math.max(minY, below) };
+    const above = selection.top - TOOLBAR_CLEARANCE - size;
+    if (above >= minY) return { x, y: above };
+    return { x, y: maxY };
+  }
+  const above = point.y - 26 - size;
+  if (above >= minY) return { x, y: above };
+  return { x, y: Math.min(maxY, point.y + 24) };
+}
+
 /** 悬浮按钮多大、离框多远（CSS 像素）；离视口边至少留多少 */
 export const BUTTON_SIZE = 36;
 export const BUTTON_GAP = 6;

@@ -21,7 +21,13 @@ import { targetName, wantsFiles } from "./page-commands.ts";
 
 /** 气泡跟着哪个框：悬浮按钮所在的框、拦下的对话框认出来的框；都没有是空串（气泡放在屏幕下面） */
 function fieldIdOf(target: CommandTarget): string {
-  return target.field?.id ?? target.chooser?.fieldId ?? "";
+  return target.element?.id ?? target.field?.id ?? target.chooser?.fieldId ?? "";
+}
+
+/** 打字框里的提示：圆钮上说的是元素（359 号票），没有框要填 */
+function placeholderKey(target: CommandTarget): string {
+  if (target.element) return "app.pageBubble.placeholder.element";
+  return wantsFiles(target) ? "app.pageBubble.placeholder.files" : "app.pageBubble.placeholder.text";
 }
 
 /** 网页要选文件时气泡上的那句话 */
@@ -128,7 +134,7 @@ export function bubbleView(panel: PagePanel, sidebar = false, name = DEFAULT_ASS
         kind: "input",
         fieldId: fieldIdOf(panel.target),
         label: t("app.pageBubble.talkTo", { target: targetName(panel.target) }),
-        placeholder: t(wantsFiles(panel.target) ? "app.pageBubble.placeholder.files" : "app.pageBubble.placeholder.text"),
+        placeholder: t(placeholderKey(panel.target)),
       };
     case "listening":
       return { kind: "listening", fieldId: fieldIdOf(panel.target), label: t("app.pageBubble.talkTo", { target: targetName(panel.target) }), levels: [...panel.levels] };
@@ -179,9 +185,11 @@ export class PageBubbleSync {
     const e = event.event;
     // 悬浮按钮出来了、选中的框变了（页面桥一装上就报一次"没选中"）：把页面桥自己的那几句按当前语言交过去（169 号票）——
     // 每次都交（可能是新的一页上新装的页面桥）
-    if ((e.type === "field" && e.field) || e.type === "selected") this.sendTexts(true);
+    if ((e.type === "field" && e.field) || (e.type === "element" && e.element) || e.type === "selected") this.sendTexts(true);
     // "让二狗选"要先问页面桥要框的列表（等一下才变成打字），页面桥先画的打字框留着，等面板变了再交
-    if (e.type === "open" || e.type === "voice" || (e.type === "bubble" && e.action !== "ergo")) this.push(true);
+    // 圆钮按下时（359 号票）不交：面板还没变，交的是"收起"，要是这时手指已经松开、页面桥先画了打字框，就把它（连同圆钮）收掉了
+    const pressed = e.type === "element-voice" && e.phase === "press";
+    if (e.type === "open" || e.type === "voice" || e.type === "element-open" || (e.type === "element-voice" && !pressed) || (e.type === "bubble" && e.action !== "ergo")) this.push(true);
   }
 
   /**

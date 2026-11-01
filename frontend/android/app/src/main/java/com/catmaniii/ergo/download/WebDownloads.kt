@@ -179,9 +179,10 @@ class WebDownloads(
 
     /**
      * 把缓存里的一个文件弹"保存到"存出去（文件名默认 name）；keep 为真时缓存里那份留着（160 号票：拦下的下载点"下载"，
-     * 可能还要再看、再存），否则存完、取消都删掉
+     * 可能还要再看、再存），否则存完、取消都删掉。mimeType：别处取到的文件（359 号票，长按元素）记进下载记录的类型
      */
-    fun saveFile(file: File, name: String, keep: Boolean) {
+    fun saveFile(file: File, name: String, keep: Boolean, mimeType: String? = null) {
+        if (mimeType != null) mimes[file.path] = mimeType
         val mime = mimes[file.path] ?: ""
         picker.save(name, mime.ifEmpty { "*/*" }) { uri ->
             if (uri == null) {

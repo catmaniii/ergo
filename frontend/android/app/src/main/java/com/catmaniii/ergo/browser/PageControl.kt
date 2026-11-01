@@ -41,7 +41,7 @@ private const val PAGE_HOST_PRELUDE =
  * 网页能调的页面桥方法（交文件那三个由这里自己调），和鸿蒙 browser/PageControl.ets 的 PAGE_OPS 一样，名字和
  * packages/web/src/page-bridge/protocol.ts 的 PageBridgeApi 一致
  */
-val PAGE_OPS = listOf("fields", "fill", "mark", "bubble", "pick", "selected", "text", "clearSelection", "snapshot", "click", "refField", "texts")
+val PAGE_OPS = listOf("fields", "fill", "mark", "bubble", "pick", "selected", "text", "clearSelection", "snapshot", "click", "refField", "texts", "elementInfo", "elementPrepare", "elementChunk", "elementRect", "elementShotDone")
 
 /** 收起气泡、挑图片窗口（宿主交给页面桥的样子） */
 private const val BUBBLE_NONE = "{\"kind\":\"none\"}"

@@ -8,7 +8,9 @@
 // 这里只有类型和常量，宿主（二狗的网页 app/page-commands.ts、app/page-pick.ts，App 的 browser/PageControl.ets）和页面桥共用。
 // 149 号票：悬浮按钮背后就是秘书本人——气泡只放打字、说话、回话（候选不再在气泡里）；秘书给的候选画在一个固定位置的挑图片窗口里
 // （pick 方法、报 pick），不跟着按钮、不随网页滚动；选中的框、悬浮按钮所在的框带上框里现在的内容（PageField.value）。
-import type { PageField } from "@ergo/protocol";
+// 359 号票（长按元素的圆钮，element.ts）：报 element（圆钮上现在是哪个元素）、element-open（点圆钮打字）、element-voice（按住说话），
+// 气泡的 fieldId 写元素的编号；宿主经 elementInfo、elementPrepare、elementChunk、elementRect、elementShotDone 取元素的内容。
+import type { PageField, PickedElement } from "@ergo/protocol";
 
 /** ArkWeb registerJavaScriptProxy 注册的对象名（只有一个方法 post(json)） */
 export const PAGE_BRIDGE_HOST = "ergoPageHost";
@@ -29,7 +31,7 @@ export interface PageInfo {
  * sidebar 回话太长时的"去侧边栏看"（147 号票：气泡收起，宿主打开浏览侧边栏）。149 号票起候选不在气泡里（见 PagePickAction）
  */
 export type PageBubbleAction =
-  | { action: "send"; text: string; field?: PageField }
+  | { action: "send"; text: string; field?: PageField; element?: PickedElement }
   | { action: "close" }
   | { action: "ergo" }
   | { action: "system" }
@@ -52,7 +54,9 @@ export type PagePickAction = { id: string } & ({ action: "choose"; token: string
  * - selected（147 号票，浏览侧边栏）：用户选中的框变了——点进一个能填的框、点了上传处就选中它，焦点离开也不丢（用户转去侧边栏里打字时
  *   还记着），换了另一个框、框从页面上没了、宿主让取消（clearSelection）才变；field 是 null 时是没选中。页面桥一装上就报一次 null
  *   （新的一页没有选中的框）；
- * open、voice 带上页面信息和框的列表，宿主不用再问；open、voice、selected 的 field 带着框里那一刻的内容（149 号票，文本框才有）
+ * open、voice 带上页面信息和框的列表，宿主不用再问；open、voice、selected 的 field 带着框里那一刻的内容（149 号票，文本框才有）；
+ * - element（359 号票）：长按、右键出了圆钮，圆钮上是这个元素（null 是收起来了）；
+ * - element-open、element-voice（359 号票）：圆钮上点了一下、按住说话，同 open、voice，目标是这个元素（选中的文字是这一刻的）
  */
 export type PageBridgeEvent =
   | { type: "field"; field: PageField | null }
@@ -61,7 +65,10 @@ export type PageBridgeEvent =
   | { type: "chooser-field"; field: PageField }
   | ({ type: "bubble" } & PageBubbleAction)
   | ({ type: "pick" } & PagePickAction)
-  | { type: "selected"; field: PageField | null; page: PageInfo };
+  | { type: "selected"; field: PageField | null; page: PageInfo }
+  | { type: "element"; element: PickedElement | null }
+  | { type: "element-open"; element: PickedElement; page: PageInfo }
+  | { type: "element-voice"; phase: "press" | "start" | "stop" | "cancel"; element: PickedElement; page: PageInfo };
 
 /** 挑图片窗口里的一个候选（149 号票起不在气泡里）：取件码、名字、是不是图片、缩略图（base64，没有、还没取到、做不出来是空串）、选没选上 */
 export interface PageBubbleFile {
@@ -149,6 +156,11 @@ export type PageBridgeMark = "idle" | "listening" | "busy";
  * - refField(ref, url, want)（184 号票）：按编号找要填的文本框（want 是 textbox）、要交的上传框（upload）：{ ok, page, field }，field 是框的说法
  *   （id 是页面桥的框编号 f…，宿主再拿它调 fill、attachFiles）；换了网页、编号不认得、种类不对、元素不在了、种类变了（成了密码框、
  *   禁用了）回 { ok: false, reason }（原因按二狗的网页交来的语言写，挑图片窗口里也显示）。
+ * 359 号票，长按元素的圆钮（id 是元素编号，url 是那一页的地址，不是这一页回 { ok: false, reason }）：
+ * - elementInfo(id, url)：{ ok, page, element }，核对还是那一页、元素还在；
+ * - elementPrepare(id, url)：blob:、data:、canvas 只有页面读得到，开始读（读不了回原因）；elementChunk(id, offset)：{ ok, ready, base64, mime, total, done }，
+ *   ready 为假是还在读；
+ * - elementRect(id, url)：要截这个元素的图了，滚到看得见、藏起页面桥这一层，回它在视口里的位置（物理像素，相对网页这一块的左上角）；elementShotDone()：截完了放回来。
  * 秘书的填字、交文件照旧用 fill、attachFiles（宿主核对过是选中的框才调）。点什么由秘书经守护进程定（守护进程拦着支付、提交、删除
  * 这类字眼的，让用户自己点）；页面桥自己不主动点、不主动提交
  */
@@ -168,7 +180,12 @@ export interface PageBridgeApi {
   click(nonce: string, ref: string, url: string): string;
   refField(nonce: string, ref: string, url: string, want: string): string;
   texts(nonce: string, textsJson: string): string;
+  elementInfo(nonce: string, id: string, url: string): string;
+  elementPrepare(nonce: string, id: string, url: string): string;
+  elementChunk(nonce: string, id: string, offset: string): string;
+  elementRect(nonce: string, id: string, url: string): string;
+  elementShotDone(nonce: string): string;
 }
 
 /** 方法的名字（宿主核对用：只许调这几个） */
-export const PAGE_BRIDGE_API_METHODS = ["fields", "fill", "fileBegin", "fileChunk", "attachFiles", "mark", "bubble", "pick", "selected", "text", "clearSelection", "snapshot", "click", "refField", "texts"] as const;
+export const PAGE_BRIDGE_API_METHODS = ["fields", "fill", "fileBegin", "fileChunk", "attachFiles", "mark", "bubble", "pick", "selected", "text", "clearSelection", "snapshot", "click", "refField", "texts", "elementInfo", "elementPrepare", "elementChunk", "elementRect", "elementShotDone"] as const;

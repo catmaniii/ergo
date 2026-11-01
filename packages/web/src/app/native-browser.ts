@@ -37,12 +37,16 @@
 // （App 照着在每一页开始时设文字缩放、给这些网站换桌面版的浏览器标识）、share 系统分享面板、clear 清缓存 / Cookie 和网站数据、
 // downloads 列下载记录、openDownload 打开一个、removeDownloads 删记录（不删文件）、findBar 查找栏开没开（返回手势先收起它）；
 // App 推过来的多两种 find（查找结果：第几个、一共几个、数完了没有）、find-close（查找栏开着时按了返回，网页收起它）。
+// 359 号票（长按网页元素的圆钮）：页面桥多报 element、element-open、element-voice，气泡的发送可能带着元素；browserPage 多五个操作 elementInfo、elementPrepare、
+// elementChunk、elementRect、elementShotDone（App 的 PAGE_OPS 里也要有）；browserTool 多几个操作（App 的 browser/ElementFiles）：elementFetch 带登录状态和来源页把一个
+// 地址取进 App 的缓存、elementShot 截一块网页、elementRead 分段读出来、elementWrite 分段写进去、elementSave 弹"保存到"并记进下载记录、elementDownload 下载一个地址、
+// elementDrop 放掉缓存里的那份。
 import type { FindResult, NativeClearRequest, SiteTuning } from "../state/index.ts";
 import type { PageBridgeEvent, PageBridgeMark, PageBubbleAction, PageBubbleView, PageInfo, PagePickAction, PagePickView } from "../page-bridge/protocol.ts";
 import { FIELD_VALUE_MAX, PAGE_TEXT_MAX } from "../page-bridge/rules.ts";
 import { exposeToApp } from "./app-names.ts";
 import type { PageBridgeTexts } from "../page-bridge/texts.ts";
-import { PAGE_ELEMENT_OPTION_MAX, PAGE_ELEMENT_OPTIONS_MAX, PAGE_ELEMENT_ROLES, PAGE_ELEMENT_VALUE_MAX, type PageElement, type PageElementRole, type PageField, t } from "../state/index.ts";
+import { PAGE_ELEMENT_OPTION_MAX, PAGE_ELEMENT_OPTIONS_MAX, PAGE_ELEMENT_ROLES, PAGE_ELEMENT_VALUE_MAX, PICKED_ELEMENT_KINDS, PICKED_ELEMENT_LABEL_MAX, PICKED_ELEMENT_SOURCES, PICKED_ELEMENT_URL_MAX, type PageElement, type PageElementRole, type PageField, type PickedElement, type PickedElementKind, type PickedElementSource, t } from "../state/index.ts";
 
 /**
  * 侧边栏上点了什么（App 转回来的）：开合（备用）、"收起"、×、侧边栏里点了外部链接（窄屏收起让用户看网页）。
@@ -107,6 +111,40 @@ export interface NativeToolControl {
   openDownload(id: string): Promise<PageOutcome>;
   /** 删下载记录（文件留着） */
   removeDownloads(ids: readonly string[]): Promise<PageOutcome>;
+  /** 长按元素的圆钮（359 号票）：取元素的内容、下载，放在 App 的缓存里 */
+  readonly element: NativeElementFiles;
+}
+
+/** App 缓存里的一个元素文件（359 号票）：编号、名字、类型、大小 */
+export interface AppElementFile {
+  readonly id: string;
+  readonly name: string;
+  readonly mime: string;
+  readonly size: number;
+}
+
+/**
+ * App 没取成的原因（359 号票）：code 是 too-large 太大、http 服务端回了错误（status）、network 连不上、bad-url 地址不对、shot 截图不成、no-web 浏览器不在；
+ * 不认识的操作（旧版 App）是 old。字由二狗的网页写
+ */
+export type AppElementFailure = { readonly ok: false; readonly code: string; readonly status?: number };
+
+/** 取元素内容、下载这一组（359 号票，经 browserTool） */
+export interface NativeElementFiles {
+  /** 带登录状态和来源页把一个地址取进缓存，超过 maxBytes 不要 */
+  fetch(url: string, maxBytes: number): Promise<({ ok: true } & AppElementFile) | AppElementFailure>;
+  /** 截网页的一块进缓存（物理像素，相对网页这一块的左上角） */
+  shot(rect: { x: number; y: number; width: number; height: number }): Promise<({ ok: true } & AppElementFile) | AppElementFailure>;
+  /** 从 offset 起读一段（base64 之后约 512 KB） */
+  read(id: string, offset: number): Promise<{ ok: true; base64: string; done: boolean } | AppElementFailure>;
+  /** 往缓存里写一段（id 空串是新建）：回编号 */
+  write(id: string, base64: string): Promise<{ ok: true; id: string } | AppElementFailure>;
+  /** 缓存里的这一份弹"保存到"，存好了记进下载记录（存好、取消都不留） */
+  save(id: string, name: string, mime: string): Promise<{ ok: true } | AppElementFailure>;
+  /** 下载一个地址（带登录状态和来源页）：下完弹"保存到"、记进下载记录。开头几秒就失败的回原因，还在下的回 ok */
+  download(url: string): Promise<{ ok: true } | AppElementFailure>;
+  /** 放掉缓存里的这一份 */
+  drop(id: string): void;
 }
 
 /**
@@ -231,6 +269,15 @@ export type DeliverTarget = { fieldId: string } | { ref: string; url: string } |
 /** 旧版 App 不认 snapshot、click（页面桥照样在） */
 export type AppTooOld = "old";
 
+/** 按编号找长按认出来的元素（359 号票）：元素的说法、那一刻的网页；换了网页、元素不在了是原因 */
+export type PageElementInfo = { ok: true; page: PageInfo; element: PickedElement } | { ok: false; reason: string };
+
+/** 页面里读好的一段（359 号票）：还在读 ready 为假；读到了是 base64、类型、一共多少字节、读完没有 */
+export type PageElementChunk = { ok: true; ready: false } | { ok: true; ready: true; base64: string; mime: string; total: number; done: boolean } | { ok: false; reason: string };
+
+/** 要截图的元素在网页这一块上的位置（359 号票；物理像素）；partial 是只有一部分在屏幕上 */
+export type PageElementRect = { ok: true; x: number; y: number; width: number; height: number; partial: boolean } | { ok: false; reason: string };
+
 /** 页面桥这一组（134 号票第二部分） */
 export interface NativePageControl {
   /** 页面上能填的框（页面桥现列）；页面桥不在是 undefined */
@@ -263,6 +310,16 @@ export interface NativePageControl {
   click(ref: string, url: string): Promise<PageClick | AppTooOld | undefined>;
   /** 按编号找要填的文本框、要交的上传框（184 号票），url 同上；旧版 App 是 "old"，页面桥不在是 undefined */
   refField(ref: string, url: string, want: "textbox" | "upload"): Promise<PageRefField | AppTooOld | undefined>;
+  /** 按编号找长按认出来的元素（359 号票），url 是那一页的地址；旧版 App 是 "old"，页面桥不在是 undefined */
+  elementInfo(id: string, url: string): Promise<PageElementInfo | AppTooOld | undefined>;
+  /** blob:、data:、canvas 只有页面读得到：开始读；读不了是原因 */
+  elementPrepare(id: string, url: string): Promise<PageOutcome>;
+  /** 读好的一段 */
+  elementChunk(id: string, offset: number): Promise<PageElementChunk>;
+  /** 要截这个元素的图了：滚到看得见、藏起页面桥这一层，回它的位置 */
+  elementRect(id: string, url: string): Promise<PageElementRect>;
+  /** 截完了，把页面桥这一层放回来 */
+  elementShotDone(): void;
 }
 
 export interface NativeBrowser {
@@ -386,6 +443,33 @@ function elementOf(value: unknown): PageElement | undefined {
   };
 }
 
+const webUrl = (v: unknown): string | undefined => (typeof v === "string" && /^https?:\/\//i.test(v) && v.length <= PICKED_ELEMENT_URL_MAX ? v : undefined);
+
+/** 页面桥报的长按认出来的元素（359 号票）：编号、种类不对的丢掉；地址只认 http(s)，字截到上限 */
+export function pickedElementOf(value: unknown): PickedElement | undefined {
+  if (!isObject(value) || typeof value.id !== "string" || !/^x[0-9]{1,6}$/.test(value.id)) return undefined;
+  if (typeof value.kind !== "string" || !(PICKED_ELEMENT_KINDS as readonly string[]).includes(value.kind)) return undefined;
+  const source = typeof value.source === "string" && (PICKED_ELEMENT_SOURCES as readonly string[]).includes(value.source) ? (value.source as PickedElementSource) : undefined;
+  const src = webUrl(value.src);
+  const href = webUrl(value.href);
+  const label = text(value.label, PICKED_ELEMENT_LABEL_MAX);
+  const contentOf = (v: unknown) =>
+    isObject(v) && typeof v.text === "string" ? { text: v.text.slice(0, FIELD_VALUE_MAX), total: typeof v.total === "number" && Number.isFinite(v.total) ? Math.max(Math.round(v.total), 0) : v.text.length } : undefined;
+  const content = contentOf(value.text);
+  const around = contentOf(value.around);
+  return {
+    id: value.id,
+    kind: value.kind as PickedElementKind,
+    ...(source ? { source } : {}),
+    ...(src ? { src } : {}),
+    ...(href ? { href } : {}),
+    ...(label ? { label } : {}),
+    ...(content ? { text: content } : {}),
+    ...(value.selected === true ? { selected: true as const } : {}),
+    ...(around ? { around } : {}),
+  };
+}
+
 /** 页面桥说不成的原因（164 号票的看、点） */
 const refusal = (reply: Json | undefined) => ({ ok: false as const, reason: typeof reply?.reason === "string" && reply.reason ? reply.reason.slice(0, 500) : "页面桥没回结果" }); // @i18n-ignore model：看、点网页的原因进秘书的网页工具结果（给模型看）
 
@@ -398,7 +482,8 @@ function bubbleActionOf(e: Json): PageBubbleAction | undefined {
     case "send": {
       if (typeof e.text !== "string" || e.text.trim() === "") return undefined;
       const field = fieldOf(e.field);
-      return { action: "send", text: e.text.slice(0, BUBBLE_TEXT_MAX), ...(field ? { field } : {}) };
+      const element = pickedElementOf(e.element);
+      return { action: "send", text: e.text.slice(0, BUBBLE_TEXT_MAX), ...(field ? { field } : {}), ...(element ? { element } : {}) };
     }
     case "close":
     case "ergo":
@@ -453,6 +538,18 @@ export function parsePageEvent(json: unknown): PageBridgeEvent | undefined {
     if (e.field === null) return { type: "selected", field: null, page };
     const field = fieldOf(e.field);
     return field ? { type: "selected", field, page } : undefined;
+  }
+  if (e.type === "element") {
+    if (e.element === null) return { type: "element", element: null };
+    const element = pickedElementOf(e.element);
+    return element ? { type: "element", element } : undefined;
+  }
+  if (e.type === "element-open" || e.type === "element-voice") {
+    const element = pickedElementOf(e.element);
+    const at = pageInfoOf(e.page);
+    if (!element || !at) return undefined;
+    if (e.type === "element-open") return { type: "element-open", element, page: at };
+    return e.phase === "press" || e.phase === "start" || e.phase === "stop" || e.phase === "cancel" ? { type: "element-voice", phase: e.phase, element, page: at } : undefined;
   }
   const field = fieldOf(e.field);
   const page = pageInfoOf(e.page);
@@ -611,6 +708,45 @@ function wrapToolControl(bridge: BridgeObject): NativeToolControl {
     },
     openDownload: async (id) => outcomeOf(await ask("openDownload", { id })),
     removeDownloads: async (ids) => outcomeOf(await ask("removeDownloads", { ids })),
+    element: wrapElementFiles(ask),
+  };
+}
+
+/** App 没回、回的不对、不认这个操作（旧版 App 回 ok: false 和原因，没有 code）：都是 old */
+function elementFailureOf(reply: Json | undefined): AppElementFailure {
+  const code = typeof reply?.code === "string" && reply.code ? reply.code.slice(0, 40) : "old";
+  const status = typeof reply?.status === "number" && Number.isFinite(reply.status) ? reply.status : undefined;
+  return { ok: false, code, ...(status !== undefined ? { status } : {}) };
+}
+
+function appElementFileOf(reply: Json | undefined): ({ ok: true } & AppElementFile) | AppElementFailure {
+  if (reply?.ok !== true || typeof reply.id !== "string" || typeof reply.size !== "number") return elementFailureOf(reply);
+  return {
+    ok: true,
+    id: reply.id,
+    name: typeof reply.name === "string" ? reply.name.slice(0, 255) : "",
+    mime: typeof reply.mime === "string" ? reply.mime.slice(0, 200) : "",
+    size: reply.size,
+  };
+}
+
+const elementOkOf = (reply: Json | undefined): { ok: true } | AppElementFailure => (reply?.ok === true ? { ok: true } : elementFailureOf(reply));
+
+function wrapElementFiles(ask: (op: string, args: unknown) => Promise<string>): NativeElementFiles {
+  return {
+    fetch: async (url, maxBytes) => appElementFileOf(parse(await ask("elementFetch", { url, maxBytes }))),
+    shot: async (rect) => appElementFileOf(parse(await ask("elementShot", rect))),
+    async read(id, offset) {
+      const reply = parse(await ask("elementRead", { id, offset }));
+      return reply?.ok === true && typeof reply.base64 === "string" ? { ok: true, base64: reply.base64, done: reply.done === true } : elementFailureOf(reply);
+    },
+    async write(id, base64) {
+      const reply = parse(await ask("elementWrite", { id, base64 }));
+      return reply?.ok === true && typeof reply.id === "string" ? { ok: true, id: reply.id } : elementFailureOf(reply);
+    },
+    save: async (id, name, mime) => elementOkOf(parse(await ask("elementSave", { id, name, mime }))),
+    download: async (url) => elementOkOf(parse(await ask("elementDownload", { url }))),
+    drop: (id) => void ask("elementDrop", { id }),
   };
 }
 
@@ -725,6 +861,28 @@ function wrapPageControl(bridge: BridgeObject, canDiscard: boolean): NativePageC
       return { page, text: reply.text.slice(0, PAGE_TEXT_MAX), truncated: reply.truncated === true || reply.text.length > PAGE_TEXT_MAX, total };
     },
     clearSelection: async () => outcomeOf(await ask("browserPage", "clearSelection", "[]")),
+    async elementInfo(id, url) {
+      const reply = parse(await ask("browserPage", "elementInfo", JSON.stringify([id, url])));
+      if (!reply) return (await selected()) ? "old" : undefined;
+      if (reply.ok !== true) return refusal(reply);
+      const page = pageInfoOf(reply.page);
+      const element = pickedElementOf(reply.element);
+      return page && element ? { ok: true, page, element } : refusal(undefined);
+    },
+    elementPrepare: async (id, url) => outcomeOf(await ask("browserPage", "elementPrepare", JSON.stringify([id, url]))),
+    async elementChunk(id, offset) {
+      const reply = parse(await ask("browserPage", "elementChunk", JSON.stringify([id, String(offset)])));
+      if (reply?.ok !== true) return refusal(reply);
+      if (reply.ready !== true) return { ok: true, ready: false };
+      if (typeof reply.base64 !== "string" || typeof reply.total !== "number") return refusal(undefined);
+      return { ok: true, ready: true, base64: reply.base64, mime: typeof reply.mime === "string" ? reply.mime.slice(0, 200) : "application/octet-stream", total: reply.total, done: reply.done === true };
+    },
+    async elementRect(id, url) {
+      const reply = parse(await ask("browserPage", "elementRect", JSON.stringify([id, url])));
+      if (reply?.ok !== true || typeof reply.x !== "number" || typeof reply.y !== "number" || typeof reply.width !== "number" || typeof reply.height !== "number") return refusal(reply);
+      return { ok: true, x: reply.x, y: reply.y, width: reply.width, height: reply.height, partial: reply.partial === true };
+    },
+    elementShotDone: () => void ask("browserPage", "elementShotDone", "[]"),
   };
 }
 

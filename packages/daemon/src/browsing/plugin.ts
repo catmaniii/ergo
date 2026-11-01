@@ -58,6 +58,8 @@ export const browsingPlugin: PluginDefinition = {
         t("browsing.tools.open"),
         t("browsing.tools.snapshot"),
         t("browsing.tools.click"),
+        t("browsing.tools.elementContent"),
+        t("browsing.tools.elementDownload"),
       ],
       cards: [t("browsing.plugin.card")],
     };
@@ -120,6 +122,7 @@ export const browsingPlugin: PluginDefinition = {
       cards,
       tokens: pageFiles,
       thumbs: pageThumbnails,
+      element: { media: ctx.use(KERNEL.media), scratchDir: ctx.use(KERNEL.layout).scratch },
       files: {
         materials: ctx.use(KERNEL.materials),
         media: ctx.use(KERNEL.media),

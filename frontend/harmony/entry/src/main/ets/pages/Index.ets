@@ -28,10 +28,13 @@ import { WebDownloads } from '../download/WebDownloads';
 import { BrowserFrame, InAppBrowser, isWebUrl, parseLayout } from '../browser/InAppBrowser';
 import { FileDocs } from '../browser/FileDocs';
 import { BrowserTools } from '../browser/BrowserTools';
+import { ElementFiles } from '../browser/ElementFiles';
 import { PAGE_HOST_NAME, PageControl, PageHost } from '../browser/PageControl';
 import { parseSideLayout, SIDE_HOST_METHODS, SIDE_HOST_NAME, SideForward, SideFrame, SideHost, sideUrlOf } from '../browser/SidePanel';
 
 const MICROPHONE: Permissions = 'ohos.permission.MICROPHONE';
+/** 浏览器那个 Web 组件的编号（长按元素截图时量它在窗口里的位置） */
+const BROWSER_WEB_ID: string = 'ergo-browser-web';
 const AUDIO_CAPTURE: string = ProtectedResourceType.AUDIO_CAPTURE;
 /**
  * 导航被取消、被拦下（onLoadIntercept 把外链交给系统浏览器）、不认识的链接（mailto: 之类已经交给系统）：不算打不开
@@ -102,6 +105,11 @@ struct Index {
   private browserDownloads: WebDownloads = new WebDownloads(this.context, (text: string) => {
     this.getUIContext().getPromptAction().showToast({ message: text, duration: 2500 });
   }, this.fileDocs, (name: string, uri: string, size: number, mime: string) => this.browserTools.record(name, uri, size, mime));
+  /** 长按网页元素的圆钮要的：取元素的内容、下载（359 号票）；存走上面的下载（弹"保存到"、进下载记录） */
+  private elementFiles: ElementFiles = new ElementFiles(this.context, this.browser.controller, () => this.server === undefined ? '' : this.server.origin,
+    () => this.browserOffset(), (text: string) => {
+      this.getUIContext().getPromptAction().showToast({ message: text, duration: 2500 });
+    }, (path: string, name: string, mime: string) => this.browserDownloads.saveFile(path, name, false, mime));
   /** 浏览器里的文字大小（百分比，165 号票：按网站记住，每一页开始时由 browserTools 按主机名设） */
   @State browserTextZoom: number = 100;
   /** 浏览器的 Web 组件建了没有（网页第一次 attach 或要开地址时才建） */
@@ -367,6 +375,17 @@ struct Index {
    * 网页报的侧边栏（147 号票，CSS 像素）换成 vp 摆侧边栏的 Web，交给侧边栏网页的样子转过去；第一次要显示时才建。
    * 显示、藏起来时从右边滑进滑出（藏起来等滑完再藏）
    */
+  /** 浏览器这一块在窗口里的位置（物理像素，359 号票：长按元素截图时用）；量不到是左上角 */
+  private browserOffset(): number[] {
+    try {
+      const info = this.getUIContext().getComponentUtils().getRectangleById(BROWSER_WEB_ID);
+      return [info.windowOffset.x, info.windowOffset.y];
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'measure browser failed: %{public}s', JSON.stringify(e));
+      return [0, 0];
+    }
+  }
+
   private layoutSide(json: string): void {
     const layout = parseSideLayout(json);
     if (layout === undefined) {
@@ -621,7 +640,7 @@ struct Index {
         // 能渲染的文件（160 号票）
         (op: string, id: string) => this.fileDocs.run(op, id),
         // ⋮ 菜单用到的原生工具（165 号票）
-        (op: string, json: string) => this.browserTools.run(op, json)),
+        (op: string, json: string) => op.startsWith('element') ? this.elementFiles.run(op, json) : this.browserTools.run(op, json)),
       // 读本机（299 号票）
       this.phoneData);
     // 浏览侧边栏跟着二狗的地址：换地址时拆掉，下次展开再按新地址建
@@ -880,6 +899,7 @@ struct Index {
   @Builder
   BrowserPage() {
     Web({ src: 'about:blank', controller: this.browser.controller })
+      .id(BROWSER_WEB_ID)
       .javaScriptAccess(true)
       .domStorageAccess(true)
       .fileAccess(false)

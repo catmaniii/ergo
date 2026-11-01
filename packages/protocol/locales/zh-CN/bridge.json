@@ -30,5 +30,13 @@
   "bridge.reason.refGone": "这个框已经不在页面上了",
   "bridge.reason.refChanged": "这个框变了，和看的时候不是一种了",
   "bridge.reason.notTextbox": "{ref} 不是文本框，不能填字",
-  "bridge.reason.notUpload": "{ref} 不是上传框，不能交文件"
+  "bridge.reason.notUpload": "{ref} 不是上传框，不能交文件",
+  "bridge.talkTo.image": "对这张图说",
+  "bridge.talkTo.video": "对这个视频说",
+  "bridge.talkTo.link": "对这个链接说",
+  "bridge.talkTo.text": "对这段文字说",
+  "bridge.reason.elementUnknown": "这一页上没有这个元素了，网页可能刷新过",
+  "bridge.reason.elementGone": "这个元素已经不在页面上了",
+  "bridge.reason.elementUnreadable": "这个元素的内容在页面里读不出来",
+  "bridge.reason.elementHidden": "这个元素现在看不见，截不了图"
 }

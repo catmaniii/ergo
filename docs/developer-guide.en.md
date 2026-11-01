@@ -403,7 +403,7 @@ A plugin declares the places it owns (`owns`) in its definition and must registe
 | `src/plugins/` | Web plugin host, manifest, plugins |
 | `src/visual-styles/` | Style list and tokens ([6.2](#62-visual-styles)) |
 | `src/prototype/` | Fake connection and data, prototype only |
-| `src/page-bridge/` | A standalone script injected into external pages in Browse (floating button, form filling). A site's CSP can block `<style>`, `style` attributes and `data:` images: styles go through `adoptedStyleSheets` and `style.cssText`, images are decoded to bitmaps and drawn into a canvas |
+| `src/page-bridge/` | A standalone script injected into external pages in Browse (floating button, form filling; the long-press element button is in `element.ts`: it only listens to `contextmenu`, never blocks the system menu, and doesn't classify actions, so what the user says goes to the secretary's main conversation as is). A site's CSP can block `<style>`, `style` attributes and `data:` images: styles go through `adoptedStyleSheets` and `style.cssText`, images are decoded to bitmaps and drawn into a canvas |
 | `src/styles/` | The Classic style's rules, using only `var(--token)` |
 | `build/` | Build plugins (styles, version hash, build info for the About page), `smoke-page.ts` |
 

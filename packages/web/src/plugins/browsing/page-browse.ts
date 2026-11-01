@@ -43,6 +43,7 @@ import { pushHash } from "../../app/history-nav.ts";
 import type { DaemonHttp } from "../../app/daemon-http.ts";
 import { BLANK_BROWSER, type BrowserState, type NativeBrowser } from "../../app/native-browser.ts";
 import { BROWSE_SIDE_WIDTH, BrowseSide, type BrowseSideView, newBrowserId } from "./browse-side.ts";
+import { ElementFiles } from "./element-files.ts";
 import type { Connection } from "../../app/connection.ts";
 import { type BridgeLook, nameTagColors, PageBubbleSync } from "./page-bubble.ts";
 import { PageCommands, pageVoiceOver } from "./page-commands.ts";
@@ -149,7 +150,7 @@ function followPageLinks(): () => void {
 /** 页面的连接和 HTTP（组合根交给网页插件的，plugins/api.ts 的 WebPluginPage） */
 export interface BrowsingPage {
   readonly connection: Pick<Connection, "browserStatus" | "browserReply" | "onBrowserRequest">;
-  readonly http: Pick<DaemonHttp, "pageVoice" | "pageFileBytes" | "pageFileThumbUrl">;
+  readonly http: Pick<DaemonHttp, "pageVoice" | "pageFileBytes" | "pageFileThumbUrl" | "upload">;
   /** 这一页是侧边栏模式（?ergo=side）：只接原生浏览器（和以前 main.tsx 一样），不接悬浮按钮、浏览侧边栏 */
   readonly sideMode: boolean;
 }
@@ -351,7 +352,7 @@ let side: BrowseSide | undefined;
  * 浏览侧边栏接上（建好连接后调一次，147 号票；212 号票起由浏览插件第一次装上时调，connectBrowsing）：App 有页面桥那一组才接。浏览器的编号这一页随机一个；
  * 跟着 App 推的浏览器样子、页面桥报的选中的框变，办守护进程推来的事
  */
-export function connectBrowseSide(connection: Pick<Connection, "browserStatus" | "browserReply" | "onBrowserRequest">, http: Pick<DaemonHttp, "pageFileBytes" | "pageFileThumbUrl">): void {
+export function connectBrowseSide(connection: Pick<Connection, "browserStatus" | "browserReply" | "onBrowserRequest">, http: Pick<DaemonHttp, "pageFileBytes" | "pageFileThumbUrl" | "upload">): void {
   const browser = pageNativeBrowser();
   // 侧边栏要 App 画在原生网页上面（browserSide，新版 App 才有）；原型的假连接没有报浏览器、收请求那几样：侧边栏照样能开（秘书的网页工具用不了）
   const files = browser ? pageStage(browser, http) : undefined;
@@ -368,6 +369,13 @@ export function connectBrowseSide(connection: Pick<Connection, "browserStatus" |
     storage: () => window.localStorage,
     narrow: () => !sideWide,
     now: () => Date.now(),
+    // 长按的元素（359 号票）：设备取到的传进媒体库，和聊天里发附件同一条路
+    elements: new ElementFiles({
+      page,
+      ...(browser.tools ? { files: browser.tools.element } : {}),
+      upload: (bytes, name, mime) => http.upload(new File([bytes.slice().buffer], name, { type: mime }), { onProgress: () => {}, signal: new AbortController().signal }),
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    }),
   });
   browser.subscribe((event) => {
     if (event.type === "state") created.browserChanged(event.state);

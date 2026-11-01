@@ -256,3 +256,40 @@ describe("构建辅助", () => {
     expect(apkOutputs("/a", { release: true }).map((p) => path.basename(p))).toEqual(["app-release.apk", "app-release-unsigned.apk"]);
   });
 });
+
+const harmonyElementFiles = () => read(path.join(REPO, "frontend/harmony/entry/src/main/ets/browser/ElementFiles.ets"));
+const webBrowser = () => read(path.join(REPO, "packages/web/src/app/native-browser.ts"));
+const webElementOps = () => [...webBrowser().matchAll(/ask\("(element[A-Za-z]+)"/g)].map((m) => m[1]!).toSorted();
+
+describe("长按元素的圆钮（359 号票）：两个 App 和网页对得上", () => {
+  test("browserTool 里 element 开头的操作：网页发的、安卓认的、鸿蒙认的一样", () => {
+    expect(webElementOps()).toEqual(["elementDownload", "elementDrop", "elementFetch", "elementRead", "elementSave", "elementShot", "elementWrite"]);
+    expect([...kotlin("browser/ElementFiles.kt").matchAll(/"(element[A-Za-z]+)" ->/g)].map((m) => m[1]!).toSorted()).toEqual(webElementOps());
+    expect([...harmonyElementFiles().matchAll(/op === '(element[A-Za-z]+)'/g)].map((m) => m[1]!).toSorted()).toEqual(webElementOps());
+    expect(kotlin("MainActivity.kt")).toContain('if (op.startsWith("element")) elementFiles.run(op, json, reply)');
+    expect(read(path.join(REPO, "frontend/harmony/entry/src/main/ets/pages/Index.ets"))).toContain("op.startsWith('element') ? this.elementFiles.run(op, json)");
+  });
+
+  test("页面桥的操作：网页调的都在 App 的白名单里", () => {
+    const pageOps = [...webBrowser().matchAll(/ask\("browserPage", "(element[A-Za-z]+)"/g)].map((m) => m[1]!).toSorted();
+    expect(pageOps).toEqual(["elementChunk", "elementInfo", "elementPrepare", "elementRect", "elementShotDone"]);
+    const ops = /val PAGE_OPS = listOf\(([^)]*)\)/.exec(kotlin("browser/PageControl.kt"))![1]!;
+    for (const op of pageOps) expect(ops).toContain(`"${op}"`);
+  });
+
+  test("自己发请求的安全写法：不自动跟重定向，每一跳重新算 cookie 和来源页，二狗的设备凭证只给二狗自己的页面", () => {
+    const k = kotlin("browser/ElementFiles.kt");
+    expect(k).toContain("connection.instanceFollowRedirects = false");
+    expect(k).toContain("if (cookieAllowed(target, page, server))");
+    expect(k).toContain("refererFor(page, target)");
+    const h = harmonyElementFiles();
+    expect(h).toContain("maxRedirects: 0");
+    expect(h).toContain("if (cookieAllowed(target, page, this.serverOrigin()))");
+    expect(h).toContain("const referer = refererFor(page, target)");
+  });
+
+  test("存走下载那条路：弹保存到、进下载记录（安卓、鸿蒙都不另开一条）", () => {
+    expect(kotlin("MainActivity.kt")).toContain("browserDownloads.saveFile(file, name, false, mime)");
+    expect(read(path.join(REPO, "frontend/harmony/entry/src/main/ets/pages/Index.ets"))).toContain("this.browserDownloads.saveFile(path, name, false, mime)");
+  });
+});

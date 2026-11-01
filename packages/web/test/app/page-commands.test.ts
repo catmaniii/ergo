@@ -8,13 +8,14 @@
 // - 收起：等二狗回话时也能收起（不再等，按钮回到平常）；返回手势、浏览器开始加载别的网页时收起；
 // - 拦下的选文件对话框：让二狗选（问页面桥要框的列表）、这一轮的目标是这个对话框；发出去之后收起不取消对话框（秘书还要交给它），
 //   发之前收起告诉 App 取消；自己选交给系统的选择器；
+// - 359 号票，长按元素的圆钮：打字、说话走同一套，用户的话原样发，带着元素（这一刻选中的字）；没有框要操作；按钮的样子标在元素的编号上；页面桥报的元素按形状核对；
 // - 原生桥：页面桥报的话按形状核对（发送带着的框、框里的内容，挑图片窗口上点的），形状不对的不认；文件分段交、App 回的不对当失败；
 //   挑图片窗口画成什么样（pick）、放掉预备的文件（discard，新版 App 才有）、返回手势收起窗口（pick-close）。
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { type NativePageControl, type PageOutcome, type StagedFile, wrapNativeBrowser } from "../../src/app/native-browser.ts";
+import { type NativePageControl, type PageOutcome, parsePageEvent, pickedElementOf, type StagedFile, wrapNativeBrowser } from "../../src/app/native-browser.ts";
 import { LEVEL_MS, PRESS_CAPTURE_MS, type PageTake, type PageVoice, PageCommands, REPLY_HIDE_MS } from "../../src/plugins/browsing/page-commands.ts";
 import type { PageBridgeEvent, PageBubbleAction } from "../../src/page-bridge/protocol.ts";
-import type { BrowsingContext, ButtonTurn, PageField, PageVoiceResult } from "../../src/state/index.ts";
+import type { BrowsingContext, ButtonTurn, PageField, PageVoiceResult, PickedElement } from "../../src/state/index.ts";
 
 const PAGE = { title: "相册 · 上传", url: "https://album.example.cn/upload" };
 const TITLE: PageField = { id: "f1", kind: "text", label: "标题" };
@@ -74,6 +75,19 @@ class FakePage implements NativePageControl {
   refField(): Promise<undefined> {
     return Promise.resolve(undefined);
   }
+  elementInfo(): Promise<undefined> {
+    return Promise.resolve(undefined);
+  }
+  elementPrepare(): Promise<PageOutcome> {
+    return Promise.resolve({ ok: true });
+  }
+  elementChunk(): Promise<{ ok: false; reason: string }> {
+    return Promise.resolve({ ok: false, reason: "假的" });
+  }
+  elementRect(): Promise<{ ok: false; reason: string }> {
+    return Promise.resolve({ ok: false, reason: "假的" });
+  }
+  elementShotDone(): void {}
 }
 
 /** 假的录音器 */
@@ -161,6 +175,107 @@ const turn = (n: number, t: ButtonTurn) => {
   turns.set(`k${n}`, t);
   commands.secretaryChanged((key) => turns.get(key) ?? { phase: "sending" });
 };
+
+const openOn = (element: PickedElement) => pageEvent({ type: "element-open", element, page: PAGE });
+const voiceOn = (phase: "press" | "start" | "stop" | "cancel", element: PickedElement) => pageEvent({ type: "element-voice", phase, element, page: PAGE });
+
+describe("长按元素的圆钮（359 号票）", () => {
+  const IMAGE: PickedElement = { id: "x1", kind: "image", source: "http", src: "https://cdn.example.cn/cat.png?sig=1", label: "一只猫" };
+  const SELECTED: PickedElement = { id: "x2", kind: "text", selected: true, text: { text: "选中的字", total: 4 } };
+  test("点一下打字：用户的话原样发进秘书的主会话，带着网页和元素，没有框；按钮的样子标在元素的编号上；回话进气泡", () => {
+    pageEvent({ type: "element", element: IMAGE });
+    expect(voice.log).toEqual(["prepare"]);
+    openOn(IMAGE);
+    expect(commands.snapshot()).toMatchObject({ kind: "bar", target: { element: IMAGE } });
+    bubbleEvent({ action: "send", text: "  翻译成英文 ", element: IMAGE });
+    expect(said).toEqual([{ text: "翻译成英文", browsing: { browser: BROWSER, page: PAGE, via: "button", element: IMAGE } }]);
+    expect(said[0]!.browsing.selected).toBeUndefined();
+    expect(page.marks).toEqual(["x1:busy"]);
+    expect(commands.snapshot()).toMatchObject({ kind: "busy", said: "翻译成英文", note: "thinking" });
+    turn(1, { phase: "queued" });
+    expect(commands.snapshot()).toMatchObject({ kind: "busy", note: "queued" });
+    turn(1, { phase: "replied", text: "好的" });
+    expect(commands.snapshot()).toMatchObject({ kind: "reply", text: "好的", failed: false });
+    expect(page.marks).toEqual(["x1:busy", "x1:idle"]);
+  });
+
+  test("发送时带来的元素（选中的字是这一刻的）盖过打开时的；别的元素的不算", () => {
+    openOn(SELECTED);
+    const later: PickedElement = { ...SELECTED, text: { text: "拖了手柄之后选中的字", total: 10 } };
+    bubbleEvent({ action: "send", text: "这是什么", element: later });
+    expect(said[0]!.browsing.element).toEqual(later);
+    commands.dismiss();
+    openOn(SELECTED);
+    bubbleEvent({ action: "send", text: "再说一次", element: IMAGE });
+    expect(said[1]!.browsing.element).toEqual(SELECTED);
+  });
+
+  test("按住说话：按下备好、按够了开始、松手送识别，认出来的字原样发，带着元素、标着是说的；松手那一刻的元素为准；上滑取消不发", async () => {
+    recognized = { ok: true, text: "这张图记下来" };
+    voiceOn("press", IMAGE);
+    expect(voice.log).toEqual(["prepare:press"]);
+    voiceOn("start", IMAGE);
+    expect(commands.snapshot()).toMatchObject({ kind: "listening", target: { element: IMAGE } });
+    voiceOn("stop", IMAGE);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(said).toEqual([{ text: "这张图记下来", browsing: { browser: BROWSER, page: PAGE, via: "button", spoken: true, element: IMAGE } }]);
+    expect(page.marks).toContain("x1:busy");
+    commands.dismiss();
+
+    said = [];
+    voiceOn("press", SELECTED);
+    voiceOn("start", SELECTED);
+    const later: PickedElement = { ...SELECTED, text: { text: "更长的选区", total: 5 } };
+    voiceOn("stop", later);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(said[0]!.browsing.element).toEqual(later);
+    commands.dismiss();
+
+    said = [];
+    voiceOn("press", IMAGE);
+    voiceOn("start", IMAGE);
+    voiceOn("cancel", IMAGE);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(said).toEqual([]);
+    expect(commands.snapshot().kind).toBe("idle");
+  });
+
+  test("圆钮收起来一阵子才放掉录音器；语音插件没启用只能打字", () => {
+    pageEvent({ type: "element", element: IMAGE });
+    pageEvent({ type: "element", element: null });
+    expect(voice.log).toEqual(["prepare"]);
+    vi.advanceTimersByTime(20_000);
+    expect(voice.log).toEqual(["prepare", "release"]);
+    commands.setVoice(false);
+    voice.log = [];
+    pageEvent({ type: "element", element: IMAGE });
+    expect(voice.log).toEqual([]);
+    voiceOn("start", IMAGE);
+    expect(commands.snapshot()).toMatchObject({ kind: "reply", failed: true });
+  });
+
+  test("浏览器开始加载别的网页：收起，按钮回到平常", () => {
+    openOn(IMAGE);
+    bubbleEvent({ action: "send", text: "这是什么", element: IMAGE });
+    commands.handle({ type: "state", state: { url: "https://a.example/", title: "", progress: 0, loading: true, canGoBack: false, canGoForward: false } });
+    expect(commands.snapshot().kind).toBe("idle");
+    expect(page.marks).toContain("x1:idle");
+  });
+
+  test("页面桥报的元素按形状核对：编号、种类不对的不认；地址只认 http(s)；字截到上限", () => {
+    expect(pickedElementOf({ id: "x1", kind: "image", source: "http", src: "https://a.example/b.png", label: "猫", extra: 1 })).toEqual({ id: "x1", kind: "image", source: "http", src: "https://a.example/b.png", label: "猫" });
+    expect(pickedElementOf({ id: "f1", kind: "image" })).toBeUndefined();
+    expect(pickedElementOf({ id: "x1", kind: "script" })).toBeUndefined();
+    expect(pickedElementOf({ id: "x1", kind: "image", src: "javascript:alert(1)", href: "file:///etc/passwd" })).toEqual({ id: "x1", kind: "image" });
+    expect(pickedElementOf({ id: "x1", kind: "link", href: `https://a.example/${"y".repeat(3000)}` })).toEqual({ id: "x1", kind: "link" });
+    expect(pickedElementOf({ id: "x1", kind: "text", text: { text: "z".repeat(6000), total: 6000 } })?.text?.text.length).toBe(5000);
+    expect(parsePageEvent(JSON.stringify({ type: "element", element: null }))).toEqual({ type: "element", element: null });
+    expect(parsePageEvent(JSON.stringify({ type: "element", element: { id: "bad", kind: "image" } }))).toBeUndefined();
+    expect(parsePageEvent(JSON.stringify({ type: "element-open", element: IMAGE, page: PAGE }))).toEqual({ type: "element-open", element: IMAGE, page: PAGE });
+    expect(parsePageEvent(JSON.stringify({ type: "element-voice", phase: "fly", element: IMAGE, page: PAGE }))).toBeUndefined();
+    expect(parsePageEvent(JSON.stringify({ type: "bubble", action: "send", text: "说", element: IMAGE }))).toEqual({ type: "bubble", action: "send", text: "说", element: IMAGE });
+  });
+});
 
 describe("悬浮按钮上打字：发进秘书的主会话", () => {
   test("发的是带网页上下文的消息（按钮所在的框连同框里这一刻的内容、从悬浮按钮发的）；在办写二狗在想，说完了回话显示、过一会儿收起", async () => {

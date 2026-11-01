@@ -912,9 +912,14 @@ export type {
   BrowsingContext,
   BrowsingMark,
   BrowsingPage,
+  ElementFile,
   PageElement,
   PageElementRole,
+  PickedElement,
+  PickedElementKind,
+  PickedElementSource,
 } from "@ergo/protocol";
+export { ELEMENT_FILE_MAX_BYTES, PICKED_ELEMENT_KINDS, PICKED_ELEMENT_LABEL_MAX, PICKED_ELEMENT_SOURCES, PICKED_ELEMENT_URL_MAX } from "@ergo/protocol";
 export { BROWSER_PAGE_TEXT_MAX, browsingLabel, browsingMarkOf, CHOOSER_TEXT, PAGE_ELEMENT_OPTION_MAX, PAGE_ELEMENT_OPTIONS_MAX, PAGE_ELEMENT_ROLES, PAGE_ELEMENT_VALUE_MAX, PAGE_ELEMENTS_DEFAULT, PAGE_ELEMENTS_MAX, selectedFieldText } from "@ergo/protocol";
 // "浏览"的搜索引擎的结果页地址（182 号票挪到协议包：守护进程也要拼）
 export { BROWSE_SEARCH_ENGINE_IDS, BROWSE_SEARCH_ENGINES, browseSearchEngineOf, browseSearchUrl, DEFAULT_BROWSE_SEARCH_ENGINE } from "@ergo/protocol";

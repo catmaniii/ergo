@@ -103,9 +103,12 @@ export class WebDownloads {
 
   /**
    * 把缓存里的一个文件弹"保存到"存出去（文件名默认 name）；keep 为真时缓存里那份留着（160 号票：拦下的下载点"下载"，
-   * 可能还要再看、再存），否则存完、取消都删掉
+   * 可能还要再看、再存），否则存完、取消都删掉。mimeType：别处取到的文件（359 号票，长按元素）记进下载记录的类型
    */
-  saveFile(src: string, name: string, keep: boolean): void {
+  saveFile(src: string, name: string, keep: boolean, mimeType?: string): void {
+    if (mimeType !== undefined) {
+      this.mimes.set(src, mimeType);
+    }
     const options = new picker.DocumentSaveOptions();
     options.newFileNames = [name];
     new picker.DocumentViewPicker(this.context).save(options)

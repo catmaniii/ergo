@@ -129,6 +129,19 @@ class FakePage implements NativePageControl {
   refField(): Promise<undefined> {
     return Promise.resolve(undefined);
   }
+  elementInfo(): Promise<undefined> {
+    return Promise.resolve(undefined);
+  }
+  elementPrepare(): Promise<PageOutcome> {
+    return Promise.resolve({ ok: true });
+  }
+  elementChunk(): Promise<{ ok: false; reason: string }> {
+    return Promise.resolve({ ok: false, reason: "假的" });
+  }
+  elementRect(): Promise<{ ok: false; reason: string }> {
+    return Promise.resolve({ ok: false, reason: "假的" });
+  }
+  elementShotDone(): void {}
 }
 
 let page: FakePage;
@@ -360,5 +373,36 @@ describe("212、214 号票：语音插件没启用", () => {
     expect(texts.assistant?.templates?.["bridge.fab.label"]).toBe("让{name}帮忙：点一下打字");
     expect(texts["bridge.talkTo.ergo"]).toBe("对小美说");
     expect(bridgeTexts({ name: "小美" })["bridge.fab.label"]).toBe("让小美帮忙：点一下打字，按住说话");
+  });
+});
+
+describe("359 号票：长按元素的圆钮", () => {
+  const IMAGE = { id: "x3", kind: "image" as const, source: "http" as const, src: "https://cdn.example.cn/cat.png" };
+
+  test("气泡跟着元素的编号，说这张图；提示不说要操作框", () => {
+    const target: CommandTarget = { page: PAGE, fields: [], element: IMAGE };
+    expect(bubbleView({ kind: "bar", target })).toEqual({ kind: "input", fieldId: "x3", label: "对这张图说", placeholder: "说说想怎么处理它" });
+    expect(bubbleView({ kind: "listening", target, levels: [] })).toMatchObject({ kind: "listening", fieldId: "x3", label: "对这张图说" });
+    expect(bubbleView({ kind: "busy", target, said: "这是什么", note: "queued" })).toMatchObject({ kind: "busy", fieldId: "x3", said: "这是什么" });
+    expect(bubbleView({ kind: "reply", target, text: "一只猫", failed: false })).toMatchObject({ kind: "reply", fieldId: "x3", system: false });
+    for (const [kind, label] of [["video", "对这个视频说"], ["link", "对这个链接说"], ["text", "对这段文字说"]] as const) {
+      expect(bubbleView({ kind: "bar", target: { page: PAGE, fields: [], element: { id: "x1", kind } } })).toMatchObject({ label });
+    }
+  });
+
+  test("圆钮按下不重交气泡：这时面板还没变，交的是收起，手指已经松开的话会把页面桥先画的打字框和圆钮收掉；出来了把页面桥自己的那几句交过去；开打字框、在听之后照常再交", () => {
+    setup();
+    const before = page.views.length;
+    push({ type: "page", event: { type: "element-voice", phase: "press", element: IMAGE, page: PAGE } });
+    expect(page.views.length).toBe(before);
+    push({ type: "page", event: { type: "element", element: IMAGE } });
+    expect(page.sentTexts.length).toBeGreaterThan(0);
+    expect(page.views.length).toBe(before);
+    push({ type: "page", event: { type: "element-open", element: IMAGE, page: PAGE } });
+    expect(page.views.at(-1)).toMatchObject({ kind: "input", fieldId: "x3" });
+    const opened = page.views.length;
+    push({ type: "page", event: { type: "element-voice", phase: "start", element: IMAGE, page: PAGE } });
+    expect(page.views.at(-1)).toMatchObject({ kind: "listening", fieldId: "x3" });
+    expect(page.views.length).toBeGreaterThan(opened);
   });
 });

@@ -16,9 +16,11 @@
 //   候选画在固定位置的挑图片窗口里（page-pick.ts），不在气泡里；
 // - 收起（点 ×、点气泡外面的网页、按返回、框被滚出屏幕、浏览器开始加载别的网页）：正在等二狗回话时也能收起——不再等这一轮的回话，
 //   这句话照样在秘书的会话里办完、回话照样在会话里。
+// 359 号票（长按网页元素的圆钮，page-bridge/element.ts）：圆钮上的打字、说话走同一套（气泡、识别、排队、回话都一样），目标是这个元素（CommandTarget.element），
+// 用户的话原样发进秘书的主会话，带着元素；这里不看用户说了什么，也没有按意图分的操作。
 // 这里不碰 DOM 和浏览器的全局变量（录音、计时、发消息都由参数给），测试在 Node 里跑。
 import type { PageBridgeEvent, PageBubbleAction, PageInfo } from "../../page-bridge/protocol.ts";
-import { type BrowsingContext, type ButtonTurn, PAGE_COMMAND_TEXT_MAX, type PageField, type PageVoiceResult, pageUrlForModel, t } from "../../state/index.ts";
+import { type BrowsingContext, type ButtonTurn, PAGE_COMMAND_TEXT_MAX, type PageField, type PageVoiceResult, type PickedElement, pageUrlForModel, t } from "../../state/index.ts";
 import type { ChooserRequest, NativeBrowserEvent, NativePageControl } from "../../app/native-browser.ts";
 import { isRecordingCancelled, micErrorOf, type VoiceCaptureBackend } from "../../app/voice-recorder.ts";
 
@@ -29,6 +31,8 @@ export interface CommandTarget {
   /** 悬浮按钮所在的框；拦下的对话框认出了是哪个框时也有 */
   readonly field?: PageField;
   readonly chooser?: ChooserRequest;
+  /** 长按元素的圆钮（359 号票）：这句话说的是这个元素 */
+  readonly element?: PickedElement;
 }
 
 /** 在办的那一句走到哪了：hearing 在认说了什么、thinking 秘书在办、queued 秘书正忙，排在后面（149 号票） */
@@ -98,6 +102,7 @@ export const PRESS_CAPTURE_MS = 2_000;
 
 /** 面板上说这个指令作用于谁："「标题」这个框""这个上传框""选文件" */
 export function targetName(target: CommandTarget): string {
+  if (target.element) return t(`app.pageCommands.target.${target.element.kind}`);
   const field = target.field;
   const name = field ? field.label || field.placeholder || "" : "";
   if (target.chooser && !name) return t("app.pageCommands.target.chooser");
@@ -127,7 +132,14 @@ export function buttonContext(browser: string, target: CommandTarget, spoken: bo
     via: "button",
     ...(spoken ? { spoken: true as const } : {}),
     ...(target.chooser ? { chooser: { accept: [...target.chooser.accept], multiple: target.chooser.multiple } } : {}),
+    ...(target.element ? { element: target.element } : {}),
   };
+}
+
+/** 按钮的样子记在哪个编号上：圆钮是元素，悬浮按钮是框（拦下的对话框上没有按钮要改） */
+function markIdOf(target: CommandTarget): string | undefined {
+  if (target.element) return target.element.id;
+  return target.field && !target.chooser ? target.field.id : undefined;
 }
 
 export class PageCommands {
@@ -238,12 +250,12 @@ export class PageCommands {
   }
 
   private pageEvent(event: PageBridgeEvent): void {
-    if (event.type === "field") {
-      // 悬浮按钮出来了：先备好录音器（不录），长按时按下就能录；收起来一阵子没再出来就放掉
+    if (event.type === "field" || event.type === "element") {
+      // 悬浮按钮、圆钮出来了：先备好录音器（不录），长按时按下就能录；收起来一阵子没再出来就放掉
       if (this.releaseTimer !== undefined) clearTimeout(this.releaseTimer);
       this.releaseTimer = undefined;
       if (!this.voiceOn) return;
-      if (event.field) this.deps.voice.prepare(false);
+      if (event.type === "field" ? event.field : event.element) this.deps.voice.prepare(false);
       else if (!this.busy()) this.releaseTimer = setTimeout(() => this.deps.voice.release(), RELEASE_AFTER_MS);
       return;
     }
@@ -253,8 +265,9 @@ export class PageCommands {
       this.bubbleAction(event);
       return;
     }
-    const target: CommandTarget = { page: event.page, fields: event.fields, field: event.field };
-    if (event.type === "open") {
+    const fromElement = event.type === "element-open" || event.type === "element-voice";
+    const target: CommandTarget = fromElement ? { page: event.page, fields: [], element: event.element } : { page: event.page, fields: event.fields, field: event.field };
+    if (event.type === "open" || event.type === "element-open") {
       // 短按（松手开打字框）：按下时算的语音输入说完了
       if (this.panel.kind !== "listening") this.capture(false);
       if (!this.busy()) this.openBar(target);
@@ -279,8 +292,8 @@ export class PageCommands {
     } else if (event.phase === "start") {
       if (!this.busy()) this.listen(target);
     } else if (event.phase === "stop") {
-      // 松手那一刻页面桥给的框带着框里这一刻的内容
-      if (this.panel.kind === "listening") void this.finishListening(this.panel.target.field?.id === event.field.id ? { ...this.panel.target, page: event.page, field: event.field } : this.panel.target);
+      // 松手那一刻页面桥给的框带着框里这一刻的内容；圆钮给的元素带着这一刻选中的字
+      if (this.panel.kind === "listening") void this.finishListening(markIdOf(this.panel.target) !== undefined && markIdOf(this.panel.target) === markIdOf(target) ? { ...this.panel.target, ...target, fields: this.panel.target.fields } : this.panel.target);
     } else if (this.panel.kind === "listening") {
       this.cancelListening();
     }
@@ -290,7 +303,7 @@ export class PageCommands {
   private bubbleAction(action: PageBubbleAction): void {
     switch (action.action) {
       case "send":
-        this.sendText(action.text, action.field);
+        this.sendText(action.text, action.field, action.element);
         return;
       case "close":
       // 回话太长、去侧边栏看（147 号票）：气泡收起，侧边栏由浏览侧边栏打开（browse-side.ts）
@@ -374,12 +387,12 @@ export class PageCommands {
     this.set(IDLE_PANEL);
   }
 
-  /** 气泡里点发送：打的字交出去；field 是页面桥给的按钮所在的框（带着框里这一刻的内容） */
-  sendText(text: string, field?: PageField): void {
+  /** 气泡里点发送：打的字交出去；field 是页面桥给的按钮所在的框（带着框里这一刻的内容），element 是圆钮上的元素（带着这一刻选中的字） */
+  sendText(text: string, field?: PageField, element?: PickedElement): void {
     const said = text.trim();
     if (this.panel.kind !== "bar" || !said) return;
     const target = this.panel.target;
-    const fresh = field && target.field?.id === field.id ? { ...target, field } : target;
+    const fresh = element && target.element?.id === element.id ? { ...target, element } : field && target.field?.id === field.id ? { ...target, field } : target;
     void this.send(fresh, said.slice(0, PAGE_COMMAND_TEXT_MAX), false);
   }
 
@@ -424,7 +437,8 @@ export class PageCommands {
     this.starting = undefined;
     const run = ++this.run;
     this.set({ kind: "busy", target, note: "hearing" });
-    if (target.field && !target.chooser) this.deps.page.mark(target.field.id, "busy");
+    const id = markIdOf(target);
+    if (id) this.deps.page.mark(id, "busy");
     let take: PageTake;
     try {
       if (starting) await starting;
@@ -463,7 +477,8 @@ export class PageCommands {
     }
     if (run !== this.run) return;
     this.waiting = { key, target, said, run };
-    if (target.field && !target.chooser) this.deps.page.mark(target.field.id, "busy");
+    const id = markIdOf(target);
+    if (id) this.deps.page.mark(id, "busy");
     this.set({ kind: "busy", target, said, note: "thinking" });
     this.track();
   }
@@ -493,7 +508,8 @@ export class PageCommands {
   }
 
   private markIdle(target: CommandTarget): void {
-    if (target.field && !target.chooser) this.deps.page.mark(target.field.id, "idle");
+    const id = markIdOf(target);
+    if (id) this.deps.page.mark(id, "idle");
   }
 
   private hideLater(ms = REPLY_HIDE_MS): void {

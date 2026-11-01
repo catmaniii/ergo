@@ -11,7 +11,7 @@
 //   超过上限时先列哪些（屏幕上看得见的、上半屏的优先，再按离屏幕远近；交出去的照页面上的先后）、哪些 target 会开新窗口。
 // - 184 号票：哪些种类是框（文本框、上传框、下拉框）、现在的值怎么截（空白并成一个、前 40 字、空的不写）、下拉框的选项怎么收拾。
 import { describe, expect, test } from "vitest";
-import {
+import { BUTTON_SIZE, cleanElementLabel, ELEMENT_LABEL_MAX, elementSourceOf, placeElementButton,
   BUBBLE_EDGE,
   BUBBLE_GAP,
   BUBBLE_MAX_HEIGHT,
@@ -328,5 +328,44 @@ describe("能填、能交、能选的框（184 号票）", () => {
   test("下拉框的选项：收拾空白、最长 100、空的去掉、最多 20 个", () => {
     expect(optionTexts([" 1:1 ", "", null, "3:4\n", "选".repeat(150)])).toEqual(["1:1", "3:4", "选".repeat(100)]);
     expect(optionTexts(Array.from({ length: 30 }, (_, i) => `第${i}个`))).toHaveLength(20);
+  });
+});
+
+describe("长按元素的圆钮摆在哪（359 号票）", () => {
+  const AREA = { left: 0, top: 0, right: 400, bottom: 800 };
+  const SIZE = BUTTON_SIZE;
+
+  test("图、链接：按的点右上方（手指还按着也看得见）；上面放不下放下方", () => {
+    expect(placeElementButton({ x: 100, y: 300 }, undefined, AREA)).toEqual({ x: 116, y: 300 - 26 - SIZE });
+    const top = placeElementButton({ x: 100, y: 20 }, undefined, AREA);
+    expect(top.y).toBe(44);
+  });
+
+  test("有选区：放选区下方让开手柄（系统的工具条在选区上方）；下面放不下放到工具条上方；都放不下贴着下边", () => {
+    const selection = { left: 10, top: 300, right: 200, bottom: 340 };
+    expect(placeElementButton({ x: 100, y: 320 }, selection, AREA).y).toBeGreaterThanOrEqual(340 + 24);
+    const low = { left: 10, top: 700, right: 200, bottom: 790 };
+    const above = placeElementButton({ x: 100, y: 750 }, low, AREA);
+    expect(above.y + SIZE).toBeLessThanOrEqual(700 - 60);
+    const huge = { left: 0, top: 10, right: 400, bottom: 795 };
+    expect(placeElementButton({ x: 100, y: 400 }, huge, AREA).y).toBe(800 - SIZE - 4);
+  });
+
+  test("左右夹在看得见的部分里（放大、输入法弹起时看得见的部分比视口小）", () => {
+    expect(placeElementButton({ x: 395, y: 300 }, undefined, AREA).x).toBe(400 - SIZE - 4);
+    const zoomed = { left: 100, top: 50, right: 300, bottom: 400 };
+    expect(placeElementButton({ x: 50, y: 300 }, undefined, zoomed).x).toBe(104);
+  });
+
+  test("地址从哪取；说明文字收拾空白、有上限", () => {
+    expect(elementSourceOf("https://a.example/b.png")).toBe("http");
+    expect(elementSourceOf("HTTP://a.example/b.png")).toBe("http");
+    expect(elementSourceOf("data:image/png;base64,AA")).toBe("data");
+    expect(elementSourceOf("blob:https://a.example/x")).toBe("blob");
+    expect(elementSourceOf("about:blank")).toBeUndefined();
+    expect(elementSourceOf("")).toBeUndefined();
+    expect(cleanElementLabel("  一只\n  猫 ")).toBe("一只 猫");
+    expect(cleanElementLabel(null)).toBe("");
+    expect(cleanElementLabel("字".repeat(400)).length).toBe(ELEMENT_LABEL_MAX);
   });
 });

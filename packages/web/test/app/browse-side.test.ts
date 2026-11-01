@@ -83,11 +83,16 @@ function fakePage() {
       return state.click;
     },
     refField: async (ref, url, want) => (calls.push(`refField ${ref} ${url} ${want}`), state.refField),
+    elementInfo: async () => undefined,
+    elementPrepare: async () => ({ ok: true }),
+    elementChunk: async () => ({ ok: false, reason: "假的" }),
+    elementRect: async () => ({ ok: false, reason: "假的" }),
+    elementShotDone: () => {},
   };
   return { page, calls, state };
 }
 
-function setup(options: { storage?: () => ReturnType<typeof memoryStorage>; narrow?: boolean; searchEngine?: () => string } = {}) {
+function setup(options: { storage?: () => ReturnType<typeof memoryStorage>; narrow?: boolean; searchEngine?: () => string; elements?: BrowseSideDeps["elements"] } = {}) {
   const storage = memoryStorage();
   const fake = fakePage();
   const reports: BrowserStatusParams[] = [];
@@ -111,6 +116,7 @@ function setup(options: { storage?: () => ReturnType<typeof memoryStorage>; narr
     load: (url) => void loaded.push(url),
     report: (status) => void reports.push(status),
     ...(options.searchEngine ? { searchEngine: options.searchEngine } : {}),
+    ...(options.elements ? { elements: options.elements } : {}),
     reply: (id, outcome) => void replies.push({ id, outcome }),
     stage,
     storage: options.storage ?? (() => storage),
@@ -652,5 +658,34 @@ describe("按编号填字、交文件（184 号票）", () => {
       ["b", "这台设备上的二狗 App 太旧，装新版才能按编号填字、交文件"],
       ["c", "ok 1"],
     ]);
+  });
+});
+
+describe("长按的元素（359 号票）", () => {
+  test("取内容、下载交给 ElementFiles，回它的结果；抛错回原因；旧版 App 说太旧", async () => {
+    const asked: string[] = [];
+    const file = { mediaId: "m".repeat(64), name: "cat.png", mime: "image/png", size: 3, via: "original" as const };
+    const { side, replies } = setup({
+      elements: {
+        file: async (id, url) => (asked.push(`file ${id} ${url}`), { ok: true, file }),
+        download: async (id, url) => {
+          asked.push(`download ${id} ${url}`);
+          if (id === "x9") throw new Error("App 没回");
+          return { ok: true };
+        },
+      },
+    });
+    await side.handle({ id: "a", op: "element_file", element: "x1", url: PAGE.url });
+    await side.handle({ id: "b", op: "element_download", element: "x1", url: PAGE.url });
+    await side.handle({ id: "c", op: "element_download", element: "x9", url: PAGE.url });
+    expect(asked).toEqual([`file x1 ${PAGE.url}`, `download x1 ${PAGE.url}`, `download x9 ${PAGE.url}`]);
+    expect(replies).toEqual([
+      { id: "a", outcome: { ok: true, file } },
+      { id: "b", outcome: { ok: true } },
+      { id: "c", outcome: { ok: false, reason: "App 没回" } },
+    ]);
+    const old = setup();
+    await old.side.handle({ id: "d", op: "element_file", element: "x1", url: PAGE.url });
+    expect(old.replies[0]!.outcome).toEqual({ ok: false, reason: expect.stringContaining("太旧") });
   });
 });
