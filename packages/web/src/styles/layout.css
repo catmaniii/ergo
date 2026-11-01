@@ -339,6 +339,60 @@
   display: flex;
   flex-direction: column;
 }
+/* 368 号票：阶段条下面的会话（整个计划开着时点这里缩回阶段条） */
+.chat-row-conv {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* 对话框顶部的阶段条（368 号票）：第一行是阶段标签和这一阶段的名字；任务做完了收成一行 */
+.stage-bar-line {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-s);
+}
+.stage-bar-line:has(+ .md) {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.stage-bar-name {
+  flex: none;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.stage-bar-task {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.stage-bar-st {
+  flex: none;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stage-chip-done {
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: color-mix(in srgb, var(--ok) 70%, var(--text));
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .md {
   flex: none;
   display: flex;
@@ -359,10 +413,10 @@
    */
   flex-shrink: 1;
 }
-.md-m-full ~ .chat-row {
+.md-m-full ~ .chat-row-conv {
   min-height: auto;
 }
-.md-m-full ~ .chat-row .zh-viewport {
+.md-m-full ~ .chat-row-conv .zh-viewport {
   contain: size;
 }
 .md-body {

@@ -434,7 +434,26 @@ node -e "const fs=require('fs'),f=process.argv[1],j=JSON.parse(fs.readFileSync(f
 
 秘书、任务、项目三种会话都是同一个组件 `ZoomHistory`（viewport > sizer > content），三档缩放按比例缩 sizer。伸到内容外面的东西（右侧标注、箭头）一律由 `.zh-sizer` 的 `overflow-y: clip` 裁掉，滚动范围就是 sizer 的高度；缩小后看得见、伸到最后一条下面的标注算进"只在缩小时出现的尾部区域"（`state/scroll-end.ts` 的 `zoomedOutTail`）。右下角"回到最新"的 ↓ 的规矩也在 `scroll-end.ts`。jsdom 不排版，真排版的核对办法：无头 Chrome 打开构建产物，用滚轮滚到底，量 `.zh-viewport` 的 `scrollHeight` 是否等于 `.zh-sizer` 的 `offsetHeight`，三档各量一次。
 
-### 6.4 麦克风让路
+### 6.4 一个 agent 一个对话框、背后的 agent（368 号票）
+
+**对话框**只有一套：`pages/AgentConversation.tsx` 的 `AgentDialog`（标题栏 `TaskHead`、顶部阶段条、消息、输入框、左栏档案），项目页、任务页都画它，差异只在档案和传给 `useTaskScene` 的文案。
+
+- **路由**：`#/projects/<p>/tasks/<t>[/at/<id>]` 是项目的对话框点名任务。`TasksPage` 的 `TaskDetail` 用 `taskHomeProject`（内部任务的 `internal.projectId`，或项目的负责人就是这个任务的负责人）判断归谁，归项目的用 `replaceRoute` 换地址（不多一条历史），所以所有 `#/tasks/<id>` 的来路都不用改。跨项目、不属于项目的留在任务页。`/chat` 老地址照旧认，和 `#/projects/<p>` 同一页。
+- **显示哪个任务**：`projectConversationTask`：地址点名的 → 负责人手上工单的任务 → 在执行的、等你的、规划中的、暂停的 → 最近结束没归档的。排队的不抢，在档案的"内部任务"一节。
+- **输入框**：照旧 `sayingScopeOf`、`userMessageScope`。内部普通任务（在做或点名且 `taskAcceptsMessages`）带 `taskId`，其余走项目会话的 scope。
+- **阶段条**：`ui/conversation/stage-panel.tsx` 的 `useStagePanel`：一行（`data-stage-bar="live"|"done"`）+ 半开轨道 + 把手全开依赖图。收起按设备记（`ergo-stage-side`），做完默认收起不写设置。原来宽屏的阶段栏去掉了，宽窄屏同一套。
+- **手机的档案**：详情滑入页的一层（`DetailTarget` `{type:"archive"}`），点标题或"⋯"第一项打开；从档案钻进去用 `detail.go`，‹ 回档案。
+
+**背后的 agent**：`daemon/sub-agents/background.ts`。
+
+- 数据：`DerivedView` 投影子 agent 事件（内部频道 `sub_agents`）、工具调用、账本成表 `background_agents`、`background_agent_lines`；第一次起来 refill，老数据照样能列。工具调用还在 `tool_call_details` 里，按 agent 有索引。
+- 新事件都在 `sub_agents` 频道：`sub_agent_said`（`one-shot.ts` 的 `transcript` 钩子，每次 `message_final` 有字就写，`sub-agents.ts` 落盘）；`review_started`、`review_finished`（`tasks/review.ts` 的 `record` 钩子）。写失败只记日志，不影响派活。没有 `review_started` 的老评审从账本推出来，没有 `sub_agent_said` 的老运行 `saidRecorded: false`。
+- 删除：`material-source.ts` 的 `purgedParallelPayload` 把这几个事件里的文字换成已清除；列表按 `tasks.get` 过滤已删的任务。
+- 接口：`GET /api/agents/<负责人>/background`、`GET /api/agents/<子 agent>/transcript`，只读，没有发消息的路（`maintainer:sa-1` 不是可发消息的会话）。
+- 推送：不进事件日志的临时事件（频道 `background_agents`，`EPHEMERAL_EVENT_TYPES`），只带负责人 id，按负责人节流 400ms；网页 `ui-state` 折成版本号，`useBackgroundAgents` 见版本变了重新取。所以也不进录制回放。
+- 运行时自带的子代理（Claude Code 的 `parentCallId`）不算，它们在负责人会话的工具调用里。
+
+### 6.5 麦克风让路
 
 语音模式里二狗预热着麦克风，按下即录；但页面里**可输入的元素拿到焦点**、或者窗口失去系统焦点时，要立刻停掉所有音轨，免得挡住系统输入法的语音（"麦克风被占用"）。焦点回来以后等 0.5 秒再重新预热；按住说话的时候焦点怎么变都不打断。规则只写在状态层一处（`state/voice-mic.ts` 的 `voiceMicCloseReason` / `voiceMicOpenReason`，表格测试在 `test/state/voice-mic.test.ts`），接到浏览器在 `app/voice-browser.ts`。录下来的语音带诊断记录（`capture`：后端、按下到开录的毫秒数、峰值……），不发空白语音。鸿蒙 App 里改用原生录音、不用让路（[8.4](#84-原生录音)）。
 

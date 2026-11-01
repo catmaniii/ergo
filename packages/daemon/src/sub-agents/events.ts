@@ -4,6 +4,9 @@
 // - parallel_decided：用户在并行确认卡上同意并行或不同意（和卡片更新同一事务），"审批决定"素材的来源；
 // - sub_agent_started / sub_agent_finished：一个子 agent 拉起（名额满了时在排队）、结束（交回了结果、出错、被打断、任务停了）。
 // 派生视图（views.ts）由它们归并：哪个子 agent 属于哪个任务的哪个阶段、现在还在不在做（24 号票按它把用量归到任务）。
+// 368 号票（背后的 agent，background.ts 归并、从 HTTP 给网页）：
+// - sub_agent_said：一次性的 agent（子 agent、评审）收到的那条输入、说的每一段话（模型输出），它们的工具调用照旧记在别处（tool_call_detail）；
+// - review_started / review_finished：一次评审拉起、结束（之前评审不记事件，只有账本和工具调用）。
 import { EVENT_TYPES, type ParallelAgent, type ParallelDecision } from "@ergo/protocol";
 
 export const SUB_AGENTS_CHANNEL = "sub_agents";
@@ -13,6 +16,9 @@ export const SUB_AGENT_EVENTS = {
   parallelDecided: EVENT_TYPES.parallelDecided,
   subAgentStarted: "sub_agent_started",
   subAgentFinished: "sub_agent_finished",
+  agentSaid: "sub_agent_said",
+  reviewStarted: "review_started",
+  reviewFinished: "review_finished",
 } as const;
 
 /** 一个子 agent 属于谁：哪个任务的哪个阶段、哪个负责人的哪次提议（24 号票按它把子 agent 的用量归到任务和阶段） */
@@ -65,5 +71,33 @@ export interface SubAgentFinishedPayload extends SubAgentOwner {
   outcome: SubAgentOutcome;
   /** 交回负责人的那条消息 */
   messageId: string;
+  time: string;
+}
+
+/** 一次性的 agent 收到的输入、说的一段话（368 号票）。随任务、项目一起删（文字换成删除标记，material-source.ts 的 purgedParallelPayload） */
+export interface AgentSaidPayload {
+  agentId: string;
+  taskId: string;
+  /** input：交给它的那条输入；said：它说的（模型输出的文字） */
+  kind: "input" | "said";
+  text: string;
+  time: string;
+}
+
+/** 一次评审拉起（368 号票）：谁、评审哪个任务的哪个阶段、任务的负责人 */
+export interface ReviewStartedPayload {
+  agentId: string;
+  taskId: string;
+  stageId: string;
+  stageTitle: string;
+  maintainerId: string;
+  time: string;
+}
+
+/** 一次评审结束（368 号票）：交了结论（done）、没交就结束了（error）、被停下（stopped） */
+export interface ReviewFinishedPayload {
+  agentId: string;
+  taskId: string;
+  outcome: "done" | "error" | "stopped";
   time: string;
 }

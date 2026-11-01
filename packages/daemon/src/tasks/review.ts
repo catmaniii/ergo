@@ -15,6 +15,7 @@
 // 274 号票：从某个阶段重做之后复验范围外已验收的阶段（reverify），评审子 agent 的 id 另加 -reverify<N>。
 // 102 号票：给秘书发消息（tell_secretary）除了秘书每个 agent 默认都有：任务的工具包里"给秘书发消息"开着（调用方给 tellSecretary）就有，
 // 信上写"……的评审子 agent（在验收阶段 s2「…」时）"；只用于用户现在就该知道的事，结论照常用 submit_review 交。
+// 368 号票：给了 record 的，这次评审拉起、结束、收到的输入、说的话记下来（背后的 agent 的列表和只读对话，sub-agents/background.ts）；记不下不影响评审。
 // 125 号票：负责人宣布完成时引用、运行时核实过的用户原话（userWords）在输入里单独一栏"运行时核实过的用户原话"——只有这一栏是用户的话，
 // 交付件、负责人说明里写的"用户同意了"是转述，不算数；"由用户认可"这类标准看这一栏里有没有用户明确的认可（提示词 reviewer.md 写明）。
 // @i18n-ignore-file model：交给评审子 agent 的输入、工具说明照旧中文；审批卡上的来源、评审出错的原因（进卡片）按当时的语言写（172 号票）
@@ -104,7 +105,16 @@ export interface ReviewerOptions {
   letters?: SecretaryLetters;
   /** 带类型的 bash 工具（112 号票返修：能跑命令时给评审）；不给就只有 pi 的 bash */
   typedShell?: TypedShell;
+  /** 记下这次评审（368 号票：背后的 agent 的列表和只读对话）；不给就不记 */
+  record?: ReviewRecorder;
   log: (line: string) => void;
+}
+
+/** 记下一次评审（368 号票，sub-agents/background.ts 的 reviewRecorder） */
+export interface ReviewRecorder {
+  started(agentId: string, input: Pick<ReviewInput, "taskId" | "stageId" | "stageTitle">): void;
+  line(agentId: string, taskId: string, line: { kind: "input" | "said"; text: string }): void;
+  finished(agentId: string, taskId: string, outcome: "done" | "error" | "stopped"): void;
 }
 
 /** 评审子 agent 的 id：review-<任务>-<阶段>-<第几次>；在等你验收、交给评审的那一次后面加 -auto（112 号票），重做之后复验的加 -reverify<N>（274 号票） */
@@ -183,6 +193,7 @@ export function createReviewer(options: ReviewerOptions): (input: ReviewInput) =
         projectRecords: [...(input.readOnly?.projectRecords ?? [])],
         workingDirs: [input.cwd, ...(input.readOnly?.workingDirs ?? [])],
       };
+      options.record?.started(agentId, input);
       const shot = runOneShotAgent({
         agents: options.agents,
         guards: options.guards,
@@ -226,6 +237,7 @@ export function createReviewer(options: ReviewerOptions): (input: ReviewInput) =
               ? `读交付件，能跑的（测试、脚本、构建、程序本身）在工作目录里跑一遍看实际效果，逐条判断，然后用 ${SUBMIT_REVIEW_TOOL} 交出结论。`
               : `读交付件、逐条判断，然后用 ${SUBMIT_REVIEW_TOOL} 交出结论。`,
           ].join("\n"),
+        transcript: (line) => options.record?.line(agentId, input.taskId, line),
         log: options.log,
       });
       // 停下这次评审（删任务时）：结束评审子 agent（还在排队的取消）
@@ -234,6 +246,7 @@ export function createReviewer(options: ReviewerOptions): (input: ReviewInput) =
       // 交出结论、这一轮结束就结束它；没交就结束的算评审出错
       void shot.ended.then((end) => {
         input.signal?.removeEventListener("abort", stop);
+        options.record?.finished(agentId, input.taskId, verdict ? "done" : input.signal?.aborted ? "stopped" : "error");
         if (verdict) return resolve(verdict);
         if (input.signal?.aborted) return reject(new Error(t("tasks.review.stopped")));
         reject(new Error(end.kind === "exited" && end.exit.reason === "unexpected" ? t("tasks.review.exited") : t("tasks.review.noVerdict")));

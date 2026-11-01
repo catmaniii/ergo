@@ -59,6 +59,7 @@ import {
   type PluginDataPurgedEventPayload,
   type PluginStatusEventPayload,
   type ExternalCalendarEventPayload,
+  type BackgroundAgentsEventPayload,
   type Card,
   type CardAction,
   type CardEventPayload,
@@ -267,6 +268,8 @@ export interface UiState {
    * 网页按它装、停自己的网页插件（plugins/host.ts 的 apply）；还没收到（原型、旧的守护进程）是 undefined——当作全开
    */
   readonly pluginStatus: PluginStatusEventPayload | undefined;
+  /** 负责人背后的 agent（368 号票）：键是负责人 id，来一条临时事件加一；开着的列表、只读对话拿它当"该重新取了" */
+  readonly backgroundAgents: Readonly<Record<string, number>>;
   /**
    * 两个语音模型的状态（45 号票：模型预热）：打开设置 · 语音时经本机接口取回的，和活动状态频道上推来的临时事件 voice_models，
    * 留新的（voice-models.ts）；还没取过、没收到过是 undefined
@@ -523,6 +526,7 @@ export const initialUiState: UiState = {
   language: undefined,
   locale: undefined,
   pluginStatus: undefined,
+  backgroundAgents: {},
   voiceModels: undefined,
   agentRoles: undefined,
   projectServices: [],
@@ -952,6 +956,11 @@ function reduceEphemeral(state: UiState, frame: EventFrame): UiState {
   if (frame.type === EVENT_TYPES.locale) return { ...state, locale: frame.payload as LocaleEventPayload };
   // 插件的状况（193 号票）：整份换掉
   if (frame.type === EVENT_TYPES.pluginStatus) return { ...state, pluginStatus: frame.payload as PluginStatusEventPayload };
+  // 背后的 agent 有变化（368 号票）：这个负责人的版本加一
+  if (frame.type === EVENT_TYPES.backgroundAgents) {
+    const { maintainerId } = frame.payload as BackgroundAgentsEventPayload;
+    return { ...state, backgroundAgents: { ...state.backgroundAgents, [maintainerId]: (state.backgroundAgents[maintainerId] ?? 0) + 1 } };
+  }
   // 外部日程变了（306 号票）：记下新的版本（只增不减），比取回的日历记着的大就算旧了
   if (frame.type === EVENT_TYPES.externalCalendar) {
     const { version } = frame.payload as ExternalCalendarEventPayload;

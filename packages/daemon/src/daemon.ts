@@ -234,6 +234,7 @@ import {
 } from "./tasks/material-sources.ts";
 import { progressCardType } from "./tasks/progress-card.ts";
 import { createReviewer } from "./tasks/review.ts";
+import { backgroundAgentsView, createBackgroundAgents, reviewRecorder } from "./sub-agents/background.ts";
 import { parallelCardType } from "./sub-agents/card.ts";
 import { parallelDecisionPurge, parallelDecisionSource } from "./sub-agents/material-source.ts";
 import { registerSubAgentDeletion } from "./sub-agents/deletion.ts";
@@ -794,6 +795,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 个人档案（281）：本人和重要的人的字段、历史、记下的事（内部频道 personal_files）
         personalFilesView,
         subAgentsView,
+        // 背后的 agent（368）：子 agent、评审的一行，收到的指令和说的话
+        backgroundAgentsView,
         // 语音对象（31、32）：内核的数据契约（214 号票起语音是插件，插件停用了照样更新、照样投影）
         voicesView,
         agentVoicesView,
@@ -2143,7 +2146,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 脚本照带类型 bash 工具的启动器起（闸门进程先进这次调用的 Job 对象，28）
         runScript: ({ cwd, script, expectOutput, network, signal }) =>
           runAcceptanceScript(typedShell, { cwd, script, ...(expectOutput ? { expectOutput } : {}), network, timeoutMs: ACCEPTANCE_SCRIPT_TIMEOUT_MS, ...(signal ? { signal } : {}) }),
-        review: createReviewer({ agents, guards, model: reviewerModel, credentials, prompts, letters, typedShell, foldersBlock: () => agentFoldersBlock(localFolders.view()), log }),
+        review: createReviewer({ agents, guards, model: reviewerModel, credentials, prompts, letters, typedShell, foldersBlock: () => agentFoldersBlock(localFolders.view()), record: reviewRecorder({ store, tasks, log }), log }),
       },
       subAgentsOn: (taskId) => wired("subAgents").busyStages(taskId),
       // 只涉及一个项目的任务（16）：在项目的工作目录里做，工具包取任务授权和项目工具包的交集，项目的负责人正忙时留在排队中
@@ -2341,6 +2344,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     wiring.subAgents = subAgents;
     subAgents.start();
     teardown.push(() => subAgents.stop());
+    // 背后的 agent（368）：网页的列表、只读对话从这里取，有变化时推一条临时事件
+    const backgroundAgents = createBackgroundAgents({ store, tasks, publish: (frame) => notifications.publish(frame), log });
+    backgroundAgents.start();
+    teardown.push(() => backgroundAgents.stop());
     /**
      * 用户往负责人的会话里说话时消息的归属：项目的（15）带上项目，任务的（13）带上任务；别的会话不认（收不了的抛出原因）。
      * taskId 是用户在哪个任务的详情里说的（75：项目内部的普通任务做完了接着说，消息属于它）。网关发消息、秘书转达（103）、排队的消息交出去（144）共用
@@ -2670,6 +2677,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       api: createHttpApi({
         media,
         store,
+        backgroundAgents,
         // 浏览插件给的（212，现取，插件没启用时回"内置浏览器插件没启用"）：悬浮按钮上说的一段送识别（149：认出的字作为消息发进秘书的主会话）、
         // 要交的文件的取件码（134）、候选的缩略图（149）、"浏览"的 ⋮ 菜单里"存进二狗的素材"（165）
         browsing: () => plugins.service(BROWSING),

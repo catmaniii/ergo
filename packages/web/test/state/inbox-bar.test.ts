@@ -259,3 +259,12 @@ describe("不进栏的", () => {
     expect(inboxBarEntries(system, secretary)).toEqual([]);
   });
 });
+
+// 368 号票：项目的对话框上正显示的任务，它的待办也在这条栏里（转为项目的任务不是内部任务，项目的负责人做）
+test("项目的对话框：正显示的任务的事项也在，别的不是内部任务的不进", () => {
+  const item = (id: string, taskId: string): InboxItem => inboxItem(id, { origin: { taskId } });
+  const state = { ...initialUiState, inbox: { a: item("a", "t-own"), b: item("b", "t-other") } };
+  const ids = (place: InboxPlace) => inboxBarEntries(state, place).map((e) => e.item.id);
+  expect(ids({ kind: "project", projectId: "p-1" })).toEqual([]);
+  expect(ids({ kind: "project", projectId: "p-1", taskId: "t-own" })).toEqual(["a"]);
+});

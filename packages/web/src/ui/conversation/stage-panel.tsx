@@ -1,39 +1,30 @@
 /**
- * 长程任务详情里的计划栏（91 号票：抽屉、手动点的阶段、阶段栏开合和宽度、聊天跟着阶段、正在看的阶段、点阶段）：真任务、原型的假任务共用，任务详情只管把依赖图、出过的状况、详情的开法交进来，
- * 把返回的阶段标签、抽屉、阶段栏放到页面上。
- * - 阶段标签（标题栏，90 号票起放在 TaskHead 那一行里）：宽屏在左边（‹ 之后、标题之前，正在阶段栏上方），点它开合阶段栏；
- *   窄屏在右边，点它开合抽屉（抽屉开着时点它，手动点过的阶段不再停着、恢复跟着聊天）。写的是哪一阶段：你手动点的 >
- *   聊天里正在看的那一段（滚动时跟着变；停在最新一条时是正在做的那一阶段）> 正在做的 > 最后一条那一段 > 第一个（state 的 shownStage）；
- * - 窄屏：标题栏下面的抽屉（收起 / 半开 / 全开）；抽屉全开时点聊天区缩回半开；返回键先收起抽屉；
- * - 宽屏：会话左边的阶段栏 + 能左右拖的分界线（默认 320，最窄 200，最宽外框的 60%；拖到的宽度这台设备记住——不记的话
- *   刷新回 320；记住是主会话建议的，合并前用户点了头）；栏顶 × 整栏藏掉（88 号票，这台设备记住）；
- * - 点一个阶段：选中它（图上高亮、阶段标签停在它上面），同时在详情栏打开它的详情（竖屏整页滑入）；再点同一个详情不关，‹ 一层层退。
- *   计划还没确认（左边画的是等你确认的计划卡、计划变更）时打开那张卡的详情，定位到这一阶段；
- * - 新交上来一份等你确认的计划：把计划图打开（宽屏阶段栏打开——只在这一次打开这个任务时，不写进设备设置；竖屏拉出半开的抽屉）；
- * - 聊天里的计划提纲点了某一阶段（onStep）：图上高亮它，宽屏阶段栏藏着就打开。点左边的卡片不动聊天。
+ * 对话框顶部的阶段条（368 号票，用户 2026-11-01："阶段条就是显示在我点击卡片之后进去的那个聊天窗口，而不要再展开一层"；91 号票的计划栏、88 号票的阶段标签并进来）：
+ * 真任务、项目的对话框、原型的假任务共用，任务详情只管把依赖图、出过的状况、详情的开法交进来，把返回的阶段条放到会话上面。宽屏、手机一样：
+ * - 第一行：阶段标签 + 这一阶段的名字（项目的对话框还写是哪个任务）。写的是哪一阶段：你手动点的 > 聊天里正在看的那一段（滚动时跟着变；停在最新一条时是
+ *   正在做的那一阶段）> 正在做的 > 最后一条那一段 > 第一个（state 的 shownStage）。点标签：展开成阶段条、收成一行（这台设备记住，默认展开；收起时手动点过的阶段不再停着）；
+ * - 下面是阶段条（抽屉半开）：一个阶段一列，点一个选中它（阶段条上高亮、标签停在它上面），同时在详情栏打开它的详情（手机整页滑入）——交付件和验收标准在那里；
+ *   把手往下拉、点一下是整个计划的依赖图（抽屉全开，下面一行是出过的状况），全开时点聊天区缩回阶段条，返回键也是；
+ * - 任务做完了（done 给了那句话，比如"首版已完成"）：默认收成一行，能点开看，不记进设置；
+ * - 计划还没确认（左边画的是等你确认的计划卡、计划变更）时点一个阶段打开那张卡的详情，定位到这一阶段；新交上来一份等你确认的计划：把阶段条打开；
+ * - 聊天里的计划提纲点了某一阶段（onStep）：高亮它，收着就打开。
  * - 会话按阶段成框：返回的 chat 直接摊到会话组件上——报正在看哪一条、计划提纲点阶段、
  *   框上"验收和规则 ›"打开阶段详情、成框要的阶段来源。
  */
-import { type ReactNode, useContext, useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { useBackLayer } from "../../app/page-back.ts";
-import { pageStageSide, pageStageSideWidth, useStageSidePref, useStageSideWidth } from "../../app/page-stage-side.ts";
-import { type DetailTarget, dragStageSideWidth, type GuardPingKind, type StageBoxStage, type StageGraph, type StageSidePref, shownStage, stageSideLayout, t } from "../../state/index.ts";
-import { Splitter } from "../common.tsx";
-import { FrameWidth } from "../detail/DetailLayout.tsx";
-import { type DrawerMode, StageChip, StageDrawer, StageSide } from "./StageDrawer.tsx";
+import { pageStageSide, useStageSidePref } from "../../app/page-stage-side.ts";
+import { type DetailTarget, type GuardPingKind, type StageBoxStage, type StageGraph, shownStage } from "../../state/index.ts";
+import { type DrawerMode, StageChip, StageDrawer } from "./StageDrawer.tsx";
 
 export interface StagePanel {
-  /** 标题栏的阶段标签：交给 TaskHead 的 chip（放哪头由 stageChipPlace 定：宽屏左边，窄屏右边） */
-  readonly chip: ReactNode;
-  /** 窄屏：标题栏下面的抽屉（只在会话栏上放） */
-  readonly drawer: ReactNode;
-  /** 宽屏：会话左边的阶段栏和分界线（放在 .chat-row 里、会话前面） */
-  readonly side: ReactNode;
-  /** 窄屏抽屉全开时点聊天区：缩回半开（挂在 .chat-row-main 的 onPointerDownCapture 上） */
+  /** 阶段条：放在对话框标题栏下面、会话上面；没有阶段的任务没有 */
+  readonly bar: ReactNode;
+  /** 整个计划开着时点聊天区：缩回阶段条（挂在会话外面那一层的 onPointerDownCapture 上） */
   readonly onChatPointerDown: (() => void) | undefined;
   /** 会话报来屏幕上正在看的那一条（视口 40% 高处）、是不是停在最新一条：阶段标签跟着变 */
   onFocusChat(chatId: string | undefined, atBottom: boolean): void;
-  /** 聊天里的计划提纲点了某一阶段：图上高亮它，宽屏阶段栏藏着就打开 */
+  /** 聊天里的计划提纲点了某一阶段：高亮它，收着就打开 */
   onStep(stageId: string): void;
   /** 现在高亮的那一阶段 */
   readonly selected: string | undefined;
@@ -47,11 +38,10 @@ export interface StageChatProps {
   onStep?: ((stageId: string) => void) | undefined;
   onStage?: ((stageId: string) => void) | undefined;
   onPlan?: ((cardId: string, stageId?: string) => void) | undefined;
-  stageChat?: { taskId: string; list?: readonly StageBoxStage[] | undefined; running?: boolean | undefined } | undefined;
+  stageChat?: { taskId: string; list?: readonly StageBoxStage[] | undefined; running?: boolean | undefined; shared?: boolean | undefined } | undefined;
 }
 
 export function useStagePanel({
-  wide,
   taskId,
   graph,
   progress,
@@ -61,8 +51,9 @@ export function useStagePanel({
   stepAt,
   lastItemId,
   chatStages,
+  done,
+  caption,
 }: {
-  wide: boolean;
   taskId: string;
   /** 依赖图（state 的 taskStageGraph，原型的从假阶段排）；没有阶段的任务没有 */
   graph: StageGraph | undefined;
@@ -70,7 +61,7 @@ export function useStagePanel({
   progress: { done: number; total: number };
   /** 打开一页详情（任务详情的 DetailController.show） */
   show(target: DetailTarget): void;
-  /** 阶段栏、抽屉全开最下面一行：执行中出过的状况 */
+  /** 整个计划最下面一行：执行中出过的状况 */
   counts: ReactNode;
   /** 刚被拉回、拦下、你拒绝时阶段标签闪一下 */
   ping: GuardPingKind | undefined;
@@ -78,110 +69,96 @@ export function useStagePanel({
   stepAt: ReadonlyMap<string, string>;
   lastItemId: string | undefined;
   /** 会话按阶段成框要的阶段、负责人在不在干活：真任务不给（按看板上的），原型给假的 */
-  chatStages?: { list?: readonly StageBoxStage[] | undefined; running?: boolean | undefined } | undefined;
+  chatStages?: { list?: readonly StageBoxStage[] | undefined; running?: boolean | undefined; shared?: boolean | undefined } | undefined;
+  /** 任务做完了时收起来那一行写什么（比如"首版已完成"）：给了就默认收起，能点开看；没做完的不给 */
+  done?: { text: string; ok: boolean } | undefined;
+  /** 第一行上另写的（项目的对话框里是哪个任务） */
+  caption?: string | undefined;
 }): StagePanel {
-  const frameWidth = useContext(FrameWidth);
-  const [drawer, setDrawer] = useState<DrawerMode>("closed");
-  // 竖屏的阶段抽屉拉开时，返回键先收起它
-  useBackLayer("overlay", !wide && drawer !== "closed", () => setDrawer("closed"));
-  /** 手动点的那一阶段：停在那里，收起抽屉后恢复跟随 */
+  /** 你点过的：展开到哪一档；没点过的按默认（做完了收起，别的按这台设备记住的） */
+  const [chosen, setChosen] = useState<{ taskId: string; mode: DrawerMode }>();
+  /** 手动点的那一阶段：停在那里，收起后恢复跟随 */
   const [pinned, setPinned] = useState<string>();
   const [focus, setFocus] = useState<{ id?: string | undefined; bottom: boolean }>({ bottom: true });
-  const remembered = useStageSideWidth();
-  /** 拖着的时候的宽度（松手才记到这台设备上） */
-  const [dragging, setDragging] = useState<number>();
-  const width = dragging ?? remembered;
+  const pref = useStageSidePref();
   const hasStages = graph !== undefined && graph.nodes.length > 0;
 
   // 会话按阶段成框要的阶段来源（不变就不重算框）
   const list = chatStages?.list;
   const running = chatStages?.running;
-  const stageChat = useMemo(() => ({ taskId, list, running }), [taskId, list, running]);
-  // 新交上来一份等你确认的计划（计划卡、计划变更卡）：把计划图打开——手动点过的阶段不再停着，
-  // 竖屏拉出半开的抽屉，宽屏打开阶段栏（渲染时比着上一次记下的那张卡）。宽屏只在这一次打开这个任务时开着（openedFor 记着是哪个任务），
-  // 不写进这台设备的设置：你点 × 收起的、别的长程任务的都不跟着变；你自己点阶段标签、× 时才写
+  const shared = chatStages?.shared;
+  const stageChat = useMemo(() => ({ taskId, list, running, shared }), [taskId, list, running, shared]);
+  // 换了任务（项目的对话框里定位到别的任务）：手动点的阶段不再停着，展开到哪一档从默认来
+  const [seenTask, setSeenTask] = useState(taskId);
+  if (seenTask !== taskId) {
+    setSeenTask(taskId);
+    setPinned(undefined);
+    setChosen(undefined);
+  }
+  const defaulted: DrawerMode = done !== undefined || pref === "closed" ? "closed" : "half";
+  const mode: DrawerMode = chosen?.taskId === taskId ? chosen.mode : defaulted;
+  const setMode = (next: DrawerMode) => setChosen({ taskId, mode: next });
+  // 新交上来一份等你确认的计划（计划卡、计划变更卡）：把阶段条打开，手动点过的阶段不再停着（渲染时比着上一次记下的那张卡）。
+  // 不写进这台设备的设置：你收起的、别的任务的都不跟着变
   const pendingCard = graph?.kind === "live" ? undefined : graph?.cardId;
   const [seenPending, setSeenPending] = useState<string>();
-  const [openedFor, setOpenedFor] = useState<string>();
   if (pendingCard !== seenPending) {
     setSeenPending(pendingCard);
     if (pendingCard) {
       setPinned(undefined);
-      setOpenedFor(taskId);
-      if (!wide) setDrawer((d) => (d === "closed" ? "half" : d));
+      if (mode === "closed") setMode("half");
     }
   }
-  const rememberedPref = useStageSidePref();
-  const sidePref = openedFor === taskId ? "open" : rememberedPref;
-  /** 你自己开合阶段栏：写进这台设备的设置，这一次为等你确认的计划开着的那一下不再算 */
-  const setSide = (pref: StageSidePref) => {
-    setOpenedFor(undefined);
-    pageStageSide().set(pref);
-  };
-  const layout = stageSideLayout({ wide, hasStages, pref: sidePref });
+  // 整个计划开着时，返回键先缩回阶段条
+  useBackLayer("overlay", hasStages && mode === "full", () => setMode("half"));
   const live = graph?.nodes.filter((n) => n.state !== "removed") ?? [];
   const selected = shownStage({ pinned, focus, current: graph?.current, stepAt, lastItemId, first: live[0]?.id });
+  const onFocusChat = setFocusIfChanged(setFocus);
 
   if (!graph || !hasStages) {
-    const onFocusChat = setFocusIfChanged(setFocus);
-    return { chip: null, drawer: null, side: null, onChatPointerDown: undefined, onFocusChat, onStep: () => {}, selected: undefined, chat: { onFocusChat } };
+    return { bar: null, onChatPointerDown: undefined, onFocusChat, onStep: () => {}, selected: undefined, chat: { onFocusChat } };
   }
 
-  const onFocusChat = setFocusIfChanged(setFocus);
   const onStep = (stageId: string) => {
     setPinned(stageId);
-    if (wide) setSide("open");
+    if (mode === "closed") setMode("half");
   };
-  /** 左边图上点了某一阶段：还没确认的看那张卡里这一阶段，确认了的看这一阶段的详情 */
+  /** 点了某一阶段：还没确认的看那张卡里这一阶段，确认了的看这一阶段的详情 */
   const openStage = (stageId: string) => show(graph.kind === "live" || !graph.cardId ? { type: "stage", taskId, stageId } : { type: "plan", cardId: graph.cardId, focus: stageId });
-  const chip = (
-    <StageChip
-      graph={graph}
-      selected={selected}
-      progress={progress}
-      open={wide ? sidePref === "open" : drawer !== "closed"}
-      ping={ping}
-      compact={!wide}
-      onTap={() => {
-        // 宽屏：开合阶段栏（90 号票起没有页签那一排，会话一直在）
-        if (wide) return setSide(sidePref === "open" ? "closed" : "open");
-        if (drawer !== "closed") setPinned(undefined);
-        setDrawer(drawer === "closed" ? "half" : "closed");
-      }}
-    />
-  );
+  const onTap = () => {
+    const next: DrawerMode = mode === "closed" ? "half" : "closed";
+    if (next === "closed") setPinned(undefined);
+    setMode(next);
+    // 做完了的展开只算这一次；没做完的记到这台设备上
+    if (done === undefined) pageStageSide().set(next === "closed" ? "closed" : "open");
+  };
+  const shown = live.find((n) => n.id === selected) ?? live[0];
   return {
-    chip,
-    drawer:
-      layout === "drawer" ? (
+    bar: (
+      <>
+        <div className={`stage-bar-line${done !== undefined ? " stage-bar-done" : ""}`} data-stage-bar={done !== undefined ? "done" : "live"}>
+          <StageChip graph={graph} selected={selected} progress={progress} open={mode !== "closed"} ping={ping} done={done} onTap={onTap} />
+          {done === undefined && graph.kind === "live" && shown && <span className="stage-bar-name">{shown.title}</span>}
+          {caption !== undefined && <span className="stage-bar-task">{caption}</span>}
+        </div>
         <StageDrawer
           graph={graph}
-          mode={drawer}
+          mode={mode}
           onMode={(m) => {
-            setDrawer(m);
-            if (m === "closed") setPinned(undefined);
+            setMode(m);
+            if (m === "closed") {
+              setPinned(undefined);
+              if (done === undefined) pageStageSide().set("closed");
+            }
           }}
           selected={selected}
           onSelect={setPinned}
           onDetail={openStage}
           counts={counts}
         />
-      ) : null,
-    side:
-      layout === "side" ? (
-        <>
-          <StageSide graph={graph} selected={selected} onSelect={setPinned} onDetail={openStage} counts={counts} width={width} onClose={() => setSide("closed")} />
-          <Splitter
-            label={t("ui.stagePanel.resize")}
-            onDrag={(dx) => setDragging((w) => dragStageSideWidth(w ?? remembered, dx, frameWidth))}
-            onDragEnd={() => {
-              if (dragging !== undefined) pageStageSideWidth().set(dragging);
-              setDragging(undefined);
-            }}
-          />
-        </>
-      ) : null,
-    onChatPointerDown: !wide && drawer === "full" ? () => setDrawer("half") : undefined,
+      </>
+    ),
+    onChatPointerDown: mode === "full" ? () => setMode("half") : undefined,
     onFocusChat,
     onStep,
     selected,

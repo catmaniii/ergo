@@ -433,7 +433,26 @@ A plugin declares the places it owns (`owns`) in its definition and must registe
 
 Secretary, task and project conversations share one component, `ZoomHistory` (viewport > sizer > content); the three zoom levels scale the sizer. Anything sticking out of the content (side annotations, arrows) is clipped by `overflow-y: clip` on `.zh-sizer`, so the scroll range equals the sizer's height; visible annotations hanging below the last item when zoomed out count as a "zoomed-out tail" (`zoomedOutTail` in `state/scroll-end.ts`). The rules for the "jump to latest" ↓ button are in the same file. jsdom doesn't lay out, so verify with real layout: open the build output in headless Chrome, scroll to the end with the wheel, and check that `.zh-viewport`'s `scrollHeight` equals `.zh-sizer`'s `offsetHeight` at each of the three levels.
 
-### 6.4 Yielding the microphone
+### 6.4 One agent, one conversation; background agents (ticket 368)
+
+There is one **conversation view**: `AgentDialog` in `pages/AgentConversation.tsx` (title bar `TaskHead`, stage bar on top, messages, input box, records column). The project page and the task page both draw it. The only differences are the records and the text they pass to `useTaskScene`.
+
+- **Routes**: `#/projects/<p>/tasks/<t>[/at/<id>]` is the project's conversation with a task named. `TaskDetail` in `TasksPage` asks `taskHomeProject` where a task lives (an internal task's `internal.projectId`, or the project whose owner is this task's owner) and uses `replaceRoute` to swap the address without adding history, so no caller of `#/tasks/<id>` had to change. Cross-project tasks and tasks outside any project stay on the task page. The old `/chat` address still works and is the same page as `#/projects/<p>`.
+- **Which task it shows**: `projectConversationTask`: the one named in the address → the task of the owner's current work order → running, waiting for you, planning, paused → the latest ended and not archived. Queued tasks don't take the spot; they're in the "internal tasks" section of the records.
+- **Input box**: `sayingScopeOf` and `userMessageScope` are unchanged. An internal plain task (active, or named and `taskAcceptsMessages`) carries `taskId`; everything else uses the project conversation's scope.
+- **Stage bar**: `useStagePanel` in `ui/conversation/stage-panel.tsx`: one line (`data-stage-bar="live"|"done"`) + half-open rail + handle for the full graph. Collapsing is per device (`ergo-stage-side`); a finished task defaults to collapsed without writing the setting. The old wide-screen stage column is gone; wide and narrow share this.
+- **Records on a phone**: a layer of the detail slide-in (`DetailTarget` `{type:"archive"}`), opened from the title or the first "⋯" item; drilling in from there uses `detail.go`, and ‹ returns to the records.
+
+**Background agents**: `daemon/sub-agents/background.ts`.
+
+- Data: a `DerivedView` projects sub-agent events (internal channel `sub_agents`), tool calls and the ledger into `background_agents` and `background_agent_lines`. It refills on first start, so old data is listed too. Tool calls stay in `tool_call_details`, indexed by agent.
+- New events, all on `sub_agents`: `sub_agent_said` (the `transcript` hook in `one-shot.ts`, written on each `message_final` with text, stored by `sub-agents.ts`); `review_started` and `review_finished` (the `record` hook in `tasks/review.ts`). A failed write is only logged and doesn't affect the work. Old reviews without `review_started` are derived from the ledger; old runs without `sub_agent_said` report `saidRecorded: false`.
+- Deletion: `purgedParallelPayload` in `material-source.ts` replaces the text in these events with the purged marker; the list filters out deleted tasks with `tasks.get`.
+- API: `GET /api/agents/<owner>/background` and `GET /api/agents/<sub-agent>/transcript`, read-only. There's no way to send to one (`maintainer:sa-1` isn't a conversation you can post to).
+- Push: an ephemeral event that doesn't enter the event log (channel `background_agents`, `EPHEMERAL_EVENT_TYPES`), carrying only the owner id and throttled per owner to 400 ms. The web `ui-state` folds it into a version number, and `useBackgroundAgents` refetches when the version changes. That also keeps it out of recorded replays.
+- Sub-agents inside a runtime (Claude Code's `parentCallId`) don't count; they appear as tool calls in the owner's conversation.
+
+### 6.5 Yielding the microphone
 
 In voice mode ergo keeps the microphone warmed up for instant push-to-talk; but whenever **a text-entry element gets focus**, or the window loses system focus, all tracks stop immediately so the system keyboard's voice input isn't blocked ("microphone in use"). After focus returns it waits 0.5 s before warming up again; focus changes never interrupt a recording in progress. The rules live in one place in the state layer (`voiceMicCloseReason` / `voiceMicOpenReason` in `state/voice-mic.ts`, table-tested in `test/state/voice-mic.test.ts`), wired to the browser in `app/voice-browser.ts`. Recordings carry diagnostics (`capture`: backend, press-to-record latency, peak…), and silent recordings are not sent. The HarmonyOS app uses native recording and doesn't need to yield ([8.4](#84-native-recording)).
 

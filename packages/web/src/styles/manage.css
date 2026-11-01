@@ -539,3 +539,222 @@ button.device-main {
   color: var(--ok);
   font-weight: 600;
 }
+/* ── 368 号票：对话框标题栏上点标题开档案（手机）；"⋯"里任务那几样是哪个任务的；档案里这个任务的一块 ── */
+.th-name-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+/* 手机：标题栏放不下"等你……"，等你的时候单独一行（369 号票：手机也要看得到、点得到） */
+.th-jump {
+  flex: none;
+  min-width: 0;
+  padding: 3px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-s);
+}
+.th-menu-title {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task-brief {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.task-brief-label {
+  font-size: var(--fs-s);
+}
+.task-brief-title {
+  font-weight: 700;
+}
+.task-brief-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.task-brief-panels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.task-brief-acts {
+  border-top: none;
+  padding-top: 0;
+}
+
+/* ── 368 号票：背后的 agent（标题栏入口、列表、只读对话） ── */
+.bg-entry {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--fs-s);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.bg-entry-running {
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+}
+.bg-entry-count {
+  font-variant-numeric: tabular-nums;
+}
+.bg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bg-list-intro {
+  font-size: var(--fs-s);
+}
+.bg-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bg-card.bg-running {
+  border-color: var(--primary);
+}
+.bg-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.bg-card-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bg-card-head .tool-more {
+  margin-left: auto;
+}
+.bg-st-running {
+  color: var(--primary);
+}
+.bg-st-done {
+  color: var(--ok);
+}
+.bg-st-failed {
+  color: var(--high-fg);
+}
+.bg-st-stopped {
+  color: var(--muted);
+}
+.bg-card-purpose {
+  font-weight: 600;
+}
+.bg-card-stage,
+.bg-card-facts {
+  font-size: var(--fs-s);
+}
+.bg-card-doing {
+  color: var(--primary);
+  font-size: var(--fs-s);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bg-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bg-chat-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.bg-input,
+.bg-call {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  font-size: var(--fs-s);
+}
+.bg-input > summary,
+.bg-call > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+.bg-input > summary {
+  font-weight: 600;
+}
+.bg-input > .dt-doc {
+  padding: 0 8px 8px;
+}
+.bg-call-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bg-call-issue {
+  border-color: var(--high-fg);
+}
+.bg-call-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 8px 8px;
+}
+.bg-time {
+  flex: none;
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+.bg-said {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.bg-result {
+  padding: 8px 10px;
+  border-left: 3px solid var(--ok);
+  background: var(--surface);
+}
+.bg-result-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.bg-chat-note,
+.bg-chat-end {
+  font-size: var(--fs-s);
+}

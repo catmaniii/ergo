@@ -16,6 +16,8 @@
 // 设置里的删除素材（158 号票起能看每条的内容；167 号票起在记忆 · 素材，能按时间段、种类、会话、关键词筛）：假素材照假会话编
 // （fake-materials.ts），删了只在这一页的内存里。
 import type { DaemonHttp } from "../app/daemon-http.ts";
+import type { BackgroundAgentList, BackgroundAgentTranscript } from "../state/index.ts";
+import { fakeBackgroundAgents, fakeBackgroundTranscript } from "./fake-background-agents.ts";
 import { FakePersonalFiles } from "./fake-personal-files.ts";
 import type { UploadProgress } from "../app/uploader.ts";
 import { wavOf } from "../app/voice-wav.ts";
@@ -884,6 +886,15 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   resetSystemPrompt(id: string): Promise<SystemPromptDetail> {
     return attempt(() => this.prompts.reset(id));
+  }
+
+  // 背后的 agent（368 号票）：编的
+  backgroundAgents(maintainerId: string): Promise<BackgroundAgentList> {
+    return attempt(() => fakeBackgroundAgents(maintainerId));
+  }
+
+  backgroundAgentTranscript(agentId: string): Promise<BackgroundAgentTranscript | undefined> {
+    return attempt(() => fakeBackgroundTranscript(agentId));
   }
 
   // 每个 agent 的 ⚙（114 号票）：编的，只在内存里

@@ -1,11 +1,11 @@
 // 88 号票：宽屏下任务看板占满内容区、每组排成多列网格，点卡片整页换成任务详情（左上角 ‹、浏览器后退、鸿蒙返回键回到看板，
-// 回来时滚回原来的位置，手机上也是）；长程任务宽屏的阶段栏能整栏藏掉，按设备记住。窄屏的阶段抽屉照旧。
+// 回来时滚回原来的位置，手机上也是）。368 号票起阶段不再有单独的栏，宽窄屏都是对话框顶部的阶段条。
 // 回放：长程任务（task-execution）、流程（workflow）、普通任务（missed-triggers）主切面录下的事件流
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { parseHash } from "../../src/app/route-hash.ts";
-import { boardScrollOnReturn, dragStageSideWidth, replay, STAGE_SIDE_WIDTH_INITIAL, stageChipPlace, stageSideLayout, stageSidePrefOf, stageSideWidthOf, taskHasStages, taskKind, taskPageView, taskStages, type UiInput, type UiState } from "../../src/state/index.ts";
+import { boardScrollOnReturn, replay, stageSidePrefOf, taskHasStages, taskKind, taskPageView, taskStages, type UiInput, type UiState } from "../../src/state/index.ts";
 
 function load(name: string): UiInput[] {
   return JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "recordings", `${name}.json`), "utf8")) as UiInput[];
@@ -53,37 +53,22 @@ describe("从任务详情回到看板时的滚动位置（宽窄屏一样，用�
   });
 });
 
-describe("长程任务的阶段栏：宽屏能整栏藏掉，按设备记住", () => {
-  test("记住的值：只认“藏掉”；没记过、认不出的都按开着（默认）", () => {
+describe("对话框顶部的阶段条（368 号票）：展开还是收成一行按设备记住", () => {
+  test("记住的值：只认“收起”；没记过、认不出的都按展开（默认）", () => {
     expect(stageSidePrefOf("closed")).toBe("closed");
     expect(stageSidePrefOf(null)).toBe("open");
     expect(stageSidePrefOf("open")).toBe("open");
     expect(stageSidePrefOf("collapsed")).toBe("open");
   });
 
-  test("宽屏开着是会话左边的阶段栏、藏掉了什么都不画（会话占满）；窄屏不管记住的是什么，照旧是阶段抽屉；没有阶段的都不显示", () => {
-    expect(stageSideLayout({ wide: true, hasStages: true, pref: "open" })).toBe("side");
-    expect(stageSideLayout({ wide: true, hasStages: true, pref: "closed" })).toBe("closed");
-    expect(stageSideLayout({ wide: false, hasStages: true, pref: "open" })).toBe("drawer");
-    expect(stageSideLayout({ wide: false, hasStages: true, pref: "closed" })).toBe("drawer");
-    expect(stageSideLayout({ wide: true, hasStages: false, pref: "open" })).toBe("none");
-    expect(stageSideLayout({ wide: false, hasStages: false, pref: "closed" })).toBe("none");
-  });
-
-  test("阶段标签的位置：宽屏挪到标题栏左边（返回之后、标题之前，正在阶段栏上方）；窄屏照旧在标题栏右边", () => {
-    expect(stageChipPlace(true)).toBe("lead");
-    expect(stageChipPlace(false)).toBe("trail");
-  });
-
-  test("回放：长程任务（task-execution）建好了阶段，有阶段栏", () => {
+  test("回放：长程任务（task-execution）建好了阶段，有阶段条", () => {
     const state = replay(load("task-execution"));
     const task = onlyTask(state);
     expect(taskKind(task)).toBe("long_running");
     expect(taskHasStages(task, taskStages(state, task.id))).toBe(true);
-    expect(stageSideLayout({ wide: true, hasStages: taskHasStages(task, taskStages(state, task.id)), pref: "closed" })).toBe("closed");
   });
 
-  test("回放：流程（workflow）只有一个内部的执行阶段、显示步骤，普通任务（missed-triggers）没有阶段：都没有阶段栏", () => {
+  test("回放：流程（workflow）只有一个内部的执行阶段、显示步骤，普通任务（missed-triggers）没有阶段：都没有阶段条", () => {
     const flow = replay(load("workflow"));
     const flowTask = onlyTask(flow);
     expect(taskKind(flowTask)).toBe("workflow");
@@ -93,28 +78,5 @@ describe("长程任务的阶段栏：宽屏能整栏藏掉，按设备记住", (
     const plainTask = onlyTask(plain);
     expect(taskKind(plainTask)).toBe("plain");
     expect(taskHasStages(plainTask, taskStages(plain, plainTask.id))).toBe(false);
-    expect(stageSideLayout({ wide: true, hasStages: taskHasStages(plainTask, taskStages(plain, plainTask.id)), pref: "open" })).toBe("none");
-  });
-});
-
-describe("阶段栏和聊天之间的分界线（91 号票：默认 320，最窄 200，最宽屏宽的 60%）", () => {
-  test("默认 320；往右拖变宽、往左拖变窄", () => {
-    expect(STAGE_SIDE_WIDTH_INITIAL).toBe(320);
-    expect(dragStageSideWidth(320, 40, 1280)).toBe(360);
-    expect(dragStageSideWidth(320, -40, 1280)).toBe(280);
-  });
-
-  test("最窄 200；最宽屏宽的 60%（窄的屏也至少能拖到 360）", () => {
-    expect(dragStageSideWidth(220, -100, 1280)).toBe(200);
-    expect(dragStageSideWidth(700, 200, 1280)).toBe(768);
-    expect(dragStageSideWidth(700, 200, 1600)).toBe(900);
-    expect(dragStageSideWidth(340, 100, 500)).toBe(360);
-  });
-
-  test("这台设备记住拖到的宽度（不记的话刷新回 320；合并前用户点了头）；认不出、太窄的按默认", () => {
-    expect(stageSideWidthOf(null)).toBe(320);
-    expect(stageSideWidthOf("456")).toBe(456);
-    expect(stageSideWidthOf("abc")).toBe(320);
-    expect(stageSideWidthOf("120")).toBe(320);
   });
 });

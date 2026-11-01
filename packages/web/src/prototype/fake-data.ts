@@ -55,6 +55,7 @@ import {
 } from "../state/index.ts";
 import { at, MAINTAINERS } from "./fake-conversations.ts";
 import { PHOTOS_BUILD_EVENTS, RECIPES_JOBS, RECIPES_OPERATIONS, RECIPES_OPERATIONS_TASKS } from "./fake-operations.ts";
+import { LEDGER_BUILD_ID } from "./fake-long-tasks.ts";
 
 // ---------- 任务看板 ----------
 
@@ -452,7 +453,7 @@ function fakeProject(x: Pick<Project, "id" | "name" | "goal" | "state"> & Partia
 }
 
 export const FAKE_PROJECTS: Project[] = [
-  fakeProject({ id: "p-ledger", name: "记账本", goal: "所有银行和支付账单进一个本子，按月出报表", state: "in_use", kind: "dev", charterCardId: "c-charter-ledger", toolkit: { skills: ["demo-pdf-reader"], mcp: [], bash: true, network: false } }),
+  fakeProject({ id: "p-ledger", name: "记账本", goal: "所有银行和支付账单进一个本子，按月出报表", state: "in_use", kind: "dev", charterCardId: "c-charter-ledger", buildTaskId: LEDGER_BUILD_ID, toolkit: { skills: ["demo-pdf-reader"], mcp: [], bash: true, network: false } }),
   fakeProject({
     id: "p-blog",
     name: "个人博客",

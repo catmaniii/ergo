@@ -114,6 +114,30 @@ describe("哪些照常显示、其余怎么分组", () => {
   });
 });
 
+describe("项目的对话框：会话不是这个任务独占的（368 号票）", () => {
+  test("别的任务、项目自己的条目断开、照常显示，不并进框也不收成一句话；这个任务不在阶段里的也不收", () => {
+    const { state, items } = session("task-execution");
+    // 这一段会话里插一条项目自己的工具调用（不带任务）
+    const tools = items.findIndex((it) => it.kind === "tool_group");
+    const others = items.map((it, i) => (i === tools ? { ...it, scope: {} } : it));
+    const own = stageGroups(state, others, "t-1");
+    const shared = stageGroups(state, others, "t-1", true);
+    // 不共用的时候它跟着后面的阶段，共用的时候不在任何一个框里
+    expect(own.flatMap((g) => g.ids)).toContain(others[tools]!.id);
+    expect(shared.flatMap((g) => g.ids)).not.toContain(others[tools]!.id);
+    expect(shared.every((g) => g.stageId !== undefined)).toBe(true);
+    // 别的任务的会话：一个框都不成
+    expect(stageGroups(state, items, "t-别的", true)).toEqual([]);
+    // 这个任务的条目照旧成框，和不共用时一样的阶段
+    expect(new Set(shared.map((g) => g.stageId))).toEqual(new Set(stageGroups(state, items, "t-1").flatMap((g) => g.stageId ?? [])));
+  });
+
+  test("没有共用：和原来一模一样（任务自己的对话框）", () => {
+    const { state, items } = session("task-execution");
+    expect(stageGroups(state, items, "t-1", false)).toEqual(stageGroups(state, items, "t-1"));
+  });
+});
+
 describe("每个框上写什么", () => {
   test("验收通过的：✓ 完成、一句小结是负责人交上来时写的那一两句；你从这里重做之前的那一轮写已作废", () => {
     const { state, items } = session("task-execution");

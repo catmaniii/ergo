@@ -13,6 +13,7 @@
 // 侧边栏模式收到交来的外观马上换风格。
 // 360 号票：小屏和手机上，会话缩小后点开的分支整块留在视口里。
 // 369 号票：标题上的"等你……"手机、电脑都看得到、点得到，点了跳到要处理的那张卡、闪一下，再点一次再闪；卡在别的页的跳过去；答完就不再等你。
+// 368 号票：同一个 agent 不管从哪进去都是同一个对话框（标题栏、阶段条、输入框都在）；老的 #/tasks/<任务> 跳过去并定位；做完收成一行；背后的 agent 的列表和只读对话。
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -41,6 +42,10 @@ const PAGES = [
   "#/projects/p-ledger/chat",
   // 262 号票：规范上线之前建的旧作品集网站，"规范"一块下有一张等你选的"补齐规范文档"卡
   "#/projects/p-oldsite",
+  // 368 号票：项目内部任务的老地址换到项目的对话框；跨项目、不属于项目的任务有自己的页面
+  "#/tasks/t-ledger-v1",
+  "#/tasks/t-newpc",
+  "#/tasks/t-bills",
   "#/inbox",
   "#/browse",
   "#/calendar",
@@ -85,7 +90,7 @@ const PAGES = [
  * 英文下已经迁好的地方：在这一页上，这个元素里（去掉 except 挑出来的还没迁的部分、用户的内容）不能有中文。
  * 迁移票迁完一块就往这里加一行
  */
-const EN_DONE: { hash: string; selector: string; except?: string }[] = [
+const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boolean }[] = [
   // 168 号票：外壳——导航（竖栏、横栏连同量长度的样本）、设置列表的各项（外观与风格的副标题是状态层的 appearanceSummary 加风格名，170、169 号票的）、"更多"、设置 · 语言（本地名"中文"、用户起的名字除外）
   { hash: "#/secretary", selector: "nav" },
   { hash: "#/more/settings", selector: ".topbar .title" },
@@ -105,7 +110,9 @@ const EN_DONE: { hash: string; selector: string; except?: string }[] = [
   { hash: "#/secretary", selector: ".composer", except: ".assistant-name" },
   { hash: "#/tasks/t-photos", selector: ".composer" },
   { hash: "#/tasks/t-photos", selector: ".ibar-n" },
-  { hash: "#/tasks/t-photos", selector: ".md-side-wait, .md-counts, .stage-prog" },
+  { hash: "#/tasks/t-photos", selector: ".stage-prog" },
+  // 368 号票：标题栏上的入口、背后的 agent 的说法（手机上入口只有图标和个数，全称在说明里）
+  { hash: "#/tasks/t-newpc", selector: ".bg-entry-text", wideOnly: true },
   { hash: "#/projects/p-ledger/chat", selector: ".xcard-tag" },
   { hash: "#/projects/p-ledger/chat", selector: ".auth-result, .charter-diff-k" },
   { hash: "#/inbox", selector: ".notify-permission" },
@@ -120,11 +127,12 @@ const EN_DONE: { hash: string; selector: string; except?: string }[] = [
   { hash: "#/projects", selector: ".topbar" },
   { hash: "#/projects", selector: ".pwall-sum-row:last-child" },
   { hash: "#/projects", selector: ".pwall > .hint", except: ".assistant-name" },
-  { hash: "#/projects/p-ledger", selector: ".sec-head" },
+  // 368 号票：项目详情在档案里，手机上要点开才有（下面单独查）
+  { hash: "#/projects/p-ledger", selector: ".sec-head", wideOnly: true },
   // 258 号票：项目页上的"规范"一块（文档名、写了 / 只有模板 / 缺都是协议包的说法）
-  { hash: "#/projects/p-ledger", selector: ".proj-standard" },
+  { hash: "#/projects/p-ledger", selector: ".proj-standard", wideOnly: true },
   // 262 号票："补齐规范文档"卡上的说明、缺的几份、两个按钮（项目名是内容，不在这里查）
-  { hash: "#/projects/p-oldsite", selector: ".xcard-standard_backfill .xcard-body, .xcard-standard_backfill .auth-actions" },
+  { hash: "#/projects/p-oldsite", selector: ".xcard-standard_backfill .xcard-body, .xcard-standard_backfill .auth-actions", wideOnly: true },
   { hash: "#/calendar", selector: ".cal-title" },
   { hash: "#/inbox", selector: ".topbar .title" },
   // 设置：身份组里的"我的名字"那一行（43 号票的"个人助理的名字"2026-10-23 起不单独设了，改成默认角色的名字）
@@ -671,13 +679,14 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await page.locator('.inbox-jump a[href="#/secretary/at/c-q-1"]').waitFor();
 
       // 相册库的负责人等你批准：卡在任务「家庭照片整理与去重」里，跳过去
-      await go(viewport.width >= 900 ? "#/projects/p-photos" : "#/projects/p-photos/chat");
+      await go("#/projects/p-photos");
       const approval = page.locator("a.act-jump").first();
       await approval.waitFor();
       expect(await approval.getAttribute("href")).toBe("#/tasks/t-photos/at/c-appr-1");
       await approval.click();
       await flashed.waitFor({ timeout: 5000 });
-      expect(await hash()).toBe("#/tasks/t-photos/at/c-appr-1");
+      // 368 号票：项目内部任务没有单独的页面，换到项目的对话框、定位到这个任务和那张卡
+      expect(await hash()).toBe("#/projects/p-photos/tasks/t-photos/at/c-appr-1");
 
       // 答完：标题不再说等你，不再是链接
       await go("#/secretary");
@@ -685,6 +694,145 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await answer.click();
       await jump.waitFor({ state: "detached", timeout: 5000 });
       expect(await page.locator(".topbar .act").first().getAttribute("class")).toContain("act-sleeping");
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  // 368 号票（用户 2026-11-01）：不管点哪里进去，同一个 agent 的对话框看起来都一样
+  test.each([
+    ["手机", { width: 390, height: 844 }],
+    ["电脑", { width: 1280, height: 800 }],
+  ])("%s宽：项目内部任务从项目卡片、任务链接、待办进去是同一个界面（标题栏、阶段条、输入框都在）；老的 #/tasks/<任务> 跳过去并定位", async (_what, viewport) => {
+    const { page, errors } = await open(viewport);
+    const go = (to: string) => page.evaluate(`window.location.hash = ${JSON.stringify(to)}`);
+    const hash = () => page.evaluate("window.location.hash");
+    /** 对话框的样子：标题、阶段标签、输入框 */
+    const dialog = async () => {
+      await page.locator("[data-agent-dialog] .composer").waitFor();
+      return {
+        agent: await page.locator("[data-agent-dialog]").getAttribute("data-agent-dialog"),
+        title: await page.locator(".topbar .th-name").first().innerText(),
+        stage: await page.locator('[data-stage-bar="live"] .stage-chip').count(),
+        rail: await page.locator(".stage-bar-line + .md .rail").count(),
+        composer: await page.locator(".composer textarea").count(),
+      };
+    };
+    try {
+      await go("#/projects");
+      await page.locator('.pfile:has-text("相册库") .pfile-hit').click();
+      expect(await hash()).toBe("#/projects/p-photos");
+      const fromCard = await dialog();
+      expect(fromCard).toEqual({ agent: "project-photos", title: "相册库", stage: 1, rail: 1, composer: 1 });
+
+      // 老的任务链接：跳到项目的对话框、定位到这个任务（同一个界面）
+      await go("#/tasks/t-photos");
+      await page.waitForFunction(`window.location.hash === "#/projects/p-photos/tasks/t-photos"`, undefined, { timeout: 5000 });
+      expect(await dialog()).toEqual(fromCard);
+      // 带 at 的定位到那一条
+      await go("#/tasks/t-photos/at/c-appr-1");
+      await page.waitForFunction(`window.location.hash === "#/projects/p-photos/tasks/t-photos/at/c-appr-1"`, undefined, { timeout: 5000 });
+      expect(await dialog()).toEqual(fromCard);
+      await page.locator(".dp-flash, .flash").first().waitFor({ timeout: 5000 });
+      // 待办里的"去看看 ›"：地址还是任务的，点了到同一个界面
+      await go("#/inbox/i-appr");
+      await page.locator('.inbox-jump a[href^="#/tasks/t-photos"]').click();
+      await page.waitForFunction(`window.location.hash.startsWith("#/projects/p-photos/tasks/t-photos")`, undefined, { timeout: 5000 });
+      expect(await dialog()).toEqual(fromCard);
+
+      // 手机上不再多一层项目页：档案点标题滑进来；宽屏就在左边。档案里有项目的详情和内部任务（排队的也在），点了定位到它
+      const phone = viewport.width < 900;
+      expect(await page.locator(".proj-side").count()).toBe(phone ? 0 : 1);
+      if (phone) await page.locator(".th-name-link").click();
+      await page.locator(phone ? ".dp-page.at-detail .proj-head" : ".proj-side .proj-head").waitFor();
+      expect(await page.locator("[data-task-brief=t-photos]").count()).toBe(1);
+
+      // 跨项目的、不属于项目的任务：自己的页面，同一个组件
+      await go("#/tasks/t-newpc");
+      await page.locator("[data-agent-dialog] .composer").waitFor();
+      expect(await hash()).toBe("#/tasks/t-newpc");
+      expect(await dialog()).toMatchObject({ title: "换新电脑：把旧电脑的资料搬过去", stage: 1, rail: 1, composer: 1 });
+      // 原型的假任务也是
+      await go("#/tasks/t-bills");
+      await page.locator("[data-agent-dialog]").waitFor();
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  test.each([
+    ["手机", { width: 390, height: 844 }],
+    ["电脑", { width: 1280, height: 800 }],
+  ])("%s宽：阶段条在对话框顶部，点一个阶段看交付件和验收标准；做完收成一行，点开能看；没有任务不占地方", async (_what, viewport) => {
+    const { page, errors } = await open(viewport);
+    const go = (to: string) => page.evaluate(`window.location.hash = ${JSON.stringify(to)}`);
+    try {
+      // 记账本：首个建设任务做完了，收成一行
+      await go("#/projects/p-ledger");
+      const done = page.locator('[data-stage-bar="done"] .stage-chip');
+      await done.waitFor();
+      expect(await done.innerText()).toContain("首版已完成");
+      expect(await page.locator(".md .rail").count()).toBe(0);
+      await done.click();
+      await page.locator(".md .rail").waitFor();
+      await page.locator('.rail-node:has-text("按月出报表")').click();
+      const stage = viewport.width < 900 ? page.locator(".dp-page.at-detail") : page.locator(".pane-detail");
+      await stage.waitFor();
+      await expect.poll(() => stage.innerText(), { timeout: 5000 }).toContain("九月份月报的合计和银行对账单对得上");
+      expect(await stage.innerText()).toContain("月报模板");
+      // 没有任务（家庭网盘）：阶段条不占地方，标题栏写项目的状态
+      await go("#/projects/p-netdisk");
+      await page.locator('[data-agent-dialog="project-netdisk"] .composer').waitFor();
+      expect(await page.locator(".stage-bar-line").count()).toBe(0);
+      expect(await page.locator(".topbar .pst").count()).toBe(1);
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  test.each([
+    ["手机", { width: 390, height: 844 }],
+    ["电脑", { width: 1280, height: 800 }],
+  ])("%s宽：标题栏有背后的 agent 的入口，列表运行中的在前，点开只读对话没有输入框；老的写明没记下它说的话；从来没有过的不显示入口", async (_what, viewport) => {
+    const { page, errors } = await open(viewport);
+    const go = (to: string) => page.evaluate(`window.location.hash = ${JSON.stringify(to)}`);
+    const pane = viewport.width < 900 ? page.locator(".dp-page.at-detail") : page.locator(".pane-detail");
+    try {
+      await go("#/projects/p-photos");
+      const entry = page.locator("[data-bg-entry]");
+      await entry.waitFor();
+      expect(await entry.getAttribute("aria-label")).toBe("背后有 2 个 agent 在干活");
+      await entry.click();
+      await pane.locator("[data-bg-agent]").first().waitFor();
+      expect(await pane.locator("[data-bg-agent]").evaluateAll((els) => els.map((e) => e.getAttribute("data-bg-agent")))).toEqual(["sa-4", "sa-3", "sa-2", "review-t-photos-s1-1", "sa-1"]);
+      const first = await pane.locator('[data-bg-agent="sa-4"]').innerText();
+      for (const part of ["运行中", "按年份给 2024 年的照片建事件目录", "按事件新建目录", "工具调用 14 次", "8.6 万 token"]) expect(first).toContain(part);
+      expect(first).toMatch(/运行 group_by_event\.py|python group_by_event/);
+
+      // 做完的：对话能看（收到的指令、说的话、工具调用、结果），没有输入框、没有继续
+      await pane.locator('[data-bg-agent="sa-2"]').click();
+      await pane.locator("[data-bg-chat=done]").waitFor();
+      expect(await pane.locator("[data-bg-entry-kind]").evaluateAll((els) => els.map((e) => e.getAttribute("data-bg-entry-kind")))).toEqual(["input", "said", "tool_call", "tool_call", "said", "result"]);
+      expect(await pane.locator(".composer, textarea, button:has-text('继续')").count()).toBe(0);
+      expect(await pane.innerText()).toContain("不能再叫它接着做");
+      // 工具调用点开现取完整内容（原型取不到时退回摘要）
+      await pane.locator("[data-bg-entry-kind=tool_call] > summary").first().click();
+      await pane.locator(".bg-call .dt-pre").first().waitFor();
+
+      // 老的：写明没记下
+      await pane.locator(".detail-bar .icon-btn").click();
+      await pane.locator('[data-bg-agent="sa-1"]').click();
+      await pane.locator("[data-bg-chat=stopped]").waitFor();
+      expect(await pane.innerText()).toContain("这次运行没有记下它说的话");
+
+      // 从来没有过的不显示入口
+      await go("#/projects/p-netdisk");
+      await page.locator('[data-agent-dialog="project-netdisk"] .composer').waitFor();
+      await page.waitForTimeout(300);
+      expect(await entry.count()).toBe(0);
       expect(errors).toEqual([]);
     } finally {
       await page.close();
@@ -837,7 +985,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
         for (const hit of shown.matchAll(/.{0,30}maintainer.{0,30}/gi)) oldNames.push(`${hash}：${hit[0]}`);
       }
       const leaks: string[] = [];
-      for (const { hash, selector, except } of EN_DONE) {
+      for (const { hash, selector, except, wideOnly } of EN_DONE) {
+        if (wideOnly && viewport.width < 900) continue;
         await page.evaluate(`window.location.hash = ${JSON.stringify(hash)}`);
         await page.waitForTimeout(200);
         // 每个匹配的元素去掉 except 挑出来的部分之后的字（:not(*) 什么都不挑）

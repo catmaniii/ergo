@@ -30,6 +30,24 @@ export function goBackTo(r: Route): void {
   backToHash(window, toHash(r));
 }
 
+/**
+ * 项目对话框的 ‹（368 号票）：回项目一览；从看板点进来的（运营方案那几条任务的卡，换成了项目的对话框）回看板，和点进任务详情时一样
+ */
+export function goBackFromProject(): void {
+  const from = cameFrom(window);
+  const route = from === undefined ? undefined : parseHash(from);
+  backToHash(window, route?.tab === "tasks" && route.taskId === undefined ? from! : toHash({ tab: "projects" }));
+}
+
+/**
+ * 地址换成 r、不压新记录（368 号票：#/tasks/<任务> 换成项目的对话框）；这一条记下的来处留着，‹ 照样回得去
+ */
+export function replaceRoute(r: Route): void {
+  const state: unknown = window.history.state;
+  window.location.replace(toHash(r));
+  window.history.replaceState(state, "");
+}
+
 /** 素材详情的 ‹（343 号票）：从数据源详情的"已获取的"点过来的回那里，别的回列表 r */
 export function goBackFromMaterial(r: Route): void {
   const from = cameFrom(window);

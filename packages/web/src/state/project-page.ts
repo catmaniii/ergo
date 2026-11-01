@@ -3,32 +3,71 @@
 // - 项目一览和项目二选一：没点项目时整页是项目一览（宽屏每组排成多列的"档案墙"，窄屏一列），按项目状态分组（使用中、建设中、
 //   筹备中、已停用、已归档；没有项目的组不列），每组标题点一下收起 / 展开，按设备记住，默认已归档收起（照 90 号票的看板分组）；
 //   顶上一条概览（各状态几个、负责人在干活的、进行中的内部任务、定时触发的）；
-// - 宽屏点卡片、从别处跳进来（#/projects/<项目>，也认 …/chat、…/jobs/<作业>）整页是这个项目：和负责人的会话占主区，项目的详情
-//   （项目头、立项书、内部任务、定时触发的、工单流水线、工具包、范围记录、负责人）在会话左边的档案栏里，栏顶 × 整栏藏掉、
-//   标题栏左边的"项目档案"标签再打开，分界线能拖，开合和宽度按设备记住（照长程任务的阶段栏）；日历里点作业过来时这一次把档案栏打开；
-// - 窄屏照旧：一览 → 项目页（#/projects/<项目>）→ 负责人会话（…/chat）；
+// - 点卡片、从别处跳进来（#/projects/<项目>，也认 …/chat、…/jobs/<作业>）整页是这个项目的对话框：和负责人的会话占主区，项目的详情
+//   （项目头、立项书、内部任务、定时触发的、工单流水线、工具包、范围记录、负责人）在档案里——宽屏在会话左边，栏顶 × 整栏藏掉、
+//   标题栏左边的"项目档案"标签再打开，分界线能拖，开合和宽度按设备记住（照原来长程任务的阶段栏）；日历里点作业过来时这一次把档案打开；
+// - 368 号票（用户 2026-11-01："不管点哪里进去，同一个 agent 的对话框看起来应该都一样"）：手机上也是点卡片就进对话框，不再多一层项目页，
+//   档案从右边滑进来；项目负责人做的任务没有单独的详情页（#/tasks/<任务> 换成 #/projects/<项目>/tasks/<任务>，定位到这个任务）；
 // - 从项目回到一览时滚回离开时的位置（宽窄屏一样，照 88 号票用户定的任务看板）。
-import { type ActivityState, isInternalTo, PROJECT_KIND_LABEL, PROJECT_STATE_LABEL, t, UNFINISHED_TASK_STATES } from "./protocol.ts";
+import { type ActivityState, ENDED_TASK_STATES, isInternalTo, isJobRunWorkOrder, type Project, PROJECT_KIND_LABEL, PROJECT_STATE_LABEL, t, type Task, type TaskState, UNFINISHED_TASK_STATES } from "./protocol.ts";
 import { foldedOf, foldedText } from "./board-fold.ts";
 import { PROJECT_GROUPS, type ProjectView, projectViews } from "./projects.ts";
 import type { StageSidePref } from "./task-page.ts";
 import type { UiState } from "./ui-state.ts";
+import { projectPipeline } from "./work-orders.ts";
 
 /** 项目一览的一组：按项目状态 */
 export type ProjectGroup = (typeof PROJECT_GROUPS)[number];
 
 /**
- * 项目页现在显示什么：项目一览（宽屏 grid 多列档案墙、窄屏 list 一列），或者一个项目——宽屏 full（会话 + 档案栏，整页），
- * 窄屏 page（项目页）或 chat（负责人会话）。job 是日历里点名的那个定时作业（项目详情里那一行高亮）
+ * 项目页现在显示什么：项目一览（宽屏 grid 多列档案墙、窄屏 list 一列），或者一个项目的对话框（宽窄屏一样，368 号票）。
+ * job 是日历里点名的那个定时作业（档案里那一行高亮），task 是地址点名要定位到的任务
  */
-export type ProjectPageView = { kind: "wall"; layout: "grid" | "list" } | { kind: "project"; projectId: string; pane: "full" | "page" | "chat"; job?: string };
+export type ProjectPageView = { kind: "wall"; layout: "grid" | "list" } | { kind: "project"; projectId: string; job?: string; task?: string };
 
-/** 地址拆出来的项目、会话、作业（#/projects/<项目>、…/chat、…/jobs/<作业>）加上宽窄，定项目页显示什么 */
-export function projectPageView(at: { wide: boolean; projectId?: string | undefined; chat?: boolean | undefined; jobId?: string | undefined }): ProjectPageView {
+/** 地址拆出来的项目、作业、任务（#/projects/<项目>、…/chat、…/jobs/<作业>、…/tasks/<任务>）加上宽窄，定项目页显示什么；…/chat 是老地址，和项目本身一样 */
+export function projectPageView(at: { wide: boolean; projectId?: string | undefined; jobId?: string | undefined; taskId?: string | undefined }): ProjectPageView {
   if (!at.projectId) return { kind: "wall", layout: at.wide ? "grid" : "list" };
-  const job = at.jobId ? { job: at.jobId } : {};
-  if (at.wide) return { kind: "project", projectId: at.projectId, pane: "full", ...job };
-  return at.chat ? { kind: "project", projectId: at.projectId, pane: "chat" } : { kind: "project", projectId: at.projectId, pane: "page", ...job };
+  return { kind: "project", projectId: at.projectId, ...(at.jobId ? { job: at.jobId } : {}), ...(at.taskId ? { task: at.taskId } : {}) };
+}
+
+// ───────────────────────── 对话框里显示哪个任务（368 号票） ─────────────────────────
+
+/**
+ * 这个任务在哪个项目的对话框里（368 号票）：由项目的负责人做的任务（内部任务，或者涉及一个项目、交给它的负责人的，转为项目的那个任务也是）
+ * 和项目是同一个 agent、同一个对话框，没有自己的详情页。别的（跨项目的、不属于项目的，有自己的负责人）是 undefined
+ */
+export function taskHomeProject(state: UiState, task: Pick<Task, "maintainerId"> & { internal?: Task["internal"] }): Project | undefined {
+  if (task.internal && state.projects[task.internal.projectId]) return state.projects[task.internal.projectId];
+  return Object.values(state.projects).find((p) => p.maintainerId === task.maintainerId);
+}
+
+/** 正在做的任务里哪种状态排前面：在执行的、等你的、规划中的、暂停的。排队的、定时触发运营中的不算正在做（排队的在档案里列着） */
+const DOING_ORDER: readonly TaskState[] = ["running", "waiting_for_user", "awaiting_confirm", "planning", "paused"];
+
+const newestFirst = (a: Task, b: Task) => b.updatedAt.localeCompare(a.updatedAt);
+
+/**
+ * 项目的对话框里显示哪个任务（阶段条、标题栏上的任务状态和操作）：
+ * 1. 地址点名的（从任务链接、待办跳过来的）；
+ * 2. 负责人手上那张工单的任务（负责人一次只做一件事）；
+ * 3. 没有工单的（工单之外的内部任务）：正在做的，状态按 DOING_ORDER，同样状态新近有变化的在前；
+ * 4. 都没有：最近结束的那个（归档了的不算，阶段条收成一行）；
+ * 5. 还是没有：undefined，阶段条不占地方。
+ */
+export function projectConversationTask(state: UiState, project: Pick<Project, "id" | "maintainerId">, focus?: string): Task | undefined {
+  const mine = Object.values(state.tasks).filter((x) => x.maintainerId === project.maintainerId || isInternalTo(x, project.id));
+  const named = focus === undefined ? undefined : mine.find((x) => x.id === focus);
+  if (named) return named;
+  const onOrder = projectPipeline(state, project.id)
+    .active.map((v) => mine.find((x) => x.id === (isJobRunWorkOrder(v.workOrder) ? v.job?.ownerTaskId : v.workOrder.taskId)))
+    .find((x) => x !== undefined);
+  if (onOrder) return onOrder;
+  for (const s of DOING_ORDER) {
+    const doing = mine.filter((x) => x.state === s).toSorted(newestFirst)[0];
+    if (doing) return doing;
+  }
+  return mine.filter((x) => ENDED_TASK_STATES.includes(x.state) && x.state !== "archived").toSorted(newestFirst)[0];
 }
 
 /** 一览上的一张项目卡（像一份档案：上沿页签写种类和状态，正文是名字和一句话目标，底下一行是现在的动静） */
@@ -131,7 +170,7 @@ export function wallScrollOnReturn(saved: number | undefined): number | undefine
 }
 
 /**
- * 宽屏项目的档案栏：开着（会话左边）还是藏掉（会话占满，点标题栏左边的"项目档案"再打开）。按设备记住的值（读写在
+ * 宽屏的档案栏：开着（会话左边）还是藏掉（会话占满，点标题栏左边的"项目档案"再打开）。按设备记住的值（读写在
  * app/stage-side-setting.ts，另一个键）；日历里点作业过来的（job）这一次开着，好看到那一行，不写进设置
  */
 export function projectSideLayout(at: { pref: StageSidePref; job?: string | undefined }): "side" | "closed" {

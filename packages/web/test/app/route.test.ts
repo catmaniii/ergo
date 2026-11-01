@@ -173,6 +173,15 @@ describe("待办里跳过去的地址", () => {
     expect(parseHash(hash)).toMatchObject(route);
   });
 
+  test("368 号票：项目的对话框定位到任务，带 at 的定位到那一条；老地址 …/chat 照旧认", () => {
+    expect(toHash({ tab: "projects", projectId: "p-1", taskId: "t-1" })).toBe("#/projects/p-1/tasks/t-1");
+    expect(parseHash("#/projects/p-1/tasks/t-1")).toEqual({ tab: "projects", projectId: "p-1", taskId: "t-1" });
+    expect(toHash({ tab: "projects", projectId: "p-1", taskId: "t-1", at: "c:1" })).toBe("#/projects/p-1/tasks/t-1/at/c%3A1");
+    expect(parseHash("#/projects/p-1/tasks/t-1/at/c%3A1")).toEqual({ tab: "projects", projectId: "p-1", taskId: "t-1", at: "c:1" });
+    expect(navItemOf({ tab: "projects", projectId: "p-1", taskId: "t-1" })).toBe("projects");
+    expect(parseHash("#/projects/p-1/chat")).toEqual({ tab: "projects", projectId: "p-1", chat: true });
+  });
+
   test("原来的地址不受影响", () => {
     expect(parseHash("#/secretary")).toEqual({ tab: "secretary" });
     expect(parseHash("#/tasks/t-1/at")).toEqual({ tab: "tasks", taskId: "t-1" });

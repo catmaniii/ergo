@@ -117,8 +117,11 @@ import {
   type RollbackTarget,
   textPreviewOf,
   WorkdayChangeBody,
+  type BackgroundAgentList,
+  type BackgroundAgentTranscript,
 } from "@ergo/protocol";
 import type { AgentSettings } from "../agent-settings/index.ts";
+import type { BackgroundAgents } from "../sub-agents/background.ts";
 import type { TakeoverService } from "../takeover/index.ts";
 import type { WorkFolders } from "../work-folders/index.ts";
 import type { AssistantNameService } from "../assistant/index.ts";
@@ -287,6 +290,8 @@ export interface HttpApiOptions {
   branchView?: (conversation: string, branchId: string, against: string | undefined) => BranchView;
   /** 每个 agent 的会话里的 ⚙（114 号票）；不给就没有这几个接口 */
   agentSettings?: AgentSettings;
+  /** 负责人背后的 agent（368 号票）；不给就是一个都没有 */
+  backgroundAgents?: Pick<BackgroundAgents, "list" | "transcript">;
   /**
    * 浏览插件（212 号票）给的，现取（插件没启用时回 undefined，这几个接口回"内置浏览器插件没启用"）：悬浮按钮上说的一段送识别（149 号票）、
    * 要交进上传框的文件的取件码（134 号票）、候选的缩略图（149 号票）、"浏览"的 ⋮ 菜单里"存进二狗的素材"（165 号票）。不给就没有这几个接口
@@ -1226,6 +1231,20 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
           // 现在压缩：不等压完（面板按 compaction 的状态再取）
           POST(_req, res) {
             sendJson(res, 200, agentSettings().compact(route.agentId));
+          },
+        };
+      case "agent_background":
+        return {
+          GET(_req, res) {
+            sendJson(res, 200, { agents: options.backgroundAgents?.list(route.agentId) ?? [] } satisfies BackgroundAgentList);
+          },
+        };
+      case "agent_transcript":
+        return {
+          GET(_req, res) {
+            const transcript = options.backgroundAgents?.transcript(route.agentId);
+            if (!transcript) throw new HttpError("not_found", t("gateway.http.noBackgroundAgent", { agent: route.agentId }));
+            sendJson(res, 200, transcript satisfies BackgroundAgentTranscript);
           },
         };
       case "agent_model":

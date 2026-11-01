@@ -76,6 +76,7 @@ export * from "./workflow-view.ts";
 export * from "./ltl.ts";
 export * from "./stage-detail.ts";
 export * from "./task-page.ts";
+export * from "./background-agents.ts";
 export * from "./task-menu.ts";
 export * from "./reminder-menu.ts";
 export * from "./board-batch.ts";

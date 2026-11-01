@@ -47,6 +47,7 @@ import { oneLine } from "../util/text.ts";
 import { realPathOf } from "../util/real-path.ts";
 import { type SubAgentAssembly, subAgentAssembly, subAgentGuardTask } from "./assembly.ts";
 import {
+  type AgentSaidPayload,
   type ParallelDecidedPayload,
   type ParallelProposedPayload,
   SUB_AGENT_EVENTS,
@@ -460,6 +461,15 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
           resume
             ? reassembledText(resume.before, assembly)
             : workText({ task, agent, plan, grantInfo: plan ? grantInfoOf(plan, { tools: options.planTools, settings: options.watchSettings() }) : {}, toolkit: assembly.toolkit }),
+        // 收到的指令、说的话（368 号票）：背后的 agent 的只读对话；记不下不影响它干活
+        transcript: ({ kind, text }) => {
+          try {
+            const said: AgentSaidPayload = { agentId: agent.agentId, taskId: record.taskId, kind, text, time: now() };
+            store.append({ channel: SUB_AGENTS_CHANNEL, type: SUB_AGENT_EVENTS.agentSaid, payload: said });
+          } catch (err) {
+            log(`记子 agent ${agent.agentId} 说的话出错：${err instanceof Error ? err.message : String(err)}`);
+          }
+        },
         log,
       });
     } catch (err) {

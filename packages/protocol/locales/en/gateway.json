@@ -126,6 +126,7 @@
   "gateway.http.noFolderBrowser": "This version doesn't have the folder picker yet",
   "gateway.http.noLocalFolders": "This version doesn't have authorized folders yet",
   "gateway.http.noAgentSettings": "This version doesn't have the agent ⚙ yet",
+  "gateway.http.noBackgroundAgent": "No such background agent: {agent}",
   "gateway.http.noSystemPrompts": "This version doesn't have system prompt settings yet",
   "gateway.http.noMedia": "No such media: {mediaId}",
   "gateway.http.noPreview": "Attachment “{name}” is {mime} and can't be previewed, only downloaded",

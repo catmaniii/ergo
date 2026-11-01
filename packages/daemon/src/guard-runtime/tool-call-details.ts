@@ -100,6 +100,7 @@ const DETAIL_TABLE = `
   );
   CREATE INDEX IF NOT EXISTS tool_call_details_by_call ON tool_call_details (call_id);
   CREATE INDEX IF NOT EXISTS tool_call_details_by_tool ON tool_call_details (tool);
+  CREATE INDEX IF NOT EXISTS tool_call_details_by_agent ON tool_call_details (agent_id, global_seq);
   CREATE INDEX IF NOT EXISTS tool_call_details_by_state ON tool_call_details (state, global_seq);
 `;
 

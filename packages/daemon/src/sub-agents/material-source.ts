@@ -4,7 +4,7 @@
 import { EVENT_TYPES, PURGED_TEXT, t } from "@ergo/protocol";
 import { type PurgeRewriter, purgedField } from "../events/purge.ts";
 import { type MaterialSource, userDecisionDraft } from "../materials/index.ts";
-import { type ParallelDecidedPayload, type ParallelProposedPayload, SUB_AGENT_EVENTS } from "./events.ts";
+import { type AgentSaidPayload, type ParallelDecidedPayload, type ParallelProposedPayload, type ReviewStartedPayload, SUB_AGENT_EVENTS } from "./events.ts";
 import { subAgentLine } from "./texts.ts";
 
 /** 决定写成一句话："同意任务「X」派 2 个子 agent 并行：sa-1 做阶段 s1「…」；sa-2 做阶段 s2「…」" */
@@ -53,9 +53,9 @@ const agentPurged = <A extends { stageTitle: string; instructions: string; step?
 
 /**
  * 删除项目时它的内部任务一起删掉（64 号票；279 号票起经"删除参与方"登记表，sub-agents/deletion.ts）、删任务时（186 号票）：sub_agents 频道上并行的提议和决定里的文字换成删除标记——
- * 任务名、为什么并行、各子 agent 做的阶段名、哪一步、工作说明、用户写的话；编号、阶段、目录、决定原样（子 agent 的归属照旧能重放）
+ * 任务名、为什么并行、各子 agent 做的阶段名、哪一步、工作说明、用户写的话，368 号票起还有收到的指令和说的话；编号、阶段、目录、决定原样（子 agent 的归属照旧能重放）
  */
-export function purgedParallelPayload(type: string, payload: unknown): ParallelProposedPayload | ParallelDecidedPayload | undefined {
+export function purgedParallelPayload(type: string, payload: unknown): ParallelProposedPayload | ParallelDecidedPayload | AgentSaidPayload | ReviewStartedPayload | undefined {
   if (type === SUB_AGENT_EVENTS.parallelProposed) {
     const p = payload as ParallelProposedPayload;
     return { ...p, reason: PURGED_TEXT, agents: p.agents.map(agentPurged) };
@@ -64,5 +64,8 @@ export function purgedParallelPayload(type: string, payload: unknown): ParallelP
     const p = payload as ParallelDecidedPayload;
     return { ...p, taskTitle: PURGED_TEXT, agents: p.agents.map(agentPurged), ...purgedField(p, "note") };
   }
+  // 368 号票：一次性的 agent 收到的指令、说的话，评审的阶段名
+  if (type === SUB_AGENT_EVENTS.agentSaid) return { ...(payload as AgentSaidPayload), text: PURGED_TEXT };
+  if (type === SUB_AGENT_EVENTS.reviewStarted) return { ...(payload as ReviewStartedPayload), stageTitle: PURGED_TEXT };
   return undefined;
 }

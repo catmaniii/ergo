@@ -1,6 +1,6 @@
 // 104 号票：项目页照任务页（88 号票）改——项目一览占满内容区（宽屏多列的"档案墙"，按项目状态分组，已归档默认收起，顶上一条概览），
 // 点卡片、从别处跳进来整页是这个项目（宽屏会话占主区、项目详情在能开合能拖宽的档案栏里），‹、浏览器后退回一览并滚回原来的位置；
-// 窄屏照旧一览 → 项目页 → 负责人会话。
+// 368 号票起手机上也是一览 → 对话框，档案滑进来；对话框显示哪个任务（projectConversationTask）、任务在哪个项目的对话框里（taskHomeProject）。
 import { describe, expect, test } from "vitest";
 import { parseHash, toHash } from "../../src/app/route-hash.ts";
 import {
@@ -11,6 +11,7 @@ import {
   type Project,
   type ProjectEventPayload,
   projectFoldedOf,
+  projectConversationTask,
   projectFoldedText,
   projectPageView,
   projectSideLayout,
@@ -21,6 +22,7 @@ import {
   type ScheduledJobEventPayload,
   type Task,
   type TaskEventPayload,
+  taskHomeProject,
   toggleFolded,
   type UserTaskWorkOrder,
   wallScrollOnReturn,
@@ -69,11 +71,11 @@ function job(id: string, state: ScheduledJob["state"]): ScheduledJob {
 
 const jobFrame = (seq: number, j: ScheduledJob) => frame("board", seq, "scheduled_job", { job: j, change: "registered", by: "system" } satisfies ScheduledJobEventPayload);
 
-/** 地址里的项目页换成显示什么（App 把 #/projects… 拆成 projectId、chat、jobId 交给项目页） */
+/** 地址里的项目页换成显示什么（App 把 #/projects… 拆成 projectId、taskId、jobId 交给项目页） */
 function viewAt(hash: string, wide: boolean) {
   const route = parseHash(hash);
   if (route.tab !== "projects") throw new Error(`不是项目页：${hash}`);
-  return projectPageView({ wide, projectId: route.projectId, chat: route.chat, jobId: route.jobId });
+  return projectPageView({ wide, projectId: route.projectId, taskId: route.taskId, jobId: route.jobId });
 }
 
 describe("项目页显示什么：一览和项目二选一", () => {
@@ -82,19 +84,60 @@ describe("项目页显示什么：一览和项目二选一", () => {
     expect(viewAt("#/projects", false)).toEqual({ kind: "wall", layout: "list" });
   });
 
-  test("宽屏点卡片：整页是这个项目（会话加档案栏），不再左边列表右边项目", () => {
-    expect(viewAt(toHash({ tab: "projects", projectId: "p-1" }), true)).toEqual({ kind: "project", projectId: "p-1", pane: "full" });
+  test.each([true, false])("点卡片（宽屏 %s）：整页是这个项目的对话框，手机上也不再多一层项目页", (wide) => {
+    expect(viewAt(toHash({ tab: "projects", projectId: "p-1" }), wide)).toEqual({ kind: "project", projectId: "p-1" });
   });
 
-  test("从别处跳进来都直接打开整页的项目：建议立项卡的“和负责人做立项问答 ▸”（…/chat）、任务详情的“项目「X」内部”、日历里点作业（…/jobs/<作业>，点名那一行）", () => {
-    expect(viewAt(toHash({ tab: "projects", projectId: "p-1", chat: true }), true)).toEqual({ kind: "project", projectId: "p-1", pane: "full" });
-    expect(viewAt(toHash({ tab: "projects", projectId: "p-1", jobId: "j-1" }), true)).toEqual({ kind: "project", projectId: "p-1", pane: "full", job: "j-1" });
+  test.each([true, false])("从别处跳进来都是同一个对话框（宽屏 %s）：老地址 …/chat、日历里点作业（…/jobs/<作业>，点名那一行）、定位到任务（…/tasks/<任务>）", (wide) => {
+    expect(viewAt("#/projects/p-1/chat", wide)).toEqual({ kind: "project", projectId: "p-1" });
+    expect(viewAt("#/projects/p-1/jobs/j-1", wide)).toEqual({ kind: "project", projectId: "p-1", job: "j-1" });
+    expect(viewAt("#/projects/p-1/tasks/t-1", wide)).toEqual({ kind: "project", projectId: "p-1", task: "t-1" });
+    expect(viewAt("#/projects/p-1/tasks/t-1/at/c-1", wide)).toEqual({ kind: "project", projectId: "p-1", task: "t-1" });
+  });
+});
+
+describe("项目的对话框显示哪个任务（368 号票）", () => {
+  const P = project("p-1", { state: "building" });
+  const later = "2026-10-09T09:00:00.000+08:00";
+  const order = (seq: number, taskId: string) =>
+    frame("projects", seq, "work_order", {
+      workOrder: { id: `W-${seq}`, projectId: "p-1", maintainerId: "pm-p-1", title: "执行", state: "in_progress", source: "user_task", kind: "execute", taskId, taskTitle: taskId, createdAt: T, updatedAt: T } as UserTaskWorkOrder,
+      change: "created",
+      from: null,
+      by: "user",
+    } satisfies WorkOrderEventPayload);
+
+  test("没有任务：没有（阶段条不占地方）", () => {
+    expect(projectConversationTask(replay([projectFrame(1, P)]), P)).toBeUndefined();
   });
 
-  test("窄屏照旧：项目页、负责人会话各是一页；日历里点作业过来是项目页，点名那一行", () => {
-    expect(viewAt("#/projects/p-1", false)).toEqual({ kind: "project", projectId: "p-1", pane: "page" });
-    expect(viewAt("#/projects/p-1/chat", false)).toEqual({ kind: "project", projectId: "p-1", pane: "chat" });
-    expect(viewAt("#/projects/p-1/jobs/j-1", false)).toEqual({ kind: "project", projectId: "p-1", pane: "page", job: "j-1" });
+  test("负责人手上那张工单的任务排最前（负责人一次只做一件事）；排队的不算正在做", () => {
+    const state = replay([projectFrame(1, P), taskFrame(1, internal("t-a", "running", later)), taskFrame(2, internal("t-b", "queued", later)), taskFrame(3, internal("t-c", "waiting_for_user")), order(2, "t-c")]);
+    expect(projectConversationTask(state, P)?.id).toBe("t-c");
+  });
+
+  test("没有工单：在执行的、等你的、规划中的、暂停的；排队的、结束的不算", () => {
+    expect(projectConversationTask(replay([projectFrame(1, P), taskFrame(1, internal("t-a", "paused", later)), taskFrame(2, internal("t-b", "running")), taskFrame(3, internal("t-c", "queued", later))]), P)?.id).toBe("t-b");
+    expect(projectConversationTask(replay([projectFrame(1, P), taskFrame(1, internal("t-a", "queued"))]), P)).toBeUndefined();
+  });
+
+  test("都没有：最近结束的那个（归档了的不算）", () => {
+    const state = replay([projectFrame(1, P), taskFrame(1, internal("t-a", "done")), taskFrame(2, internal("t-b", "cancelled", later)), taskFrame(3, internal("t-c", "archived", "2026-10-10T09:00:00.000+08:00"))]);
+    expect(projectConversationTask(state, P)?.id).toBe("t-b");
+    expect(projectConversationTask(replay([projectFrame(1, P), taskFrame(1, internal("t-c", "archived"))]), P)).toBeUndefined();
+  });
+
+  test("地址点名的排最前，做完了的也是；不是这个项目的不认", () => {
+    const state = replay([projectFrame(1, P), taskFrame(1, internal("t-a", "running")), taskFrame(2, internal("t-b", "done")), taskFrame(3, { ...internal("t-x", "done"), maintainerId: "tm-x", internal: undefined } as Task)]);
+    expect(projectConversationTask(state, P, "t-b")?.id).toBe("t-b");
+    expect(projectConversationTask(state, P, "t-x")?.id).toBe("t-a");
+  });
+
+  test("任务在哪个项目的对话框里：内部任务、项目负责人做的（转为项目的那个也是）在项目里；有自己的负责人、别的项目都不认的没有", () => {
+    const state = replay([projectFrame(1, P)]);
+    expect(taskHomeProject(state, internal("t-a", "running"))?.id).toBe("p-1");
+    expect(taskHomeProject(state, { maintainerId: "pm-p-1" })?.id).toBe("p-1");
+    expect(taskHomeProject(state, { maintainerId: "tm-9" })).toBeUndefined();
   });
 });
 

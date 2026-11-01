@@ -75,13 +75,14 @@ function valid(parse: (s: string) => unknown, s: string | undefined): string | u
 /**
  * at（105 号票）：会话里要定位到的那一条——卡片 id 或工具调用 id（待办里"去看看 ›"带过来）。
  * #/secretary/at/<id>、#/tasks/<任务>/at/<id>、#/projects/<项目>/chat/at/<id>
+ * 368 号票：#/projects/<项目>/tasks/<任务>[/at/<id>]：项目的对话框定位到这个任务（项目负责人做的任务没有单独的详情页，#/tasks/<任务> 换成它）
  */
 export type Route =
   | { tab: "secretary"; at?: string }
   /** 看板；jobId：定位到看板上这个定时作业的卡（日历里点作业过来，35 号票）；at：任务的会话里定位到的那一条 */
   | { tab: "tasks"; taskId?: string; jobId?: string; at?: string }
   /** 项目；jobId：定位到项目页上这个定时作业那一行（日历里点作业过来，35 号票）；at：负责人的会话里定位到的那一条 */
-  | { tab: "projects"; projectId?: string; chat?: boolean; jobId?: string; at?: string }
+  | { tab: "projects"; projectId?: string; chat?: boolean; jobId?: string; at?: string; taskId?: string }
   | { tab: "inbox"; itemId?: string }
   /**
    * 浏览（134 号票）：鸿蒙 App 里的原生内置浏览器，内容区是 App 叠在网页上面的 ArkWeb。地址里不带网址（打开的哪一页 App 记着，
@@ -142,7 +143,7 @@ export function parseHash(hash: string): Route {
   // 内置浏览器（132 号票）：应用名后面那一段原样留着（服务自己的路径、查询串、锚点里有 / ? # 也不拆）
   const app = /^apps\/([^/?#]+)\/?(.*)$/s.exec(hash.replace(/^#\/?/, ""));
   if (app) return isAppName(app[1]!) ? { tab: "app", app: app[1]!, ...(app[2] ? { path: app[2] } : {}) } : { tab: "secretary" };
-  const [head, a, b, c, d] = hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
+  const [head, a, b, c, d, e] = hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
   switch (head) {
     case "secretary":
       return a === "at" && b ? { tab: "secretary", at: b } : { tab: "secretary" };
@@ -152,6 +153,7 @@ export function parseHash(hash: string): Route {
       return { tab: "tasks", taskId: a || undefined };
     case "projects":
       if (a && b === "jobs" && c) return { tab: "projects", projectId: a, jobId: c };
+      if (a && b === "tasks" && c) return { tab: "projects", projectId: a, taskId: c, ...(d === "at" && e ? { at: e } : {}) };
       if (a && b === "chat" && c === "at" && d) return { tab: "projects", projectId: a, chat: true, at: d };
       return { tab: "projects", projectId: a || undefined, chat: b === "chat" };
     case "inbox":
@@ -197,6 +199,7 @@ export function toHash(r: Route): string {
       return r.taskId ? `#/tasks/${r.taskId}` : "#/tasks";
     case "projects":
       if (r.projectId && r.jobId) return `#/projects/${r.projectId}/jobs/${r.jobId}`;
+      if (r.projectId && r.taskId) return `#/projects/${r.projectId}/tasks/${r.taskId}${r.at ? `/at/${encodeURIComponent(r.at)}` : ""}`;
       if (r.projectId && r.at) return `#/projects/${r.projectId}/chat/at/${encodeURIComponent(r.at)}`;
       return r.projectId ? `#/projects/${r.projectId}${r.chat ? "/chat" : ""}` : "#/projects";
     case "calendar":

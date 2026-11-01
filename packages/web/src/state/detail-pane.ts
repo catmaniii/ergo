@@ -31,7 +31,12 @@ export type DetailTarget =
   // 任务详情原来的页签（90 号票：页签那一排去掉，收进标题栏的"⋯"）：计划、工单、工具包、消耗、运行，宽屏在右栏、手机整页
   | { readonly type: "panel"; readonly taskId: string; readonly panel: TaskPanel }
   // 一条废弃分支（151 号票：点 ⑂ 展开的预览打开）：已废弃分支 · 只读、遗留效果、分支摘要、完整历史
-  | { readonly type: "branch"; readonly branchId: string };
+  | { readonly type: "branch"; readonly branchId: string }
+  // 手机上的档案（368 号票：宽屏在会话左边，手机没地方，从右边滑进来，和"⋯"里那几样一样）
+  | { readonly type: "archive"; readonly title: string }
+  // 背后的 agent（368 号票）：这个负责人背后的列表、其中一个的只读对话（从列表里点进去，‹ 回列表）
+  | { readonly type: "agents"; readonly maintainerId: string }
+  | { readonly type: "agent"; readonly maintainerId: string; readonly agentId: string };
 
 /** 一页详情的键（换一页正文从头看） */
 export function detailKey(target: DetailTarget): string {
@@ -50,12 +55,29 @@ export function detailKey(target: DetailTarget): string {
       return `panel:${target.taskId}:${target.panel}`;
     case "branch":
       return `branch:${target.branchId}`;
+    case "archive":
+      return "archive";
+    case "agents":
+      return `agents:${target.maintainerId}`;
+    case "agent":
+      return `agent:${target.agentId}`;
   }
 }
 
-/** 详情标题栏上写什么：任务详情"⋯"里打开的写是哪一样（计划、工单……），别的写"详情" */
+/** 详情标题栏上写什么：任务详情"⋯"里打开的写是哪一样（计划、工单……），档案写项目档案、任务档案，背后的 agent 写清楚，别的写"详情" */
 export function detailTitle(target: DetailTarget): string {
-  return target.type === "panel" ? TASK_PANEL_LABEL[target.panel] : t("state.detailPane.title");
+  switch (target.type) {
+    case "panel":
+      return TASK_PANEL_LABEL[target.panel];
+    case "archive":
+      return target.title;
+    case "agents":
+      return t("state.detailPane.agents");
+    case "agent":
+      return target.agentId.startsWith("review-") ? t("state.backgroundAgents.reviewer") : target.agentId;
+    default:
+      return t("state.detailPane.title");
+  }
 }
 
 export interface DetailNav {

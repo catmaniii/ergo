@@ -19,6 +19,7 @@
 //   计划的纯函数（授权项列表、卡上生成的文字、停点）（12 号票）；
 // - task-transitions.ts："谁能改"表和"现在能对任务做什么"（13 号票起守护进程和 Web 共用）；
 // - activity.ts：agent 的活动状态（12 号票；25 号票加了结构化的说明、说明的文字表和临时的进度事件）；
+// - background-agents.ts：负责人背后的 agent（子 agent、评审）的一行、只读的对话、有变化时的临时事件（368 号票）；
 // - timeline.ts：时间线上的记录（偏离、范围变更、越界）的 schema 和种类表（中文名、是否要点、严重度）（25 号票）；
 // - watch-categories.ts / watch-category-schema.ts：关注类别设置的名字和纯函数（不引用 TypeBox）、schema（26 号票）。
 // - projects.ts / project-schema.ts：项目、立项书、项目页上的动作的名字（不引用 TypeBox）和 schema（15 号票）。
@@ -126,6 +127,7 @@ export * from "./task-schema.ts";
 export * from "./plan.ts";
 export * from "./task-transitions.ts";
 export * from "./activity.ts";
+export * from "./background-agents.ts";
 export * from "./timeline.ts";
 export * from "./watch-categories.ts";
 export * from "./watch-category-schema.ts";

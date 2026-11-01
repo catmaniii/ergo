@@ -109,7 +109,8 @@ export function useDetail(wide: boolean, conversation: ConversationId | undefine
 /**
  * 主栏 + 详情：宽屏在右栏，窄屏整页滑入。
  * stages：长程任务的阶段（60 号票：阶段详情要的交付件、验收、授权、预算这些计划里写的，和能不能从这里重做），任务详情页给；
- * panel：任务详情"⋯"里的计划、工单、工具包、消耗、运行（90 号票：原来的页签）画成什么，任务详情页给（没有会话的原型假任务也能开）
+ * panel：任务详情"⋯"里的计划、工单、工具包、消耗、运行（90 号票：原来的页签）画成什么，任务详情页给（没有会话的原型假任务也能开）；
+ * archive：档案（368 号票：手机上从右边滑进来的那一页；宽屏在会话左边，由对话框自己放）
  */
 export function DetailLayout({
   wide,
@@ -117,6 +118,7 @@ export function DetailLayout({
   conversation,
   stages,
   panel,
+  archive,
   children,
 }: {
   wide: boolean;
@@ -124,6 +126,7 @@ export function DetailLayout({
   conversation: ConversationId | undefined;
   stages?: StageDetailSource | undefined;
   panel?: ((panel: TaskPanel) => ReactNode) | undefined;
+  archive?: ReactNode;
   children: ReactNode;
 }) {
   const frameWidth = useContext(FrameWidth);
@@ -131,7 +134,7 @@ export function DetailLayout({
   const [width, setWidth] = useState(DETAIL_WIDTH_INITIAL);
   const pane =
     conversation || panel ? (
-      <DetailPane detail={detail.nav.detail} conversation={conversation} onClose={detail.close} onReveal={detail.reveal} onOpen={detail.drill} onGo={detail.go} stages={stages} panel={panel} />
+      <DetailPane detail={detail.nav.detail} conversation={conversation} onClose={detail.close} onReveal={detail.reveal} onOpen={detail.drill} onGo={detail.go} stages={stages} panel={panel} archive={archive} />
     ) : null;
   if (wide) {
     return (

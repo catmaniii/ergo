@@ -12,7 +12,7 @@ import { compareInboxItems, type InboxItem, isInternalTo } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
 
 /** 栏挂在哪个会话上：任务整页（负责它的 agent 的会话）、项目整页（负责人的会话）、秘书会话 */
-export type InboxPlace = { kind: "task"; taskId: string } | { kind: "project"; projectId: string } | { kind: "secretary" };
+export type InboxPlace = { kind: "task"; taskId: string } | { kind: "project"; projectId: string; taskId?: string | undefined } | { kind: "secretary" };
 
 export interface InboxBarEntry {
   item: InboxItem;
@@ -39,7 +39,7 @@ function belongs(jump: InboxJump, item: InboxItem, place: InboxPlace): boolean {
     case "task":
       return jump.kind === "task" && jump.taskId === place.taskId;
     case "project":
-      return (jump.kind === "project" && jump.projectId === place.projectId) || (jump.kind === "task" && isInternalTo(item, place.projectId));
+      return (jump.kind === "project" && jump.projectId === place.projectId) || (jump.kind === "task" && (isInternalTo(item, place.projectId) || jump.taskId === place.taskId));
     case "secretary":
       return jump.kind === "secretary";
   }

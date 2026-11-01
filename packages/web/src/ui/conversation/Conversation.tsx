@@ -133,7 +133,7 @@ interface ConversationProps {
   /** 对话层滚动时屏幕上正在看的那一条（视口 40% 高处）、是不是停在最新一条（91 号票：长程任务标题栏的阶段标签跟着它变） */
   onFocusChat?: ((chatId: string | undefined, atBottom: boolean) => void) | undefined;
   /** 长程任务的会话（91 号票）：这个任务——会话按阶段成框（原型的假任务连同假阶段、假的活动状态） */
-  stageChat?: { taskId: string; list?: readonly StageBoxStage[] | undefined; running?: boolean | undefined } | undefined;
+  stageChat?: { taskId: string; list?: readonly StageBoxStage[] | undefined; running?: boolean | undefined; shared?: boolean | undefined } | undefined;
   /** 阶段框上的"验收和规则 ›"：打开这一阶段的详情 */
   onStage?: ((stageId: string) => void) | undefined;
   /** 聊天里计划卡的提纲点了某一阶段（91 号票）：左边图上高亮它 */
@@ -207,7 +207,7 @@ function ConversationView({
   const decor = useMemo(() => zoomDecor(ui, conversation, items), [ui, conversation, items]);
   // 长程任务的会话按阶段成框（91 号票）：重开之前那几轮的框写已作废
   const boxes = useMemo(
-    () => (stageChat === undefined ? undefined : stageBoxes(ui, items, stageChat.taskId, { stale: decor.stale, list: stageChat.list, running: stageChat.running })),
+    () => (stageChat === undefined ? undefined : stageBoxes(ui, items, stageChat.taskId, { stale: decor.stale, list: stageChat.list, running: stageChat.running, shared: stageChat.shared })),
     [ui, items, stageChat, decor],
   );
   // 流程的"接下来的计划"（60 号票）：还没做完的步骤；定时触发的流程按这一次运行

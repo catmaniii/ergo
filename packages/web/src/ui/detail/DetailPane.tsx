@@ -19,6 +19,7 @@
  * （StageDetail.tsx）从阶段抽屉、阶段栏点开；执行中出过的状况从阶段抽屉、
  * 阶段栏下面那一行的个数点开。这几种不给"在对话中定位"（阶段详情里有"回到会话里这一段"）。
  * 151 号票：一条废弃分支从 ⑂ 展开的预览点开，同样不给"在对话中定位"。
+ * 368 号票：手机上的档案；背后的 agent 的列表和只读对话（BackgroundAgents.tsx）。
  */
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import Markdown from "react-markdown";
@@ -59,6 +60,7 @@ import { PlanCardDetail } from "./PlanCardDetail.tsx";
 import { WorkflowPlanDetail } from "./WorkflowPlanDetail.tsx";
 import { IncidentsDetail } from "./incidents.tsx";
 import { BranchDetail } from "./BranchDetail.tsx";
+import { BackgroundAgentList, BackgroundAgentChat } from "./BackgroundAgents.tsx";
 import { usePlugins } from "../../plugins/api.ts";
 import { useUnavailable } from "../../plugins/react.tsx";
 import { Section } from "./section.tsx";
@@ -72,6 +74,7 @@ export function DetailPane({
   onGo,
   stages,
   panel,
+  archive,
 }: {
   detail?: DetailTarget | undefined;
   /** 详情所在的会话（按它取条目，现查）；原型里没有会话假数据的任务没有（只开得了"⋯"里的几样） */
@@ -88,6 +91,8 @@ export function DetailPane({
   stages?: StageDetailSource | undefined;
   /** 任务详情"⋯"里的计划、工单、工具包、消耗、运行画成什么（90 号票），任务详情页给 */
   panel?: ((panel: TaskPanel) => ReactNode) | undefined;
+  /** 档案（368 号票：手机上滑进来的那一页），对话框给 */
+  archive?: ReactNode;
 }) {
   const { ui } = useStore();
   // 停用的网页插件拥有的条目换成占位（193 号票），和会话里一样
@@ -132,6 +137,12 @@ export function DetailPane({
       <div className="detail-body" key={detailKey(detail)}>
         {detail.type === "panel" ? (
           (panel?.(detail.panel) ?? <div className="page-placeholder">{t("ui.detailPane.unavailable")}</div>)
+        ) : detail.type === "archive" ? (
+          (archive ?? <div className="page-placeholder">{t("ui.detailPane.unavailable")}</div>)
+        ) : detail.type === "agents" ? (
+          <BackgroundAgentList maintainerId={detail.maintainerId} onOpen={onGo && ((agentId) => onGo({ type: "agent", maintainerId: detail.maintainerId, agentId }))} />
+        ) : detail.type === "agent" ? (
+          <BackgroundAgentChat maintainerId={detail.maintainerId} agentId={detail.agentId} />
         ) : detail.type === "plan" ? (
           <PlanCardDetail cardId={detail.cardId} focus={detail.focus} />
         ) : detail.type === "stage" ? (

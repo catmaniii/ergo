@@ -62,6 +62,7 @@ export const Channel = Type.Union([
   Type.Literal(CHANNELS.readMarks),
   Type.Literal(CHANNELS.language),
   Type.Literal(CHANNELS.plugins),
+  Type.Literal(CHANNELS.backgroundAgents),
 ]);
 export type Channel = Static<typeof Channel>;
 

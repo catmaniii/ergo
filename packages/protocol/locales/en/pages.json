@@ -267,7 +267,6 @@
   "pages.projects.kindPending": "Project type set when the charter is confirmed",
   "pages.projects.fromTask": "Turned from task {task}",
   "pages.projects.buildTask": "First build task {task} ▸",
-  "pages.projects.chat": "Talk to the owner",
   "pages.projects.announce": "Read updates aloud",
   "pages.projects.announceHint": ": when the owner sends an update, {name} reads you the key points right away, without asking first, in the owner's own voice if it has one",
   "pages.projects.announceOnToast": "Spoken updates are on: updates are read to you without asking first",
@@ -326,7 +325,6 @@
   "pages.projects.lane.queued": "Queued",
   "pages.projects.lane.active": "In progress",
   "pages.projects.lane.ended": "Ended",
-  "pages.projects.chatTitle": "{name} · Owner",
   "pages.projects.readOnlyOnPage": "This project is archived, so the owner chat is read-only. To keep talking, unarchive it on the project page first",
   "pages.report.image": "Image",
   "pages.report.imageNamed": "Image \"{alt}\"",
@@ -1760,5 +1758,10 @@
   "pages.devices.qr.request.title": "A phone wants to pair",
   "pages.devices.qr.request.connected": "Connected: {name}",
   "pages.devices.qr.request.denied": "Denied: {name}",
-  "pages.devices.qr.request.expired": "The request from {name} expired. Tap \"Request pairing\" on the phone again"
+  "pages.devices.qr.request.expired": "The request from {name} expired. Tap \"Request pairing\" on the phone again",
+  "pages.agent.taskArchive": "Task records",
+  "pages.agent.buildDone": "First version done",
+  "pages.agent.taskEnded": "{title} · {status}",
+  "pages.agent.currentTask": "Current task",
+  "pages.agent.lastTask": "Last finished task"
 }

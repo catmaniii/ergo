@@ -107,6 +107,8 @@ const REAL_CHANNELS = [
   CHANNELS.language,
   // 193 号票：插件的状况（网页按它装、停自己的网页插件，一打开就订阅）
   CHANNELS.plugins,
+  // 368 号票：背后的 agent 有变化时的临时事件（开着的列表、只读对话据此重新取）
+  CHANNELS.backgroundAgents,
 ];
 
 /**
@@ -413,7 +415,7 @@ function Page({ route, wide, folded, navigate }: { route: Route; wide: boolean; 
     case "tasks":
       return <TasksPage wide={wide} taskId={route.taskId} jobId={route.jobId} at={route.at} navigate={navigate} />;
     case "projects":
-      return <ProjectsPage wide={wide} projectId={route.projectId} chat={route.chat} jobId={route.jobId} at={route.at} navigate={navigate} />;
+      return <ProjectsPage wide={wide} projectId={route.projectId} taskId={route.taskId} jobId={route.jobId} at={route.at} navigate={navigate} />;
     case "inbox":
       return <InboxPage wide={wide} itemId={route.itemId} navigate={navigate} />;
     case "browse":

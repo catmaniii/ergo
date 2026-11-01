@@ -1,20 +1,11 @@
 /**
- * 阶段抽屉、宽屏阶段栏：
- * - 标题里挂一个阶段标签（StageChip）："第 N 阶段 · 验收了几个"，点它开关抽屉、阶段栏；
- * - 竖屏：标题栏下面拉出抽屉。半开是横向的阶段条；全开是整个计划的图，下面一行是出过的情况（几次）。
- *   底下的把手往下拉展开一档、往上推收回一档；
- * - 宽屏：会话左边的常驻栏（整个计划的图 + 出过的情况）。
- * 60 号票补上：阶段标签写"◐ 第 N 阶段 · 已验收几个/共几个 ▾"（StageChip 的 progress，小三角表示能点，
- * 展开时朝上）；点一个阶段（阶段条、阶段栏）选中它的同时，在右边的详情栏（竖屏从右侧滑入）打开它的阶段详情（
- * onSelect + onDetail，阶段详情在 ui/detail/StageDetail.tsx）；抽屉全开、宽屏阶段栏的下面一行是执行中出过的状况（每类几次，点一个
- * 看是哪几次：counts 由任务详情给）；刚被拉回、拦下、你拒绝时阶段标签闪一下。
- * 88 号票：宽屏的阶段栏头上一行"整个计划"和 ×，点了整栏藏掉，
- * 宽屏的阶段标签挪到标题栏左边（正在阶段栏上方），点它再打开（用户 2026-10-11 定）；开着还是藏掉按设备记住，由任务详情管
- * （state/task-page.ts 的 stageSideLayout、stageChipPlace，app/page-stage-side.ts）。
- * 91 号票（用户 2026-10-11 定）：阶段栏、抽屉全开都画成依赖图（ui/conversation/StageGraph.tsx，
- * 同层并排、曲线连线），不再在下面放选中阶段的卡片——点阶段卡片只在右边的详情栏（竖屏整页滑入）看它的详情；抽屉半开的阶段条
- * 并行的叠在同一列；等你确认的计划（计划卡、计划变更）也画在这里，栏头写"整个计划 · 等你确认"；阶段栏和聊天之间的分界线能左右拖
- * （宽度由任务详情管，见 stage-panel.tsx）。
+ * 对话框顶部的阶段条（368 号票起宽屏、手机一样，放在哪、展开到哪一档见 stage-panel.tsx）：
+ * - 第一行一个阶段标签（StageChip）："◐ 第 N 阶段 · 已验收几个/共几个 ▾"（60 号票；小三角表示能点，展开时朝上），点它展开、收起；
+ *   任务做完了换成一句话（比如"✓ 首版已完成 · 4/4 ▾"，368 号票）；计划还没确认时写"计划图"；刚被拉回、拦下、你拒绝时闪一下；
+ * - 下面是抽屉：半开是横向的阶段条，全开是整个计划的依赖图（91 号票，StageGraph.tsx；同层并排、曲线连线），下面一行是出过的状况
+ *   （每类几次，点一个看是哪几次：counts 由任务详情给）。底下的把手往下拉展开一档、往上推收回一档；
+ * - 点一个阶段选中它的同时，在右边的详情栏（手机从右侧滑入）打开它的阶段详情（onSelect + onDetail，ui/detail/StageDetail.tsx）：交付件和验收标准都在那里。
+ * 等你确认的计划（计划卡、计划变更）也画在这里。
  */
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { ACCEPTANCE_METHOD_LABEL, tokensLabel, WAIT_REASON_LABEL } from "../../model/labels.ts";
@@ -116,8 +107,7 @@ export function usePing(latest: { key: string; kind: GuardPingKind } | undefined
  * 标题里的阶段标签：聊天里正在看的那一段属于第几阶段（状态图标跟着这个阶段），后面是整份计划
  * 验收了几个；小三角表示能点，点它开关计划（展开时三角朝上）；刚被拉回 / 拦下 / 你拒绝时闪一下（ping），"回到这一阶段"。
  * 91 号票：第几阶段按依赖图的阶段号（并行的同号）；计划还没确认、画的是等你确认的计划时写"计划图"。
- * 93 号票：手机上也写"· 验收了几个"（91 号票为了给标题让地方在手机上省掉过）。compact（手机上，用户 2026-10-12
- * 定 B）：省掉"第 … 阶段"几个字，只写"◐ 3 · 3/7 ▾"，给标题让地方；全称照样在读屏的说明和 title 里
+ * 368 号票：标签不在标题栏了（手机、电脑都在阶段条第一行），有地方写全，不再省"第 … 阶段"几个字
  */
 export function StageChip({
   graph,
@@ -126,7 +116,7 @@ export function StageChip({
   open,
   onTap,
   ping,
-  compact = false,
+  done,
 }: {
   graph: StageGraph;
   selected?: string | undefined;
@@ -134,8 +124,22 @@ export function StageChip({
   open: boolean;
   onTap(): void;
   ping?: GuardPingKind | undefined;
-  compact?: boolean | undefined;
+  /** 任务做完了：这一行写的话（368 号票，比如"首版已完成"） */
+  done?: { text: string; ok: boolean } | undefined;
 }) {
+  if (done !== undefined)
+    return (
+      <button type="button" className="stage-chip stage-chip-done" onClick={onTap} aria-expanded={open} aria-label={`${done.text} · ${open ? t("ui.stageDrawer.chip.hidePlan") : t("ui.stageDrawer.chip.showPlan")}`}>
+        {done.ok && <span className="stage-st rs-accepted">✓</span>}
+        {done.text}
+        <span className="stage-prog">
+          · {progress.done}/{progress.total}
+        </span>
+        <span className="stage-caret" aria-hidden="true">
+          ▾
+        </span>
+      </button>
+    );
   if (graph.kind === "plan")
     return (
       <button type="button" className="stage-chip" onClick={onTap} aria-expanded={open} aria-label={open ? t("ui.stageDrawer.chip.hidePlanGraph") : t("ui.stageDrawer.chip.showPlanGraph")}>
@@ -158,7 +162,7 @@ export function StageChip({
       title={t("ui.stageDrawer.chip.title", { no: s.n, title: s.title, status: s.look.text, done: progress.done, total: progress.total })}
     >
       <span className={`stage-st rs-${s.look.st}`}>{s.look.icon}</span>
-      {compact ? s.n : t("ui.stageDrawer.stageNo", { no: s.n })}
+      {t("ui.stageDrawer.stageNo", { no: s.n })}
       <span className="stage-prog">
         · {progress.done}/{progress.total}
       </span>
@@ -250,8 +254,8 @@ export function StageCard({ stages, id }: { stages: Stage[]; id?: string }) {
 }
 
 /**
- * 竖屏：标题栏下面的抽屉（收起 / 半开 / 全开）。半开是横向的阶段条，全开是整个计划的图，下面一行是出过的
- * 情况；都不放阶段卡片。点一个阶段：选中它（图上高亮），同时打开它的详情（详情整页从右边滑入）
+ * 阶段条下面的抽屉（收起 / 半开 / 全开）。半开是横向的阶段条，全开是整个计划的图，下面一行是出过的
+ * 情况；都不放阶段卡片。点一个阶段：选中它（图上高亮），同时打开它的详情（手机上详情整页从右边滑入）
  */
 export function StageDrawer({
   graph,
@@ -341,53 +345,5 @@ export function StageDrawer({
         <span className="md-grab-hint">{mode === "half" ? t("ui.stageDrawer.grab.half") : t("ui.stageDrawer.grab.full")}</span>
       </div>
     </div>
-  );
-}
-
-/**
- * 宽屏：会话左边的阶段栏：头上一行"整个计划"（等你确认的计划写"· 等你确认"）和 ×（整栏藏掉），
- * 下面是整个计划的图，最下面一行是出过的情况。点一个阶段：选中它，同时在右边的详情栏打开它的详情。栏宽由任务详情给（分界线拖它）
- */
-export function StageSide({
-  graph,
-  selected,
-  onSelect,
-  onDetail,
-  counts,
-  width,
-  onClose,
-}: {
-  graph: StageGraph;
-  selected?: string | undefined;
-  onSelect(id: string): void;
-  onDetail(id: string): void;
-  counts?: ReactNode;
-  /** 栏宽（像素），右边的分界线拖它 */
-  width: number;
-  onClose(): void;
-}) {
-  return (
-    <aside className="md-side" style={{ width }}>
-      <div className="md-side-head">
-        <span>
-          {t("ui.stageDrawer.side.title")}
-          {graph.kind !== "live" && <span className="md-side-wait">{t("ui.stageDrawer.side.awaiting")}</span>}
-        </span>
-        <button type="button" className="md-side-close" onClick={onClose} aria-label={t("ui.stageDrawer.side.close")} title={t("ui.stageDrawer.side.closeTip")}>
-          ×
-        </button>
-      </div>
-      <div className="md-side-graph">
-        <StageGraphView
-          graph={graph}
-          focus={selected}
-          onNode={(id) => {
-            onSelect(id);
-            onDetail(id);
-          }}
-        />
-      </div>
-      <Counts graph={graph} counts={counts} />
-    </aside>
   );
 }

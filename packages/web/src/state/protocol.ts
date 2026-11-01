@@ -687,6 +687,8 @@ export {
   shiftMonthKey,
 } from "@ergo/protocol";
 export type { CalendarDay, CalendarDayCounts, CalendarExternalEntry, CalendarJobEntry, CalendarJobStatus, CalendarMonthView, CalendarReminderEntry, CalendarReminderStatus, ExternalCalendarEventPayload } from "@ergo/protocol";
+// 负责人背后的 agent（368 号票）
+export type { BackgroundAgentEntry, BackgroundAgentList, BackgroundAgentRow, BackgroundAgentState, BackgroundAgentStep, BackgroundAgentsEventPayload, BackgroundAgentTranscript } from "@ergo/protocol";
 // 工具调用的完整参数和返回（53 号票；56 号票的详情页按调用 id 现取）
 export { TOOL_CALL_VALUE_MAX_BYTES } from "@ergo/protocol";
 export type { ToolCallDetail, ToolCallEffect, ToolCallEffectObject, ToolResultMedia, TruncatedValue } from "@ergo/protocol";

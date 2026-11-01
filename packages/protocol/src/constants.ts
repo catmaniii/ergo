@@ -45,6 +45,11 @@ export const CHANNELS = {
    * 211 号票起还有落盘的 plugin_data_purged：移除插件时连它的数据一起彻底删除的记录
    */
   plugins: "plugins",
+  /**
+   * 背后的 agent（368 号票）：负责人派出的子 agent、评审这些在后台运行的 agent 有变化时的临时事件 background_agents（带负责人 id），
+   * 不落盘：网页收到后按 HTTP 重新取那个负责人的列表、正在看的那一个的对话。前端一打开就订阅
+   */
+  backgroundAgents: "background_agents",
 } as const;
 
 export const MAINTAINER_CHANNEL_PREFIX = "maintainer:";
@@ -275,12 +280,17 @@ export const EVENT_TYPES = {
    * 日历按月给的 asOf.external 比它小，手里这份就旧了，开着的日历页重新取
    */
   externalCalendar: "external_calendar",
+  /**
+   * 背后的 agent 频道（临时，368 号票）：某个负责人背后的 agent 有了变化（拉起、结束、说了话、调了工具、用了 token；BackgroundAgentsEventPayload，
+   * background-agents.ts），同一个负责人最多每 BACKGROUND_AGENTS_PUSH_MS 一条；开着的列表、只读对话据此重新取
+   */
+  backgroundAgents: "background_agents",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
 
-export const EPHEMERAL_EVENT_TYPES: readonly string[] = [EVENT_TYPES.stream, EVENT_TYPES.notify, EVENT_TYPES.activityProgress, EVENT_TYPES.voiceModels, EVENT_TYPES.webVersion, EVENT_TYPES.projectServices, EVENT_TYPES.browserRequest, EVENT_TYPES.locale, EVENT_TYPES.pluginStatus, EVENT_TYPES.externalCalendar];
+export const EPHEMERAL_EVENT_TYPES: readonly string[] = [EVENT_TYPES.stream, EVENT_TYPES.notify, EVENT_TYPES.activityProgress, EVENT_TYPES.voiceModels, EVENT_TYPES.webVersion, EVENT_TYPES.projectServices, EVENT_TYPES.browserRequest, EVENT_TYPES.locale, EVENT_TYPES.pluginStatus, EVENT_TYPES.externalCalendar, EVENT_TYPES.backgroundAgents];
 
 export function isEphemeralEventType(type: string): boolean {
   return EPHEMERAL_EVENT_TYPES.includes(type);

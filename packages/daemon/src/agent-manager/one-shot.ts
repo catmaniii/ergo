@@ -4,6 +4,7 @@
 // 没等到这一轮结束子进程就退出了（被结束、意外退出、排队时被取消）的另算。
 // 调用方还能知道输入送出去没有、"手头这一步"什么时候做完（当前的工具调用都结束了、下一次模型调用之前：工具包变了重新装配时
 // 在这里停掉它，规格第 11 节"工具包变了立即生效"）。
+// 368 号票：给了 transcript 的，送出去的那条输入、它说的每一段话（模型输出的文字，不含思考）都报给调用方记下（背后的 agent 的只读对话）。
 import type { GuardedSession, GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { TurnOutcome } from "../runtime/index.ts";
 import type { AgentManager, ManagedAgent, ManagedExit, SpawnAgentRequest } from "./agent-manager.ts";
@@ -19,6 +20,8 @@ export interface OneShotRequest {
   guard: GuardedSession;
   /** 就绪后交给它的那一条输入（到时候现生成） */
   input: () => string;
+  /** 记下它收到的输入、说的每一段话（368 号票）；记不下不影响它干活，调用方自己兜住 */
+  transcript?: (line: { kind: "input" | "said"; text: string }) => void;
   log: (line: string) => void;
 }
 
@@ -61,7 +64,9 @@ export function runOneShotAgent(request: OneShotRequest): OneShot {
       if (report.type === "ready" && !sent) {
         sent = true;
         try {
-          proc.send({ type: "user_input", inputId: `${agentId}-input`, text: request.input() });
+          const text = request.input();
+          proc.send({ type: "user_input", inputId: `${agentId}-input`, text });
+          request.transcript?.({ kind: "input", text });
         } catch (err) {
           // 刚好退出了：按退出算
           request.log(`交给 ${agentId} 的输入没送出去：${err instanceof Error ? err.message : String(err)}`);
@@ -73,7 +78,10 @@ export function runOneShotAgent(request: OneShotRequest): OneShot {
         if (inFlight === 0) for (const listener of stepListeners) listener();
       } else if (report.type === "message_final") {
         const text = report.message.parts.flatMap((p) => (p.type === "text" ? [p.text] : [])).join("");
-        if (text.trim()) reply = text;
+        if (text.trim()) {
+          reply = text;
+          request.transcript?.({ kind: "said", text });
+        }
       } else if (report.type === "turn_end" && !turn) {
         turn = { kind: "turn_end", outcome: report.outcome, ...(report.errorMessage === undefined ? {} : { errorMessage: report.errorMessage }), reply };
         resolve(turn);

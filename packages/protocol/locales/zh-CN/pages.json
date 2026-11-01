@@ -263,7 +263,6 @@
   "pages.projects.kindPending": "项目类型等立项书确认",
   "pages.projects.fromTask": "由任务 {task}转来",
   "pages.projects.buildTask": "首个建设任务 {task} ▸",
-  "pages.projects.chat": "和负责人交流",
   "pages.projects.announce": "有进展自动播报",
   "pages.projects.announceHint": "：负责人来信时{name}直接把要点念给你听，不先问；它配了自己的声音就用它的声音",
   "pages.projects.announceOnToast": "已打开自动播报：有进展直接念给你听，不先问",
@@ -322,7 +321,6 @@
   "pages.projects.lane.queued": "排队中",
   "pages.projects.lane.active": "进行中",
   "pages.projects.lane.ended": "已结束",
-  "pages.projects.chatTitle": "{name} · 负责人",
   "pages.projects.readOnlyOnPage": "已归档的项目，负责人会话只读：要接着说话，先在项目页上取消归档",
   "pages.report.image": "图片",
   "pages.report.imageNamed": "图片「{alt}」",
@@ -1712,5 +1710,10 @@
   "pages.devices.qr.request.title": "手机发来了配对请求",
   "pages.devices.qr.request.connected": "连好了：{name}",
   "pages.devices.qr.request.denied": "已拒绝：{name}",
-  "pages.devices.qr.request.expired": "{name} 的请求过期了，在手机上再点一次「请求配对」"
+  "pages.devices.qr.request.expired": "{name} 的请求过期了，在手机上再点一次「请求配对」",
+  "pages.agent.taskArchive": "任务档案",
+  "pages.agent.buildDone": "首版已完成",
+  "pages.agent.taskEnded": "{title} · {status}",
+  "pages.agent.currentTask": "正在做的任务",
+  "pages.agent.lastTask": "最近做完的任务"
 }

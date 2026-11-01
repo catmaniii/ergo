@@ -10,16 +10,16 @@
 // - 宽屏点卡片、从别处跳进来（#/projects/<项目>，…/chat、…/jobs/<作业> 也是）整页是这个项目：和负责人的会话占主区，项目的详情在会话左边的
 //   档案栏里（照长程任务的阶段栏：栏顶 × 整栏藏掉，标题栏左边的"项目档案"再打开，分界线能拖，开合和宽度按设备记住）；
 //   标题栏左上角的 ‹（鸿蒙返回键同一层）、浏览器后退回到一览，回来时滚回原来的位置（手机上也是）；‹ 不往历史里压新记录（app/history-nav.ts）；
-// - 窄屏照旧：一览 → 项目页 → 负责人会话，一览的卡片用新的样子。
+// - 368 号票（用户 2026-11-01）：手机上也是一览 → 对话框，不再多一层项目页；档案从右边滑进来；顶上是阶段条，项目内部任务没有单独的详情页（AgentConversation.tsx）。
 // 133 号票：项目做成了服务的（运营手段"服务"上线了），项目卡、项目页页头、运营方案那一节上有"打开「X」"入口和在不在线
 // （ui/service-entry.tsx，数据是 state/project-services.ts），点了在内置浏览器里打开。
 // 140 号票：项目卡和项目头用同一个"运营概况"（ui/operations-summary.tsx：服务入口带首页缩略图、定时任务几条几点、展开看每条）；
 // 项目头下面先是"现在"一节（pages/ProjectNow.tsx：按项目状态说最要紧的事，使用中的就是放大的运营概况），再往下是原来的各节；
-// 负责人会话页左栏的项目头用窄版。
+// 对话框档案里的项目头用窄版。
 // 258 号票：立项书下面一块"规范"（pages/ProjectStandard.tsx）：用的哪一版规范、必须有的几份文档写了、只有模板还是缺。
-import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { pageProjectFold, pageProjectSide, pageProjectSideWidth, useProjectFolded, useProjectSidePref, useProjectSideWidth } from "../app/page-project-wall.ts";
-import { goBackTo, type Navigate, toHash } from "../app/route.ts";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { pageProjectFold, useProjectFolded } from "../app/page-project-wall.ts";
+import { goBackFromProject, type Navigate, replaceRoute, toHash } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
 import { scheduledJobStatusLabel, tokensText, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
 import {
@@ -27,7 +27,6 @@ import {
   activityJump,
   activityNote,
   ARCHIVING_ACTIONS,
-  dragProjectSideWidth,
   PI_RUNTIME_ID,
   projectRuntime,
   isJobRunWorkOrder,
@@ -47,17 +46,18 @@ import {
   projectOperationRows,
   projectOperationsChangeCards,
   projectPageView,
+  projectConversationTask,
   projectPipeline,
   projectScheduledJobs,
-  projectSideLayout,
   projectWall,
   type ScheduledJobView,
   projectScopeRecords,
   SCHEDULED_JOB_ACTION_LABEL,
   selectProject,
-  type StageSidePref,
   t,
+  taskAcceptsMessages,
   taskLabel,
+  taskStatusText,
   tTable,
   wallScrollOnReturn,
   WORK_ORDER_LANE_LABEL,
@@ -80,27 +80,26 @@ import { TakeoverLink, TakeoverSheet } from "../ui/takeover.tsx";
 import { WorkFolderPicker } from "../ui/work-folder.tsx";
 import { AssistantName, NamedText } from "../ui/assistant-name.tsx";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
-import { AgentSettingsButton } from "../ui/agent-settings.tsx";
-import { ActivityDot, Section, Sheet, Splitter, TopBar, useRevealed } from "../ui/common.tsx";
+import { ActivityDot, Section, Sheet, TopBar, useRevealed } from "../ui/common.tsx";
 import { T } from "../ui/i18n.tsx";
 import { ServiceEntry } from "../ui/service-entry.tsx";
 import { OperationsSummary } from "../ui/operations-summary.tsx";
 import { charterAnchor, ProjectNowSection } from "./ProjectNow.tsx";
 import { ProjectStandardSection } from "./ProjectStandard.tsx";
-import { Conversation, useConversationPane, ZoomToggle } from "../ui/conversation/Conversation.tsx";
+import { Conversation, useConversationPane } from "../ui/conversation/Conversation.tsx";
 import { JobAuthorization } from "../ui/job-authorization.tsx";
 import { ScopeRecordList } from "../ui/scope-records.tsx";
-import { DetailLayout, FrameWidth } from "../ui/detail/DetailLayout.tsx";
+import { AgentDialog, composerPlaceholderOf, TaskBrief, useTaskScene } from "./AgentConversation.tsx";
 import { ToolkitEditor, ToolkitPanel } from "./ToolkitEditor.tsx";
 import { TaskProgress } from "../ui/TaskProgress.tsx";
 
 /**
- * 项目一览和项目二选一（104 号票，宽窄屏一样）：没点项目时整页是项目一览（宽屏多列档案墙），点了宽屏整页是这个项目（会话 + 档案栏），
- * 窄屏是项目页、负责人会话各一页。标题栏的 ‹ 回到一览（上一条历史就是一览就后退一步，否则换掉这一条，不压新记录）。
- * jobId：日历里点作业过来，项目详情里这个定时作业那一行高亮并滚到看得见的地方（35 号票）
+ * 项目一览和项目二选一（104 号票，宽窄屏一样）：没点项目时整页是项目一览（宽屏多列档案墙），点了整页是这个项目的对话框（368 号票：手机上也是）。
+ * 标题栏的 ‹ 回到一览（上一条历史就是一览就后退一步，否则换掉这一条，不压新记录）。
+ * jobId：日历里点作业过来，档案里这个定时作业那一行高亮并滚到看得见的地方（35 号票）；taskId：对话框定位到这个任务（368 号票）
  */
 /** at：负责人的会话里要定位的那一条（105 号票，从待办跳过来） */
-export function ProjectsPage({ wide, projectId, chat, jobId, at, navigate }: { wide: boolean; projectId?: string; chat?: boolean; jobId?: string; at?: string | undefined; navigate: Navigate }) {
+export function ProjectsPage({ wide, projectId, taskId, jobId, at, navigate }: { wide: boolean; projectId?: string; taskId?: string; jobId?: string; at?: string | undefined; navigate: Navigate }) {
   // 离开一览（进了项目）时一览滚到哪：一览在项目页时拿掉了，回来时照它恢复；记在项目页上，切到别的页再回来从头开始。
   // 分组收起按设备记住，不用这里记
   const wallScroll = useRef<number | undefined>(undefined);
@@ -108,20 +107,10 @@ export function ProjectsPage({ wide, projectId, chat, jobId, at, navigate }: { w
   const rememberScroll = useCallback((top: number) => {
     wallScroll.current = top;
   }, []);
-  const view = projectPageView({ wide, projectId, chat, jobId });
+  const view = projectPageView({ wide, projectId, jobId, taskId });
   if (view.kind === "wall") return <ProjectWall layout={view.layout} savedScroll={savedScroll} onScrolled={rememberScroll} onOpen={(id) => navigate({ tab: "projects", projectId: id })} />;
-  switch (view.pane) {
-    case "full":
-      return <ProjectFull key={view.projectId} projectId={view.projectId} job={view.job} at={at} onBack={backToWall} />;
-    case "chat":
-      return <MaintainerChat key={`${view.projectId}-chat`} projectId={view.projectId} wide={wide} at={at} onBack={() => goBackTo({ tab: "projects", projectId: view.projectId })} />;
-    case "page":
-      return <ProjectPage key={view.projectId} projectId={view.projectId} job={view.job} onBack={backToWall} onChat={() => navigate({ tab: "projects", projectId: view.projectId, chat: true })} />;
-  }
+  return <ProjectConversation key={view.projectId} projectId={view.projectId} wide={wide} job={view.job} focus={view.task} at={at} />;
 }
-
-/** 标题栏的 ‹：回到项目一览（不压新记录） */
-const backToWall = () => goBackTo({ tab: "projects" });
 
 // ---------- 项目一览 ----------
 
@@ -350,132 +339,121 @@ function workdirLabel(p: Project): string {
 }
 
 /**
- * 宽屏的整页项目（104 号票）：和负责人的会话占主区，项目的详情在会话左边的档案栏里。档案栏照长程任务的阶段栏（88、91 号票）：
- * 栏顶 × 整栏藏掉，标题栏左边（‹ 之后、标题之前，正在档案栏上方）的"项目档案"点一下开合；分界线能拖（默认 380，最窄 280，
- * 最宽外框的 60%）；开合和宽度按设备记住（和阶段栏分开记）。日历里点作业过来的这一次把档案栏打开、那一行高亮，不写进设置。
+ * 项目的对话框（368 号票，用户 2026-11-01："我点那个项目卡片进去之后出来一个聊天窗口……阶段条就是显示在我点击卡片之后进去的那个聊天窗口，而不要再展开一层"）：
+ * 和负责人的会话占主区，顶上是这个项目正在做的任务的阶段条，项目的详情在档案里（宽屏在会话左边，手机从右边滑进来；开合、宽度按设备记住，日历里点作业过来的这一次打开、那一行高亮）。
+ * 任务看板、待办、链接进来的都是这一个：focus 是地址点名要定位到的任务，阶段条、标题栏上的状态和操作换成它，会话滚到它开始的那一条（带 at 的照旧定位到那一条）。
  * 已归档的项目会话只读
  */
-function ProjectFull({ projectId, job, at, onBack }: { projectId: string; job?: string | undefined; at?: string | undefined; onBack(): void }) {
-  const { ui, watchChannels } = useStore();
-  const view = selectProject(ui, projectId);
-  const conversation = view && maintainerChannel(view.project.maintainerId);
-  const [conversationRef, detail] = useConversationPane(true, conversation);
-  useEffect(() => {
-    if (conversation) watchChannels([conversation]);
-  }, [conversation, watchChannels]);
-  const frameWidth = useContext(FrameWidth);
-  const pref = useProjectSidePref();
-  const remembered = useProjectSideWidth();
-  /** 拖着的时候的宽度（松手才记到这台设备上） */
-  const [dragging, setDragging] = useState<number>();
-  /** 日历里点名的作业：这一次开着档案栏；你自己开合之后按你的 */
-  const [jobOpen, setJobOpen] = useState(job);
-  const layout = projectSideLayout({ pref, job: jobOpen });
-  const setSide = (next: StageSidePref) => {
-    setJobOpen(undefined);
-    pageProjectSide().set(next);
-  };
-  if (!view || !conversation) {
-    return (
-      <div className="chat-col">
-        <TopBar title={t("pages.projects.title")} onBack={onBack} />
-        <div className="page-placeholder">{t("pages.projects.missing")}</div>
-      </div>
-    );
-  }
-  const p = view.project;
-  const open = layout === "side";
-  return (
-    <DetailLayout wide detail={detail} conversation={conversation}>
-      <div className="chat-col">
-        <TopBar
-          title={p.name}
-          onBack={onBack}
-          lead={
-            <button type="button" className="stage-chip proj-side-chip" onClick={() => setSide(open ? "closed" : "open")} aria-expanded={open} aria-label={open ? t("pages.projects.side.hide") : t("pages.projects.side.show")}>
-              {t("pages.projects.side.title")}
-            </button>
-          }
-        >
-          <span className={`pst pst-${p.state}`}>{PROJECT_STATE_LABEL[p.state]}</span>
-          <ActivityDot state={view.activity.state} note={activityNote(view.activity)} jump={activityJump(ui, p.maintainerId)} />
-          {/* 项目会话：▤ / 💬 一直显示 */}
-          <ZoomToggle handle={conversationRef} />
-          {/* 项目负责人的 ⚙（114 号票）：单独的提示词（跟着项目走）、清空当前对话（就是重置负责人）、上下文用量 */}
-          <AgentSettingsButton agentId={p.maintainerId} wide />
-        </TopBar>
-        <div className="chat-row">
-          {open && (
-            <>
-              <aside className="md-side proj-side" style={{ width: dragging ?? remembered }} aria-label={t("pages.projects.side.title")}>
-                <div className="md-side-head">
-                  <span>{t("pages.projects.side.title")}</span>
-                  <button type="button" className="md-side-close" onClick={() => setSide("closed")} aria-label={t("pages.projects.side.hide")} title={t("pages.projects.side.hideTitle")}>
-                    ×
-                  </button>
-                </div>
-                <div className="scroll proj-side-body">
-                  <ProjectHead view={view} narrow />
-                  <ProjectSections view={view} job={job} />
-                </div>
-              </aside>
-              <Splitter
-                label={t("pages.projects.side.resize")}
-                onDrag={(dx) => setDragging((w) => dragProjectSideWidth(w ?? remembered, dx, frameWidth))}
-                onDragEnd={() => {
-                  if (dragging !== undefined) pageProjectSideWidth().set(dragging);
-                  setDragging(undefined);
-                }}
-              />
-            </>
-          )}
-          <div className="chat-row-main">
-            <Conversation
-              conversation={conversation}
-              mode="maintainer"
-              wide
-              onDetail={detail.open}
-              showDetail={detail.show}
-              ref={conversationRef}
-              revealAt={at}
-              readOnly={p.state === "archived"}
-              readOnlyNote={t("pages.projects.readOnlyInRecords")}
-              // 等你处理（107 号票）：这个项目的、它内部任务的；归档了照样能点（删除项目的确认）
-              inbox={{ kind: "project", projectId }}
-            />
-          </div>
-        </div>
-      </div>
-    </DetailLayout>
-  );
-}
-
-/** 窄屏的项目页：项目头（带"和负责人交流"）和下面各节，一列往下排 */
-function ProjectPage({ projectId, job, onBack, onChat }: { projectId: string; job?: string | undefined; onBack(): void; onChat(): void }) {
+function ProjectConversation({ projectId, wide, job, focus, at }: { projectId: string; wide: boolean; job?: string | undefined; focus?: string | undefined; at?: string | undefined }) {
   const { ui } = useStore();
   const view = selectProject(ui, projectId);
   if (!view) {
     return (
       <div className="chat-col">
-        <TopBar title={t("pages.projects.title")} onBack={onBack} />
+        <TopBar title={t("pages.projects.title")} onBack={goBackFromProject} />
         <div className="page-placeholder">{t("pages.projects.missing")}</div>
       </div>
     );
   }
+  return <ProjectDialog view={view} wide={wide} job={job} focus={focus} at={at} />;
+}
+
+function ProjectDialog({ view, wide, job, focus, at }: { view: ProjectView; wide: boolean; job?: string | undefined; focus?: string | undefined; at?: string | undefined }) {
+  const { ui, watchChannels } = useStore();
+  const p = view.project;
+  const conversation = maintainerChannel(p.maintainerId);
+  const [conversationRef, detail] = useConversationPane(wide, conversation);
+  useEffect(() => watchChannels([conversation]), [conversation, watchChannels]);
+  const task = projectConversationTask(ui, p, focus);
+  const focused = focus !== undefined && task?.id === focus;
+  const { scene, stagePanel } = useTaskScene({
+    task,
+    conversation,
+    conversationRef,
+    detail,
+    focused,
+    caption: task?.title,
+    doneText: task && (task.id === p.buildTaskId && task.state === "done" ? t("pages.agent.buildDone") : t("pages.agent.taskEnded", { title: task.title, status: taskStatusText(task) })),
+    focusHref: task && toHash({ tab: "projects", projectId: p.id, taskId: task.id }),
+    // 删了（186 号票）：回到项目的对话框，不再定位到它
+    onDeleted: () => replaceRoute({ tab: "projects", projectId: p.id }),
+  });
+  const archiveLabel = t("pages.projects.side.title");
+  // 手机上：日历里点作业过来的，档案滑进来（宽屏档案这一次开着）；档案里点了一个任务，定位到它，档案滑回去
+  const { show, close } = detail;
+  useEffect(() => {
+    if (!wide && job !== undefined) show({ type: "archive", title: archiveLabel });
+  }, [wide, job, show, archiveLabel]);
+  useEffect(() => {
+    if (!wide && focus !== undefined) close();
+  }, [wide, focus, close]);
+  // 做完了又没人点名的：阶段条收成一行，标题栏上不写它的状态（写项目的状态），"⋯"里还找得到
+  const current = scene && (!scene.ended || focused) ? scene : undefined;
+  // 输入框里说的话（和原来任务页一样，sayingScopeOf、userMessageScope）：不带任务编号就属于负责人手上这一段；项目内部的普通任务，正在做的、从链接定位过来接着说的带上它
+  const sayTo = current?.plain && current.task.internal && taskAcceptsMessages(current.task) ? current.task.id : undefined;
   return (
-    <div className="chat-col">
-      <TopBar title={view.project.name} onBack={onBack} />
-      <div className="scroll page-pad">
-        <ProjectHead view={view} onChat={onChat} />
-        <ProjectSections view={view} job={job} />
-      </div>
-    </div>
+    <AgentDialog
+      wide={wide}
+      title={p.name}
+      onBack={goBackFromProject}
+      conversation={conversation}
+      conversationRef={conversationRef}
+      detail={detail}
+      maintainerId={p.maintainerId}
+      head={{
+        tokens: 0,
+        items: [],
+        panels: [],
+        onPanel: () => {},
+        onPick: () => {},
+        ...scene?.head,
+        status: current?.status,
+        keyItem: current?.head.keyItem,
+        activity: { state: view.activity.state, note: activityNote(view.activity), jump: activityJump(ui, p.maintainerId) },
+        badge: <span className={`pst pst-${p.state}`}>{PROJECT_STATE_LABEL[p.state]}</span>,
+        menuTitle: scene?.task.title,
+      }}
+      archive={{
+        label: archiveLabel,
+        forced: job !== undefined,
+        body: (
+          <>
+            <ProjectHead view={view} narrow onChat={wide ? undefined : close} />
+            {scene && <TaskBrief scene={scene} title={scene === current ? t("pages.agent.currentTask") : t("pages.agent.lastTask")} />}
+            <ProjectSections view={view} job={job} />
+          </>
+        ),
+      }}
+      bar={scene?.bar}
+      onChatPointerDown={stagePanel.onChatPointerDown}
+      stages={scene?.stages}
+      panel={scene?.panel}
+      dialogs={scene?.dialogs}
+    >
+      <Conversation
+        conversation={conversation}
+        mode="maintainer"
+        wide={wide}
+        onDetail={detail.open}
+        showDetail={detail.show}
+        {...stagePanel.chat}
+        ref={conversationRef}
+        revealAt={at}
+        readOnly={p.state === "archived"}
+        readOnlyNote={wide ? t("pages.projects.readOnlyInRecords") : t("pages.projects.readOnlyOnPage")}
+        // 等你处理（107 号票）：这个项目的、它内部任务的、对话框上正显示的任务的（368 号票）；归档了照样能点（删除项目的确认）
+        inbox={{ kind: "project", projectId: p.id, taskId: scene?.task.id }}
+        taskId={sayTo}
+        workflowTaskId={current?.workflow ? current.task.id : undefined}
+        composerPlaceholder={current && composerPlaceholderOf(current.task, current.plain, current.timed)}
+      />
+    </AgentDialog>
   );
 }
 
 /**
- * 项目头：状态、负责人、进行中的任务、一句话目标、类型和工作目录，按当前状态给出的动作；onChat：窄屏的"和负责人交流"（宽屏会话就在旁边）。
- * 140 号票：下面紧跟"现在"一节（服务入口、定时任务在它的运营概况里）；narrow：负责人会话页左栏，用窄版
+ * 项目头：状态、负责人、进行中的任务、一句话目标、类型和工作目录，按当前状态给出的动作。
+ * 140 号票：下面紧跟"现在"一节（服务入口、定时任务在它的运营概况里）；narrow：档案里用窄版；onChat："现在"一节让你去说话时（手机上档案盖着会话，点了滑回去）
  */
 function ProjectHead({ view, onChat, narrow = false }: { view: ProjectView; onChat?: (() => void) | undefined; narrow?: boolean }) {
   const { projectAction, setProjectVoiceAnnounce, ui } = useStore();
@@ -514,13 +492,8 @@ function ProjectHead({ view, onChat, narrow = false }: { view: ProjectView; onCh
             {t("pages.projects.buildTask", { task: taskLabel(ui, p.buildTaskId) })}
           </a>
         )}
-        {(onChat || view.actions.length > 0) && (
+        {view.actions.length > 0 && (
           <div className="auth-actions">
-            {onChat && (
-              <button type="button" className="btn primary" onClick={onChat}>
-                {t("pages.projects.chat")}
-              </button>
-            )}
             {view.actions.map((action) => (
               <button
                 key={action}
@@ -608,9 +581,9 @@ function ProjectSections({ view, job }: { view: ProjectView; job?: string | unde
 }
 
 /**
- * 项目内部任务（64 号票）：由项目的负责人执行的流程和长程任务（不上全局看板）。没结束的在前；结束了的每个有"归档"
+ * 项目内部任务（64 号票）：由项目的负责人执行的流程和长程任务（不上全局看板）。没结束的在前（排队的也在这里列着）；结束了的每个有"归档"
  * （和全局任务一样只有你能归档）；归档了的收起来。每个写种类、状态（写明原因）、进度和用量，
- * 点进去是任务详情（执行过程在项目的负责人会话里）
+ * 点了对话框定位到它（368 号票：不再跳页，执行过程就在这个会话里）
  */
 function ProjectInternalTasks({ projectId }: { projectId: string }) {
   const { ui, taskAction } = useStore();
@@ -626,12 +599,12 @@ function ProjectInternalTasks({ projectId }: { projectId: string }) {
   return (
     <div>
       {open.map((v) => (
-        <InternalTaskRow key={v.task.id} v={v} />
+        <InternalTaskRow key={v.task.id} projectId={projectId} v={v} />
       ))}
       {open.length === 0 && <div className="muted">{t("pages.projects.internalNoneOpen")}</div>}
       {ended.length > 0 && <div className="lane-h">{t("pages.projects.internalEnded")}</div>}
       {ended.map((v) => (
-        <InternalTaskRow key={v.task.id} v={v} onArchive={v.archivable ? () => taskAction(v.task.id, "archive") : undefined} />
+        <InternalTaskRow key={v.task.id} projectId={projectId} v={v} onArchive={v.archivable ? () => taskAction(v.task.id, "archive") : undefined} />
       ))}
       {archived.length > 0 && (
         <button type="button" className="btn ghost" onClick={() => setShowArchived(!showArchived)} aria-expanded={showArchived}>
@@ -640,17 +613,17 @@ function ProjectInternalTasks({ projectId }: { projectId: string }) {
       )}
       {showArchived &&
         archived.map((v) => (
-          <InternalTaskRow key={v.task.id} v={v} />
+          <InternalTaskRow key={v.task.id} projectId={projectId} v={v} />
         ))}
     </div>
   );
 }
 
-/** 内部任务的一行：编号和标题（点进任务详情），种类、状态、进度和用量；结束了的有"归档" */
-function InternalTaskRow({ v, onArchive }: { v: InternalTaskView; onArchive?: (() => void) | undefined }) {
+/** 内部任务的一行：编号和标题（点了对话框定位到它），种类、状态、进度和用量；结束了的有"归档" */
+function InternalTaskRow({ projectId, v, onArchive }: { projectId: string; v: InternalTaskView; onArchive?: (() => void) | undefined }) {
   return (
     <div className="lane-item">
-      <a className="link" href={toHash({ tab: "tasks", taskId: v.task.id })}>
+      <a className="link" href={toHash({ tab: "projects", projectId, taskId: v.task.id })}>
         {t("pages.projects.ref", { id: v.task.id, title: v.task.title })}
       </a>
       <div className="muted">
@@ -918,41 +891,5 @@ function Pipeline({ orders }: { orders: WorkOrder[] }) {
         );
       })}
     </div>
-  );
-}
-
-/** 和负责人交流：共用的会话组件；已归档的项目只读。打开时才订阅这个负责人的会话频道 */
-function MaintainerChat({ projectId, wide, at, onBack }: { projectId: string; wide: boolean; at?: string | undefined; onBack(): void }) {
-  const { ui, watchChannels } = useStore();
-  const view = selectProject(ui, projectId);
-  const conversation = view && maintainerChannel(view.project.maintainerId);
-  const [conversationRef, detail] = useConversationPane(wide, conversation);
-  useEffect(() => {
-    if (conversation) watchChannels([conversation]);
-  }, [conversation, watchChannels]);
-  if (!view || !conversation) return <div className="page-placeholder">{t("pages.projects.missing")}</div>;
-  return (
-    <DetailLayout wide={wide} detail={detail} conversation={conversation}>
-      <div className="chat-col">
-        <TopBar title={t("pages.projects.chatTitle", { name: view.project.name })} onBack={onBack}>
-          <ActivityDot state={view.activity.state} note={activityNote(view.activity)} jump={activityJump(ui, view.project.maintainerId)} />
-          {/* 项目会话：▤ / 💬 一直显示 */}
-          <ZoomToggle handle={conversationRef} />
-          <AgentSettingsButton agentId={view.project.maintainerId} wide={wide} />
-        </TopBar>
-        <Conversation
-          conversation={conversation}
-          mode="maintainer"
-          wide={wide}
-          onDetail={detail.open}
-          showDetail={detail.show}
-          ref={conversationRef}
-          revealAt={at}
-          readOnly={view.project.state === "archived"}
-          readOnlyNote={t("pages.projects.readOnlyOnPage")}
-          inbox={{ kind: "project", projectId }}
-        />
-      </div>
-    </DetailLayout>
   );
 }

@@ -5,7 +5,8 @@
 //   第 3 阶段正在拷文档（问过你一次能不能动外接硬盘）；并行的照旧一次做一个；
 // - 「给家里的打印机配扫描到网盘」（计划等你确认）：第 1 阶段两个并行（查打印机型号、在网盘建目录），之后配置、你试扫一页；
 // - 「整理家里 NAS 的备份」（执行中，计划变更等你确认）：第 3 阶段原来是并行的"每晚备份到移动硬盘"和"异地备份到网盘"，负责人提议
-//   去掉异地备份、加一个"给备份加完整性校验"，并给移动硬盘那一支加一项格式化授权。
+//   去掉异地备份、加一个"给备份加完整性校验"，并给移动硬盘那一支加一项格式化授权；
+// - 「记账本第一版」（368 号票，项目「记账本」的首个建设任务，做完了）：项目的对话框顶上收成一行"首版已完成"，点开看阶段条、交付件和验收标准。
 import {
   CARD_TYPE_VERSIONS,
   type Card,
@@ -585,7 +586,58 @@ const NAS_MESSAGES: MessageEnvelope[] = [
 
 // ───────────────────────── 交给假连接的 ─────────────────────────
 
-export const LONG_TASK_CARDS: Card[] = [...PC_CARDS, SCAN_PLAN_CARD, NAS_PLAN_CARD, NAS_CHANGE_CARD];
+// ───────────────────────── 记账本第一版（368 号票：项目内部的首个建设任务，做完了） ─────────────────────────
+
+export const LEDGER_BUILD_ID = "t-ledger-v1";
+const LEDGER_TITLE = "记账本第一版";
+const LEDGER_PLAN = plan([
+  stage("s1", "把账单导进来", [], {
+    deliverables: ["导入脚本 import.py", "账单表 bills.sqlite"],
+    acceptance: [{ criterion: "三家银行的账单都能导入", method: "script", script: "python -m pytest tests/test_import.py" }],
+  }),
+  stage("s2", "按月出报表", ["s1"], {
+    deliverables: ["月报模板 report.md.j2", "九月份的月报"],
+    acceptance: [{ criterion: "九月份月报的合计和银行对账单对得上", method: "script", script: "python check_report.py 2026-09" }],
+  }),
+  stage("s3", "你看过九月的月报", ["s2"], {
+    deliverables: ["九月份的月报"],
+    acceptance: [{ criterion: "你看过九月的月报，分类没大问题", method: "user" }],
+  }),
+]);
+const LEDGER_PLAN_CARD = card(
+  "c-plan-ledger-v1",
+  "plan",
+  { taskId: LEDGER_BUILD_ID, taskTitle: LEDGER_TITLE, revision: 1, planId: `${LEDGER_BUILD_ID}-p1`, goal: "账单导进一个本子，每月出一份报表", plan: LEDGER_PLAN, globalCategories: GLOBAL_CATEGORIES.map((c) => c.id), grantInfo: {} } satisfies PlanCardPayload,
+  "计划：记账本第一版（第 1 版，3 个阶段）",
+  { status: "handled", outcome: { action: "confirm" }, createdAt: at("09-02", "10:00"), handledAt: at("09-02", "10:05") },
+);
+const LEDGER_TASK: Task = {
+  id: LEDGER_BUILD_ID,
+  title: LEDGER_TITLE,
+  summary: "账单导进一个本子，每月出一份报表",
+  state: "done",
+  origin: "button",
+  kind: "long_running",
+  maintainerId: "project-ledger",
+  projects: ["记账本"],
+  projectIds: ["p-ledger"],
+  projectScope: "single",
+  internal: { projectId: "p-ledger", projectName: "记账本" },
+  planCardId: LEDGER_PLAN_CARD.id,
+  stages: {
+    total: 3,
+    current: 3,
+    list: [
+      { stageId: "s1", title: "把账单导进来", state: "accepted", dependsOn: [], acceptance: [acc("三家银行的账单都能导入", "script", true, at("09-03", "18:00"))], attempts: 1, startedAt: at("09-02", "10:10"), summary: "三家银行的账单都导进 bills.sqlite 了" },
+      { stageId: "s2", title: "按月出报表", state: "accepted", dependsOn: ["s1"], acceptance: [acc("九月份月报的合计和银行对账单对得上", "script", true, at("09-05", "12:00"))], attempts: 2, startedAt: at("09-03", "18:05"), summary: "九月份月报出好了，合计对得上" },
+      { stageId: "s3", title: "你看过九月的月报", state: "accepted", dependsOn: ["s2"], acceptance: [acc("你看过九月的月报，分类没大问题", "user", true, at("09-06", "09:00"))], attempts: 1, startedAt: at("09-05", "12:10"), summary: "你看过了" },
+    ],
+  },
+  createdAt: at("09-02", "09:50"),
+  updatedAt: at("09-06", "09:00"),
+};
+
+export const LONG_TASK_CARDS: Card[] = [...PC_CARDS, SCAN_PLAN_CARD, NAS_PLAN_CARD, NAS_CHANGE_CARD, LEDGER_PLAN_CARD];
 
 const messageEvent = (m: MessageEnvelope) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } });
 
@@ -613,4 +665,5 @@ export const LONG_TASK_HISTORY: { channel: string; type: string; payload: unknow
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: PC_TASK, change: "stage_started", from: "running", by: "maintainer" } satisfies TaskEventPayload },
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: SCAN_TASK, change: "plan_submitted", from: "planning", by: "maintainer" } satisfies TaskEventPayload },
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: NAS_TASK, change: "plan_change_proposed", from: "running", by: "maintainer" } satisfies TaskEventPayload },
+  { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: LEDGER_TASK, change: "completed", from: "running", by: "system" } satisfies TaskEventPayload },
 ];

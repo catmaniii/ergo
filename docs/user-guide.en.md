@@ -152,8 +152,15 @@ Or run the command: `ergo notify comment-anomaly --data "{\"count\":3}"`. Exit c
 - Each stage passes scripted checks and then an independent reviewer agent; off-plan actions are flagged and pulled back where possible.
 - Changing the plan only pauses the affected stages; you confirm once on a plan-change card.
 - If the daemon is killed or the PC restarts, work resumes where it stopped.
+- Cross-project tasks and tasks outside any project have their own conversation that looks the same as a project's; a task that belongs to one project lives in that project's conversation (old links jump there).
 
 ### 4.3 Projects
+
+**Tapping a project card goes straight to that owner's conversation**: title bar, the stage bar at the top (which stage of which task is under way), messages and the input box. It looks the same whether you came from a project card, a task link or the inbox, and phones no longer have an extra page in between.
+
+- **Stage bar**: tap the label to expand it, tap a stage to see its deliverables and acceptance criteria, and pull the handle down for the whole plan. A finished task folds into one line (say, "First version done") that you can still open; with no task, it takes no space.
+- **Records**: the project's details (charter, work orders, internal tasks, operations plan and so on) and the current task's plan, toolkit, usage and run history. They're in the left column on a computer; on a phone, tap the title to slide them in. Pausing or cancelling a task is under the status and "⋯" in the title bar. Queued internal tasks are listed in the records; tap one to jump to it.
+- **Background agents**: when the owner sends sub-agents out to work, the title bar says "3 agents working in the background" (an icon and a count on a phone). Open it to see what each was sent to do, which stage it's in, what it's doing right now, how long it has taken, its tool calls and its usage. Reviews during acceptance are listed too. Tap one to read its conversation. Finished ones are read-only and can't be picked up again, and they're deleted along with the task or project. Sub-agents that ran before this feature say "This run didn't record what it said".
 
 A project is something long-lived (a website, a tool) with a dossier (charter, spec, progress), a working directory and a fixed owner. Once you start a project, the owner speaks first, and it already has the paths and limits you gave your assistant, so you don't have to repeat them. The owner's work is queued as work orders, one at a time; after each work order a second model checks whether it strayed out of scope. When the first version is done, you decide: put it into use, keep building, or abandon and archive. Once a project goes live as a service, the supervisor hosts it and you can open its pages in ergo's built-in browser.
 

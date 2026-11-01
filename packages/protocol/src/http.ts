@@ -319,6 +319,8 @@ const DEFAULT = "default";
 const PROMPT = "prompt";
 const CLEAR = "clear";
 const COMPACT = "compact";
+const BACKGROUND = "background";
+const TRANSCRIPT = "transcript";
 const MODEL = "model";
 const RUNTIME = "runtime";
 const DEBUG = "debug";
@@ -591,6 +593,10 @@ export const HTTP_PATHS = {
   agentClear: (agentId: string) => api(AGENTS, agentId, CLEAR),
   /** 现在压缩（POST，不带请求体，响应 AgentSettingsView） */
   agentCompact: (agentId: string) => api(AGENTS, agentId, COMPACT),
+  /** 这个负责人背后的 agent（GET，响应 BackgroundAgentList，368 号票）：派出去的子 agent、评审，运行中的在前 */
+  agentBackground: (agentId: string) => api(AGENTS, agentId, BACKGROUND),
+  /** 背后的一个 agent 的对话（GET，响应 BackgroundAgentTranscript，368 号票）：只读，agent id 是 sa-<n>、review-…；没有这个的回 404 */
+  agentTranscript: (agentId: string) => api(AGENTS, agentId, TRANSCRIPT),
   /** 项目、任务的负责人单独配模型（120 号票）：PUT 选定（请求体 AgentModelBody）、DELETE 改回跟随它那一行，响应都是 AgentSettingsView */
   agentModel: (agentId: string) => api(AGENTS, agentId, MODEL),
   /**
@@ -747,6 +753,8 @@ export type HttpRoute =
   | { route: "agent_prompt"; agentId: string }
   | { route: "agent_clear"; agentId: string }
   | { route: "agent_compact"; agentId: string }
+  | { route: "agent_background"; agentId: string }
+  | { route: "agent_transcript"; agentId: string }
   | { route: "agent_model"; agentId: string }
   | { route: "agent_runtime"; agentId: string }
   | { route: "agent_takeover"; agentId: string }
@@ -881,6 +889,8 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
     if (tail === PROMPT) return { route: "agent_prompt", agentId: id };
     if (tail === CLEAR) return { route: "agent_clear", agentId: id };
     if (tail === COMPACT) return { route: "agent_compact", agentId: id };
+    if (tail === BACKGROUND) return { route: "agent_background", agentId: id };
+    if (tail === TRANSCRIPT) return { route: "agent_transcript", agentId: id };
     if (tail === MODEL) return { route: "agent_model", agentId: id };
     if (tail === RUNTIME) return { route: "agent_runtime", agentId: id };
     if (tail === TAKEOVER) return { route: "agent_takeover", agentId: id };

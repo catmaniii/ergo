@@ -72,9 +72,11 @@ export interface StageGroup {
  * 连续的后台事项按阶段分组：同一阶段连着的是一组，中间插了别的阶段就断开；
  * 自己不带阶段的（思考、不带阶段的说明）跟着后面最近的那个阶段，后面没有就跟前面的。别的任务的条目不算阶段。
  * 二狗多的：你从某个阶段重做的地方也断开（重做记录另起一组、是新一轮的第一条）——对正在做的阶段点重做、中间没有一句回复时，
- * 旧一轮（已作废）和新一轮不并成一个框
+ * 旧一轮（已作废）和新一轮不并成一个框。
+ * shared（368 号票，项目的对话框）：这段会话不是这个任务独占的——别的任务、项目自己的条目像"你说的"一样断开、照常显示，
+ * 这个任务不在阶段里的也不收成一句话，只有真在阶段里的成框
  */
-export function stageGroups(state: UiState, items: readonly ChatItem[], taskId: string): StageGroup[] {
+export function stageGroups(state: UiState, items: readonly ChatItem[], taskId: string, shared = false): StageGroup[] {
   const out: { id: string; ids: string[]; stageId: string | undefined }[] = [];
   let run: ChatItem[] = [];
   const flush = () => {
@@ -93,11 +95,11 @@ export function stageGroups(state: UiState, items: readonly ChatItem[], taskId: 
     run = [];
   };
   for (const it of items) {
-    if (stageChatShown(state, it)) flush();
+    if (stageChatShown(state, it) || (shared && it.scope.taskId !== taskId)) flush();
     else run.push(it);
   }
   flush();
-  return out;
+  return shared ? out.filter((g) => g.stageId !== undefined) : out;
 }
 
 /** 框的完成情况：框左边那道颜色、右上角的字（框里展开的每次操作接着用这道颜色） */
@@ -318,16 +320,16 @@ export interface StageBoxStage {
 /**
  * 这个任务的会话里每个阶段框（stale：重开之前那几轮的条目，状态层 zoomDecor 的 stale）。
  * live：负责人正在干活、会话最后一条落在这一组里（在跑、是最后一组、最后一条在组里）。
- * list、running 不给就按看板上的这个任务（原型的假任务给假阶段、假的活动状态）
+ * list、running 不给就按看板上的这个任务（原型的假任务给假阶段、假的活动状态）；shared 见 stageGroups
  */
 export function stageBoxes(
   state: UiState,
   items: readonly ChatItem[],
   taskId: string,
-  o: { stale: ReadonlySet<string>; list?: readonly StageBoxStage[] | undefined; running?: boolean | undefined },
+  o: { stale: ReadonlySet<string>; list?: readonly StageBoxStage[] | undefined; running?: boolean | undefined; shared?: boolean | undefined },
 ): StageBoxView[] {
   const task = state.tasks[taskId];
-  const groups = stageGroups(state, items, taskId);
+  const groups = stageGroups(state, items, taskId, o.shared);
   const byId = new Map(items.map((it) => [it.id, it]));
   const list: readonly StageBoxStage[] = o.list ?? (task?.stages?.list ?? []).map((s) => ({ id: s.stageId, title: s.title, after: s.dependsOn, state: s.state, waitReason: s.waitReason }));
   // 被计划变更、自行调整去掉的阶段：标题、阶段号照依赖图上的节点（从确认过的旧版计划取，阶段号和现在的一起排）；原型的假任务图上不画去掉的
