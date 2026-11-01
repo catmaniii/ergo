@@ -65,6 +65,12 @@ export function runningEvidence(svc, st, snap, { probe = null, link = null, outL
   if (port) {
     const ls = snap?.ports?.get(port) || [];
     if (ls.length) { ls.forEach((p) => pids.add(p)); why.push(`端口 ${port} 还有人在听（PID ${ls.join('、')}）`); }
+    else if (snap?.reachable?.has(port)) {
+      // 连得上、连接表里却没有它的行（probe.mjs 的 resolveFlakyListeners）：还在跑；
+      // 兜底强杀要的进程从「命令行里写着这个服务日志路径的 cmd 包装层」认——和下面认账本 PID 是同一条规矩
+      why.push(`端口 ${port} 还连得上（连接表里看不到是谁）`);
+      if (outLog) for (const [pid, info] of snap.procs || []) if ((info.cmd || '').toLowerCase().includes(outLog.toLowerCase())) pids.add(pid);
+    }
   } else if (probe?.ok) {
     if (probe.pid) pids.add(probe.pid);
     why.push(probe.detail || '进程还在');

@@ -1,5 +1,6 @@
 // Windows 进程/端口原语。所有「现实」都从这里读——账本不可信，现实可信。
 import os from 'node:os';
+import net from 'node:net';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -30,29 +31,62 @@ export async function psJson(script, opts) {
  *   pids: port -> 监听进程；binds: port -> 绑定地址（0.0.0.0 = 局域网可达，127.0.0.1 = 仅本机）
  */
 export async function listeningPorts() {
-  const map = new Map();
-  const binds = new Map();
   let stdout;
   try {
     ({ stdout } = await pexec('netstat', ['-ano', '-p', 'TCP'], {
       maxBuffer: 16 * 1024 * 1024, windowsHide: true, timeout: 15000,
     }));
-  } catch { return { pids: map, binds }; }
-  for (const line of stdout.split(/\r?\n/)) {
-    if (!/\bLISTENING\b/i.test(line)) continue;   // netstat 的状态列在中文 Windows 上也是英文
+  } catch { return { pids: new Map(), binds: new Map(), suspect: new Map() }; }
+  return parseNetstat(stdout);
+}
+
+/**
+ * 解析 netstat -ano -p TCP 的输出（状态列在中文 Windows 上也是英文）。
+ *
+ * 监听 socket 的「外部地址」是通配（0.0.0.0:0 / [::]:0）——真连接永远有具体的对端。
+ * 2026-10-29 实测：这台机器重启后，netstat 给一大半监听 socket 报 CLOSED / FIN_WAIT_1
+ * （管理器自己的 7420、RDP、SMB、tailscaled 全中），可它们照样在接连接。只认 LISTENING 的话，
+ * 好好的服务每隔几秒被判「端口没人在听」，刚起来的服务永远等不到就绪，重试又撞上「已经有一份在跑」。
+ * 所以：状态是 LISTENING 的直接算；外部地址是通配、状态却不对的归进 suspect，由调用方真连一下再算。
+ * @returns {{pids: Map<number, number[]>, binds: Map<number, string[]>, suspect: Map<number, {pid: number, addr: string}[]>}}
+ */
+export function parseNetstat(stdout) {
+  const pids = new Map();
+  const binds = new Map();
+  const suspect = new Map();
+  const add = (m, k, v) => { if (!m.has(k)) m.set(k, []); if (!m.get(k).includes(v)) m.get(k).push(v); };
+  for (const line of String(stdout).split(/\r?\n/)) {
     const parts = line.trim().split(/\s+/);
-    if (parts.length < 4) continue;
+    if (parts.length < 5 || !/^TCP$/i.test(parts[0])) continue;
+    const [, local, foreign, state] = parts;
     const pid = Number(parts[parts.length - 1]);
-    const m = /:(\d+)$/.exec(parts[1] || '');
+    const m = /:(\d+)$/.exec(local || '');
     if (!m || !Number.isInteger(pid) || pid === 0) continue;
     const port = Number(m[1]);
-    const addr = parts[1].slice(0, parts[1].lastIndexOf(':'));
-    if (!map.has(port)) map.set(port, []);
-    if (!map.get(port).includes(pid)) map.get(port).push(pid);
-    if (!binds.has(port)) binds.set(port, []);
-    if (!binds.get(port).includes(addr)) binds.get(port).push(addr);
+    const addr = local.slice(0, local.lastIndexOf(':'));
+    if (/^LISTENING$/i.test(state)) {
+      add(pids, port, pid);
+      add(binds, port, addr);
+    } else if (/^(0\.0\.0\.0|\[::\]):0$/.test(foreign)) {
+      if (!suspect.has(port)) suspect.set(port, []);
+      suspect.get(port).push({ pid, addr });
+    }
   }
-  return { pids: map, binds };
+  return { pids, binds, suspect };
+}
+
+/** 真连一下。netstat 的状态靠不住的时候（见 parseNetstat），这才是「有没有人在听」的事实。 */
+export function canConnect(port, addr = '127.0.0.1', timeoutMs = 800) {
+  const host = addr === '0.0.0.0' || addr === '*' ? '127.0.0.1'
+    : addr === '[::]' ? '::1'
+    : addr.replace(/^\[|\]$/g, '');
+  return new Promise((resolve) => {
+    const s = net.connect({ port, host });
+    const done = (ok) => { s.destroy(); resolve(ok); };
+    s.setTimeout(timeoutMs, () => done(false));
+    s.once('connect', () => done(true));
+    s.once('error', () => done(false));
+  });
 }
 
 /** 本机的局域网 IPv4。没有就返回 null（比如只有回环）。 */

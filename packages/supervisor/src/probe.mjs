@@ -1,7 +1,7 @@
 // 探活。四档精度，一盏绿灯在不同档位下保证的东西完全不同——档位必须一路传到 WebUI。
 import fs from 'node:fs';
 import path from 'node:path';
-import { allProcesses, listeningPorts } from './winproc.mjs';
+import { allProcesses, canConnect, listeningPorts } from './winproc.mjs';
 
 async function httpOk(url, timeoutMs = 3000) {
   try {
@@ -84,11 +84,56 @@ function verifyIdentity(svc, st, info) {
  * 所以现在：一次全量枚举，两个用途（按 PID 查 + matchCmd 匹配）都从它身上取。
  */
 // 调用方照旧传要看的服务（[svc] 或整份清单）；一次全量枚举已经全覆盖，用不着它
-export async function snapshot() {
-  const { pids: ports, binds } = await listeningPorts();
+export async function snapshot(services) {
+  const first = await listeningPorts();
+  const { pids: ports, binds } = first;
+  // 这一轮要看、netstat 却说没人听的端口：别急着信它（见 resolveFlakyListeners）
+  const wanted = new Set((services || []).flatMap((s) => [s?.probe?.port, ...(s?.probe?.extraPorts || [])]).filter(Number.isInteger));
+  const missing = [...wanted].filter((p) => !ports.has(p));
+  if (missing.length) await resolveFlakyListeners(missing, first);
+  const reachable = first.reachable || new Set();
   // 全量枚举顺带覆盖了端口反查到的 PID 和 pidFile 里的 PID，不用再单独收集一遍
   const procs = await allProcesses();
-  return { ports, binds, procs, allProcs: procs };
+  return { ports, binds, procs, allProcs: procs, reachable };
+}
+
+/** netstat 某一眼里，这个端口的监听行（状态是 LISTENING 的，和状态报错的 suspect 行）。 */
+const rowsFor = (s, p) => [
+  ...(s.pids.get(p) || []).map((pid) => ({ pid, addr: s.binds.get(p)?.[0] ?? '127.0.0.1' })),
+  ...(s.suspect?.get(p) || []),
+];
+
+/**
+ * netstat 说没人听的端口，先真连一下再下结论。
+ *
+ * 2026-10-29 实测（开机后整机如此，管理器自己的 7420、RDP、SMB 都中）：同一个一直在听的端口，
+ * 连抽 20 次 netstat，这一行有 30%~70% 的时候根本不在表里，在的时候状态也乱报（CLOSED / FIN_WAIT_1）；
+ * 真连接却次次成功。于是好好的服务每几秒被判「端口没人在听」，刚起来的永远等不到就绪，重试撞上「已经有一份在跑」。
+ *  - 连不上：真没人听（停机时「端口空了」也靠这一条，不受影响）；
+ *  - 连得上：再多看几眼 netstat，哪一眼里找到它的监听行（什么状态都算）就用那一眼的 PID——
+ *    三元校验要 PID，不能光凭「连得上」就认。看了几眼都找不到就照旧当没人听（宁可漏判，不瞎认进程）。
+ * 只连自己托管的端口，不去每 5 秒敲一遍别人的 RDP、SMB。netstat 正常时这里一次都不会走到。
+ */
+async function resolveFlakyListeners(missing, first, { retries = 6 } = {}) {
+  const live = [];
+  await Promise.all(missing.map(async (p) => {
+    const addr = first.suspect?.get(p)?.[0]?.addr ?? '127.0.0.1';
+    if (await canConnect(p, addr)) live.push(p);
+  }));
+  const pending = new Set(live);
+  const take = (s) => {
+    for (const p of [...pending]) {
+      const rows = rowsFor(s, p);
+      if (!rows.length) continue;
+      first.pids.set(p, [...new Set(rows.map((r) => r.pid))]);
+      first.binds.set(p, [...new Set(rows.map((r) => r.addr))]);
+      pending.delete(p);
+    }
+  };
+  take(first);
+  for (let i = 0; i < retries && pending.size; i++) take(await listeningPorts());
+  // 连得上、几眼 netstat 里都没有它的行：确实有人在听，只是认不出是谁。交给 probeService / runningEvidence 降级处理
+  first.reachable = pending;
 }
 
 /**
@@ -114,7 +159,7 @@ export async function probeService(svc, st, snap, linkStatus) {
   const link = linkStatus?.(svc.id);
   // 端口有没有人听、健康检查过没过，单独报出来（不只是揉进 ok / detail）：
   // 名下的服务的状态推送要分开给这几样。没有端口、或这轮快照里没有端口表时为 null。
-  const listening = port && snap?.ports ? (snap.ports.get(port) || []).length > 0 : null;
+  const listening = port && snap?.ports ? ((snap.ports.get(port) || []).length > 0 || !!snap.reachable?.has(port)) : null;
 
   // linked：连接在 = 服务真的活着（身份来自这条出站连接本身）。失联不判死，只降级观测精度。
   if (svc.link?.enabled && link?.connected) {
@@ -178,6 +223,18 @@ export async function probeService(svc, st, snap, linkStatus) {
   const pid = owners[0] ?? null;
   const info = pid ? snap.procs.get(pid) : null;
 
+  if (!owners.length && snap.reachable?.has(port)) {
+    // 端口连得上，Windows 的连接表里却看不到是谁在听（见 resolveFlakyListeners）。
+    // 不猜 PID、不做孤儿裁决——猜错了，冲突清理会把自己人当入侵者杀掉；PID 原样留着，只按健康检查说它好不好。
+    const h = tier === 'health' ? await httpOk(svc.probe.health.url, svc.probe.health.timeoutMs ?? 3000) : { ok: true, detail: '' };
+    return {
+      tier, ok: h.ok, pid: st.pid ?? null, pidStart: st.pidStart ?? null,
+      orphan: false, orphanWhy: null, degradedObservation,
+      listening: true, health: tier === 'health' ? (h.ok ? 'ok' : 'failing') : null,
+      bindAddrs: [], identityUnverified: true,
+      detail: `${h.detail ? `${h.detail} · ` : ''}端口 ${port} 连得上，但 Windows 的连接表里看不到是谁在听，没核对进程身份`,
+    };
+  }
   if (!owners.length) {
     return { tier, ok: false, pid: null, pidStart: null, degradedObservation, listening: false, health: null, detail: `端口 ${port} 没人在听` };
   }
