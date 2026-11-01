@@ -1466,7 +1466,7 @@ const fabFace = (page: Page) =>
 /** 选中框、等按钮出来、等图标画上（解码是异步的） */
 async function fabPainted(page: Page, selector = "#title"): Promise<void> {
   await page.click(selector);
-  await expect.poll(async () => (await fabFace(page)).painted).toBe(true);
+  await expect.poll(async () => { const face = await fabFace(page); return face.painted && (face.size[0] ?? 0) > 0; }).toBe(true);
 }
 
 /** 按钮连同外面一圈的截图（听、忙的圈在按钮外面） */
