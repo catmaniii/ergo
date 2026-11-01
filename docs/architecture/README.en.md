@@ -73,7 +73,7 @@ The Claude Code Agent SDK is under Anthropic's own license; ergo treats it as an
 
 ## Trade-offs against OpenClaw
 
-OpenClaw is a general-purpose, multi-channel personal agent with far broader scope than ergo, also running on your own machine. ergo serves one person and makes different trade-offs in these places (the OpenClaw column follows [research note 03](research/03-openclaw-and-pi.md), in Chinese).
+OpenClaw is a general-purpose, multi-channel personal agent with far broader scope than ergo, also running on your own machine. ergo serves one person and makes different trade-offs in these places (the OpenClaw column follows [research note 03](research/03-openclaw-and-pi.md), in Chinese, as of 2026-10-06).
 
 | | OpenClaw | ergo |
 |---|---|---|
@@ -527,7 +527,7 @@ There is one **conversation view**: `AgentDialog` in `pages/AgentConversation.ts
 - **Routes**: `#/projects/<p>/tasks/<t>[/at/<id>]` is the project's conversation with a task named. `TaskDetail` in `TasksPage` asks `taskHomeProject` where a task lives (an internal task's `internal.projectId`, or the project whose owner is this task's owner) and uses `replaceRoute` to swap the address without adding history, so every link to `#/tasks/<id>` works as is. Cross-project tasks and tasks outside any project stay on the task page. A `/chat` address is the same page as `#/projects/<p>`.
 - **Which task it shows**: `projectConversationTask`: the one named in the address → the task of the owner's current work order → running, waiting for you, planning, paused → the latest ended and not archived. Queued tasks don't take the spot; they're in the "internal tasks" section of the records.
 - **Input box**: it goes through `sayingScopeOf` and `userMessageScope`. An internal plain task (active, or named and `taskAcceptsMessages`) carries `taskId`; everything else uses the project conversation's scope.
-- **Stage bar**: `useStagePanel` in `ui/conversation/stage-panel.tsx`: one line (`data-stage-bar="live"|"done"`) + half-open rail + handle for the full graph. Collapsing is per device (`ergo-stage-side`); a finished task defaults to collapsed without writing the setting. Wide and narrow screens share this.
+- **Stage progress**: `useStagePanel` in `ui/conversation/stage-panel.tsx`. Phone: one line at the top of the conversation (`data-stage-bar="live"|"done"`) + half-open rail + handle for the full graph. Wide screen: a stage label in the title bar opens the whole graph in the left column (`side`, `StageSideBody`), which it shares with the records, one at a time and at the same width; `AgentDialog` lays it out. Open or closed is per device (`ergo-stage-side`); a finished task defaults to collapsed without writing the setting.
 - **Records on a phone**: a layer of the detail slide-in (`DetailTarget` `{type:"archive"}`), opened from the title or the first "⋯" item; drilling in from there uses `detail.go`, and ‹ returns to the records.
 
 **Background agents**: `daemon/sub-agents/background.ts`.

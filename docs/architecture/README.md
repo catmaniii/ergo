@@ -229,7 +229,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 - **开关**：`memory.enabled: false` 只不跑整理、不建库（素材检索和简报照常），和停用记忆插件是两回事；`memory.extractor` 写 `rule` 用规则版抽事实（不调模型，只当兜底）；`memory.nightlyTimeoutMinutes` 是每一夜最多跑几分钟（默认 60）。
 - **只读验收**：`npm run memory:acceptance [-- --data-dir <目录>]`：`rg.db` 能不能打开、版本对不对；最近一次整理记录；现算一份简报；在素材库的快照副本上跑一次检索。不改数据、不打印素材原文，有一项不过退出码 1。
 - **离线整理** `npm run memory:build`（`--rebuild` 从头来、`--max-model-calls <n>`）和**全量重判** `npm run memory:rejudge`（规则改了以后按新规则把现有结论全过一遍；`--max-yuan` 封顶，跑前存快照，`--undo <报告>` 换回）：都要先停守护进程，只写 `memory/subtext/rg.db`（在记忆插件自己的数据目录里，`dataDirLayout().rgDb`）。
-- **回滚**：只想停掉整理——设置 · 插件里停用"记忆"（`rg.db` 保留、素材库不动）；想按素材库重建推理库——停守护进程 → 删数据目录里的 `memory/subtext/rg.db*`（素材库和原文副本不动，`rg.db` 里没有原文）→ 起守护进程 → 点"立即整理一次"或等 03:00（首次建库按每晚预算可能要几夜）→ `npm run memory:acceptance` 确认。
+- **回滚**：只想停掉整理——设置 · 插件里停用"记忆"（`rg.db` 保留、素材库不动）；想按素材库重建推理库——停守护进程 → 删数据目录里的 `memory/subtext/rg.db*`（素材库和原文副本不动，`rg.db` 里没有原文）→ 起守护进程 → 点"整理一次记忆"或等 03:00（首次建库按每晚预算可能要几夜）→ `npm run memory:acceptance` 确认。
 
 #### 记忆插件接口（会意 / Subtext）
 
@@ -361,7 +361,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 组件服务（`components/service.ts`）只管下载、校验、换上、删。装好以后还要接上的（常驻服务）走 `components/host.ts` 这个接口，现在的实现是 `audiocpp-host.ts`（ADR-0038、ADR-0039）：
 
-- **清单的字段**：`license`（名字、一句话、链接、`confirm`、`revision`、`attribution`）、`recommended`、`slowWithoutGpu`；`service`（程序组件：服务管家里的名字、程序文件名、端口、健康检查）、`serve`（模型组件：由哪个程序加载、服务上的模型 id、family、task、mode、模型文件）。`extract.format` 多了 `zip`（`components/zip.ts`，没有依赖），`extract.beside` 把这个包的文件放到某个程序旁边（运行库和程序，程序在包里第几层不写死）。
+- **清单的字段**：`license`（名字、一句话、链接、`confirm`、`revision`、`attribution`）、`recommended`、`slowWithoutGpu`；`service`（程序组件：服务管家里的名字、程序文件名、端口、健康检查）、`serve`（模型组件：由哪个程序加载、服务上的模型 id、family、task、mode、模型文件）。`extract.format` 可以是 `zip`（`components/zip.ts`，没有依赖），`extract.beside` 把这个包的文件放到某个程序旁边（运行库和程序，程序在包里第几层不写死）。
 - **包的结构没核对过**：解完（换上之前）按文件名找 `service.program`，找不到不换上；`variant.expects` 写程序旁边应该有的文件（带 `*`），缺了写进 `service.warning`，只提示不挡启动。
 - **下载失败**：`ComponentView.manualDownload` 列出还差的文件和地址（下不下来、暂停着时才有），自己下好走现有的 `POST /api/component-import`。
 - **再加一个模型**：清单里写一条带 `serve`、`dependsOn` 指程序的组件就行，配置生成、重启都不用改代码；语音合成的模型 id 以 `voice.speech.model` 为准。
@@ -370,11 +370,11 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 - **接上**：`server.json`（放 `components/audiocpp-service/`，不放程序目录：更新时程序目录整个换掉）→ `services.put` → `start` / `restart` → 等 `GET /health` → `autostart`。一步失败回滚，结果写进 `ComponentView.service`（`idle` / `starting` / `running` / `stopped` / `failed`），不抛错给下载队列。
 - **"我们的"认 `server.json`**：有它就是我们接上的；没有而端口有人、配置指别处、登记冲突，都算用户自己配的（`provided: voice-speech` 查 `host.provided()`），不覆盖。协议碰不到手写在注册表里的服务，停着的手写服务只有 `port-conflict` 看得出来，所以点安装时空跑一次 `put`。
 - **许可**：`ComponentActionBody.licenseAccepted`，没带回 400；确认过的记在组件区的 `licenses.json`。
-- **网页**：`POST /api/components/<id>` 多了 `start`、`stop`；`GET /api/components` 取之前 `refresh()` 探一次端口。原型里 `?demo-tts=missing|installing|running|stopped|failed|manual|download-failed|runtime-missing`、`?demo-asr=missing|installing|running|configured|external`、`?demo-gpu=none` 看几种状态。
+- **网页**：`POST /api/components/<id>` 还能 `start`、`stop`；`GET /api/components` 取之前 `refresh()` 探一次端口。原型里 `?demo-tts=missing|installing|running|stopped|failed|manual|download-failed|runtime-missing`、`?demo-asr=missing|installing|running|configured|external`、`?demo-gpu=none` 看几种状态。
 
 - **查更新**（`components/update-check.ts`，ADR-0042）：默认地址 `https://github.com/catmaniii/ergo/releases/latest/download/components-manifest.json`，只取清单和签名，不带账号、设备和使用情况；这一版没带发布公钥时核对不了签名，就不认清单，组件跟着二狗本身一起升级。`createUpdateChecker` 取发布页上的 `components-manifest.json` 和签名、按发布公钥验、存进组件区；`Components.checkUpdates()` 把比随程序新的条目放进 `offered`（`release` 比随程序的大、版本不一样），`view().updates` 写地址、上次的结果、有新版本的组件。正在用的 `byId` 不动：要下的、要显示的按 `goalOf(c)`，`commit` 成功才 `adopt` 转正，并把那一条记进 `installed.json`（`entry`、`entryRelease`，重启时比随程序的新才用）。每晚的作业和待办提醒是 `createComponentUpdateJob`（`component_update_available`，同一版本一次，换上后自动归档）。接口 `POST /api/components {"action":"check_updates"}`，查完才回，没查成也是 200；发布页上还没有清单（清单本身 404）是 `updates.notPublished`，不算没查成。发版时 `stageVersion` 把版本号写进清单的 `release`，`build/release.ts` 把清单和签名放进发布目录。原型里 `?demo-updates=available|failed|not-published`。
 
-**向导的能力那一步**（`pages/more/CapabilitiesStep.tsx`，纯逻辑在 `app/setup-capabilities.ts`）：没有自己的接口，组件走 `GET /api/components`、`POST /api/components/<id>`，插件走 `GET /api/plugins`、`POST /api/plugins/<插件名>`。默认勾不勾用组件的 `wanted`，不另写一份；停着的插件只有记忆默认勾（`DEFAULT_ON_PLUGINS`）。这一步在 `SETUP_STEPS` 里换掉了原来的"组件"，没有条件（`setup-state.ts` 的 `NO_CONDITION`），要用户看过才算做完。配置的 `setup.format` 记着这一步的格式，现在是 2。开机自启的开关是 `lsm/autostart-switch.ts`（`GET / PUT /api/autostart`），走 `cli/autostart.ts` 的 `runTaskCommand`，和 `runLsm` 一样先过 `interceptTaskCommand`：只动归这份安装管的任务，源码跑的只显示。原型里 `?demo-bge=missing|failed`、`?demo-fail=<组件 id>`、`?demo-autostart=off|elsewhere|dev`。端到端测试 `test/main/setup-capabilities.browser.test.ts` 要先 `npm run build:web`。
+**向导的能力那一步**（`pages/more/CapabilitiesStep.tsx`，纯逻辑在 `app/setup-capabilities.ts`）：没有自己的接口，组件走 `GET /api/components`、`POST /api/components/<id>`，插件走 `GET /api/plugins`、`POST /api/plugins/<插件名>`。默认勾不勾用组件的 `wanted`，不另写一份；停着的插件只有记忆默认勾（`DEFAULT_ON_PLUGINS`）。这一步在 `SETUP_STEPS` 里没有条件（`setup-state.ts` 的 `NO_CONDITION`），要用户看过才算做完。配置的 `setup.format` 记着这一步的格式，现在是 2。开机自启的开关是 `lsm/autostart-switch.ts`（`GET / PUT /api/autostart`），走 `cli/autostart.ts` 的 `runTaskCommand`，和 `runLsm` 一样先过 `interceptTaskCommand`：只动归这份安装管的任务，源码跑的只显示。原型里 `?demo-bge=missing|failed`、`?demo-fail=<组件 id>`、`?demo-autostart=off|elsewhere|dev`。端到端测试 `test/main/setup-capabilities.browser.test.ts` 要先 `npm run build:web`。
 
 #### 手动配语音（备用）
 
@@ -489,7 +489,7 @@ Gmail 可以连几个账号（`google/gmail-accounts.ts`）。密钥区 `secrets
 
 ### 页面从哪里来、原型和在线演示页
 
-- **由守护进程提供**：`npm run build:web` 之后，守护进程在 `http://127.0.0.1:8810/` 提供 `packages/web/dist/index.html`（Vite + `vite-plugin-singlefile`，JS、CSS 全内联；每次请求重新读，不用重启守护进程）。开着的页面几秒内会提示"有新版本 · 刷新"。
+- **由守护进程提供**：`npm run build:web` 之后，守护进程在 `http://127.0.0.1:8810/` 提供 `packages/web/dist/index.html`（Vite + `vite-plugin-singlefile`，JS、CSS 全内联；每次请求重新读，不用重启守护进程）。开着的页面几秒内会提示"二狗有新版本"，点"刷新"就是新版。
 - **原型**：直接打开构建产物（`file://`）时没有守护进程，全部用原型自带的编的数据（`src/prototype/`：假连接、假数据，名字和路径都是虚构的）。评审界面、页面测试（`test/page-opens.test.ts`）都这么开。地址的 `?lang=en` 换英文。
 - **在线演示页**：`npm run build:demo`（`vite build --mode demo --outDir dist-demo`）再构建一份，页面按 `import.meta.env.MODE` 认出是演示页、一律用原型的假数据（`src/app/prototype-mode.ts`），整个 `dist-demo/` 放 GitHub Pages（`.github/workflows/pages.yml`）。不装、不填 Key 就能点着看。
 
@@ -526,16 +526,16 @@ Gmail 可以连几个账号（`google/gmail-accounts.ts`）。密钥区 `secrets
 
 **对话框**只有一套：`pages/AgentConversation.tsx` 的 `AgentDialog`（标题栏 `TaskHead`、顶部阶段条、消息、输入框、左栏档案），项目页、任务页都画它，差异只在档案和传给 `useTaskScene` 的文案。
 
-- **路由**：`#/projects/<p>/tasks/<t>[/at/<id>]` 是项目的对话框点名任务。`TasksPage` 的 `TaskDetail` 用 `taskHomeProject`（内部任务的 `internal.projectId`，或项目的负责人就是这个任务的负责人）判断归谁，归项目的用 `replaceRoute` 换地址（不多一条历史），所以所有 `#/tasks/<id>` 的来路都不用改。跨项目、不属于项目的留在任务页。`/chat` 老地址照旧认，和 `#/projects/<p>` 同一页。
+- **路由**：`#/projects/<p>/tasks/<t>[/at/<id>]` 是项目的对话框点名任务。`TasksPage` 的 `TaskDetail` 用 `taskHomeProject`（内部任务的 `internal.projectId`，或项目的负责人就是这个任务的负责人）判断归谁，归项目的用 `replaceRoute` 换地址（不多一条历史），所以所有 `#/tasks/<id>` 的来路都不用改。跨项目、不属于项目的留在任务页。`#/projects/<p>/chat` 和 `#/projects/<p>` 是同一页。
 - **显示哪个任务**：`projectConversationTask`：地址点名的 → 负责人手上工单的任务 → 在执行的、等你的、规划中的、暂停的 → 最近结束没归档的。排队的不抢，在档案的"内部任务"一节。
 - **输入框**：照旧 `sayingScopeOf`、`userMessageScope`。内部普通任务（在做或点名且 `taskAcceptsMessages`）带 `taskId`，其余走项目会话的 scope。
-- **阶段条**：`ui/conversation/stage-panel.tsx` 的 `useStagePanel`：一行（`data-stage-bar="live"|"done"`）+ 半开轨道 + 把手全开依赖图。收起按设备记（`ergo-stage-side`），做完默认收起不写设置。原来宽屏的阶段栏去掉了，宽窄屏同一套。
+- **阶段进展**：`ui/conversation/stage-panel.tsx` 的 `useStagePanel`。手机：对话框顶部一行（`data-stage-bar="live"|"done"`）+ 半开轨道 + 把手全开依赖图。宽屏：标题栏上的阶段标签，点了整张依赖图开在左边栏（`side`，`StageSideBody`），和档案共用这个栏位、不同时显示，宽度也共用，`AgentDialog` 摆。开合按设备记（`ergo-stage-side`），做完默认收起不写设置。
 - **手机的档案**：详情滑入页的一层（`DetailTarget` `{type:"archive"}`），点标题或"⋯"第一项打开；从档案钻进去用 `detail.go`，‹ 回档案。
 
 **背后的 agent**：`daemon/sub-agents/background.ts`。
 
-- 数据：`DerivedView` 投影子 agent 事件（内部频道 `sub_agents`）、工具调用、账本成表 `background_agents`、`background_agent_lines`；第一次起来 refill，老数据照样能列。工具调用还在 `tool_call_details` 里，按 agent 有索引。
-- 新事件都在 `sub_agents` 频道：`sub_agent_said`（`one-shot.ts` 的 `transcript` 钩子，每次 `message_final` 有字就写，`sub-agents.ts` 落盘）；`review_started`、`review_finished`（`tasks/review.ts` 的 `record` 钩子）。写失败只记日志，不影响派活。没有 `review_started` 的老评审从账本推出来，没有 `sub_agent_said` 的老运行 `saidRecorded: false`。
+- 数据：`DerivedView` 投影子 agent 事件（内部频道 `sub_agents`）、工具调用、账本成表 `background_agents`、`background_agent_lines`；第一次起来 refill。工具调用还在 `tool_call_details` 里，按 agent 有索引。
+- 新事件都在 `sub_agents` 频道：`sub_agent_said`（`one-shot.ts` 的 `transcript` 钩子，每次 `message_final` 有字就写，`sub-agents.ts` 落盘）；`review_started`、`review_finished`（`tasks/review.ts` 的 `record` 钩子）。写失败只记日志，不影响派活。没有 `review_started` 的评审从账本推出来，没有 `sub_agent_said` 的运行 `saidRecorded: false`。
 - 删除：`material-source.ts` 的 `purgedParallelPayload` 把这几个事件里的文字换成已清除；列表按 `tasks.get` 过滤已删的任务。
 - 接口：`GET /api/agents/<负责人>/background`、`GET /api/agents/<子 agent>/transcript`，只读，没有发消息的路（`maintainer:sa-1` 不是可发消息的会话）。
 - 推送：不进事件日志的临时事件（频道 `background_agents`，`EPHEMERAL_EVENT_TYPES`），只带负责人 id，按负责人节流 400ms；网页 `ui-state` 折成版本号，`useBackgroundAgents` 见版本变了重新取。所以也不进录制回放。
