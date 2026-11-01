@@ -1,6 +1,7 @@
 // 废弃分支（151 号票，AbandonedStub、SwapOverlay、measureCol，样子在 zoom.css）：
 // - ⑂ 小方块点开，按主线同一套 DOM、同一宽度原尺寸画出整条分支（稍淡，字号定回主线的），上方"⑂ 另一条分支 · N 段 ▾"（点了收起）
 //   和"切换到这条分支"；同一分叉点几条横着排（.zd-fork 是一行）。点分支打开它的详情（DetailPane 的 BranchDetail）；
+//   视口放不下时收窄或往左挪（360 号票，ZoomHistory 的 layoutPanels）；
 // - 切换的双向动画：先量好当前这一段（从分叉处起）和预览条，切换之后量到真实布局再倒着放——主干那段让到分支原来的位置
 //   （背景、下方弧线、末尾淡出），分支那段进主干（前景、上方弧线），约 0.9 秒。量和放在 ZoomHistory（switchBranch、等新布局的 effect）。
 // 数据（这条分支自己那一段的条目、N 段、手里不全时去取）在状态层的 abandoned-branch.ts；分支要经 HTTP 取，不是整个会话都在内存里。
@@ -202,7 +203,7 @@ function AbandonedPanel({ fork, host, onClose }: { fork: ZoomFork; host: StubHos
         )}
       </div>
       {/* 预览就是把这条分支按主线一模一样的方式渲染一遍：同一套 DOM、同一宽度，
-          所以预览、切换动画、切换之后三者的每一块高度都严丝合缝 */}
+          所以预览、切换动画、切换之后三者的每一块高度都严丝合缝（收窄了的面板字多的条会多折一行，切换动画从面板的宽度放大到主线的） */}
       <div
         className="zd-ab-strip"
         onClick={(e) => {

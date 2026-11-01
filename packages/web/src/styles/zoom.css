@@ -403,7 +403,8 @@
 }
 .zd-fork {
   transform-origin: 0 0;
-  left: calc(100% + 4px / var(--s));
+  /* 展开时让开右侧的风险标注列、放不下时往左挪：--ab-offset（屏幕像素）由布局阶段按实测宽度写入，这一排一起走 */
+  left: calc(100% + (4px + var(--ab-offset, 0px)) / var(--s));
   top: calc(-9px / var(--s));
   /* 展开时盖住右侧风险标注，收起后恢复 */
   z-index: 4;
@@ -583,12 +584,16 @@
  */
 .zd-abandoned {
   position: relative;
-  /* 展开时让开右侧的风险标注列：具体偏移由布局阶段按实测宽度写入 */
-  margin-left: var(--ab-offset, 0px);
   transform-origin: 0 0;
   transform: scale(calc(var(--s) / var(--ds)));
-  /* 与主线色块等宽（再加上底板左右各 8px 的衬边，内部块宽度才和主线一致）；二狗内容区左右的内边距是 --space-page */
-  width: calc(var(--colw, 400px) - 2 * var(--space-page) + 16px);
+  /*
+   * 与主线色块等宽（再加上底板左右各 8px 的衬边，内部块宽度才和主线一致）；二狗内容区左右的内边距是 --space-page。
+   * 主线右边放不下时 layoutPanels 写 --ab-width 收窄（360 号票）
+   */
+  --ab-w: var(--ab-width, calc(var(--colw, 400px) - 2 * var(--space-page) + 16px));
+  width: var(--ab-w);
+  /* 盒子按 --ds 那档排、画出来是 --s 那档：差的那截还回去，下一条才紧挨着，全局层不会被推出视口 */
+  margin-right: calc(var(--ab-w) * (var(--s) / var(--ds) - 1));
   max-width: none;
   padding: 0;
   background: none;
@@ -610,7 +615,8 @@
   padding-bottom: calc(6px / var(--ds));
   transform-origin: 0 100%;
   transform: scale(calc(var(--ds) / var(--s)));
-  width: calc(var(--gutter1) * 1.1);
+  /* 按内容宽：layoutPanels 连头部一起算放不放得下，比字宽的底色会多算（标注的避让也在那里算） */
+  width: max-content;
   font-size: calc(var(--fs-xs) / var(--ds));
   z-index: 1;
 }

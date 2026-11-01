@@ -11,6 +11,7 @@
 // 212 号票加了停用浏览插件的（"浏览"、侧边栏模式写没启用）。
 // 275 号票：每套风格量聊天里工具调用、来信、回忆记忆的横条（和"在想什么"同一列、右边留空、窄窗口下箭头露全点得到），
 // 侧边栏模式收到交来的外观马上换风格。
+// 360 号票：小屏和手机上，会话缩小后点开的分支整块留在视口里。
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -646,6 +647,55 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(errors).toEqual([]);
   }, 60_000);
 
+  // 360 号票：面板原来和主线一样宽，从主线右边接着画，要点层哪个宽度都伸出视口右边（900 宽超出 145px，字被裁）
+  for (const [name, viewport, besideMain] of [
+    ["小屏 900×562（收窄，放在主线旁边）", { width: 900, height: 562 }, true],
+    ["795×562（收窄，放在主线旁边）", { width: 795, height: 562 }, true],
+    ["手机 360×780（旁边太窄，往左挪）", { width: 360, height: 780 }, false],
+  ] as const) {
+    test(`${name}：缩小后点开的分支整块留在视口里，字不被裁`, async () => {
+      const { page, errors } = await open(viewport);
+      await page.evaluate(`window.location.hash = "#/secretary"`);
+      await page.waitForTimeout(300);
+      const box = await page.locator(".zh").first().boundingBox();
+      await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+      await page.keyboard.down("Control");
+      for (let i = 0; i < 40 && (await page.locator(".zh").first().getAttribute("data-level")) === "0"; i++) {
+        await page.mouse.wheel(0, 120);
+        await page.waitForTimeout(120);
+      }
+      await page.keyboard.up("Control");
+      await page.waitForTimeout(800);
+      await page.locator(".zd-ab-dot").first().click();
+      await page.locator(".zd-ab-strip .zi").first().waitFor();
+      await page.waitForTimeout(300);
+      const m = (await page.evaluate(`(() => {
+        const span = (el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right }; };
+        const panel = document.querySelector(".zd-abandoned");
+        const vp = document.querySelector(".zh-viewport");
+        return {
+          vp: span(vp),
+          scroll: vp.scrollWidth - vp.clientWidth,
+          main: span(panel.closest(".zi")),
+          strip: span(panel.querySelector(".zd-ab-strip")),
+          parts: [...panel.querySelectorAll(".zd-ab-label, .zd-ab-switch, .zd-ab-strip, .zd-ab-strip .zi")].filter((el) => el.getClientRects().length > 0).map(span),
+        };
+      })()`)) as { vp: Span; scroll: number; main: Span; strip: Span; parts: Span[] };
+      expect(m.parts.length).toBeGreaterThan(3);
+      for (const part of m.parts) {
+        expect(part.left).toBeGreaterThanOrEqual(m.vp.left);
+        expect(part.right).toBeLessThanOrEqual(m.vp.right);
+      }
+      expect(m.scroll).toBe(0);
+      // 放得下时主线不被盖住，还能对照；放不下才往左挪，盖住一点主线
+      expect(m.strip.left >= m.main.right).toBe(besideMain);
+      // 不为了塞进去收得一行看不了几个字：至少 180，本来就比它窄的（手机）和主线一样宽
+      expect(m.strip.right - m.strip.left).toBeGreaterThanOrEqual(Math.min(180, m.main.right - m.main.left));
+      await page.close();
+      expect(errors).toEqual([]);
+    }, 60_000);
+  }
+
   test("电脑上回车发送、组合键换行，设置里能换键；组字时的回车不发；触屏上回车还是换行", async () => {
     const { page, errors } = await open({ width: 1280, height: 800 });
     const at = async (hash: string) => {
@@ -1009,6 +1059,12 @@ const MEASURE_GEAR_CONFIRM = `(() => {
   });
   return { inGear: gear.contains(dialog), onBody: dialog.parentElement.parentElement === document.body, buttons };
 })()`;
+
+/** 一个元素在屏幕上的左右缘（CSS 像素） */
+interface Span {
+  left: number;
+  right: number;
+}
 
 /** 一条横条量出来的（CSS 像素，相对视口）：横条、它那一列（内容框）、行尾箭头、箭头前面那个、会话视口的右边 */
 interface RowBox {

@@ -56,7 +56,7 @@
  *
  * 151 号票：废弃分支（AbandonedStub、SwapOverlay、measureCol 在 ui/zoom/branches.tsx，数据在状态层 abandoned-branch.ts）——
  * - 点 ⑂ 展开：这条分支按主线同一套 DOM（ZItem 去掉条外的装饰，bare）、同一宽度原尺寸画出来，上方"⑂ 另一条分支 · N 段 ▾"、
- *   "切换到这条分支"；layoutAnnotations 把展开的面板挪到右侧标注右边、放不下贴着视口右缘，还被压住的标注收窄或藏起来；
+ *   "切换到这条分支"；layoutAnnotations 把展开的面板挪到右侧标注右边，放不下先收窄、再往左挪（360 号票，layoutPanels），还被压住的标注收窄或藏起来；
  *   缩小后伸到最后一条下面的面板也算进滚动范围（108 号票的 sizer 裁掉了伸出去的）；点分支打开它的详情（branches.open）；
  * - 切换（switchBranch）：先量好从分叉处起的当前这一段和预览条，交给守护进程；当前分支变成切过去的那条、条目到了之后再量新布局，
  *   倒着放 SwapOverlay（等 items 变，还要等当前分支变了——切换要几秒，期间流式的回复、停下的那一轮也会让 items 变）。
@@ -615,8 +615,9 @@ function layoutAnnotations(content: HTMLElement, ctl: ZoomController | null, vie
   // 标注按这一档排版、再整体缩放，所以它们内部的长度单位是 DS 像素
   const DS = 0.45;
   const k = DS / s;
-  // 展开的分支面板（151 号票）先摆：标注被它压住的要收窄、藏起来，要在排标注之前
-  if (viewport) layoutPanels(content, viewport, DS);
+  // 展开的分支面板（151 号票）先摆：标注被它压住的要收窄、藏起来，要在排标注之前。
+  // 面板的宽度按这一档算（对话层看不见，按要点层算，往外捏时不用再折一次行）
+  if (viewport) layoutPanels(content, viewport, DS, PRESETS[Math.max(1, Math.min(level, 2))]!);
   const contentTop = content.getBoundingClientRect().top;
   const cy = (clientY: number) => (clientY - contentTop) / s;
   // 风险标注：默认与"这条风险在原文里的那一行"水平对齐，箭头就是一条横线；
@@ -682,36 +683,75 @@ function layoutAnnotations(content: HTMLElement, ctl: ZoomController | null, vie
   return bottom;
 }
 
+/** 分支面板离视口左右缘至少留多少（屏幕像素） */
+const PANEL_EDGE = 10;
+/** 分支面板收窄的下限（屏幕像素）：再窄一行就看不了几个字了，不如往左挪、盖住一点主线（手机上就是这样） */
+const PANEL_MIN = 180;
+
 /**
- * 展开的分支面板（151 号票）：挪到风险标注右侧，放不下就贴着视口右缘；
+ * 分支面板放不下时先收窄（360 号票：面板和主线一样宽、从主线右边接着画，要点层哪个宽度都伸出视口）：
+ * 主线右边的留白够 PANEL_MIN 就收到刚好放下，主线不被盖住，还能对照；不够就保持这个宽度（本来就比它窄的不动），下一步往左挪。
+ * 同一分叉点的几条平分；几条连整个视口都挤不下时才比下限窄。
+ * 按这一档（sl）算、不按捏合中的实时比例，捏合过程中不重新折行（同 .zd-right 的 --sl）。收窄的面板里字多的条会多折一行，比主线的高一点
+ */
+function fitPanelWidths(content: HTMLElement, fork: HTMLElement, own: readonly HTMLElement[], minX: number, maxX: number, left: number, sl: number) {
+  const item = fork.parentElement!;
+  // 不收窄时的宽度：和主线的条等宽，再加底板左右各 8px 的衬边（zoom.css 的 .zd-abandoned）
+  const natural = (item.offsetWidth + 16) * sl;
+  // 同一分叉点上面板以外的：没展开的 ⑂、间距
+  const others = fork.getBoundingClientRect().width - own.reduce((sum, panel) => sum + panel.getBoundingClientRect().width, 0);
+  // 分叉点在这一档的屏幕位置：内容居中（zoom.ts 的 apply），分叉点在条右边 4px（zoom.css 的 .zd-fork）
+  const start = left + (content.clientWidth * (1 - sl)) / 2 + (item.offsetLeft + item.offsetWidth) * sl + 4;
+  const width = Math.max((maxX - start - others) / own.length, Math.min(PANEL_MIN, natural, (maxX - minX - others) / own.length));
+  for (const panel of own) {
+    // 取整：量出来的数每帧有零头，写一样的值才不用每帧重新折行
+    if (width < natural) panel.style.setProperty("--ab-width", `${Math.floor(width / sl)}px`);
+    else panel.style.removeProperty("--ab-width");
+  }
+}
+
+/**
+ * 展开的分支面板（151 号票）：挪到风险标注右侧；放不下先收窄（fitPanelWidths），还放不下就往左挪，盖住一点主线（360 号票）。
  * 挪完还被面板压住的标注收窄换行，连收窄都放不下的整条藏起来（只露半截残字比盖住更难看）。面板连同它上面那块头部
  * （分支名 + 切换按钮，绝对定位、不在面板的盒子里）一起算；压住面板的标注不一定在同一条上，纵向有交叠的都要躲开。
  * 标注的位置先全量完再一起写（逐个面板边量边写量到的位置也一样，只是慢）；没有展开的面板时只把上次留下的收窄、隐藏清掉
  */
-function layoutPanels(content: HTMLElement, viewport: HTMLElement, DS: number) {
+function layoutPanels(content: HTMLElement, viewport: HTMLElement, DS: number, sl: number) {
   const rights = [...content.querySelectorAll<HTMLElement>(".zd-right")];
   // 先按不受限的宽度量一遍，才能知道标注列实际有多宽
   for (const el of rights) el.style.removeProperty("--risk-max");
+  // 挪的是分叉点这一排（收起之后留下的、没展开的 ⑂ 不能还挪着、也不能被面板盖住）：先都放回原位再量
+  for (const fork of content.querySelectorAll<HTMLElement>(".zd-fork")) fork.style.removeProperty("--ab-offset");
   const panels = [...content.querySelectorAll<HTMLElement>(".zd-abandoned")];
   if (panels.length === 0) {
     for (const el of rights) el.style.removeProperty("visibility");
     return;
   }
-  for (const panel of panels) panel.style.setProperty("--ab-offset", "0px");
   const labels = [...content.querySelectorAll<HTMLElement>(".zd-right .zd-risk, .zd-right .zd-repeat")].map((el) => el.getBoundingClientRect());
   const vp = viewport.getBoundingClientRect();
-  const offsets = panels.map((panel) => {
-    const box = spanOf(panel);
+  const minX = vp.left + PANEL_EDGE;
+  const maxX = vp.left + viewport.clientWidth - PANEL_EDGE;
+  // 同一分叉点的几条（和还没展开的 ⑂）横着排，一起算、一起挪
+  const forks = new Map<HTMLElement, HTMLElement[]>();
+  for (const panel of panels) forks.set(panel.parentElement!, [...(forks.get(panel.parentElement!) ?? []), panel]);
+  for (const [fork, own] of forks) fitPanelWidths(content, fork, own, minX, maxX, vp.left, sl);
+  const offsets = [...forks].map(([fork, own]) => {
+    const spans = own.map(spanOf);
+    const row = fork.getBoundingClientRect();
+    // 左右连这一排一起算（面板之外还有没展开的 ⑂）；上下只算面板，这一排的盒子在全局层比画出来的高
+    const box = { left: Math.min(row.left, ...spans.map((b) => b.left)), right: Math.max(row.right, ...spans.map((b) => b.right)), top: Math.min(...spans.map((b) => b.top)), bottom: Math.max(...spans.map((b) => b.bottom)) };
     let labelsRight = box.left;
     for (const lr of labels) {
       if (lr.bottom <= box.top || lr.top >= box.bottom) continue;
       labelsRight = Math.max(labelsRight, lr.right);
     }
     const want = labelsRight + 14 - box.left;
-    const room = vp.right - 10 - box.right;
-    return Math.max(0, Math.min(want, room)) / DS;
+    const room = maxX - box.right;
+    // 放不下：往左挪，挪到视口左缘为止
+    const offset = room < 0 ? Math.max(room, minX - box.left) : Math.max(0, Math.min(want, room));
+    return { fork, offset };
   });
-  panels.forEach((panel, i) => panel.style.setProperty("--ab-offset", `${offsets[i]}px`));
+  for (const { fork, offset } of offsets) fork.style.setProperty("--ab-offset", `${offset}px`);
   const boxes = panels.map((panel) => {
     const b = spanOf(panel);
     return new DOMRect(b.left, b.top, b.right - b.left, b.bottom - b.top);
@@ -1295,6 +1335,8 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     const ro2 = new ResizeObserver(() => {
       const following = followRef.current && !touchingRef.current;
       ctl.relayout();
+      // 窗口变了（阔折叠展开、合上）：展开的分支面板按新的宽度重新放（360 号票）；对话层没有条外的东西要摆
+      if (ctl.level !== 0) layoutSides();
       if (following && ctl.level === 0) {
         programmaticRef.current = true;
         viewport.scrollTop = viewport.scrollHeight;
