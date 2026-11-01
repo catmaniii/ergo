@@ -8141,6 +8141,29 @@ button.progress:active {
 .ops-row .svc-entries {
   margin-top: 4px;
 }
+/* 服务报的事件（357 号票）：一个事件一行，手机上窄了就折行 */
+.ops-events {
+  margin-top: 6px;
+  font-size: var(--fs-s);
+}
+.ops-events-title {
+  color: var(--muted);
+}
+.ops-event {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  margin-top: 2px;
+}
+.ops-event-name {
+  word-break: break-word;
+}
+.ops-event-at {
+  color: var(--muted);
+}
+.ops-event-missed .ops-event-text {
+  color: var(--high-fg);
+}
 /* 卡上"上线服务"那一条的细节（启动命令、工作目录、端口……） */
 .svc-spec {
   display: grid;

@@ -25,7 +25,8 @@ import type { ProjectService, ToolkitChange, ToolkitChanged } from "./projects.t
 export { PROPOSE_CHARTER_CHANGE_TOOL, PROPOSE_GO_LIVE_TOOL, PROPOSE_STANDARD_CHANGE_TOOL, READ_PROJECT_RECORDS_TOOL, SUBMIT_CHARTER_TOOL, SUGGEST_PROJECT_TOOL } from "./tool-names.ts";
 export { MULTI_PROJECT_TOOL, WORK_ORDER_TOOL } from "../work-orders/tool-names.ts";
 export { PROPOSE_OPERATIONS_TOOL } from "../operations/tool-names.ts";
-export { CHECK_OPS_TOOL, OPEN_SERVICE_TOOL, PROJECT_OPS_TOOL, SWITCH_SERVICES_TOOL } from "../project-ops/api.ts";
+export { CHECK_OPS_TOOL, OPEN_SERVICE_TOOL, PROJECT_OPS_TOOL, RECENT_SERVICE_EVENTS_TOOL, SWITCH_SERVICES_TOOL } from "../project-ops/api.ts";
+export type { ServiceEventCaller, ServiceEventRefusal, ServiceEventsApi } from "../project-ops/api.ts";
 
 // —— 2. 只读查派生视图（db 是事件存储的派生视图）——
 // getProject：一个没删掉的项目；listProjects：没删掉的项目，按建出的先后

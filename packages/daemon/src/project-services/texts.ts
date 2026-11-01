@@ -22,6 +22,7 @@ export const specText = {
   envDuplicate: (name: string) => `环境变量 ${name} 写了不止一次（不分大小写）`,
   envLsm: (name: string) => `环境变量 ${name}：LSM_ 开头的是 LSM 注入的接入身份，不能自己写`,
   envBasePath: `环境变量 ${APP_BASE_PATH_ENV} 由运行时注入（有网页的服务，值是 /apps/<应用名>），不用写`,
+  envNotify: (name: string) => `环境变量 ${name} 由运行时注入（报事件的地址和这个服务的专属凭证，上线时发），不用写`,
   envOneSource: (name: string) => `环境变量 ${name}：value（普通的值）、secret（密钥区里的文件名）、userEnv（用户环境变量）三样里写一样`,
   envSecretName: (name: string) =>
     `环境变量 ${name} 看名字是密钥，方案里不能写值：把密钥放进二狗数据目录的密钥区（secrets/）里的一个文件，这里写 secret: "<文件名>"（上线时由 LSM 从文件读出来注入），或者写 userEnv: true 取用户环境变量`,
@@ -154,3 +155,24 @@ export const boardText = {
   title: "项目的服务（运营方案里上线到 LSM 的；用户要打开时用 open_service 把入口放进聊天）：",
 };
 // @i18n-ignore-end
+
+/** 项目的服务报事件（357 号票）：回给服务的错（进服务的日志，给人和维护者看）；工具的说明和结果给模型看 */
+export const eventsText = {
+  noCredential: (env: string) => t("projectServices.events.noCredential", { env }),
+  badCredential: (env: string) => t("projectServices.events.badCredential", { env }),
+  noWaiter: (name: string, names: string) => t("projectServices.events.noWaiter", { name, names }),
+  paused: (name: string) => t("projectServices.events.paused", { name }),
+  ignored: (name: string, reason: string) => t("projectServices.events.ignored", { name, reason }),
+  rateLimited: (title: string, limit: number, seconds: number) => t("projectServices.events.rateLimited", { title, limit, seconds }),
+  tooLarge: (max: number) => t("projectServices.events.tooLarge", { max }),
+  quoted: (name: string) => t("projectServices.events.quoted", { name }),
+  sep: () => t("protocol.common.listSep"),
+  noNames: () => t("projectServices.events.noNames"),
+  // @i18n-ignore-start model：工具的说明和结果
+  toolDescription: "查这个项目的服务最近报的事件：名字、时间、有没有叫醒你（没叫醒的写着为什么：运营方案里没有等它的、任务暂停着、超了限速、数据太大），以及现在能报哪些名字。服务报了事件却没等到运行工单、调试服务时用。只读。",
+  toolNames: (names: string) => `现在能报的事件名（运营方案里等着的）：${names}`,
+  toolService: (title: string, app: string, count: number) => (count > 0 ? `服务「${title}」（${app}）最近报的（新的在前）：` : `服务「${title}」（${app}）还没报过事件。`),
+  toolLine: (time: string, name: string, outcome: string, runIds: readonly string[]) => `- ${time} ${name}：${outcome}${runIds.length > 0 ? `（${runIds.join("、")}）` : ""}`,
+  toolNoService: "这个项目现在没有上线的服务（服务写进运营方案、用户确认后才上线）。",
+  // @i18n-ignore-end
+};

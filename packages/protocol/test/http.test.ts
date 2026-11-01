@@ -8,6 +8,9 @@ const queryOf = (url: string) => Object.fromEntries(new URL(url, "http://127.0.0
 describe("HTTP 接口的路径", () => {
   it("拼出来的路径拆得回去：接口和参数一样", () => {
     expect(parseHttpPath(pathOf(HTTP_PATHS.uploads))).toEqual({ route: "uploads" });
+    expect(HTTP_PATHS.serviceEvents).toBe("/api/service-events");
+    expect(parseHttpPath(pathOf(HTTP_PATHS.serviceEvents))).toEqual({ route: "service_events" });
+    expect(parseHttpPath("/api/service-events/x")).toBeUndefined();
     expect(parseHttpPath(pathOf(HTTP_PATHS.upload("u-1")))).toEqual({ route: "upload", uploadId: "u-1" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.uploadChunk("u-1", 1024)))).toEqual({ route: "upload", uploadId: "u-1" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.uploadComplete("u-1")))).toEqual({ route: "upload_complete", uploadId: "u-1" });

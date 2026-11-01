@@ -1,6 +1,6 @@
 // 内核登记的运营手段（130 号票，登记表见 means.ts）：
 // - schedule 定时触发的任务：重复的时间表（每天、每周几、每月几号、按我的工作日），或者某个时间做一次；
-// - event 事件触发的任务：77 号票的事件来源、事件、过滤（二狗内部事件、本机文件夹变化……）；
+// - event 事件触发的任务：77 号票的事件来源、事件、过滤（二狗内部事件、本机文件夹变化、项目的服务报的事件……）；
 //   这两种的做法都可以是普通任务或流程（流程带它的固定计划，确认方案时一起授权）。生效时建成这个项目的内部任务，执行者是项目的
 //   维护者（64 号票的规矩不变）：定时、事件触发的进运营中，触发底座登记它的触发，到点或来事件时派一张运行工单给维护者；
 //   项目停用、重新启用时的暂停和恢复由触发底座按项目的状态管（不登记 pause / resume）；
@@ -8,7 +8,7 @@
 //   写明要用户手动做哪几步，卡上标"需要你手动"，确认时不假装生效。
 // 项目自己的服务（service，登记到 LSM 上线）133 号票起二狗能做了，在 project-services/means.ts；280 号票起由运营层自己经登记口登记
 // （project-ops/layer.ts），组装函数在事件触发和公网入口之间装运营层。
-import { describeEventTrigger, describeSchedule, isRepeating, type OperationItem, type OperationItemDraft, type ReminderSchedule, t, type TaskTrigger } from "@ergo/protocol";
+import { describeEventTrigger, describeSchedule, isRepeating, type OperationItem, type OperationItemDraft, type ReminderSchedule, SERVICE_EVENT_NAME_FILTER, SERVICE_EVENT_SOURCE, SERVICE_REPORTED_EVENT, t, type TaskTrigger } from "@ergo/protocol";
 import type { ScheduledJobs } from "../scheduled-jobs/index.ts";
 import type { TaskService } from "../tasks/tasks.ts";
 import type { OperationApplyContext, OperationMeans } from "./means.ts";
@@ -76,7 +76,7 @@ function eventMeans(deps: BuiltinMeansDeps): OperationMeans {
       return t("operations.means.event");
     },
     // @i18n-ignore-next model：工具说明
-    hint: "某个事件发生时做（event 写事件来源、事件、过滤，和发起任务时的“事件发生时”同一种写法：二狗内部事件 ergo——任务做完、失败、转等我，项目状态变化，一次运行失败；本机文件夹变化 folder——新增、修改、删除文件）",
+    hint: `某个事件发生时做（event 写事件来源、事件、过滤，和发起任务时的“事件发生时”同一种写法：二狗内部事件 ergo——任务做完、失败、转等我，项目状态变化，一次运行失败；本机文件夹变化 folder——新增、修改、删除文件；项目的服务 ${SERVICE_EVENT_SOURCE}——这个项目自己的服务报的事件，event 写成 {"kind":"event","source":"${SERVICE_EVENT_SOURCE}","events":["${SERVICE_REPORTED_EVENT}"],"filter":{"${SERVICE_EVENT_NAME_FILTER}":"事件名"}}，事件名你定、中文可以，要和服务里报的一字不差。服务里怎么报见系统提示的“被服务叫醒”）`,
     automatic: true,
     check(item, ctx) {
       if (!item.event) return [meansText.needEvent];

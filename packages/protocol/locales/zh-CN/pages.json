@@ -307,6 +307,8 @@
   "pages.projects.operationsRevision": "第 {revision} 份 · {time} 你确认的",
   "pages.projects.operationsEmpty": "还没有生效的运营方案。",
   "pages.projects.operationNext": "下次 {time}",
+  "pages.projects.serviceEvents": "最近收到的事件",
+  "pages.projects.serviceEventsNone": "还没收到过",
   "pages.projects.maintainer": "维护者",
   "pages.projects.maintainerNote": "维护者对项目的理解存在项目档案里，不靠会话。理解跑偏了可以重置（新开一段会话，只凭项目档案重建理解，旧会话保留可查）：点维护者会话标题栏上的 ⚙，选“清空当前对话”。这个项目单独的提示词、上下文用量也在那里。",
   "pages.projects.serviceHint": "项目自己的服务在不在线：看项目页头的入口",

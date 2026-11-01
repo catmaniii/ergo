@@ -4,6 +4,9 @@ import { describe, expect, it } from "vitest";
 import {
   describeEventTrigger,
   EVENT_SOURCES,
+  PICKABLE_EVENT_SOURCES,
+  planOnlyProblem,
+  serviceEventNameOf,
   eventPlaceholdersIn,
   eventRecord,
   eventSourceOf,
@@ -16,9 +19,51 @@ import {
   triggerFields,
 } from "../src/index.ts";
 
+describe("项目的服务（357 号票）", () => {
+  const trigger = (filter?: Record<string, string>) => ({ kind: "event" as const, source: "service", events: ["reported"], ...(filter ? { filter } : {}) });
+
+  it("只有一种事件，事件名写在过滤条件里、必填；字段是事件名、服务名、数据", () => {
+    expect(eventSourceOf("service")!.events.map((e) => e.id)).toEqual(["reported"]);
+    expect(triggerFields(trigger()).map((f) => [f.key, f.label])).toEqual([["name", "事件名"], ["service", "服务名"], ["data", "数据"]]);
+    expect(eventTriggerProblems(trigger({ name: "评论异常" }))).toEqual([]);
+    expect(eventTriggerProblems(trigger())).toEqual(["要写过滤条件「事件名」"]);
+    expect(eventTriggerProblems(trigger({ name: "  " }))).toEqual(["要写过滤条件「事件名」"]);
+    expect(eventTriggerProblems({ kind: "event", source: "service", events: ["评论异常"], filter: { name: "x" } })).toEqual(["项目的服务没有这种事件：评论异常"]);
+  });
+
+  it("卡上的说法：写明事件名；没写的也说得通", () => {
+    expect(describeEventTrigger(trigger({ name: "评论异常" }))).toBe("项目的服务报事件「评论异常」");
+    expect(describeEventTrigger(trigger())).toBe("项目的服务报事件「（没写事件名）」");
+  });
+
+  it("只能写在运营方案里：能选的来源没有它，别的入口有拒的原因；别的来源不受影响", () => {
+    expect(PICKABLE_EVENT_SOURCES.map((s) => s.id)).toEqual(["ergo", "folder"]);
+    expect(planOnlyProblem(trigger())).toContain("只能写在项目的运营方案里");
+    expect(planOnlyProblem({ source: "folder" })).toBeUndefined();
+    expect(planOnlyProblem({ source: "nowhere" })).toBeUndefined();
+  });
+
+  it("等的是哪个名字：别的来源、没写的是 undefined", () => {
+    expect(serviceEventNameOf(trigger({ name: " 评论异常 " }))).toBe("评论异常");
+    expect(serviceEventNameOf(trigger())).toBeUndefined();
+    expect(serviceEventNameOf({ source: "folder", filter: { name: "x" } })).toBeUndefined();
+  });
+
+  it("交给 agent 的结构化样子：键是字段的中文名，数据原样", () => {
+    expect(eventRecord({ source: "service", event: "reported", at: "2026-11-01T09:00:00+08:00", data: { name: "评论异常", service: "watcher", data: { count: 3 } } })).toEqual({
+      来源: "项目的服务",
+      事件: "服务报的事件",
+      时间: "2026-11-01T09:00:00+08:00",
+      事件名: "评论异常",
+      服务名: "watcher",
+      数据: { count: 3 },
+    });
+  });
+});
+
 describe("登记表", () => {
-  it("第一批两个来源：二狗内部事件、本机文件夹变化；每种事件的字段都登记了，过滤条件的键不重复", () => {
-    expect(EVENT_SOURCES.map((s) => s.id)).toEqual(["ergo", "folder"]);
+  it("三个来源：二狗内部事件、本机文件夹变化、项目的服务；每种事件的字段都登记了，过滤条件的键不重复", () => {
+    expect(EVENT_SOURCES.map((s) => s.id)).toEqual(["ergo", "folder", "service"]);
     expect(eventSourceOf("ergo")!.events.map((e) => e.id)).toEqual(["task_done", "task_failed", "task_waiting", "project_state", "run_failed"]);
     expect(eventSourceOf("folder")!.events.map((e) => e.id)).toEqual(["added", "changed", "removed"]);
     for (const source of EVENT_SOURCES) {

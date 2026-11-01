@@ -234,6 +234,9 @@ describe("运营手段“服务”：确认后经 LSM 上线，项目卡片上�
         { name: "ERGO_BASE_PATH", from: "literal", value: "/apps/p-1-site" },
         // 312 号票：另带一份旧名字的（早先做的服务读的是它）
         { name: "ERGOU_BASE_PATH", from: "literal", value: "/apps/p-1-site" },
+        // 357 号票：报事件的地址和这个服务的专属凭证（密钥区的文件，定义里只有路径）
+        { name: "ERGO_NOTIFY_URL", from: "literal", value: `${td.url}/api/service-events` },
+        { name: "ERGO_SERVICE_TOKEN", from: "file", path: path.join(d.realData, "secrets", "service-tokens", "p-1-site.token") },
       ],
       health: { path: "/" },
       autostart: true,

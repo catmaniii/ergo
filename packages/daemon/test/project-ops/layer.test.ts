@@ -14,6 +14,7 @@ import type { AppRegistration } from "../../src/apps/registry.ts";
 import { createCardService } from "../../src/cards/cards.ts";
 import { CardTypeRegistry } from "../../src/cards/registry.ts";
 import { cardsView } from "../../src/cards/views.ts";
+import { createServiceEventDesk, DEFAULT_EVENT_SOURCE_THRESHOLDS } from "../../src/event-sources/index.ts";
 import { createEphemeralBus, type EphemeralBus } from "../../src/events/ephemeral.ts";
 import { openEventStore } from "../../src/events/event-store.ts";
 import { BUILTIN_TOOL_REGISTRY, maskSecretArgValues, registerTools } from "../../src/guard/index.ts";
@@ -91,6 +92,7 @@ function opsLayer() {
     },
     secretsDir: path.join(dir, "secrets"),
     thumbnailsDir: path.join(dir, "cache", "thumbnails"),
+    serviceEvents: { desk: createServiceEventDesk(), stateDir: path.join(dir, "event-sources"), thresholds: DEFAULT_EVENT_SOURCE_THRESHOLDS },
     serviceThumbnail: unexpected("截服务首页"),
     browser: unexpected("浏览器"),
     ports: { local: 18810, external: 18811 },

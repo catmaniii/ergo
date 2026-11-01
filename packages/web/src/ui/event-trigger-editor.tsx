@@ -1,15 +1,15 @@
 // "事件发生时"的编辑（77 号票）：发起对话框里事件触发的任务、事件发生时提醒的简单提醒共用。按事件来源登记表画——
 // 选来源（二狗内部事件、本机文件夹变化……）、勾要哪几种事件、填过滤条件（选一个任务、选一个项目、填文件夹、填文件名模式、含不含子文件夹）。
-// 以后登记表里加了来源，这里不用改。文件夹能不能监视（在不在、是不是二狗的数据目录、密钥区、受保护区域）守护进程建的时候现查，被拒时提示里写明。
+// 以后登记表里加了来源，这里不用改；只能写在运营方案里的来源（项目的服务，357 号票）这里不列。文件夹能不能监视（在不在、是不是二狗的数据目录、密钥区、受保护区域）守护进程建的时候现查，被拒时提示里写明。
 import {
   defaultEventTrigger,
-  EVENT_SOURCES,
   type EventFilterDescriptor,
   eventPlaceholderHint,
   eventSourceOf,
   type EventTrigger,
   eventTriggerMissing,
   filterValue,
+  PICKABLE_EVENT_SOURCES,
   t,
   toggleEvent,
   withFilter,
@@ -27,12 +27,12 @@ export interface EventTriggerEditorProps {
 }
 
 export function EventTriggerEditor({ value, onChange, tasks, projects, workflow }: EventTriggerEditorProps) {
-  const source = eventSourceOf(value.source) ?? EVENT_SOURCES[0]!;
+  const source = eventSourceOf(value.source) ?? PICKABLE_EVENT_SOURCES[0]!;
   const missing = eventTriggerMissing(value);
   return (
     <div className="event-editor">
       <div className="seg event-sources" role="radiogroup" aria-label={t("ui.eventTriggerEditor.sources")}>
-        {EVENT_SOURCES.map((s) => (
+        {PICKABLE_EVENT_SOURCES.map((s) => (
           <button key={s.id} type="button" role="radio" aria-checked={s.id === source.id} className={`seg-btn${s.id === source.id ? " on" : ""}`} title={s.hint} onClick={() => s.id !== source.id && onChange(defaultEventTrigger(s.id))}>
             {s.label}
           </button>

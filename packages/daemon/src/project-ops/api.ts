@@ -7,13 +7,13 @@
 // - 它的登记走宿主现成的登记口（layer.ts 的 OpsLayerContext：卡片类型、运营手段 ctx.operationMeans、转发 ctx.apps，每次登记返回撤销函数），
 //   不再由组装函数替它把"服务"插进内核的运营手段、把整张转发登记表交给它。
 // 前两条 test/projects/boundary.test.ts 守着，第三条 test/project-ops/layer.test.ts 看着。只放常量和类型，不 import 运营层的服务实现。
-import type { Project, StandardChecklistItem } from "@ergo/protocol";
+import type { HttpErrorCode, Project, ServiceEventReply, StandardChecklistItem } from "@ergo/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { NewEvent } from "../events/event-store.ts";
 
 // —— 工具名（系统提示的占位符：prompts/registry.ts 经项目系统的入口取）——
 export { CHECK_OPS_TOOL, PROJECT_OPS_TOOL } from "./tool-names.ts";
-export { OPEN_SERVICE_TOOL, SWITCH_SERVICES_TOOL } from "../project-services/tool-names.ts";
+export { OPEN_SERVICE_TOOL, RECENT_SERVICE_EVENTS_TOOL, SWITCH_SERVICES_TOOL } from "../project-services/tool-names.ts";
 
 // —— 项目系统的其余部分要的小接口（组装函数装好运营层，照这些交过去）——
 
@@ -25,6 +25,34 @@ export interface OpsGoLive {
   goLiveEvents(project: Project): NewEvent[];
   /** 提转入使用之前：档案里那份重验一遍（维护者、秘书提转入使用时等它，卡上直接是结论） */
   prepareGoLive(projectId: string): Promise<void>;
+}
+
+/** 谁在报事件（357 号票）：凭证认出来的服务 */
+export interface ServiceEventCaller {
+  /** LSM 里的名字（<项目编号>-<服务名>） */
+  app: string;
+  projectId: string;
+  /** 维护者写的服务名 */
+  service: string;
+  /** 运营方案里这一条的名字 */
+  title: string;
+}
+
+/** 报事件被拒：code 定 HTTP 状态，message 回给服务 */
+export interface ServiceEventRefusal {
+  ok: false;
+  code: HttpErrorCode;
+  message: string;
+}
+
+/** 网关的 POST /api/service-events 要的（357 号票，只在本机端口开）：先认凭证，再读请求体，再报 */
+export interface ServiceEventsApi {
+  /** 请求体最多读多少字节（数据上限加上事件名、JSON 的壳）；超了的不留在内存里，算 oversized 报 */
+  readonly maxBodyBytes: number;
+  /** 认凭证：没带（undefined）、不对、已作废的回明确的错 */
+  authenticate(credential: string | undefined): { ok: true; caller: ServiceEventCaller } | ServiceEventRefusal;
+  /** 报一次：oversized 是请求体超了上限，没读完（事件名也不知道） */
+  report(caller: ServiceEventCaller, input: { event?: string; data?: unknown; oversized?: boolean }): { ok: true; reply: ServiceEventReply } | ServiceEventRefusal;
 }
 
 /** 秘书的工具里运营层给的（projects/secretary-tools.ts 接进项目系统给秘书的那几样）。先后是秘书看到的工具顺序（测试比对它） */

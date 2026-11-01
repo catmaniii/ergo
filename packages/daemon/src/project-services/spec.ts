@@ -9,11 +9,12 @@
 //   LSM 登记时会拒，原因写进"上线失败"）；
 // - 同一份方案里两个服务不能同名、同端口（checkPlan）。
 // 交给 LSM 的定义（LSM 的 docs/link-protocol.md §7.4）：名字是 <项目编号>-<服务名>，密钥的引用换成密钥区里的绝对路径（from: file），
-// 有网页的多注入一个 ERGO_BASE_PATH（/apps/<应用名>，132 号票的前缀约定）；不写停机命令（停、重启都带 force），不写 autoRestart（默认关）；
+// 有网页的多注入一个 ERGO_BASE_PATH（/apps/<应用名>，132 号票的前缀约定）；报事件的地址和这个服务的专属凭证（357 号票：ERGO_NOTIFY_URL，
+// ERGO_SERVICE_TOKEN 经 from: file 从密钥区读）；不写停机命令（停、重启都带 force），不写 autoRestart（默认关）；
 // 命令开头是 node 的换成二狗自己那份 Node（withOwnNode：项目服务跟着二狗的 Node 版本走，用安装包装的电脑上 PATH 里可能根本没有 node）。
 import fs from "node:fs";
 import path from "node:path";
-import { APP_BASE_PATH_ENV, appBasePath, appUrl, isNameOrOld, oldNameOf, OPERATION_SERVICE_MEANS, type OperationItemDraft, type OperationService, type OperationServiceDraft, serviceAppName } from "@ergo/protocol";
+import { APP_BASE_PATH_ENV, appBasePath, appUrl, isNameOrOld, oldNameOf, OPERATION_SERVICE_MEANS, type OperationItemDraft, type OperationService, type OperationServiceDraft, SERVICE_NOTIFY_URL_ENV, SERVICE_TOKEN_ENV, serviceAppName } from "@ergo/protocol";
 import type { LsmServiceDefinition } from "../lsm/link.ts";
 import { realPathOf } from "../util/real-path.ts";
 import { specText } from "./texts.ts";
@@ -92,6 +93,7 @@ export function serviceProblems(item: OperationItemDraft, ctx: ServiceSpecContex
     seen.add(upper);
     if (upper.startsWith("LSM_")) problems.push(specText.envLsm(e.name));
     if (isNameOrOld(upper, APP_BASE_PATH_ENV)) problems.push(specText.envBasePath);
+    if (upper === SERVICE_NOTIFY_URL_ENV || upper === SERVICE_TOKEN_ENV) problems.push(specText.envNotify(e.name));
     const sources = [e.value !== undefined, e.secret !== undefined, e.userEnv === true].filter(Boolean).length;
     if (sources !== 1) problems.push(specText.envOneSource(e.name));
     if (e.value !== undefined) {
@@ -147,7 +149,7 @@ export function normalizeService(draft: OperationServiceDraft, ctx: ServiceSpecC
 export const serviceUrl = (service: Pick<OperationService, "app" | "web">): string | undefined => (service.web ? appUrl(service.app, service.web.home.replace(/^\/+/, "")) : undefined);
 
 /** 交给 LSM 的定义（services.put）：密钥的引用换成密钥区里的绝对路径，有网页的注入 ERGO_BASE_PATH（312 号票：另带一份旧名字的，早先做的服务照样读得到） */
-export function lsmDefinition(service: OperationService, labels: { title: string; projectName: string }, secretsDir: string, nodePath?: string): LsmServiceDefinition {
+export function lsmDefinition(service: OperationService, labels: { title: string; projectName: string }, secretsDir: string, nodePath?: string, notify?: { url: string; tokenFile: string }): LsmServiceDefinition {
   const env: NonNullable<LsmServiceDefinition["env"]> = service.env.map((e) => {
     if (e.secret !== undefined) return { name: e.name, from: "file", path: path.join(secretsDir, e.secret), ...(e.optional ? { optional: true } : {}) };
     if (e.userEnv) return { name: e.name, from: "userEnv", ...(e.optional ? { optional: true } : {}) };
@@ -155,6 +157,8 @@ export function lsmDefinition(service: OperationService, labels: { title: string
     return { name: e.name, from: "literal", value: e.value ?? "", ...(e.optional || !e.value ? { optional: true } : {}) };
   });
   if (service.web) for (const name of [APP_BASE_PATH_ENV, oldNameOf(APP_BASE_PATH_ENV)]) env.push({ name, from: "literal", value: appBasePath(service.app) });
+  // 357：报事件的地址和这个服务的专属凭证
+  if (notify) env.push({ name: SERVICE_NOTIFY_URL_ENV, from: "literal", value: notify.url }, { name: SERVICE_TOKEN_ENV, from: "file", path: notify.tokenFile });
   return {
     name: service.app,
     title: oneLine80(`${labels.projectName} · ${labels.title}`),

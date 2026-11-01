@@ -798,6 +798,20 @@ function ProjectOperations({ project: p }: { project: Project }) {
                 <ServiceEntry view={r.service} compact />
               </div>
             )}
+            {/* 357 号票：服务报的事件（调试时不用猜：报没报到、叫没叫醒）。服务那一条没报过的不占地方，等事件的那一条写"还没收到过" */}
+            {r.events && (r.events.length > 0 || !r.service) && (
+              <div className="ops-events">
+                <div className="ops-events-title">{t("pages.projects.serviceEvents")}</div>
+                {r.events.length === 0 && <div className="muted">{t("pages.projects.serviceEventsNone")}</div>}
+                {r.events.map((e) => (
+                  <div key={`${e.at}-${e.name}`} className={`ops-event${e.woke ? "" : " ops-event-missed"}`}>
+                    <b className="ops-event-name">{e.name}</b>
+                    <span className="ops-event-at">{timeLabel(e.at)}</span>
+                    <span className="ops-event-text">{e.text}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <span className={`st ${OPERATION_STATUS_CLASS[r.status]}`}>{r.statusText}</span>
         </div>

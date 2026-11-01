@@ -175,6 +175,8 @@ export interface ProjectMaintainersOptions {
   goLiveTool?: (projectId: string, maintainerId: string) => HostTool;
   /** 验收运营接口清单的工具（268 号票，project-ops/ 的 check_ops）：改了 ops.json 看过没过，使用中的全过了登记成新的一版 */
   checkOpsTool?: (projectId: string, maintainerId: string) => HostTool;
+  /** 查自己项目的服务最近报的事件的工具（357 号票，project-services/ 的 recent_service_events） */
+  serviceEventsTool?: (projectId: string) => HostTool;
 }
 
 export interface ProjectMaintainers extends MaintainerSuspension {
@@ -657,6 +659,8 @@ function assemble(options: ProjectMaintainersOptions, first: Project): ProjectAs
         ...(p.charterConfirmed && !workflow && options.goLiveTool ? [options.goLiveTool(p.id, maintainerId)] : []),
         // 验收运营接口清单（268 号票）：开发类边建边写 ops.json，写了就验（流程不给，同上）
         ...(p.charterConfirmed && !workflow && options.checkOpsTool ? [options.checkOpsTool(p.id, maintainerId)] : []),
+        // 查服务最近报的事件（357 号票）：只读（流程不给，同上）
+        ...(p.charterConfirmed && !workflow && options.serviceEventsTool ? [options.serviceEventsTool(p.id)] : []),
         // 登记 MCP（239 号票）：做任务时也能提，出卡等用户确认（流程不给，同上）
         ...(p.charterConfirmed && !workflow && options.toolkits?.requestMcpTool ? [options.toolkits.requestMcpTool(p.id, maintainerId)] : []),
         // 提交 skill（358 号票）：做任务时沉淀下来的也能提，出卡等用户确认（流程不给，同上）
@@ -700,6 +704,8 @@ function assemble(options: ProjectMaintainersOptions, first: Project): ProjectAs
         ...(confirmedCharter && options.goLiveTool ? [options.goLiveTool(p.id, maintainerId)] : []),
         // 验收运营接口清单（268 号票）：使用中改了 ops.json 用它验，全过了登记成新的一版
         ...(confirmedCharter && options.checkOpsTool ? [options.checkOpsTool(p.id, maintainerId)] : []),
+        // 查服务最近报的事件（357 号票）：调试服务时看
+        ...(confirmedCharter && options.serviceEventsTool ? [options.serviceEventsTool(p.id)] : []),
         summary,
         ...(confirmedCharter && options.internalTaskTools ? options.internalTaskTools({ projectId: p.id, maintainerId }) : []),
       ],

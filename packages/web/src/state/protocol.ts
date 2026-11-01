@@ -825,6 +825,7 @@ export {
   EVENT_PLACEHOLDER_NOTE,
   EVENT_SOURCES,
   EVENT_WORKFLOW_GRANT_TEXT,
+  PICKABLE_EVENT_SOURCES,
   eventKindOf,
   eventPassOf,
   eventPlaceholder,
@@ -922,10 +923,10 @@ export type { BrowseSearchEngineId } from "@ergo/protocol";
 export type { SaveWebPageBody, SaveWebPageResult } from "@ergo/protocol";
 export { SAVED_WEB_PAGE_CONTEXT } from "@ergo/protocol";
 // 运营手段"服务"、项目的服务（133 号票）：上线到哪了、在不在线、入口
-export { OPERATION_SERVICE_MEANS, projectPower, serviceCanOpen, serviceEnvText, serviceOpenLabel, serviceShown, serviceStateText } from "@ergo/protocol";
+export { OPERATION_SERVICE_MEANS, projectPower, SERVICE_EVENT_OUTCOME_LABEL, serviceCanOpen, serviceEnvText, serviceEventNameOf, serviceEventWoke, serviceOpenLabel, serviceShown, serviceStateText } from "@ergo/protocol";
 // 服务首页的缩略图（140 号票）：多久算旧、地址里的 seen
 export { SERVICE_THUMBNAIL_REFRESH_MS, serviceThumbnailSeen } from "@ergo/protocol";
-export type { ProjectPowerState, ProjectPowerView, ProjectServicesAction, ProjectServicesActionParams, ProjectServicesEventPayload, ProjectServiceView, ServiceEntryCardPayload, ServiceStateKind } from "@ergo/protocol";
+export type { ProjectPowerState, ProjectPowerView, ProjectServicesAction, ProjectServicesActionParams, ProjectServicesEventPayload, ProjectServiceView, ServiceEntryCardPayload, ServiceEventRecord, ServiceStateKind } from "@ergo/protocol";
 // 项目规范（258 号票）：规范里的文档、写了 / 只有模板 / 缺、只读接口的返回
 export {
   PROJECT_STANDARD_LATEST,

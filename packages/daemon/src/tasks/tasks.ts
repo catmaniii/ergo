@@ -78,6 +78,7 @@ import {
   forModel,
   idLabel,
   t,
+  planOnlyProblem,
 } from "@ergo/protocol";
 import type { CardService } from "../cards/cards.ts";
 import type { CardActionEffect } from "../cards/registry.ts";
@@ -117,10 +118,13 @@ export const ONCE_AT_PASSED = (at: string) => t("tasks.tasks.onceAtPassed", { at
  * 也可以是某个时间做一次（用户 2026-10-10 定：那个时间要在将来）；事件触发的（77 号票）过事件来源登记表和来源的实现现查
  * （checkEvent：文件夹在不在、能不能监视……）。不行的抛 RequestRejected
  */
-function checkedTrigger(kind: TaskKind, trigger: TaskTrigger | undefined, now: string, checkEvent: ((t: EventTrigger) => string[]) | undefined): TaskTrigger | undefined {
+function checkedTrigger(kind: TaskKind, trigger: TaskTrigger | undefined, now: string, checkEvent: ((t: EventTrigger) => string[]) | undefined, origin: TaskOrigin): TaskTrigger | undefined {
   if (!trigger || trigger.kind === "once") return undefined;
   if (kind === "long_running") throw new RequestRejected("not_allowed", LONG_RUNNING_TRIGGER_REFUSAL);
   if (trigger.kind === "event") {
+    // 357 号票：项目的服务报的事件只能写在运营方案里（用户确认过才等得到），发起任务对话框、秘书、维护者别的入口建不出
+    const planOnly = origin === "operations" ? undefined : planOnlyProblem(trigger);
+    if (planOnly) throw new RequestRejected("bad_params", EVENT_TRIGGER_PROBLEMS([planOnly]));
     const problems = checkEvent ? checkEvent(trigger) : [NO_EVENT_SOURCES];
     if (problems.length > 0) throw new RequestRejected("bad_params", EVENT_TRIGGER_PROBLEMS(problems));
     return trigger;
@@ -528,7 +532,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     if (by !== "user" && by !== "secretary") throw new RequestRejected("not_allowed", "只有用户能发起任务（秘书按用户的要求建任务卡）"); // @i18n-ignore log：调用方写错了才有
     const projects = [...new Set((input.projects ?? []).map((p) => p.trim()).filter(Boolean))];
     const kind = input.kind ?? "long_running";
-    const trigger = checkedTrigger(kind, input.trigger, now(), options.checkEventTrigger);
+    const trigger = checkedTrigger(kind, input.trigger, now(), options.checkEventTrigger, input.origin);
     // 涉及的项目认成编号：不在项目列表里、已归档的拒绝并说明
     const projectIds = options.projects?.().checkTaskProjects(projects);
     if (kind === "workflow" && (projectIds?.length ?? projects.length) > 1) throw new RequestRejected("not_allowed", workflowProjectsRefusal());
@@ -608,7 +612,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
    * 通知带着任务编号：维护者正在做工单时排着（工单段里没有写任务书的工具），空下来在对话段里处理（work-orders/segments.ts）
    */
   function buildInternal(input: NewInternalTask, by: TaskActor, start?: StartNotice, nth = 0): { task: Task; events: NewEvent[] } {
-    const trigger = checkedTrigger(input.kind, input.trigger, now(), options.checkEventTrigger);
+    const trigger = checkedTrigger(input.kind, input.trigger, now(), options.checkEventTrigger, input.origin);
     const owner = internalOwnership(input.projectId, input.origin);
     const n = countTasks(store.reader) + 1 + nth;
     const time = now();
@@ -634,7 +638,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
 
   /** 运营方案里流程的那一条（130 号票）：见 TaskService.buildAuthorizedWorkflow */
   const buildAuthorizedWorkflow: TaskService["buildAuthorizedWorkflow"] = (input, reviewed, auth, nth = 0) => {
-    const trigger = checkedTrigger("workflow", input.trigger, now(), options.checkEventTrigger);
+    const trigger = checkedTrigger("workflow", input.trigger, now(), options.checkEventTrigger, input.origin);
     const owner = internalOwnership(input.projectId, input.origin);
     const id = `t-${countTasks(store.reader) + 1 + nth}`;
     const title = oneLine(input.title, TITLE_MAX);

@@ -5,6 +5,7 @@
 //   ergo components list | add [--accept-license] | remove | import  组件（323 号票的守护进程接口）
 //   ergo svc <命令…>                                        服务管家的命令原样转过去（ergo svc status = lsm status）
 //   ergo onboard                                            把二狗起来，指路去网页走设置向导（向导只做网页，319 号票）
+//   ergo notify <事件名> [--data <JSON>]                     给项目的服务用的：报一个事件，叫醒等它的任务（357 号票；不算操作二狗）
 // 装好的程序里由启动器（ergo.exe / ergo.cmd）用自带的 node 跑它；开发时 npm run ergo -- <命令>。
 // 给人看的话按二狗设置的语言（数据目录的 config/language.json），没设按系统的语言（中文系统中文，别的英文）；环境变量 ERGO_LANGUAGE 可以指定。
 import "../i18n/boot.ts";

@@ -5,13 +5,13 @@
 // - 交出：来源推来一次事件，暂停着的不交；事件触发的任务交给触发底座（ScheduledJobs.fire：没在跑的起一次运行，上一次还没跑完的排队合并），
 //   别的订阅交给登记它的订阅方（简单提醒发一条通知：ReminderService.fireOnEvent）。去重键是订阅加上来源给的键：同一次事件重推、开机比对补发都只收一次；
 // - 检查：建任务、建提醒时事件触发方式对不对——先查登记表（来源、事件、过滤条件的键和类型、必填的），再让来源的实现现查（文件夹在不在、能不能监视）。
-// 以后接邮件、webhook：登记表里加一项，sources.ts 里加它的实现，别的不用动。
+// 以后接邮件：登记表里加一项，sources.ts 里加它的实现，别的不用动。
 import { CHANNELS, type EventTrigger, eventTriggerProblems, EVENT_TYPES, isNameOrOld, type TriggerEvent } from "@ergo/protocol";
 import type { EventStore, StoredEvent } from "../events/event-store.ts";
 import type { ScheduledJobs } from "../scheduled-jobs/index.ts";
 import { listJobs } from "../scheduled-jobs/index.ts";
 import { errorText, sourceMissingText, triggerText } from "./texts.ts";
-import type { EventSourceContext, EventSourceImpl, EventSubscription, SourceEvent } from "./types.ts";
+import type { DeliveringContext, EventDelivery, EventSourceImpl, EventSubscription, SourceEvent } from "./types.ts";
 
 /** 事件触发任务之外的一种订阅方（126 号票：插件经插件宿主登记，停用时撤掉） */
 export interface EventSubscriberKind {
@@ -64,7 +64,7 @@ export interface EventTriggersOptions {
   /** 事件触发任务之外的订阅方（不给是没有） */
   subscribers?: EventSubscriberRegistry;
   /** 各来源的实现（拿着推事件的口子建出来） */
-  sources: (ctx: EventSourceContext) => EventSourceImpl[];
+  sources: (ctx: DeliveringContext) => EventSourceImpl[];
   log: (line: string) => void;
 }
 
@@ -92,22 +92,29 @@ export function createEventTriggers(options: EventTriggersOptions): EventTrigger
   let stopped = false;
 
   /** 来源推来一次事件：订阅还在、在运营的才交出去 */
-  const emit = (sub: EventSubscription, event: SourceEvent) => {
+  const deliver = (sub: EventSubscription, event: SourceEvent): EventDelivery => {
     const now = current.get(sub.id);
-    if (!now?.active) return;
+    if (!now?.active) return { outcome: "inactive" };
     const { key, ...trigger } = event;
     if (now.kind === "task" && now.taskId !== undefined) {
       const outcome = options.scheduledJobs.fire(now.taskId, trigger, deliverKey(now.id, key));
       if (outcome.outcome === "ignored") log(triggerText.notDelivered(trigger.summary, now.id, outcome.reason));
-      return;
+      return outcome;
     }
     subscribers
       .list()
       .find((k) => k.kind === now.kind)
       ?.deliver(now, trigger, deliverKey(now.id, key));
+    return { outcome: "handed" };
   };
 
-  const sources = options.sources({ emit, log });
+  const sources = options.sources({
+    emit: (sub, event) => {
+      deliver(sub, event);
+    },
+    deliver,
+    log,
+  });
 
   /** 现在的订阅：事件触发的任务的触发登记（运营中、已暂停的），再是各订阅方的（事件发生时提醒的简单提醒：待触发的） */
   const subscriptionsNow = (): EventSubscription[] => [

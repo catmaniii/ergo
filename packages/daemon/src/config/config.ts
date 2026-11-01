@@ -168,7 +168,8 @@ export interface ErgoConfig {
   /**
    * 事件来源（event-sources/thresholds.ts，77 号票）。配置里写 eventSources：folderSettleMs（本机文件夹的同一个文件安静多久才算一次变化，
    * 默认 2000 毫秒）、folderRetryMs（文件夹不在、监视出错时隔多久再看，默认 30000 毫秒）、maxRunSteps（事件触发的任务一次运行最多照多少步，
-   * 一批事件数 × 步骤数，默认 100）
+   * 一批事件数 × 步骤数，默认 100）、serviceReportsPerMinute（项目的服务报事件每个服务每分钟最多几次，默认 30）、
+   * serviceDataMaxBytes（项目的服务报事件单条数据最多多少字节，默认 8 KB）
    */
   eventSources: EventSourceThresholds;
   /**
@@ -1068,16 +1069,18 @@ function parseScheduledJobs(value: unknown, file: string): ScheduledJobThreshold
 }
 
 /**
- * eventSources（77 号票）：folderSettleMs、folderRetryMs、maxRunSteps，都是正整数。77 号票开发时 folderSettleMs 一度写在 scheduledJobs 里：
+ * eventSources（77 号票）：folderSettleMs、folderRetryMs、maxRunSteps、serviceReportsPerMinute、serviceDataMaxBytes（357 号票），都是正整数。77 号票开发时 folderSettleMs 一度写在 scheduledJobs 里：
  * eventSources 里没写、scheduledJobs 里写了的照旧认
  */
 function parseEventSources(value: unknown, legacy: unknown, file: string): EventSourceThresholds {
-  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：eventSources 必须是一个对象（{ folderSettleMs, folderRetryMs, maxRunSteps }）`);
+  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：eventSources 必须是一个对象（{ folderSettleMs, folderRetryMs, maxRunSteps, serviceReportsPerMinute, serviceDataMaxBytes }）`);
   const old = isRecord(legacy) && legacy.folderSettleMs !== undefined && value?.folderSettleMs === undefined ? positiveCount("scheduledJobs", legacy, "folderSettleMs", DEFAULT_EVENT_SOURCE_THRESHOLDS.folderSettleMs, file) : undefined;
   return {
     folderSettleMs: old ?? positiveCount("eventSources", value, "folderSettleMs", DEFAULT_EVENT_SOURCE_THRESHOLDS.folderSettleMs, file),
     folderRetryMs: positiveCount("eventSources", value, "folderRetryMs", DEFAULT_EVENT_SOURCE_THRESHOLDS.folderRetryMs, file),
     maxRunSteps: positiveCount("eventSources", value, "maxRunSteps", DEFAULT_EVENT_SOURCE_THRESHOLDS.maxRunSteps, file),
+    serviceReportsPerMinute: positiveCount("eventSources", value, "serviceReportsPerMinute", DEFAULT_EVENT_SOURCE_THRESHOLDS.serviceReportsPerMinute, file),
+    serviceDataMaxBytes: positiveCount("eventSources", value, "serviceDataMaxBytes", DEFAULT_EVENT_SOURCE_THRESHOLDS.serviceDataMaxBytes, file),
   };
 }
 

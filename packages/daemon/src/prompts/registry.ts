@@ -31,6 +31,7 @@ import {
   PROPOSE_OPERATIONS_TOOL,
   PROPOSE_STANDARD_CHANGE_TOOL,
   READ_PROJECT_RECORDS_TOOL,
+  RECENT_SERVICE_EVENTS_TOOL,
   SUBMIT_CHARTER_TOOL,
   SUGGEST_PROJECT_TOOL,
   SWITCH_SERVICES_TOOL,
@@ -594,6 +595,8 @@ export function commonPlaceholders(): readonly CommonPlaceholder[] {
     PROJECT_OPS_TOOL,
     // 268 号票：维护者验收运营接口清单（使用中的全过了登记成新的一版）
     CHECK_OPS_TOOL,
+    // 357 号票：维护者查自己项目的服务最近报的事件
+    RECENT_SERVICE_EVENTS_TOOL,
     // 259 号票：维护者、秘书提转入使用（只出确认卡，用户确认才转）
     PROPOSE_GO_LIVE_TOOL,
     // 147、164 号票的网页工具（browse_*）212 号票起是浏览插件的占位符（browsing/prompt.ts）

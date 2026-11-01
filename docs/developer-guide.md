@@ -303,6 +303,18 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 测试：`test/components/audiocpp-host.test.ts`（真的 `lsm/link.ts` + LSM 替身 + 假下载站 + 在系统挑的端口上起假语音服务）、`test/voice/recognizer-audiocpp.test.ts`（假 audio.cpp `helpers/fake-audiocpp-asr.ts`，错误照真服务试出来的写）、`test/components/recognizer-link.test.ts`（已配的按字节核对不被改）、`test/main/components.test.ts`（真的守护进程跑通安装到语音消息），绝不碰 8090。
 
+### 4.14 项目的服务报事件
+
+项目自己的服务发现要紧的事时报一个事件，叫醒运营方案里等它的任务（ADR-0043，357 号票）。
+
+- **接口**：`POST /api/service-events`（只在本机端口开，`gateway.ts` 在外网端口一进来就拒，带设备凭证也拒）。请求头 `Authorization: Bearer <ERGO_SERVICE_TOKEN>`，请求体 `{ "event": "<事件名>", "data": <任意 JSON，可不带> }`（`ServiceEventBody`）。收下回 202 和 `{ ok, event, runs: [{ taskId, runId, merged }] }`，不等维护者做完。错误体是通用的 `{ code, message }`：401 没带凭证、凭证不对或已作废；400 请求体不对；404 事件名没人等（`message` 写着现在能报哪些）；409 等它的任务暂停着；413 数据太大；429 超了这个服务的限速；403 外网端口。
+- **命令**：`ergo notify <事件名> [--data <JSON>]`（`cli/notify.ts`），读 `ERGO_NOTIFY_URL`、`ERGO_SERVICE_TOKEN`。退出码 0 报上了、1 被拒、2 用法不对（含环境变量不在）、3 连不上。开发时 `npm run ergo -- notify <事件名>`。`git clone` 跑的机器上没有 `ergo` 命令，服务管家的 `PATH` 又是它启动时的快照，所以说明里让服务代码优先发请求。
+- **来源**：`event-sources/service.ts`（登记表里 `service`，只有一种事件 `reported`，名字在过滤条件 `name`，`planOnly`）只管谁在等、交出去，走 `triggers.ts` → `ScheduledJobs.fire`，排队合并、自动暂停都是沿用的。`DeliveringContext.deliver` 比 `emit` 多告诉来源交没交成。
+- **运营层**：`project-services/service-events.ts` 管凭证（`secrets/service-tokens/<应用名>.token`，内存里只留摘要）、限速和大小上限（`event-sources/thresholds.ts`，配置 `eventSources.serviceReportsPerMinute`、`serviceDataMaxBytes`）、最近收到的（`event-sources/service-events.json`，每个服务 `SERVICE_EVENTS_KEPT` 条，不存数据）和维护者的 `recent_service_events`。上线时 `project-services.ts` 的 `bringUp` 没有凭证就发一份，发了新的而服务在跑的重启一次；`service_desired` 撤下一落盘就作废；删项目时一起删。
+- **数据的去向**：只在 `JobRun.events` 里（删项目时跟着改写）。交给 agent 时 `scheduled-jobs/texts.ts` 的 `eventsBlock` 写明是数据不是指令。没有素材来源接它，不进记忆。
+- **给维护者的说明**：`prompts/project-maintainer.md` 的"被服务叫醒"一段（完整做法），`operations/builtin-means.ts`、`project-services/means.ts` 的手段说明（字段）。改做法要改这几处。
+- **测试**：`test/main/service-events.test.ts`（假 LSM、faux 维护者）、`test/main/service-events-real.test.ts`（真的服务管家、真子进程、真命令行）、`test/cli/notify.test.ts`、`test/build/stage.test.ts`（版本目录里跑）。
+
 ## 5. 插件
 
 守护进程分**内核**和**插件**（[ADR-0027](adr/0027-plugin-host-kernel-and-agent-contributions.md)）：内核（事件日志、任务执行连同守卫、宿主协议、网关……）在组合根里手工装；插件按插件清单 `plugins/manifest.ts` 经插件宿主 `plugins/host.ts` 装，组合根里不出现任何一个插件。一个功能插件 = 守护进程里的插件 + 网页里同名的网页插件，一起启停，用户能在设置 · 插件里热插拔。

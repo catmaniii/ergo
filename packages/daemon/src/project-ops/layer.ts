@@ -8,10 +8,11 @@
 // - 交出去的是各调用方的小接口：转入使用那一套（项目服务、提转入使用的工具）、秘书的工具、维护者的 check_ops、网关的启停请求、
 //   订阅时补推的服务、缩略图；接入 LSM 之后 start（组合根原来的位置，经组装函数的 startServices），停机时 stop。
 // 建这些都没有副作用（订阅事件、接 LSM 都在 start 里），所以组装函数在原来建项目的服务的位置装它：卡片类型、运营手段登记的先后照原来。
-import { CHANNELS, EVENT_TYPES, type EventFrame, type OperationsPlanView, type Project, type ProjectServiceView } from "@ergo/protocol";
+import { CHANNELS, EVENT_TYPES, type EventFrame, HTTP_PATHS, type OperationsPlanView, type Project, type ProjectServiceView } from "@ergo/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { checkAppPrefix } from "../apps/prefix-check.ts";
 import type { CardService } from "../cards/cards.ts";
+import type { EventSourceThresholds, ServiceEventDesk } from "../event-sources/index.ts";
 import type { EphemeralBus } from "../events/ephemeral.ts";
 import type { DerivedView, EventStore } from "../events/event-store.ts";
 import { LOCAL_HOST, type RequestHandlers } from "../gateway/gateway.ts";
@@ -26,9 +27,10 @@ import type { BrowserDriver } from "../web/index.ts";
 import { serviceMeans } from "../project-services/means.ts";
 import { createProjectServices, type ProjectServices } from "../project-services/project-services.ts";
 import { openServiceTool, serviceBoardSection, serviceEntryCardType, switchServicesTool } from "../project-services/secretary-tool.ts";
+import { createServiceEvents } from "../project-services/service-events.ts";
 import { captureServiceHome } from "../project-services/thumbnails.ts";
 import { projectServicesView } from "../project-services/views.ts";
-import type { OpsGoLive, OpsSecretary } from "./api.ts";
+import type { OpsGoLive, OpsSecretary, ServiceEventsApi } from "./api.ts";
 import type { BuiltinContext } from "./builtin.ts";
 import type { RunContext } from "./runner.ts";
 import { createProjectOps, type ProjectOps } from "./tool.ts";
@@ -75,6 +77,8 @@ export interface OpsLayerDeps {
   secretsDir: string;
   /** 服务首页的缩略图的缓存区（140） */
   thumbnailsDir: string;
+  /** 服务报事件（357）：交事件的前台（内核的事件来源）、最近收到的记录放哪（事件来源的状态目录）、限速和大小上限 */
+  serviceEvents: { desk: ServiceEventDesk; stateDir: string; thresholds: EventSourceThresholds };
   /** 服务首页的缩略图怎么截（测试注入假的）；不给就用 browser() 驱动无头浏览器截 */
   serviceThumbnail?: (url: string, signal: AbortSignal) => Promise<Buffer>;
   browser: () => BrowserDriver;
@@ -94,6 +98,10 @@ export interface OpsLayer {
   readonly secretary: OpsSecretary;
   /** 项目维护者的 check_ops（268）：绑在它维护的项目上 */
   checkTool(scope: { projectId: string; maintainerId: string }): HostTool;
+  /** 项目维护者查自己项目的服务最近报的事件（357）：绑在它维护的项目上 */
+  serviceEventsTool(projectId: string): HostTool;
+  /** 网关的 POST /api/service-events（357）：项目的服务报事件 */
+  readonly serviceEvents: ServiceEventsApi;
   /** 网关：项目卡片、项目页上的"启动""关闭"（257）：经 LSM 把项目的服务全部拉起、全部关掉（秘书的工具走同一个入口） */
   readonly requests: Required<Pick<RequestHandlers, "projectServicesAction">>;
   /** 订阅项目列表频道时补推的项目的服务现在的样子（133：临时事件不补发） */
@@ -119,6 +127,8 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
   // 给前端看的样子变了推项目列表频道的临时事件。接入层建在最后（开好端口之后）：start 交来，那时才开始做
   let lsm: LsmServices | undefined;
   let ports: { local: number; external: number } | undefined;
+  // 服务报事件（357）：凭证按服务发，上线时注入；地址是网关开好之后实际的本机端口
+  const serviceEvents = createServiceEvents({ store, project: (projectId) => projects.get(projectId), secretsDir: deps.secretsDir, stateDir: deps.serviceEvents.stateDir, desk: deps.serviceEvents.desk, thresholds: deps.serviceEvents.thresholds, clock, log });
   const projectServices = createProjectServices({
     store,
     lsm: () => lsm ?? DISABLED_LSM_SERVICES,
@@ -137,6 +147,7 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
       capture: deps.serviceThumbnail ?? ((url, signal) => captureServiceHome(deps.browser(), url, signal)),
       baseUrl: () => (ports ? `http://${LOCAL_HOST}:${ports.local}` : undefined),
     },
+    events: { service: serviceEvents, url: () => (ports ? `http://${LOCAL_HOST}:${ports.local}${HTTP_PATHS.serviceEvents}` : undefined) },
   });
   // 服务入口卡（133）：秘书给出服务的入口时放进聊天
   ctx.cardTypes.register(serviceEntryCardType());
@@ -193,6 +204,8 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
       ],
     },
     checkTool: (scope) => projectOps.checkTool(scope),
+    serviceEventsTool: (projectId) => serviceEvents.tool(projectId),
+    serviceEvents,
     requests: {
       projectServicesAction: (params, idempotencyKey) => projectServices.power(params.projectId, params.action, "user", idempotencyKey),
     },

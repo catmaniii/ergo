@@ -29,5 +29,15 @@
   "projectServices.power.lsm.unsupported": "This LSM version doesn't support owned services, so Ergo can't start or shut them down for you: do it in LSM",
   "projectServices.power.lsm.disabled": "Ergo wasn't started by LSM (not linked), so it can't start or shut down services for you: do it in LSM",
   "projectServices.power.stopFailed": "LSM didn't stop it (no reason given)",
+  "projectServices.events.noCredential": "No credential: send the header Authorization: Bearer <value of the environment variable {env}>. This API is only for services launched from an operations plan; the credential is injected when the service goes live",
+  "projectServices.events.badCredential": "Wrong or revoked credential: it is revoked when the service is withdrawn or the project is retired or archived, and a new one is issued when it goes live again. Read it from the environment variable {env} every time; don't hard-code it",
+  "projectServices.events.noWaiter": "Nothing in the operations plan waits for the event “{name}”, so nothing was woken and nothing was spent. You can report: {names}. To report a new name, add it to the operations plan and have the user confirm it first",
+  "projectServices.events.paused": "The task waiting for the event “{name}” is paused, so nothing was woken. Report again once the task is resumed",
+  "projectServices.events.ignored": "The event “{name}” wasn't delivered: {reason}",
+  "projectServices.events.rateLimited": "Service “{title}” is reporting too fast: at most {limit} per minute. This one wasn't counted; try again in {seconds} seconds",
+  "projectServices.events.tooLarge": "The data is too large: at most {max} bytes, so nothing was woken. Report only what matters and put the full text in a file for the maintainer to read",
+  "projectServices.events.quoted": "“{name}”",
+  "projectServices.events.noNames": "(none)",
+  "projectServices.tool.recentEvents": "Check recent service events",
   "projectServices.tool.switch": "Start or shut down project services"
 }

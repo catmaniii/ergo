@@ -311,6 +311,8 @@
   "pages.projects.operationsRevision": "Version {revision} · confirmed by you {time}",
   "pages.projects.operationsEmpty": "No operations plan in effect yet.",
   "pages.projects.operationNext": "Next {time}",
+  "pages.projects.serviceEvents": "Recent events",
+  "pages.projects.serviceEventsNone": "None received yet",
   "pages.projects.maintainer": "Maintainer",
   "pages.projects.maintainerNote": "The maintainer's understanding of the project lives in the project records, not in the chat. If it drifts, reset it (a new session rebuilds the understanding from the project records alone; the old session stays viewable): tap ⚙ in the maintainer chat's title bar and choose the option to clear the current chat. That's also where this project's own prompt and context usage are.",
   "pages.projects.serviceHint": "Whether the project's own services are online: see the entry at the top of the project page",

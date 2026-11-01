@@ -31,6 +31,17 @@ export interface EventSourceContext {
   log(line: string): void;
 }
 
+/**
+ * 交给一个订阅的结果：queued 起了一次运行、merged 并进了排着的那一次、ignored 任务没接（原因）、inactive 订阅没了或暂停着、
+ * handed 交给了别的订阅方（简单提醒）
+ */
+export type EventDelivery = { outcome: "queued" | "merged"; runId: string } | { outcome: "ignored"; reason: string } | { outcome: "inactive" } | { outcome: "handed" };
+
+/** 分发给来源的口子：比 emit 多告诉来源交没交成（357 号票：项目的服务报事件要照实回服务） */
+export interface DeliveringContext extends EventSourceContext {
+  deliver(sub: EventSubscription, event: SourceEvent): EventDelivery;
+}
+
 /** 登记表里一个来源在守护进程里的实现 */
 export interface EventSourceImpl {
   /** 登记表里的编号 */

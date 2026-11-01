@@ -62,6 +62,57 @@ export interface ProjectServiceView {
   power?: "starting" | "stopping";
   /** 257：关闭没做成的原因（LSM 回的）；启动没做成的照"上线失败"写在 reason 里 */
   powerReason?: string;
+  /** 357：这个服务最近报的事件（新的在前，最多 SERVICE_EVENTS_KEPT 条）；从没报过的没有。不带事件里的数据 */
+  recentEvents?: ServiceEventRecord[];
+}
+
+// ───────────────────────── 服务报事件（357 号票，ADR-0043） ─────────────────────────
+
+/** 上线时注入服务的环境变量：报事件的地址（只在本机端口开） */
+export const SERVICE_NOTIFY_URL_ENV = "ERGO_NOTIFY_URL";
+/** 上线时注入服务的环境变量：这个服务的专属凭证（放在密钥区，经 from: file 注入；服务撤下、项目停用时作废，重新上线重发） */
+export const SERVICE_TOKEN_ENV = "ERGO_SERVICE_TOKEN";
+
+/**
+ * 一次报事件的结局：woke 起了一次运行、merged 并进了排着的那一次（上一次还没跑完）——这两种叫醒了；
+ * no_waiter 运营方案里没有等这个名字的、paused 等它的任务暂停着、ignored 任务没接（比如刚结束）、rate_limited 超了这个服务的限速、too_large 数据太大——这几种没叫醒任何 agent
+ */
+export const SERVICE_EVENT_OUTCOMES = ["woke", "merged", "no_waiter", "paused", "ignored", "rate_limited", "too_large"] as const;
+export type ServiceEventOutcome = (typeof SERVICE_EVENT_OUTCOMES)[number];
+
+/** 最近报的一个事件（项目页上这一条、维护者查的都是它） */
+export interface ServiceEventRecord {
+  /** 事件名（服务自己写的，超长的截短） */
+  name: string;
+  /** 什么时候收到的 */
+  at: string;
+  outcome: ServiceEventOutcome;
+  /** 叫醒了的：哪几次运行 */
+  runIds?: string[];
+}
+
+/** 每个服务留最近几条（项目页、维护者查的） */
+export const SERVICE_EVENTS_KEPT = 10;
+
+/** 这一条算不算叫醒了 */
+export const serviceEventWoke = (outcome: ServiceEventOutcome): boolean => outcome === "woke" || outcome === "merged";
+
+/** 结局的说法 */
+export const SERVICE_EVENT_OUTCOME_LABEL: Readonly<Record<ServiceEventOutcome, string>> = tTable({
+  woke: "protocol.projectServices.event.woke",
+  merged: "protocol.projectServices.event.merged",
+  no_waiter: "protocol.projectServices.event.noWaiter",
+  paused: "protocol.projectServices.event.paused",
+  ignored: "protocol.projectServices.event.ignored",
+  rate_limited: "protocol.projectServices.event.rateLimited",
+  too_large: "protocol.projectServices.event.tooLarge",
+});
+
+/** POST /api/service-events 收下了：叫醒了哪几次运行（服务发完就走，不等它们做完） */
+export interface ServiceEventReply {
+  ok: true;
+  event: string;
+  runs: Array<{ taskId: string; runId: string; merged: boolean }>;
 }
 
 /** 服务首页的缩略图多久算旧（140 号票）：有人看的时候比这旧的补截一张，所以之后最多这么久截一次 */

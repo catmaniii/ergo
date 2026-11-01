@@ -19,5 +19,8 @@
   "eventSources.refusal.inside": "Can't watch {path}: it's inside {area} (Ergo's data directory, the secrets area and protected areas can't be watched)",
   "eventSources.refusal.contains": "Can't watch {path} with subfolders: it contains {area} (Ergo's data directory, the secrets area and protected areas can't be watched). Turn off \"include subfolders\", or pick a more specific folder",
   "eventSources.dataDir": "Ergo's data directory",
+  "eventSources.summary.serviceEvent": "Service “{title}” reported “{name}”",
+  "eventSources.refusal.serviceNameOneLine": "The event name must be one line",
+  "eventSources.refusal.serviceNameTooLong": "The event name “{name}…” is too long: at most {max} characters",
   "eventSources.sourceMissing": "Event source {source} isn't connected yet"
 }

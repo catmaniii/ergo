@@ -160,16 +160,17 @@ describe("配置", () => {
   it("事件来源的阈值（77 号票，各归各的模块：eventSources）：文件夹的变化安静 2 秒才算、看不到时 30 秒再看、一次运行最多 100 步；可以改；写错了报错；以前写在 scheduledJobs 里的 folderSettleMs 照旧认", () => {
     const dataDir = makeTempDir();
     const load = () => loadConfig({ env: { ERGO_DATA_DIR: dataDir }, homeDir: makeTempDir() }).eventSources;
-    expect(load()).toEqual({ folderSettleMs: 2000, folderRetryMs: 30_000, maxRunSteps: 100 });
+    // 357 号票：项目的服务报事件每分钟最多 30 次、单条数据最多 8 KB
+    expect(load()).toEqual({ folderSettleMs: 2000, folderRetryMs: 30_000, maxRunSteps: 100, serviceReportsPerMinute: 30, serviceDataMaxBytes: 8192 });
     expect(load()).toEqual(DEFAULT_EVENT_SOURCE_THRESHOLDS);
-    writeConfigFile(dataDir, { eventSources: { folderSettleMs: 500, folderRetryMs: 1000, maxRunSteps: 12 } });
-    expect(load()).toEqual({ folderSettleMs: 500, folderRetryMs: 1000, maxRunSteps: 12 });
+    writeConfigFile(dataDir, { eventSources: { folderSettleMs: 500, folderRetryMs: 1000, maxRunSteps: 12, serviceReportsPerMinute: 5, serviceDataMaxBytes: 1024 } });
+    expect(load()).toEqual({ folderSettleMs: 500, folderRetryMs: 1000, maxRunSteps: 12, serviceReportsPerMinute: 5, serviceDataMaxBytes: 1024 });
     // 77 号票开发时写在 scheduledJobs 里的：eventSources 里没写就照旧认，写了的以 eventSources 为准
     writeConfigFile(dataDir, { scheduledJobs: { jobFailures: 3, folderSettleMs: 700 } });
     expect(load().folderSettleMs).toBe(700);
     writeConfigFile(dataDir, { scheduledJobs: { folderSettleMs: 700 }, eventSources: { folderSettleMs: 900 } });
     expect(load().folderSettleMs).toBe(900);
-    for (const bad of [[], { folderSettleMs: 0 }, { folderRetryMs: 1.5 }, { maxRunSteps: "100" }]) {
+    for (const bad of [[], { folderSettleMs: 0 }, { folderRetryMs: 1.5 }, { maxRunSteps: "100" }, { serviceReportsPerMinute: 0 }, { serviceDataMaxBytes: "8k" }]) {
       writeConfigFile(dataDir, { eventSources: bad });
       expect(load).toThrow(/eventSources/);
     }

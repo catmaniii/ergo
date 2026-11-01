@@ -29,5 +29,15 @@
   "projectServices.power.lsm.unsupported": "LSM 版本不支持名下的服务，二狗没法替你启动、关闭：在 LSM 里手动操作",
   "projectServices.power.lsm.disabled": "二狗不是由 LSM 启动的（没有接入 LSM），没法替你启动、关闭：在 LSM 里手动操作",
   "projectServices.power.stopFailed": "LSM 没停下它（没说原因）",
+  "projectServices.events.noCredential": "没带凭证：请求头要写 Authorization: Bearer <环境变量 {env} 的值>。这个接口只给运营方案里上线的服务用，凭证在服务上线时注入",
+  "projectServices.events.badCredential": "凭证不对，或者已经作废：服务撤下、项目停用或归档时作废，重新上线时发新的。每次从环境变量 {env} 现取，别写死",
+  "projectServices.events.noWaiter": "运营方案里没有等事件「{name}」的任务，这次没叫醒谁，也没花钱。现在能报的：{names}。要报新名字，先写进运营方案、用户确认之后才行",
+  "projectServices.events.paused": "等事件「{name}」的任务暂停着，这次没叫醒谁。任务恢复之后再报",
+  "projectServices.events.ignored": "事件「{name}」没交出去：{reason}",
+  "projectServices.events.rateLimited": "服务「{title}」报得太快：每分钟最多 {limit} 次，这次没算，{seconds} 秒后再报",
+  "projectServices.events.tooLarge": "数据太大：最多 {max} 字节，这次没叫醒谁。只报要紧的部分，原文放进文件，让维护者自己读",
+  "projectServices.events.quoted": "「{name}」",
+  "projectServices.events.noNames": "（一个也没有）",
+  "projectServices.tool.recentEvents": "查服务最近报的事件",
   "projectServices.tool.switch": "启动、关闭项目的服务"
 }

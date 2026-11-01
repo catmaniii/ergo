@@ -4,6 +4,7 @@
 // 变更卡（第 2 份，加上了这个服务）你确认过了、卡上带着入口，等你确认的那张改了它的启动命令；家庭网盘的服务挂了（项目卡上标红）。
 // 140 号票：服务首页的缩略图（画好的假网页，fakeServiceThumbnail）——菜谱网页、网盘页面（挂了：灰着标"不在线"）各一张，停用了的
 // 旧作品集网站留着最后一张；家庭菜谱两条定时任务的最近几次运行（时令菜提醒那次失败了）。
+// 357 号票：服务报事件——读书笔记库的方案里多一条等"书摘同步失败"的；家庭菜谱的"菜谱网页"报过几个事件（叫醒了的、名字写错没人等的），"价格异常时比价"等它报事件。
 import {
   CHANNELS,
   EVENT_TYPES,
@@ -72,6 +73,16 @@ export const READING_OPERATIONS: OperationsPlanView = {
         autoRestart: false,
         web: { home: "/", prefix: "strip" },
       },
+    }),
+    item({
+      key: "sync-failed",
+      name: "书摘同步失败时排查",
+      means: "event",
+      meansLabel: "事件触发的任务",
+      event: { kind: "event", source: "service", events: ["reported"], filter: { name: "书摘同步失败" } },
+      triggerText: "项目的服务报事件「书摘同步失败」",
+      instructions: "看服务报来的失败原因，能修的修好，修不了的写进进展告诉我",
+      capabilities: { bash: true },
     }),
   ],
 };
@@ -180,6 +191,19 @@ export const RECIPES_OPERATIONS: ProjectOperations = {
     },
     { ...recipesWebItem("node server.mjs") },
     {
+      key: "price-alert",
+      name: "价格异常时比价",
+      means: "event",
+      meansLabel: "事件触发的任务",
+      automatic: true,
+      event: { kind: "event", source: "service", events: ["reported"], filter: { name: "价格异常" } },
+      triggerText: "项目的服务报事件「价格异常」",
+      approach: "plain",
+      instructions: "看服务报来的是哪样菜涨价了，到另外两家比一比，写进本周买菜清单",
+      capabilities: { network: true },
+      taskId: "t-recipes-price",
+    },
+    {
       key: "site",
       name: "菜谱网页的公网入口",
       means: "public_entry",
@@ -211,7 +235,24 @@ export const RECIPES_OPERATIONS_ADD_WEB: OperationsChangeCardPayload = {
 
 /** 原型里项目的服务（项目列表频道上的临时事件 project_services）：菜谱网页在线；家庭网盘的页面挂了；旧作品集网站随项目停用撤下了 */
 export const FAKE_PROJECT_SERVICES: ProjectServiceView[] = [
-  { projectId: "p-recipes", key: "web", title: "菜谱网页", name: "web", app: "p-recipes-web", port: 18650, autostart: true, url: "/apps/p-recipes-web/", rollout: "live", status: "online", thumbnailAt: at("10-07", "08:10") },
+  {
+    projectId: "p-recipes",
+    key: "web",
+    title: "菜谱网页",
+    name: "web",
+    app: "p-recipes-web",
+    port: 18650,
+    autostart: true,
+    url: "/apps/p-recipes-web/",
+    rollout: "live",
+    status: "online",
+    thumbnailAt: at("10-07", "08:10"),
+    recentEvents: [
+      { name: "价格异常", at: at("10-07", "09:32"), outcome: "woke", runIds: ["j-recipes-menu-r4"] },
+      { name: "价格异长", at: at("10-07", "09:10"), outcome: "no_waiter" },
+      { name: "价格异常", at: at("10-06", "18:05"), outcome: "merged", runIds: ["j-recipes-menu-r3"] },
+    ],
+  },
   { projectId: "p-netdisk", key: "web", title: "网盘页面", name: "web", app: "p-netdisk-web", port: 18660, autostart: true, url: "/apps/p-netdisk-web/", rollout: "live", status: "failed", detail: "进程退出了（退出码 1）", thumbnailAt: at("10-06", "22:00") },
   { projectId: "p-oldsite", key: "site", title: "作品集网站", name: "site", app: "p-oldsite-site", port: 18670, autostart: true, url: "/apps/p-oldsite-site/", rollout: "withdrawn", status: "unknown", thumbnailAt: at("09-30", "12:00") },
 ];
@@ -377,14 +418,14 @@ export const RECIPES_JOBS = [
  * 141 号票：家庭菜谱运营方案里那两条生效成的内部任务（origin operations）——上任务看板的"运营中"，卡上标"家庭菜谱"，
  * 菜单里只有暂停 / 恢复和"这是项目「家庭菜谱」运营方案里的一条……"
  */
-export const RECIPES_OPERATIONS_TASKS: Task[] = RECIPES_JOBS.map((j) => ({
-  id: j.ownerTaskId,
-  title: j.title,
-  summary: j.title,
+const recipesTask = (id: string, title: string, trigger: Task["trigger"]): Task => ({
+  id,
+  title,
+  summary: title,
   state: "operating",
   origin: "operations",
   kind: "plain",
-  trigger: { kind: "schedule", schedule: j.schedule },
+  ...(trigger ? { trigger } : {}),
   maintainerId: "project-recipes",
   projects: ["家庭菜谱"],
   projectIds: ["p-recipes"],
@@ -392,7 +433,13 @@ export const RECIPES_OPERATIONS_TASKS: Task[] = RECIPES_JOBS.map((j) => ({
   internal: { projectId: "p-recipes", projectName: "家庭菜谱" },
   createdAt: at("09-20", "10:00"),
   updatedAt: at("10-06", "21:00"),
-}));
+});
+
+export const RECIPES_OPERATIONS_TASKS: Task[] = [
+  ...RECIPES_JOBS.map((j) => recipesTask(j.ownerTaskId, j.title, { kind: "schedule", schedule: j.schedule })),
+  // 357 号票：等菜谱网页报"价格异常"的那一条
+  recipesTask("t-recipes-price", "价格异常时比价", { kind: "event", source: "service", events: ["reported"], filter: { name: "价格异常" } }),
+];
 
 // ───────────────────────── 140 号票：相册库建设中卡住的几样（项目页最上面的"现在"） ─────────────────────────
 

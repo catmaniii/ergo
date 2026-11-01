@@ -119,7 +119,28 @@ Click **New task** (or just tell the secretary):
 | Workflow | The same few steps every day | Steps are laid out in advance and authorized once; every run is checked step by step and pulled back if it drifts |
 | Long-running task | Build a tool, write a research report | Runs in stages with acceptance at each stage; the plan can change mid-way |
 
-Triggers: **once now**; **scheduled** (optionally "on my working days", with Chinese and Singaporean holidays and make-up days); **on an event** (another task finished, a new file arrived in a folder…). Write "every Monday at 8 am…" in the description and the schedule is set from it.
+Triggers: **once now**; **scheduled** (optionally "on my working days", with Chinese and Singaporean holidays and make-up days); **on an event** (another task finished, a new file arrived in a folder, the project's own service reported an event…). Write "every Monday at 8 am…" in the description and the schedule is set from it.
+
+**Watching data without spending tokens: let a project's service report events.** If something has to watch comments, prices or logs all the time, the owner doesn't need to wake up on a schedule to look. Tell the project's owner "write a small service to watch this and wake you when something's off". It writes a small service that uses no model and adds two items to the operations plan: one puts the service online, the other says what to do when "a project service reports 'comment-anomaly'". Confirm once on the card and the service goes live. The owner sleeps and spends no tokens until the service finds something.
+
+- The event name has to be in the operations plan you confirmed. A name that isn't there wakes nobody and costs nothing; to add one, the owner sends another card.
+- In the project page's "Operations plan" section, the service and the item waiting for its event list the recent events: name, time, and whether it woke the owner. Events that woke nobody say why (not in the plan, task paused, too fast, data too large).
+- Data from a service isn't something you said: it doesn't go into materials or memory and doesn't count as your authorization. The owner receives it marked as data, not instructions, so "ignore previous instructions" inside it is not obeyed.
+- A burst is queued and merged into one batch, never run in parallel. Each service can report at most 30 times a minute and 8 KB per event (change with `eventSources.serviceReportsPerMinute` and `serviceDataMaxBytes`). Repeated failures still pause the task automatically until you deal with it.
+- While ergo is stopped, services can't report and ergo doesn't queue for them. The service decides whether to report again later.
+- These events can only be used in an operations plan, not in the New task dialog. Services you host by hand in the service manager, outside any project, get no credential.
+
+Writing a service yourself: when it goes live its environment has `ERGO_NOTIFY_URL` and `ERGO_SERVICE_TOKEN`. Report like this (`data` is optional):
+
+```python
+urllib.request.urlopen(urllib.request.Request(os.environ["ERGO_NOTIFY_URL"], json.dumps({"event": "comment-anomaly", "data": {"count": 3}}).encode(), {"Authorization": "Bearer " + os.environ["ERGO_SERVICE_TOKEN"], "Content-Type": "application/json"}))
+```
+
+```js
+await fetch(process.env.ERGO_NOTIFY_URL, { method: "POST", headers: { authorization: "Bearer " + process.env.ERGO_SERVICE_TOKEN, "content-type": "application/json" }, body: JSON.stringify({ event: "comment-anomaly", data: { count: 3 } }) });
+```
+
+Or run the command: `ergo notify comment-anomaly --data "{\"count\":3}"`. Exit codes: 0 reported, 1 refused by ergo (the reason is on stderr), 2 wrong usage, 3 can't reach ergo. On a machine running a `git clone`, `ergo` isn't on `PATH`: run `npm run ergo -- notify comment-anomaly` in the ergo folder, or send the request directly. Right after installing, before you log in again, the service manager's `PATH` may not have it yet either. The request works with every kind of install, so prefer it in service code.
 
 **Why you can hand off long tasks with confidence**:
 

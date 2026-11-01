@@ -34,6 +34,15 @@ export const folderRefusal = {
   contains: (p: string, area: string) => t("eventSources.refusal.contains", { path: p, area }),
 };
 
+/** 项目的服务报的事件的一句话（357 号票）：不带事件里的数据 */
+export const serviceSummary = (title: string, name: string) => t("eventSources.summary.serviceEvent", { title, name });
+
+/** 项目的服务的事件名写得不对 */
+export const serviceRefusal = {
+  nameOneLine: () => t("eventSources.refusal.serviceNameOneLine"),
+  nameTooLong: (name: string, max: number) => t("eventSources.refusal.serviceNameTooLong", { name: name.slice(0, 20), max }),
+};
+
 /** 整个数据目录在不许监视的地方里的说法（受保护区域之外另加的一块） */
 export const dataDirTitle = () => t("eventSources.dataDir");
 

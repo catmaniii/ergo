@@ -10,7 +10,7 @@
 //   就是更新登记、重启）；
 // - 还跑着没有（alive）：该在 LSM 上、还在上线中或上线了、LSM 没说它失败或没了——不然照旧的再交一份就是"重新开起来"；
 // - 暂停 / 恢复（项目停用、归档 / 重新启用、取消归档）：撤下 / 重新上线。
-import { OPERATION_SERVICE_MEANS, type OperationItem, type Project, serviceTriggerText, t } from "@ergo/protocol";
+import { OPERATION_SERVICE_MEANS, type OperationItem, type Project, SERVICE_NOTIFY_URL_ENV, SERVICE_TOKEN_ENV, serviceTriggerText, t } from "@ergo/protocol";
 import type { PrefixCheckResult } from "../apps/prefix-check.ts";
 import { prefixCheckReport } from "../apps/prefix-check.ts";
 import { RequestRejected } from "../errors.ts";
@@ -72,7 +72,8 @@ export function serviceMeans(deps: ServiceMeansDeps): OperationMeans {
     hint:
       "项目做成一个要常驻的服务（网页、接口……）时用：确认后运行时交给 Local Service Manager 登记、启动、开机自启，有网页的经二狗转发、项目卡片上有入口，用户点了在内置浏览器里打开。" +
       "写 service：name 服务名、command 启动命令、port 端口（你定，撞了会被拒）、cwd 工作目录（相对项目的工作目录，不能出界）、env 环境变量（密钥不写值，写 secret 引用密钥区里的文件，或 userEnv）、health 健康检查、autostart 开机自启（默认开）、autoRestart 挂了自动重启（默认关，要一直在线、重拉没坏处的才开）、web 有网页的写首页路径和前缀约定；" +
-      "instructions 写这个服务是做什么的；capabilities 写 {}。不写 schedule、event、workflow",
+      "instructions 写这个服务是做什么的；capabilities 写 {}。不写 schedule、event、workflow。" +
+      `上线时运行时给服务注入报事件的地址 ${SERVICE_NOTIFY_URL_ENV} 和它的专属凭证 ${SERVICE_TOKEN_ENV}（这两个不用写进 env）：要让服务在发现异常时叫醒你，再写一条 means: event 等它的事件，做法见系统提示的“被服务叫醒”`,
     // @i18n-ignore-end
     automatic: true,
     check: (item, ctx) => serviceProblems(item, specContext(ctx.project)),

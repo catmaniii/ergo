@@ -2,8 +2,10 @@
 // 有：转好的 JS（没有 .ts）、资源目录、服务管家、网页、Node 和它的许可证、启动器、版本信息、许可证清单（Node、sharp/libvips、字体 OFL……）；
 // 没有：.scratch、评测数据（memory-eval）、测试、服务管家的私有数据和设计记录、开发用的命令行工具。转好的命令行、组合根真能加载。
 // 第三方包用联接（link）摆，省得每次复制 300 MB；复制哪些另由 deps.test.ts 管。
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
+import http from "node:http";
+import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -182,6 +184,76 @@ describe("转好的程序真能跑", () => {
     for (const f of entries.slice(1, 3)) {
       const c = spawnSync(process.execPath, ["--check", fileURLToPath(f)], { encoding: "utf8", windowsHide: true });
       expect({ f, status: c.status, stderr: c.stderr }).toMatchObject({ status: 0 });
+    }
+  }, 60_000);
+});
+
+// 357 号票：ergo notify 是给项目的服务调的，一行命令装的版本目录里真跑一遍（用法、连不上、二狗拒了、报上了的退出码和说法；启动器转出退出码）
+describe("版本目录里的 ergo notify", () => {
+  /** 起一个子进程跑（测试的假接口在这个进程里，不能用 spawnSync 挡着它） */
+  const run = (command: string, args: readonly string[], env: Record<string, string> = {}) =>
+    new Promise<{ status: number | null; stdout: string; stderr: string }>((resolve, reject) => {
+      const child = spawn(command, args, { env: { ...process.env, ERGO_LANGUAGE: "zh-CN", ERGO_HOME: "", ERGO_DATA_DIR: path.join(base, "data"), ...env }, windowsHide: true });
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", (c: Buffer) => (stdout += c.toString()));
+      child.stderr.on("data", (c: Buffer) => (stderr += c.toString()));
+      child.on("error", reject);
+      child.on("close", (status) => resolve({ status, stdout, stderr }));
+    });
+  const cli = (args: readonly string[], env: Record<string, string> = {}) => run(process.execPath, [path.join(out, "app", "packages", "daemon", "src", "cli", "main.js"), ...args], env);
+
+  it("帮助里列着；用法不对、不在上线的服务里跑：退出码 2", async () => {
+    expect((await cli(["help"])).stdout).toContain("notify <事件名> [--data <JSON>]");
+    const noName = await cli(["notify"]);
+    expect(noName.status).toBe(2);
+    expect(noName.stderr).toContain("用法：ergo notify <事件名>");
+    const noEnv = await cli(["notify", "评论异常"]);
+    expect(noEnv.status).toBe(2);
+    expect(noEnv.stderr).toContain("没有环境变量 ERGO_NOTIFY_URL、ERGO_SERVICE_TOKEN");
+  }, 60_000);
+
+  it("连不上（守护进程停着）：退出码 3，说清这次没报上", async () => {
+    const closed = http.createServer();
+    await new Promise<void>((resolve) => closed.listen(0, "127.0.0.1", resolve));
+    const port = (closed.address() as AddressInfo).port;
+    await new Promise<void>((resolve) => closed.close(() => resolve()));
+    const r = await cli(["notify", "评论异常"], { ERGO_NOTIFY_URL: `http://127.0.0.1:${port}/api/service-events`, ERGO_SERVICE_TOKEN: "tok" });
+    expect(r.status).toBe(3);
+    expect(r.stderr).toContain("连不上二狗");
+    expect(r.stderr).toContain("二狗不替你存");
+  }, 60_000);
+
+  it("报上了 0、二狗拒了 1；启动器 ergo.cmd 把退出码转出来", async () => {
+    const seen: unknown[] = [];
+    const api = http.createServer((req, res) => {
+      const chunks: Buffer[] = [];
+      req.on("data", (c: Buffer) => chunks.push(c));
+      req.on("end", () => {
+        const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as { event: string };
+        seen.push({ auth: req.headers.authorization, body });
+        const known = body.event === "评论异常";
+        res.writeHead(known ? 202 : 404, { "content-type": "application/json" });
+        res.end(JSON.stringify(known ? { ok: true, event: body.event, runs: [{ taskId: "t-1", runId: "j-1-r1", merged: false }] } : { code: "not_found", message: "运营方案里没有等它的任务" }));
+      });
+    });
+    await new Promise<void>((resolve) => api.listen(0, "127.0.0.1", resolve));
+    try {
+      const env = { ERGO_NOTIFY_URL: `http://127.0.0.1:${(api.address() as AddressInfo).port}/api/service-events`, ERGO_SERVICE_TOKEN: "tok" };
+      const reported = await cli(["notify", "评论异常", "--data", '{"count":3}'], env);
+      expect({ status: reported.status, stderr: reported.stderr }).toEqual({ status: 0, stderr: "" });
+      expect(reported.stdout).toContain("报上了：事件「评论异常」（运行 j-1-r1）");
+      expect(seen).toEqual([{ auth: "Bearer tok", body: { event: "评论异常", data: { count: 3 } } }]);
+      const refused = await cli(["notify", "没人等"], env);
+      expect(refused.status).toBe(1);
+      expect(refused.stderr).toContain("二狗没收（404）：运营方案里没有等它的任务");
+      // 启动器（版本目录里的 ergo.cmd，用自带的 Node 跑）：服务调的就是它，退出码要原样转出来
+      const launcher = path.join(out, "ergo.cmd");
+      const viaCmd = await run(process.env.ComSpec ?? "cmd.exe", ["/d", "/c", launcher, "notify", "评论异常"], env);
+      expect({ status: viaCmd.status, stderr: viaCmd.stderr }).toEqual({ status: 0, stderr: "" });
+      expect((await run(process.env.ComSpec ?? "cmd.exe", ["/d", "/c", launcher, "notify", "没人等"], env)).status).toBe(1);
+    } finally {
+      await new Promise<void>((resolve) => api.close(() => resolve()));
     }
   }, 60_000);
 });

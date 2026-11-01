@@ -57,6 +57,7 @@ import type { EphemeralBus } from "../events/ephemeral.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import type { RequestHandlers } from "../gateway/gateway.ts";
 import { BUILTIN_TOOL_REGISTRY, type GuardPlaces, type WatchCategorySettings } from "../guard/index.ts";
+import type { EventSourceThresholds, ServiceEventDesk } from "../event-sources/index.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import type { LsmServices } from "../lsm/link.ts";
 import { multiProjectToolkit } from "../maintainers/multi-project.ts";
@@ -89,7 +90,7 @@ import { registerWorkOrderDeletion, workOrderPurge } from "../work-orders/purge.
 import { judgeUnplannedWorkOrder } from "../work-orders/unplanned.ts";
 import { workOrdersView } from "../work-orders/views.ts";
 import { createWorkOrders, type WorkOrders } from "../work-orders/work-orders.ts";
-import type { JobWorkOrders, SecretaryProjects, ToolkitProjects } from "./api.ts";
+import type { JobWorkOrders, SecretaryProjects, ServiceEventsApi, ToolkitProjects } from "./api.ts";
 import { buildDoneCardType, charterCardType, goLiveCardType, suggestProjectCardType } from "./cards.ts";
 import { type CharterChanges, charterChangeCardType, charterChangeDecisionSource, charterChangePurges, createCharterChanges } from "./charter-change.ts";
 import { registerProjectDeletion } from "./deletion-participants.ts";
@@ -155,6 +156,8 @@ export interface ProjectSystemDeps {
   ports: { local: number; external: number };
   /** 服务首页的缩略图怎么截（140；测试注入假的）；不给就用 browser() 驱动无头浏览器截 */
   serviceThumbnail?: (url: string, signal: AbortSignal) => Promise<Buffer>;
+  /** 项目的服务报事件（357）：交事件的前台（内核的事件来源，建在项目系统之前）、最近收到的记录放哪、限速和大小上限 */
+  serviceEvents: { desk: ServiceEventDesk; stateDir: string; thresholds: EventSourceThresholds };
   browser: () => BrowserDriver;
   /** project_ops 的"跟维护者说一句"：和秘书转达（tell_project）、网关发消息同一条路（消息的归属、要先开的段） */
   relay: Pick<RelayDeps, "scopeOf" | "preludeOf">;
@@ -233,6 +236,8 @@ export interface ProjectSystem {
   servicesFrame(): EventFrame;
   /** 项目的服务首页的缩略图（140） */
   serviceThumbnail(projectId: string, name: string): { file: string; takenAt: string } | undefined;
+  /** 网关的 POST /api/service-events（357）：项目的服务报事件 */
+  readonly serviceEvents: ServiceEventsApi;
   /** 项目规范的只读视图（258） */
   projectStandard: ProjectService["standard"];
   /** 项目维护者此刻能用的 skill（82：输入框里打 / 的候选）；不是项目的维护者 undefined */
@@ -367,6 +372,7 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
       notifications: deps.notifications,
       secretsDir: deps.realDirs.secrets,
       thumbnailsDir: deps.layout.serviceThumbnails,
+      serviceEvents: deps.serviceEvents,
       ...(deps.serviceThumbnail ? { serviceThumbnail: deps.serviceThumbnail } : {}),
       browser: deps.browser,
       ports: deps.ports,
@@ -520,6 +526,7 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
     },
     servicesFrame: () => ops.servicesFrame(),
     serviceThumbnail: (projectId, name) => ops.thumbnail(projectId, name),
+    serviceEvents: ops.serviceEvents,
     projectStandard: (projectId) => projects.standard(projectId),
     skillsOf: (maintainerId) => wired("projectMaintainers").skillsOf(maintainerId),
 
@@ -567,6 +574,8 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
         goLiveTool: (projectId, maintainerId) => maintainerGoLiveTool(projects, { projectId, maintainerId }, (id) => ops.goLive.prepareGoLive(id)),
         // 验收运营接口清单的工具（268）：改了 ops.json 看过没过，使用中的全过了登记成新的一版
         checkOpsTool: (projectId, maintainerId) => ops.checkTool({ projectId, maintainerId }),
+        // 查自己项目的服务最近报的事件（357）：调试服务、等不到运行工单时看
+        serviceEventsTool: (projectId) => ops.serviceEventsTool(projectId),
         layout: deps.layout,
         // 项目内部任务（64）：对话段里发起任务的工具（点明了才建，看维护者正在处理的那条用户消息）
         internalTaskTools: (scope) => internalTaskTools({ tasks, cards, projects, userTurn: (inputMessageId) => readUserTurn(store, cards, inputMessageId) }, scope),

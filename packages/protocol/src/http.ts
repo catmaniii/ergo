@@ -302,6 +302,7 @@ const MODEL_SETTINGS = "model-settings";
 const CUSTOM_MODELS = "custom-models";
 const SAFETY_SETTINGS = "safety-settings";
 const AUTOSTART = "autostart";
+const SERVICE_EVENTS = "service-events";
 const SETUP = "setup";
 const DOCTOR = "doctor";
 const WEB_SETTINGS = "web-settings";
@@ -524,6 +525,11 @@ export const HTTP_PATHS = {
    */
   autostart: api(AUTOSTART),
   /**
+   * 项目的服务报事件（357 号票，ADR-0043，形状在 project-services.ts、service-events-schema.ts）：POST（ServiceEventBody → ServiceEventReply），
+   * 带 Authorization: Bearer <服务的专属凭证>。只在本机端口开，外网端口一律拒绝；不等维护者做完就回
+   */
+  serviceEvents: api(SERVICE_EVENTS),
+  /**
    * 首次设置向导（319 号票）：GET 取五步各自做完了没有（SetupView），POST 标一步"以后再说"（skip: true）
    * 或者"看过了/做完了"（SetupMarkBody → SetupView）。真相是配置文件的 setup 节，改了马上生效
    */
@@ -710,6 +716,7 @@ export type HttpRoute =
   | { route: "model_settings_custom_models" }
   | { route: "safety_settings" }
   | { route: "autostart" }
+  | { route: "service_events" }
   | { route: "setup" }
   | { route: "doctor" }
   | { route: "web_settings" }
@@ -852,6 +859,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === COMPONENT_IMPORT && id === undefined) return { route: "component_import" };
   if (head === SAFETY_SETTINGS && id === undefined) return { route: "safety_settings" };
   if (head === AUTOSTART && id === undefined) return { route: "autostart" };
+  if (head === SERVICE_EVENTS && id === undefined) return { route: "service_events" };
   if (head === SETUP && id === undefined) return { route: "setup" };
   if (head === DOCTOR && id === undefined) return { route: "doctor" };
   if (head === MODEL_SETTINGS && tail === undefined) {

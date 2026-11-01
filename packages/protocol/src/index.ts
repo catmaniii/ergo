@@ -66,6 +66,7 @@
 // - page-commands.ts：网页上下指令（134 号票）——页面桥报的框（149 号票起选中的框带着框里的内容）、悬浮按钮上说的一段送识别（149 号票）、要交的文件、授权的文件夹（138 号票起叫这个名字）和列子文件夹。
 // - browsing.ts：浏览侧边栏（147 号票）——侧边栏里、悬浮按钮上（149 号票）发的消息带的网页上下文、设备报的浏览器样子、秘书的网页工具转给设备的请求和结果、网页候选卡。
 // - project-services.ts：项目的服务（133 号票）——上线到哪了、在不在线、入口的说法和能不能点开（守护进程和 Web 共用）。
+// - service-events-schema.ts：项目的服务报事件（357 号票）的请求体；地址、结局的说法在 project-services.ts。
 // - i18n/、i18n-schema.ts：多语言（168 号票）——语言文件的形状和检查、运行时的 t()、单复数、回退中文、按语言格式化（不读文件、不引用 TypeBox），
 //   全局语言设置的事件、配置文件、设置接口和网页取词典的接口的 schema。
 // - old-names.ts：ergou 换成 ergo 之后认旧名字（312 号票）——旧名字一律从新名字推出来（oldNameOf），读新旧都认、写只写新的。
@@ -194,6 +195,7 @@ export * from "./apps.ts";
 export * from "./page-commands.ts";
 export * from "./browsing.ts";
 export * from "./project-services.ts";
+export * from "./service-events-schema.ts";
 export * from "./session-branches.ts";
 export * from "./stage-starts.ts";
 export * from "./readable-ids.ts";

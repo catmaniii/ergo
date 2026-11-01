@@ -1,9 +1,11 @@
 // 事件来源登记表（77 号票，ADR 0025）：事件触发的任务、简单提醒靠事件推送触发，事件从哪来叫"事件来源"。
 // 每个来源登记：名字、能产生哪些事件、事件带哪些字段（流程步骤的参数可以写成 {{事件.字段名}} 的占位）、可以按什么过滤。
-// 以后接邮件、webhook 这些，只在 EVENT_SOURCES 里加一项（连同它自己"在等什么事件"的说法 describe），守护进程 event-sources/ 里再加它的实现；
-// 对话框、守护进程的检查、看板卡上的说法、交给 agent 的结构化输入都从这张表推出。第一批两个来源：
+// 以后接邮件这些，只在 EVENT_SOURCES 里加一项（连同它自己"在等什么事件"的说法 describe），守护进程 event-sources/ 里再加它的实现；
+// 对话框、守护进程的检查、看板卡上的说法、交给 agent 的结构化输入都从这张表推出。现在三个来源：
 // - 二狗内部事件（ergo）：任务或流程完成、失败、转"等我"；项目状态变化；定时、事件触发的任务的一次运行失败。可以按任务、项目过滤；
-// - 本机文件夹变化（folder）：指定文件夹（可含子文件夹）里新增、修改、删除文件，可以按文件名模式过滤（比如 *.pdf）。
+// - 本机文件夹变化（folder）：指定文件夹（可含子文件夹）里新增、修改、删除文件，可以按文件名模式过滤（比如 *.pdf）；
+// - 项目的服务（service，357 号票，ADR-0043）：项目自己的服务报的事件。事件名由服务自己定，登记表里只算一种事件，名字写在过滤条件 name 里；
+//   只能写在运营方案里（planOnly）：发起任务对话框、简单提醒选不了，只有用户确认过的方案才等得到它。
 // 只有常量和纯函数，不引用 TypeBox（Web 只用这些）。schema 在 event-source-schema.ts。
 // 172 号票：来源、事件、过滤条件的名字和说明跟着当前语言（取值时现查）；字段的中文名是占位里写的名字（{{事件.文件路径}}），
 // 也是交给 agent 的结构化输入里的键，不跟着语言变。
@@ -14,6 +16,14 @@ import { isNameOrOld } from "./old-names.ts";
 export const ERGO_EVENT_SOURCE = "ergo";
 /** 本机文件夹变化 */
 export const FOLDER_EVENT_SOURCE = "folder";
+/** 项目的服务报的事件（357 号票） */
+export const SERVICE_EVENT_SOURCE = "service";
+/** 项目的服务这个来源在登记表里唯一的一种事件（事件名写在过滤条件 name 里） */
+export const SERVICE_REPORTED_EVENT = "reported";
+/** 事件名写在哪个过滤条件里 */
+export const SERVICE_EVENT_NAME_FILTER = "name";
+/** 事件名最长几个字 */
+export const SERVICE_EVENT_NAME_MAX = 80;
 
 /** 事件带的一个字段：键（事件值里的名字）、中文名（占位里写的、交给 agent 的结构化输入里的键，不跟着语言变）、说明 */
 export interface EventFieldDescriptor {
@@ -31,10 +41,10 @@ export interface EventKindDescriptor {
 }
 
 /**
- * 一个过滤条件：键、中文名、怎么填——选一个任务、选一个项目、填一个文件夹、填文件名模式、开关。
+ * 一个过滤条件：键、中文名、怎么填——选一个任务、选一个项目、填一个文件夹、填文件名模式、填一段字（项目的服务的事件名）、开关。
  * 必填的不写建不了
  */
-export type EventFilterKind = "task" | "project" | "folder" | "pattern" | "boolean";
+export type EventFilterKind = "task" | "project" | "folder" | "pattern" | "text" | "boolean";
 
 export interface EventFilterDescriptor {
   key: string;
@@ -67,6 +77,8 @@ export interface EventSourceDescriptor {
   events: readonly EventKindDescriptor[];
   fields: readonly EventFieldDescriptor[];
   filters: readonly EventFilterDescriptor[];
+  /** 只能写在运营方案里（357 号票）：发起任务对话框、简单提醒选不了，建的时候也拒 */
+  planOnly?: true;
   /**
    * 在等这个来源的什么事件（describeEventTrigger 交给它）：kinds 是选的事件的中文名（按选的先后），names 把编号换成名字。
    * 每个来源自己说，加来源不用改别处
@@ -221,8 +233,38 @@ const FOLDER_SOURCE: EventSourceDescriptor = withTexts(
   tTable({ label: "protocol.eventSources.folder.label", hint: "protocol.eventSources.folder.hint" }),
 );
 
+const SERVICE_SOURCE: EventSourceDescriptor = withTexts(
+  {
+    id: SERVICE_EVENT_SOURCE,
+    planOnly: true as const,
+    events: [withTexts({ id: SERVICE_REPORTED_EVENT, fields: ["name", "service", "data"] }, tTable({ label: "protocol.eventSources.service.reported", hint: "protocol.eventSources.service.reportedHint" }))],
+    // @i18n-ignore-start data：占位里写的字段名
+    fields: [
+      withTexts({ key: "name", label: "事件名" }, tTable({ hint: "protocol.eventSources.service.field.name" })),
+      withTexts({ key: "service", label: "服务名" }, tTable({ hint: "protocol.eventSources.service.field.service" })),
+      withTexts({ key: "data", label: "数据" }, tTable({ hint: "protocol.eventSources.service.field.data" })),
+    ],
+    // @i18n-ignore-end
+    filters: [
+      withTexts(
+        { key: SERVICE_EVENT_NAME_FILTER, kind: "text" as const, required: true as const },
+        tTable({ label: "protocol.eventSources.service.filter.name", hint: "protocol.eventSources.service.filter.nameHint", placeholder: "protocol.eventSources.service.filter.namePlaceholder" }),
+      ),
+    ],
+    // "项目的服务报事件「评论异常」"
+    describe(trigger: EventTriggerShape) {
+      const name = filterValue(trigger, SERVICE_EVENT_NAME_FILTER);
+      return t("protocol.eventSources.service.describe", { name: typeof name === "string" ? name : t("protocol.eventSources.service.noName") });
+    },
+  },
+  tTable({ label: "protocol.eventSources.service.label", hint: "protocol.eventSources.service.hint" }),
+);
+
 /** 事件来源登记表：以后接别的来源只在这里加一项 */
-export const EVENT_SOURCES: readonly EventSourceDescriptor[] = [ERGO_SOURCE, FOLDER_SOURCE];
+export const EVENT_SOURCES: readonly EventSourceDescriptor[] = [ERGO_SOURCE, FOLDER_SOURCE, SERVICE_SOURCE];
+
+/** 发起任务对话框、简单提醒里能选的来源（只能写在运营方案里的不算） */
+export const PICKABLE_EVENT_SOURCES: readonly EventSourceDescriptor[] = EVENT_SOURCES.filter((s) => s.planOnly !== true);
 
 /** 登记表里的来源（312 号票：二狗内部事件的来源编号以前是 ergou，存着的事件触发方式里写的旧编号照样认） */
 export function eventSourceOf(id: string): EventSourceDescriptor | undefined {
@@ -275,6 +317,19 @@ export function eventTriggerProblems(trigger: EventTriggerShape): string[] {
   }
   for (const f of source.filters) if (f.required && filterValue(trigger, f.key) === undefined) problems.push(t("protocol.eventSources.problem.filterRequired", { label: f.label }));
   return problems;
+}
+
+/** 这个事件触发方式只能写在运营方案里（357 号票：发起任务对话框、简单提醒、别的入口建的时候拒）：拒的原因；能用的是 undefined */
+export function planOnlyProblem(trigger: Pick<EventTriggerShape, "source">): string | undefined {
+  const source = eventSourceOf(trigger.source);
+  return source?.planOnly ? t("protocol.eventSources.problem.planOnly", { source: source.label }) : undefined;
+}
+
+/** 这个事件触发方式等的是项目的服务报的哪个事件名（别的来源、没写名字的是 undefined） */
+export function serviceEventNameOf(trigger: Pick<EventTriggerShape, "source" | "filter">): string | undefined {
+  if (trigger.source !== SERVICE_EVENT_SOURCE) return undefined;
+  const name = filterValue(trigger, SERVICE_EVENT_NAME_FILTER);
+  return typeof name === "string" ? name : undefined;
 }
 
 // ───────────────────────── 文件名模式 ─────────────────────────

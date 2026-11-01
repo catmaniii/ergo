@@ -37,6 +37,8 @@
 // - 324 号票：同一份全量里在跑的（RUNNING / DEGRADED）照现在的方案整份再登记一次（resync）——同一份定义 LSM 不改；二狗换了 Node
 //   这类让定义变了的（命令开头的 node 换成二狗自己那份），LSM 回 restartNeeded，强制重启一次让它用上。不记事件，只记日志；
 //   重启时不看挂没挂（和兜底拉起同一套）。
+// - 357 号票：上线时给服务发报事件的地址和专属凭证（service-events.ts）：登记之前没有凭证就发一份，定义里注入；撤下的要求一落盘就作废（不等 LSM 撤完），
+//   重新上线发新的；发了新凭证而服务还在跑的重启一次（它手里的是旧的）。服务最近报的事件带在 ProjectServiceView 上。
 import {
   CHANNELS,
   EVENT_TYPES,
@@ -69,6 +71,7 @@ import {
 } from "./events.ts";
 import { lsmDefinition, serviceUrl } from "./spec.ts";
 import { createServiceThumbnails, type ThumbnailReason } from "./thumbnails.ts";
+import type { ServiceEvents } from "./service-events.ts";
 import { noticeText, outageReasonText, powerText, rolloutText } from "./texts.ts";
 import { type ServiceRow, servicePower, serviceRow, serviceRows } from "./views.ts";
 
@@ -97,6 +100,8 @@ export interface ProjectServicesOptions {
    * （网关开好之后才有：截的是经二狗转发的 /apps/<应用名>/）、一次最多截多久；不给就不截
    */
   thumbnails?: { dir: string; capture: (url: string, signal: AbortSignal) => Promise<Buffer>; baseUrl: () => string | undefined; timeoutMs?: number };
+  /** 服务报事件（357 号票）：凭证、最近收到的，和报事件的地址（网关开好之后才有）；不给就不发凭证、不注入 */
+  events?: { service: Pick<ServiceEvents, "credentialFile" | "ensureCredential" | "revokeCredential" | "sweepCredentials" | "recent" | "forgetProject" | "onChange">; url: () => string | undefined };
   now: () => string;
   log: (line: string) => void;
 }
@@ -229,6 +234,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
     const live = statuses.get(row.app);
     const url = serviceUrl(s);
     const thumbnailAt = url === undefined ? undefined : shots?.takenAt(row.app);
+    const recentEvents = options.events?.service.recent(row.app) ?? [];
     // 257：你关着的、你点的启动 / 关闭还没做完的、关闭没做成的
     const power = servicePower(store.reader, row.projectId);
     const paused = desired.present && !power.on;
@@ -251,6 +257,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
       ...(paused ? { paused: true } : {}),
       ...(busy ? { power: power.on ? ("starting" as const) : ("stopping" as const) } : {}),
       ...(paused && !busy && row.powerFailed !== undefined ? { powerReason: row.powerFailed || powerText.stopFailed() } : {}),
+      ...(recentEvents.length > 0 ? { recentEvents } : {}),
     };
   };
 
@@ -328,9 +335,14 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
   /** 交给 LSM 的定义；on 是 false（257：这个项目的服务你关着）时开机自启写关 */
   const definitionOf = (row: ServiceRow, on: boolean) => {
     const project = options.project(row.projectId);
-    const defined = lsmDefinition(row.desired.service, { title: row.desired.title, projectName: project?.name ?? row.projectId }, options.secretsDir, options.nodePath);
+    const url = options.events?.url();
+    const notify = options.events && url !== undefined ? { url, tokenFile: options.events.service.credentialFile(row.app) } : undefined;
+    const defined = lsmDefinition(row.desired.service, { title: row.desired.title, projectName: project?.name ?? row.projectId }, options.secretsDir, options.nodePath, notify);
     return on ? defined : { ...defined, autostart: false };
   };
+
+  /** 357：登记之前，这个服务没有凭证的发一份；发了新的回 true（还在跑的要重启才拿得到） */
+  const ensureCredential = (app: string): boolean => options.events?.service.ensureCredential(app) ?? false;
 
   /**
    * 上线：登记 / 更新、启动或重启、登记转发；LSM 没连上时 undefined（等连上）。
@@ -341,6 +353,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
     if (lsm.support === "disabled") return { state: "manual", reason: rolloutText.notLinked(), registered: row.registered };
     if (lsm.support === "waiting") return undefined;
     if (lsm.support === "unsupported") return { state: "manual", reason: rolloutText.unsupported(), registered: row.registered };
+    const fresh = ensureCredential(row.app);
     const definition = definitionOf(row, on);
     let put = await lsm.put(definition);
     // 在跑的时候不能改端口：先停（强制：二狗登记的服务没有停机命令）再登记
@@ -351,7 +364,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
     }
     if (!put.ok) return failed(put, row.registered);
     const up = put.service?.up === true;
-    const run = !on ? (up ? await lsm.stop(row.app, { force: true }) : put) : !up ? await lsm.start(row.app) : put.restartNeeded ? await lsm.restart(row.app, { force: true }) : put;
+    const run = !on ? (up ? await lsm.stop(row.app, { force: true }) : put) : !up ? await lsm.start(row.app) : put.restartNeeded || fresh ? await lsm.restart(row.app, { force: true }) : put;
     if (!run.ok) return failed(run, true);
     // 回复里带着的状态先记上（状态推送可能晚一点到）
     const now = run.service ?? put.service;
@@ -661,9 +674,10 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
         const row = serviceRow(store.reader, app);
         const lsm = options.lsm();
         if (stopped || !row || row.desiredSeq !== desiredSeq || !revivable(row) || lsm.support !== "supported") return;
+        const fresh = ensureCredential(app);
         const put = await lsm.put(definitionOf(row, true));
         if (!put.ok) return log(`接上 LSM 时重新登记服务 ${app} 没成：${put.error.message}`);
-        if (!put.restartNeeded || stopped) return;
+        if (!(put.restartNeeded || fresh) || stopped) return;
         const restarted = await lsm.restart(app, { force: true });
         log(restarted.ok ? `服务 ${app} 的登记变了（比如二狗换了 Node）：重启了一次` : `服务 ${app} 的登记变了，重启没成：${restarted.error.message}`);
       } finally {
@@ -742,12 +756,17 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
     start() {
       if (started) return;
       started = true;
+      // 357：不该有凭证的作废（停机期间撤下了、项目删了）；最近收到的事件变了，项目页跟着推
+      options.events?.service.sweepCredentials((app) => serviceRow(store.reader, app)?.desired.present === true);
+      if (options.events) unsubscribe.push(options.events.service.onChange(() => publish()));
       // 上线了的、有网页的：先登记转发（守护进程重启后不等 LSM，/apps/<应用名>/ 马上能用；服务没在跑时转发给说明页）
       for (const row of rows()) if (row.desired.present && row.rollout?.state === "live") proxy(row);
       unsubscribe.push(
         store.onAppend((event) => {
           if (event.channel === OPERATIONS_CHANNEL && event.type === PROJECT_SERVICE_EVENTS.desired) {
             const app = (event.payload as { app: string }).app;
+            // 357：撤下的要求一落盘就作废凭证（看视图里最新的：改了方案是撤下、上线同一事务，那样不算撤下）
+            if (serviceRow(store.reader, app)?.desired.present === false) options.events?.service.revokeCredential(app);
             schedule(app);
             watch(app);
             publish();
@@ -787,8 +806,9 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
             }
             if (p.change === "deleted") {
               for (const app of proxied.keys()) if (app.startsWith(`${p.project.id}-`) && serviceRow(store.reader, app) === undefined) unproxy(app);
-              // 缩略图一起删掉（140 号票）
+              // 缩略图一起删掉（140 号票）；357：服务的凭证、最近收到的事件也是
               shots?.forgetProject(p.project.id);
+              options.events?.service.forgetProject(p.project.id);
             }
             watchAll();
             publish();

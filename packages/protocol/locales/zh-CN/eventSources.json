@@ -19,5 +19,8 @@
   "eventSources.refusal.inside": "不能监视 {path}：它在{area}里（二狗的数据目录、密钥区、受保护区域不能监视）",
   "eventSources.refusal.contains": "不能含子文件夹监视 {path}：它里面有{area}（二狗的数据目录、密钥区、受保护区域不能监视）；去掉\"含子文件夹\"，或者换一个更具体的文件夹",
   "eventSources.dataDir": "二狗的数据目录",
+  "eventSources.summary.serviceEvent": "服务「{title}」报了事件「{name}」",
+  "eventSources.refusal.serviceNameOneLine": "事件名只能写一行",
+  "eventSources.refusal.serviceNameTooLong": "事件名「{name}…」太长了：最多 {max} 个字",
   "eventSources.sourceMissing": "事件来源 {source} 还没接上"
 }

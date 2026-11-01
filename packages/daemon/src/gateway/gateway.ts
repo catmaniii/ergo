@@ -387,6 +387,11 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
 
   // 外网端口：不看来源 IP、不看 Host，只看凭证
   const external = http.createServer((req, res) => {
+    // 项目的服务报事件（357 号票）只在本机端口开：带不带设备凭证都拒，说清楚
+    if (pathnameOf(req) === HTTP_PATHS.serviceEvents) {
+      req.resume();
+      return sendError(res, "forbidden", t("gateway.serviceEvents.localOnly"));
+    }
     const check = checkExternalOrigin(req.headers);
     if (!check.ok) {
       req.resume();

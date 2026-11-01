@@ -33,6 +33,7 @@ import {
   type TaskActionResult,
   type TaskEventPayload,
   UNFINISHED_TASK_STATES,
+  planOnlyProblem,
 } from "@ergo/protocol";
 import { activityView, createActivityLog } from "./activity/activity.ts";
 import { agentSessionDir, createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
@@ -169,7 +170,7 @@ import { bindService, createPluginHost, type PluginDefinition, type PluginHost }
 import { KERNEL, KERNEL_SERVICES } from "./plugins/kernel.ts";
 import { PLUGIN_MANIFEST } from "./plugins/manifest.ts";
 import { createPluginSettings, type PluginSettings } from "./plugins/settings.ts";
-import { createEventTriggers, dataDirTitle, EventSubscriberRegistry, eventSourceImplementations, type EventTriggers } from "./event-sources/index.ts";
+import { createEventTriggers, createServiceEventDesk, dataDirTitle, EventSubscriberRegistry, eventSourceImplementations, type EventTriggers } from "./event-sources/index.ts";
 import { daemonBusy, mayChangeBusy } from "./lsm/busy.ts";
 import { linkToLsm, type LsmLink } from "./lsm/link.ts";
 import { daemonRunning, removePidFile, writePidFile } from "./process/pid-file.ts";
@@ -1079,7 +1080,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 运营方案和运营手段、项目的服务、project_ops、派单器都在 projects/system.ts 里装，它登记自己的卡片类型、改写函数、素材来源；
     // 这里只给内核的依赖。内核模块要它的什么，照各自的小接口从它拿（下面工具包、秘书的工具、执行控制器、任务的维护者、触发底座……）。
     // 建在它之后的内核模块在下面 connect 交进去（派单器那时开始），项目的维护者在 start 里建出、项目开始，项目的服务接入 LSM 之后开始
+    // 项目的服务报事件的前台（357）：运营层核过凭证后经它交事件，事件来源的分发建好时接上（在项目系统之后）
+    const serviceDesk = createServiceEventDesk();
     const projectSystem = createProjectSystem({
+      serviceEvents: { desk: serviceDesk, stateDir: realLayout.eventSources, thresholds: config.eventSources },
       store,
       cards,
       inbox,
@@ -1331,7 +1335,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         bindService(KERNEL.inbox, inbox),
         bindService(KERNEL.workdayCalendar, workdayCalendar),
         // 事件来源的分发建在触发底座之后（插件装配时还没有）：现转给它
-        bindService(KERNEL.eventTriggers, { check: (trigger) => wired("eventTriggers").check(trigger) }),
+        // 357：只能写在运营方案里的来源，别的订阅方建不出等它的
+        bindService(KERNEL.eventTriggers, {
+          check: (trigger) => {
+            const planOnly = planOnlyProblem(trigger);
+            return planOnly ? [planOnly] : wired("eventTriggers").check(trigger);
+          },
+        }),
         // 日历插件要的（213）：定时作业在日历上的展开。定时作业建在后面：现转给它
         bindService(KERNEL.scheduledJobs, { calendar: (from, to) => wired("scheduledJobs").calendar(from, to) }),
         // 记忆插件要的（129）：素材库、素材引着的记录、快速动作、改写函数表、向量函数（测试注入假的）
@@ -2389,6 +2399,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         stateDir: realLayout.eventSources,
         forbidden: () => [...protectedAreasOf(places), { dir: places.dataDir.root, title: dataDirTitle() }],
         thresholds: config.eventSources,
+        serviceDesk,
       }),
       log,
     });
@@ -2760,6 +2771,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         }),
         // 项目的服务首页的缩略图（140）：取图顺带算"有人在看"，旧了的补截
         serviceThumbnail: (projectId, name) => projectSystem.serviceThumbnail(projectId, name),
+        // 项目的服务报事件（357）：只在本机端口（网关挡外网端口）
+        serviceEvents: projectSystem.serviceEvents,
         // 项目规范的只读视图（258）
         projectStandard: (projectId) => projectSystem.projectStandard(projectId),
         log,

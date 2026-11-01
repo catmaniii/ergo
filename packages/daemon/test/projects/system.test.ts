@@ -16,6 +16,7 @@ import type { AgentSession } from "../../src/conversation/agent-session.ts";
 import { conversationWhere } from "../../src/conversation/user-words.ts";
 import { conversationViews } from "../../src/conversation/views.ts";
 import { DeletionParticipants, PROJECT_DELETION } from "../../src/deletion/participants.ts";
+import { createServiceEventDesk, DEFAULT_EVENT_SOURCE_THRESHOLDS } from "../../src/event-sources/index.ts";
 import { createEphemeralBus } from "../../src/events/ephemeral.ts";
 import { openEventStore } from "../../src/events/event-store.ts";
 import { BUILTIN_TOOL_REGISTRY } from "../../src/guard/index.ts";
@@ -86,6 +87,7 @@ function projectSystemWithFakeKernel() {
     layout,
     realDirs: { projects: layout.projects, data: dir, secrets: layout.secrets, program: path.join(dir, "program") },
     ports: { local: 18810, external: 18811 },
+    serviceEvents: { desk: createServiceEventDesk(), stateDir: path.join(dir, "event-sources"), thresholds: DEFAULT_EVENT_SOURCE_THRESHOLDS },
     serviceThumbnail: unexpected("截服务首页"),
     browser: unexpected("浏览器"),
     relay: {

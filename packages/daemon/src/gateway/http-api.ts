@@ -86,6 +86,7 @@ import {
   ImportFolderActionBody,
   ComponentActionBody,
   AutostartBody,
+  ServiceEventBody,
   ComponentsActionBody,
   ComponentImportBody,
   WebSettingsBody,
@@ -122,6 +123,7 @@ import type { WorkFolders } from "../work-folders/index.ts";
 import type { AssistantNameService } from "../assistant/index.ts";
 import type { UserNameService } from "../user-name/index.ts";
 import type { PersonalFilesService } from "../personal-files/index.ts";
+import type { ServiceEventsApi } from "../projects/api.ts";
 import type { CalendarService } from "../calendar/api.ts";
 import { latestAttachment } from "../conversation/attachments-view.ts";
 import { historyPage, isConversationChannel } from "../conversation/history.ts";
@@ -296,6 +298,8 @@ export interface HttpApiOptions {
   serviceThumbnail?: (projectId: string, name: string) => { file: string; takenAt: string } | undefined;
   /** 项目规范的只读视图（258 号票）：没有这个项目（删掉了的也是）是 undefined；不给就没有这个接口 */
   projectStandard?: (projectId: string) => ProjectStandardView | undefined;
+  /** 项目的服务报事件（357 号票）：POST /api/service-events，只在本机端口（网关挡外网端口）；不给就没有这个接口 */
+  serviceEvents?: ServiceEventsApi;
   log: (line: string) => void;
 }
 
@@ -1055,6 +1059,31 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             sendJson(res, 200, options.safetySettings.change(body.value));
           },
         };
+      case "service_events":
+        return {
+          // 项目的服务报事件（357 号票，ADR-0043）：先认凭证（不对的不读请求体），再读（超了上限的不留在内存里），再报；不等维护者做完就回
+          async POST(req, res) {
+            if (!options.serviceEvents) throw new HttpError("not_found", t("gateway.serviceEvents.none"));
+            const who = options.serviceEvents.authenticate(bearerToken(req.headers.authorization));
+            if (!who.ok) throw new HttpError(who.code, who.message);
+            const text = await readLimited(req, options.serviceEvents.maxBodyBytes);
+            let input: { event?: string; data?: unknown; oversized?: boolean } = { oversized: true };
+            if (text !== undefined) {
+              let raw: unknown;
+              try {
+                raw = text ? JSON.parse(text) : undefined;
+              } catch {
+                throw new HttpError("bad_request", t("gateway.badJson"));
+              }
+              const body = checkHttpBody(ServiceEventBody, raw);
+              if (!body.ok) throw new HttpError("bad_request", t("gateway.serviceEvents.badBody", { message: body.message }));
+              input = { event: body.value.event, ...(body.value.data === undefined ? {} : { data: body.value.data }) };
+            }
+            const done = options.serviceEvents.report(who.caller, input);
+            if (!done.ok) throw new HttpError(done.code, done.message);
+            sendJson(res, 202, done.reply);
+          },
+        };
       case "autostart":
         return {
           // 服务管家的开机自启（347 号票）：现在开没开（现查计划任务）
@@ -1708,6 +1737,27 @@ function readJson(req: http.IncomingMessage, limit = MAX_JSON_BODY): Promise<unk
         reject(new HttpError("bad_request", t("gateway.badJson")));
       }
     });
+    req.on("error", reject);
+  });
+}
+
+/** 请求头 Authorization: Bearer <凭证> 里的凭证（没带、写法不对的是 undefined） */
+function bearerToken(header: string | undefined): string | undefined {
+  return /^Bearer\s+(\S+)\s*$/i.exec(header ?? "")?.[1];
+}
+
+/**
+ * 读请求体的文字，最多 limit 字节；超了的后面照样读完丢掉、回 undefined（连接不断，调用方还能回明确的错：readJson 超了是直接断的）
+ */
+function readLimited(req: http.IncomingMessage, limit: number): Promise<string | undefined> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on("data", (chunk: Buffer) => {
+      size += chunk.length;
+      if (size <= limit) chunks.push(chunk);
+    });
+    req.on("end", () => resolve(size > limit ? undefined : Buffer.concat(chunks).toString("utf8")));
     req.on("error", reject);
   });
 }

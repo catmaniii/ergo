@@ -42,7 +42,9 @@
   "eventSources": {
     "folderSettleMs": 2000,
     "folderRetryMs": 30000,
-    "maxRunSteps": 100
+    "maxRunSteps": 100,
+    "serviceReportsPerMinute": 30,
+    "serviceDataMaxBytes": 8192
   },
   "agents": {
     "maxLive": 8,

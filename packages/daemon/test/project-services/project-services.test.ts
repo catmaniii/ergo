@@ -118,6 +118,18 @@ describe("一个服务写得对不对（spec.ts）", () => {
     expect(lsmDefinition(restarting, { title: "网页", projectName: "简报站" }, "D:/data/secrets")).toMatchObject({ autostart: false, autoRestart: true });
   });
 
+  it("357：给了报事件的地址和凭证文件的，定义里注入（凭证只写路径）；不给的不注入；这两个变量不能自己写", () => {
+    const { ctx } = specPaths();
+    const s = normalizeService(draft({}).service!, ctx);
+    const env = lsmDefinition(s, { title: "网页", projectName: "简报站" }, "D:/data/secrets", undefined, { url: "http://127.0.0.1:8810/api/service-events", tokenFile: "D:/data/secrets/service-tokens/p-1-web.token" }).env;
+    expect(env).toEqual([
+      { name: "ERGO_NOTIFY_URL", from: "literal", value: "http://127.0.0.1:8810/api/service-events" },
+      { name: "ERGO_SERVICE_TOKEN", from: "file", path: "D:/data/secrets/service-tokens/p-1-web.token" },
+    ]);
+    expect(lsmDefinition(s, { title: "网页", projectName: "简报站" }, "D:/data/secrets").env).toBeUndefined();
+    for (const name of ["ERGO_NOTIFY_URL", "ergo_service_token"]) expect(serviceProblems(draft({ env: [{ name, value: "x" }] }), ctx).join()).toContain("由运行时注入");
+  });
+
   it("命令开头是 node 的换成二狗自己那份 Node（带引号），别的原样；不给 nodePath 原样", () => {
     const own = String.raw`C:\Program Files\ergo\node.exe`;
     expect(withOwnNode("node server.mjs", own)).toBe(`"${own}" server.mjs`);

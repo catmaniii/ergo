@@ -6,6 +6,7 @@
 // - 这个项目的"运营方案变更"卡（项目页那一节下面列着）。
 // 133 号票：服务那一条（means: service）的状态不看内部任务，看项目的服务（UiState.projectServices：上线到哪了、LSM 推来的在不在线），
 // 行上带着它（入口"打开「X」"）。
+// 357 号票：服务那一条列这个服务最近报的事件（名字、时间、有没有叫醒，名字写错的也在这里看得到），等项目的服务报事件的那一条列它等的这个名字的。
 import {
   capabilitiesText,
   ENDED_TASK_STATES,
@@ -19,10 +20,14 @@ import {
   type ProjectOperationItem,
   type ProjectServiceView,
   type ScheduledJob,
+  SERVICE_EVENT_OUTCOME_LABEL,
+  serviceEventNameOf,
+  serviceEventWoke,
+  type ServiceEventRecord,
   serviceStateText,
   t,
 } from "./protocol.ts";
-import { serviceChangedFields, serviceOfItem } from "./project-services.ts";
+import { projectServicesOf, serviceChangedFields, serviceOfItem } from "./project-services.ts";
 import type { UiState } from "./ui-state.ts";
 
 /** 一条现在的状态 */
@@ -43,6 +48,30 @@ export interface OperationRow {
   taskId?: string;
   /** 服务那一条（133 号票）：项目的服务（入口、在不在线） */
   service?: ProjectServiceView;
+  /** 服务那一条、等项目的服务报事件的那一条（357 号票）：最近收到的事件（新的在前）；空的是还没收到过，别的条没有 */
+  events?: OperationEventView[];
+}
+
+/** 项目页上一个最近收到的事件 */
+export interface OperationEventView {
+  name: string;
+  at: string;
+  /** 有没有叫醒维护者 */
+  woke: boolean;
+  /** "叫醒了维护者"、"没叫醒：运营方案里没有等它的"…… */
+  text: string;
+}
+
+const eventView = (e: ServiceEventRecord): OperationEventView => ({ name: e.name, at: e.at, woke: serviceEventWoke(e.outcome), text: SERVICE_EVENT_OUTCOME_LABEL[e.outcome] });
+
+/** 等项目的服务报事件的那一条：这个项目的服务报的这个名字的（新的在前，最多 5 条） */
+function eventsOfName(state: UiState, projectId: string, name: string): OperationEventView[] {
+  return projectServicesOf(state, projectId)
+    .flatMap((v) => v.recentEvents ?? [])
+    .filter((e) => e.name === name)
+    .toSorted((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
+    .slice(0, 5)
+    .map(eventView);
 }
 
 /** 服务的样子 → 运营方案那一行的状态色 */
@@ -54,7 +83,7 @@ function serviceRow(state: UiState, projectId: string, item: ProjectOperationIte
   const view = serviceOfItem(state, projectId, item.key);
   if (!view) return { ...base, status: "paused", statusText: t("state.operations.status.unknown") };
   const s = serviceStateText(view);
-  return { ...base, service: view, status: SERVICE_ROW_STATUS[s.kind], statusText: s.text, ...(s.detail ? { detail: s.detail } : {}) };
+  return { ...base, service: view, events: (view.recentEvents ?? []).map(eventView), status: SERVICE_ROW_STATUS[s.kind], statusText: s.text, ...(s.detail ? { detail: s.detail } : {}) };
 }
 
 /** 某个任务名下的触发登记（定时、事件触发的任务有一个） */
@@ -65,7 +94,8 @@ export function operationRow(state: UiState, item: ProjectOperationItem, project
   if (item.service) return serviceRow(state, projectId, item, { item, howText: item.service.web ? t("state.operations.serviceWeb", { app: item.service.app }) : t("state.operations.serviceNoWeb") });
   const approach = item.steps ? t("state.operations.approachSteps", { approach: OPERATION_APPROACH_LABEL[item.approach], count: item.steps }) : OPERATION_APPROACH_LABEL[item.approach];
   const howText = `${item.automatic ? `${approach} · ` : ""}${capabilitiesText(item.capabilities)}`;
-  const base = { item, howText, ...(item.taskId ? { taskId: item.taskId } : {}) };
+  const waitsFor = item.event ? serviceEventNameOf(item.event) : undefined;
+  const base = { item, howText, ...(item.taskId ? { taskId: item.taskId } : {}), ...(waitsFor === undefined ? {} : { events: eventsOfName(state, projectId, waitsFor) }) };
   if (!item.automatic) return { ...base, status: "manual", statusText: t("state.operations.status.manual"), detail: `${OPERATIONS_MANUAL_PREFIX}${item.manual ?? item.triggerText}` };
   if (item.failed !== undefined || item.taskId === undefined) return { ...base, status: "failed", statusText: t("state.operations.status.failed"), detail: item.failed ?? t("state.operations.noTask") };
   const task = state.tasks[item.taskId];

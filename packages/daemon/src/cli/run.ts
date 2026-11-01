@@ -6,12 +6,13 @@ import { flagOn, flagString, parseArgs } from "./args.ts";
 import { cmdBackupTool } from "./backup-tools.ts";
 import { cmdComponents } from "./components.ts";
 import type { CliContext } from "./context.ts";
+import { cmdNotify } from "./notify.ts";
 import { cmdLogs, cmdOnboard, cmdOpen, cmdRestart, cmdSvc, cmdStart, cmdStatus, cmdStop } from "./service.ts";
 import { cmdUninstall } from "./uninstall.ts";
 import { cmdRollback, cmdUpdate } from "./versions.ts";
 
 /** 带值的开关 */
-const VALUE_FLAGS = new Set(["n", "version", "from", "mirror", "idle-timeout"]);
+const VALUE_FLAGS = new Set(["n", "version", "from", "mirror", "idle-timeout", "data"]);
 
 /** 命令行用哪种语言 */
 export function cliLanguage(env: NodeJS.ProcessEnv, dataDir: string, systemLocale: string = Intl.DateTimeFormat().resolvedOptions().locale): string {
@@ -103,6 +104,9 @@ export async function runCli(argv: readonly string[], ctx: CliContext): Promise<
       return cmdSvc(ctx, argv.slice(argv.indexOf("svc") + 1));
     case "onboard":
       return cmdOnboard(ctx);
+    case "notify":
+      // 给项目的服务用的（357 号票）：报一个事件，叫醒等它的任务
+      return cmdNotify(ctx, args.positional[0], args.flags.get("data"));
     default:
       ctx.io.err(t("cli.unknownCommand", { command: args.command }));
       usage(ctx);
