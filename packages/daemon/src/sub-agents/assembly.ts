@@ -12,14 +12,15 @@ import type { MaintainerAssembly } from "../agent-host/assembly.ts";
 import { workTempDir, workTempVars } from "../agent-manager/work-temp.ts";
 import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
 import { SEND_ATTACHMENT_TOOL } from "../media/tool-names.ts";
+import { REQUEST_SKILL_CHANGE_TOOL } from "../skills/tool-names.ts";
 import { EXECUTION_TOOL, PROPOSE_PARALLEL_TOOL, WORKFLOW_TOOL } from "../tasks/tool-names.ts";
 import type { ShellToolkit } from "../typed-shell/index.ts";
 
 /**
- * 维护者推进任务、起草计划、提议并行的工具，发附件（117 号票：子 agent 的结果交回维护者，维护者决定发不发）：子 agent 一律没有
- * （给秘书发消息有，102 号票：维护者有的它才有）
+ * 维护者推进任务、起草计划、提议并行的工具，发附件（117 号票：子 agent 的结果交回维护者，维护者决定发不发），
+ * 把 skill 提交进 skill 库（358 号票：要不要沉淀进库由维护者定）：子 agent 一律没有（给秘书发消息有，102 号票：维护者有的它才有）
  */
-export const MAINTAINER_ONLY_TOOLS: readonly string[] = [...Object.values(EXECUTION_TOOL), PROPOSE_PARALLEL_TOOL, SUBMIT_PLAN_TOOL, ...Object.values(WORKFLOW_TOOL), SEND_ATTACHMENT_TOOL];
+export const MAINTAINER_ONLY_TOOLS: readonly string[] = [...Object.values(EXECUTION_TOOL), PROPOSE_PARALLEL_TOOL, SUBMIT_PLAN_TOOL, ...Object.values(WORKFLOW_TOOL), SEND_ATTACHMENT_TOOL, REQUEST_SKILL_CHANGE_TOOL];
 
 export interface SubAgentAssembly {
   piTools: string[];

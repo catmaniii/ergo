@@ -131,6 +131,8 @@ export interface ProjectToolkits {
   requestTool(projectId: string, maintainerId: string): HostTool;
   /** 对话段、执行的工单段：登记 MCP（加、改、删一条登记，出"MCP 登记变更"卡，239 号票） */
   requestMcpTool?(projectId: string, maintainerId: string): HostTool;
+  /** 对话段、执行的工单段：把 skill 提交进 skill 库（加、改、删，出"skill 变更"卡，358 号票） */
+  requestSkillTool?(projectId: string, maintainerId: string): HostTool;
 }
 
 /** 项目的维护者：agent 宿主（agent-host/host.ts）的一种配置，这里只给项目自己的差异 */
@@ -657,6 +659,8 @@ function assemble(options: ProjectMaintainersOptions, first: Project): ProjectAs
         ...(p.charterConfirmed && !workflow && options.checkOpsTool ? [options.checkOpsTool(p.id, maintainerId)] : []),
         // 登记 MCP（239 号票）：做任务时也能提，出卡等用户确认（流程不给，同上）
         ...(p.charterConfirmed && !workflow && options.toolkits?.requestMcpTool ? [options.toolkits.requestMcpTool(p.id, maintainerId)] : []),
+        // 提交 skill（358 号票）：做任务时沉淀下来的也能提，出卡等用户确认（流程不给，同上）
+        ...(p.charterConfirmed && !workflow && options.toolkits?.requestSkillTool ? [options.toolkits.requestSkillTool(p.id, maintainerId)] : []),
       ],
       ...(part ? { part } : {}),
       workflow,
@@ -701,7 +705,7 @@ function assemble(options: ProjectMaintainersOptions, first: Project): ProjectAs
       ],
       after:
         confirmedCharter && options.toolkits
-          ? [options.toolkits.projectSkillTool(p.id, maintainerId), options.toolkits.requestTool(p.id, maintainerId), ...(options.toolkits.requestMcpTool ? [options.toolkits.requestMcpTool(p.id, maintainerId)] : [])]
+          ? [options.toolkits.projectSkillTool(p.id, maintainerId), options.toolkits.requestTool(p.id, maintainerId), ...(options.toolkits.requestMcpTool ? [options.toolkits.requestMcpTool(p.id, maintainerId)] : []), ...(options.toolkits.requestSkillTool ? [options.toolkits.requestSkillTool(p.id, maintainerId)] : [])]
           : [],
       sender: projectSender(p, channel, DOING_PROJECT_CHAT),
     });

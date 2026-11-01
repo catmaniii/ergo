@@ -81,6 +81,8 @@ export interface GuardPlaces {
     db: string;
     /** 项目区：秘书只读 */
     projects: string;
+    /** skill 区：受保护（358 号票：只由运行时写，用户导入、负责人提交走确认卡） */
+    skills?: string;
   };
   /** 二狗程序目录：受保护 */
   programDir: string;

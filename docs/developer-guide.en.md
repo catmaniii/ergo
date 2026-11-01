@@ -103,7 +103,7 @@ npm workspaces manage the packages. `frontend/` is not a workspace (the HarmonyO
 | `materials/`, `memory/`, `quick-actions/` | Materials store (verbatim copies, keyword and vector index), the memory plugin (nightly consolidation, memory curator, interviews), quick actions |
 | `reminders/`, `calendar/`, `voice/`, `browsing/`, `claude-code/`, `google/`, `looki/`, `phone/` | Plugins (each has a `plugin.ts`; other modules only take things from its `api.ts`) |
 | `scheduler/`, `workday/`, `backup/` | Scheduler with an injectable clock, internal jobs; the personal work calendar and holidays; backup, verification, restore |
-| `web/`, `typed-shell/`, `skills/`, `mcp/`, `toolkit/`, `apps/` | Web tools, typed shell tools (git, builds…), skill library, MCP registry, toolkits, proxying local service pages |
+| `web/`, `typed-shell/`, `skills/`, `mcp/`, `toolkit/`, `apps/` | Web tools, typed shell tools (git, builds…), skill library (`skills/change.ts`: the card for maintainers submitting skills, built like `mcp/change.ts`, with validation shared with imports in `library.ts`), MCP registry, toolkits, proxying local service pages |
 | `prompts/`, `agent-settings/`, `model-settings/`, `assistant/`, `agent-roles/`, `i18n/` | System prompts (markdown files users can edit), each agent's ⚙ panel, model settings, the assistant's name, roles, i18n |
 | `lsm/` | The supervisor link protocol (health and busy reports, graceful stop, owned services) |
 | `deploy/`, `deploy-nginx.ts`, `restore.ts`, `run-backup.ts`, `download-model.ts` | Command-line tools: generate and deploy the nginx site, restore, back up, download models |

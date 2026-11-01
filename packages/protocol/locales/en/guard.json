@@ -309,5 +309,6 @@
   "guard.shell.loopCwd": "a folder cd'd into repeatedly in a loop",
   "guard.shell.recursiveCwd": "a folder inside the recursive function {name}",
   "guard.shell.badSubstitution": "command substitution that can't be parsed: {text}",
-  "guard.shell.unknownPart": "unknown word part {type}"
+  "guard.shell.unknownPart": "unknown word part {type}",
+  "guard.judge.areas.skills": "the skill area"
 }

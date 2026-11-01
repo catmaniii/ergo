@@ -421,7 +421,7 @@ export interface ProtectedArea {
 }
 
 /**
- * 受保护区域（写入一律永不，密钥区连读都拒绝）：数据目录的配置区、密钥区、数据库区和二狗程序目录。守卫判定、
+ * 受保护区域（写入一律永不，密钥区连读都拒绝）：数据目录的配置区、密钥区、数据库区、skill 区（358 号票）和二狗程序目录。守卫判定、
  * 本机文件夹变化不许监视的地方（77 号票，event-sources/folder.ts 另加整个数据目录）都用这一份
  */
 export function protectedAreasOf(places: Pick<GuardPlaces, "dataDir" | "programDir">): ProtectedArea[] {
@@ -430,6 +430,7 @@ export function protectedAreasOf(places: Pick<GuardPlaces, "dataDir" | "programD
     { dir: d.config, title: t("guard.judge.areas.config"), secrets: false },
     { dir: d.secrets, title: t("guard.judge.areas.secrets"), secrets: true },
     { dir: d.db, title: t("guard.judge.areas.db"), secrets: false },
+    ...(d.skills === undefined ? [] : [{ dir: d.skills, title: t("guard.judge.areas.skills"), secrets: false }]),
     { dir: places.programDir, title: t("guard.judge.areas.program"), secrets: false },
   ];
 }

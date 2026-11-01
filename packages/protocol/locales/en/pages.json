@@ -1720,5 +1720,7 @@
   "pages.dataSources.detail.jump": "See the data ↓",
   "pages.dataSources.action.disconnectAll": "Disconnect all",
   "pages.dataSources.confirm.itemBody_one": "{stop}, and this account's keys are removed from this computer; other accounts aren't affected. What about the {n} record it already imported?",
-  "pages.dataSources.confirm.itemBody_other": "{stop}, and this account's keys are removed from this computer; other accounts aren't affected. What about the {n} records it already imported?"
+  "pages.dataSources.confirm.itemBody_other": "{stop}, and this account's keys are removed from this computer; other accounts aren't affected. What about the {n} records it already imported?",
+  "pages.skills.submittedByProject": "Submitted by an owner: project “{title}”",
+  "pages.skills.submittedByTask": "Submitted by an owner: task “{title}”"
 }

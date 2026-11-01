@@ -138,6 +138,8 @@ export interface ToolkitResources {
   skillTool?(scope: MaintainerScope): HostTool;
   /** 执行时维护者登记 MCP 的工具（加、改、删一条登记，出卡等用户确认，239 号票；绑定在它执行的任务上） */
   mcpChangeTool?(scope: MaintainerScope): HostTool;
+  /** 执行时维护者把 skill 提交进 skill 库的工具（加、改、删，出卡等用户确认，358 号票；绑定在它执行的任务上） */
+  skillChangeTool?(scope: MaintainerScope): HostTool;
   /** 库里每个 skill 的斜杠命令（82 号票）：用户打 /目录名 时展开会话装配了的那个；不给就按装配的目录自己算 */
   skillCommands?(): readonly SkillCommand[];
 }
@@ -368,9 +370,9 @@ function executionSetup(deps: AssemblyDeps, input: ExecutionRequest): ExecutionS
     input,
     [...advancing, ...extra],
     // 增减 skill 改的是任务的工具包：做的只是任务的一部分时没有（17 号票）；流程的工具包按步骤定，也没有（58 号票）。
-    // 登记 MCP（239 号票）同样只给不是一部分、不是流程的执行会话
+    // 登记 MCP（239 号票）、提交 skill（358 号票）同样只给不是一部分、不是流程的执行会话
     !part && !workflow && deps.toolkits
-      ? [...(deps.toolkits.skillTool ? [deps.toolkits.skillTool(scope)] : []), ...(deps.toolkits.mcpChangeTool ? [deps.toolkits.mcpChangeTool(scope)] : [])].filter(
+      ? [...(deps.toolkits.skillTool ? [deps.toolkits.skillTool(scope)] : []), ...(deps.toolkits.mcpChangeTool ? [deps.toolkits.mcpChangeTool(scope)] : []), ...(deps.toolkits.skillChangeTool ? [deps.toolkits.skillChangeTool(scope)] : [])].filter(
           (tool) => !provided.has(tool.spec.name),
         )
       : [],

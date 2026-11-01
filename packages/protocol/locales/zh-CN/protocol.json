@@ -926,5 +926,6 @@
   "protocol.interview.topic.choices": "人生里几次重要的选择",
   "protocol.interview.topic.cares": "在意什么和烦什么",
   "protocol.interview.topic.help": "想要什么样的帮忙",
-  "protocol.interview.topic.changes": "最近有什么变化"
+  "protocol.interview.topic.changes": "最近有什么变化",
+  "protocol.timeline.kind.skill": "skill 变更"
 }

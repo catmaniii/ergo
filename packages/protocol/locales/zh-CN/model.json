@@ -106,5 +106,6 @@
   "model.cards.action.decline": "不再约了",
   "model.cards.type.interviewFiles": "访谈档案核对",
   "model.cards.type.personalFileSuggest": "档案候选",
-  "model.cards.type.runtimeQuestion": "运行时的提问"
+  "model.cards.type.runtimeQuestion": "运行时的提问",
+  "model.cards.type.skillChange": "skill 变更"
 }

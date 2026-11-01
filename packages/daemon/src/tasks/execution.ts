@@ -1759,7 +1759,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     if (removal.length > 0) throw new RequestRejected("not_allowed", `这些阶段去不掉：\n- ${removal.join("\n- ")}`); // @i18n-ignore model：交回维护者
     const accepted = list.filter((s) => s.state === "accepted").map((s) => s.stageId);
     const merged = mergeDraft(stored.plan, input.plan, { accepted, removeStages });
-    const checked = checkRevisedPlan(merged.plan, options.planTools, options.toolkitProblems);
+    // skill 只查新加的（358 号票）：库里删掉了、现在的计划里还留着的名字（装配时跳过）不挡别的改动
+    const checked = checkRevisedPlan(merged.plan, options.planTools, options.toolkitProblems && ((toolkit) => options.toolkitProblems!({ ...toolkit, skills: toolkit.skills.filter((s) => !stored.plan.toolkit.skills.includes(s)) })));
     // 涉及的项目要对得上任务（17 号票评审后定）
     const problems = checked.ok ? (options.planProjects?.(task, checked.plan) ?? []) : checked.problems;
     if (!checked.ok || problems.length > 0) throw new RequestRejected("bad_params", `新的计划（没写到的阶段已从当前计划带上）没通过检查，改好再交：\n- ${problems.join("\n- ")}`); // @i18n-ignore model：交回维护者

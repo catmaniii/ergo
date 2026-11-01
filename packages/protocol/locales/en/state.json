@@ -1701,5 +1701,7 @@
   "state.backup.verify.problem": "{place} {date}: {problems}",
   "state.backup.place.local": "this computer",
   "state.backup.place.sync": "sync folder",
-  "state.backup.retention": "This computer keeps {local}; the sync folder keeps {daily} daily and {weekly} weekly. Older ones are deleted automatically. These numbers can't be changed for now."
+  "state.backup.retention": "This computer keeps {local}; the sync folder keeps {daily} daily and {weekly} weekly. Older ones are deleted automatically. These numbers can't be changed for now.",
+  "state.callSentence.tool.request_skill_change": "Request a skill change",
+  "state.chatItems.internal.skillChangeCard": "the skill change card"
 }

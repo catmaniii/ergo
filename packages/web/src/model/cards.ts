@@ -47,6 +47,7 @@ export const CARD_TYPE_LABEL: Readonly<Record<CardType, string>> = tTable({
   pairing: "model.cards.type.pairing",
   toolkit_change: "model.cards.type.toolkitChange",
   mcp_change: "model.cards.type.mcpChange",
+  skill_change: "model.cards.type.skillChange",
   workflow_plan: "model.cards.type.workflowPlan",
   archive_list: "model.cards.type.archiveList",
   build_done: "model.cards.type.buildDone",

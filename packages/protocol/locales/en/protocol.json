@@ -940,5 +940,6 @@
   "protocol.interview.topic.choices": "A few big choices in life",
   "protocol.interview.topic.cares": "What you care about and what bothers you",
   "protocol.interview.topic.help": "What kind of help you want",
-  "protocol.interview.topic.changes": "What's changed lately"
+  "protocol.interview.topic.changes": "What's changed lately",
+  "protocol.timeline.kind.skill": "Skill change"
 }

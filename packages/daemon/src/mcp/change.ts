@@ -62,8 +62,30 @@ export interface McpChangeService {
   decide(payload: McpChangeCardPayload, cardId: string, decision: "approved" | "denied", note: string | undefined, idempotencyKey: string): Promise<CardActionEffect<McpChangeCardPayload>>;
 }
 
-/** 一次决定要记的时间线和通知写在哪个会话、带什么归属 */
-const scopeOf = (submitter: McpChangeSubmitter) => (submitter.kind === "project" ? { projectId: submitter.projectId } : { taskId: submitter.taskId, ...(submitter.projectId === undefined ? {} : { projectId: submitter.projectId }) });
+/** 一次决定要记的时间线和通知写在哪个会话、带什么归属（358 号票的 skill 变更也用它） */
+export const changeScopeOf = (submitter: McpChangeSubmitter) => (submitter.kind === "project" ? { projectId: submitter.projectId } : { taskId: submitter.taskId, ...(submitter.projectId === undefined ? {} : { projectId: submitter.projectId }) });
+
+/** 找提交的人要的两样（358 号票的 skill 变更也用它） */
+export type SubmitterLookups = Pick<McpChangeServiceOptions, "projectOf" | "taskOf">;
+
+/** 提交的人：目标对得上现在的项目、任务，不然找不到 */
+export function submitterOfTarget(target: McpChangeTarget, lookups: SubmitterLookups): McpChangeSubmitter | undefined {
+  if (target.kind === "project") {
+    const project = lookups.projectOf(target.projectId);
+    return project && { kind: "project", projectId: project.id, projectName: project.name, maintainerId: target.maintainerId };
+  }
+  const task = lookups.taskOf(target.taskId);
+  return (
+    task && {
+      kind: "task",
+      taskId: task.id,
+      taskTitle: task.title,
+      maintainerId: target.maintainerId,
+      ...(task.projectId === undefined ? {} : { projectId: task.projectId }),
+      ...(task.projectName === undefined ? {} : { projectName: task.projectName }),
+    }
+  );
+}
 
 /** 登记里的一张工具表（工具名 → 登记的几样）；校验用守护进程那份严的 schema */
 const registrationChecker = schemaChecker(McpServerRegistrationSchema);
@@ -108,25 +130,6 @@ function registrationOf(given: RegistrationArgs): { problems: string[]; registra
 export function createMcpChangeService(options: McpChangeServiceOptions): McpChangeService {
   const { store, cards, inbox, mcp } = options;
 
-  /** 提交的人：目标对得上现在的项目、任务，不然找不到 */
-  const submitterOf = (target: McpChangeTarget): McpChangeSubmitter | undefined => {
-    if (target.kind === "project") {
-      const project = options.projectOf(target.projectId);
-      return project && { kind: "project", projectId: project.id, projectName: project.name, maintainerId: target.maintainerId };
-    }
-    const task = options.taskOf(target.taskId);
-    return (
-      task && {
-        kind: "task",
-        taskId: task.id,
-        taskTitle: task.title,
-        maintainerId: target.maintainerId,
-        ...(task.projectId === undefined ? {} : { projectId: task.projectId }),
-        ...(task.projectName === undefined ? {} : { projectName: task.projectName }),
-      }
-    );
-  };
-
   /** 同名的上一张卡还在等用户 */
   const pendingCardOf = (name: string) =>
     inbox
@@ -163,7 +166,7 @@ export function createMcpChangeService(options: McpChangeServiceOptions): McpCha
       run: (given) => {
         try {
           const action = given.action as McpChangeAction;
-          const submitter = submitterOf(target);
+          const submitter = submitterOfTarget(target, options);
           if (!submitter) return { text: text.noSubmitterText(target.kind === "project" ? target.projectId : target.taskId), isError: true };
           if (!new RegExp(MCP_NAME_PATTERN).test(given.name)) return { text: text.badNameText(given.name), isError: true };
           const read = mcp.registrations();
@@ -192,7 +195,7 @@ export function createMcpChangeService(options: McpChangeServiceOptions): McpCha
             cardId: card.card.id,
             title: text.inboxTitle(payload),
             source: text.sourceOf(submitter),
-            origin: scopeOf(submitter),
+            origin: changeScopeOf(submitter),
             urgency: "non_blocking",
           });
           store.appendBatch([card.event, item.event]);
@@ -209,7 +212,7 @@ export function createMcpChangeService(options: McpChangeServiceOptions): McpCha
     const comment = note?.trim() || undefined;
     const submitter = payload.submitter;
     const conversation = maintainerChannel(submitter.maintainerId);
-    const scope = scopeOf(submitter);
+    const scope = changeScopeOf(submitter);
     const decided = (event: McpDecidedPayload): NewEvent => ({ channel: MCP_CHANNEL, type: EVENT_TYPES.mcpDecided, payload: event, idempotencyKey: `${idempotencyKey}#decided` });
     const record = (event: McpDecidedPayload): NewEvent =>
       buildTimelineRecord(conversation, { kind: "mcp", summary: text.timelineSummary(event), detail: text.timelineDetail(event, payload.registration) }, scope, { idempotencyKey: `${idempotencyKey}#timeline` }).event;

@@ -103,7 +103,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 | `materials/`、`memory/`、`quick-actions/` | 素材库（原话副本、关键词和向量索引）、记忆插件（每晚整理、记忆管理员、访谈）、快速动作 |
 | `reminders/`、`calendar/`、`voice/`、`browsing/`、`claude-code/`、`google/`、`looki/`、`phone/` | 各个插件（每个目录里有 `plugin.ts`，别的模块只从它的 `api.ts` 取东西） |
 | `scheduler/`、`workday/`、`backup/` | 调度器和可注入的时钟、内部作业；个人工作日历和节假日；备份、校验、恢复 |
-| `web/`、`typed-shell/`、`skills/`、`mcp/`、`toolkit/`、`apps/` | 联网工具、带类型的 bash 工具（git、构建……）、skill 库、MCP 登记、工具包、转发本机服务的页面 |
+| `web/`、`typed-shell/`、`skills/`、`mcp/`、`toolkit/`、`apps/` | 联网工具、带类型的 bash 工具（git、构建……）、skill 库（`skills/change.ts`：维护者提交 skill 的卡，路子和 `mcp/change.ts` 一样，校验和导入共用 `library.ts`）、MCP 登记、工具包、转发本机服务的页面 |
 | `prompts/`、`agent-settings/`、`model-settings/`、`assistant/`、`agent-roles/`、`i18n/` | 系统提示（md 文件，用户能改）、每个 agent 的 ⚙、模型设置、助理的名字、角色、多语言 |
 | `lsm/` | 接入服务管家的 link 协议（报健康和忙不忙、优雅停机、名下的服务） |
 | `deploy/`、`deploy-nginx.ts`、`restore.ts`、`run-backup.ts`、`download-model.ts` | 命令行工具：生成和部署 nginx 站点、恢复、备份、下载模型 |

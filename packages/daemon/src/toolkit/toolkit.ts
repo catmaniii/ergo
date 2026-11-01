@@ -84,6 +84,11 @@ export interface ToolkitService {
   importSkill(request: ImportSkillBody): ImportSkillResult;
   /** 用户在项目页、任务详情里直接改工具包（set_toolkit 请求） */
   set(params: SetToolkitParams, idempotencyKey: string): SetToolkitResult;
+  /**
+   * 把一个 skill 配进项目或任务的工具包（358 号票：负责人提交的 skill 用户确认之后）。项目的给出要和卡片一起落盘的事件；
+   * 任务的当场改好（执行控制器自己追加）。已经有了 changed 是 false；不能改的（项目归档了、任务结束了）抛 RequestRejected
+   */
+  addSkill(target: { kind: "project"; projectId: string } | { kind: "task"; taskId: string }, name: string, why: string): { changed: boolean; events: NewEvent[] };
   /** 维护者增减 skill 的工具 */
   skillTool(target: SkillTarget): HostTool;
   /** 项目维护者不在任务里时申请加能力（出"工具包变更"卡）、减少能力（直接生效）的工具 */
@@ -127,9 +132,11 @@ export function createToolkitService(options: ToolkitServiceOptions): ToolkitSer
       const now = params.target.kind === "project" ? projectToolkit(mustProject(params.target.projectId)) : taskToolkit(params.target.taskId);
       return { toolkit: now, changed: true };
     }
-    const problems = nameProblems(params.toolkit);
-    if (problems.length > 0) throw new RequestRejected("bad_params", text.problemsText(problems));
     const target = params.target;
+    // skill 只查新加的（358 号票）：库里删掉了、工具包里还留着的名字（装配时跳过）不挡别的改动
+    const present = target.kind === "project" ? projectToolkit(mustProject(target.projectId)).skills : options.tasks.confirmedPlan(target.taskId)?.plan.toolkit.skills ?? [];
+    const problems = nameProblems({ ...params.toolkit, skills: params.toolkit.skills.filter((s) => !present.includes(s)) });
+    if (problems.length > 0) throw new RequestRejected("bad_params", text.problemsText(problems));
     if (target.kind === "project") {
       const project = mustProject(target.projectId);
       const before = projectToolkit(project);
@@ -143,6 +150,19 @@ export function createToolkitService(options: ToolkitServiceOptions): ToolkitSer
     const decided = decidedEvent({ decision: "edited", target, targetTitle: task.title, before, after: params.toolkit }, `${idempotencyKey}#decided`);
     const result = options.execution().changeToolkit({ taskId: task.id, toolkit: params.toolkit, by: "user", why: text.editedInTaskDetail(), events: [decided] });
     return { toolkit: result.after, changed: result.changed };
+  };
+
+  const addSkill: ToolkitService["addSkill"] = (target, name, why) => {
+    const withSkill = (toolkit: PlanToolkit): PlanToolkit => ({ ...toolkit, skills: [...toolkit.skills, name] });
+    if (target.kind === "project") {
+      const current = projectToolkit(mustProject(target.projectId));
+      if (current.skills.includes(name)) return { changed: false, events: [] };
+      const built = projects.buildToolkitChange(target.projectId, withSkill(current), { by: "user", why });
+      return { changed: built.changed, events: built.events };
+    }
+    const current = taskToolkit(target.taskId);
+    if (current.skills.includes(name)) return { changed: false, events: [] };
+    return { changed: options.execution().changeToolkit({ taskId: target.taskId, toolkit: withSkill(current), by: "user", why }).changed, events: [] };
   };
 
   /** 还在等用户的"工具包变更"卡（这个项目的） */
@@ -297,6 +317,7 @@ export function createToolkitService(options: ToolkitServiceOptions): ToolkitSer
     },
     importSkill: (request) => skills.importFrom(request),
     set,
+    addSkill,
     skillTool,
     requestTool,
     decide,

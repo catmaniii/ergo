@@ -62,6 +62,7 @@ import type { LsmServices } from "../lsm/link.ts";
 import { multiProjectToolkit } from "../maintainers/multi-project.ts";
 import type { Materials } from "../materials/index.ts";
 import type { McpChangeService } from "../mcp/change.ts";
+import type { SkillChangeService } from "../skills/change.ts";
 import type { PurgeRewriters } from "../memory/rewriters.ts";
 import type { JobObject } from "../process/job-object.ts";
 import { readUserTurn } from "../quick-actions/index.ts";
@@ -185,6 +186,8 @@ export interface ProjectSystemKernel {
   /** 工具包、MCP 登记变更：项目维护者对话段里增减 skill、申请工具包变更、登记 MCP 的工具 */
   toolkits: Pick<ToolkitService, "skillTool" | "requestTool">;
   mcpChanges: Pick<McpChangeService, "requestTool">;
+  /** skill 变更（358）：项目维护者把 skill 提交进 skill 库的工具 */
+  skillChanges: Pick<SkillChangeService, "requestTool">;
 }
 
 /** 收尾：各步开始了什么就排上停什么（组合根的 teardown，停的时候倒着来） */
@@ -220,6 +223,8 @@ export interface ProjectSystem {
   conversationScope(conversation: ConversationId, taskId?: string): MessageScope | undefined;
   /** 项目维护者手上没有在进行的段时，用户的话开一个对话段（16）：要先追加的事件 */
   messagePrelude(maintainerId: string, key: string, taskId?: string): NewEvent[];
+  /** 负责人提交 skill 时能当来源的地方（358）：项目的工作目录（第一个）、项目档案；没这个项目时是空的 */
+  skillSourceRoots(projectId: string): string[];
   /** MCP 登记变了（239）：是项目维护者的会话就按新的装配重新拉起（项目的维护者还没建出时什么都不做） */
   reassemble(maintainerId: string, notice: string): void;
   /** 网关的几个请求：新建项目、任务转为项目、项目页上的动作、重置维护者、启停项目的服务（257） */
@@ -500,6 +505,10 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
     operationMeans,
     conversationScope: (conversation, taskId) => projects.conversationScope(conversation, taskId),
     messagePrelude: (maintainerId, key, taskId) => workOrders.messagePrelude(maintainerId, key, taskId),
+    skillSourceRoots: (projectId) => {
+      const project = directory.get(projectId);
+      return project ? [projects.workdir(project), projects.records(projectId).root] : [];
+    },
     reassemble: (maintainerId, notice) => late.projectMaintainers?.reassemble(maintainerId, notice),
     requests: {
       newProject: (params, idempotencyKey) => projects.newProject(params, idempotencyKey),
@@ -530,7 +539,7 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
     },
 
     start(stops) {
-      const kernel = { agentHost: wired("agentHost"), taskMaintainers: wired("taskMaintainers"), subAgents: wired("subAgents"), toolkits: wired("toolkits"), mcpChanges: wired("mcpChanges") };
+      const kernel = { agentHost: wired("agentHost"), taskMaintainers: wired("taskMaintainers"), subAgents: wired("subAgents"), toolkits: wired("toolkits"), mcpChanges: wired("mcpChanges"), skillChanges: wired("skillChanges") };
       // 项目的维护者（15）：用户在它的会话里说话时唤起；任务转为项目时从任务的维护者模块接过来。
       // 建出时登记进 agent 宿主（此刻的装配、停稳手头这一轮、⚙）：排在任务的、定时作业的维护者后面，和原来一样
       const projectMaintainers = createProjectMaintainers({
@@ -546,6 +555,7 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
           projectSkillTool: (projectId, maintainerId) => kernel.toolkits.skillTool({ kind: "project", projectId, maintainerId }),
           requestTool: (projectId, maintainerId) => kernel.toolkits.requestTool(projectId, maintainerId),
           requestMcpTool: (projectId, maintainerId) => kernel.mcpChanges.requestTool({ kind: "project", projectId, maintainerId }),
+          requestSkillTool: (projectId, maintainerId) => kernel.skillChanges.requestTool({ kind: "project", projectId, maintainerId }),
         },
         // 立项书确认之后改立项要求的工具（125）
         charterChangeTool: (projectId, maintainerId) => charterChanges.tool(projectId, maintainerId),

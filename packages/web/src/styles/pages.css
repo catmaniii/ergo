@@ -1767,6 +1767,33 @@ a.att-icon:hover {
 .ops-group-removed .ops-item-head b {
   text-decoration: line-through;
 }
+/* skill 变更卡（358 号票）：脚本提醒、文件清单、SKILL.md 全文 */
+.xcard-skill_change .xcard-body {
+  min-width: 0;
+}
+.skill-change-more summary {
+  cursor: pointer;
+  font-size: var(--fs-s);
+  color: var(--muted);
+}
+.skill-change-files code,
+.skill-change-path {
+  overflow-wrap: anywhere;
+}
+.skill-change-md {
+  max-height: 320px;
+  overflow: auto;
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .ops-steps summary {
   cursor: pointer;
   font-size: var(--fs-s);

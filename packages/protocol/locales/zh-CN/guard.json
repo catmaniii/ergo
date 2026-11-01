@@ -309,5 +309,6 @@
   "guard.shell.loopCwd": "循环里反复 cd 到的目录",
   "guard.shell.recursiveCwd": "递归调用的函数 {name} 里的目录",
   "guard.shell.badSubstitution": "没法解析的命令替换 {text}",
-  "guard.shell.unknownPart": "不认识的词片段 {type}"
+  "guard.shell.unknownPart": "不认识的词片段 {type}",
+  "guard.judge.areas.skills": "skill 区"
 }

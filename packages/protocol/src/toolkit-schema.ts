@@ -19,6 +19,15 @@ export const SkillEntry = Type.Object({
   origin: Type.Union([Type.Literal("framework"), Type.Literal("imported")]),
   /** 属于哪个集合（集合名）；单个导入的、框架自带的没有 */
   collection: Type.Optional(Type.String()),
+  /** 负责人提交的（358 号票）：谁提的；用户自己导入的、框架自带的没有 */
+  submittedBy: Type.Optional(
+    Type.Object({
+      kind: Type.Union([Type.Literal("project"), Type.Literal("task")]),
+      /** 项目名或任务标题（提交时的） */
+      title: Type.String(),
+      at: Type.String(),
+    }),
+  ),
 });
 export type SkillEntry = Static<typeof SkillEntry>;
 

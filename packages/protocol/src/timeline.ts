@@ -16,6 +16,7 @@
 // - operations：运营方案（130 号票）：你确认了运营方案、它生效了（每一条建成了哪个内部任务、哪条没生效），或者拒绝了运营方案变更。
 // - stopped：你停止了这一轮（144 号票：秘书、维护者回复时点了输入框旁的"停止"）。
 // - mcp：MCP 登记变了（239 号票：你在"MCP 登记变更"卡上批准或拒绝了维护者提的加、改、删，自检结果一并记着）。
+// - skill：skill 库变了（358 号票：你在"skill 变更"卡上批准或拒绝了负责人提的加、改、删，自检结果一并记着）。
 // - mcp_call：秘书带参调了一次登记过的 MCP 工具（240 号票）；project_op：秘书调了一次运营中的项目的接口（260 号票，project_ops）。
 // 守护进程追加记录用 conversation/messages.ts 的 buildTimelineRecord（和 buildMessage 一样带上归属）。
 // 后面的票加新的 kind 只往 TIMELINE_RECORD_KIND_INFO 里加一行（中文名、要不要进要点层、严重度；界面按严重度取样式）；
@@ -182,6 +183,14 @@ export const TIMELINE_RECORD_KIND_INFO = {
   mcp: {
     get label() {
       return t("protocol.timeline.kind.mcp");
+    },
+    gist: true,
+    severity: "info",
+  },
+  // 358 号票：skill 库变了（你在"skill 变更"卡上批准或拒绝了负责人提的加、改、删，自检结果也在这里）
+  skill: {
+    get label() {
+      return t("protocol.timeline.kind.skill");
     },
     gist: true,
     severity: "info",

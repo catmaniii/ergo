@@ -25,6 +25,8 @@ export interface SecretarySkills {
   paths(): string[];
   /** 名单在设置里改了时叫 fn；返回取消登记的函数 */
   onChange(fn: () => void): () => void;
+  /** 名单里的一个 skill 在库里被改了、删了（358 号票）：叫 onChange 登记的函数，下一次装配按新的 */
+  libraryChanged(): void;
 }
 
 /** 设置页上显示的问题：提到秘书写名字占位，前端按用户起的名字显示（43 号票） */
@@ -99,6 +101,9 @@ export function createSecretarySkills(options: SecretarySkillsOptions): Secretar
     onChange(fn) {
       listeners.add(fn);
       return () => listeners.delete(fn);
+    },
+    libraryChanged() {
+      for (const fn of listeners) fn();
     },
   };
 }

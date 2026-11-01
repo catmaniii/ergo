@@ -283,6 +283,9 @@ import { mcpDecisionPurge, mcpDecisionSource } from "./mcp/material-source.ts";
 import * as mcpTexts from "./mcp/texts.ts";
 import { mcpQuickAction } from "./mcp/quick-action.ts";
 import { BUILTIN_SKILLS_DIR, createSkillLibrary, type SkillLibrary } from "./skills/library.ts";
+import { createSkillChangeService, skillChangeCardType } from "./skills/change.ts";
+import * as skillChangeTexts from "./skills/change-texts.ts";
+import { skillDecisionPurge, skillDecisionSource } from "./skills/material-source.ts";
 import { createSecretarySkills, type SecretarySkills } from "./skills/secretary-skills.ts";
 import { skillDirProblems } from "./skills/skill-command.ts";
 import { conversationSlashCommands } from "./slash-commands/list.ts";
@@ -888,7 +891,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // （129 号票挪到这里：快速动作判处置要用，快速动作的服务要在插件装配之前建好）
     const bashTmp = bashTmpMount(options.env);
     const places: GuardPlaces = {
-      dataDir: { root: realLayout.root, config: realLayout.config, secrets: realLayout.secrets, db: realLayout.db, projects: realLayout.projects },
+      dataDir: { root: realLayout.root, config: realLayout.config, secrets: realLayout.secrets, db: realLayout.db, projects: realLayout.projects, skills: realLayout.skills },
       programDir,
       // agent 的 bash 里 `~` 是 HOME（Git Bash 没有 HOME 时取 USERPROFILE）
       homeDir: real(options.env.HOME ?? options.env.USERPROFILE ?? options.homeDir),
@@ -958,6 +961,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       toolkitDecisionPurge,
       // MCP 登记变更（239）：用户在卡上写的话
       mcpDecisionPurge,
+      // skill 变更（358）：用户在卡上写的话
+      skillDecisionPurge,
       // "浏览"里存进素材的网页（165）的改写函数 212 号票起由浏览插件的数据契约登记
     );
     // 范围记录引着用户在维护者会话里的话、审批卡上的批准（18）：彻底删除那些时连带改写
@@ -1180,12 +1185,56 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       now,
       log,
     });
+    // skill 变更（358）：负责人用 request_skill_change 提加、改、删一个 skill，用户在卡上确认之后运行时才写 skill 区并自检，配进提交人的工具包。
+    // 来源只能是提交人自己的工作目录、项目档案（任务由项目的维护者执行的，按项目）
+    const skillChanges = createSkillChangeService({
+      store,
+      cards,
+      inbox,
+      skills,
+      projectOf: (projectId) => {
+        const project = projectDirectory.get(projectId);
+        return project && { id: project.id, name: project.name };
+      },
+      taskOf: (taskId) => {
+        const task = tasks.get(taskId);
+        return task && { id: task.id, title: task.title, maintainerId: task.maintainerId, ...(task.internal === undefined ? {} : { projectId: task.internal.projectId, projectName: task.internal.projectName }) };
+      },
+      sourceRoots: (submitter) => {
+        if (submitter.kind === "project") return projectSystem.skillSourceRoots(submitter.projectId);
+        const task = tasks.get(submitter.taskId);
+        if (!task) return [];
+        const project = projectDirectory.projectOf(task);
+        return project ? projectSystem.skillSourceRoots(project.id) : [task.workdir ?? wired("agentHost").taskDir(task.id)];
+      },
+      addToToolkit: (submitter, name) => {
+        const why = skillChangeTexts.addedToToolkitWhy(name);
+        return toolkits.addSkill(submitter.kind === "project" ? { kind: "project", projectId: submitter.projectId } : { kind: "task", taskId: submitter.taskId }, name, why);
+      },
+      listProjects: () => projectDirectory.list(),
+      listTasks: () => tasks.list(),
+      taskToolkit: (taskId) => tasks.confirmedPlan(taskId)?.plan.toolkit,
+      assistantUses: (name) => secretarySkills.view().skills.includes(name),
+      skillChanged: ({ maintainerIds, assistant, name }) => {
+        log(`skill ${name} 变了：让 ${maintainerIds.join("、") || "（没有）"} 的会话按新的装配重新拉起`);
+        const notice = skillChangeTexts.reassembledNotice(name);
+        for (const maintainerId of maintainerIds) {
+          wiring.maintainers?.reassemble(maintainerId, notice);
+          projectSystem.reassemble(maintainerId, notice);
+        }
+        if (assistant) secretarySkills.libraryChanged();
+      },
+      now,
+      log,
+    });
     // skill 的目录名就是斜杠命令（82）：不合规的（手放的、更早导入的）不自动改名，启动时记一条日志，skill 库页上也提示
     const skillDirIssues = skillDirProblems(skills.skills());
     if (skillDirIssues.length > 0) log(`skill 的目录名有 ${skillDirIssues.length} 处要留意：${skillDirIssues.join("；")}`);
     registry.register(toolkitChangeCardType(toolkits));
     // "MCP 登记变更"卡（239）：批准之后写配置区的 mcp.json 并自检
     registry.register(mcpChangeCardType(mcpChanges));
+    // "skill 变更"卡（358）：批准之后写 skill 区、自检、配进提交人的工具包
+    registry.register(skillChangeCardType(skillChanges));
     // 秘书带参调 MCP（240）：登记过就调，参数原样发过去；不出卡、不分读写（用户 2026-10-21 定"别加限制"）
     const mcpCalls = createMcpCallService({ store, mcp, now, log });
     registry.register(progressCardType());
@@ -1210,6 +1259,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     materials.register(toolkitDecisionSource);
     // MCP 登记变更卡上的批准、拒绝（239）：审批决定
     materials.register(mcpDecisionSource);
+    // skill 变更卡上的批准、拒绝（358）：审批决定
+    materials.register(skillDecisionSource);
     // "浏览"的 ⋮ 菜单里存进素材的网页（165）212 号票起由浏览插件在数据契约里声明
     // 内部作业：每晚备份、每周校验、每天清理临时区（错过的马上补一次）。建它没有副作用，先建好给插件登记；
     // 停的时候先停内部作业（中止正在跑的、等它停下），再停备份（中止手动的那些）
@@ -2130,12 +2181,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       sessionTools,
       // 插件给维护者的工具、上下文块、钩子订阅（128）：装配时按哪种维护者、哪种会话、工具包筛
       contributions: agentContributions,
-      // 工具包里的 skill、MCP，执行时增减 skill 的工具（27），登记 MCP 的工具（239）
+      // 工具包里的 skill、MCP，执行时增减 skill 的工具（27），登记 MCP 的工具（239），提交 skill 的工具（358）
       toolkits: {
         skillPaths: toolkits.skillPaths,
         mcpTools: toolkits.mcpTools,
         skillTool: (scope) => toolkits.skillTool({ kind: "task", scope }),
         mcpChangeTool: (scope) => mcpChanges.requestTool({ kind: "task", taskId: scope.taskId, maintainerId: scope.maintainerId }),
+        skillChangeTool: (scope) => skillChanges.requestTool({ kind: "task", taskId: scope.taskId, maintainerId: scope.maintainerId }),
         skillCommands: () => toolkits.skillCommands(),
       },
       letters,
@@ -2294,10 +2346,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     /** 项目维护者手上没有在进行的段时，用户的话开一个对话段（分隔线在这句话之前，16）；在项目内部的普通任务的详情里说的不开（75） */
     const userMessagePreludeOf = (conversation: ConversationId, key: string, taskId?: string) =>
       conversation.startsWith(MAINTAINER_CHANNEL_PREFIX) ? projectSystem.messagePrelude(conversation.slice(MAINTAINER_CHANNEL_PREFIX.length), key, taskId) : [];
-    // 项目系统接上建在它之后的内核模块（278）：执行控制器、agent 宿主、执行名额、任务的维护者、子 agent、工具包、MCP 登记变更都建好了。
+    // 项目系统接上建在它之后的内核模块（278）：执行控制器、agent 宿主、执行名额、任务的维护者、子 agent、工具包、MCP 登记变更、skill 变更都建好了。
     // 接着（和原来同一个位置）：项目的建设任务做完了出"首版做完了"卡（任务完成回调）、运营方案跟着项目停用启用（订阅项目事件）、派单器开始
     // （派单器写回最多催几次和执行中的催促同一个阈值，14；工单结束时的范围审视由项目的维护者做，18）
-    projectSystem.connect({ execution: taskExecution, agentHost, slots, taskMaintainers: maintainers, subAgents, toolkits, mcpChanges }, teardown);
+    projectSystem.connect({ execution: taskExecution, agentHost, slots, taskMaintainers: maintainers, subAgents, toolkits, mcpChanges, skillChanges }, teardown);
     // 任务的维护者在派单器接上之后再起：重启时马上要拉起的涉及多个项目的任务的维护者，一起来就可能派工单（17）
     maintainers.start();
     teardown.push(() => maintainers.stop());

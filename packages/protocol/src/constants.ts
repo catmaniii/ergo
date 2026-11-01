@@ -173,6 +173,11 @@ export const EVENT_TYPES = {
    */
   mcpDecided: "mcp_decided",
   /**
+   * 守护进程内部的 skills 频道（前端不订阅）：用户在"skill 变更"卡上批准（运行时已经按卡改了 skill 库，或者来源变了、没改成，写明原因）
+   * 或拒绝（358 号票）。"审批决定"素材的来源
+   */
+  skillDecided: "skill_decided",
+  /**
    * 守护进程内部的 mcp 频道（前端不订阅）：一次秘书带参调 MCP 的结局（240 号票）——只读直接做的、出了卡等你的、
    * 你批准之后真的调了（带服务进程的结果摘要）、你拒绝的、命中底线没执行的。审计和排查用；参数里的密钥类已经脱敏
    */
@@ -545,6 +550,11 @@ export const CARD_TYPES = [
    */
   "mcp_change",
   /**
+   * "skill 变更"卡（358 号票）：负责人提的把一个 skill 加进 skill 库、改、删，卡上列出名字、说明、谁提的、文件清单和大小、有没有脚本、
+   * SKILL.md 全文（改、删的还有哪些工具包在用它）；你确认之后由运行时复制进 skill 区并自检，拒绝则一个字节都不动
+   */
+  "skill_change",
+  /**
    * "规范改写"卡（261 号票）：维护者提的本项目的规范改写（不要某一份、某一份换写法、多一份、恢复照默认）或跟新版规范，
    * 逐条对照、附运行时核实过的用户原话；你确认了才生效（记进项目档案的 standard-overrides.md）
    */
@@ -643,6 +653,8 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   browse_pick: 1,
   /** 239 号票：维护者提的 MCP 登记变更（加、改、删），确认后由运行时写配置区的 mcp.json */
   mcp_change: 1,
+  /** 358 号票：负责人提的 skill 变更（加、改、删），确认后由运行时写 skill 区 */
+  skill_change: 1,
   /** 261 号票：本项目的规范改写、跟新版规范，确认了才生效 */
   standard_change: 1,
   /** 262 号票：规范上线之前建的项目补齐规范文档，选补齐才建任务 */

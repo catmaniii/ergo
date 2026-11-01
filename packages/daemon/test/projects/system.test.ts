@@ -141,6 +141,7 @@ function projectSystemWithFakeKernel() {
     subAgents: { reassemble: () => [] },
     toolkits: { skillTool: unexpected("工具包的 skillTool"), requestTool: unexpected("工具包的 requestTool") },
     mcpChanges: { requestTool: unexpected("MCP 登记变更的 requestTool") },
+    skillChanges: { requestTool: unexpected("skill 变更的 requestTool") },
   };
 
   const stops: Array<() => void | Promise<void>> = [];

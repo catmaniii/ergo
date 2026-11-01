@@ -606,6 +606,9 @@ export type {
   // "MCP 登记变更"卡（239 号票）
   McpChangeCardPayload,
   McpChangeToolView,
+  // "skill 变更"卡（358 号票）
+  SkillChangeCardPayload,
+  SkillChangeUser,
 } from "@ergo/protocol";
 // 定时触发的任务（19 号票的定时作业，76 号票起是触发登记）和归档清单（19 号票）
 export {

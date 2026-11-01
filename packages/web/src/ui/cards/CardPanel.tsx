@@ -8,6 +8,7 @@ import { useStore } from "../../app/store.tsx";
 import { type CardDisplay, cardDisplay, type CardState, type CardType, cardWebPath, t } from "../../state/index.ts";
 import { usePlugins } from "../../plugins/api.ts";
 import { NamedText } from "../assistant-name.tsx";
+import { SkillChangeCard } from "./SkillChangeCard.tsx";
 import { type CardProps, useCardActions } from "./CardShell.tsx";
 import {
   ApprovalCard,
@@ -54,6 +55,8 @@ const BY_TYPE: Partial<Record<CardType, ComponentType<CardProps<never>>>> = {
   toolkit_change: ToolkitChangeCard,
   // MCP 登记变更（239 号票）：维护者提的加、改、删一条 MCP 登记
   mcp_change: McpChangeCard,
+  // skill 变更（358 号票）：负责人提的把一个 skill 加进 skill 库、改、删
+  skill_change: SkillChangeCard,
   archive_list: ArchiveListCard,
   workflow_plan: WorkflowPlanCard,
   build_done: BuildDoneCard,

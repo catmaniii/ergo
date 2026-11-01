@@ -46,6 +46,7 @@ import { PROJECT_ANNOUNCE_ACTION, TASK_CONTROL_ACTION, TASK_DELETE_ACTION, TASK_
 import { RELAY_ACTION } from "../secretary/relay.ts";
 import { EXECUTION_TOOL, PROPOSE_PARALLEL_TOOL, SUBMIT_REVIEW_TOOL, TASK_TOOL, WORKFLOW_TOOL } from "../tasks/tool-names.ts";
 import { REQUEST_MCP_CHANGE_TOOL, MCP_CALL_TOOL } from "../mcp/tool-names.ts";
+import { REQUEST_SKILL_CHANGE_TOOL } from "../skills/tool-names.ts";
 import { ADJUST_SKILLS_TOOL, REQUEST_TOOLKIT_CHANGE_TOOL } from "../toolkit/tool-names.ts";
 
 /** 一个填值占位符的说明；只在某个条件成立时才有值的，另写那个条件（onlyWhen） */
@@ -606,6 +607,8 @@ export function commonPlaceholders(): readonly CommonPlaceholder[] {
     REQUEST_TOOLKIT_CHANGE_TOOL,
     // 239 号票：登记 MCP（加、改、删一条，用户确认之后运行时才写配置区）
     REQUEST_MCP_CHANGE_TOOL,
+    // 358 号票：把 skill 提交进 skill 库（加、改、删，用户确认之后运行时才写 skill 区）
+    REQUEST_SKILL_CHANGE_TOOL,
     // 240 号票：秘书带参调一个登记过的 MCP 工具（参数自由传，登记过就调）
     MCP_CALL_TOOL,
     ...Object.values(WORK_ORDER_TOOL),

@@ -96,6 +96,7 @@ const WHAT = tTable({
   standardChangeCard: "state.chatItems.internal.standardChangeCard",
   toolkitChangeCard: "state.chatItems.internal.toolkitChangeCard",
   mcpChangeCard: "state.chatItems.internal.mcpChangeCard",
+  skillChangeCard: "state.chatItems.internal.skillChangeCard",
   toolkitRecord: "state.chatItems.internal.toolkitRecord",
   workOrderRecord: "state.chatItems.internal.workOrderRecord",
 });
@@ -141,6 +142,8 @@ export const INTERNAL_TOOLS: Readonly<Record<string, { readonly what: string; re
   request_toolkit_change: { get what() { return WHAT.toolkitChangeCard; }, shownAs: { kind: "card", cardType: "toolkit_change" } },
   /** mcp/tool-names.ts REQUEST_MCP_CHANGE_TOOL（239 号票） */
   request_mcp_change: { get what() { return WHAT.mcpChangeCard; }, shownAs: { kind: "card", cardType: "mcp_change" } },
+  /** skills/tool-names.ts REQUEST_SKILL_CHANGE_TOOL（358 号票） */
+  request_skill_change: { get what() { return WHAT.skillChangeCard; }, shownAs: { kind: "card", cardType: "skill_change" } },
   /** toolkit/tool-names.ts ADJUST_SKILLS_TOOL */
   adjust_skills: { get what() { return WHAT.toolkitRecord; }, shownAs: { kind: "record", recordKind: "toolkit" } },
   /** work-orders/tool-names.ts MULTI_PROJECT_TOOL.dispatchWorkOrder */
