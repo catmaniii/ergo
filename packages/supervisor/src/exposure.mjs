@@ -14,7 +14,7 @@ const CHECK_TIMEOUT_MS = 10000;
 export function exposureCreatable(svc, vps) {
   // exposure.never：用户明确定过「永不上公网」的服务（比如只给本机用的推理引擎）。
   // 之前只靠「注册表里刻意不写 exposure」来表达这个意思，可那只是**没开**，不是**不许开**——
-  // WebUI 照样给它一个「开通公网」按钮，点一下就破了规矩（2026-10-05 改版时发现）。
+  // WebUI 照样给它一个「开通公网」按钮，点一下就破了规矩。
   if (svc.exposure?.never) return { ok: false, why: `${svc.id} 永不上公网：${svc.exposure.never}` };
   if (!svc.probe?.port) return { ok: false, why: `${svc.id} 没有端口，做不了端口转发` };
   if (svc.exposure?.via) return { ok: false, why: `${svc.id} 已经有公网入口（经 ${svc.exposure.via}）` };

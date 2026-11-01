@@ -5,7 +5,7 @@
 //                               app\（packages\daemon、protocol、memory、supervisor、web\dist 和 node_modules）、ergo.exe / ergo.cmd、许可证
 //     current                   一个文本文件，里面一行写着在用的版本目录的名字（切版本 = 改这个文件）。
 //                               老安装里它是目录联接，照样认：经启动器（ergo.exe）跑时建联接会被杀毒软件
-//                               按进程链拦（EPERM），2026-10-27 改成写文件的。
+//                               按进程链拦（EPERM），所以写文件。
 //     bin\ergo.exe、ergo.cmd    加进用户 PATH 的只有这一个目录；启动器读 current 找到 node 和命令行
 //     downloads\<版本>\         ergo update 下了一半的、校验用的文件（装好后删）
 //     install.json              在用的、上一个版本，从哪儿更新
@@ -248,7 +248,7 @@ export function createJunction(target: string, link: string, retries = 50): void
 /**
  * 把 current 改指到 versions\<name>：写一行文本，不建目录联接。
  * 以前是目录联接，但经启动器（PowerShell → ergo.exe → node）跑 `ergo update` 时建联接会被杀毒软件按进程链拦（EPERM），
- * 2026-10-27 改成写文件——切换不碰联接，谁的机器上都不会被拦。
+ * 写文件——切换不碰联接，谁的机器上都不会被拦。
  */
 export function switchCurrent(root: string, name: string): void {
   const { current, versions } = installPaths(root);
