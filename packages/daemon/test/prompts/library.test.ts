@@ -286,7 +286,7 @@ describe("插件贡献的条件、占位符、片段（128 号票）", () => {
     expect(off).not.toMatch(/send_voice|念给你听|自动播报/);
     // 少的只是包在条件里的那几句：任务做完说一声、部分完成、负责人来信转告照旧
     expect(off).toContain("用一两句话说哪个任务做完了、结果大概是什么。定时、事件触发的任务有一次运行");
-    expect(off).toContain("项目内部的任务和作业做完没有这条通知。\n");
+    expect(off).toContain("项目内部的任务做完没有这条通知。\n");
     expect(off).toContain("不要追问、也不要去翻。\n");
     expect(withVoice(false).detail("secretary").placeholders.find((p) => p.name === "语音")).toMatchObject({ kind: "flag" });
 
