@@ -8,6 +8,7 @@
 //   像网络上的自动访问的请求（137 号票）多一句醒目的提示。
 // 时长、位数都取共享协议包里的常量。
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { pageNativeApp } from "../app/page-native.ts";
 import { type PairingApi, PairingFlow } from "../app/pairing-flow.ts";
 import { useCard, useStore } from "../app/store.tsx";
 import { outcomeLabel, type PairingPayload } from "../model/cards.ts";
@@ -62,6 +63,7 @@ export interface PairingWaitProps {
 
 export function PairingWait({ api, onPaired, onExit, opening = "new", onReapply }: PairingWaitProps) {
   const [flow] = useState(() => new PairingFlow(api));
+  const app = pageNativeApp();
   const { loaded, request, busy, error } = useSyncExternalStore(flow.subscribe, flow.getState);
   // 说明页上的设备名：默认按这台浏览器生成（和守护进程的默认一样），上一个请求过期、被拒的沿用它的
   const [name, setName] = useState(() => defaultDeviceName(navigator.userAgent));
@@ -190,6 +192,12 @@ export function PairingWait({ api, onPaired, onExit, opening = "new", onReapply 
               </button>
             )}
           </>
+        )}
+        {/* 在 App 里：还没配对、凭证被吊销时进不了设置，换地址、重新扫码的入口得在这里 */}
+        {app && stage !== "paired" && (
+          <button type="button" className="link" onClick={() => app.editServer()}>
+            {t("pages.nativeApp.changeServer")}
+          </button>
         )}
       </div>
     </div>
