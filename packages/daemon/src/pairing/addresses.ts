@@ -89,7 +89,7 @@ export function createConnectionAddresses(options: ConnectionAddressesOptions): 
         return view();
       }
       const checked = checkManualConnectionAddress(input);
-      if (!checked.ok) throw new RequestRejected("bad_params", t(`pairing.address.invalid.${checked.problem}`));
+      if (!checked.ok) throw new RequestRejected("bad_params", t(`protocol.connectionAddress.invalid.${checked.problem}`));
       if (checked.url !== manual) options.save(checked.url);
       manual = checked.url;
       return view();

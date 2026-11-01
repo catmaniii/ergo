@@ -7,6 +7,7 @@ import {
   conversationPhrase,
   maintainerChannel,
   maintainerLabel,
+  MEMORY_CURATOR_AGENT_ID,
   projectLabel,
   readableId,
   reduce,
@@ -70,6 +71,16 @@ describe("编号「简短描述」", () => {
     expect(readableId(named, "tm-brief")).toBe("tm-brief「每天早上出早报的任务负责人」");
     expect(readableId(named, "t-shirt")).toBe("t-shirt");
     expect(readableId(named, "t-9")).toBe("t-9（已删除）");
+  });
+
+  test("记忆管理员不算删掉了的负责人：写它的名字，不写 memory-curator（已删除）（371）", () => {
+    const state = sample();
+    expect(maintainerLabel(state, MEMORY_CURATOR_AGENT_ID)).toBe("记忆管理员");
+    expect(readableId(state, MEMORY_CURATOR_AGENT_ID)).toBe("记忆管理员");
+    expect(conversationName(state, maintainerChannel(MEMORY_CURATOR_AGENT_ID))).toBe("记忆管理员");
+    expect(conversationPhrase(state, maintainerChannel(MEMORY_CURATOR_AGENT_ID))).toBe("会话 记忆管理员");
+    // 补发还没推完时也一样，它不靠补发来的东西认
+    expect(maintainerLabel(replay([]), MEMORY_CURATOR_AGENT_ID)).toBe("记忆管理员");
   });
 
   test("名字变了跟着变", () => {

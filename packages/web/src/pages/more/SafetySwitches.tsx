@@ -3,7 +3,7 @@
 // - 任务超预算就停下：配置 tasks.thresholds.budgetControl（超了先说明进展、过了 2 倍停下等你）。
 // 新装时两个都不勾（用户 2026-11-01 改的，向导里告诉用户可以勾），已有的数据目录里写了什么就是什么，没写的是关着；每个开关下面一句大白话写开着、关掉各会怎样。打开时现取 GET /api/safety-settings，
 // 拨一下 PUT 只带拨的那一项，守护进程写进配置文件、马上生效（不用重启），存好提示一句。319 号票的设置向导复用这一对接口。
-// 样子照设置 · 记忆的开关（.mem-setting）。
+// 样子照记忆页设置里的开关（.mem-setting）。
 import { useEffect, useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { type SafetySettingsBody, type SafetySettingsView, t } from "../../state/index.ts";

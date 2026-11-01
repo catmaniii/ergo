@@ -5,7 +5,7 @@
 // - 档案信息：聊的时候管理员听到了就记下（不出卡）；收尾时说"今天我记下了这些"，这次记下的合成一张档案核对卡，逐条确认
 //   （确认的经 281 的写入口写进档案，前一条新建的人后一条写进他那份；不记的不写）；管理员自己的总结不进素材、不写成结论；
 //   这个主题记成聊过，下次换下一个；
-// - "下次再说"一周后再约，"不想做了"以后不再约（设置 · 记忆里的约访开关跟着关）；
+// - "下次再说"一周后再约，"不想做了"以后不再约（记忆页设置里的约访开关跟着关）；
 // - 用户主动开：记忆管理员对话里的"开始访谈"（285 号票起；以前是记忆页的"找管理员聊聊"，POST /api/memory/interview）、跟秘书说"我想做个访谈"（快速动作 start_interview）都进同一个访谈；
 // - 语音插件开着时：访谈里按住说话，管理员的回话由运行时合成语音（和秘书、负责人同一套），语音转写的素材也标"来自访谈"。
 // 示例对话全是编的。时钟从周六 09:00 起（这一夜的 03:00 已经过了，不会唤醒管理员去整理）；整理关着（memory.enabled=false），只看访谈。
@@ -243,7 +243,7 @@ describe("了解你访谈", () => {
     },
   );
 
-  it("「下次再说」一周后再约；「不想做了」以后不再约（设置 · 记忆里的约访跟着关）", { timeout: 90_000 }, async () => {
+  it("「下次再说」一周后再约；「不想做了」以后不再约（记忆页设置里的约访跟着关）", { timeout: 90_000 }, async () => {
     const clock = new ManualClock(at(10, 10, 9, 0));
     const td = await startTestDaemon({ clock, memoryPlugin: true, config: NO_NIGHTLY });
     const frontend = await TestFrontend.connect(td.url);
@@ -291,7 +291,7 @@ describe("了解你访谈", () => {
       memoryPlugin: true,
       config: NO_NIGHTLY,
       curator: [say("好，今天聊聊家里的人。先问一个：现在家里都有谁？")],
-      secretary: [call("propose_quick_action", { type: "start_interview", params: {} }), say("记忆管理员已经在等你了，去「记忆 · 管理员」那里接着聊。")],
+      secretary: [call("propose_quick_action", { type: "start_interview", params: {} }), say("记忆管理员已经在等你了，去记忆页点「和记忆管理员聊」接着聊。")],
     });
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [SECRETARY]: 0, [CURATOR]: 0 });

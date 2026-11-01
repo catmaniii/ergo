@@ -31,6 +31,9 @@ export function keysIn(code: string): string[] {
   return keys;
 }
 
+/** 一个文件里拼出来的 key（`某区域.x.${原因}`）开头那一段 */
+const prefixes = (code: string) => [...code.matchAll(/\b(?:t|tx|tParts)\(\s*`([A-Za-z]\w*)\./g)].map((m) => m[1]!);
+
 describe("代码里用到的 key", () => {
   const zh = builtinCatalogs().catalogs.get(DEFAULT_LANGUAGE)!.messages;
   const known = new Set(Object.keys(zh).map(logicalKey));
@@ -54,6 +57,13 @@ describe("代码里用到的 key", () => {
       .filter((file) => file.includes(`${path.sep}web${path.sep}src${path.sep}`))
       .flatMap((file) => keysIn(fs.readFileSync(file, "utf8")).filter((k) => !web.has(namespaceOf(k))).map((k) => `${path.relative(REPO, file)}：${k}`));
     expect(wrong).toEqual([]);
+  });
+
+  it("网页里拼出来的 key（`某区域.x.${原因}`）开头那一段也在网页打包的区域里：不然页面上显示的是键名（371）", () => {
+    const web = new Set<string>(WEB_NAMESPACES);
+    expect(prefixes("t(`shell.a.${x}`); tParts(`pairing.b.${y}`, {}); t(\"shell.c\")")).toEqual(["shell", "pairing"]);
+    const webFiles = files.filter((file) => file.includes(`${path.sep}web${path.sep}src${path.sep}`));
+    expect(webFiles.flatMap((file) => prefixes(fs.readFileSync(file, "utf8")).filter((ns) => !web.has(ns)).map((ns) => `${path.relative(REPO, file)}：${ns}`))).toEqual([]);
   });
 
   it("鸿蒙 App 原生只用 harmony.* 的 key，这一块不分单复数", () => {

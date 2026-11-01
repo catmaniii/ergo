@@ -23,6 +23,7 @@ import path from "node:path";
 import { DOCTOR_CHECKS, DOCTOR_FIX_UNKNOWN, type ComponentsView, type DoctorCheckData, type DoctorCheckDataById, type DoctorCheckId, type DoctorCheckView, type DoctorView, type RejectedConnectionAddress } from "@ergo/protocol";
 import { DAEMON_SERVICE_ID } from "../cli/service.ts";
 import { listeningPids } from "../process/port-owner.ts";
+import type { InstallLayout } from "../release/layout.ts";
 
 /** 二狗和 pi 用的 Node 大版本（ADR-0031：跟着 pi 的测试线走，现在是 22） */
 export const DOCTOR_NODE_MAJOR = 22;
@@ -45,6 +46,8 @@ export interface DoctorOptions {
   probes: DoctorProbes;
   /** 查的时刻（毫秒时间戳）；不给是此刻。测试换成固定的 */
   now?: () => number;
+  /** 这份二狗是怎么装的（pi 缺了时修法不一样，371 号票）；不给当仓库里直接跑的 */
+  install?: Pick<InstallLayout, "kind" | "info">;
 }
 
 /** 每一项的 ok 判法（票里定的八条） */
@@ -74,11 +77,19 @@ const FALLBACK: { readonly [Id in DoctorCheckId]: DoctorCheckDataById[Id] } = {
   external: { configured: false },
 };
 
-/** 按 id 挑判法（两边是同一种形状，TS 认不出这层对应关系） */
-/** 怎么修的文案键：外网入口接错了端口（364 号票）和没配是两回事，修法不一样 */
-function fixOf(id: DoctorCheckId, data: DoctorCheckData): string {
+/** pi 缺了怎么修：仓库里跑的（开发模式联接的也是）装依赖；一行命令装的程序目录里没有 npm，要重装；npm 装的用 npm 重装（371 号票） */
+function piFix(install: DoctorOptions["install"]): string {
+  if (install?.kind === "npm") return "doctor.fix.piNpm";
+  return install?.kind === "installed" && install.info?.kind !== "link" ? "doctor.fix.piInstalled" : "doctor.fix.pi";
+}
+
+/** 怎么修的文案键：外网入口接错了端口（364 号票）和没配是两回事，修法不一样；pi 按安装方式 */
+function fixOf(id: DoctorCheckId, data: DoctorCheckData, install: DoctorOptions["install"]): string {
+  if (id === "pi") return piFix(install);
   return id === "external" && ((data as DoctorCheckDataById["external"]).rejected?.length ?? 0) > 0 ? "doctor.fix.externalRejected" : `doctor.fix.${id}`;
 }
+
+/** 按 id 挑判法（两边是同一种形状，TS 认不出这层对应关系） */
 
 function judge(id: DoctorCheckId, data: DoctorCheckData): boolean {
   return (OK[id] as (data: DoctorCheckData) => boolean)(data);
@@ -97,7 +108,7 @@ export function createDoctor(options: DoctorOptions): DoctorService {
         try {
           const data = (await (options.probes[id] as DoctorProbe<DoctorCheckId>)()) as DoctorCheckData;
           const ok = judge(id, data);
-          return { id, ok, data, ...(ok ? {} : { fix: fixOf(id, data) }) };
+          return { id, ok, data, ...(ok ? {} : { fix: fixOf(id, data, options.install) }) };
         } catch {
           return { id, ok: false, data: FALLBACK[id], fix: DOCTOR_FIX_UNKNOWN };
         }

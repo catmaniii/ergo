@@ -35,7 +35,7 @@ export type InterviewCadence = (typeof INTERVIEW_CADENCES)[number];
 export const INTERVIEW_STARTERS = ["card", "page", "secretary", "curator"] as const;
 export type InterviewStarter = (typeof INTERVIEW_STARTERS)[number];
 
-/** 约访卡上的三个选择的结局：开始了、下次再说、不想做了（以后不再约，设置 · 记忆里能重新打开） */
+/** 约访卡上的三个选择的结局：开始了、下次再说、不想做了（以后不再约，记忆页的设置里能重新打开） */
 export const INTERVIEW_INVITE_RESULTS = ["started", "later", "declined"] as const;
 export type InterviewInviteResult = (typeof INTERVIEW_INVITE_RESULTS)[number];
 

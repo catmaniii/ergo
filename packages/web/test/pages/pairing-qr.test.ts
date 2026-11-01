@@ -9,6 +9,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test } from "vitest";
 import { addressNotes, demoConnectionAddressesView, manualAddressProblem } from "../../src/app/connection-addresses.ts";
 import { doctorFactText, doctorFixText } from "../../src/app/doctor.ts";
+import { bundledLocale } from "../../src/app/locale.ts";
 import { PairingQrContent } from "../../src/pages/more/PairingQrPage.tsx";
 import { activeLocale, activeLocaleFrom, type Card, type CardState, type ConnectionAddressesView, pendingPairingCardIds, setActiveLocale, t } from "../../src/state/index.ts";
 import { TEST_LOCALES } from "../setup-locales.ts";
@@ -232,9 +233,26 @@ describe("体检：服务管家给了、手机用不了的入口", () => {
 describe("手填的校验、演示数据、文案", () => {
   test("填的地址不对当场说，对的不说", () => {
     expect(manualAddressProblem("https://frp.example.com/")).toBeUndefined();
-    expect(manualAddressProblem("https://192.168.1.5/")).toBe(t("pairing.address.invalid.lan"));
-    expect(manualAddressProblem("http://frp.example.com/")).toBe(t("pairing.address.invalid.httpsOnly"));
-    expect(manualAddressProblem("")).toBe(t("pairing.address.invalid.empty"));
+    expect(manualAddressProblem("https://192.168.1.5/")).toBe(t("protocol.connectionAddress.invalid.lan"));
+    expect(manualAddressProblem("http://frp.example.com/")).toBe(t("protocol.connectionAddress.invalid.httpsOnly"));
+    expect(manualAddressProblem("")).toBe(t("protocol.connectionAddress.invalid.empty"));
+  });
+
+  test("校验不过的话在网页打包的语言里：页面上是句子，不是键名（371）", () => {
+    // 这个文件平时用的词典是直接读全部语言文件的（setup-locales.ts），守护进程才有的句子也查得到；页面上只有打包进去的这份
+    const reasons = ["", `https://${"a".repeat(600)}.example.com/`, "not an address", "https://", "https://me:pw@frp.example.com/", "http://frp.example.com/", "https://192.168.1.5/"];
+    for (const language of ["zh-CN", "en"]) {
+      setActiveLocale(bundledLocale(language));
+      for (const input of reasons) {
+        const problem = manualAddressProblem(input);
+        expect(problem).toBeDefined();
+        expect(problem).not.toMatch(/^[A-Za-z]+(\.[A-Za-z]+)+$/);
+      }
+    }
+    setActiveLocale(bundledLocale("zh-CN"));
+    expect(manualAddressProblem("https://192.168.1.5/")).toContain("局域网");
+    setActiveLocale(bundledLocale("en"));
+    expect(manualAddressProblem("https://192.168.1.5/")).toContain("local network");
   });
 
   test("演示页的假数据：两个地址，填了手填的多一个", () => {

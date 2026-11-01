@@ -46,6 +46,7 @@ import {
   type AgentSettingsView,
   type MaintainerModelAgent,
   type ModelSwitchAt,
+  fillAssistantName,
   t,
   takeoverPlaceOf,
   tokenTotal,
@@ -500,10 +501,12 @@ export function createAgentSettings(options: AgentSettingsOptions): AgentSetting
       if (role === undefined) throw new RequestRejected("not_found", t("agentRoles.roleNotFound", { id: roleId }));
       if (role.isDefault) throw new RequestRejected("bad_params", t("agentRoles.defaultCannotDelete"));
       if (role.usedBy.length > 0) {
-        const labels = role.usedBy.map((agentId) => entries().find((entry) => entry.agentId === agentId)?.label ?? agentId);
+        // 这句话直接显示给用户，不经过界面的名字标签：秘书的 label 是名字占位，这里换成名字（371 号票）
+        const labels = role.usedBy.map((agentId) => fillAssistantName(view.agents.find((entry) => entry.agentId === agentId)?.label ?? agentId, options.assistantName()));
         throw new RequestRejected("bad_params", t("agentRoles.roleInUse", { agents: labels.join(t("common.listSeparator")) }));
       }
-      options.roles.remove(roleId);
+      // 还指着它的只可能是认不得了的 agent（删了的任务、项目的负责人）：不算在用（371 号票）
+      options.roles.remove(roleId, (agentId) => options.resolve(agentId) === undefined);
       return rolesView();
     },
     setDefaultRole(roleId) {

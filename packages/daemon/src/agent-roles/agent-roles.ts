@@ -82,8 +82,11 @@ export interface AgentRoles {
   create(body: AgentRoleBody): RoleDocument;
   /** 改名 / 换音色（默认角色会同时改全局名字 / 全局选中的音色） */
   update(roleId: string, body: AgentRoleUpdateBody): RoleDocument;
-  /** 删一个角色：默认角色、还有 agent 指定的都抛 RequestRejected */
-  remove(roleId: string): RoleDocument;
+  /**
+   * 删一个角色：默认角色、还有 agent 指定的都抛 RequestRejected。
+   * isGone 认哪些 agent 已经没了（任务、项目删掉时这里的指定不跟着清）：它们不算在用，那一项随角色一起清（不然报一个改不了的编号，这个角色永远删不掉，371 号票）
+   */
+  remove(roleId: string, isGone?: (agentId: string) => boolean): RoleDocument;
   /** 把某个角色设成默认：全局名字和音色跟着变成那个角色的 */
   setDefault(roleId: string): RoleDocument;
   /** 给一个 agent 选角色：null（或默认角色）= 跟默认 */
@@ -393,12 +396,14 @@ export function openAgentRoles(options: AgentRolesOptions): AgentRoles {
       log(`角色 ${roleId} 改了：名字「${role.name}」、音色${role.voiceId === undefined ? "跟默认" : role.voiceId}`); // @i18n-ignore log：只进日志
       return doc;
     },
-    remove(roleId) {
+    remove(roleId, isGone) {
       const doc = writable();
       const role = mustRole(doc, roleId);
       if (role.id === doc.defaultRoleId) throw new RequestRejected("bad_params", t("agentRoles.defaultCannotDelete"));
-      const users = usedBy(doc, roleId);
+      const assigned = usedBy(doc, roleId);
+      const users = assigned.filter((agentId) => !isGone?.(agentId));
       if (users.length > 0) throw new RequestRejected("bad_params", t("agentRoles.roleInUse", { agents: users.join(t("common.listSeparator")) }));
+      for (const agentId of assigned) delete doc.assignments[agentId];
       doc.roles = doc.roles.filter((item) => item.id !== roleId);
       write(doc);
       log(`删掉了角色 ${roleId}（${role.name}）`); // @i18n-ignore log：只进日志

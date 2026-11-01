@@ -1827,6 +1827,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       log,
     });
     const doctor: DoctorService = createDoctor({
+      install: installLayout,
       probes: {
         ports: portsProbe(() => boundPorts),
         node: nodeProbe,

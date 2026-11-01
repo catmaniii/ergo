@@ -9,7 +9,7 @@
 // 设置块的小标题下面那句也跟着写"实验性"——不只在文档里说。
 import { t } from "../../state/index.ts";
 
-/** 名字：中文「会意」、英文 Subtext（和「记忆模块」拼成的整句在语言文件里：shell.pages.memory.title） */
+/** 名字：中文「会意」、英文 Subtext（和「记忆系统」拼成的整句在语言文件里：shell.pages.memory.title） */
 export const MEMORY_SYSTEM_NAME = "pages.memory.systemName";
 
 /** 记忆页页头那一行：从你说过的话里推断你真正想要的（名字已经在标题栏里，这里不重复） */

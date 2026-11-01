@@ -9,7 +9,7 @@
 // - 追加在这一轮输入的尾部（agent 贡献缝的 when: "input"，和看板变化、顺口问拼成一条跟在用户消息后面的上下文消息），
 //   不进系统提示、不改前面的历史，保住前缀缓存；
 // - "好的""谢谢""嗯"这类短应答不带（isShortReply）；
-// - 用量页单独列"记忆简报"一项（每带一次记一笔估的 token，ledger 的 context_usage）；设置 · 记忆里能关（memoryBrief，默认开）。
+// - 用量页单独列"记忆简报"一项（每带一次记一笔估的 token，ledger 的 context_usage）；记忆页的设置里能关（memoryBrief，默认开）。
 //
 // "同一段对话"：秘书的会话从上一次压缩、清空当前对话、换模型新开会话、回退切换分支之后算起——这些之后前面带过的已经不在模型的上下文里了，
 // 再带。带过的记在秘书这一轮回话的 MemoryBriefPart 上（brought：键 → 指纹，只有编号和哈希），守护进程重启后从会话里往回认到上一个分界；
@@ -167,7 +167,7 @@ export interface MessageBriefsOptions {
   store: Pick<EventStore, "reader" | "readBefore">;
   /** 素材库：简报引的证据对回素材（进"回忆了 N 条记忆"） */
   materials: Pick<Materials, "get">;
-  /** 设置 · 记忆里记忆简报开着没有（现取，改了下一条输入就按新的） */
+  /** 记忆页的设置里记忆简报开着没有（现取，改了下一条输入就按新的） */
   enabled: () => boolean;
   /** 带了一次：记一笔用量（用量页的"记忆简报"）；不给就不记 */
   record?: (usage: MessageBriefUsage) => void;

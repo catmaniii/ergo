@@ -356,7 +356,7 @@ export function QuickActionCard({ state, payload: p, act }: CardProps<QuickActio
           {t("ui.cards.personalFile.openToUndo")}
         </a>
       )}
-      {/* 284 号票：开了一次了解你访谈的回执：访谈在记忆 · 管理员那里（记忆插件的页面；插件停用时那一页写没启用） */}
+      {/* 284 号票：开了一次了解你访谈的回执：访谈在记忆管理员的整页对话里（记忆插件的页面；插件停用时那一页写没启用） */}
       {p.action.type === "start_interview" && state.card.status === "handled" && (
         <a className="link" href={toHash({ tab: "more", page: "memory", item: "curator" })}>
           {t("ui.cards.quickAction.goInterview")}

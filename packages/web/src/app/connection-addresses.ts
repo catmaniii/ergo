@@ -30,7 +30,7 @@ export async function postManualAddress(manual: string | null): Promise<Connecti
 /** 填的地址能不能存：能存是 undefined，不能存是给人看的原因（守护进程还会再查一遍，这里只为了不白发一次请求） */
 export function manualAddressProblem(input: string): string | undefined {
   const checked = checkManualConnectionAddress(input);
-  return checked.ok ? undefined : t(`pairing.address.invalid.${checked.problem}`);
+  return checked.ok ? undefined : t(`protocol.connectionAddress.invalid.${checked.problem}`);
 }
 
 /** 地址的种类怎么叫 */

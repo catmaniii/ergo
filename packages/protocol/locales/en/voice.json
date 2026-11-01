@@ -20,7 +20,7 @@
   "voice.skipped.noReference": "No reference voice",
   "voice.skipped.restarted": "The daemon restarted before this turn finished its reply",
   "voice.missingReference.title": "Import a reference voice to get voice replies",
-  "voice.missingReference.body": "An agent wanted to talk to you by voice (you sent a voice message, or it wanted to send one), but no reference voice has been imported yet, so it replied in text. Go to Settings › Voice and import a clean voice recording (WAV, 5–15 s) with its transcript; replies will use that voice from then on. This item archives itself once you import one.",
+  "voice.missingReference.body": "An agent wanted to talk to you by voice (you sent a voice message, or it wanted to send one), but no reference voice has been imported yet, so it replied in text. Go to Settings › Voice and import a clean voice recording (common audio formats work, 1–30 s; the transcript is recognized automatically); replies will use that voice from then on. This item archives itself once you import one.",
   "voice.missingReference.source": "Voice replies",
   "voice.warmup.queued": "Waiting for the speech recognition model",
   "voice.warmup.needsReference": "No reference voice yet. Import one, then warm up.",

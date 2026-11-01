@@ -23,7 +23,7 @@
   "shell.pages.memory.title": "Memory System · Subtext v1.0",
   "shell.pages.memory.sub": "An experimental memory system: files, conclusions, question box, materials; talk to the memory curator and do the get-to-know interview",
   "shell.pages.settings.title": "Settings",
-  "shell.pages.settings.sub": "Assistant name, language, appearance & style, models, watch categories, workday rules, skills & MCP, system prompts, voice, browsing & form filling, data sources, authorized folders, paired devices, full tool-call records",
+  "shell.pages.settings.sub": "My name, personal files, roles & voices, language, appearance & style, voice, send and new line, models, skills & MCP, plugins, components, Claude Code, browsing & form filling, watch categories, system prompts, workday rules, data sources, authorized folders, delete materials, full tool-call records, backup, device pairing, checkup, about Ergo",
   "shell.pages.setup.title": "Setup wizard",
   "shell.pages.setup.sub": "Two minutes the first time: language, how to call you, model key, capabilities, phone, safety defaults, and how to reach it from outside",
   "shell.pages.roles.title": "Roles & voices",

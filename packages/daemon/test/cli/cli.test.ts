@@ -220,6 +220,115 @@ describe("服务管家的设置和二狗的登记", () => {
     expect(v.stdout + v.stderr).toMatch(/1 个服务，全部通过校验/);
   });
 
+  describe("用的人在登记的 env 里多加的项（371：手册让把 MCP 的 fromEnv 变量加在这里）", () => {
+    const OURS = ["ERGO_DATA_DIR", "LSM_DATA_DIR", "DEEPSEEK_API_KEY", "CUSTOM_MODEL_API_KEY"];
+    /** 我们写的 env 最后一项之后插进这几行（照用的人在记事本里加的样子） */
+    const addToEnv = (text: string, lines: string) => text.replace(/^autoRestart:/m, `${lines}\nautoRestart:`);
+    const entryOf = (t: { ctx: Parameters<typeof svcPaths>[0] }) => fs.readFileSync(svcPaths(t.ctx).daemonEntry, "utf8");
+    const envOf = (text: string) => (YAML.parse(text) as { env: Array<Record<string, unknown>> }).env;
+
+    it("重写时留下，紧跟在我们的项后面；我们的项和别的地方跟着这次的安装走；再写一次不算变了；lsm validate 认", async () => {
+      const t = await installedCli();
+      writeSvcConfig(t.ctx);
+      const added = [
+        "  # 笔记服务的 token",
+        "  - name: ERGO_NOTES_API_TOKEN",
+        "    from: file",
+        "    path: 'C:\\keys\\notes.txt'",
+        "    optional: true",
+        "  - { name: ERGO_MAPS_KEY, from: userEnv }",
+      ].join("\n");
+      // 上一个版本写的登记（路径指着旧版本目录）加上用的人多加的两项，像升级前磁盘上的样子
+      const old = addToEnv(entryOf(t).replaceAll(path.join("versions", "0.2.0"), path.join("versions", "0.1.0")), added);
+      fs.writeFileSync(svcPaths(t.ctx).daemonEntry, old);
+
+      expect(writeSvcConfig(t.ctx).entryChanged).toBe(true);
+      const text = entryOf(t);
+      expect(text).toContain("# 笔记服务的 token");
+      const env = envOf(text);
+      expect(env.map((e) => e.name)).toEqual([...OURS, "ERGO_NOTES_API_TOKEN", "ERGO_MAPS_KEY"]);
+      expect(env[4]).toEqual({ name: "ERGO_NOTES_API_TOKEN", from: "file", path: "C:\\keys\\notes.txt", optional: true });
+      expect(env[5]).toEqual({ name: "ERGO_MAPS_KEY", from: "userEnv" });
+      const home = path.join(t.root, "versions", "0.2.0");
+      expect((YAML.parse(text) as { root: string }).root).toBe(path.join(home, "app"));
+      expect(text).not.toContain(path.join("versions", "0.1.0"));
+
+      expect(writeSvcConfig(t.ctx).entryChanged).toBe(false);
+      expect(entryOf(t)).toBe(text);
+      const v = spawnSync(process.execPath, [LSM, "validate"], { env: { ...t.ctx.env, LSM_DATA_DIR: t.ctx.svcDataDir }, encoding: "utf8", windowsHide: true });
+      expect(v.stdout + v.stderr).toMatch(/1 个服务，全部通过校验/);
+    });
+
+    it("我们自己的项照旧覆盖：用的人改了也改回来，新版本的值生效，不会多出一份", async () => {
+      const t = await installedCli();
+      writeSvcConfig(t.ctx);
+      const fresh = envOf(entryOf(t));
+      const tampered = entryOf(t)
+        .replace(/(name: DEEPSEEK_API_KEY\n\s+from: file\n\s+path: )'[^']*'/, "$1'C:\\old\\key.txt'")
+        .replace(/(name: ERGO_DATA_DIR\n\s+from: literal\n\s+value: )'[^']*'/, "$1'C:\\old\\data'");
+      expect(envOf(tampered)).not.toEqual(fresh);
+      fs.writeFileSync(svcPaths(t.ctx).daemonEntry, tampered);
+      writeSvcConfig(t.ctx);
+      expect(envOf(entryOf(t))).toEqual(fresh);
+    });
+
+    it("认得各种手写的样子：记事本的 CRLF、列表不缩进、一行写完的 env: [...]、值里带 # 和 env:", async () => {
+      const t = await installedCli();
+      writeSvcConfig(t.ctx);
+      const ours = envOf(entryOf(t));
+
+      // 记事本存的：换行是 CRLF
+      fs.writeFileSync(svcPaths(t.ctx).daemonEntry, addToEnv(entryOf(t), "  - name: A_TOKEN\n    from: userEnv").replaceAll("\n", "\r\n"));
+      writeSvcConfig(t.ctx);
+      expect(envOf(entryOf(t)).map((e) => e.name)).toEqual([...OURS, "A_TOKEN"]);
+      expect(entryOf(t)).not.toContain("\r");
+
+      // 列表和 env: 对齐（YAML 允许不缩进）
+      fs.writeFileSync(svcPaths(t.ctx).daemonEntry, "id: ergo-daemon\nenv:\n- name: B_TOKEN\n  from: literal\n  value: 'a # b'\n- name: ERGO_DATA_DIR\n  from: literal\n  value: 'x'\nautoRestart:\n  enabled: true\n");
+      writeSvcConfig(t.ctx);
+      expect(envOf(entryOf(t)).slice(ours.length)).toEqual([{ name: "B_TOKEN", from: "literal", value: "a # b" }]);
+
+      // 一行写完的
+      fs.writeFileSync(svcPaths(t.ctx).daemonEntry, "id: ergo-daemon\nenv: [{ name: C_TOKEN, from: userEnv }, { name: 'DEEPSEEK_API_KEY', from: userEnv }, { name: D_TOKEN, from: literal, value: 'x, y' }]\nautoRestart:\n  enabled: true\n");
+      writeSvcConfig(t.ctx);
+      expect(envOf(entryOf(t)).slice(ours.length)).toEqual([
+        { name: "C_TOKEN", from: "userEnv" },
+        { name: "D_TOKEN", from: "literal", value: "x, y" },
+      ]);
+
+      // 别的地方（比如 hooks 下面）的 env 不算登记的 env
+      fs.writeFileSync(svcPaths(t.ctx).daemonEntry, "id: ergo-daemon\nhooks:\n  start:\n    env:\n      - name: NOT_THIS\n        from: userEnv\nautoRestart:\n  enabled: true\n");
+      writeSvcConfig(t.ctx);
+      expect(envOf(entryOf(t))).toEqual(ours);
+    });
+
+    it("手加了一项再 ergo restart：服务管家重读登记（加的写法和我们写的一字不差时文件不算变了，也要读到）", async () => {
+      const t = await installedCli({ fakeManager: true });
+      expect(await t.run("start")).toBe(0);
+      fs.writeFileSync(svcPaths(t.ctx).daemonEntry, addToEnv(entryOf(t), "  - name: A_TOKEN\n    from: userEnv"));
+      const edited = entryOf(t);
+      expect(writeSvcConfig(t.ctx).entryChanged).toBe(false);
+      expect(entryOf(t)).toBe(edited);
+      const before = t.lsmCalls().length;
+      expect(await t.run("restart")).toBe(0);
+      const calls = t.lsmCalls().slice(before);
+      const at = (word: string) => calls.findIndex((call) => call.includes(word));
+      expect(at("reload")).toBeGreaterThanOrEqual(0);
+      expect(at("reload")).toBeLessThan(at("restart"));
+    });
+
+    it("没有 env、文件是坏的、写的不是一项一项的：不出错，也不把坏的带进新登记", async () => {
+      const t = await installedCli();
+      writeSvcConfig(t.ctx);
+      const ours = envOf(entryOf(t));
+      for (const broken of ["", "id: [oops", "env: oops\n", "env:\n  - just a string\n  - from: userEnv\n", "env: []\n"]) {
+        fs.writeFileSync(svcPaths(t.ctx).daemonEntry, broken);
+        writeSvcConfig(t.ctx);
+        expect(envOf(entryOf(t))).toEqual(ours);
+      }
+    });
+  });
+
   it("manager.yaml 不在时按 ERGO_SVC_PORT 写一份（只绑本机、不动别的进程），在就不改", async () => {
     const t = await installedCli();
     fs.rmSync(svcPaths(t.ctx).managerYaml);

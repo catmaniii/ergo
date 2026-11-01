@@ -20,7 +20,7 @@
   "voice.skipped.noReference": "没有参考音色",
   "voice.skipped.restarted": "守护进程重启时这一轮还没回复完",
   "voice.missingReference.title": "要合成语音，得先导入参考音色",
-  "voice.missingReference.body": "agent 要用语音跟你说话（你发了语音，或者它想发一条语音），但设置里还没有导入参考音色，这次只发了文字。去设置里的语音页导入一段干净的人声录音（WAV，5–15 秒）和它的逐字稿，之后就用这个声音说话。导入后这条自动归档。",
+  "voice.missingReference.body": "agent 要用语音跟你说话（你发了语音，或者它想发一条语音），但设置里还没有导入参考音色，这次只发了文字。去设置里的语音页导入一段干净的人声录音（常见音频格式都行，1–30 秒，逐字稿自动识别），之后就用这个声音说话。导入后这条自动归档。",
   "voice.missingReference.source": "语音回复",
   "voice.warmup.queued": "排在识别模型后面",
   "voice.warmup.needsReference": "还没有参考音色：导入一个之后再预热",

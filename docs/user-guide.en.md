@@ -189,12 +189,12 @@ Long notes the runtime writes to an owner or the secretary (like the long brief 
 
 ergo keeps a copy of everything you said on this PC (immutable, indexed by keyword and vector), and every night at 3 am the **memory curator** distills it into conclusions backed by evidence.
 
-- This is a **plugin**, shown as **Memory Module · Subtext**, and it is marked **Experimental**: still being polished, so its behaviour and the data it stores may change. Everything stays on this computer; you can turn it off any time in Settings · Plugins (the data stays and comes back when you turn it on again), or delete things with the bulk delete in Memory · Materials, or remove the plugin there with "delete its data along with it" ticked.
+- This is a **plugin**, shown as **Memory System · Subtext v1.0**, and it is marked **Experimental**: still being polished, so its behaviour and the data it stores may change. Everything stays on this computer; you can turn it off any time in Settings · Plugins (the data stays and comes back when you turn it on again), or delete things with the bulk delete in Memory · Materials, or remove the plugin in Settings · Plugins with "delete its data along with it" ticked.
 - **More · Memory**: files (basic facts about you and your family), conclusions (each one opens to its evidence, support and counter-evidence, competing explanations and revision history), a question box, and raw materials.
 - Confident conclusions are used by the secretary; uncertain ones become a casual question at a convenient moment.
-- To make it remember something on purpose, just tell the secretary "remember this: …". It stores your own words (marked as manually remembered), so later searches find it and you can open the original line.
+- To make it remember something on purpose, just tell the secretary "remember this: …". It stores your own words (labelled "Memory command" in materials), so later searches find it and you can open the original line.
 - Say "forget…" or "don't infer from this", or correct and delete in the memory page; a hard delete also scrubs every place that referenced it.
-- To discuss or change your memory in depth, talk to the memory curator directly ("Chat with the memory curator" at the top of the memory page). It may also invite you to a "getting to know you" interview, one topic at a time; you can always decline.
+- To discuss or change your memory in depth, talk to the memory curator directly ("Talk to the memory curator" at the top of the memory page). It may also invite you to a "getting to know you" interview, one topic at a time; you can always decline.
 
 ### 4.8 Calendar, reminders, built-in browser
 
@@ -216,10 +216,10 @@ ergo keeps a copy of everything you said on this PC (immutable, indexed by keywo
 
 | Group | Contains |
 |---|---|
-| Identity | My name, personal files, roles & voices (assistant name and voice), language, appearance & style, voice |
-| Abilities | Models, skills & MCP, plugins, components (large downloads on demand), Claude Code, browsing & form filling |
+| Identity | My name, personal files, roles & voices (assistant name and voice), language, appearance & style, voice, send and new line |
+| Capabilities | Models, skills & MCP, plugins, components (large downloads on demand), Claude Code, browsing & form filling |
 | Rules | Watch categories (which operations to tell you about and how to handle them), system prompts, workday rules |
-| Data | Data sources, Authorized folders, delete materials, full tool-call content, backup, device pairing, checkup, About Ergo |
+| Data & devices | Data sources, Authorized folders, delete materials, full tool-call content, backup, device pairing, checkup, About Ergo |
 
 **Watch categories** are the heart of ergo's guard. Built-in ones include spending money, sending in your name, deleting or overwriting, irreversible commits, accounts and security, and leaving the project directory; you can add your own. Each has six possible handlings: just do it and log, do it and tell me, only if listed in the plan, ask me first, hand it to me, never.
 
@@ -238,7 +238,7 @@ The config file is optional; without it everything uses defaults. To change some
 | Item | Controls | Default |
 |---|---|---|
 | `ports.local` / `ports.external` | Local and external ports (both listen on 127.0.0.1 only) | 8810 / 8811 |
-| `guard.conversationApprovals` | Ask before risky things in conversations (`"on"` / `"off"`) | `"on"` for new installs |
+| `guard.conversationApprovals` | Ask before risky things in conversations (`"on"` / `"off"`) | `"off"` |
 | `tasks.maxRunning` | How many tasks may execute at once | 3 |
 | `tasks.thresholds` | Pull-backs before stopping, stall timeout, budget multiples… | see the example |
 | `agents.maxLive` | Maximum live agent child processes | 8 |
@@ -337,7 +337,7 @@ Once that's set up, open **More · Settings · Device pairing** on your computer
 
 ### 7.1 Browser
 
-Once outside access is set up and the phone is paired ([Section 6](#6-access-from-outside-phone-tablet)), opening that address in the phone browser gives you all of ergo; you can add it to the home screen. After a server update, open pages show "new version, tap to refresh" within seconds.
+Once outside access is set up and the phone is paired ([Section 6](#6-access-from-outside-phone-tablet)), opening that address in the phone browser gives you all of ergo; you can add it to the home screen. After a server update, open pages show "A new version of Ergo is available" within seconds: **Refresh** switches to it, **Later** hides the notice for now.
 
 ### 7.2 HarmonyOS app
 
@@ -419,7 +419,7 @@ You can also let the supervisor host recognition as a separate service (`deploy\
 
 ### 8.2 Voice replies (local speech synthesis)
 
-ergo synthesizes speech with a local [audio.cpp](https://github.com/0xShug0/audio.cpp) service (a third-party open-source TTS server, optional) at `127.0.0.1:8090`, hosted by the supervisor. Choose the reference voice under **Settings · Roles & voices**.
+ergo synthesizes speech with a local [audio.cpp](https://github.com/0xShug0/audio.cpp) service (a third-party open-source TTS server, optional) at `127.0.0.1:8090`, hosted by the supervisor. Import reference voices and choose the current one under **Settings · Voice**; **Settings · Roles & voices** only picks a voice for each role.
 
 **Install from the Components page**: **Settings · Components** has two rows, "Speech program audio.cpp" and "Speech model Fish S2 Pro", marked Recommended.
 
@@ -455,7 +455,8 @@ Agents use a local Chrome or Edge, found automatically. If none is found or you 
 
 ### 8.5 Skills, MCP and data sources
 
-- **Settings · Skills & MCP**: import skills and register MCP servers (credentials are read from environment variables you set in the supervisor's `ergo-daemon` entry), then add them to project or task toolkits.
+- **Settings · Skills & MCP**: import skills, see the registered MCP servers, and add them to project or task toolkits. MCP servers can't be registered on this page, it only lists them: either write `config\mcp.json` in the data directory yourself, or have an owner propose an "MCP registration change" card for you to approve.
+- **Don't put MCP secrets in plain text**: write `{ "fromEnv": "VAR_NAME" }` in `mcp.json` and add the variable to `env` in the supervisor's `ergo-daemon` entry (the entry file is `registry\services\ergo-daemon.yaml` in the supervisor's data directory; run `ergo restart` afterwards). `ergo start`, `ergo restart` and updates rewrite this entry for the new version, and the `env` items you added are kept; the ones ergo writes itself (`ERGO_DATA_DIR`, `LSM_DATA_DIR`, `DEEPSEEK_API_KEY`, `CUSTOM_MODEL_API_KEY`) are written back, so don't use those names. Hand edits elsewhere in this entry aren't kept.
 - **Owners can submit what they've learned as a skill**: the owner of a project or task writes a skill in its own working folder or project records and submits it. A "Skill change" card lands in your to-dos with the name, description, who submitted it, which project or task, the file list and sizes, a prominent "It contains N scripts that agents using it may run" if there are any, and the full SKILL.md to expand. `.env` files, private keys and hidden folders stay out, and the card lists them. Only when you approve does it enter the library and join the submitter's toolkit, so its session can use it straight away; other projects add it to their own toolkit if they want it. Deny and nothing changes. If the source changes after submission, approving won't let it in and the card says it has to be submitted again. Owners can also request updates and removals, but only for single skills you imported or owners submitted, not ones that ship with the framework or belong to a collection; a copy of the old version stays in the skill area's `.history`. A removal card lists the projects and tasks using the skill. After removal the name stays in their toolkits and is skipped when sessions start, with no error, and a skill with the same name works again once it's back. The skill library page marks which skills owners submitted and who.
 - **Settings · Data sources**: connect Google (calendar, Gmail, contacts), Looki and phone data. The page is a set of cards, one per data source and grouped by plugin, showing whether it's connected, the account, how many items have been fetched and the last sync. The last card is the shared import folder, where the matching plugin picks up files you drop in. Open a card to get its own full page (it fills the content area, has a back button and survives a refresh), in three parts:
   - **Status**: connection state, account, any problem, last sync, and "Sync now".
@@ -466,7 +467,7 @@ Agents use a local Chrome or Edge, found automatically. If none is found or you 
 
 If [Claude Code](https://docs.anthropic.com/en/docs/claude-code) is installed and signed in on this PC, project and task owners can work through it (on your own subscription), with ergo's guard still checking every tool call; ergo can also take over your existing Claude Code sessions.
 
-Its Agent SDK (`@anthropic-ai/claude-agent-sdk`) is under Anthropic's own license, not open source, so ergo treats it as an **optional dependency**: if it is missing, **Settings · Plugins** shows Claude Code as not installed and how to install it (run `npm install --no-save @anthropic-ai/claude-agent-sdk@<version>` in the ergo directory; the version is in `optionalDependencies` of `packages/daemon/package.json`), then click Enable. Nothing else is affected.
+Its Agent SDK (`@anthropic-ai/claude-agent-sdk`) is under Anthropic's own license, not open source, so ergo treats it as an **optional dependency**: if it is missing, **Settings · Plugins** shows Claude Code as not installed and how to install it. The easiest way is "Claude Code integration" under **Settings · Components** (downloaded from the official npm registry; on the command line, `ergo components add claude-code`). If you run from source you can also run `npm install --no-save @anthropic-ai/claude-agent-sdk@<version>` in the ergo directory; the version is in `optionalDependencies` of `packages/daemon/package.json`. Then go back to the Plugins page and click Enable. Nothing else is affected.
 
 ---
 

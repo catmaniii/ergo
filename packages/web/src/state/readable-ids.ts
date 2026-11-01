@@ -2,7 +2,7 @@
 // "编号「简短描述」"（163 号票）——"t-3「给记账本加周报」"、"tm-2「记账本的任务负责人」"。名字从状态层现取（任务标题、项目名、工单标题、
 // 负责人属于哪个任务或项目），名字变了跟着变。取不到的：补发推完了（caughtUp）还没有就是删掉了，写"t-3（已删除）"；还没推完的只写"t-3"，
 // 免得刚打开时满屏"已删除"。写法在协议包（readable-ids.ts），守护进程拼给用户看的句子用同一套。纯函数。
-import { ASSISTANT_NAME_MARK, CHANNELS, deletedIdLabel, MAINTAINER_CHANNEL_PREFIX, maintainerIdLabel, type MaintainerOwner, namedIdLabel, t } from "./protocol.ts";
+import { ASSISTANT_NAME_MARK, CHANNELS, deletedIdLabel, MAINTAINER_CHANNEL_PREFIX, maintainerIdLabel, type MaintainerOwner, MEMORY_CURATOR_AGENT_ID, namedIdLabel, t } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
 
 /** 取不到时：补发推完了是删掉了，还没推完只写编号 */
@@ -48,8 +48,9 @@ function maintainerOwner(state: UiState, maintainerId: string): MaintainerOwner 
   return job ? { kind: "job", name: job.title } : undefined;
 }
 
-/** "tm-2「记账本的任务负责人」"、"pm-1「记账本的项目负责人」" */
+/** "tm-2「记账本的任务负责人」"、"pm-1「记账本的项目负责人」"；记忆管理员（它的会话也按负责人的频道开）不属于谁，也不会删掉，直接写名字 */
 export function maintainerLabel(state: UiState, maintainerId: string): string {
+  if (maintainerId === MEMORY_CURATOR_AGENT_ID) return t("state.readableIds.memoryCurator");
   const owner = maintainerOwner(state, maintainerId);
   return owner ? maintainerIdLabel(maintainerId, owner) : missing(state, maintainerId);
 }
@@ -59,6 +60,7 @@ export function maintainerLabel(state: UiState, maintainerId: string): string {
  * 工单 wo-、定时作业 j-、负责人 tm- / pm- / jm-，后面是数字），写取不到；都认不出的（任务标题、别的编号）原样
  */
 export function readableId(state: UiState, ref: string): string {
+  if (ref === MEMORY_CURATOR_AGENT_ID) return maintainerLabel(state, ref);
   if (Object.hasOwn(state.tasks, ref)) return taskLabel(state, ref);
   if (Object.hasOwn(state.projects, ref)) return projectLabel(state, ref);
   if (Object.hasOwn(state.workOrders, ref)) return workOrderLabel(state, ref);

@@ -87,7 +87,7 @@ export interface DataDirLayout {
    */
   dataSourceSecrets: string;
   /**
-   * 共用的导入文件夹（295 号票）：手动导出的文件（账单、数据副本、Takeout、vCard……）放进来，守护进程认出是哪个数据源的、交给它导入，
+   * 共用的导入文件夹（295 号票）：手动导出的文件（现在只有 Google 联系人导出的 vCard）放进来，守护进程认出是哪个数据源的、交给它导入，
    * 导完挪到 importedDir（"已导入"），认不出的留在原地。整个不进备份（nonBackupEntries：Takeout 这类导出可能几十 GB，导入后的数据已经在事件和素材里）
    */
   imports: string;

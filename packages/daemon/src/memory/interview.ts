@@ -6,10 +6,10 @@
 //   哪次、什么主题、从哪开的）、结束（ended：这个主题聊透了没有）。现在的样子（开着的那次、聊过哪几个主题、上次约 / 聊是什么时候）
 //   每次从这几条现算（一周一两条，不另建视图）。开了 3 小时还没收尾的当它放下了（之后说的话不再算访谈，主题也不算聊过）；
 // - 怎么发起：
-//   - 每周六 10:00 的内部作业（错过了开机后补一次）：约访开着（设置 · 记忆，默认开）、没在聊、离上次约 / 聊满 6 天（五个主题都聊过以后
+//   - 每周六 10:00 的内部作业（错过了开机后补一次）：约访开着（记忆页的设置，默认开）、没在聊、离上次约 / 聊满 6 天（五个主题都聊过以后
 //     改成满 27 天、主题换成"最近有什么变化"），就在待办里放一张不卡事的约访卡（卡片类型 interview，上一张还没点的过期）；
 //   - 约访卡上的"开始"（同一事务里记开始、往管理员的会话里放开场的系统消息）、"下次再说"（下周照常约）、"不想做了"（关掉约访，
-//     设置 · 记忆里能重新打开；卡片不算回避信号：状态是已处理，不是关掉）；
+//     记忆页的设置里能重新打开；卡片不算回避信号：状态是已处理，不是关掉）；
 //   - 记忆页的"找管理员聊聊"（POST /api/memory/interview）、跟秘书说"我想做个访谈"（快速动作 start_interview，用户原话里有"访谈"就直接开）、
 //     在管理员的会话里直接说（它的工具 begin_interview，见 interview-tools.ts）——都进同一个访谈：已经开着就是那一次，不重开；
 // - 访谈开着时，用户在管理员的会话里说的话（打的字、语音）归属里带着访谈编号和管理员问的那一句（MessageScope.interviewId、
@@ -195,7 +195,7 @@ export interface MemoryInterviews {
   confirmFile(card: Card, payload: InterviewFilesCardPayload, itemId: string, remind?: ReadonlyArray<{ field: string; daysBefore: number }>): CardActionEffect<InterviewFilesCardPayload>;
   /** 现在该约就约一次（内部作业到点时做的就是它）：放了卡交回卡片编号 */
   invite(): string | undefined;
-  /** 约访卡上点了"不想做了"：关掉约访（设置 · 记忆里能重新打开） */
+  /** 约访卡上点了"不想做了"：关掉约访（记忆页的设置里能重新打开） */
   stopInvites(): void;
   /** 每周约访的内部作业 */
   readonly job: InternalJob;
@@ -557,7 +557,7 @@ const INVITE_RESULT_TEXT: Readonly<Record<InterviewInviteResult, string>> = tTab
 
 /**
  * 约访卡（卡片类型 interview）：开始（开一次访谈，同一事务里记开始、放开场的系统消息；已经在聊就进那一次）、下次再说、不想做了
- * （约访关掉，设置 · 记忆里能重新打开）。三个都把卡记成已处理（不是关掉：不算回避信号）。卡上没有用户的话，彻底删除不用改写它。
+ * （约访关掉，记忆页的设置里能重新打开）。三个都把卡记成已处理（不是关掉：不算回避信号）。卡上没有用户的话，彻底删除不用改写它。
  * 记忆插件的数据契约登记（停用也登记），动作现取服务，插件没启用时回"记忆插件没启用"
  */
 export function interviewCardType(service: () => MemoryInterviews) {
@@ -684,7 +684,7 @@ export function startInterviewAction(service: () => MemoryInterviews): QuickActi
       return t("memory.interview.action.title");
     },
     // @i18n-ignore-next model：给秘书的用法（写进"提议快速动作"工具的说明）
-    usage: "用户说想做个访谈、想让记忆管理员多了解自己时用：开一次了解你访谈，记忆管理员在「记忆 · 管理员」那里一问一答（已经在聊就进那一次）。访谈不用你来问",
+    usage: "用户说想做个访谈、想让记忆管理员多了解自己时用：开一次了解你访谈，记忆管理员在「和记忆管理员聊」那里一问一答（已经在聊就进那一次）。访谈不用你来问",
     params: StartParams,
     watch: { categories: [] },
     confirm: "ask_when_inferred",

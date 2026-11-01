@@ -54,13 +54,14 @@ describe("改一处、存整份", () => {
 });
 
 describe("API key 只说状态", () => {
-  test("配了：已配置、来自哪个环境变量、LSM 从哪个文件注入，想换一个就在下面填；没配：下面填一个，也可以手动放文件", () => {
+  test("配了：已配置、来自哪个环境变量、服务管家从哪个文件注入，想换一个就在下面填；没配：下面填一个，也可以手动放文件；界面上不写 LSM（371）", () => {
     const on = apiKeyText({ configured: true, envVar: "DEEPSEEK_API_KEY", secretFile: "secrets/deepseek-api-key.txt", lsm: true });
     expect(on).toMatchObject({ label: "已配置", ok: true });
     expect(on.detail).toMatch(/DEEPSEEK_API_KEY.*secrets\/deepseek-api-key\.txt.*想换一个就在下面填/);
     const off = apiKeyText({ configured: false, envVar: "DEEPSEEK_API_KEY", secretFile: "secrets/deepseek-api-key.txt", lsm: false });
     expect(off).toMatchObject({ label: "没配置", ok: false });
-    expect(off.detail).toMatch(/还没有 key.*secrets\/deepseek-api-key\.txt.*ergo-daemon.*不是经 LSM 启动的/);
+    expect(off.detail).toMatch(/还没有 key.*secrets\/deepseek-api-key\.txt.*服务管家里的 ergo-daemon.*不是经服务管家启动的/);
+    expect(`${on.detail}${off.detail}`).not.toContain("LSM");
   });
 });
 

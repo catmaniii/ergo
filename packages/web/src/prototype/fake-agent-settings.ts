@@ -26,6 +26,7 @@ import {
   checkAssistantName,
   DEFAULT_ASSISTANT_NAME,
   effectiveModelChoice,
+  fillAssistantName,
   MAINTAINER_CHANNEL_PREFIX,
   type MaintainerModelView,
   maintainerChannel,
@@ -332,7 +333,8 @@ export class FakeAgentSettings {
     const role = view.roles.find((item) => item.id === roleId);
     if (role === undefined) throw new Error(`没有这个角色：${roleId}`);
     if (role.isDefault) throw new Error("默认角色不能删：先把别的角色设成默认角色");
-    if (role.usedBy.length > 0) throw new Error(`这个角色还有 agent 在用：${role.usedBy.join("、")}`);
+    // 和守护进程一样写 agent 的叫法：秘书的叫法是名字占位，这句话直接显示，换成名字（371 号票）
+    if (role.usedBy.length > 0) throw new Error(`这个角色还有 agent 在用：${role.usedBy.map((agentId) => fillAssistantName(this.who(agentId).label, DEFAULT_ASSISTANT_NAME)).join("、")}`);
     this.roles = this.roles.filter((item) => item.id !== roleId);
     return this.rolesView();
   }

@@ -40,7 +40,7 @@ export const InterviewStatusView = Type.Object({
   next: Topic,
   /** 约访的频率：五个主题没聊完每周一次，都聊过以后每月一次 */
   cadence: Type.Enum(INTERVIEW_CADENCES),
-  /** 约访开没开（设置 · 记忆；约访卡上点了"不想做了"会关掉） */
+  /** 约访开没开（记忆页的设置；约访卡上点了"不想做了"会关掉） */
   invites: Type.Boolean(),
 });
 export type InterviewStatusView = Static<typeof InterviewStatusView>;

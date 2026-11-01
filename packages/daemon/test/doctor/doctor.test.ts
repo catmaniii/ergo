@@ -20,6 +20,7 @@ import {
   supervisorProbe,
   SUPERVISOR_PROBE_TIMEOUT_MS,
 } from "../../src/doctor/doctor.ts";
+import { builtinCatalogs } from "../../src/i18n/index.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 import { freePort } from "../helpers/ports.ts";
 
@@ -84,6 +85,30 @@ describe("八项：坏的", () => {
     expect(broken).toEqual({ id, ok: false, data: BAD[id], fix: `doctor.fix.${id}` });
     // 别的七项照旧好（一条断言里比，别在循环里各 expect 一次）
     expect(DOCTOR_CHECKS.filter((check) => check !== id).filter((other) => !checkOf(view, other).ok)).toEqual([]);
+  });
+});
+
+describe("pi 缺了怎么修：按安装方式（371）", () => {
+  const fixFor = async (install?: Parameters<typeof createDoctor>[0]["install"]) => checkOf(await createDoctor({ probes: onlyBad("pi"), ...(install ? { install } : {}) }).view(), "pi").fix;
+  const info = (kind: "release" | "source" | "link") => ({ format: 1 as const, version: "0.4.0", kind });
+
+  it("一行命令装的、源码装进安装目录的：重装；npm 装的：npm 重装；仓库里跑的、开发模式联接的：npm ci", async () => {
+    expect(await fixFor({ kind: "installed", info: info("release") })).toBe("doctor.fix.piInstalled");
+    expect(await fixFor({ kind: "installed", info: info("source") })).toBe("doctor.fix.piInstalled");
+    expect(await fixFor({ kind: "npm" })).toBe("doctor.fix.piNpm");
+    expect(await fixFor({ kind: "dev" })).toBe("doctor.fix.pi");
+    expect(await fixFor({ kind: "installed", info: info("link") })).toBe("doctor.fix.pi");
+    expect(await fixFor()).toBe("doctor.fix.pi");
+  });
+
+  it("说法对得上：程序目录里没有 npm 的那种不叫人跑 npm ci（中英）", () => {
+    for (const language of ["zh-CN", "en"]) {
+      const { messages } = builtinCatalogs().catalogs.get(language)!;
+      expect(messages["doctor.fix.pi"]).toContain("npm ci");
+      expect(messages["doctor.fix.piInstalled"]).not.toContain("npm ci");
+      expect(messages["doctor.fix.piInstalled"]).toContain("ergo uninstall --keep-data");
+      expect(messages["doctor.fix.piNpm"]).toContain("npm i -g ergo-ai@latest");
+    }
   });
 });
 

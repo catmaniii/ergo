@@ -1,6 +1,7 @@
 // ergo 命令里管服务的那一半（318 号票）：包一层服务管家（packages/supervisor，命令 lsm），用的人不用学 lsm。
 //   - 服务管家的设置（manager.yaml）不在时写一份默认的；二狗的登记（registry/services/ergo-daemon.yaml）每次 start 按这次的安装重写——
 //     路径都走安装目录的 current（切版本只要重启，不用改登记），端口按二狗的配置（config/ergo.json 的 ports.local）；
+//     env 里用的人多加的项留着（371 号票：手动登记的 MCP 把 fromEnv 的变量写在这里），我们自己的项照旧覆盖；
 //   - 服务管家没在跑就把它起来（单独的小进程，不跟着这个命令退出）；
 //   - start / stop / restart / status / logs 交给服务管家；svc <命令…> 原样转给 lsm。
 // 开机自启（服务管家的计划任务）由安装脚本默认装（342 号票，经 ergo svc install-autostart）；这里在每次按 current 重写登记时核对一下它还指着在用的版本。
@@ -119,12 +120,110 @@ export function entryPaths(ctx: Pick<CliContext, "layout">): { root: string; nod
   return { root: layout.appDir, node: layout.node, main: `packages/daemon/src/main.${ext}`, stop: `packages/daemon/src/stop.${ext}` };
 }
 
-/** 二狗的登记（每次 start 重写）。DeepSeek 的 key 照旧由服务管家从数据目录的密钥区读出来注入（没有也能起来，optional） */
-export function daemonEntryYaml(ctx: Pick<CliContext, "layout" | "dataDir" | "svcDataDir">): string {
+/** 二狗自己写进登记 env 的项（一行一行）。以后不再写某一项时，旧登记里的它会被当成用的人加的留下来（userEnvLines），到时要记下它的名字 */
+function ownEnvLines(ctx: Pick<CliContext, "dataDir" | "svcDataDir">): string[] {
+  return [
+    "  - name: ERGO_DATA_DIR",
+    "    from: literal",
+    `    value: ${yamlQuote(ctx.dataDir)}`,
+    // 服务管家拉服务时不传自己的 --data-dir、环境变量（hooks.mjs 的白名单）：二狗的体检要读它的注册表，得在这里写明它在哪（340 号票）
+    "  - name: LSM_DATA_DIR",
+    "    from: literal",
+    `    value: ${yamlQuote(ctx.svcDataDir)}`,
+    "  - name: DEEPSEEK_API_KEY",
+    "    from: file",
+    `    path: ${yamlQuote(path.join(ctx.dataDir, "secrets", "deepseek-api-key.txt"))}`,
+    "    optional: true",
+    // 自定义（OpenAI 兼容）服务商的 key（自定义服务商这一步）：和 DeepSeek 一样从密钥区注入（没有也能起来，optional）
+    "  - name: CUSTOM_MODEL_API_KEY",
+    "    from: file",
+    `    path: ${yamlQuote(path.join(ctx.dataDir, "secrets", "custom-model-api-key.txt"))}`,
+    "    optional: true",
+  ];
+}
+
+/** 一行写完的 env: [{…}, {…}] 里的每个 {…}（引号里的括号不算） */
+function flowMaps(text: string): string[] {
+  const maps: string[] = [];
+  let quote = "";
+  let from = -1;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]!;
+    if (quote !== "") {
+      if (c === quote) quote = "";
+    } else if (c === "'" || c === '"') quote = c;
+    else if (c === "{" && from < 0) from = i;
+    else if (c === "}" && from >= 0) {
+      maps.push(text.slice(from, i + 1).replace(/\s*\n\s*/g, " "));
+      from = -1;
+    }
+  }
+  return maps;
+}
+
+/** 一项 env 的名字（- name: X、- { name: X, … }，写在第几个都认）；没有名字是 undefined */
+function envItemName(item: string): string | undefined {
+  return /(?:^\s*(?:-\s+)?|[{,]\s*)name:\s*(['"]?)([^'"\s,}#]+)\1/m.exec(item)?.[2];
+}
+
+const leadingSpaces = (line: string) => line.length - line.trimStart().length;
+const isListItem = (line: string) => /^\s*-(\s|$)/.test(line);
+
+/**
+ * 旧登记的 env 里用的人多加的项，原样的几行（缩进换成我们的，项上面的注释带着）。名字是我们自己写的不要（照旧覆盖），没有名字的不要（服务管家也不认）。
+ * 守护进程没有 YAML 库（只有服务管家有），这里只认顶层 env: 这一段：缩进的、不缩进的列表，一行写完的 [{…}]，记事本存的 CRLF；
+ * 别的写法读不出来就当没有。留下的是用的人写的原样，写错了由 lsm 报，和没经过这里时一样
+ */
+export function userEnvLines(oldEntry: string, ownNames: ReadonlySet<string>): string[] {
+  const lines = oldEntry.split(/\r?\n/);
+  const start = lines.findIndex((line) => /^env:(\s|$)/.test(line));
+  if (start < 0) return [];
+  // 到下一个顶层的键为止（不缩进的 - 是这个列表的项）
+  let end = start + 1;
+  while (end < lines.length && (lines[end]!.trim() === "" || /^(\s|#|-(\s|$))/.test(lines[end]!))) end++;
+  const body = lines.slice(start + 1, end);
+  const keep = (item: string) => {
+    const name = envItemName(item);
+    return name !== undefined && !ownNames.has(name);
+  };
+
+  const inline = lines[start]!.slice("env:".length).trim();
+  if (inline !== "" && !inline.startsWith("#")) {
+    return inline.startsWith("[") ? flowMaps([inline, ...body].join("\n")).filter(keep).map((map) => `  - ${map}`) : [];
+  }
+
+  const indent = leadingSpaces(body.find(isListItem) ?? "");
+  const kept: string[] = [];
+  let comments: string[] = [];
+  let item: string[] | undefined;
+  const finish = () => {
+    if (item && keep(item.join("\n"))) kept.push(...item.map((line) => `  ${line.slice(Math.min(indent, leadingSpaces(line)))}`));
+    item = undefined;
+  };
+  for (const line of body) {
+    if (line.trim() === "") continue;
+    if (isListItem(line) && leadingSpaces(line) === indent) {
+      finish();
+      item = [...comments, line];
+      comments = [];
+    } else if (line.trimStart().startsWith("#") && leadingSpaces(line) <= indent) {
+      // 和列表一样缩进的注释说的是下一项；后面没有项了（说的是下一个顶层的键）就不要
+      finish();
+      comments.push(line);
+    } else {
+      item?.push(line);
+    }
+  }
+  finish();
+  return kept;
+}
+
+/** 二狗的登记（每次 start 重写，userEnv 是 env 里用的人多加的项）。DeepSeek 的 key 照旧由服务管家从数据目录的密钥区读出来注入（没有也能起来，optional） */
+export function daemonEntryYaml(ctx: Pick<CliContext, "layout" | "dataDir" | "svcDataDir">, userEnv: readonly string[] = []): string {
   const p = entryPaths(ctx);
   const port = daemonPort(ctx);
   return [
-    "# ergo daemon entry: rewritten by every `ergo start` (change ports in the ergo config file config/ergo.json).",
+    "# ergo daemon entry: rewritten by every `ergo start` and update (change ports in the ergo config file config/ergo.json). Items you add under env: are kept; everything else goes back to what ergo writes.",
     `id: ${DAEMON_SERVICE_ID}`,
     "name: ergo",
     "project: ergo",
@@ -149,22 +248,8 @@ export function daemonEntryYaml(ctx: Pick<CliContext, "layout" | "dataDir" | "sv
     "    detaches: false",
     "    timeoutMs: 30000",
     "env:",
-    "  - name: ERGO_DATA_DIR",
-    "    from: literal",
-    `    value: ${yamlQuote(ctx.dataDir)}`,
-    // 服务管家拉服务时不传自己的 --data-dir、环境变量（hooks.mjs 的白名单）：二狗的体检要读它的注册表，得在这里写明它在哪（340 号票）
-    "  - name: LSM_DATA_DIR",
-    "    from: literal",
-    `    value: ${yamlQuote(ctx.svcDataDir)}`,
-    "  - name: DEEPSEEK_API_KEY",
-    "    from: file",
-    `    path: ${yamlQuote(path.join(ctx.dataDir, "secrets", "deepseek-api-key.txt"))}`,
-    "    optional: true",
-    // 自定义（OpenAI 兼容）服务商的 key（自定义服务商这一步）：和 DeepSeek 一样从密钥区注入（没有也能起来，optional）
-    "  - name: CUSTOM_MODEL_API_KEY",
-    "    from: file",
-    `    path: ${yamlQuote(path.join(ctx.dataDir, "secrets", "custom-model-api-key.txt"))}`,
-    "    optional: true",
+    ...ownEnvLines(ctx),
+    ...userEnv,
     "autoRestart:",
     "  enabled: true",
     "  maxRetries: 5",
@@ -176,7 +261,7 @@ export function daemonEntryYaml(ctx: Pick<CliContext, "layout" | "dataDir" | "sv
   ].join("\n");
 }
 
-/** 服务管家的设置、开机自启名单不在时写默认的（在就绝不改）；二狗的登记按这次的安装重写。回各写了什么 */
+/** 服务管家的设置、开机自启名单不在时写默认的（在就绝不改）；二狗的登记按这次的安装重写（env 里用的人多加的项留着）。回各写了什么 */
 export function writeSvcConfig(ctx: CliContext): { managerCreated: boolean; bootListCreated: boolean; entryChanged: boolean } {
   const p = svcPaths(ctx);
   fs.mkdirSync(p.services, { recursive: true });
@@ -193,13 +278,14 @@ export function writeSvcConfig(ctx: CliContext): { managerCreated: boolean; boot
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
   }
-  const entry = daemonEntryYaml(ctx);
   let old = "";
   try {
     old = fs.readFileSync(p.daemonEntry, "utf8");
   } catch {
     // 还没登记过
   }
+  const ownNames = new Set(ownEnvLines(ctx).flatMap((line) => /^ {2}- name: (\S+)$/.exec(line)?.[1] ?? []));
+  const entry = daemonEntryYaml(ctx, userEnvLines(old, ownNames));
   if (old !== entry) fs.writeFileSync(p.daemonEntry, entry);
   return { managerCreated, bootListCreated, entryChanged: old !== entry };
 }
@@ -377,14 +463,15 @@ export function tellBootListCreated(ctx: CliContext): void {
   ctx.io.out(t("cli.svc.bootListCreated", { file: svcPaths(ctx).bootList, id: DAEMON_SERVICE_ID }));
 }
 
-/** 服务管家在跑、二狗的登记是最新的：管理器不在就起来，在就让它重读登记 */
+/** 服务管家在跑、二狗的登记是最新的：管理器不在就起来，在就让它重读登记（注册表） */
 export async function ensureSvc(ctx: CliContext): Promise<{ startedManager: boolean }> {
-  const { managerCreated, bootListCreated, entryChanged } = writeSvcConfig(ctx);
+  const { managerCreated, bootListCreated } = writeSvcConfig(ctx);
   if (managerCreated) ctx.io.out(t("cli.svc.managerConfigCreated", { file: svcPaths(ctx).managerYaml, port: managerAddress(ctx).port }));
   if (bootListCreated) tellBootListCreated(ctx);
   syncAutostart(ctx);
   if (await managerUp(ctx)) {
-    if (entryChanged) runLsm(ctx, ["reload"], { capture: true });
+    // 每次都让它重读，不看这次写没写：用的人手加的 env 项和我们写出来的一字不差时文件不算变了，管理器不重读就拿不到（371 号票）。重读不动在跑的服务
+    runLsm(ctx, ["reload"], { capture: true });
     return { startedManager: false };
   }
   ctx.io.out(t("cli.svc.startingManager", { port: managerAddress(ctx).port }));

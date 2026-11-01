@@ -27,7 +27,7 @@
 // 不用秘书那份缓存的读者引擎（它的写入口只读）；每次写写明是谁、经谁转达（WOVEN_VIA）：回答、跳过是用户的表态，"别问这个"是用户发起，
 // 记"问过"是记忆管理员（ADR-0030：白天提顺口问归它），都"经秘书顺口问"。秘书的工具本身不写推理库，只在内存里记下这一轮标了哪个，
 // 写在这一轮做完时由记忆插件（代记忆管理员）写——秘书照旧没有写推理库的路。
-// 设置 · 记忆里关掉（memory/settings.ts，默认开）：两步都不做，上下文块是空的，工具回"关着"；已经问过、等回答的问题夜里照常判。
+// 记忆页的设置里关掉（memory/settings.ts，默认开）：两步都不做，上下文块是空的，工具回"关着"；已经问过、等回答的问题夜里照常判。
 // 推理库用不了（还没建、版本对不上）：都不做。出错：记一行日志，这一轮当没有（不把秘书的这一轮弄坏）。
 // 同一条输入可能被算几次（子进程崩了重新交、读附件慢）：按消息 id 记住算过的结果，回答、跳过不会记两次。
 import type { MemoryEngine, QuestionView } from "@ergo/memory";
@@ -66,7 +66,7 @@ export interface WovenQuestionsOptions {
   store: Pick<EventStore, "reader" | "readBefore">;
   /** 素材库：找用户这句话的素材（回答回写成证据） */
   materials: Pick<Materials, "list">;
-  /** 设置 · 记忆里顺口问开着没有（现取，改了下一条输入就按新的） */
+  /** 记忆页的设置里顺口问开着没有（现取，改了下一条输入就按新的） */
   enabled: () => boolean;
   /** 允许用来推断的敏感类别（配置 memory.sensitiveCategories）：回答的素材落进没打开的类别时不回写 */
   inferableSensitiveCategories: () => readonly SensitiveCategory[];

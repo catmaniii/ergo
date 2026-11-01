@@ -381,9 +381,9 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(errors).toEqual([]);
   }, 60_000);
 
-  // 2026-10-23 用户报过：记忆 · 管理员那一层里"回忆了 N 条记忆""Agent 的想法"点整条没反应、行尾的 › 也没有——
+  // 2026-10-23 用户报过：记忆管理员的整页对话里"回忆了 N 条记忆""Agent 的想法"点整条没反应、行尾的 › 也没有——
   // 那一页当时没接详情（Conversation 没给 onDetail），行是灰的。这条守着：行能点、有 ›、点了右边开出"这次用到的记忆"
-  test("记忆 · 管理员：回忆了 N 条记忆那一行能点、有 ›，点了右边开出这次用到的记忆", async () => {
+  test("记忆管理员的整页对话：回忆了 N 条记忆那一行能点、有 ›，点了右边开出这次用到的记忆", async () => {
     const { page, errors } = await open({ width: 1280, height: 800 });
     await page.evaluate(`window.location.hash = "#/more/memory/curator"`);
     await page.waitForSelector(".recall-line", { timeout: 10_000 });

@@ -15,6 +15,7 @@ import fs from "node:fs";
 import {
   type AgentProfilesView,
   type AgentRolesView,
+  ASSISTANT_NAME_MARK,
   type AssistantNameEventPayload,
   CHANNELS,
   type ConversationId,
@@ -186,6 +187,40 @@ describe("角色的增删改：校验、默认唯一、删在用回 400", () => 
     expect((await agentRolesApi.update(td.url, "role-nope", { name: "小周" })).status).toBe(404);
     expect((await agentRolesApi.assign(td.url, "pm-1", "role-nope")).status).toBe(404);
     expect((await agentRolesApi.assign(td.url, "nobody", wang.id)).status).toBe(404);
+  });
+});
+
+describe("删在用的角色：报错里不出现编号和占位（371）", () => {
+  const messageOf = (res: { body: unknown }) => (res.body as { message?: string }).message ?? "";
+
+  it("秘书在用：写它现在的名字，不写名字占位，也不写 secretary", async () => {
+    const td = await startTestDaemon();
+    const created = await agentRolesApi.create(td.url, { name: "小明" });
+    const xiaoming = roleNamed(created.body, "小明")!;
+    await agentRolesApi.assign(td.url, "secretary", xiaoming.id);
+    const refused = await agentRolesApi.remove(td.url, xiaoming.id);
+    expect(refused.status).toBe(400);
+    expect(messageOf(refused)).toContain("二狗");
+    expect(messageOf(refused)).not.toContain(ASSISTANT_NAME_MARK);
+    expect(messageOf(refused)).not.toContain("secretary");
+  });
+
+  it("指定过它的 agent 后来删掉了（任务、项目删了 assignments 不跟着清）：不算在用，删得掉，那一项一起清", async () => {
+    const td = await startTestDaemon();
+    const created = await agentRolesApi.create(td.url, { name: "小明" });
+    const xiaoming = roleNamed(created.body, "小明")!;
+    const file = dataDirLayout(td.dataDir).agentRolesFile;
+    const stored = JSON.parse(fs.readFileSync(file, "utf8")) as { assignments: Record<string, string>; roles: { id: string }[] };
+    fs.writeFileSync(file, JSON.stringify({ ...stored, assignments: { ...stored.assignments, "tm-9": xiaoming.id } }));
+
+    const listed = await agentRolesApi.list(td.url);
+    expect(roleOf(listed.body, xiaoming.id)!.usedBy).toEqual([]);
+    const removed = await agentRolesApi.remove(td.url, xiaoming.id);
+    expect(messageOf(removed)).toBe("");
+    expect(removed.status).toBe(200);
+    const after = JSON.parse(fs.readFileSync(file, "utf8")) as typeof stored;
+    expect(after.assignments["tm-9"]).toBeUndefined();
+    expect(after.roles.map((role) => role.id)).not.toContain(xiaoming.id);
   });
 });
 

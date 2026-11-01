@@ -2101,7 +2101,7 @@ const LEDGER_LATEST: MessageEnvelope[] = [
   ),
 ];
 
-// 记忆 · 管理员那一层（242/243 号票）的会话：03:00 那条唤醒、它自己的整理日记，里面有"回忆了 N 条记忆"那一行
+// 记忆管理员的整页对话（242/243 号票）的会话：03:00 那条唤醒、它自己的整理日记，里面有"回忆了 N 条记忆"那一行
 // （187 号票的画法；2026-10-23 用户报过这一页的行点不开——原型里也得有，page-opens 才能守着）
 const CURATOR_MESSAGES: MessageEnvelope[] = [
   msg(MEMORY_CURATOR_CONVERSATION, "system", at("10-21", "03:00"), text("每晚 03:00 的整理开始了。")),

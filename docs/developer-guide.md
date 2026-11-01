@@ -214,7 +214,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 - **核心方法**（每家记忆系统都得有）：`info()`、`start()`/`stop()`、`observe()`（喂一条原始素材）、`remember()`（用户明说"帮我记一句"时按原话存；可能带着文件 `file` 和来源 `origin`：用户在长按的网页元素上说记下来时，这时 `text` 是秘书写的描述。存下了文件就在回的条目上写 `extra.fileStored = true`，不写时宿主如实告诉用户只记了文字）、`search()`（回统一的 `MemoryItem`，**必须带出处**）、`forget()`（按条目/来源/时间范围/全删，隐私删除靠它）、`health()`。
 - **可选能力**（在 `capabilities` 里声明，宿主按声明决定界面和行为）：`brief`（每轮简报，不声明就由宿主用 `search` 拼一个默认的）、`consolidate`（自己的整理）、`settings`（设置项声明，宿主统一渲染）、`tabs`（记忆页有哪些页签）、`tools`（额外工具）、`subject`/`timeline`/`graph`（画像、时间线、关系图）。
 - **宿主的规矩**：同时只跑一个（`activate` 先停旧的再起新的）；每个插件的数据目录是 `<数据目录>/memory/<id>/`，内核只按整个目录做备份、恢复、迁移，不读里面的格式；插件不许自己连模型、不许起端口，要模型和向量都经宿主给的 `llm()`/`embed()`；`api` 版本对不上直接不启用。
-- **仓库自带的是「会意」（id `subtext`）**：结论、证据链、竞争解释、预测账本这一套（上文 4.9）。它的实现包在 `packages/daemon/src/memory/provider/subtext.ts`，具体引擎仍是 `@ergo/memory`，库在它自己的数据目录 `<数据目录>/memory/subtext/rg.db`（338 号票从 `db/rg.db` 搬过去）。它在界面上称「记忆模块 · 会意」/「Memory Module · Subtext」、标着**实验性**（`packages/web/src/plugins/memory/system.ts` 的 `pages.memory.*`；导航那一项仍写"记忆"），新接一套记忆系统时这几处文案跟着换。
+- **仓库自带的是「会意」（id `subtext`）**：结论、证据链、竞争解释、预测账本这一套（上文 4.9）。它的实现包在 `packages/daemon/src/memory/provider/subtext.ts`，具体引擎仍是 `@ergo/memory`，库在它自己的数据目录 `<数据目录>/memory/subtext/rg.db`（338 号票从 `db/rg.db` 搬过去）。它在界面上称「记忆系统 · 会意 v1.0」/「Memory System · Subtext v1.0」、标着**实验性**（`packages/web/src/plugins/memory/system.ts` 的 `pages.memory.*`；导航那一项仍写"记忆"），新接一套记忆系统时这几处文案跟着换。
 - **想接别的记忆系统**：实现 `MemoryProvider`、在注册表登记一个工厂（`info` 里写 `api`/`id`/`name`/`capabilities`/`requirements`），配置 `memory.provider` 写它的 id。`packages/daemon/test/memory/provider/` 下的两个假插件就是最小示例（只在测试里，用来验证"换一套很容易"）。
 
 ### 4.10 数据目录和配置
@@ -275,7 +275,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 |---|---|---|---|
 | 计划任务 `LocalServiceManager` | 写死当时的 `node.exe` 和 `lsm.mjs`、`--data-dir` | 安装脚本默认注册（`supervisor/src/autostart.mjs`） | `syncAutostart` 核对后重新注册 |
 | 开机自启名单 `registry/autostart.yaml` | 服务管家数据目录 | 第一次 `ergo start` 写一份只含 `ergo-daemon` 的（`wx`，有文件绝不改）；之后归服务管家（WebUI、`lsm autostart`） | 不动 |
-| 二狗的登记 `registry/services/ergo-daemon.yaml` | 服务管家数据目录 | 每次 `ergo start` 按当前版本重写 | 重写 |
+| 二狗的登记 `registry/services/ergo-daemon.yaml` | 服务管家数据目录 | 每次 `ergo start`、切版本时按当前版本重写；`env` 里用的人多加的项留着（371 号票，二狗自己写的那几项照旧覆盖），别处的手改不留 | 重写 |
 
 `syncAutostart`（`cli/service.ts`）只在安装版做，`ensureSvc`（`start`、`restart`）和 `switchTo`（`update`、`rollback`）都调：没有任务不新建（用的人撤掉了）；任务指着安装目录以外不动（用的人自己的服务管家，和 `ergo uninstall`、安装脚本同一条规矩）；指着安装目录里别的版本才重新注册；失败只说一句。`switchTo` 那个进程还跑在旧版本上（版本目录是启动器按 `current` 找的），切过去之后的登记、服务管家、任务都要按新版本的上下文做（`contextOfVersion`）。
 
