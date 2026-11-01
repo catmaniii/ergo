@@ -183,7 +183,7 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 
 | | |
 |---|---|
-| [安装、升级和卸载](docs/install.md) | 一行命令、从源码、升级、回滚、卸载 |
+| [安装、升级和卸载](docs/install.md) | 一步一步安装、启动和停止、开机自启、升级、回滚、卸载 |
 | [部署和外网访问](docs/deployment.md) | 手机、平板怎么从外面连回家：Tailscale、自建 Headscale、VPS 隧道 |
 | [技术架构](docs/architecture.md) | 一个请求怎么走、部署结构、代码组成、和 OpenClaw 的取舍 |
 | [用户手册](docs/user-guide.md) | 日常怎么用、设置、备份、出问题怎么办 |

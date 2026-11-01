@@ -7,6 +7,8 @@ ergo runs on Windows 10 / 11 only. What the two processes are and what to prepar
 - [One-line install (recommended)](#one-line-install-recommended)
 - [Install with npm](#install-with-npm-if-you-already-have-node-22)
 - [Install from source](#install-from-source)
+- [Starting and stopping](#starting-and-stopping)
+- [Starting automatically](#starting-automatically)
 - [After installing](#after-installing)
 - [Update](#update)
 - [Roll back](#roll-back)
@@ -15,31 +17,126 @@ ergo runs on Windows 10 / 11 only. What the two processes are and what to prepar
 
 ## One-line install (recommended)
 
-In PowerShell:
+You don't need Node beforehand, and you don't need administrator rights.
+
+**Step 1: open PowerShell.** Press the Windows key, type `powershell`, press Enter. A normal window is fine; don't "Run as administrator".
+
+**Step 2: paste this line and press Enter.**
 
 ```powershell
 irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 ```
 
-It finds the latest version (whichever of GitHub Releases and npmmirror answers faster) → downloads the prebuilt package (with Node; no `npm`, no build; the window shows percent, downloaded / total and speed, or just downloaded and speed when the server doesn't give a size) → verifies the signature and each file's sha256 → extracts it to `%LOCALAPPDATA%\Programs\ergo\versions\<version>`, writing `current` (a one-line text file naming the one in use) → adds `bin` to your user PATH (no admin rights) → sets the supervisor to start at login → starts ergo, and finally reports the version, the install folder, the version in use, the autostart state and what to do next. Then open <http://127.0.0.1:8810/> in a browser (or run `ergo open`) and follow the wizard (see [Section 3](user-guide.en.md#3-first-run)). Your data lives in `%USERPROFILE%\.ergo`, separate from the program; upgrades and reinstalls never touch it.
+The package is about 150 MB, and the window shows download progress. The script does these things in order:
 
-`irm … | iex` cannot pass parameters; to pass one, fetch the script and run it:
+1. Finds the latest version (whichever of GitHub Releases and npmmirror answers faster) and downloads the package. It bundles Node, so there's no `npm` and no build.
+2. Verifies the signature and the file's sha256.
+3. Unpacks to `%LOCALAPPDATA%\Programs\ergo\versions\<version>` and writes `current`, one line of text pointing at the version in use.
+4. Adds `bin` to your user PATH.
+5. Sets the service manager to start automatically, then starts ergo (see [Starting automatically](#starting-automatically)).
+
+Your data lives in `%USERPROFILE%\.ergo`, separate from the program. Updates and reinstalls don't touch it.
+
+**Step 3: read the last few lines in the window.** When everything worked, they say:
+
+```text
+Version: <version>
+Install folder: C:\Users\you\AppData\Local\Programs\ergo
+Version in use (current): <version>
+Autostart: on
+Next: ergo open opens the web page; follow the setup wizard there.
+Done. Use ergo start / stop / status / update / uninstall from now on; ergo help lists every command. Your data lives in ~/.ergo and is never touched by updates or uninstalling.
+```
+
+The install has only failed if downloading, verifying, unpacking or writing `current` fails, and then the version in use stays as it was. If a later step doesn't work (say, registering the startup task was blocked), that isn't an install failure: the window says which step didn't work and how to redo it, and everything else carries on.
+
+**Step 4: check that ergo is running.** Open a new PowerShell window and run `ergo status`. You should see:
+
+```text
+Version: <version> (release package)
+Installed at: C:\Users\you\AppData\Local\Programs\ergo
+Data: C:\Users\you\.ergo
+Service manager: running (port 7420)
+ergo: RUNNING, http://127.0.0.1:8810/ (pid 12345)
+```
+
+**Step 5: open the page and go through the setup wizard.** Run `ergo open`, or open <http://127.0.0.1:8810/> in a browser. For the wizard, see [After installing](#after-installing) below.
+
+### Install options
+
+`irm … | iex` can't take parameters. To pass some, fetch the script first:
 
 ```powershell
 & ([scriptblock]::Create((irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1))) -FromSource
 ```
 
-The options: `-FromSource` (skip the package, fetch the source package and build it; `-Ref <tag or branch>` picks the version), `-NodeVersion <version>` (only allow a tested Node), `-UseSystemNode` (use the Node already on the machine instead of the bundled one), `-Mirror cn` (force npmmirror, faster in mainland China), `-NoPath` (don't change PATH), `-NoAutostart` (don't set up autostart), `-NoStart` (don't start ergo after installing; the older name `-NoOnboard` still works). With `irm … | iex` you can use environment variables instead: `$env:ERGO_INSTALL_NO_AUTOSTART = 1`, `$env:ERGO_INSTALL_NO_START = 1`.
+| Parameter | What it does |
+|---|---|
+| `-FromSource` | Download the source package and install from it instead; `-Ref <tag or branch>` picks the version |
+| `-NodeVersion <version>` | Use a specific Node version (only tested ones are allowed) |
+| `-UseSystemNode` | Use the Node already on the machine instead of the bundled one |
+| `-Mirror cn` | Force npmmirror (usable only once the npm package is published; for now it falls back to GitHub) |
+| `-NoPath` | Don't change PATH |
+| `-NoAutostart` | Don't set up starting automatically |
+| `-NoStart` | Don't start ergo after installing (the old name `-NoOnboard` still works) |
 
-Only a failure while downloading, verifying, extracting or writing `current` means the install failed (the version in use is unchanged). A later step that doesn't work out (say, registering autostart is blocked) doesn't fail the install: the script says which step didn't work and how to redo it, and the rest goes on.
+With `irm … | iex` you can also use environment variables: `$env:ERGO_INSTALL_NO_AUTOSTART = 1`, `$env:ERGO_INSTALL_NO_START = 1`.
 
-**ergo comes back after a restart by itself**: the installer sets the supervisor to start at login (the scheduled task `LocalServiceManager`: starts in the background when you log in to Windows, no window), and the first `ergo start` puts ergo on its autostart list (`registry/autostart.yaml` in its data directory).
+## Starting and stopping
 
-- **Which services come up at login** is decided in the supervisor: the switch on a service's card in its web page <http://127.0.0.1:7420/>, or `ergo svc autostart <service> on|off`. Turn ergo off and it stays off; `ergo start` won't turn it back on.
-- **No autostart**: `ergo svc uninstall-autostart`; to get it back: `ergo svc install-autostart`. Once removed, `ergo start` and `ergo update` won't add it back; running the installer again will (add `-NoAutostart` if you don't want that).
-- **Updates and rollbacks**: `ergo update`, `ergo rollback` and `ergo start` check the task, and if it points at another version of this install they point it at the one in use.
-- **A task of the same name already points elsewhere** (say, a supervisor you installed from source): the installer, `ergo start` and `ergo uninstall` leave it alone. To replace it with this install, run `ergo svc install-autostart` once.
-- **Installed with `-NoStart`**: a restart brings ergo up only after you have run `ergo start` once. Until then the supervisor does come up at login, but ergo isn't registered and the list isn't written; and on its very first start it has no record of a previous login session, so it treats the start as "not a boot" and starts no services (better to skip autostart once than to mistake an ordinary restart for a boot).
+ergo is two processes: the **service manager** starts other services and watches over them; the **ergo daemon** is ergo itself, hosted by the service manager.
+
+After installing, ergo is already running, and it comes back by itself after a restart, so **you normally don't start it by hand**. When you need to:
+
+| What you want | Command |
+|---|---|
+| See whether it's running, which version, where it's installed | `ergo status` |
+| Start (starts the service manager first if needed) | `ergo start` |
+| Open the page | `ergo open` |
+| Stop now | `ergo stop` |
+| Stop once the task in hand is finished | `ergo svc stop ergo-daemon --when-idle` |
+| Restart | `ergo restart` |
+| Restart once the task in hand is finished | `ergo svc restart ergo-daemon --when-idle` |
+| Read the logs (`-f` keeps following, Ctrl+C quits) | `ergo logs`, `ergo logs -f` |
+| See every command | `ergo help` |
+
+You can also use the service manager's page: open <http://127.0.0.1:7420/>. Each service has a card where you can start and stop it, watch live logs and switch starting at login on or off.
+
+If ergo is killed or crashes, the service manager brings it back. After a restart, work in progress carries on by the usual rules; operations it can't tell were finished are handed to you to confirm, not quietly redone.
+
+What `ergo status` means:
+
+| It says | Meaning | What to do |
+|---|---|---|
+| `Service manager: not running` | The service manager isn't up | `ergo start` |
+| `ergo: not registered yet` | Installed with `-NoStart` and never started | `ergo start` |
+| `ergo: STOPPED` | It was stopped | `ergo start` |
+| `ergo: FAILED — reason` | It didn't start | Deal with the reason, check `ergo logs`, then `ergo start` |
+
+## Starting automatically
+
+There are two layers, and **both must be on for ergo to come back after a restart**. The one-line install turns both on, so there's nothing to set up. The rest of this section is for checking or changing them.
+
+| | Layer 1: the service manager starts | Layer 2: the service manager starts ergo |
+|---|---|---|
+| What it does | When you log in to Windows, the scheduled task `LocalServiceManager` starts the service manager in the background, with no window | Once up, the service manager starts the services on its startup list |
+| Turned on by | The install script | The first `ergo start` (the install script runs one for you) |
+| Check it | `Get-ScheduledTask -TaskName LocalServiceManager` | `ergo svc autostart` (lists them) |
+| Turn on | `ergo svc install-autostart` | `ergo svc autostart ergo-daemon on` |
+| Turn off | `ergo svc uninstall-autostart` | `ergo svc autostart ergo-daemon off` |
+| On a page | The **start at login** switch in the setup wizard's Abilities step | The switch on the card at <http://127.0.0.1:7420/> |
+
+**To check it works:** restart the computer, log in to Windows, wait a minute or two, then open PowerShell and run `ergo status`.
+
+Worth knowing:
+
+- **It's at login, not at power-on.** If the computer is on but sitting at the login screen, ergo won't be up. For an unattended home machine you'd need Windows to log in automatically, which is your call to make and set up.
+- **Other services work the same way.** To have a voice service start too, run `ergo svc autostart <service> on` or use the switch on its card. `ergo svc status` shows the service names.
+- **Off stays off.** Once ergo is off the list, `ergo start` won't put it back. Once layer 1 is removed, `ergo start` and `ergo update` won't add it back; rerunning the install script will (add `-NoAutostart` if you don't want that).
+- **Updates and rollbacks take care of themselves.** `ergo update`, `ergo rollback` and `ergo start` check the task, and if it points at another version of this install they repoint it at the one in use.
+- **If this computer already has a task with that name pointing elsewhere** (say, a service manager you installed from source), the install script, `ergo start` and `ergo uninstall` leave it alone. Run `ergo svc install-autostart` once to switch it to this install.
+- **Installed with `-NoStart`:** ergo only comes back after a restart once you've run `ergo start`. Until then the service manager starts at login but ergo isn't registered and the list isn't written. And on its first start it has no record of a previous login, so it treats this as "not a fresh boot" and starts no services (better to miss one automatic start than to mistake an ordinary restart for a boot).
+- **Installed from source:** replace `ergo svc` above with `node bin\lsm.mjs` run in `packages\supervisor`; see steps 3 and 5 of [Install from source](#install-from-source).
 
 ## Install with npm (if you already have Node 22)
 
@@ -162,7 +259,7 @@ ergo version          # see which version is running
 
 `ergo update` looks up the latest version, downloads it into a new directory and verifies the signature, waits until ergo is idle (a running task isn't interrupted), switches over and restarts ergo with the autostart task pointing at the new version, and keeps the old version for rolling back. If ergo stays busy too long it gives up and the version in use doesn't change; just run it again later.
 
-Options: `--version <version>` picks a version, `--mirror cn` uses npmmirror (faster in China), `--from <url>` uses another release address.
+Options: `--version <version>` picks a version, `--mirror cn` tries npmmirror first (useful only once the npm package is published; for now it falls back to GitHub), `--from <url>` uses another release address.
 
 A supervisor started by the autostart task keeps running the old version's program after an update (ergo itself is on the new version, so nothing breaks) and changes at the next login; the old version's folder it occupies can't be deleted until then, and `ergo update` says it will remove it next time.
 

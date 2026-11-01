@@ -183,7 +183,7 @@ Large models still live elsewhere today, so we're handing back everything except
 
 | | |
 |---|---|
-| [Install, update and uninstall](docs/install.en.md) | One line, from source, updating, rolling back, uninstalling |
+| [Install, update and uninstall](docs/install.en.md) | Step-by-step install, starting and stopping, starting automatically, updating, rolling back, uninstalling |
 | [Deployment and outside access](docs/deployment.en.md) | Reaching home from a phone or tablet: Tailscale, self-hosted Headscale, VPS tunnel |
 | [Architecture](docs/architecture.en.md) | How a request flows, where it runs, the code, trade-offs against OpenClaw |
 | [User Guide](docs/user-guide.en.md) | Everyday use, settings, backup, troubleshooting |
