@@ -7,7 +7,7 @@
   "workOrders.reason.lineDropped": "After the plan was changed or adjusted, this line is no longer in the new plan",
   "workOrders.reason.declined": "You declined it",
   "workOrders.reason.declinedNote": "You declined it: {note}",
-  "workOrders.reason.archived": "Project \"{name}\" is archived, so its owner takes no new work orders. To continue, unarchive it on the project page and start again.",
+  "workOrders.reason.archived": "Project \"{name}\" is archived, so its owner takes no new work orders. To continue, unarchive it in the project records and start again.",
   "workOrders.reason.projectDeleted": "Project {id} has been deleted",
   "workOrders.reason.taskCancelled": "The task was cancelled",
   "workOrders.reason.taskEnded": "The task has ended",

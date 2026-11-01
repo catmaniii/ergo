@@ -4,6 +4,9 @@
   "agentRoles.roleNotFound": "No such role: {id}",
   "agentRoles.defaultCannotDelete": "The default role can't be deleted: make another role the default first",
   "agentRoles.roleInUse": "Agents still use this role: {agents}; change them to another role or back to the default first",
+  "agentRoles.roleInUseEndedTasks": "Finished tasks still use this role: {agents}. They're read-only, so their role can't be changed; to delete this role, delete those tasks first",
+  "agentRoles.roleInUseArchivedProjects": "Archived projects still use this role: {agents}. Unarchive them and change their role, or delete those projects first",
+  "agentRoles.roleInUseJoin": ". ",
   "agentRoles.broken": "The roles file can't be read ({file}); fix it or delete it before changing anything",
   "agentRoles.writeFailed": "The roles file couldn't be written: {reason}"
 }

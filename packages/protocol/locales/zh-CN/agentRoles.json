@@ -4,6 +4,9 @@
   "agentRoles.roleNotFound": "没有这个角色：{id}",
   "agentRoles.defaultCannotDelete": "默认角色不能删：先把别的角色设成默认角色",
   "agentRoles.roleInUse": "这个角色还有 agent 在用：{agents}；先把它们改成别的角色，或者改成跟默认",
+  "agentRoles.roleInUseEndedTasks": "这个角色还被结束了的任务用着：{agents}；它们只读，改不了角色，要删这个角色得先删掉这些任务",
+  "agentRoles.roleInUseArchivedProjects": "这个角色还被归档了的项目用着：{agents}；可以取消归档再给它们换角色，或者先删掉这些项目",
+  "agentRoles.roleInUseJoin": "；",
   "agentRoles.broken": "角色的配置文件读不了（{file}），先修好它或者删掉它再改",
   "agentRoles.writeFailed": "角色的配置没写进去：{reason}"
 }

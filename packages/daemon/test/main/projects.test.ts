@@ -751,7 +751,7 @@ describe("项目状态", () => {
     // 已归档：负责人会话只读
     expect(await frontend.request(METHODS.sendMessage, { conversation: PM1, parts: [{ type: "text", text: "还在吗" }] }, "k-ro")).toMatchObject({
       ok: false,
-      error: { code: "not_allowed", message: "项目「记账本」已归档：负责人会话只读。要接着和负责人说话，先在项目页上取消归档" },
+      error: { code: "not_allowed", message: "项目「记账本」已归档：负责人会话只读。要接着和负责人说话，先在项目档案里取消归档" },
     });
     // 已归档的项目不能选进新任务
     expect(await frontend.startTask("给记账本加功能", "k-t", ["记账本"])).toMatchObject({ ok: false, error: { code: "not_allowed" } });

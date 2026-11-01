@@ -223,7 +223,7 @@ const planBills: PlanPayload = {
         stageId: "s3",
         title: "接进记账本、出第一份周报",
         deliverables: ["记账本里新增的周汇总和第一份周报"],
-        acceptance: [{ criterion: "你看过第一份周报，觉得能用", method: "user" }],
+        acceptance: [{ criterion: "第一份周报的合计和三张卡的账单对得上", method: "review" }],
         mode: "steps",
         steps: ["追加周汇总", "出周报"],
         dependsOn: ["s2"],
@@ -238,7 +238,7 @@ const planBills: PlanPayload = {
     memoryScope: "记账本相关的偏好",
     watchCategories: GLOBAL_CATEGORIES,
     assumptions: ["甲银行和乙银行的账单可以从邮箱里的月结单附件拿到", "丙银行的账单你会每月手动放进下载目录", "分类沿用记账本现有的规则"],
-    stops: { count: 2, where: ["第一份周报由你验收", "丙银行的账单要你手动放进下载目录"] },
+    stops: { count: 1, where: ["丙银行的账单要你手动放进下载目录"] },
     tokenEstimate: 400_000,
   },
 };
@@ -261,7 +261,10 @@ const planPhotos: PlanPayload = {
         stageId: "s1",
         title: "盘点两边的照片",
         deliverables: ["照片清单和重复估计"],
-        acceptance: [{ criterion: "清单覆盖两个目录", method: "script", script: "node check-list.mjs" }],
+        acceptance: [
+          { criterion: "清单覆盖两个目录", method: "script", script: "node check-list.mjs" },
+          { criterion: "要整理的目录都在清单里", method: "review" },
+        ],
         mode: "open",
         dependsOn: [],
         policy: { grants: [], temporalRules: [] },
@@ -290,9 +293,9 @@ const planPhotos: PlanPayload = {
       },
       {
         stageId: "s4",
-        title: "你过目",
+        title: "写归档说明",
         deliverables: ["归档结果的说明"],
-        acceptance: [{ criterion: "你确认归档结果", method: "user" }],
+        acceptance: [{ criterion: "说明写清了移了多少张、按哪些事件归档", method: "review" }],
         mode: "steps",
         steps: ["写说明"],
         dependsOn: ["s3"],
@@ -308,7 +311,7 @@ const planPhotos: PlanPayload = {
     ],
     watchCategories: GLOBAL_CATEGORIES,
     assumptions: ["NAS 上的照片目录是 /示例/相册", "家庭网盘的「旧手机照片」目录和相册库有大量重复"],
-    stops: { count: 1, where: ["归档结果由你过目"] },
+    stops: { count: 0, where: [] },
     tokenEstimate: 430_000,
   },
 };
@@ -345,7 +348,7 @@ const blogPlan: Plan = {
       stageId: "s2",
       title: "上线",
       deliverables: ["预览地址"],
-      acceptance: [{ criterion: "你看过预览", method: "user" }],
+      acceptance: [{ criterion: "预览地址打得开，和旧站的页面对得上", method: "review" }],
       mode: "open",
       dependsOn: ["s1"],
       policy: { grants: [], temporalRules: [] },
@@ -358,7 +361,7 @@ const blogPlan: Plan = {
   memoryScope: "（第一阶段不授予）",
   watchCategories: GLOBAL_CATEGORIES,
   assumptions: [],
-  stops: { count: 1, where: ["上线前你看预览"] },
+  stops: { count: 0, where: [] },
   tokenEstimate: 150_000,
 };
 const dnsGrant = { id: "dns", tool: "http_request", title: "把 blog 子域名指向新站点", scope: { url: "https://dns.example.com/api/records/blog" }, maxUses: 2 };
@@ -488,8 +491,8 @@ export const FAKE_CARDS: Card[] = [
     actionId: "qa-fake-2",
     conversation: "secretary",
     action: { type: "pause_scheduled_job", params: { jobId: "sj-daily-bills", days: 7 } },
-    name: "暂停定时作业",
-    title: "暂停定时作业一周：每天 21:00 汇总当天账单（记账本）",
+    name: "暂停定时任务",
+    title: "暂停定时任务一周：每天 21:00 汇总当天账单（记账本）",
     target: "每天 21:00 汇总当天账单（记账本）",
     content: "暂停一周，下周一 21:00 自动恢复",
     explicit: false,
@@ -667,7 +670,7 @@ export const FAKE_CARDS: Card[] = [
     { urgency: "blocking_deadline", createdAt: at("10-07", "09:20") },
   ),
   // 55 号票：第 1 阶段验收通过、第 2 阶段第一次交上来被退回（缩小后的书脊一段绿、一段橙，接着做的那一轮在做）
-  // 84 号票：第 1 阶段第一次交上来你退回了（你写的说明记在由你验收的那条上），卡上记着负责人宣布完成时写的那句
+  // 84 号票：第 1 阶段第一次交上来评审没过（说明记在评审的那条上），卡上记着负责人宣布完成时写的那句
   card(
     "c-acc-photos-s1a",
     "progress",
@@ -679,14 +682,14 @@ export const FAKE_CARDS: Card[] = [
       stageIndex: 1,
       stageTotal: 4,
       kind: "acceptance",
-      text: "你退回了，交回负责人修改。",
+      text: "没通过，交回负责人修改。",
       acceptance: {
         passed: false,
-        judgedBy: "user",
+        judgedBy: "review",
         summary: "两边的清单都出来了：一共 37,020 张，估计 400 组重复",
         results: [
           { criterion: "清单覆盖两个目录", method: "script", passed: true },
-          { criterion: "你看过清单，确认要整理的目录都在里面", method: "user", passed: false, note: "网盘那边漏了「旧手机照片/2016」" },
+          { criterion: "要整理的目录都在清单里", method: "review", passed: false, note: "网盘那边漏了「旧手机照片/2016」" },
         ],
       },
     } satisfies ProgressPayload,
@@ -706,11 +709,11 @@ export const FAKE_CARDS: Card[] = [
       text: "验收通过。",
       acceptance: {
         passed: true,
-        judgedBy: "user",
+        judgedBy: "review",
         summary: "补上了「旧手机照片/2016」，两边一共 38,214 张",
         results: [
           { criterion: "清单覆盖两个目录", method: "script", passed: true },
-          { criterion: "你看过清单，确认要整理的目录都在里面", method: "user", passed: true },
+          { criterion: "要整理的目录都在清单里", method: "review", passed: true },
         ],
       },
     } satisfies ProgressPayload,
@@ -839,7 +842,7 @@ export const FAKE_CARDS: Card[] = [
       checklist: [
         { id: "architecture", label: "架构图写清服务和对外接口", done: true },
         { id: "ops", label: "运营接口清单验收通过（ops.json）", done: false, detail: "ops.json 还是模板原样" },
-        { id: "services", label: "服务按模板在 LSM 登记（写进运营方案）", done: true, detail: "确认后交给 LSM 登记：「page」" },
+        { id: "services", label: "服务写进运营方案（确认后由服务管家上线）", done: true, detail: "确认后交给服务管家上线：「page」" },
         { id: "public_entry", label: "要外网的开好 /apps/<项目>/", done: true, detail: "确认后开 /apps/p-reading-page/" },
         { id: "progress_written", label: "进展已写回", done: true },
       ],
@@ -1058,7 +1061,7 @@ const SECRETARY: MessageEnvelope[] = [
     S,
     "agent",
     at("10-06", "21:40"),
-    think("用户这周三次在晚上 10 点后手动导出账单（周一、周三、周四），每次十几分钟。这是重复劳动，适合做成定时作业，但用户没要求，只能给建议卡。"),
+    think("用户这周三次在晚上 10 点后手动导出账单（周一、周三、周四），每次十几分钟。这是重复劳动，适合做成定时任务，但用户没要求，只能给建议卡。"),
     text("顺便说一句：这周你手动导出了三次账单。要不要交给一个任务每周自动做？"),
     cardRef("c-st-1"),
   ),
@@ -1120,7 +1123,7 @@ const SECRETARY: MessageEnvelope[] = [
     S,
     "agent",
     at("10-07", "08:55"),
-    text("我理解是先停「每天 21:00 汇总当天账单」这个作业一周？这是我推断的，你确认了才执行。另外 NAS 快满了，给你一个建议："),
+    text("我理解是先停「每天 21:00 汇总当天账单」这个定时任务一周？这是我推断的，你确认了才执行。另外 NAS 快满了，给你一个建议："),
     cardRef("c-qa-2"),
     cardRef("c-st-2"),
   ),
@@ -1234,7 +1237,7 @@ const PHOTOS: MessageEnvelope[] = [
     { taskId: "t-photos", stageId: "s1" },
     msg(P, "agent", at("10-06", "09:55"), tool("dispatch_work_order", "project=家庭网盘 stageId=s1 instructions=把「旧手机照片/2016」也扫进清单", { disposition: "planned_only", withinGrant: true })),
   ),
-  scoped({ taskId: "t-photos", stageId: "s1" }, msg(P, "system", at("10-06", "10:20"), text("回执：W-21、W-22 都已完成。第 1 阶段验收通过（脚本：清单覆盖两个目录；你看过清单）。"))),
+  scoped({ taskId: "t-photos", stageId: "s1" }, msg(P, "system", at("10-06", "10:20"), text("回执：W-21、W-22 都已完成。第 1 阶段验收通过（脚本：清单覆盖两个目录；评审：要整理的目录都在清单里）。"))),
   scoped({ taskId: "t-photos", stageId: "s1" }, msg(P, "system", at("10-06", "10:20"), cardRef("c-acc-photos-s1"))),
   scoped(
     { taskId: "t-photos", stageId: "s2" },
@@ -1313,7 +1316,7 @@ const BILLS: MessageEnvelope[] = [
 const L = MAINTAINERS.ledger;
 
 const LEDGER: MessageEnvelope[] = [
-  msg(L, "system", at("10-05", "21:00"), divider("W-15", "每日汇总（10-05 21:00 的运行）", "定时作业「每天 21:00 汇总当天账单」")),
+  msg(L, "system", at("10-05", "21:00"), divider("W-15", "每日汇总（10-05 21:00 的运行）", "定时触发")),
   msg(
     L,
     "agent",
@@ -1326,7 +1329,7 @@ const LEDGER: MessageEnvelope[] = [
     tool("write", "reports/daily/2026-10-05.md"),
     text("10-05 汇总好了：支出 ¥286.40，其中外卖 ¥96。"),
   ),
-  msg(L, "system", at("10-06", "21:00"), divider("W-16", "每日汇总（10-06 21:00 的运行）", "定时作业「每天 21:00 汇总当天账单」")),
+  msg(L, "system", at("10-06", "21:00"), divider("W-16", "每日汇总（10-06 21:00 的运行）", "定时触发")),
   msg(
     L,
     "agent",
@@ -2080,7 +2083,7 @@ const LEDGER_LATEST: MessageEnvelope[] = [
           "边界：",
           "- 工作目录 projects/ledger：文件工具只能写这里；工具包：bash 开，联网关",
           "- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始",
-          "- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收",
+          "- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审），你自检不算验收",
           "做完调用 complete_stage 宣布阶段完成，由运行时验收。",
         ].join("\n"),
       ),

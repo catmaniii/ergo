@@ -3,7 +3,7 @@
  * - 一个"确认"按钮；授权项可逐行勾掉或收窄（次数改少、对象范围里去掉一些值），可附意见打回；
  * - 授权行和时序规则的主文由代码从结构化数据生成（协议包的 grantText、temporalRuleText），负责人写的标题只作灰字备注；
  *   落在"先问我""交给我做"类别里的授权行不算授权：标"执行时仍会问"（或"交给你做"），不能勾选；
- * - "授权后还会在 N 处停下来"由代码算（planStops）：由你验收的阶段、仍会问的、勾掉的、收窄的，随勾选实时更新；
+ * - "授权后还会在 N 处停下来"由代码算（planStops）：旧计划里由你验收的阶段、仍会问的、勾掉的、收窄的，随勾选实时更新；
  *   负责人填的停点预告只作参考；
  * - 假设栏每条可改，确认时随计划一起保存；105 号票起每条是随内容长高的多行框（整段看得全、在任意位置改），清空就是去掉这一条；
  * - 逐行列出涉及的项目和改动、定时作业定义（确认后登记在 19 号票）；涉及多个项目的任务（17 号票）每一行还写着所属阶段和
@@ -13,7 +13,7 @@
  *     给这个任务加类别（只能加，已有的删不掉；还没确认的可以不加了），随确认交出；
  *   - 你说过的限制：负责人编译成的时序规则和授权收窄（文字由代码从结构化数据生成），和你的原话一起列出。
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { tokensLabel } from "../../model/labels.ts";
 import {
@@ -89,8 +89,21 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
   const [added, setAdded] = useState<PlanCategoryAddition[]>([]);
   /** 正在写的那一个（没在写是 undefined） */
   const [adding, setAdding] = useState<{ form: CategoryForm; disposition: Disposition; problems: string[] }>();
-  const { ui } = useStore();
+  const { ui, http } = useStore();
   const tools = ui.watchCategories?.state.tools ?? [];
+  // 375 号票：没勾的操作执行时怎样，看"有风险的事先问我"开没开（新装时关着：超出授权的直接做）。取不到就不说这一句，处理过的卡也不说
+  const [askFirst, setAskFirst] = useState<boolean>();
+  useEffect(() => {
+    if (done) return;
+    let live = true;
+    http.safetySettings().then(
+      (view) => live && setAskFirst(view.conversationApprovals),
+      () => live && setAskFirst(undefined),
+    );
+    return () => {
+      live = false;
+    };
+  }, [http, done]);
 
   const choice = { removed, drafts, ...(assumptions === undefined ? {} : { assumptions }), added };
   const stageTitleOf = (stageId: string) => plan.stages.find((s) => s.stageId === stageId)?.title;
@@ -285,7 +298,7 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
             ))}
           </div>
         )}
-        <div className="muted">{t("ui.planCard.grants.note")}</div>
+        {!done && askFirst !== undefined && <div className="muted">{t(askFirst ? "ui.planCard.grants.note" : "ui.planCard.grants.noteAskOff")}</div>}
       </fieldset>
 
       {rules.length > 0 && (

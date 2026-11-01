@@ -1,6 +1,6 @@
 {
   "operations.authorizedNote": "Authorized with the operations plan (when you confirmed it)",
-  "operations.refusal.archived": "Project “{name}” is archived, so no more operations plans: unarchive it on the project page first",
+  "operations.refusal.archived": "Project “{name}” is archived, so no more operations plans: unarchive it in the project records first",
   "operations.refusal.changed": "The operations plan changed after this, so this card no longer applies. See the latest one",
   "operations.refusal.handled": "This operations plan change card has already been handled",
   "operations.refusal.notFound": "No such operations plan (revision {revision})",

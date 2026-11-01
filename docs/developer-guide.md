@@ -275,7 +275,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 |---|---|---|---|
 | 计划任务 `LocalServiceManager` | 写死当时的 `node.exe` 和 `lsm.mjs`、`--data-dir` | 安装脚本默认注册（`supervisor/src/autostart.mjs`） | `syncAutostart` 核对后重新注册 |
 | 开机自启名单 `registry/autostart.yaml` | 服务管家数据目录 | 第一次 `ergo start` 写一份只含 `ergo-daemon` 的（`wx`，有文件绝不改）；之后归服务管家（WebUI、`lsm autostart`） | 不动 |
-| 二狗的登记 `registry/services/ergo-daemon.yaml` | 服务管家数据目录 | 每次 `ergo start`、切版本时按当前版本重写；`env` 里用的人多加的项留着（371 号票，二狗自己写的那几项照旧覆盖），别处的手改不留 | 重写 |
+| 二狗的登记 `registry/services/ergo-daemon.yaml` | 服务管家数据目录 | 每次 `ergo start`、切版本时按当前版本重写；`env` 里用的人多加的项（371 号票，二狗自己写的那几项照旧覆盖）、用的人写的顶层 `exposure:`（375 号票）留着，别处的手改不留 | 重写 |
 
 `syncAutostart`（`cli/service.ts`）只在安装版做，`ensureSvc`（`start`、`restart`）和 `switchTo`（`update`、`rollback`）都调：没有任务不新建（用的人撤掉了）；任务指着安装目录以外不动（用的人自己的服务管家，和 `ergo uninstall`、安装脚本同一条规矩）；指着安装目录里别的版本才重新注册；失败只说一句。`switchTo` 那个进程还跑在旧版本上（版本目录是启动器按 `current` 找的），切过去之后的登记、服务管家、任务都要按新版本的上下文做（`contextOfVersion`）。
 

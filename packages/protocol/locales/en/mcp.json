@@ -19,7 +19,7 @@
   "mcp.change.notRegistered": "No MCP named {name} is registered: use action: add to add it",
   "mcp.change.badName": "MCP name {name} isn't valid: use letters, digits, - and _, starting with a letter or digit, never two _ in a row",
   "mcp.change.missingCommand": "command must say what to launch (for example node); it can't be empty",
-  "mcp.change.plaintextSecret": "These look like secrets; don't write them in plain text: {names}. Write { fromEnv: \"VARIABLE\" } and the runtime will read it from its own environment (injected by the LSM)",
+  "mcp.change.plaintextSecret": "These look like secrets; don't write them in plain text: {names}. Write { fromEnv: \"VARIABLE\" } and the runtime will read it from its own environment (injected by the service manager)",
   "mcp.change.noTools": "tools must register at least one tool",
   "mcp.change.noSubmitter": "The submitter can't be found ({target}): the project or task may have been deleted",
   "mcp.change.inboxTitle": "MCP registration change: {who} wants to {change}",

@@ -61,7 +61,7 @@ node bin\lsm.mjs tailnet ergo-daemon on <名字>
 2. **证书**：用你在 VPS 上现有的 Let's Encrypt 做法，把 `ergo.<VPS 的 IP>.sslip.io` 加进证书。
 3. **先看一眼**要部署的 nginx 配置：`npm run deploy:nginx -- --print`（只打印，不连 VPS）。
 4. **部署**：`npm run deploy:nginx`。它 ssh 到 VPS 写站点配置，`nginx -t` 通过才重载，不通过就恢复原来的配置。
-5. **登记隧道**：复制 `deploy\lsm\ergo-tunnel.example.yaml` 到服务管家数据目录的 `registry\services\ergo-tunnel.yaml`，换掉占位符（`<仓库路径>`、`<ssh 私钥路径>`、`<VPS 用户>`、`<VPS 地址>`）；再在 `ergo-daemon.yaml` 里去掉末尾 `exposure:` 那段的注释、换掉 `<VPS 地址>`。然后：
+5. **登记隧道**：复制 `deploy\lsm\ergo-tunnel.example.yaml` 到服务管家数据目录的 `registry\services\ergo-tunnel.yaml`，换掉占位符（`<仓库路径>`、`<ssh 私钥路径>`、`<VPS 用户>`、`<VPS 地址>`）；再在 `ergo-daemon.yaml` 里打开 `exposure:` 那段：从源码装的去掉末尾的注释，一行命令或 npm 装的照 `deploy\lsm\ergo-daemon.example.yaml` 末尾那段加一段，都换掉 `<VPS 地址>`。`ergo start` 和升级重写这个文件时，这一段会留着。然后：
 
    ```powershell
    node bin\lsm.mjs validate

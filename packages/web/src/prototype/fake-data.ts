@@ -31,6 +31,7 @@ import {
   localDate,
   type NoticeType,
   type PairedDevice,
+  OUT_OF_SCOPE_ACK,
   REVERIFY_ACTIONS,
   type ReverifyNoticeData,
   type Project,
@@ -84,7 +85,6 @@ export const FAKE_BOARD: BoardEntry[] = (
       projects: ["记账本"],
       updatedAt: at("10-07", "08:40"),
     },
-    { kind: "task", id: "t-health", title: "季度体检报告整理", status: "waiting_for_user", waitReason: "acceptance", stage: { current: 3, total: 3 }, activity: "waiting_for_user", tokens: 96_000, projects: [], updatedAt: at("10-06", "18:00") },
     { kind: "task", id: "t-ssl", title: "VPS 证书续期检查", status: "waiting_for_user", waitReason: "interrupted", stage: { current: 2, total: 2 }, activity: "waiting_for_user", tokens: 12_000, projects: [], updatedAt: at("10-07", "07:02") },
     {
       kind: "task",
@@ -103,6 +103,8 @@ export const FAKE_BOARD: BoardEntry[] = (
     { kind: "task", id: "t-nas", title: "NAS 硬盘健康巡检", status: "waiting_for_user", waitReason: "stuck", stage: { current: 1, total: 2 }, activity: "waiting_for_user", tokens: 45_000, projects: [], updatedAt: at("10-07", "06:30") },
     { kind: "task", id: "t-notes", title: "读书笔记整理成卡片", status: "waiting_for_user", waitReason: "clarification", stage: { current: 1, total: 3 }, activity: "waiting_for_user", tokens: 22_000, projects: [], updatedAt: at("10-06", "21:10") },
     // 进行中
+    // 阶段一律自动验收（112 号票）：最后一个阶段交上来了，评审在核对，不等你
+    { kind: "task", id: "t-health", title: "季度体检报告整理", status: "running", stage: { current: 3, total: 3 }, activity: "working", activityNote: "评审在核对第 3 阶段", tokens: 96_000, projects: [], updatedAt: at("10-06", "18:00") },
     { kind: "task", id: "t-xian", title: "十一月西安行程", status: "planning", activity: "working", activityNote: "和你对齐意图", tokens: 8_000, projects: [], updatedAt: at("10-07", "08:31") },
     // 289 号票：个人博客的负责人用 Claude Code（卡上标出）；311 号票：Claude Code 的用量大半是缓存命中，卡上单写
     { kind: "task", id: "t-blog", title: "博客迁移到 Astro", status: "running", runtime: "claude-code", stage: { current: 3, total: 5 }, activity: "working", activityNote: "跑端到端测试", tokens: 356_000, cacheHitTokens: 298_000, projects: ["个人博客"], updatedAt: at("10-07", "09:10") },
@@ -173,7 +175,7 @@ const PHOTO_STAGES: Stage[] = [
     deliverable: "照片清单和重复估计",
     acceptance: [
       { text: "清单覆盖两个目录", method: "script", result: "pass" },
-      { text: "你看过清单，确认要整理的目录都在里面", method: "user", result: "pass" },
+      { text: "要整理的目录都在清单里", method: "review", result: "pass" },
     ],
     mode: "open",
     modeReason: "两边的目录怎么组织还不清楚，先各自扫一遍再说",
@@ -183,7 +185,7 @@ const PHOTO_STAGES: Stage[] = [
     marks: {
       perm: [{ text: "给「相册库」「家庭网盘」各派一张扫描工单：派工单 · 动别的项目：项目是 相册库、家庭网盘；最多 2 次", grantId: "dispatch-scan", limit: 2 }],
       out: [],
-      ask: [{ text: "有 1 条标准要你亲自验收：你看过清单，确认要整理的目录都在里面" }],
+      ask: [],
     },
     rules: [],
     ruleDocs: [],
@@ -231,15 +233,15 @@ const PHOTO_STAGES: Stage[] = [
   },
   {
     id: "s4",
-    title: "你过目",
+    title: "写归档说明",
     status: "pending",
     deliverable: "归档结果的说明",
-    acceptance: [{ text: "你确认归档结果", method: "user" }],
+    acceptance: [{ text: "说明写清了移了多少张、按哪些事件归档", method: "review" }],
     mode: "steps",
-    modeReason: "最后由你过目，负责人只写说明",
+    modeReason: "归档做完了，照结果写一份说明",
     after: ["s3"],
     grants: [],
-    marks: { perm: [], out: [], ask: [{ text: "有 1 条标准要你亲自验收：你确认归档结果" }] },
+    marks: NO_MARKS,
     rules: [],
     ruleDocs: [],
     budget: { tokens: 20_000, usedTokens: 0, toolCalls: 10, usedToolCalls: 0 },
@@ -249,7 +251,7 @@ const PHOTO_STAGES: Stage[] = [
 const BILL_STAGES: Stage[] = [
   { id: "s1", title: "摸清账单来源", status: "pending", deliverable: "三张卡的账单来源说明和样例文件", acceptance: [{ text: "三张卡各拿到一份上周的样例", method: "script" }], mode: "open", after: [], grants: ["读邮箱里带「月结单」的邮件附件"], rules: [], budget: { tokens: 80_000, usedTokens: 0, toolCalls: 60, usedToolCalls: 0 } },
   { id: "s2", title: "写导出和去重脚本", status: "pending", deliverable: "导出脚本、去重脚本和测试", acceptance: [{ text: "测试全部通过", method: "script" }, { text: "脚本不往外发任何东西", method: "review" }], mode: "steps", after: ["s1"], grants: ["在记账本的工作目录里写、改脚本"], rules: ["删除或覆盖历史数据之前必须已 git 提交"], budget: { tokens: 200_000, usedTokens: 0, toolCalls: 150, usedToolCalls: 0 } },
-  { id: "s3", title: "接进记账本、出第一份周报", status: "pending", deliverable: "周汇总和第一份周报", acceptance: [{ text: "你看过第一份周报", method: "user" }], mode: "steps", after: ["s2"], grants: ["追加周汇总", "登记定时作业"], rules: [], budget: { tokens: 120_000, usedTokens: 0, toolCalls: 80, usedToolCalls: 0 } },
+  { id: "s3", title: "接进记账本、出第一份周报", status: "pending", deliverable: "周汇总和第一份周报", acceptance: [{ text: "第一份周报的合计和三张卡的账单对得上", method: "review" }], mode: "steps", after: ["s2"], grants: ["追加周汇总", "登记定时任务"], rules: [], budget: { tokens: 120_000, usedTokens: 0, toolCalls: 80, usedToolCalls: 0 } },
 ];
 
 const BLOG_STAGES: Stage[] = [
@@ -291,11 +293,11 @@ const BLOG_STAGES: Stage[] = [
     title: "上线",
     status: "pending",
     deliverable: "部署到预览地址",
-    acceptance: [{ text: "你在预览地址看过", method: "user" }],
+    acceptance: [{ text: "预览地址打得开，和旧站的页面对得上", method: "review" }],
     mode: "steps",
     after: ["s3"],
     grants: ["部署到预览地址"],
-    marks: { perm: [], out: [{ text: "部署到预览地址：部署 · 以我的名义对外发送或发布：最多 1 次", grantId: "deploy-preview", limit: 1 }], ask: [{ text: "有 1 条标准要你亲自验收：你在预览地址看过" }] },
+    marks: { perm: [], out: [{ text: "部署到预览地址：部署 · 以我的名义对外发送或发布：最多 1 次", grantId: "deploy-preview", limit: 1 }], ask: [] },
     rules: [],
     ruleDocs: [],
     budget: { tokens: 40_000, usedTokens: 0, toolCalls: 30, usedToolCalls: 0 },
@@ -355,7 +357,7 @@ const TAX_STAGES: Stage[] = [
     title: "填汇算草表",
     status: "pending",
     deliverable: "汇算草表",
-    acceptance: [{ text: "你看过草表", method: "user" }],
+    acceptance: [{ text: "草表的每一项都对得上核对表", method: "review" }],
     mode: "steps",
     steps: ["按核对表填草表", "写一页说明"],
     after: ["s2"],
@@ -578,9 +580,9 @@ export const FAKE_PROJECT_DETAILS: Record<string, ProjectDetail> = {
       { kind: "scheduled_job", id: "sj-monthly", title: "每月 1 号出月报", status: "paused", schedule: "每月 1 号 09:00", lastRun: { at: at("10-01", "09:00"), ok: true } },
     ],
     workOrders: [
-      { id: "W-17", title: "每日汇总（10-07 21:00 的运行）", project: "记账本", from: "定时作业", status: "queued", updatedAt: at("10-07", "09:00") },
-      { id: "W-16", title: "每日汇总（10-06 21:00 的运行）", project: "记账本", from: "定时作业", status: "unable", updatedAt: at("10-06", "21:01") },
-      { id: "W-15", title: "每日汇总（10-05 21:00 的运行）", project: "记账本", from: "定时作业", status: "done", updatedAt: at("10-05", "21:01") },
+      { id: "W-17", title: "每日汇总（10-07 21:00 的运行）", project: "记账本", from: "定时触发", status: "queued", updatedAt: at("10-07", "09:00") },
+      { id: "W-16", title: "每日汇总（10-06 21:00 的运行）", project: "记账本", from: "定时触发", status: "unable", updatedAt: at("10-06", "21:01") },
+      { id: "W-15", title: "每日汇总（10-05 21:00 的运行）", project: "记账本", from: "定时触发", status: "done", updatedAt: at("10-05", "21:01") },
       { id: "W-12", title: "分类规则加上「订阅」", project: "记账本", from: "任务「搭一个记账本」", status: "done", updatedAt: at("09-28", "19:00") },
     ],
     toolkit: { skills: ["demo-pdf-reader"], mcps: [], bash: true, network: false },
@@ -635,7 +637,7 @@ function notice(x: Fresh & { notice: NoticeType; body: string; actions: string[]
 }
 
 const FAKE_INBOX_ITEMS: InboxItem[] = [
-  notice({ id: "i-rent", notice: "reminder_due", title: "该交房租了", body: "每月 8 号 09:00 的提醒。", source: "简单提醒", urgency: "non_blocking", createdAt: at("10-07", "09:00"), read: false, pinned: true, actions: ["知道了"] }),
+  notice({ id: "i-rent", notice: "reminder_due", title: "提醒：交房租", body: "每月 8 号 09:00 的提醒。", source: "简单提醒", urgency: "non_blocking", createdAt: at("10-07", "09:00"), read: false, pinned: true, actions: ["知道了"] }),
   cardItem({ id: "i-q", cardId: "c-q-1", title: "有 3 个问题等你回答：去几天？", source: `${ASSISTANT_NAME_MARK}对话`, urgency: "blocking", createdAt: at("10-07", "08:31"), read: false }),
   cardItem({ id: "i-appr", cardId: "c-appr-1", title: "批准一条会删除备份端文件的 rsync？", source: "任务「家庭照片整理与去重」", urgency: "blocking_deadline", createdAt: at("10-07", "09:20"), read: false }),
   cardItem({ id: "i-plan", cardId: "c-plan-bills", title: "计划等你确认：每周汇总银行账单", source: "任务「每周汇总银行账单」", urgency: "blocking", createdAt: at("10-07", "08:40"), read: false }),
@@ -673,18 +675,18 @@ const FAKE_INBOX_ITEMS: InboxItem[] = [
   cardItem({ id: "i-pair", cardId: "c-pair-1", title: "新设备请求配对：iPad · Safari", source: "设备配对", urgency: "non_blocking", createdAt: at("10-07", "09:30"), read: false }),
   // 137 号票：像网络上的自动访问的配对请求（行上标一句，详情的卡上写原因）
   cardItem({ id: "i-pair-bot", cardId: "c-pair-bot", title: "新设备请求配对：Chrome · Linux", source: "设备配对", urgency: "non_blocking", createdAt: at("10-07", "00:47"), read: false }),
-  // 107 号票：项目内部任务的等你验收（项目的负责人会话也是它的会话，项目整页的"等你处理"栏里有它）
+  // 107 号票：项目内部任务卡住求助（项目的负责人会话也是它的会话，项目整页的"等你处理"栏里有它）。阶段一律自动验收，验收退回 2 次还不过才来找你
   notice({
-    id: "i-accept",
-    notice: "stage_acceptance",
-    title: "等你验收：给博客加站内搜索 第 2 阶段「搜索结果页」",
-    body: '项目「个人博客」内部任务「给博客加站内搜索」第 2/3 阶段「搜索结果页」做完了，计划里这几条由你验收：\n- 搜三个常用词，结果页能翻页、关键词高亮\n交付件：预览地址和 6 张截图（在任务的产出区里）\n看过后点"验收通过"或"退回"（退回的原因可以在任务详情里写）。',
+    id: "i-internal-stuck",
+    notice: "stuck_help",
+    title: "卡住求助：给博客加站内搜索",
+    body: '任务「给博客加站内搜索」第 2 阶段「搜索结果页」验收退回 2 次后还是没过：翻到第二页，关键词高亮就没了。这一支先停下等你拍板。\n在任务详情里回负责人，或者做完它要的事后点"继续执行"。',
     source: "项目「个人博客」内部 · 任务「给博客加站内搜索」",
     internal: { projectId: "p-blog", projectName: "个人博客" },
     urgency: "blocking",
     createdAt: at("10-07", "09:25"),
     read: false,
-    actions: ["验收通过", "退回"],
+    actions: ["继续执行"],
   }),
   cardItem({ id: "i-charter", cardId: "c-charter-1", title: "立项书等你确认：家电档案", source: "项目「家电档案」", urgency: "non_blocking", createdAt: at("10-06", "22:30"), read: true }),
   cardItem({ id: "i-build-done", cardId: "c-build-done-1", title: "项目「读书笔记库」首版做完了", source: "项目「读书笔记库」", urgency: "non_blocking", createdAt: at("10-07", "10:05"), read: false }),
@@ -693,15 +695,15 @@ const FAKE_INBOX_ITEMS: InboxItem[] = [
     id: "i-scope",
     notice: "out_of_scope",
     title: "越界：记账本的负责人读了「家庭网盘」的文件",
-    body: "范围审视（10-06 21:40）：负责人读了家庭网盘里的 budget-2025.xlsx，没有授权。只记录，没有暂停它。",
-    source: "项目「记账本」",
+    body: "读了家庭网盘里的 budget-2025.xlsx，没有授权。\n工单结束时的范围审视发现：这件事不在立项书、任务计划和你给过的授权里。负责人照常继续，不卡任务；要它改回来、或者其实是你让它做的，就去和它说一声。",
+    source: "项目「记账本」的负责人",
     urgency: "non_blocking",
     createdAt: at("10-06", "21:40"),
     read: true,
-    actions: ["算范围变更（是我让它读的）", "知道了"],
+    actions: [OUT_OF_SCOPE_ACK],
   }),
   notice({ id: "i-backup", notice: "backup_failed", title: "昨晚的备份没写进同步目录", body: "03:30 的备份：快照已在本机做好，但配置里的同步目录（网盘的同步文件夹）不存在。", source: "系统", urgency: "non_blocking", createdAt: at("10-07", "03:31"), read: false, actions: ["重试", "知道了"] }),
-  notice({ id: "i-sjob", notice: "scheduled_job_auto_paused", title: "定时作业「每周日备份照片」已自动暂停", body: "连续失败 3 次（10-04、09-27、09-20），最近一次：NAS 没挂载。", source: "项目「相册库」", urgency: "non_blocking", createdAt: at("10-04", "03:05"), read: true, actions: ["恢复", "保持暂停"] }),
+  notice({ id: "i-sjob", notice: "scheduled_job_auto_paused", title: "定时触发的任务「每周日备份照片」已自动暂停", body: "连续失败 3 次（10-04、09-27、09-20），最近一次：NAS 没挂载。", source: "项目「相册库」", urgency: "non_blocking", createdAt: at("10-04", "03:05"), read: true, actions: ["恢复", "保持暂停"] }),
   notice({
     id: "i-archive",
     notice: "archive_list",
@@ -755,7 +757,7 @@ const FAKE_INBOX_ORIGINS: Readonly<Record<string, InboxOrigin>> = {
   "i-pc2": { taskId: "t-blog" },
   "i-ssl": { taskId: "t-ssl" },
   "i-nas": { taskId: "t-nas" },
-  "i-accept": { taskId: "t-blog-search", projectId: "p-blog", stageId: "s2" },
+  "i-internal-stuck": { taskId: "t-blog-search", projectId: "p-blog", stageId: "s2" },
   "i-charter": { projectId: "p-appliance" },
   "i-cc": { projectId: "p-ledger" },
   "i-build-done": { projectId: "p-reading" },

@@ -218,12 +218,43 @@ export function userEnvLines(oldEntry: string, ownNames: ReadonlySet<string>): s
   return kept;
 }
 
-/** 二狗的登记（每次 start 重写，userEnv 是 env 里用的人多加的项）。DeepSeek 的 key 照旧由服务管家从数据目录的密钥区读出来注入（没有也能起来，optional） */
-export function daemonEntryYaml(ctx: Pick<CliContext, "layout" | "dataDir" | "svcDataDir">, userEnv: readonly string[] = []): string {
+/** 登记文件的第一行（我们写的，不算用的人写在 exposure: 上面的注释） */
+const ENTRY_HEAD = "# ergo daemon entry: rewritten by every `ergo start` and update (change ports in the ergo config file config/ergo.json). Items you add under env: and a top-level exposure: block are kept; everything else goes back to what ergo writes.";
+
+/**
+ * 旧登记里用的人写的顶层 exposure:（375 号票：部署手册让在这里打开公网入口；服务管家的网页上开的也写在这里），原样的几行，紧贴在它上面的注释带着。
+ * 我们不写这一段，所以整段都是用的人的。和 userEnvLines 一样只看文本：缩进的一段（到下一个顶层的键为止，段尾不缩进的注释说的是下一个键，不要）、
+ * 一行写完的 exposure: {…}。值是空的、不是一段的（exposure: null、只有注释）当没有。留下的是用的人写的原样，写错了由 lsm 报
+ */
+export function userExposureLines(oldEntry: string): string[] {
+  const lines = oldEntry.split(/\r?\n/);
+  const start = lines.findIndex((line) => /^exposure:(\s|$)/.test(line));
+  if (start < 0) return [];
+  let top = start;
+  while (top > 0 && lines[top - 1]!.startsWith("#") && lines[top - 1] !== ENTRY_HEAD) top--;
+  const above = lines.slice(top, start);
+
+  const inline = lines[start]!.slice("exposure:".length).trim();
+  if (inline !== "" && !inline.startsWith("#")) {
+    if (!inline.startsWith("{")) return [];
+    const map = flowMaps([inline, ...lines.slice(start + 1)].join("\n"))[0];
+    return map === undefined ? [] : [...above, `exposure: ${map}`];
+  }
+
+  let end = start + 1;
+  while (end < lines.length && (lines[end]!.trim() === "" || /^(\s|#)/.test(lines[end]!))) end++;
+  // 段尾的空行、不缩进的注释不是这一段的
+  while (end > start + 1 && (lines[end - 1]!.trim() === "" || lines[end - 1]!.startsWith("#"))) end--;
+  const body = lines.slice(start + 1, end);
+  return body.some((line) => line.trim() !== "" && !line.trimStart().startsWith("#")) ? [...above, lines[start]!.trimEnd(), ...body] : [];
+}
+
+/** 二狗的登记（每次 start 重写，userEnv 是 env 里用的人多加的项，userExposure 是用的人写的公网入口）。DeepSeek 的 key 照旧由服务管家从数据目录的密钥区读出来注入（没有也能起来，optional） */
+export function daemonEntryYaml(ctx: Pick<CliContext, "layout" | "dataDir" | "svcDataDir">, userEnv: readonly string[] = [], userExposure: readonly string[] = []): string {
   const p = entryPaths(ctx);
   const port = daemonPort(ctx);
   return [
-    "# ergo daemon entry: rewritten by every `ergo start` and update (change ports in the ergo config file config/ergo.json). Items you add under env: are kept; everything else goes back to what ergo writes.",
+    ENTRY_HEAD,
     `id: ${DAEMON_SERVICE_ID}`,
     "name: ergo",
     "project: ergo",
@@ -254,6 +285,7 @@ export function daemonEntryYaml(ctx: Pick<CliContext, "layout" | "dataDir" | "sv
     "  enabled: true",
     "  maxRetries: 5",
     "  backoffMs: [5000, 15000, 60000]",
+    ...userExposure,
     "profiles: [ergo]",
     "onboarding:",
     "  removedScheduledTasks: []",
@@ -261,7 +293,7 @@ export function daemonEntryYaml(ctx: Pick<CliContext, "layout" | "dataDir" | "sv
   ].join("\n");
 }
 
-/** 服务管家的设置、开机自启名单不在时写默认的（在就绝不改）；二狗的登记按这次的安装重写（env 里用的人多加的项留着）。回各写了什么 */
+/** 服务管家的设置、开机自启名单不在时写默认的（在就绝不改）；二狗的登记按这次的安装重写（env 里用的人多加的项、用的人写的公网入口留着）。回各写了什么 */
 export function writeSvcConfig(ctx: CliContext): { managerCreated: boolean; bootListCreated: boolean; entryChanged: boolean } {
   const p = svcPaths(ctx);
   fs.mkdirSync(p.services, { recursive: true });
@@ -285,7 +317,7 @@ export function writeSvcConfig(ctx: CliContext): { managerCreated: boolean; boot
     // 还没登记过
   }
   const ownNames = new Set(ownEnvLines(ctx).flatMap((line) => /^ {2}- name: (\S+)$/.exec(line)?.[1] ?? []));
-  const entry = daemonEntryYaml(ctx, userEnvLines(old, ownNames));
+  const entry = daemonEntryYaml(ctx, userEnvLines(old, ownNames), userExposureLines(old));
   if (old !== entry) fs.writeFileSync(p.daemonEntry, entry);
   return { managerCreated, bootListCreated, entryChanged: old !== entry };
 }

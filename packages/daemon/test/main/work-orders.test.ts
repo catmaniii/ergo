@@ -535,7 +535,7 @@ describe("已归档、已停用的项目", () => {
     // 用户确认计划：任务进排队中，执行工单派出时就以"退回"结束；任务留在排队中，负责人不被唤起
     ok(await frontend.cardAction({ cardId: plan.id, action: "confirm", expectedVersion: 1, input: {} }));
     const returned = await workOrderWhere(frontend, (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === planned && e.workOrder.kind === "execute", "执行工单退回");
-    expect(returned).toMatchObject({ from: "pending", workOrder: { outcome: "returned", reason: "项目「记账本」已归档：负责人不接新的工单。要接着做，先在项目页上取消归档，再重新发起" } });
+    expect(returned).toMatchObject({ from: "pending", workOrder: { outcome: "returned", reason: "项目「记账本」已归档：负责人不接新的工单。要接着做，先在项目档案里取消归档，再重新发起" } });
     // 负责人写好任务书：起草计划的工单同样直接退回
     td.daemon.tasks.writeBrief(late.id, brief("记账本"), { maintainerId: "pm-1" });
     const direct = await workOrderWhere(frontend, (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === late.id, "直接退回的工单");

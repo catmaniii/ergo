@@ -27,7 +27,7 @@
   "voice.warmup.busy": "语音合成服务正忙（显卡在给别的任务用），稍后再试",
   "voice.debug.noReference": "还没有参考音色：先在设置 · 语音里导入一个",
   "voice.recognizer.hint": "检查数据目录配置里的 voice.recognizer.python 是不是装了 faster-whisper 的 Python，模型（默认 large-v3，退回用的 small）在不在 Hugging Face 的本机缓存里。",
-  "voice.recognizer.lsmHint": "先在 LSM 里看 ergo-asr 这条服务开着没有（它自己挂了由 LSM 拉起，模型要重新加载 45–60 秒），再核对数据目录配置里的 voice.recognizer.url（默认 http://127.0.0.1:8091）和它是不是同一个地址。",
+  "voice.recognizer.lsmHint": "先在服务管家里看 ergo-asr 这条服务开着没有（它自己挂了由服务管家拉起，模型要重新加载 45–60 秒），再核对数据目录配置里的 voice.recognizer.url（默认 http://127.0.0.1:8091）和它是不是同一个地址。",
   "voice.recognizer.idle": "语音识别进程已闲置退出",
   "voice.recognizer.withStderr": "{what}：{stderr}",
   "voice.recognizer.noProgram": "没有配置识别进程的程序",

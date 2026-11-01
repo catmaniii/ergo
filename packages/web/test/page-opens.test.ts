@@ -251,6 +251,18 @@ async function bodyText(page: Page): Promise<string> {
   return (await page.innerText("body")).trim();
 }
 
+/** 手机宽上阶段条的把手现在的正中间 */
+async function handleAt(page: Page) {
+  const box = await page.locator(".md-grab").boundingBox();
+  return { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 };
+}
+
+/** 抽屉到了这一档，松手之后不再跟手 */
+async function expectMode(page: Page, mode: "half" | "full") {
+  await page.locator(`.md.md-m-${mode}`).waitFor({ timeout: 5000 });
+  expect(await page.locator(".md[data-drag]").count()).toBe(0);
+}
+
 /**
  * 213 号票：网页上去日历的入口——导航和"更多"里的日历、#/calendar 那一页（日历还是"没启用"）、工作日规则里的"日历"链接、
  * 手动标记那句话、待办里到点的提醒（i-rent）的"去看看"
@@ -834,6 +846,198 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await page.locator(".md-side-graph").waitFor();
       await page.reload();
       await page.locator(".md-side-graph").waitFor();
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  // 375 号票：把手没有 pointer capture 时，鼠标拖出把手（约 80px）松手，松手算不到它头上，整个计划打不开，抽屉还停在跟手的位置
+  test("手机宽：阶段条的把手用鼠标拖出把手再松手，整个计划能打开、能推回；只有手指时也一样", async () => {
+    const viewport = { width: 390, height: 844 };
+
+    // 鼠标
+    const { page, errors } = await open(viewport);
+    try {
+      await page.evaluate(`window.location.hash = "#/tasks/t-newpc"`);
+      await page.locator(".md.md-m-half .md-grab").waitFor();
+      const mouseDrag = async (dy: number) => {
+        const from = await handleAt(page);
+        await page.mouse.move(from.x, from.y);
+        await page.mouse.down();
+        await page.mouse.move(from.x, from.y + dy, { steps: 12 });
+        await page.mouse.up();
+      };
+      await mouseDrag(120);
+      await expectMode(page, "full");
+      await mouseDrag(-120);
+      await expectMode(page, "half");
+      // 拖一小段同样算数；拖过之后那一下 click 不算点击（不会又缩回去）
+      await mouseDrag(24);
+      await expectMode(page, "full");
+      // 没怎么动就是点了一下：全开缩回半开
+      const tap = await handleAt(page);
+      await page.mouse.click(tap.x, tap.y);
+      await expectMode(page, "half");
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+
+    // 手指
+    const touch = await browser!.newPage({ viewport, hasTouch: true, isMobile: true });
+    try {
+      await touch.goto(pageUrl);
+      await touch.evaluate(`window.location.hash = "#/tasks/t-newpc"`);
+      await touch.locator(".md.md-m-half .md-grab").waitFor();
+      const cdp = await touch.context().newCDPSession(touch);
+      const fingerDrag = async (dy: number) => {
+        const from = await handleAt(touch);
+        const point = (y: number) => [{ x: from.x, y }];
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: point(from.y) });
+        for (let i = 1; i <= 12; i++) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: point(from.y + (dy * i) / 12) });
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      };
+      await fingerDrag(120);
+      await expectMode(touch, "full");
+      await fingerDrag(-120);
+      await expectMode(touch, "half");
+    } finally {
+      await touch.close();
+    }
+  }, 60_000);
+
+  // 375 号票：计划卡上没勾的操作那句话要按"有风险的事先问我"现在开没开写（新装时关着，超出授权的直接做）
+  test("计划卡：没勾的操作怎样，按开关现在的状态写；阶段一律自动验收，卡上不再有由你验收", async () => {
+    const { page, errors } = await open({ width: 1280, height: 800 });
+    const go = (to: string) => page.evaluate(`window.location.hash = ${JSON.stringify(to)}`);
+    try {
+      await go("#/inbox/i-plan");
+      const card = page.locator(".xcard-plan");
+      await card.waitFor();
+      await expect.poll(() => card.innerText(), { timeout: 5000 }).toContain("现在关着：超出授权的也直接做");
+      expect(await card.innerText()).not.toContain("执行到那一步再问你");
+      expect(await card.innerText()).not.toContain("由你验收");
+
+      await go("#/more/watch");
+      await page.locator('[data-switch="conversationApprovals"] input').check();
+      await go("#/inbox/i-plan");
+      await expect.poll(() => page.locator(".xcard-plan").innerText(), { timeout: 5000 }).toContain("没勾的操作，执行到那一步再问你");
+      expect(await page.locator(".xcard-plan").innerText()).not.toContain("现在关着");
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  // 375 号票：对话框里选项目建的内部任务不上任务看板，只有运营方案建的才上；不选项目的才在运营中一组
+  test("发起任务：选了一个项目的定时、事件触发的不说在看板上，普通任务说结果在项目里看", async () => {
+    const { page, errors } = await open({ width: 1280, height: 800 });
+    try {
+      await page.evaluate(`window.location.hash = "#/tasks"`);
+      await page.locator(".topbar .btn.primary").click();
+      const dialog = page.locator(":has(> .sc-actions)");
+      await dialog.waitFor();
+      const hints = () => dialog.locator(".hint").allInnerTexts().then((all) => all.join("\n"));
+      const when = (name: string) => dialog.locator(".when-seg .seg-btn", { hasText: name }).click();
+      const kind = (name: string) => dialog.locator(".sc-mode", { hasText: name }).first().click();
+      const project = dialog.locator("label.check-row", { hasText: "记账本" });
+      for (const [how, whenName] of [
+        ["流程", "定时"],
+        ["流程", "事件发生时"],
+        ["普通任务", "定时"],
+        ["普通任务", "事件发生时"],
+      ] as const) {
+        await kind(how);
+        await when(whenName);
+        await project.locator("input").uncheck();
+        expect(await hints()).toContain("在看板的运营中一组");
+        await project.locator("input").check();
+        const inside = await hints();
+        expect(inside).toContain("不上任务看板");
+        expect(inside).not.toContain("在看板的运营中一组");
+      }
+      await kind("普通任务");
+      await when("现在");
+      await project.locator("input").check();
+      const plain = await hints();
+      expect(plain).toContain("只说一句做完了");
+      expect(plain).not.toContain("转告");
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  // 375 号票：手机上项目页这一层没了，已归档的项目照它写的走得到取消归档
+  test("手机宽：已归档的项目，点标题打开档案，里面有取消归档", async () => {
+    const { page, errors } = await open({ width: 390, height: 844 });
+    try {
+      await page.evaluate(`window.location.hash = "#/projects/p-english"`);
+      const note = page.locator(".composer-note");
+      await note.waitFor();
+      expect(await note.innerText()).toContain("点标题打开项目档案");
+      expect(await note.innerText()).not.toContain("项目页");
+      await page.locator(".th-name-link").click();
+      await page.locator('.dp-page.at-detail button:has-text("取消归档")').waitFor({ timeout: 5000 });
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  // 375 号票：演示版演的是现在的行为
+  test("演示数据：待办没有等你验收，提醒和越界通知和真实的一样，长程任务没有由你过目的阶段，界面上没有 LSM", async () => {
+    const { page, errors } = await open({ width: 1280, height: 800 });
+    const go = (to: string) => page.evaluate(`window.location.hash = ${JSON.stringify(to)}`);
+    try {
+      await go("#/inbox");
+      await page.locator(".topbar .title").waitFor();
+      await expect.poll(() => bodyText(page), { timeout: 5000 }).toContain("提醒：交房租");
+      const inbox = await bodyText(page);
+      for (const old of ["等你验收", "由你验收", "该交房租了"]) expect(inbox).not.toContain(old);
+      // 越界通知只有"知道了"
+      await go("#/inbox/i-scope");
+      const actions = page.locator(".auth-actions button");
+      await expect.poll(() => actions.allInnerTexts(), { timeout: 5000 }).toEqual(["知道了"]);
+
+      await go("#/tasks/t-newpc");
+      await page.locator(".md-side-graph").waitFor();
+      await expect.poll(() => bodyText(page), { timeout: 5000 }).toContain("写搬迁说明");
+      const task = await bodyText(page);
+      for (const old of ["你在新电脑上过目", "请你过目", "你验收通过了", "由你验收"]) expect(task).not.toContain(old);
+
+      // 项目的工单写的是定时任务，运营方案变更说的是服务管家
+      await go("#/projects/p-ledger");
+      await page.locator("[data-agent-dialog] .composer").waitFor();
+      expect(await bodyText(page)).not.toContain("定时作业");
+      await go("#/projects/p-recipes");
+      await page.locator("[data-agent-dialog] .composer").waitFor();
+      expect(await bodyText(page)).not.toContain("LSM");
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  // 375 号票：向导的"手机配对""安全默认值"两步，副标题和步骤内容各画了一次同一句说明
+  test("设置向导：每一步的说明只显示一遍", async () => {
+    const { page, errors } = await open({ width: 1280, height: 800 });
+    try {
+      await page.evaluate(`window.location.hash = "#/more/setup"`);
+      await page.locator(".setup-rail").waitFor();
+      for (const [step, sentence] of [
+        ["language", "界面用哪种语言、怎么称呼你、助手叫什么"],
+        ["model", "没有 key 就回不了话"],
+        ["capabilities", "勾上的在后台下载或者打开"],
+        ["phone", "扫下面的码"],
+        ["safety", "这两项默认不勾"],
+      ] as const) {
+        await page.click(`.setup-rail [data-step="${step}"]`);
+        await expect.poll(() => page.locator(".setup-page").innerText(), { timeout: 5000 }).toContain(sentence);
+        const times = (await page.locator(".setup-page").innerText()).split(sentence).length - 1;
+        expect({ step, times }).toEqual({ step, times: 1 });
+      }
       expect(errors).toEqual([]);
     } finally {
       await page.close();

@@ -137,7 +137,7 @@ skill 和 MCP 进了库，agent 还用不上。要配进工具包才行。秘书
 
 **密钥不要写明文。** 配置文件不是密钥区，agent 写不进去，但有可能读到。写成 `fromEnv`，再把变量加进服务管家里 `ergo-daemon` 那一条，让二狗启动时拿到它。
 
-`ergo start`、`ergo restart` 和升级时这一条会按新版本重写，你在 `env` 里多加的项留着。二狗自己写的 `ERGO_DATA_DIR`、`LSM_DATA_DIR`、`DEEPSEEK_API_KEY`、`CUSTOM_MODEL_API_KEY` 会被写回去，别用这几个名字。
+`ergo start`、`ergo restart` 和升级时这一条会按新版本重写，你在 `env` 里多加的项、自己写的 `exposure:` 留着。二狗自己写的 `ERGO_DATA_DIR`、`LSM_DATA_DIR`、`DEEPSEEK_API_KEY`、`CUSTOM_MODEL_API_KEY` 会被写回去，别用这几个名字。
 
 ### 登记一个 MCP：让负责人提
 

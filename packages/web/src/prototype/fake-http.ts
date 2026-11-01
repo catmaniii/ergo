@@ -451,8 +451,8 @@ export class FakeDaemonHttp implements DaemonHttp {
     return Promise.resolve(fakeMemoryStrategies());
   }
 
-  /** 安全和预算的两个开关（315 号票）：原型里只记在内存里，开头都开着（新装的样子） */
-  private safetyValue: SafetySettingsView = { conversationApprovals: true, budgetControl: true };
+  /** 安全和预算的两个开关（315 号票）：原型里只记在内存里，开头都关着（新装的样子，用户 2026-11-01 改的） */
+  private safetyValue: SafetySettingsView = { conversationApprovals: false, budgetControl: false };
 
   safetySettings(): Promise<SafetySettingsView> {
     return Promise.resolve({ ...this.safetyValue });

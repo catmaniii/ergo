@@ -347,6 +347,8 @@ export function StageDrawer({
         className="md-grab"
         // 往下拉展开一档，往上推收回一档；没怎么动就当是点了一下（点一下：全开缩回半开，半开收起）
         onPointerDown={(e) => {
+          // 鼠标拖出把手之后，移动和松手也要算在把手上（手指按下去本来就这样）
+          e.currentTarget.setPointerCapture(e.pointerId);
           drag.current = { y: e.clientY, moved: false };
         }}
         onPointerMove={(e) => {

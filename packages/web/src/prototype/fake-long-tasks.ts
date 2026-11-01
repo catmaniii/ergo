@@ -1,9 +1,9 @@
 // 原型的假长程任务（91 号票：计划栏画成依赖图）：照守护进程真实会发的事件编的（看板上的 task 事件、计划卡、计划变更卡、
 // 验收结论的进度卡、负责人会话），走真任务的界面（RealTaskDetail），看并行的阶段、等你确认的计划、计划调整中的样子。全部是虚构的。
 // - 「换新电脑：把旧电脑的资料搬过去」（执行中）：第 1 阶段两个并行（盘点资料、列出要重装的软件），第 3 阶段三个并行（拷文档和照片、
-//   导出书签和密码库、装常用软件），汇成第 4 阶段你在新电脑上过目。前两段做完了（列软件时一次被拉回），第 2 阶段由你验收通过，
+//   导出书签和密码库、装常用软件），汇成第 4 阶段写搬迁说明。前两段做完了（列软件时一次被拉回），阶段一律自动验收（脚本和评审，112 号票），
 //   第 3 阶段正在拷文档（问过你一次能不能动外接硬盘）；并行的照旧一次做一个；
-// - 「给家里的打印机配扫描到网盘」（计划等你确认）：第 1 阶段两个并行（查打印机型号、在网盘建目录），之后配置、你试扫一页；
+// - 「给家里的打印机配扫描到网盘」（计划等你确认）：第 1 阶段两个并行（查打印机型号、在网盘建目录），之后配置、试扫一页（要你在打印机上按一下）；
 // - 「整理家里 NAS 的备份」（执行中，计划变更等你确认）：第 3 阶段原来是并行的"每晚备份到移动硬盘"和"异地备份到网盘"，负责人提议
 //   去掉异地备份、加一个"给备份加完整性校验"，并给移动硬盘那一支加一项格式化授权；
 // - 「记账本第一版」（368 号票，项目「记账本」的首个建设任务，做完了）：项目的对话框顶上收成一行"首版已完成"，点开看阶段条、交付件和验收标准。
@@ -155,7 +155,7 @@ function plan(stages: PlanStage[], o: Partial<Plan> = {}): Plan {
 }
 
 /** 一条验收标准在执行时的样子 */
-const acc = (criterion: string, method: "script" | "review" | "user", passed?: boolean, when?: string) => ({
+const acc = (criterion: string, method: "script" | "review", passed?: boolean, when?: string) => ({
   criterion,
   method,
   ...(passed === undefined ? {} : { result: { passed, at: when ?? at("10-06", "12:00") } }),
@@ -179,7 +179,7 @@ const PC_PLAN = plan(
     }),
     stage("s3", "定搬迁清单", ["s1", "s2"], {
       deliverables: ["搬迁清单"],
-      acceptance: [{ criterion: "你看过搬迁清单", method: "user" }],
+      acceptance: [{ criterion: "两份清单都合进来了，不搬的写了原因", method: "review" }],
       mode: "steps",
       steps: ["合并两份清单", "标出不搬的"],
       modeReason: "两份清单合起来就是一张表，照做就行",
@@ -202,14 +202,13 @@ const PC_PLAN = plan(
       acceptance: [{ criterion: "清单里的软件都能打开", method: "review" }],
       policy: { grants: [{ id: "install", tool: "install_global", title: "在新电脑上装清单里的软件", scope: {}, maxUses: 30 }], temporalRules: [] },
     }),
-    stage("s7", "你在新电脑上过目", ["s4", "s5", "s6"], {
+    stage("s7", "写搬迁说明", ["s4", "s5", "s6"], {
       deliverables: ["搬迁说明"],
-      acceptance: [{ criterion: "你在新电脑上看过，常用的都在", method: "user" }],
+      acceptance: [{ criterion: "说明写清了搬了什么、没搬什么、新电脑上常用的都能打开", method: "review" }],
       mode: "steps",
-      steps: ["写搬迁说明"],
+      steps: ["核对新电脑上的常用软件和资料", "写搬迁说明"],
     }),
   ],
-  { stops: { count: 2, where: ["搬迁清单由你验收", "最后由你在新电脑上过目"] } },
 );
 const PC_PLAN_CARD = card(
   "c-plan-newpc",
@@ -248,7 +247,7 @@ const PC_CARDS: Card[] = [
   PC_PLAN_CARD,
   progress("c-acc-newpc-s1", PC_ID, PC_TITLE, "s1", "盘点旧电脑上的资料", 1, 7, { passed: true, judgedBy: "script", summary: "用户目录 182 GB、D 盘 640 GB，要搬的 96 GB", results: [{ criterion: "清单覆盖用户目录和 D 盘", method: "script", passed: true }] }, at("10-06", "10:05")),
   progress("c-acc-newpc-s2", PC_ID, PC_TITLE, "s2", "列出要重装的软件", 2, 7, { passed: true, judgedBy: "review", summary: "常用软件 23 个，许可证 4 个在邮箱里", results: [{ criterion: "清单里的每个软件都写了安装来源", method: "review", passed: true }] }, at("10-06", "10:50")),
-  progress("c-acc-newpc-s3", PC_ID, PC_TITLE, "s3", "定搬迁清单", 3, 7, { passed: true, judgedBy: "user", summary: "搬 96 GB；旧游戏存档不搬", results: [{ criterion: "你看过搬迁清单", method: "user", passed: true }] }, at("10-06", "14:20")),
+  progress("c-acc-newpc-s3", PC_ID, PC_TITLE, "s3", "定搬迁清单", 3, 7, { passed: true, judgedBy: "review", summary: "搬 96 GB；旧游戏存档不搬", results: [{ criterion: "两份清单都合进来了，不搬的写了原因", method: "review", passed: true }] }, at("10-06", "14:20")),
 ];
 
 const PC_TASK: Task = {
@@ -307,7 +306,7 @@ const PC_TASK: Task = {
         title: "定搬迁清单",
         state: "accepted",
         dependsOn: ["s1", "s2"],
-        acceptance: [acc("你看过搬迁清单", "user", true, at("10-06", "14:20"))],
+        acceptance: [acc("两份清单都合进来了，不搬的写了原因", "review", true, at("10-06", "14:20"))],
         attempts: 1,
         startedAt: at("10-06", "10:52"),
         // 274 号票：自报里说另列了「不搬.txt」，系统没查到这一轮建过它（看板卡上标 ⚠）
@@ -317,7 +316,7 @@ const PC_TASK: Task = {
       { stageId: "s4", title: "拷文档和照片", state: "running", dependsOn: ["s3"], acceptance: [acc("两边文件数和大小对得上", "script")], attempts: 0, startedAt: at("10-06", "14:22") },
       { stageId: "s5", title: "导出浏览器书签和密码库", state: "pending", dependsOn: ["s3"], acceptance: [acc("密码库导出文件是加密的", "script")], attempts: 0 },
       { stageId: "s6", title: "装好常用软件", state: "pending", dependsOn: ["s3"], acceptance: [acc("清单里的软件都能打开", "review")], attempts: 0 },
-      { stageId: "s7", title: "你在新电脑上过目", state: "pending", dependsOn: ["s4", "s5", "s6"], acceptance: [acc("你在新电脑上看过，常用的都在", "user")], attempts: 0 },
+      { stageId: "s7", title: "写搬迁说明", state: "pending", dependsOn: ["s4", "s5", "s6"], acceptance: [acc("说明写清了搬了什么、没搬什么、新电脑上常用的都能打开", "review")], attempts: 0 },
     ],
   },
   createdAt: at("10-06", "09:00"),
@@ -361,10 +360,8 @@ export function longTaskStageView(taskId: string, stageId: string): TaskStageVie
 
 const PC_PLANNING: MessageScope = { taskId: PC_ID };
 const pcStage = (stageId: string): MessageScope => ({ taskId: PC_ID, stageId });
-// 阶段开始的记号（152 号票）：s1 是"开始执行"那条通知交代的，s2、s3 是宣布上一阶段完成那次调用（验收通过接着开始下一个）里开始的，
-// s4 是你验收通过 s3 之后的那条通知交代的
+// 阶段开始的记号（152 号票）：s1 是"开始执行"那条通知交代的，s2、s3、s4 是宣布上一阶段完成那次调用（验收通过接着开始下一个）里开始的
 const PC_START = msg(PC, "system", at("10-06", "09:16"), pcStage("s1"), text("计划已确认，开始执行任务 t-newpc「换新电脑：把旧电脑的资料搬过去」。"));
-const PC_S4_NOTICE = msg(PC, "system", at("10-06", "14:21"), pcStage("s4"), text("你验收通过了第 3 阶段「定搬迁清单」。接下来做第 4 阶段「拷文档和照片」：照搬迁清单把文档、照片拷到新电脑，两边核对文件数和大小。"));
 const PC_MESSAGES: MessageEnvelope[] = [
   msg(PC, "system", at("10-06", "09:00"), PC_PLANNING, text("任务书：任务 t-newpc「换新电脑：把旧电脑的资料搬过去」\n目标：把旧电脑上还要用的资料、书签和常用软件搬到新电脑上，旧电脑先不动")),
   msg(PC, "agent", at("10-06", "09:10"), PC_PLANNING, think("资料和软件两头可以同时摸底；定了清单之后，拷文件、导书签、装软件三件事互不相干。"), text("计划交上来了：七个阶段，有两处可以并行。"), cardRef(PC_PLAN_CARD.id)),
@@ -393,9 +390,10 @@ const PC_MESSAGES: MessageEnvelope[] = [
   withCalls(msg(PC, "agent", at("10-06", "10:45"), pcStage("s2"), text("软件清单写好了，没动旧电脑上的东西。")), "lt-cs-newpc-s2"),
   msg(PC, "system", at("10-06", "10:50"), pcStage("s2"), cardRef("c-acc-newpc-s2")),
   msg(PC, "agent", at("10-06", "10:51"), pcStage("s2"), tool("complete_stage", "stageId=s2", { id: "lt-cs-newpc-s2", nature: "look", result: "验收通过；接下来做第 3 阶段「定搬迁清单」" })),
-  msg(PC, "agent", at("10-06", "11:30"), pcStage("s3"), tool("write", "path=migration.md", { result: "搬迁清单 31 项" }), text("搬迁清单在 migration.md，请你过目。")),
+  msg(PC, "agent", at("10-06", "11:30"), pcStage("s3"), tool("write", "path=migration.md", { result: "搬迁清单 31 项" })),
+  withCalls(msg(PC, "agent", at("10-06", "14:12"), pcStage("s3"), text("搬迁清单写好了，在 migration.md：搬 96 GB，旧游戏存档不搬。")), "lt-cs-newpc-s3"),
   msg(PC, "system", at("10-06", "14:20"), pcStage("s3"), cardRef("c-acc-newpc-s3")),
-  PC_S4_NOTICE,
+  msg(PC, "agent", at("10-06", "14:21"), pcStage("s3"), tool("complete_stage", "stageId=s3", { id: "lt-cs-newpc-s3", nature: "look", result: "验收通过；接下来做第 3a 阶段「拷文档和照片」" })),
   msg(PC, "agent", at("10-06", "14:30"), pcStage("s4"), tool("copy", "from=C:\\Users\\me\\Documents to=\\\\NEWPC\\Users\\me\\Documents", { withinGrant: true, categories: ["越出项目目录"], disposition: "planned_only", result: "拷了 12,408 个文件" })),
   msg(
     PC,
@@ -427,9 +425,9 @@ const SCAN_PLAN = plan(
       steps: ["登录打印机管理页面", "加扫描目的地", "测试连接"],
       policy: { grants: [{ id: "printer-admin", tool: "http_request", title: "在打印机的管理页面上加扫描目的地", scope: { url: "http://192.168.1.20/admin" }, maxUses: 5 }], temporalRules: [] },
     }),
-    stage("s4", "你试扫一页", ["s3"], { deliverables: ["一份试扫的文件"], acceptance: [{ criterion: "你试扫的那一页出现在网盘的目录里", method: "user" }] }),
+    stage("s4", "试扫一页", ["s3"], { deliverables: ["一份试扫的文件"], acceptance: [{ criterion: "试扫的那一页出现在网盘的目录里", method: "script", script: "node check-scan.mjs" }] }),
   ],
-  { toolkit: { skills: [], mcp: [], bash: true, network: true }, stops: { count: 1, where: ["最后由你试扫一页"] }, tokenEstimate: 150_000 },
+  { toolkit: { skills: [], mcp: [], bash: true, network: true }, stops: { count: 1, where: ["试扫要你在打印机上按一下"] }, tokenEstimate: 150_000 },
 );
 const SCAN_PLAN_CARD = card(
   "c-plan-scan",
@@ -478,7 +476,7 @@ const NAS = maintainerChannel(ownMaintainerId(NAS_ID));
 const NAS_TITLE = "整理家里 NAS 的备份";
 const NAS_STAGES = {
   s1: stage("s1", "盘点 NAS 上的共享目录", [], { deliverables: ["共享目录清单和大小"] }),
-  s2: stage("s2", "定备份策略", ["s1"], { deliverables: ["备份策略：哪些目录、多久一次、留几份"], acceptance: [{ criterion: "你看过备份策略", method: "user" }] }),
+  s2: stage("s2", "定备份策略", ["s1"], { deliverables: ["备份策略：哪些目录、多久一次、留几份"], acceptance: [{ criterion: "写清了哪些目录、多久一次、留几份", method: "review" }] }),
   s3: stage("s3", "配置每晚备份到移动硬盘", ["s2"], {
     deliverables: ["NAS 上每晚 2 点的备份任务"],
     acceptance: [{ criterion: "手动跑一次备份任务成功", method: "script", script: "node run-backup-once.mjs" }],
@@ -564,7 +562,7 @@ const NAS_TASK: Task = {
     focus: "s3",
     list: [
       { stageId: "s1", title: "盘点 NAS 上的共享目录", state: "accepted", dependsOn: [], acceptance: [acc("盘点 NAS 上的共享目录：交上来的东西齐了", "review", true)], attempts: 1 },
-      { stageId: "s2", title: "定备份策略", state: "accepted", dependsOn: ["s1"], acceptance: [acc("你看过备份策略", "user", true)], attempts: 1 },
+      { stageId: "s2", title: "定备份策略", state: "accepted", dependsOn: ["s1"], acceptance: [acc("写清了哪些目录、多久一次、留几份", "review", true)], attempts: 1 },
       { stageId: "s3", title: "配置每晚备份到移动硬盘", state: "waiting", waitReason: "plan_change", dependsOn: ["s2"], acceptance: [acc("手动跑一次备份任务成功", "script")], attempts: 0, startedAt: at("10-07", "09:00") },
       { stageId: "s4", title: "配置异地备份到网盘", state: "pending", dependsOn: ["s2"], acceptance: [acc("网盘上能看到第一次备份", "script")], attempts: 0 },
       { stageId: "s5", title: "恢复演练", state: "pending", dependsOn: ["s3", "s4"], acceptance: [acc("从备份里恢复一个目录，内容对得上", "script")], attempts: 0 },
@@ -599,9 +597,9 @@ const LEDGER_PLAN = plan([
     deliverables: ["月报模板 report.md.j2", "九月份的月报"],
     acceptance: [{ criterion: "九月份月报的合计和银行对账单对得上", method: "script", script: "python check_report.py 2026-09" }],
   }),
-  stage("s3", "你看过九月的月报", ["s2"], {
+  stage("s3", "抽查九月的分类", ["s2"], {
     deliverables: ["九月份的月报"],
-    acceptance: [{ criterion: "你看过九月的月报，分类没大问题", method: "user" }],
+    acceptance: [{ criterion: "抽查九月的 30 笔流水，分类没大问题", method: "review" }],
   }),
 ]);
 const LEDGER_PLAN_CARD = card(
@@ -630,7 +628,7 @@ const LEDGER_TASK: Task = {
     list: [
       { stageId: "s1", title: "把账单导进来", state: "accepted", dependsOn: [], acceptance: [acc("三家银行的账单都能导入", "script", true, at("09-03", "18:00"))], attempts: 1, startedAt: at("09-02", "10:10"), summary: "三家银行的账单都导进 bills.sqlite 了" },
       { stageId: "s2", title: "按月出报表", state: "accepted", dependsOn: ["s1"], acceptance: [acc("九月份月报的合计和银行对账单对得上", "script", true, at("09-05", "12:00"))], attempts: 2, startedAt: at("09-03", "18:05"), summary: "九月份月报出好了，合计对得上" },
-      { stageId: "s3", title: "你看过九月的月报", state: "accepted", dependsOn: ["s2"], acceptance: [acc("你看过九月的月报，分类没大问题", "user", true, at("09-06", "09:00"))], attempts: 1, startedAt: at("09-05", "12:10"), summary: "你看过了" },
+      { stageId: "s3", title: "抽查九月的分类", state: "accepted", dependsOn: ["s2"], acceptance: [acc("抽查九月的 30 笔流水，分类没大问题", "review", true, at("09-06", "09:00"))], attempts: 1, startedAt: at("09-05", "12:10"), summary: "抽查了 30 笔，分类都对得上" },
     ],
   },
   createdAt: at("09-02", "09:50"),
@@ -651,9 +649,9 @@ function pcEvents(): { channel: string; type: string; payload: unknown }[] {
     const call = m.parts.find((p): p is ToolCallPart => p.type === "tool_call" && p.tool === "complete_stage");
     if (call?.callId === "lt-cs-newpc-s1") out.push(stageStart(PC, PC_ID, "s2", "列出要重装的软件", "1b", { call: call.callId, tool: "complete_stage", after: true }, m.time));
     if (call?.callId === "lt-cs-newpc-s2") out.push(stageStart(PC, PC_ID, "s3", "定搬迁清单", "2", { call: call.callId, tool: "complete_stage", after: true }, m.time));
+    if (call?.callId === "lt-cs-newpc-s3") out.push(stageStart(PC, PC_ID, "s4", "拷文档和照片", "3a", { call: call.callId, tool: "complete_stage", after: true }, m.time));
     out.push(messageEvent(m));
     if (m === PC_START) out.push(stageStart(PC, PC_ID, "s1", "盘点旧电脑上的资料", "1a", { notice: m.id }, m.time));
-    if (m === PC_S4_NOTICE) out.push(stageStart(PC, PC_ID, "s4", "拷文档和照片", "3a", { notice: m.id }, m.time));
   }
   return out;
 }

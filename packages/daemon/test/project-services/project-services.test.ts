@@ -297,7 +297,7 @@ describe("上线、撤下（project-services.ts）", () => {
     services.start();
     want(true);
     await services.idle();
-    expect(services.view()).toMatchObject([{ app: "p-1-web", rollout: "manual", reason: expect.stringContaining("二狗不是由 LSM 启动的"), status: "unknown" }]);
+    expect(services.view()).toMatchObject([{ app: "p-1-web", rollout: "manual", reason: expect.stringContaining("二狗不是由服务管家启动的"), status: "unknown" }]);
     expect(apps.get("p-1-web")).toBeUndefined();
     services.stop();
   });
@@ -427,7 +427,7 @@ describe("上线、撤下（project-services.ts）", () => {
     push("STOPPED");
     clock.advance(31_000);
     expect(notices()).toHaveLength(3);
-    expect(notices()[2]).toContain("LSM 里它是停着的");
+    expect(notices()[2]).toContain("服务管家里它是停着的");
     push("RUNNING");
     clock.advance(31_000);
     expect(notices()).toHaveLength(4);
@@ -566,8 +566,8 @@ describe("项目的服务全部关闭、启动（257 号票）", () => {
 
   it("做不了的说清原因、不记事件：LSM 没连上、版本不支持、二狗不是由 LSM 启动的；项目不是使用中的；没有在 LSM 上的服务的", async () => {
     for (const [support, why] of [
-      ["waiting", "LSM 没连上，等连上再试"],
-      ["unsupported", "LSM 版本不支持名下的服务"],
+      ["waiting", "服务管家没连上，等连上再试"],
+      ["unsupported", "服务管家版本不支持名下的服务"],
     ] as const) {
       const lsm = fakeLsm(support);
       const { services, want, store } = setup(lsm.services);
@@ -582,7 +582,7 @@ describe("项目的服务全部关闭、启动（257 号票）", () => {
     none.services.start();
     none.want(true);
     await none.services.idle();
-    expect(rejectionOf(() => none.services.power("p-1", "start", "user", "k"))).toContain("二狗不是由 LSM 启动的");
+    expect(rejectionOf(() => none.services.power("p-1", "start", "user", "k"))).toContain("二狗不是由服务管家启动的");
     none.services.stop();
 
     // 没有服务、服务都撤下了

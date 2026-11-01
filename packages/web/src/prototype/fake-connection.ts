@@ -1310,7 +1310,7 @@ export class FakeConnection implements Connection {
         if (refusal) this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: refusal });
         return;
       }
-      this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "原型的假定时作业不能控制：连上守护进程看真作业" });
+      this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "原型的假定时任务不能控制：连上守护进程看真任务" });
     });
   }
 
@@ -1324,7 +1324,7 @@ export class FakeConnection implements Connection {
         const job = [...this.triggers.values()].find((j) => j.id === req.jobId);
         const { schedule } = req;
         const refusal = !job
-          ? "原型的假定时作业不能改时间：连上守护进程看真作业"
+          ? "原型的假定时任务不能改时间：连上守护进程看真任务"
           : !canRescheduleJob(job)
             ? job.schedule
               ? "已取消的不能改时间"
@@ -1356,7 +1356,7 @@ export class FakeConnection implements Connection {
       later(300, () => {
         const job = [...this.triggers.values()].find((j) => j.id === req.jobId);
         const busy = job?.lastRun && (job.lastRun.state === "queued" || job.lastRun.state === "running");
-        const refusal = !job ? "原型的假定时作业不能立即运行：连上守护进程看真作业" : !canRunJobNow(job) ? "已取消的不能立即运行" : busy ? `「${job.title}」上一次还在跑，跑完再说` : undefined;
+        const refusal = !job ? "原型的假定时任务不能立即运行：连上守护进程看真任务" : !canRunJobNow(job) ? "已取消的不能立即运行" : busy ? `「${job.title}」上一次还在跑，跑完再说` : undefined;
         if (!job || refusal) {
           this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: refusal ?? "做不了" });
           reject(new Error(refusal));

@@ -329,6 +329,90 @@ describe("服务管家的设置和二狗的登记", () => {
     });
   });
 
+  describe("用的人在登记里写的公网入口（375：部署手册让在这里打开 exposure:）", () => {
+    const entryOf = (t: { ctx: Parameters<typeof svcPaths>[0] }) => fs.readFileSync(svcPaths(t.ctx).daemonEntry, "utf8");
+    const parsed = (text: string) => YAML.parse(text) as { exposure?: Record<string, unknown>; env: unknown[]; root: string };
+    /** 手册上的那一段：写在 profiles 前面 */
+    const addExposure = (text: string, lines: string) => text.replace(/^profiles:/m, `${lines}\nprofiles:`);
+    const BLOCK = ["# 公网入口：经隧道", "exposure:", "  via: ergo-tunnel", "  remotePort: 18811", "  # 真去打一下", "  publicUrl: https://ergo.203.0.113.9.sslip.io/", "  check: true"].join("\n");
+    const WANTED = { via: "ergo-tunnel", remotePort: 18811, publicUrl: "https://ergo.203.0.113.9.sslip.io/", check: true };
+
+    it("重写时留下，连注释；别的地方跟着这次的安装走；再写一次不算变了；env 里加的也还在；lsm validate 认", async () => {
+      const t = await installedCli();
+      writeSvcConfig(t.ctx);
+      // 登记好隧道（校验要求 via 指向的服务真的在），照 deploy/lsm 的示例换掉占位符
+      const tunnel = fs.readFileSync(path.resolve(import.meta.dirname, "..", "..", "..", "..", "deploy", "lsm", "ergo-tunnel.example.yaml"), "utf8").replaceAll("<仓库路径>", t.root).replace(/<[^>\n]+>/g, "x");
+      fs.writeFileSync(path.join(svcPaths(t.ctx).services, "ergo-tunnel.yaml"), tunnel);
+
+      // 上一个版本写的登记（路径指着旧版本目录）加上用的人打开的公网入口和多加的一项 env
+      const old = addExposure(entryOf(t).replaceAll(path.join("versions", "0.2.0"), path.join("versions", "0.1.0")), BLOCK).replace(/^autoRestart:/m, "  - name: A_TOKEN\n    from: userEnv\nautoRestart:");
+      fs.writeFileSync(svcPaths(t.ctx).daemonEntry, old);
+
+      expect(writeSvcConfig(t.ctx).entryChanged).toBe(true);
+      const text = entryOf(t);
+      expect(parsed(text).exposure).toEqual(WANTED);
+      expect(text).toContain("# 公网入口：经隧道");
+      expect(text).toContain("# 真去打一下");
+      expect(parsed(text).root).toBe(path.join(t.root, "versions", "0.2.0", "app"));
+      expect(text).not.toContain(path.join("versions", "0.1.0"));
+      expect(parsed(text).env).toContainEqual({ name: "A_TOKEN", from: "userEnv" });
+
+      expect(writeSvcConfig(t.ctx).entryChanged).toBe(false);
+      expect(entryOf(t)).toBe(text);
+      const v = spawnSync(process.execPath, [LSM, "validate"], { env: { ...t.ctx.env, LSM_DATA_DIR: t.ctx.svcDataDir }, encoding: "utf8", windowsHide: true });
+      expect(v.stdout + v.stderr).toMatch(/2 个服务，全部通过校验/);
+    });
+
+    it("认得手写的样子：记事本的 CRLF、一行写完的、写在文件最后、后面紧跟不缩进的注释", async () => {
+      const t = await installedCli();
+      writeSvcConfig(t.ctx);
+
+      fs.writeFileSync(svcPaths(t.ctx).daemonEntry, addExposure(entryOf(t), BLOCK).replaceAll("\n", "\r\n"));
+      writeSvcConfig(t.ctx);
+      expect(parsed(entryOf(t)).exposure).toEqual(WANTED);
+      expect(entryOf(t)).not.toContain("\r");
+
+      fs.writeFileSync(svcPaths(t.ctx).daemonEntry, "id: ergo-daemon\nexposure: { via: ergo-tunnel, publicUrl: 'https://a.example/#x', check: true }\nprofiles: [ergo]\n");
+      writeSvcConfig(t.ctx);
+      expect(parsed(entryOf(t)).exposure).toEqual({ via: "ergo-tunnel", publicUrl: "https://a.example/#x", check: true });
+
+      fs.writeFileSync(svcPaths(t.ctx).daemonEntry, "id: ergo-daemon\nexposure:\n  never: 只给本机用\n");
+      writeSvcConfig(t.ctx);
+      expect(parsed(entryOf(t)).exposure).toEqual({ never: "只给本机用" });
+
+      fs.writeFileSync(svcPaths(t.ctx).daemonEntry, "exposure:\n  never: 只给本机用\n\n# 说的是下面的 profiles\nprofiles: [ergo]\n");
+      writeSvcConfig(t.ctx);
+      expect(entryOf(t)).not.toContain("说的是下面的 profiles");
+
+      // 紧贴在我们写的第一行下面打开的：第一行不算它的注释，不会多出一份
+      fs.writeFileSync(svcPaths(t.ctx).daemonEntry, entryOf(t).replace(/^exposure:\n {2}never: .*\n/m, "").replace(/^id: /m, "exposure:\n  never: 只给本机用\nid: "));
+      writeSvcConfig(t.ctx);
+      expect(parsed(entryOf(t)).exposure).toEqual({ never: "只给本机用" });
+      expect(entryOf(t).match(/^# ergo daemon entry/gm)).toHaveLength(1);
+    });
+
+    it("没有的、别处的、空的、注释掉的（手册的示例原样）：不写 exposure，不出错", async () => {
+      const t = await installedCli();
+      writeSvcConfig(t.ctx);
+      const clean = entryOf(t);
+      expect(parsed(clean).exposure).toBeUndefined();
+      for (const other of [
+        "",
+        "id: [oops",
+        "exposure:\nprofiles: [ergo]\n",
+        "exposure: null\n",
+        "exposure: oops\n",
+        "exposure:\n  # via: ergo-tunnel\n",
+        "# exposure:\n#   via: ergo-tunnel\n#   check: true\nprofiles: [ergo]\n",
+        "hooks:\n  start:\n    exposure:\n      via: not-this\n",
+      ]) {
+        fs.writeFileSync(svcPaths(t.ctx).daemonEntry, other);
+        writeSvcConfig(t.ctx);
+        expect({ other, entry: entryOf(t) }).toEqual({ other, entry: clean });
+      }
+    });
+  });
+
   it("manager.yaml 不在时按 ERGO_SVC_PORT 写一份（只绑本机、不动别的进程），在就不改", async () => {
     const t = await installedCli();
     fs.rmSync(svcPaths(t.ctx).managerYaml);

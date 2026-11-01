@@ -9,10 +9,10 @@
   "lsm.busy.calls_other": "{n} calls with side effects haven't finished: {calls}",
   "lsm.busy.call": "{tool} in {source}",
   "lsm.busy.reasonSep": "; ",
-  "lsm.notLinked": "Ergo isn't connected to LSM (it wasn't started by LSM)",
-  "lsm.disconnected": "Lost the connection to LSM; the full status pushed after reconnecting is what counts",
-  "lsm.closed": "The LSM connection has been closed",
-  "lsm.notConnected": "Not connected to LSM yet (or the connection dropped)",
-  "lsm.unsupported": "This version of LSM doesn't support owned services",
-  "lsm.timeout": "LSM didn't respond"
+  "lsm.notLinked": "Ergo isn't connected to the service manager (it wasn't started by the service manager)",
+  "lsm.disconnected": "Lost the connection to the service manager; the full status pushed after reconnecting is what counts",
+  "lsm.closed": "The connection to the service manager has been closed",
+  "lsm.notConnected": "Not connected to the service manager yet (or the connection dropped)",
+  "lsm.unsupported": "This version of the service manager doesn't support owned services",
+  "lsm.timeout": "The service manager didn't respond"
 }

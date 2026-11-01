@@ -119,7 +119,7 @@ describe("停点（授权后还会在几处停下来）", () => {
   test("勾掉一项、收窄一项：多两处停点，随勾选变化", () => {
     const stops = planStops(card, { removed: new Set(["fetch"]), narrowed: new Set(["push"]) });
     expect(stops.map((s) => s.kind)).toEqual(["user_acceptance", "unchecked", "still_asks", "narrowed"]);
-    expect(stops[1]!.text).toBe("第 1 阶段「收集资料」：读网页（web_fetch）：不限对象；最多 20 次；7 天内有效（勾掉了，执行到那一步再问你）");
+    expect(stops[1]!.text).toBe("第 1 阶段「收集资料」：读网页（web_fetch）：不限对象；最多 20 次；7 天内有效（勾掉了，不算授权）");
     expect(stops[3]!.text).toContain("第 2 阶段「写报告」：推送（git_push）");
   });
 

@@ -1,6 +1,6 @@
 {
   "operations.authorizedNote": "随运营方案一起授权（你确认运营方案时）",
-  "operations.refusal.archived": "项目「{name}」已归档，不能再交运营方案：先在项目页上取消归档",
+  "operations.refusal.archived": "项目「{name}」已归档，不能再交运营方案：先在项目档案里取消归档",
   "operations.refusal.changed": "运营方案在这之后又改过了，这张卡不再生效：看最新的那张",
   "operations.refusal.handled": "这张运营方案变更卡已经处理过了",
   "operations.refusal.notFound": "没有这份运营方案（第 {revision} 份）",

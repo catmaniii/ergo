@@ -218,7 +218,6 @@ function PhoneStep({ step, navigate }: { step: SetupStepView; navigate: Navigate
         <span className="setup-line-key">{t("setup.steps.phone.title")}</span>
         <span className={`chip ${step.ready ? "chip-ok" : ""}`}>{t(step.ready ? "setup.steps.phone.ready" : "setup.steps.phone.notReady")}</span>
       </div>
-      <p className="setup-note">{t("setup.steps.phone.sub")}</p>
       <PairingQrPanel />
       <p className="setup-note">{t("setup.steps.phone.how")}</p>
       <div>
@@ -230,17 +229,10 @@ function PhoneStep({ step, navigate }: { step: SetupStepView; navigate: Navigate
   );
 }
 
-/** 安全默认值（第⑤步）：关注类别上面那两个开关（设置里同一块），看完点"看过了"才算做完 */
-function SafetyStep() {
-  return (
-    <>
-      <p className="setup-note">{t("setup.steps.safety.sub")}</p>
-      <SafetySwitches />
-    </>
-  );
-}
-
-/** 一屏的正文（按步分）：第①②④⑤步不要 view 里别的东西，第③步自己去取组件和插件 */
+/**
+ * 一屏的正文（按步分）：第①②④⑤步不要 view 里别的东西，第③步自己去取组件和插件。
+ * 那一句说明（setup.steps.<步>.sub）向导本体画过了，这里不再写；第⑤步就是关注类别上面那两个开关（设置里同一块），看完点"看过了"才算做完
+ */
 function StepBody({ id, step, navigate }: { id: SetupStepId; step: SetupStepView; navigate: Navigate }) {
   switch (id) {
     case "language":
@@ -252,7 +244,7 @@ function StepBody({ id, step, navigate }: { id: SetupStepId; step: SetupStepView
     case "phone":
       return <PhoneStep step={step} navigate={navigate} />;
     case "safety":
-      return <SafetyStep />;
+      return <SafetySwitches />;
   }
   return null;
 }

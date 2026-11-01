@@ -232,7 +232,7 @@ describe("运营概况里的“启动”“关闭”（257 号票）", () => {
     expect(projectOperationsSummary(replay(inUse({ p: { state: "retired" }, services: [service({ rollout: "withdrawn" })] }).list), "p-1")!.power).toBeUndefined();
     expect(projectOperationsSummary(replay(inUse({ services: [] }).list), "p-1")!.power).toBeUndefined();
     // LSM 没连上：两个都不能点，写原因
-    expect(projectOperationsSummary(replay(inUse({ services: [service({ status: "unknown" })] }).list), "p-1")!.power).toMatchObject({ canStart: false, canStop: false, blocked: "LSM 没连上，现在启动、关闭不了" });
+    expect(projectOperationsSummary(replay(inUse({ services: [service({ status: "unknown" })] }).list), "p-1")!.power).toMatchObject({ canStart: false, canStop: false, blocked: "服务管家没连上，现在启动、关闭不了" });
   });
 });
 

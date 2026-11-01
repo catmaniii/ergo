@@ -61,7 +61,7 @@ If you would rather not use that command, you do each step below yourself.
 2. **Certificate**: with your existing Let's Encrypt setup on the VPS, add `ergo.<VPS IP>.sslip.io` to the certificate.
 3. **Preview** the nginx config: `npm run deploy:nginx -- --print` (prints only; does not connect).
 4. **Deploy**: `npm run deploy:nginx`. It ssh-es to the VPS, writes the site config, reloads only if `nginx -t` passes, and restores the previous config otherwise.
-5. **Register the tunnel**: copy `deploy\lsm\ergo-tunnel.example.yaml` to `registry\services\ergo-tunnel.yaml` in the supervisor's data directory and fill in the placeholders (repository path, ssh key path, VPS user, VPS address); in `ergo-daemon.yaml` uncomment the `exposure:` block at the end and fill in the VPS address. Then:
+5. **Register the tunnel**: copy `deploy\lsm\ergo-tunnel.example.yaml` to `registry\services\ergo-tunnel.yaml` in the supervisor's data directory and fill in the placeholders (repository path, ssh key path, VPS user, VPS address); in `ergo-daemon.yaml` turn on the `exposure:` block and fill in the VPS address: from-source installs uncomment it at the end, one-line and npm installs add it, copied from the end of `deploy\lsm\ergo-daemon.example.yaml`. `ergo start` and updates keep this block when they rewrite the file. Then:
 
    ```powershell
    node bin\lsm.mjs validate

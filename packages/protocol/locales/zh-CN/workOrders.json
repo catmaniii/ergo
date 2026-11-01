@@ -7,7 +7,7 @@
   "workOrders.reason.lineDropped": "计划变更或自行调整计划之后，新的计划里没有这一行了",
   "workOrders.reason.declined": "用户拒绝了",
   "workOrders.reason.declinedNote": "用户拒绝了：{note}",
-  "workOrders.reason.archived": "项目「{name}」已归档：负责人不接新的工单。要接着做，先在项目页上取消归档，再重新发起",
+  "workOrders.reason.archived": "项目「{name}」已归档：负责人不接新的工单。要接着做，先在项目档案里取消归档，再重新发起",
   "workOrders.reason.projectDeleted": "项目 {id} 已经删除了",
   "workOrders.reason.taskCancelled": "任务取消了",
   "workOrders.reason.taskEnded": "任务已经结束了",

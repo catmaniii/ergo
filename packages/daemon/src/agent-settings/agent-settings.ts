@@ -502,8 +502,22 @@ export function createAgentSettings(options: AgentSettingsOptions): AgentSetting
       if (role.isDefault) throw new RequestRejected("bad_params", t("agentRoles.defaultCannotDelete"));
       if (role.usedBy.length > 0) {
         // 这句话直接显示给用户，不经过界面的名字标签：秘书的 label 是名字占位，这里换成名字（371 号票）
-        const labels = role.usedBy.map((agentId) => fillAssistantName(view.agents.find((entry) => entry.agentId === agentId)?.label ?? agentId, options.assistantName()));
-        throw new RequestRejected("bad_params", t("agentRoles.roleInUse", { agents: labels.join(t("common.listSeparator")) }));
+        const rows = view.agents.filter((entry) => role.usedBy.includes(entry.agentId));
+        const labels = (pick: (entry: AgentRoleAssignmentView) => boolean) =>
+          rows
+            .filter(pick)
+            .map((entry) => fillAssistantName(entry.label, options.assistantName()))
+            .join(t("common.listSeparator"));
+        // 只读的改不了角色（assignRole 拒绝）：结束了的任务只能删，归档了的项目能取消归档再改、或者删（375 号票）
+        const editable = labels((entry) => entry.readOnly === undefined);
+        const endedTasks = labels((entry) => entry.readOnly !== undefined && entry.kind === "task");
+        const archivedProjects = labels((entry) => entry.readOnly !== undefined && entry.kind !== "task");
+        const reasons = [
+          ...(editable === "" ? [] : [t("agentRoles.roleInUse", { agents: editable })]),
+          ...(endedTasks === "" ? [] : [t("agentRoles.roleInUseEndedTasks", { agents: endedTasks })]),
+          ...(archivedProjects === "" ? [] : [t("agentRoles.roleInUseArchivedProjects", { agents: archivedProjects })]),
+        ];
+        throw new RequestRejected("bad_params", reasons.join(t("agentRoles.roleInUseJoin")));
       }
       // 还指着它的只可能是认不得了的 agent（删了的任务、项目的负责人）：不算在用（371 号票）
       options.roles.remove(roleId, (agentId) => options.resolve(agentId) === undefined);

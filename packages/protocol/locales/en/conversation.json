@@ -10,7 +10,7 @@
   "conversation.session.switchFailed": "Branch switch failed: {error}",
   "conversation.session.notReady": "{who} didn't start, so the rollback didn't happen",
   "conversation.session.attachmentFailed": "Couldn't read an attachment ({reason})",
-  "conversation.session.noModelKey": "No model set up yet: there's no {provider} API key. See Settings · Models for how to add one, then restart ergo",
+  "conversation.session.noModelKey": "No model set up yet: there's no {provider} API key. See Settings · Models for how to add one. No restart needed: just send your message again once it's saved",
   "conversation.session.summaryTimeout": "Writing the branch summary timed out",
   "conversation.session.childExited": "The agent process exited",
   "conversation.compaction.summary": "Conversation compacted here",

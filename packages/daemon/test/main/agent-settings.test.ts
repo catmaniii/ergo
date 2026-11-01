@@ -24,7 +24,7 @@ import type { FauxStep } from "../../src/runtime/index.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { stripTimeMarkers } from "../helpers/echo.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
-import { agentSettingsApi } from "../helpers/http.ts";
+import { agentRolesApi, agentSettingsApi } from "../helpers/http.ts";
 import { submitPlanStep } from "../helpers/plans.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { seedProject } from "../helpers/projects.ts";
@@ -219,6 +219,57 @@ describe("清空当前对话：新开一段会话，旧的不删", () => {
     const refused = await agentSettingsApi.savePrompt(td.url, "tm-1", { mode: "append", content: "多写注释" });
     expect(refused).toMatchObject({ status: 400, body: { message: expect.stringContaining("只能看") } });
     expect((await agentSettingsApi.compact(td.url, "tm-1")).status).toBe(400);
+  });
+
+  // 375 号票：只读的 agent 改不了角色，报错不能再让人"改成别的角色"，要说真正能做的
+  it("删角色：结束了的任务、归档了的项目用着时，报错说真正能做的；删了任务，角色就能删", async () => {
+    const td = await startTestDaemon({ maintainer: (id, n) => (id === "tm-1" && n === 1 ? [submitPlanStep(onePlan()), say("计划交上去了")] : [say("好"), say("好"), say("好")]) });
+    seedProject(td.daemon, "旧账本", { state: "archived" });
+    seedProject(td.daemon, "在用的账本", { state: "in_use" });
+    const frontend = await TestFrontend.connect(td.url);
+    await frontend.subscribe({ [BOARD]: 0, [CARDS]: 0, [maintainerChannel("tm-1")]: 0 });
+    const taskId = await runningTask(td, frontend, "整理相册");
+
+    const created = await agentRolesApi.create(td.url, { name: "小明" });
+    const roleId = created.body.roles.find((role) => role.name === "小明")!.id;
+    const messageOf = async () => {
+      const refused = await agentRolesApi.remove(td.url, roleId);
+      expect(refused.status).toBe(400);
+      return (refused.body as { message?: string }).message ?? "";
+    };
+    await agentRolesApi.assign(td.url, "tm-1", roleId);
+
+    // 任务还在做：能改，照旧让人改
+    expect(await messageOf()).toContain("先把它们改成别的角色");
+
+    // 任务取消了：只读了，改不了，只能删掉任务
+    await frontend.taskAction({ taskId, action: "cancel" });
+    await expect.poll(async () => (await agentSettingsApi.view(td.url, "tm-1")).body.readOnly, { timeout: 10_000 }).toEqual(expect.any(String));
+    expect((await agentRolesApi.assign(td.url, "tm-1", null)).status).toBe(400);
+    const ended = await messageOf();
+    expect(ended).toContain("整理相册");
+    expect(ended).toContain("删掉");
+    expect(ended).not.toContain("改成别的角色");
+    expect(ended).not.toContain("跟默认");
+
+    // 再加上归档了的项目（指定是在它归档之前做的）和一个还能改的：三种各说各的
+    const file = dataDirLayout(td.dataDir).agentRolesFile;
+    const stored = JSON.parse(fs.readFileSync(file, "utf8")) as { assignments: Record<string, string> };
+    fs.writeFileSync(file, JSON.stringify({ ...stored, assignments: { ...stored.assignments, "pm-1": roleId, "pm-2": roleId } }));
+    const mixed = await messageOf();
+    expect(mixed).toContain("项目「旧账本」的负责人");
+    expect(mixed).toContain("取消归档");
+    expect(mixed).toContain("项目「在用的账本」的负责人");
+    expect(mixed).toContain("先把它们改成别的角色");
+    expect(mixed).toContain("整理相册");
+
+    // 照它说的做：改掉能改的、删掉项目和任务，角色就能删
+    await agentRolesApi.assign(td.url, "pm-2", null);
+    const without = JSON.parse(fs.readFileSync(file, "utf8")) as { assignments: Record<string, string> };
+    delete without.assignments["pm-1"];
+    fs.writeFileSync(file, JSON.stringify(without));
+    await frontend.taskAction({ taskId, action: "delete" });
+    await expect.poll(async () => (await agentRolesApi.remove(td.url, roleId)).status, { timeout: 10_000 }).toBe(200);
   });
 
   it("项目负责人：清空就是重置负责人，新的一段只凭项目档案重建理解，单独的提示词跟着项目走（重置之后照旧用）", async () => {

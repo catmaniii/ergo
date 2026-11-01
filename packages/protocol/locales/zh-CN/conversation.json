@@ -10,7 +10,7 @@
   "conversation.session.switchFailed": "切换分支没做成：{error}",
   "conversation.session.notReady": "{who}没起来，撤回没做",
   "conversation.session.attachmentFailed": "读取附件出错（{reason}）",
-  "conversation.session.noModelKey": "还没配模型：没有 {provider} 的 API Key。去「设置 · 模型」看怎么配，配好后重启二狗",
+  "conversation.session.noModelKey": "还没配模型：没有 {provider} 的 API Key。去「设置 · 模型」看怎么配，存好不用重启，再发一条就行",
   "conversation.session.summaryTimeout": "写分支摘要超时了",
   "conversation.session.childExited": "子进程退出了",
   "conversation.compaction.summary": "这里压缩过一次",

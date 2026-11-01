@@ -224,7 +224,7 @@ export const RECIPES_OPERATIONS_ADD_WEB: OperationsChangeCardPayload = {
   projectName: "家庭菜谱",
   revision: 2,
   baseRevision: 1,
-  why: "你想在手机上随时看本周菜单和买菜清单：把菜谱做成网页，经 LSM 常开着，项目卡片上有入口。",
+  why: "你想在手机上随时看本周菜单和买菜清单：把菜谱做成网页，经服务管家常开着，项目卡片上有入口。",
   added: [recipesWebItem("node server.mjs")],
   changed: [],
   removed: [],

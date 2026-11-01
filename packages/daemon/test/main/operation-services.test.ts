@@ -383,10 +383,10 @@ describe("运营手段“服务”：确认后经 LSM 上线，项目卡片上�
     await lsm.waitFor((m) => m.type === "hello", "握手");
     await putInUse(td, frontend, [site(18999)]);
     const manual = await untilService(td, (v) => v.rollout === "manual", "要你手动");
-    expect(manual.reason).toBe("LSM 版本不支持名下的服务，需要手动在 LSM 里登记（LSM 升级、重启后二狗会自动补上）");
+    expect(manual.reason).toBe("服务管家版本不支持名下的服务，需要手动在服务管家里登记（服务管家升级、重启后二狗会自动补上）");
     expect(lsm.serviceRequests()).toEqual([]);
     expect((await openApp(td)).status).toBe(404);
-    await waitUntil(() => messagesOf(frontend, PM1).some((m) => textOf(m).includes("现在没法替用户上线：LSM 版本不支持名下的服务")), { describe: () => "负责人知道要手动" });
+    await waitUntil(() => messagesOf(frontend, PM1).some((m) => textOf(m).includes("现在没法替用户上线：服务管家版本不支持名下的服务")), { describe: () => "负责人知道要手动" });
     await eventually(() => servicesFramesOf(frontend), (s) => s.some((v) => v.app === "p-1-site" && v.rollout === "manual"), "前端看到要你手动");
   }, 120_000);
 });
@@ -627,7 +627,7 @@ describe("使用中的项目：项目卡片、项目页上的“启动”“关�
     await lsm.close();
     await untilService(td, (v) => v.status === "unknown", "LSM 断了");
     const refused = await power(frontend, "stop", "k-offline");
-    expect(refused).toMatchObject({ ok: false, error: { code: "not_allowed", message: "LSM 没连上，等连上再试" } });
+    expect(refused).toMatchObject({ ok: false, error: { code: "not_allowed", message: "服务管家没连上，等连上再试" } });
     expect(powerEvents(td)).toHaveLength(2);
 
     // 项目停用了：不是使用中的不能启停（停用、重新启用照原样）

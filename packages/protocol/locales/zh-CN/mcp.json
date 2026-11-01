@@ -19,7 +19,7 @@
   "mcp.change.notRegistered": "没有登记 MCP {name}：要加它用 action: add",
   "mcp.change.badName": "MCP 的名字 {name} 不合规：只能用小写、大写字母、数字、- 和 _，不能以符号开头，也不能连着两个 _",
   "mcp.change.missingCommand": "command 要写要拉起的命令（比如 node），不能是空的",
-  "mcp.change.plaintextSecret": "这几项看着是密钥，不要写明文：{names}。密钥写 { fromEnv: \"变量名\" }，运行时按名字从自己的环境里取（由 LSM 注入）",
+  "mcp.change.plaintextSecret": "这几项看着是密钥，不要写明文：{names}。密钥写 { fromEnv: \"变量名\" }，运行时按名字从自己的环境里取（由服务管家注入）",
   "mcp.change.noTools": "tools 里至少要登记一个工具",
   "mcp.change.noSubmitter": "找不到提交的人（{target}）：项目和任务可能被删了",
   "mcp.change.inboxTitle": "MCP 登记变更：{who}要{change}",

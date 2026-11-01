@@ -370,16 +370,19 @@ export function StartTaskDialog({ onClose }: { onClose(): void }) {
         </div>
       ) : evented ? (
         <div className="hint">
-          {kind === "workflow" ? t("pages.startTask.hint.eventWorkflow") : t("pages.startTask.hint.eventPlain")}
+          {/* 选了项目的是内部任务，不上任务看板（只有运营方案建的才上，375 号票） */}
+          {kind === "workflow"
+            ? t(inProject === undefined ? "pages.startTask.hint.eventWorkflow" : "pages.startTask.hint.eventWorkflowInProject")
+            : t(inProject === undefined ? "pages.startTask.hint.eventPlain" : "pages.startTask.hint.eventPlainInProject")}
         </div>
       ) : at ? (
         <div className="hint">
-          {kind === "workflow" ? t("pages.startTask.hint.atWorkflow") : <T k="pages.startTask.hint.atPlain" params={{ name: <AssistantName /> }} />}
+          {kind === "workflow" ? t("pages.startTask.hint.atWorkflow") : <T k={inProject === undefined ? "pages.startTask.hint.atPlain" : "pages.startTask.hint.atPlainInProject"} params={{ name: <AssistantName /> }} />}
         </div>
       ) : when === "schedule" ? (
         <div className="hint">
           {kind === "workflow" ? (
-            t("pages.startTask.hint.scheduleWorkflow")
+            t(inProject === undefined ? "pages.startTask.hint.scheduleWorkflow" : "pages.startTask.hint.scheduleWorkflowInProject")
           ) : (
             <T k={inProject === undefined ? "pages.startTask.hint.schedulePlain" : "pages.startTask.hint.schedulePlainInProject"} params={{ name: <AssistantName /> }} />
           )}

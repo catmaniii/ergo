@@ -27,7 +27,7 @@
   "voice.warmup.busy": "The speech service is busy (the GPU is in use by something else). Trying again shortly.",
   "voice.debug.noReference": "No reference voice yet. Import one in Settings › Voice first.",
   "voice.recognizer.hint": "Check that voice.recognizer.python in the data folder's config points to a Python with faster-whisper installed, and that the model (large-v3 by default, small as the fallback) is in the local Hugging Face cache.",
-  "voice.recognizer.lsmHint": "First check whether the ergo-asr service is running in LSM (LSM restarts it if it dies, and the model then takes 45–60 s to load again), then make sure voice.recognizer.url in the data folder's config (default http://127.0.0.1:8091) points at the same address.",
+  "voice.recognizer.lsmHint": "First check whether the ergo-asr service is running in the service manager (the service manager restarts it if it dies, and the model then takes 45–60 s to load again), then make sure voice.recognizer.url in the data folder's config (default http://127.0.0.1:8091) points at the same address.",
   "voice.recognizer.idle": "The speech recognition process exited after being idle",
   "voice.recognizer.withStderr": "{what}: {stderr}",
   "voice.recognizer.noProgram": "No program is configured for speech recognition",

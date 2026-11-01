@@ -192,7 +192,7 @@ describe("服务的“启动”“关闭”（257 号票）", () => {
     const onConfirm = vi.fn<() => void>();
     const html = renderToStaticMarkup(createElement(StopServicesConfirm, { projectName: "家庭菜谱", services: ["菜谱网页", "菜谱接口"], onCancel, onConfirm }));
     expect(html).toContain("关闭「家庭菜谱」的服务？");
-    expect(html).toContain("会经 LSM 把这个项目的 2 个服务（菜谱网页、菜谱接口）全部停掉，并取消开机自启：二狗或电脑重启后也不会自己起来，直到你再点“启动”。");
+    expect(html).toContain("会经服务管家把这个项目的 2 个服务（菜谱网页、菜谱接口）全部停掉，并取消开机自启：二狗或电脑重启后也不会自己起来，直到你再点“启动”。");
     expect(html).toContain("这不是停用：项目照旧使用中，定时任务照常。");
     expect(html).toContain('<button type="button" class="btn ghost">先不关</button>');
     expect(html).toContain('<button type="button" class="btn danger">关闭</button>');
