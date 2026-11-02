@@ -40,6 +40,8 @@ export interface ProgramContext {
   /** 拆出一次调用；unseenInput：这次调用拿到了守卫看不见的输入（见 Invocation.unseenInput）；marks：这次"读"不只是读（见 ShellCall.notJustRead） */
   emit(tool: string, args: Record<string, unknown>, unseenInput: boolean, marks?: { notJustRead?: true }): void;
   opaque(reason: string): void;
+  /** 和 opaque 一样，原文算上它所在的整条管道（要动的路径从管道来时，路径写在前面那段里） */
+  opaquePipeline(reason: string): void;
   /** 把词当路径解析成绝对路径（cd 之后可能有几个）；伪设备返回 undefined */
   path(word: ShellWord): string | string[] | undefined;
   /** 当前目录（可能有几个） */
@@ -192,7 +194,7 @@ export function runProgram(ctx: ProgramContext, argv: readonly ShellWord[], extr
     ctx.opaque(t("guard.shell.variableCommand", { name: name.text }));
     return;
   }
-  const program = programName(name.value);
+  const program = psNamedProgram(programName(name.value), args);
   const inv = new Invocation(ctx, extraOperands);
   const handler = Object.hasOwn(PROGRAMS, program) ? PROGRAMS[program] : undefined;
   if (handler) {
@@ -202,6 +204,8 @@ export function runProgram(ctx: ProgramContext, argv: readonly ShellWord[], extr
     // ./build.sh、tools/x.py 这类直接执行的脚本
     emitScript(inv, name, "");
     readLeftoverPaths(inv, args, false);
+  } else if (PS_WRITE_VERB.test(program)) {
+    psUnlistedWriter(inv, program, args);
   } else {
     genericCommand(inv, program, args);
   }
@@ -1294,6 +1298,354 @@ const net: Handler = (inv, args, program) => {
   inv.emit(TOOL.shell_command, { program: `${program} ${s}`.trim(), paths: [] });
 };
 
+// ───────────────────────── PowerShell 的文件命令 ─────────────────────────
+//
+// Codex 在 Windows 上默认跑 PowerShell。文件类的 cmdlet 和它们的别名按对应的 Unix 命令判：Remove-Item 是 rm，Set-Content 是整个写，
+// Add-Content 是追加，Get-Content 是读。命令还是按 Git Bash 的语法拆的，不解析 PowerShell 的语法：圆括号表达式、if、foreach 语句
+// 语法解析就过不去，整句按拆不开算；脚本块（`{ … }`）里的命令拆不开，也按拆不开算。
+// 带通配符的路径原样留着，走判定函数现成的那条路（和 rm *.json 一样，展不开的按通配符之前那段目录判）；$env:、$变量、$( ) 拆出来就是没法确定的路径。
+
+/** 一个参数的去处：路径、目标、新名字，带值但值不是路径，开关 */
+type PsRole = "path" | "destination" | "name" | "text" | "switch";
+
+interface PsSpec {
+  /** 参数名和别名（小写）的去处 */
+  params: Readonly<Record<string, PsRole>>;
+  /** 位置参数依次是哪个参数；多出来的当路径（宁可多判） */
+  positional: readonly string[];
+}
+
+/** 文件类 cmdlet 都有的：路径、过滤、PowerShell 的通用参数 */
+const PS_COMMON_PARAMS: Readonly<Record<string, PsRole>> = {
+  path: "path", literalpath: "path", pspath: "path", lp: "path",
+  filter: "text", include: "text", exclude: "text", force: "switch", credential: "text",
+  verbose: "switch", vb: "switch", debug: "switch", db: "switch", whatif: "switch", wi: "switch", confirm: "switch", cf: "switch",
+  erroraction: "text", ea: "text", warningaction: "text", wa: "text", informationaction: "text", infa: "text", progressaction: "text", proga: "text",
+  errorvariable: "text", ev: "text", warningvariable: "text", wv: "text", informationvariable: "text", iv: "text", outvariable: "text", ov: "text",
+  outbuffer: "text", ob: "text", pipelinevariable: "text", pv: "text",
+};
+
+const psSpec = (positional: readonly string[], own: Readonly<Record<string, PsRole>> = {}): PsSpec => ({ params: { ...PS_COMMON_PARAMS, ...own }, positional });
+
+const PS_REMOVE = psSpec(["path"], { recurse: "switch", stream: "text" });
+const PS_CONTENT = psSpec(["path", "value"], { value: "text", passthru: "switch", encoding: "text", nonewline: "switch", asbytestream: "switch", stream: "text" });
+const PS_CLEAR_CONTENT = psSpec(["path"], { stream: "text" });
+const PS_OUT_FILE = psSpec(["filepath", "encoding"], { filepath: "path", encoding: "text", append: "switch", noclobber: "switch", nooverwrite: "switch", width: "text", nonewline: "switch", inputobject: "text" });
+const PS_NEW_ITEM = psSpec(["path"], { name: "name", itemtype: "text", type: "text", value: "text", target: "text" });
+const PS_TRANSFER = psSpec(["path", "destination"], { destination: "destination", passthru: "switch", recurse: "switch", container: "switch", fromsession: "text", tosession: "text" });
+const PS_RENAME = psSpec(["path", "newname"], { newname: "name", passthru: "switch" });
+const PS_GET_CONTENT = psSpec(["path"], {
+  readcount: "text", totalcount: "text", first: "text", head: "text", tail: "text", last: "text", delimiter: "text", wait: "switch", raw: "switch", encoding: "text", asbytestream: "switch", stream: "text",
+});
+const PS_CHILD_ITEM_PARAMS: Readonly<Record<string, PsRole>> = {
+  recurse: "switch", s: "switch", depth: "text", name: "switch", attributes: "text", followsymlink: "switch",
+  directory: "switch", ad: "switch", d: "switch", file: "switch", af: "switch", hidden: "switch", ah: "switch", h: "switch", readonly: "switch", ar: "switch", system: "switch", as: "switch",
+};
+const PS_CHILD_ITEM = psSpec(["path", "filter"], PS_CHILD_ITEM_PARAMS);
+/** dir 也是 Git Bash 里真的程序（dir a b 列两个目录）：位置参数都当路径 */
+const PS_DIR = psSpec(["path"], PS_CHILD_ITEM_PARAMS);
+const PS_TEST_PATH = psSpec(["path"], { pathtype: "text", type: "text", isvalid: "switch", olderthan: "text", newerthan: "text" });
+const PS_SELECT_STRING = psSpec(["pattern", "path"], {
+  pattern: "text", inputobject: "text", encoding: "text", context: "text", culture: "text",
+  simplematch: "switch", casesensitive: "switch", quiet: "switch", list: "switch", noemphasis: "switch", raw: "switch", notmatch: "switch", allmatches: "switch",
+});
+const PS_SET_LOCATION = psSpec(["path"], { passthru: "switch", stackname: "text" });
+
+/** 参数名（不分大小写，可以只写开头几个字母）在这个命令里是哪个；对不上或者有歧义的是 undefined（当开关，后面的词当位置参数，宁可多判） */
+function psParam(spec: PsSpec, written: string): { name: string; role: PsRole } | undefined {
+  const name = written.toLowerCase();
+  if (Object.hasOwn(spec.params, name)) return { name, role: spec.params[name]! };
+  const hits = Object.keys(spec.params).filter((p) => p.startsWith(name));
+  const roles = new Set(hits.map((p) => spec.params[p]!));
+  return roles.size === 1 ? { name: hits[0]!, role: spec.params[hits[0]!]! } : undefined;
+}
+
+/** `-Name`、`-Name:值`（加了引号的不是参数名）；不是参数的是 undefined */
+function psParamWord(word: ShellWord): { name: string; value?: ShellWord } | undefined {
+  if (!word.text.startsWith("-")) return undefined;
+  const m = /^-([A-Za-z][\w-]*)(?::(.*))?$/s.exec(word.value ?? word.text);
+  if (!m) return undefined;
+  if (!m[2]) return { name: m[1]! };
+  const text = word.text.slice(word.text.indexOf(":") + 1);
+  return { name: m[1]!, value: { value: word.value === null ? null : m[2], text } };
+}
+
+/** 从第 i 个词起的一个参数值：`a, b`、`a ,b` 这样数组写成了几个词的连在一起；next 是最后一个词的下标 */
+function psArrayAt(args: readonly ShellWord[], i: number): { words: ShellWord[]; next: number } {
+  let next = i;
+  while (next + 1 < args.length && (args[next]!.text.endsWith(",") || args[next + 1]!.text.startsWith(","))) next++;
+  return { words: args.slice(i, next + 1), next };
+}
+
+const FILESYSTEM_PROVIDER = /^(?:microsoft\.powershell\.core[\\/])?filesystem::/i;
+/** `HKLM:\x`、`Env:X`、`Cert:\` 这些别的提供程序（盘符只有一个字母，网址另算），`x.json:流` 也在里面 */
+const PS_OTHER_PROVIDER = /^[a-z][\w.+-]+:/i;
+
+/**
+ * 路径写法里 PowerShell 特有的部分：FileSystem:: 前缀、\\?\ 长路径前缀去掉，剩下的是普通路径（这些前缀留着会认不出它在受保护区域里）；
+ * `@参数表`（splatting）、别的提供程序的路径不是确定的文件路径
+ */
+function psPathWord(raw: string, text: string): ShellWord {
+  const plain = raw.replace(FILESYSTEM_PROVIDER, "").replace(/^[\\/]{2}[?.][\\/]unc[\\/]/i, "//").replace(/^[\\/]{2}[?.][\\/]/, "");
+  if (plain.startsWith("@") || (PS_OTHER_PROVIDER.test(plain) && !/^file:\/\//i.test(plain))) return { value: null, text };
+  return { value: plain, text };
+}
+
+/** 路径参数的一个词要判的路径：`a,b` 是两个（整个加了引号的是一个文件名）；空的（数组末尾的逗号）不算 */
+function psPathWords(word: ShellWord): ShellWord[] {
+  const wholeQuoted = /^(["'])[^"']*\1$/.test(word.text);
+  if (word.value !== null) return (wholeQuoted ? [word.value] : word.value.split(",")).filter((p) => p !== "").map((p) => psPathWord(p, p));
+  if (wholeQuoted || word.alternatives || word.text.includes("$(") || !word.text.includes(",")) return [word];
+  return word.text
+    .split(",")
+    .filter((p) => p !== "")
+    .map((p) => (/[$`]/.test(p) ? { value: null, text: p } : psPathWord(p.replace(/^["']|["']$/g, ""), p)));
+}
+
+interface PsArgs {
+  path: ShellWord[];
+  destination: ShellWord[];
+  name: ShellWord[];
+  /** 带值、值不是路径的参数：参数名 → 第一个词 */
+  text: Map<string, ShellWord>;
+  switches: Set<string>;
+}
+
+function parsePsArgs(args: readonly ShellWord[], spec: PsSpec): PsArgs {
+  const out: PsArgs = { path: [], destination: [], name: [], text: new Map(), switches: new Set() };
+  const put = (role: PsRole, name: string, words: readonly ShellWord[]) => {
+    if (role === "path" || role === "destination") out[role].push(...words.flatMap(psPathWords));
+    else if (role === "name") out.name.push(...words);
+    else if (role === "text" && words[0]) out.text.set(name, words[0]);
+  };
+  const positional: ShellWord[][] = [];
+  let onlyPositional = false;
+  for (let i = 0; i < args.length; i++) {
+    const word = args[i]!;
+    if (!onlyPositional && word.text === "--") {
+      onlyPositional = true;
+      continue;
+    }
+    const written = onlyPositional ? undefined : psParamWord(word);
+    if (!written) {
+      const { words, next } = psArrayAt(args, i);
+      positional.push(words);
+      i = next;
+      continue;
+    }
+    const param = psParam(spec, written.name);
+    if (!param || param.role === "switch") {
+      if (param) out.switches.add(param.name);
+      continue;
+    }
+    if (written.value) put(param.role, param.name, [written.value]);
+    else if (i + 1 < args.length) {
+      const { words, next } = psArrayAt(args, i + 1);
+      put(param.role, param.name, words);
+      i = next;
+    }
+  }
+  // 位置参数填还没写名字的那些：`-Value x y` 的 y 是路径，`-Path x y` 的 y 是内容
+  const filled = (name: string): boolean => {
+    const role = spec.params[name];
+    return role === "path" || role === "destination" || role === "name" ? out[role].length > 0 : out.text.has(name);
+  };
+  const free = spec.positional.filter((name) => !filled(name));
+  positional.forEach((words, k) => {
+    const name = free[k] ?? "path";
+    put(spec.params[name] ?? "path", name, words);
+  });
+  return out;
+}
+
+/** 管道传来的路径：算一个没法确定的路径（和 xargs 补上的参数一样） */
+const PIPED_WORD: ShellWord = {
+  value: null,
+  get text() {
+    return t("guard.shell.pipedWord");
+  },
+};
+
+/**
+ * 拆不开：按未知的写操作判。原文算上整条管道（前面写着受保护区域的，`Get-ChildItem <配置区> | % { … }`，照样认得）；
+ * 它多半动的是当前目录，当前目录落在受保护区域里的（`cd <配置区> && … | % { … }`）也要拦，所以当前目录按看不出读写的路径带上
+ */
+function psOpaque(inv: Invocation, program: string, reason: string): void {
+  inv.ctx.opaquePipeline(reason);
+  inv.emit(TOOL.shell_command, { program, paths: toList(inv.ctx.cwd()) });
+}
+
+/** 按表拆开参数交给 run；带脚本块的（`-NewName { … }`）拆不开 */
+function psCommand(spec: PsSpec, run: (inv: Invocation, parsed: PsArgs, program: string) => void): Handler {
+  return (inv, args, program) => {
+    inv.skip(...args);
+    if (args.some((w) => w.text.startsWith("{"))) {
+      psOpaque(inv, program, t("guard.shell.psScriptBlock", { program }));
+      return;
+    }
+    const parsed = parsePsArgs(args, spec);
+    // 路径里有变量：走没法确定的路径那条路。读没法确定的路径对话审批关着放行，原文写着密钥区的（$env:USERPROFILE\.ergo\secrets）靠拆不开这一条认出来
+    if ([...parsed.path, ...parsed.destination, ...parsed.name].some((w) => w.value === null)) inv.ctx.opaque(t("guard.shell.psDynamicPath", { program }));
+    run(inv, parsed, program);
+  };
+}
+
+/**
+ * 写、删的路径。没写路径：要动的文件从管道来（Get-ChildItem x | Remove-Item）或者压根没有，看不出是哪些——
+ * 按拆不开算，再算一个没法确定的路径（写、删没法确定的路径对话审批关着也要问）
+ */
+function psTargets(inv: Invocation, paths: readonly ShellWord[], program: string): readonly ShellWord[] {
+  if (paths.length > 0 || inv.extraOperands) return paths;
+  psOpaque(inv, program, t("guard.shell.psNoPath", { program }));
+  return [PIPED_WORD];
+}
+
+/** 写、删这些路径的命令 */
+function psChange(spec: PsSpec, tool: string, extra: (parsed: PsArgs) => Record<string, unknown> = () => ({})): Handler {
+  return psCommand(spec, (inv, parsed, program) => inv.emitEachPath(tool, [...psTargets(inv, parsed.path, program)], extra(parsed)));
+}
+
+const psRemove = psChange(PS_REMOVE, TOOL.delete, (parsed) => ({ recursive: parsed.switches.has("recurse") }));
+const psSetContent = psChange(PS_CONTENT, TOOL.write);
+/** Add-Content 只往末尾追加，和 tee -a 一样带上 append */
+const psAddContent = psChange(PS_CONTENT, TOOL.edit, () => ({ append: true }));
+const psClearContent = psChange(PS_CLEAR_CONTENT, TOOL.write);
+const psOutFile: Handler = psCommand(PS_OUT_FILE, (inv, parsed, program) => {
+  const targets = [...psTargets(inv, parsed.path, program)];
+  if (parsed.switches.has("append")) inv.emitEachPath(TOOL.edit, targets, { append: true });
+  else inv.emitEachPath(TOOL.write, targets);
+});
+
+/** 一个目录下面的名字（New-Item -Path 目录 -Name 名字；Rename-Item 的新名字在原来的目录下面） */
+function psJoin(dir: ShellWord, name: ShellWord): ShellWord {
+  const text = `${dir.text}/${name.text}`;
+  return dir.value === null || name.value === null ? { value: null, text } : { value: `${dir.value}/${name.value}`, text };
+}
+
+/**
+ * New-Item（md 同样）：-ItemType 只看开头（d 就是 Directory）。建目录按 mkdir，建链接按 ln（链接指向哪儿也算路径，-Value、-Target 这时不是内容），别的按写文件。
+ * defaultType：不写 -ItemType 时算什么
+ */
+function psNewItem(defaultType: string): Handler {
+  return psCommand(PS_NEW_ITEM, (inv, parsed, program) => {
+    const name = parsed.name[0];
+    const named = name ? (parsed.path.length > 0 ? parsed.path.map((dir) => psJoin(dir, name)) : [name]) : parsed.path;
+    const targets = [...psTargets(inv, named, program)];
+    const typeWord = parsed.text.get("itemtype") ?? parsed.text.get("type");
+    const type = typeWord ? (typeWord.value ?? "") : defaultType;
+    if (/^d/i.test(type)) inv.emitEachPath(TOOL.make_dir, targets);
+    else if (/^[sjh]/i.test(type)) {
+      const linkTo = parsed.text.get("target") ?? parsed.text.get("value");
+      inv.emitEachPath(TOOL.edit, [...targets, ...(linkTo ? psPathWords(linkTo) : [])]);
+    } else inv.emitEachPath(TOOL.write, targets);
+  });
+}
+
+const OPERANDS_ONLY: ShellWord = { value: "--", text: "--" };
+const HERE: ShellWord = { value: ".", text: "." };
+
+/** Move-Item、Copy-Item：和 mv、cp 一样；不写 -Destination 是放到当前目录。没写来源的（从管道来）目标写明了照样判 */
+function psTransfer(tool: typeof TOOL.move | typeof TOOL.copy): Handler {
+  return psCommand(PS_TRANSFER, (inv, parsed, program) => {
+    const sources = psTargets(inv, parsed.path, program);
+    for (const dest of parsed.destination.length > 0 ? parsed.destination : [HERE]) transfer(tool)(inv, [OPERANDS_ONLY, ...sources, dest], program);
+  });
+}
+
+const psRename: Handler = psCommand(PS_RENAME, (inv, parsed, program) => {
+  const newName = parsed.name[0];
+  const sources = psTargets(inv, parsed.path, program);
+  for (const from of sources.length > 0 ? sources : [XARGS_WORD]) {
+    const dir: ShellWord = from.value === null ? from : { value: from.value.replace(/[\\/]?[^\\/]*$/, "") || ".", text: from.text };
+    transfer(TOOL.move)(inv, [OPERANDS_ONLY, from, newName ? psJoin(dir, newName) : from], program);
+  }
+});
+
+/** Get-Content、Get-ChildItem、Test-Path：每个路径各读一次；什么都没写是一条只看的命令，路径从管道来的看不出读哪些 */
+function psRead(spec: PsSpec): Handler {
+  return psCommand(spec, (inv, parsed, program) => {
+    if (parsed.path.length > 0 || inv.extraOperands) inv.emitEachPath(TOOL.read, parsed.path);
+    else if (inv.ctx.stdin) psOpaque(inv, program, t("guard.shell.psNoPath", { program }));
+    else inv.emit(TOOL.shell_command, { program, paths: [] });
+  });
+}
+
+/** Select-String：第一个位置参数是模式；没写文件的是筛管道传来的文字，和 grep 一样 */
+const psSelectString: Handler = psCommand(PS_SELECT_STRING, (inv, parsed, program) => {
+  if (parsed.path.length > 0 || inv.extraOperands) inv.emitEachPath(TOOL.read, parsed.path);
+  else inv.emit(TOOL.shell_command, { program, paths: [] });
+});
+
+/** Set-Location（Push-Location）：和 cd 一样记下当前目录，后面的裸文件名才解析得对 */
+const psSetLocation: Handler = psCommand(PS_SET_LOCATION, (inv, parsed, program) => {
+  cd(inv, [OPERANDS_ONLY, ...(parsed.path.length === 0 && inv.ctx.stdin ? [PIPED_WORD] : parsed.path)], program);
+});
+
+/** 管服务的 sc.exe 的子命令 */
+const SC_EXE_VERBS = new Set([
+  "query", "queryex", "start", "pause", "interrogate", "continue", "stop", "config", "description", "failure", "failureflag", "sidtype", "privs", "managedaccount",
+  "qc", "qdescription", "qfailure", "qfailureflag", "qsidtype", "qprivs", "qtriggerinfo", "qpreferrednode", "qrunlevel", "qmanagedaccount", "qprotection", "quserservice",
+  "delete", "create", "control", "sdshow", "sdset", "showsid", "triggerinfo", "preferrednode", "runlevel", "getdisplayname", "getkeyname", "enumdepend", "boot", "lock", "querylock",
+]);
+
+/**
+ * sc：PowerShell 5 里是 Set-Content，Git Bash 和 PowerShell 7 里是管服务的 sc.exe。一律算账户与安全；
+ * 写明 sc.exe 的、第一个词是它的子命令或 \\机器名 的只是管服务，别的（sc x.json）也算写文件
+ */
+const scCommand: Handler = (inv, args, program) => {
+  accountCommand(inv, args, program);
+  const first = (args[0]?.value ?? "").toLowerCase();
+  if (!/\bsc\.exe\b/i.test(inv.ctx.text) && !SC_EXE_VERBS.has(first) && !/^[\\/]{2}/.test(first)) psSetContent(inv, args, program);
+};
+
+/** ForEach-Object：脚本块里的命令拆不开（管道传来的路径多半在这里面交给 Remove-Item 这类）；只取属性的（% Name、{ $_.FullName }）不碰文件 */
+const psForEach: Handler = (inv, args, program) => {
+  inv.skip(...args);
+  if (/^(?:[A-Za-z_]\w*|\{\s*\$_(?:\.\w+)*\s*\})$/.test(args.map((w) => w.text).join(" "))) inv.emit(TOOL.shell_command, { program, paths: [] });
+  else psOpaque(inv, program, t("guard.shell.psScriptBlock", { program }));
+};
+
+/** Invoke-Expression、Invoke-Command：跑一段字符串或脚本块，和 eval 一样拆不开 */
+const psEval: Handler = (inv, args, program) => {
+  inv.skip(...args);
+  psOpaque(inv, program, t("guard.shell.always", { program, reason: t("guard.shell.always.psEval") }));
+};
+
+/**
+ * 程序表没列、动词是写东西的 cmdlet（Export-Csv、Compress-Archive、Tee-Object、Set-Item……）：参数怎么用不知道，裸词也当路径（看不出读写，按写算）。
+ * 项目里什么都不多判，跑在受保护区域里（cd <配置区> && Export-Csv x.json）才拦得住。Get-、Select-、Out- 这些筛东西的不算：管道里很常见，参数不是路径
+ */
+const PS_WRITE_VERB = /^(?:add|clear|compress|copy|expand|export|install|move|new|publish|remove|rename|save|set|tee|uninstall|update)-[a-z]/;
+
+function psUnlistedWriter(inv: Invocation, program: string, args: readonly ShellWord[]): void {
+  inv.skip(...args);
+  const words = args.flatMap((word) => {
+    const written = psParamWord(word);
+    return written ? (written.value ? [written.value] : []) : [word];
+  });
+  inv.emit(TOOL.shell_command, { program, paths: words.flatMap(psPathWords).flatMap((w) => toList(inv.path(w))) });
+}
+
+/**
+ * rm、mv、cp、cat、ls、cd 在 PowerShell 里也是 cmdlet 的别名：写了路径参数（-Path、-Dest，可以缩写，可以 -Path:x）或者 $env: 的按 cmdlet 拆，
+ * 不然目标和来源会认反、-Path:x 认不出是路径
+ */
+const PS_ALIASED_UNIX: Readonly<Record<string, string>> = {
+  rm: "remove-item", rmdir: "remove-item", mv: "move-item", cp: "copy-item", cat: "get-content", ls: "get-childitem", cd: "set-location", pushd: "push-location", mkdir: "md",
+};
+const PS_PATH_PARAMS = ["path", "literalpath", "pspath", "lp", "destination"];
+
+function psNamedProgram(program: string, args: readonly ShellWord[]): string {
+  if (!Object.hasOwn(PS_ALIASED_UNIX, program)) return program;
+  const named = args.some((w) => {
+    if (/\$env:/i.test(w.text)) return true;
+    const written = psParamWord(w);
+    if (!written || (written.name.length < 2 && !written.value)) return false;
+    return PS_PATH_PARAMS.some((p) => p.startsWith(written.name.toLowerCase()));
+  });
+  return named ? PS_ALIASED_UNIX[program]! : program;
+}
+
 // ───────────────────────── 程序表 ─────────────────────────
 
 const READ = readEach();
@@ -1306,7 +1658,7 @@ const readLeftoversOnly: Handler = (inv, args, program) => {
 /** 程序表里只读的那些：只读、只看（没有操作数时拆成一条"其他命令"；sort -o、xxd -r 写的另拆成写文件） */
 const READ_ONLY_PROGRAMS: Readonly<Record<string, Handler>> = {
   cat: READ, tac: READ, less: READ, more: READ, wc: READ, nl: READ, od: READ, hexdump: READ, strings: READ, file: READ, stat: READ,
-  tree: readEach(["-L", "-P", "-I"]), ls: READ, dir: READ, vdir: READ, md5sum: READ, sha1sum: READ, sha256sum: READ, sha512sum: READ,
+  tree: readEach(["-L", "-P", "-I"]), ls: READ, dir: psRead(PS_DIR), vdir: READ, md5sum: READ, sha1sum: READ, sha256sum: READ, sha512sum: READ,
   cksum: READ, diff: READ, cmp: READ, comm: READ, realpath: READ, readlink: READ, du: readEach(["-d", "--max-depth"]),
   head: readEach(["-n", "-c", "--lines", "--bytes"]), tail: readEach(["-n", "-c", "--lines", "--bytes"]),
   sort: (inv, args, program) => {
@@ -1320,6 +1672,11 @@ const READ_ONLY_PROGRAMS: Readonly<Record<string, Handler>> = {
     readEach()(inv, parsed.operands, program);
   },
   xxd: (inv, args, program) => (args.some((w) => w.value === "-r") ? tee(inv, args.filter((w) => w.value !== "-r").slice(1), program) : READ(inv, args, program)),
+  // PowerShell 的读取命令（type 在 Git Bash 里是查命令的内建命令，当成读一个文件也碰不到别的）
+  "get-content": psRead(PS_GET_CONTENT), gc: psRead(PS_GET_CONTENT), type: psRead(PS_GET_CONTENT),
+  "get-childitem": psRead(PS_CHILD_ITEM), gci: psRead(PS_CHILD_ITEM),
+  "test-path": psRead(PS_TEST_PATH),
+  "select-string": psSelectString, sls: psSelectString,
   // 条件测试：只把像路径的词当成读
   "[": readLeftoversOnly,
   "[[": readLeftoversOnly,
@@ -1350,7 +1707,6 @@ export const READ_ONLY_COMMANDS: readonly string[] = Object.freeze([
   "id",
   "which",
   "where",
-  "type",
   "basename",
   "dirname",
   "true",
@@ -1358,6 +1714,10 @@ export const READ_ONLY_COMMANDS: readonly string[] = Object.freeze([
   "seq",
   "sleep",
   "expr",
+  // 只有只取属性时才拆成"其他命令"，别的写法拆不开
+  "foreach-object",
+  "foreach",
+  "%",
 ]);
 
 const PROGRAMS: Readonly<Record<string, Handler>> = {
@@ -1375,6 +1735,13 @@ const PROGRAMS: Readonly<Record<string, Handler>> = {
   chmod: editEach(["--reference"], true),
   chown: chown, chgrp: chown,
   tee, truncate, dd,
+  // PowerShell 的写、删、移动（读取的在只读程序里）
+  "remove-item": psRemove, ri: psRemove, del: psRemove, erase: psRemove, rd: psRemove,
+  "set-content": psSetContent, "add-content": psAddContent, ac: psAddContent, "clear-content": psClearContent, clc: psClearContent,
+  "out-file": psOutFile, "new-item": psNewItem("file"), ni: psNewItem("file"), md: psNewItem("directory"),
+  "move-item": psTransfer(TOOL.move), mi: psTransfer(TOOL.move), move: psTransfer(TOOL.move),
+  "rename-item": psRename, rni: psRename, ren: psRename,
+  "copy-item": psTransfer(TOOL.copy), cpi: psTransfer(TOOL.copy), copy: psTransfer(TOOL.copy),
   // 版本库
   git, gh,
   // 包管理
@@ -1418,6 +1785,9 @@ const PROGRAMS: Readonly<Record<string, Handler>> = {
   rundll32: alwaysOpaque("rundll32"),
   regsvr32: alwaysOpaque("regsvr32"),
   eval: alwaysOpaque("eval"),
+  // PowerShell 里跑一段字符串或脚本块的
+  "invoke-expression": psEval, iex: psEval, "invoke-command": psEval, icm: psEval,
+  "foreach-object": psForEach, foreach: psForEach, "%": psForEach,
   source, ".": source,
   exec, command, builtin: exec, trap, alias, shopt,
   // 包装命令
@@ -1431,18 +1801,19 @@ const PROGRAMS: Readonly<Record<string, Handler>> = {
   su: commandStringOption, script: commandStringOption, flock: commandStringOption,
   // 用默认程序打开：守卫不知道会跑什么
   open: alwaysOpaque("open"), "xdg-open": alwaysOpaque("open"), cygstart: alwaysOpaque("open"),
-  explorer: alwaysOpaque("open"), start: alwaysOpaque("open"),
+  explorer: alwaysOpaque("open"), start: alwaysOpaque("open"), "start-process": alwaysOpaque("open"), saps: alwaysOpaque("open"), "invoke-item": alwaysOpaque("open"), ii: alwaysOpaque("open"),
   tar,
   xargs: wrapper(["-I", "-i", "-n", "--max-args", "-L", "-P", "--max-procs", "-d", "--delimiter", "-E", "-a", "--arg-file", "-s"]),
   find,
   cd, pushd: cd,
+  "set-location": psSetLocation, sl: psSetLocation, chdir: psSetLocation, "push-location": psSetLocation,
   // 账户与安全（建账户、改密码是底线）
   passwd: accountChange, chpasswd: accountChange, useradd: accountChange, adduser: accountChange,
   userdel: accountCommand, usermod: accountCommand, groupadd: accountCommand, net,
   "ssh-keygen": accountCommand, "ssh-add": accountCommand, gpg: accountCommand, setx: accountCommand, reg: accountCommand,
   icacls: accountCommand, cacls: accountCommand, takeown: accountCommand, setfacl: accountCommand,
   // 计划任务、服务、开机项、防火墙这类系统设置（能让命令以后自己跑起来）
-  schtasks: accountCommand, sc: accountCommand, crontab: accountCommand, at: accountCommand, launchctl: accountCommand,
+  schtasks: accountCommand, sc: scCommand, crontab: accountCommand, at: accountCommand, launchctl: accountCommand,
   systemctl: accountCommand, service: accountCommand, bcdedit: accountCommand, netsh: accountCommand, wmic: accountCommand,
   msiexec,
 };

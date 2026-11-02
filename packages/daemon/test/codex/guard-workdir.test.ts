@@ -1,7 +1,7 @@
 // 换目录跑的命令（模型写了 workdir，钩子看不到）补判时，守卫到底判出什么：这里用真的判定函数，不是替身。
 // 补判的命令是 cd "<真的目录>" && <模型写的那句>（child/guard.ts 的 cwdCheckOf），靠守卫现成的 shell 分析：
-// - cd 本身算一次"不只是读"的读：目录越出项目要问，目录在密钥区硬拒绝。PowerShell 的 cmdlet 守卫不认得，裸文件名（Remove-Item keep.txt）不算路径，靠的就是这一条；
-// - 守卫认得的程序（rm、cat……）和像路径的词（.\keep.txt）按 cd 之后的目录解析。
+// - cd 本身算一次"不只是读"的读：目录越出项目要问，目录在密钥区硬拒绝；
+// - 守卫认得的程序（rm、cat，Remove-Item、Get-Content 这些 cmdlet，见 test/guard/powershell-cmdlets.test.ts）和像路径的词（.\keep.txt）按 cd 之后的目录解析。
 // 守卫按 Git Bash 的语法拆，没加引号的反斜杠是转义，所以 Codex 交给守卫的命令一律换成正斜杠（commandForGuard）。
 import { describe, expect, it } from "vitest";
 import { cwdCheckOf, toGuardCall } from "../../src/codex/child/guard.ts";
@@ -25,7 +25,7 @@ function touched(command: string): string[] {
 const findingIds = (j: GuardJudgement) => j.findings.map((f) => f.id);
 
 describe("cd \"<cwd>\" && <命令>：判的是实际跑的目录", () => {
-  it("cd 到外面再 Remove-Item keep.txt：判出来的路径是外面那个，越出项目目录要问；不带 cd 时什么都看不出来（这就是要补判的原因）", () => {
+  it("cd 到外面再 Remove-Item keep.txt：判出来的路径是外面那个，越出项目目录要问；不带 cd 时按工作目录判成项目里的删除（这就是要补判的原因）", () => {
     const command = checkOf("Remove-Item keep.txt", P.outside);
     expect(command).toBe('cd "E:/elsewhere" && Remove-Item keep.txt');
     expect(splitShellCommand(command, { cwd: P.workDir, homeDir: P.home })[0]).toMatchObject({ tool: "read", args: { path: P.outside }, notJustRead: true });
@@ -33,9 +33,10 @@ describe("cd \"<cwd>\" && <命令>：判的是实际跑的目录", () => {
     expect(verdict.disposition).toBe("ask_first");
     expect(findingIds(verdict)).toContain("outside_project");
     expect(verdict.findings.find((f) => f.id === "outside_project")?.message).toContain(P.outside);
+    expect(touched(command)).toEqual([P.outside, `${P.outside}\\keep.txt`]);
 
     const unchecked = judge(hooked("Remove-Item keep.txt"));
-    expect(unchecked.disposition).toBe("log_only");
+    expect(findingIds(unchecked)).toContain("delete_or_overwrite");
     expect(findingIds(unchecked)).not.toContain("outside_project");
   });
 
@@ -58,13 +59,18 @@ describe("cd \"<cwd>\" && <命令>：判的是实际跑的目录", () => {
     }
   });
 
-  it("目录在受保护区（不是密钥区）：认得的写法判永不；还拦不住的（照实写进手册）：cmdlet 加裸文件名，只判越出项目目录，对话审批关着时放行", () => {
-    for (const line of ["rm x.json", "Remove-Item .\\x.json", "echo x > x.json"]) {
-      for (const mode of ["on", "off"] as const) expect(judge(checkOf(line, P.config), { conversationApprovals: mode }).disposition).toBe("never");
+  it("目录在受保护区（不是密钥区）：判永不，对话审批关着也一样；cmdlet 只写文件名的（Remove-Item x.json、Set-Content x.json）也算", () => {
+    for (const line of ["rm x.json", "Remove-Item .\\x.json", "echo x > x.json", "Remove-Item x.json", "Set-Content x.json", "del x.json"]) {
+      for (const mode of ["on", "off"] as const) {
+        const verdict = judge(checkOf(line, P.config), { conversationApprovals: mode });
+        expect(verdict.disposition).toBe("never");
+        expect(judgementExecutes(verdict)).toBe(false);
+      }
     }
-    const bare = checkOf("Remove-Item x.json", P.config);
-    expect(judge(bare).disposition).toBe("ask_first");
-    expect(judgementExecutes(judge(bare, { conversationApprovals: "off" }))).toBe(true);
+  });
+
+  it("目录在密钥区，gc 这样的别名也硬拒绝", () => {
+    for (const mode of ["on", "off"] as const) expect(judge(checkOf("gc x.key", P.secrets), { conversationApprovals: mode }).hardRefusal).toContain("secrets_area");
   });
 
   it("守卫认得的程序和像路径的词：相对路径按实际跑的目录解析", () => {

@@ -40,7 +40,7 @@ const COLLAB_TOOLS: Readonly<Record<string, string>> = {
 
 /**
  * 命令实际在 cwd 跑、不是负责人的工作目录时补判的那次调用：按 cd 到那里再跑判。守卫的 shell 分析核对目录本身（cd 算一次"不只是读"的读：越出项目目录要问，密钥区硬拒绝），
- * 认得的程序（rm、cat……）和像路径的词（.\x）的相对路径按它解析。PowerShell 的 cmdlet 守卫不认得，裸文件名（Remove-Item keep.txt）不算路径，靠的就是目录本身那一条。
+ * 认得的程序（rm、cat，Remove-Item 这些 cmdlet……）的路径（裸文件名也算）和像路径的词（.\x）的相对路径按它解析。
  * 目录里的分隔符换成正斜杠（`"D:\"` 的反斜杠会把引号转义掉），双引号里还有特殊意思的字符转义
  */
 export function cwdCheckOf(call: CodexToolCall, cwd: string): CodexToolCall {

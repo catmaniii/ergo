@@ -110,7 +110,8 @@ describe("Codex 插件（假 app-server）", () => {
   }, 90_000);
 
   it("命令过真的守卫、进会话：放行的执行了；要问用户的先出审批卡，等着时没执行，用户拒绝就不执行、接着往下做", async () => {
-    const dangerous = "Remove-Item -Recurse -Force C:\\Windows\\System32";
+    // 不带 -Recurse：删项目外的文件要问用户。带了就和 rm -rf 一样判永不，不出审批卡
+    const dangerous = "Remove-Item -Force C:\\Windows\\System32\\x.dll";
     const script: FauxStep[] = [
       { kind: "reply", text: "先看看。", toolCalls: [{ name: "bash", arguments: { command: "git status" } }] },
       { kind: "reply", text: "再试试删。", toolCalls: [{ name: "bash", arguments: { command: dangerous } }] },

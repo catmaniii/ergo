@@ -153,6 +153,8 @@ class Splitter {
   /** 当前所在的位置（从外到内的每一层），拆出的调用各带一份 */
   private readonly order: ShellOrderStep[] = [];
   private nodes = 0;
+  /** 正在走的那条管道的原文（ProgramContext.opaquePipeline） */
+  private pipelineText: string | undefined;
   /** 大于 0 时是在推循环回头之后的样子：只推变量和当前目录，不记调用、不记解析错误（真走的那一遍会记） */
   private dry = 0;
 
@@ -222,10 +224,13 @@ class Splitter {
         // 管道的每一段都在子 shell 里：从同一个样子开始，赋值、cd 不往外传。各段同时运行。
         // shopt -s lastpipe 时最后一段在当前 shell 里跑：保守起见并上它
         const entry = this.snapshot();
+        const outerPipeline = this.pipelineText;
+        this.pipelineText = source.slice(node.pos, node.end);
         this.layer(true, node.commands, (c, i) => {
           this.restore(entry);
           this.node(c, source, stdin || i > 0);
         });
+        this.pipelineText = outerPipeline;
         this.state = this.join(entry, this.state);
         return;
       }
@@ -655,6 +660,7 @@ class Splitter {
       unseenInput,
       emit: (tool, args, unseen, marks) => this.push({ tool, args, text, ...(unseen ? { unseenInput: true as const } : {}), ...marks }),
       opaque: (reason) => this.push(opaqueCall(reason, text)),
+      opaquePipeline: (reason) => this.push(opaqueCall(reason, this.pipelineText ?? text)),
       path: (word) => this.resolve(word),
       cwd: () => single(this.state.cwds),
       cd: (word) => {
@@ -698,6 +704,8 @@ class Splitter {
     const target = this.toWord(r.target);
     // `>&2`、`<&-` 这类是复制文件描述符，不是文件
     if ((r.operator === ">&" || r.operator === "<&") && target.value !== null && /^(?:\d+-?|-)$/.test(target.value)) return;
+    // PowerShell 的 `2>$null`：丢掉输出，和 /dev/null 一样不是文件（Git Bash 里没赋过值的 $null 是空的，这个重定向直接报错）。命令里赋过 null 的照旧算路径
+    if (target.value === null && /^\$null$/i.test(target.text) && !this.state.havoc && !this.state.vars.has(target.text.slice(1))) return;
     const path = this.resolve(target);
     if (path === undefined) return;
     const tool =
