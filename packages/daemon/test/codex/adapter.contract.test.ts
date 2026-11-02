@@ -277,6 +277,82 @@ describe("Codex 适配子进程（假 app-server）", () => {
     expect(swapped.log.ofType("usage")[0]).toMatchObject({ purpose: "handoff" });
   });
 
+  it("现在的模型用不了（真账号实测 modelNotFound）：写明去换；选了别的不写交接摘要（旧模型写不了）、任务中途也不卡住，新开 thread 用选的模型，之前的记录进上下文，用量记新模型", async () => {
+    const server = new FakeCodexServer({
+      turns: [
+        [{ kind: "fail", message: "The 'gpt-fake' model is not supported when using Codex with a ChatGPT account.", codexErrorInfo: "modelNotFound" }],
+        [{ kind: "fail", message: "The 'gpt-fake' model is not supported when using Codex with a ChatGPT account.", codexErrorInfo: "modelNotFound" }],
+        [{ kind: "echo" }],
+        [{ kind: "reply", text: "接着做", usage: { cacheHit: 0, cacheMiss: 100, output: 10 } }],
+      ],
+    });
+    const sessionDir = makeTempDir("ergo-codex-sessions-");
+    const first = startCodexChild({ server, session: { sessionDir } });
+    const opened = await first.log.next("ready");
+    const failed = await first.turn("in-1", "干活");
+    expect(failed).toMatchObject({ outcome: "error", errorMessage: expect.stringContaining("点 ⚙ 换一个模型") });
+    expect(failed.errorMessage).toContain("The 'gpt-fake' model is not supported");
+    // 没选别的：照旧，不带 model
+    expect((await first.turn("in-2", "再试")).outcome).toBe("error");
+    expect(server.callsOf("thread/start")).toHaveLength(1);
+    const oldThread = server.callsOf("turn/start").at(-1)?.threadId;
+    await first.shutdown(0);
+
+    const picked = startCodexChild({ server, session: { sessionDir, runtimeOptions: { model: "gpt-other" }, handoff: { instructions: "写摘要", timeoutMs: 10_000 } } });
+    const ready = await picked.log.next("ready");
+    expect(ready.handoff).toBeUndefined();
+    expect(ready.model.differs).toBeUndefined();
+    expect(ready.sessionId).toBe(opened.sessionId);
+    await picked.turn("in-3", "接着");
+    const echo = await echoOf(picked);
+    expect(echo.model).toBe("gpt-other");
+    expect(echo.thread).not.toBe(oldThread);
+    expect(server.callsOf("thread/start").at(-1)).toMatchObject({ model: "gpt-other" });
+    // 第一轮交代的事进了新 thread 的上下文
+    expect(echo.additionalContext.join("\n")).toContain("用户：干活");
+    expect(echo.additionalContext.join("\n")).toContain("换成 gpt-other 新开了会话");
+    // 换成了：下一轮接着这个 thread，不再新开；用量记新模型
+    await picked.turn("in-4", "再来");
+    expect(server.callsOf("turn/start").at(-1)?.threadId).toBe(echo.thread);
+    expect(server.callsOf("thread/start").filter((call) => call.model === "gpt-other")).toHaveLength(1);
+    expect(picked.log.ofType("usage").at(-1)).toMatchObject({ modelId: "gpt-other" });
+  });
+
+  it("撤回带上这个会话的模型（实测 thread/fork 不带就回到配置里的）；撤回到开头新开的也是", async () => {
+    const server = new FakeCodexServer({ turns: [[{ kind: "reply", text: "一" }], [{ kind: "reply", text: "二" }], [{ kind: "echo" }], [{ kind: "echo" }]] });
+    const child = startCodexChild({ server, session: { runtimeOptions: { model: "gpt-other" } } });
+    await child.log.next("ready");
+    await child.turn("in-1", "第一句");
+    await child.turn("in-2", "第二句");
+    child.send({ type: "navigate_session", requestId: "nav-1", target: { beforeInput: "in-2" }, marker: { change: "rewind", entry: "m", at: "2026-11-02T00:00:00.000Z" } } as never);
+    await child.log.next("session_navigated");
+    expect(server.callsOf("thread/fork").at(-1)).toMatchObject({ model: "gpt-other" });
+    await child.turn("in-3", "撤回后");
+    expect((await echoOf(child)).model).toBe("gpt-other");
+    child.send({ type: "navigate_session", requestId: "nav-2", target: { beforeInput: "in-1" }, marker: { change: "rewind", entry: "m", at: "2026-11-02T00:00:00.000Z" } } as never);
+    await child.log.next("session_navigated");
+    expect(server.callsOf("thread/start").at(-1)).toMatchObject({ model: "gpt-other" });
+    await child.turn("in-4", "撤回到开头后");
+    expect((await echoOf(child)).model).toBe("gpt-other");
+  });
+
+  it("现在的模型用不了、读不到之前的记录：照样换，日志写明", async () => {
+    const server = new FakeCodexServer({
+      turns: [[{ kind: "fail", message: "not supported", codexErrorInfo: "modelNotFound" }], [{ kind: "echo" }]],
+    });
+    const sessionDir = makeTempDir("ergo-codex-sessions-");
+    const first = startCodexChild({ server, session: { sessionDir } });
+    await first.log.next("ready");
+    await first.turn("in-1", "干活");
+    await first.shutdown(0);
+    server.failing.add("thread/turns/list");
+    const picked = startCodexChild({ server, session: { sessionDir, runtimeOptions: { model: "gpt-other" } } });
+    await picked.log.next("ready");
+    await picked.turn("in-2", "接着");
+    expect((await echoOf(picked)).model).toBe("gpt-other");
+    expect(picked.logs.join("\n")).toContain("新 thread 没有前情");
+  });
+
   it("没登录：这一轮按出错收尾、写清怎么登录，关掉 app-server；登录之后下一条输入重新起、接着做", async () => {
     const child = startCodexChild({ server: { account: null, turns: [[{ kind: "reply", text: "登录了" }]] } });
     await child.log.next("ready");

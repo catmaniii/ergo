@@ -46,6 +46,7 @@
   "codex.sessions.unsure": "The list can't tell whether it's still open. It may be: close it there first, or take over a fork",
   "codex.child.usageLimit": "Codex is out of quota (or rate limited): {detail}. Send another message once the quota is back to carry on.",
   "codex.child.notLoggedIn": "Codex isn't signed in: run codex login in a terminal, then send another message to carry on.",
+  "codex.child.modelUnavailable": "Codex can't use the current model: {detail} Pick another model in ⚙, then send another message to carry on. To stop having to pick one, change Codex's own settings (model in config.toml).",
   "codex.child.turnFailed": "This Codex turn failed",
   "codex.child.hookNotActive": "ergo's guard hook isn't active in Codex (status: {status}), and Codex can't run without the guard. Check the Codex version and configuration (the hooks feature may be turned off).",
   "codex.child.noSession": "This Codex session hasn't started yet, so there's nothing to write",

@@ -46,6 +46,7 @@
   "codex.sessions.unsure": "列表里看不出它是不是还开着：可能还开着，先在那边关掉，或者分叉一份接管",
   "codex.child.usageLimit": "Codex 的额度用完了（或者被限流了）：{detail}。等额度恢复后再发一条消息接着做。",
   "codex.child.notLoggedIn": "Codex 还没登录：在终端里跑 codex login 登录，再发一条消息接着做。",
+  "codex.child.modelUnavailable": "Codex 用不了现在这个模型：{detail} 点 ⚙ 换一个模型，再发一条消息接着做；以后都不想再选的话，改 Codex 自己的配置（config.toml 里的 model）。",
   "codex.child.turnFailed": "Codex 这一轮出错了",
   "codex.child.hookNotActive": "二狗的守卫钩子在 Codex 里没生效（状态：{status}），不能在没有守卫时跑。看看 Codex 的版本和配置（比如 hooks 特性被关了）。",
   "codex.child.noSession": "这个 Codex 会话还没开始过，没有可写的",

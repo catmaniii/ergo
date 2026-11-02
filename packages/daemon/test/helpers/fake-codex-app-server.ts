@@ -209,6 +209,8 @@ export class FakeCodexServer {
   readonly calls: Array<{ method: string; params: Json }> = [];
   /** 拉起过几次、用的参数和环境 */
   readonly spawns: Array<{ args: readonly string[]; env: Record<string, string>; cwd: string }> = [];
+  /** 下一次这个请求回错（测读不到的时候） */
+  readonly failing = new Set<string>();
   /** 钩子拉起的结果 */
   readonly hookRuns: Array<{ toolName: string; id: string; output: unknown }> = [];
   /** 模型看到的工具结果（工具 id → 文字） */
@@ -559,6 +561,8 @@ export class FakeConnection {
           id: store.nextId("th"),
           cwd: String(params.cwd ?? source.cwd),
           forkedFromId: source.id,
+          // 实测：不带 model 不是接着原来的，是回到配置里的
+          model: (params.model as string | undefined) ?? options.model ?? DEFAULT_MODEL,
           ephemeral: params.ephemeral === true,
           status: undefined as unknown as Json,
           turns: structuredClone(turns),
@@ -582,6 +586,7 @@ export class FakeConnection {
       case "thread/read":
         return { thread: this.view(this.materialized(params.threadId), params.includeTurns === true) };
       case "thread/turns/list": {
+        if (this.server.failing.delete("thread/turns/list")) throw new RpcFailure("读不了");
         const thread = this.materialized(params.threadId);
         const limit = Number(params.limit ?? 25);
         const newestFirst = thread.turns.toReversed();

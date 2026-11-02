@@ -25,6 +25,7 @@ interface ThreadView {
   preview?: string;
   cwd?: string;
   updatedAt?: number;
+  model?: string | null;
   originator?: string | null;
   status?: { type?: string };
   gitInfo?: { branch?: string | null } | null;
@@ -67,7 +68,12 @@ export async function handleSessionsRequest(request: CodexSessionsRequest, rpc: 
     case "history":
       return { op: "history", history: await readHistory(request.sessionId, request.turns, request.messages, rpc) };
     case "fork": {
-      const forked = await rpc.request<{ thread: { id: string } }>("thread/fork", { threadId: request.sessionId, cwd: request.cwd, approvalPolicy: "untrusted", approvalsReviewer: "user", excludeTurns: true });
+      // 实测不带 model 就回到 config.toml 里的，不是这个会话原来的（配置里的用不了时接管后第一轮直接失败）：thread/read 看得到原来的
+      const model = await rpc.request<{ thread: ThreadView }>("thread/read", { threadId: request.sessionId }).then(
+        (read) => read.thread.model,
+        () => undefined,
+      );
+      const forked = await rpc.request<{ thread: { id: string } }>("thread/fork", { threadId: request.sessionId, cwd: request.cwd, approvalPolicy: "untrusted", approvalsReviewer: "user", ...(model ? { model } : {}), excludeTurns: true });
       return { op: "fork", sessionId: forked.thread.id };
     }
   }

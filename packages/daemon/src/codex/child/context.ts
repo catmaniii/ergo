@@ -70,5 +70,7 @@ export const CODEX_TOOL_NOTE = [
   // 实测 0.166：MCP 工具一律延迟加载，不搜就调回 unsupported call（直接调的模型）；代码模式的模型在 exec 里能直接 await tools.mcp__ergo__xxx(...)
   "这些工具一开始可能不在你的工具清单里：有 tool_search 的先用它搜出来再调；用 exec 的在 tools 上直接调，名字可以从 ALL_TOOLS 里找。",
   "上面说的 read、write、edit、bash、grep、find、ls 用你自带的命令和 apply_patch 做。不要开要人敲键盘的交互程序：这里关掉了 TTY。",
+  // 真账号实测：工具调用等着守卫（用户还没批）时，代码模式的模型每 10 秒 wait 一次，一次模型调用一万多 token，13 次什么也没做成
+  "每次工具调用都要过二狗的守卫，有的要等用户批准，可能等很久，还没返回不是出错。这时不要反复查、不要换办法重试：wait 的 yield_time_ms 给大（比如 600000）。",
   "工具包里的 skill 已经放进你能发现的 skill 目录。）",
 ].join("");

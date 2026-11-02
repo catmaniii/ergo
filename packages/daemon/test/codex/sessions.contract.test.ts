@@ -57,6 +57,15 @@ describe("列本机的 Codex 会话", () => {
     await expect(handleSessionsRequest({ op: "state", sessionId: "t-none" }, rpc)).rejects.toThrow(/no rollout found/);
   });
 
+  it("分叉带上原来的模型：实测 thread/fork 不带 model 回到配置里的，配置里的用不了时接管后第一轮就失败", async () => {
+    const store = storeWithThreads();
+    store.threads["t-1"]!.model = "gpt-other";
+    const { rpc, server } = await connect(store);
+    const result = await handleSessionsRequest({ op: "fork", sessionId: "t-1", cwd: "D:\\work\\a" }, rpc);
+    expect(server.callsOf("thread/fork")).toMatchObject([{ threadId: "t-1", model: "gpt-other" }]);
+    expect(result.op === "fork" && store.threads[result.sessionId]!.model).toBe("gpt-other");
+  });
+
   it("分叉：thread/fork 带工作目录和最严的审批策略，原会话不动", async () => {
     const store = storeWithThreads();
     const { rpc, server } = await connect(store);

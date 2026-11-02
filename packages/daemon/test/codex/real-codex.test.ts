@@ -10,6 +10,7 @@ import { ERGO_MCP_SERVER } from "../../src/codex/child/host-tools.ts";
 import type { CodexSessionInfo } from "../../src/codex/sessions-protocol.ts";
 import type { GuardVerdict, HostToolSpec, RuntimeHistory } from "../../src/runtime/index.ts";
 import { type ModelOutput, type ModelRequest, textOfInputItem } from "../helpers/fake-responses-model.ts";
+import { waitUntil } from "../helpers/process.ts";
 import { type RealChild, RealCodexLab, startRealChild } from "../helpers/real-codex.ts";
 
 const DIRECT = "gpt-5.5";
@@ -914,6 +915,105 @@ describe.skipIf(process.env.ERGO_TEST_REAL_CODEX !== "1")("真的 codex + 假模
       child.send({ type: "abort" });
       expect((await child.log.next("turn_end", 60_000)).outcome).toBe("aborted");
       lab.model.release();
+    }, 180_000);
+
+    it("在原来的 thread 上换模型（turn/start、thread/resume、thread/fork 带 model）：Codex 先用旧模型压缩一次，旧模型用不了这一轮就失败", async () => {
+      const lab = await RealCodexLab.open(DIRECT);
+      lab.pinModel = false;
+      lab.model.route = (request) => (request.body.model === DIRECT ? { fail: { status: 400, message: "not supported", type: "model_not_found" } } : { outputs: [say("好")] });
+      const { rpc, notes } = await lab.rpc();
+      const turn = async (threadId: string, extra: Record<string, unknown> = {}) => {
+        const before = notes.filter((note) => note.method === "turn/completed").length;
+        await rpc.request("turn/start", { threadId, input: [{ type: "text", text: "一句", text_elements: [] }], ...extra });
+        await waitUntil(() => notes.filter((note) => note.method === "turn/completed").length > before, { timeoutMs: 30_000, describe: () => "等这一轮结束" });
+        return (notes.findLast((note) => note.method === "turn/completed")!.params.turn as { status: string; error?: { codexErrorInfo?: unknown } });
+      };
+      const started = await rpc.request<{ thread: { id: string } }>("thread/start", { cwd: lab.work, approvalPolicy: "untrusted" });
+      expect((await turn(started.thread.id)).error?.codexErrorInfo).toBe("modelNotFound");
+      expect((await turn(started.thread.id, { model: "gpt-5.6-sol" })).error?.codexErrorInfo).toBe("modelNotFound");
+      const forked = await rpc.request<{ thread: { id: string }; model?: string }>("thread/fork", { threadId: started.thread.id, cwd: lab.work, approvalPolicy: "untrusted", model: "gpt-5.6-sol", excludeTurns: true });
+      expect(forked.model).toBe("gpt-5.6-sol");
+      expect((await turn(forked.thread.id)).error?.codexErrorInfo).toBe("modelNotFound");
+      // 新开的 thread 才行
+      const fresh = await rpc.request<{ thread: { id: string } }>("thread/start", { cwd: lab.work, approvalPolicy: "untrusted", model: "gpt-5.6-sol" });
+      expect((await turn(fresh.thread.id)).status).toBe("completed");
+    }, 180_000);
+
+    it("thread/fork 不带 model 回到配置里的（真账号实测接管后第一轮失败）：接管的分叉、撤回都带上这个会话的模型；撤回到开头新开的也是", async () => {
+      const lab = await RealCodexLab.open(DIRECT);
+      lab.pinModel = false;
+      const OTHER = "gpt-5.6-sol";
+      const models: string[] = [];
+      lab.model.route = (request) => {
+        models.push(String(request.body.model));
+        return request.body.model === DIRECT ? { fail: { status: 400, message: "not supported", type: "model_not_found" } } : { outputs: [say("好")] };
+      };
+      // Codex 自己的行为：不带 model 的 fork 用配置里的
+      const { rpc, close } = await lab.rpc();
+      const first = await rpc.request<{ thread: { id: string } }>("thread/start", { cwd: lab.work, approvalPolicy: "untrusted", model: OTHER });
+      await rpc.request("turn/start", { threadId: first.thread.id, input: [{ type: "text", text: "别处说的", text_elements: [] }] });
+      await waitUntil(() => models.length > 0, { timeoutMs: 30_000, describe: () => "等模型请求" });
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const bare = await rpc.request<{ model?: string }>("thread/fork", { threadId: first.thread.id, cwd: lab.work, approvalPolicy: "untrusted", excludeTurns: true });
+      expect(bare.model).toBe(DIRECT);
+      await close();
+
+      // 接管的分叉：真的一次性子进程，带上原来的模型
+      const forked = await lab.oneShot<{ op: "fork"; sessionId: string }>({ op: "fork", sessionId: first.thread.id, cwd: lab.work });
+      const taken = await ready(lab, [REPORT], { session: { resumeRuntimeSession: forked.sessionId } });
+      expect((await taken.turn("in-1", "接管后第一句")).outcome).toBe("completed");
+      expect(models.at(-1)).toBe(OTHER);
+      await taken.shutdown(0);
+
+      // 撤回：⚙ 选的模型不丢（新建一个会话目录，不接着上面的）
+      const child = startRealChild(lab, { session: { sessionDir: path.join(lab.root, "sessions-2"), runtimeDir: path.join(lab.root, "runtime-2"), runtimeOptions: { model: OTHER }, contributions: { tools: [REPORT], contextBlocks: [], hooks: [] } } });
+      await child.log.next("ready", 90_000);
+      expect((await child.turn("in-1", "第一句")).outcome).toBe("completed");
+      expect((await child.turn("in-2", "第二句")).outcome).toBe("completed");
+      child.send({ type: "navigate_session", requestId: "nav-1", target: { beforeInput: "in-2" }, marker: { change: "rewind", entry: "m", at: "2026-11-02T00:00:00.000Z" } } as never);
+      expect(await child.log.next("session_navigated", 60_000)).toMatchObject({ ok: true });
+      expect((await child.turn("in-3", "撤回后")).outcome).toBe("completed");
+      expect(models.at(-1)).toBe(OTHER);
+      child.send({ type: "navigate_session", requestId: "nav-2", target: { beforeInput: "in-1" }, marker: { change: "rewind", entry: "m", at: "2026-11-02T00:00:00.000Z" } } as never);
+      expect(await child.log.next("session_navigated", 60_000)).toMatchObject({ ok: true });
+      expect((await child.turn("in-4", "撤回到开头后")).outcome).toBe("completed");
+      expect(models.at(-1)).toBe(OTHER);
+    }, 180_000);
+
+    it("现在的模型用不了（真账号实测：配置里的模型 ChatGPT 账号不认）：写明去换；选了别的就新开 thread，发给模型的是新的，之前的记录在上下文里，重新拉起之后也是", async () => {
+      const lab = await RealCodexLab.open(DIRECT);
+      lab.pinModel = false;
+      const models: string[] = [];
+      lab.model.route = (request) => {
+        models.push(String(request.body.model));
+        return request.body.model === DIRECT ? { fail: { status: 400, message: `The '${DIRECT}' model is not supported when using Codex with a ChatGPT account.`, type: "model_not_found" } } : undefined;
+      };
+      const child = await ready(lab);
+      const failed = await child.turn("in-1", "第一句");
+      expect(failed).toMatchObject({ outcome: "error", errorMessage: expect.stringContaining("点 ⚙ 换一个模型") });
+      await child.shutdown(0);
+
+      const OTHER = "gpt-5.6-sol";
+      const picked = await ready(lab, [REPORT], { session: { runtimeOptions: { model: OTHER } } });
+      lab.model.queue({ outputs: [say("换了模型的回复")] });
+      expect((await picked.turn("in-2", "第二句")).outcome).toBe("completed");
+      expect(models.at(-1)).toBe(OTHER);
+      expect(picked.log.ofType("usage").at(-1)).toMatchObject({ modelId: OTHER });
+      // 第一轮交代的事（失败的那句）在新 thread 的上下文里
+      const sent = JSON.stringify(lab.model.last.body.input);
+      expect(sent).toContain("用户：第一句");
+      expect(sent).toContain("第二句");
+      noGuardTrouble(picked);
+      lab.model.queue({ outputs: [say("再来的回复")] });
+      expect((await picked.turn("in-3", "第三句")).outcome).toBe("completed");
+      expect(models.at(-1)).toBe(OTHER);
+      await picked.shutdown(0);
+
+      // 重新拉起接着：thread/resume 报的是这个 thread 的模型，不回到配置里的
+      const again = await ready(lab, [REPORT], { session: { runtimeOptions: { model: OTHER } } });
+      lab.model.queue({ outputs: [say("重起之后的回复")] });
+      expect((await again.turn("in-4", "第四句")).outcome).toBe("completed");
+      expect(models.at(-1)).toBe(OTHER);
     }, 180_000);
 
     it("模型服务报错：额度用完（429 usage_limit_reached）、登录过期（401）写明；没登录（要 OpenAI 登录的 provider）不发模型请求就按出错收尾", async () => {

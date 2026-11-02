@@ -22,6 +22,8 @@ export interface CodexSessionRecord {
   /** thread 开始过一轮（落盘了）：之后按 id 恢复；还没有就新开 */
   started: boolean;
   model?: string;
+  /** 上一轮 Codex 说这个模型用不了（modelNotFound）：不再固定在它上面，用户选了别的就在这个 thread 上换（session.ts 的 prompt） */
+  modelUnavailable?: true;
   contextWindow?: number;
   /** 接管来的：接管的是哪个 thread */
   takenOver?: string;
@@ -51,6 +53,7 @@ function read(file: string): CodexSessionRecord | undefined {
       createdAt: typeof parsed.createdAt === "string" ? parsed.createdAt : "",
       started: parsed.started === true,
       ...(typeof parsed.model === "string" ? { model: parsed.model } : {}),
+      ...(parsed.modelUnavailable === true ? { modelUnavailable: true as const } : {}),
       ...(typeof parsed.contextWindow === "number" ? { contextWindow: parsed.contextWindow } : {}),
       ...(isString(parsed.takenOver) ? { takenOver: parsed.takenOver } : {}),
       ...lineageOf(parsed.lineage),

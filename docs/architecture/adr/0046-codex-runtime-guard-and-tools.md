@@ -28,7 +28,9 @@
    - 核对一个会话（`sessionBusy`，收回前）：一次性进程探一次 `thread/resume`，被拒就是开着。探一次不改会话记录（文件大小、修改时间都不变），代价是这个进程会拉起一次用户配的 MCP 服务（`-c mcp_servers={}` 去不掉），进程退出就收掉；
    - 列表（`sessions`）：一个一个探太慢，只按最近活动：5 分钟内有活动的算占着（`busy`），再早的写判不准（`ResumableSessionView.unsure`），界面默认勾分叉，用户确认关了可以取消勾选直接接；真开着的适配子进程 `start_failed`，写明先去关掉或者分叉；
    - **真的终端界面（`codex` TUI）占不占写入锁没验证**（这里驱动不了它），所以"5 分钟内有活动"的规则还留着兜底，验证过了可以去掉。收回前只算交还之后的活动（`AgentRuntime.sessionBusy` 多一个 `returnedAt`）。
-8. **用量按登录方式分两种 provider。** `account/read` 是 chatgpt 记 `codex-subscription`（消耗页写不算钱），别的记 `codex-api-key`（消耗页写实际花了钱、这里没单价，不能写得像免费的）。交给 codex 的环境去掉改计费、改账号的变量。
+8. **用量按登录方式分两种 provider。** `account/read` 是 chatgpt 记 `codex-subscription`（消耗页写不算钱），别的记 `codex-api-key`（消耗页写实际花了钱、这里没单价，不能写得像免费的）。交给 codex 的环境去掉改计费、改账号的变量。真账号实测账本的键是 `codex-subscription/gpt-6.1-sol`。
+9. **现在的模型用不了时，新开 thread 换。** 真账号实测：`config.toml` 里的 `gpt-5.2-codex` ChatGPT 账号不认，`turn/start` 照收，这一轮 `failed`，`codexErrorInfo` 是 `modelNotFound`，0 token。一个会话固定一个模型的规矩在这里会卡死：任务中途不换模型，换模型的交接摘要又要旧模型写。用户在 ⚙ 选了别的就新开 thread（`thread/start` 带 `model`），之前的记录从 `thread/turns/list` 读原文放进上下文；第一轮就失败时，这里面是用户交代的事（真模型实测，只发一句"接着做"，它接得上）。**不能在原来的 thread 上换**：`turn/start`、`thread/resume`、`thread/fork` 带 `model` 都报成功，但 Codex 换模型之前先用旧模型压缩一次（发 CONTEXT CHECKPOINT COMPACTION），旧模型用不了这一轮就失败（真的 codex + 假模型实测，两个模型都能用时多一次旧模型的压缩）。代价：接管来的会话这样换了之后，二狗接着的是新 thread，交还到终端的还是原来那个。
+10. **分叉、撤回带上这个会话的模型。** 真账号实测：`thread/fork` 不带 `model` 不是接着原来的，是回到 `config.toml` 里的（警告 `This session was recorded with model X but is resuming with Y`），配置里的用不了时分叉接管后第一轮就失败；`thread/resume` 不带时留着原来的（真的 codex + 假模型对比过）。所以接管的分叉先 `thread/read` 拿原来的模型再带上，撤回和写摘要的临时分叉带 `record.model`，撤回到开头新开的 `thread/start` 也带。同一个模型不会触发换模型前的压缩。
 
 ## Considered Options
 
@@ -60,7 +62,11 @@
 - 钩子放行、却没有条目的调用（goal、`list_agents`、`curr_time`、`request_user_input`、被 execpolicy 禁掉或 Codex 自己拒掉的命令）：结果不知道。下一次用量通知时按"没出错、结果空"收尾；
 - 钩子连不上适配子进程：不放行，模型收到原因，这次调用没有记录（子进程都不在了）。
 
-**没法用假模型验、要真账号的：** 终端界面占不占写入锁；`account/read` 是 ChatGPT 时记 `codex-subscription`；真模型会不会照系统提示先 `tool_search`；生成图片；ChatGPT 账号多出来的工具（`codex_apps`、插件）；真实限额和登录过期的错误形状。步骤写在票 381 的 Comments。
+**等守卫时花额度（真账号实测）：** 代码模式下命令在 `exec` 的 JS 里调，钩子没回判定（审批卡没人点）时 `exec` 到点让出（默认 30 秒），模型接着 `wait`（默认 10 秒）。没写提示时实测，没人点卡两分钟 13 次模型调用，197413 token（145152 走缓存），一个命令都没跑成。`CODEX_TOOL_NOTE` 写了别反复查、`yield_time_ms` 给大之后再量（`gpt-6.1-sol`，达标线：3 分钟不超过 3 次，折算一小时不超过 15 次）：留卡 3 分钟，两个样本分别 1 次、2 次；等满 5 分钟 `approvals.waitMinutes` 到点，判定回"已提交审批"，模型花 2 次调用说明情况、结束这一轮（等待期间一共 4 次，77722 token，57344 走缓存），之后到用户批准前 0 次；批准的通知开一轮，模型原样重试，一次性授权放行，不出第二张卡，2 次调用。**量下来达标，所以没做"等人时 `turn/interrupt`、判定到了再开一轮"的方案**（设计记在票 381）。代价：这靠模型听话，样本只有两个，不是硬保证；兜底是 5 分钟上限，模型不听话时按没提示的速度一张卡约 30 次。以后量到超标再做。
+
+**真账号验收到哪了（2026-11-02，详情在票 381）：** 过了的：`account/read` 是 chatgpt、账本的键、⚙ 模型列表和 `model/list` 一致（账号上 8 个，都是代码模式的 `gpt-6.x`、`gpt-5.6`，没有 `gpt-5.5`）、没登录写明、用不了的模型写明并能换；真模型跑成命令和 `apply_patch`，一次调用一条记录，日志没有"钩子没拦到"；找到并调通延迟加载的二狗工具（`tell_secretary`，普通任务没有 `report_progress`）；审批卡拒绝时文件在、模型拿到原因，批准才删、不出第二张卡；`codex exec` 造的会话分叉接管，答得出暗号，原会话不动；撤回后上下文真的切掉了；直接接管、交还、收回的机制。没验的：真终端占不占写入锁、直接接管和收回之后问暗号（用户做，清单在票 381）；模型这次没用 `codex_apps`、插件、生成图片，不知道；账号上没有直接调函数的模型，`tool_search` 这条路碰不到。
+
+**还是没法用假模型验、真账号也还没验到的：** 终端界面占不占写入锁；直接调函数的模型会不会照系统提示先 `tool_search`；生成图片；ChatGPT 账号多出来的工具（`codex_apps`、插件）；真实限额和登录过期的错误形状。步骤写在票 381 的 Comments。
 
 ## Consequences
 

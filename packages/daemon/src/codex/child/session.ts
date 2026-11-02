@@ -20,6 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { type RuntimeQuestionReply, t } from "@ergo/protocol";
+import type { RuntimeHistory } from "../../runtime/index.ts";
 import { syncSkillDirs } from "../../runtime/skill-dirs.ts";
 import {
   type AgentReport,
@@ -46,6 +47,8 @@ import { CodexGuard } from "./guard.ts";
 import { ERGO_MCP_SERVER, HostToolBridge } from "./host-tools.ts";
 import { type CodexLineage, emptyLineage, navigateCodex } from "./navigation.ts";
 import { type OpenedRecord, openSessionRecord, writeRecord } from "./records.ts";
+import { HISTORY_MESSAGES, HISTORY_TURNS } from "../sessions-protocol.ts";
+import { historyOf } from "./sessions.ts";
 import { type CodexItem, type CodexToolCall, CodexTranslator, commandForGuard, innerCommand, toolOfItem, type TokenUsageNotice } from "./translator.ts";
 
 export interface CodexSessionDeps {
@@ -137,7 +140,31 @@ function turnError(error: unknown, fallback: string | undefined): string {
   const status = typeof info === "object" && info !== null ? (Object.values(info)[0] as { httpStatusCode?: unknown } | null | undefined)?.httpStatusCode : undefined;
   if (info === "usageLimitExceeded" || info === "rateLimitExceeded" || info === "sessionBudgetExceeded" || status === 429) return t("codex.child.usageLimit", { detail: message ?? "" });
   if (info === "unauthorized" || status === 401) return t("codex.child.notLoggedIn");
+  if (isModelUnavailable(error)) return t("codex.child.modelUnavailable", { detail: message ?? "" });
   return message ?? t("codex.child.turnFailed");
+}
+
+/** 真账号实测：config.toml 里的模型这个账号用不了（ChatGPT 账号不认 gpt-5.2-codex），turn/start 照收，这一轮 codexErrorInfo 是 modelNotFound，不花额度 */
+function isModelUnavailable(error: unknown): boolean {
+  return typeof error === "object" && error !== null && (error as { codexErrorInfo?: unknown }).codexErrorInfo === "modelNotFound";
+}
+
+/** 换模型新开 thread 时交给新模型的前情最多多少字（多了留最近的） */
+const RECAP_MAX = 20_000;
+
+/** 一段记录写成给模型看的文字（见 replaceUnavailableModel）：说的话、调的工具和结果，思考不要 */
+function recapText(history: RuntimeHistory): string {
+  const lines = history.items.flatMap((item): string[] => {
+    if (item.kind === "user") return [`用户：${item.text}`];
+    if (item.kind !== "agent") return ["（再早的对话压缩过）"];
+    return item.parts.flatMap((part): string[] => {
+      if (part.type === "text") return [`助手：${part.text}`];
+      if (part.type !== "tool") return [];
+      return [`助手调用 ${part.tool}：${JSON.stringify(part.args).slice(0, 500)}${part.result === undefined ? "" : `\n结果：${part.result}`}`];
+    });
+  });
+  const text = lines.join("\n");
+  return text.length > RECAP_MAX ? `…${text.slice(-RECAP_MAX)}` : text;
 }
 
 export class CodexSessionRunner {
@@ -441,6 +468,12 @@ export class CodexSessionRunner {
     return { cwd: this.assembly.cwd, approvalPolicy: "untrusted", approvalsReviewer: "user", ...(sandbox ? { sandbox } : {}), ...(instructions ? { developerInstructions: instructions } : {}) };
   }
 
+  /** thread/fork、撤回时新开的 thread/start 要带的模型：实测不带就回到 config.toml 里的（配置里的用不了时这一轮直接失败，⚙ 选的也丢了）；thread/resume 不用带，它留着会话原来的 */
+  private sessionModel(): { model?: string } {
+    const model = this.opened.record.model ?? codexChoices(this.assembly.runtimeOptions).model;
+    return model ? { model } : {};
+  }
+
   /** 开或接现在的 thread（这个 app-server 里还没加载的话） */
   private async openThread(): Promise<void> {
     const rpc = this.rpc!;
@@ -478,7 +511,8 @@ export class CodexSessionRunner {
       this.translator.model = thread.model;
     }
     const { model } = codexChoices(this.assembly.runtimeOptions);
-    this.differs = model !== undefined && this.opened.record.started && thread.model !== model;
+    // 现在的模型用不了时不算"不一样"：不走交接摘要（旧模型写不了），下一条输入直接换（prompt）
+    this.differs = model !== undefined && this.opened.record.started && thread.model !== model && this.opened.record.modelUnavailable !== true;
   }
 
   /** 接着的会话的模型和选的不一样、这次又带着 handoff：旧模型写交接摘要，新模型新开 thread（写不成照旧接着，下一条能换的输入再试） */
@@ -507,8 +541,42 @@ export class CodexSessionRunner {
   /** 有能用的 app-server、thread 接好了；不行抛错 */
   private async ready(): Promise<CodexRpc> {
     if (!this.rpc?.alive) await this.connect();
+    await this.replaceUnavailableModel(this.rpc!);
     await this.openThread();
     return this.rpc!;
+  }
+
+  /**
+   * 上一轮 Codex 说这个模型用不了（isModelUnavailable）、用户在 ⚙ 选了别的：不然就卡死在它上面（任务中途不换模型，它也写不了交接摘要）。
+   * 只能新开 thread：实测在原来的 thread 上换（turn/start、thread/resume、thread/fork 带 model）都不行，Codex 换模型之前先用旧模型压缩一次，旧模型用不了这一轮就失败。
+   * 之前的对话（第一轮就失败时是用户交代的事）从 thread/turns/list 读原文，放进新 thread 的上下文；读不到照样换
+   */
+  private async replaceUnavailableModel(rpc: CodexRpc): Promise<void> {
+    const { record } = this.opened;
+    const { model } = codexChoices(this.assembly.runtimeOptions);
+    if (record.modelUnavailable !== true || model === undefined || model === record.model) return;
+    const from = record.model ?? "";
+    const before = await this.recapOf(rpc, record.threadId);
+    delete record.modelUnavailable;
+    record.started = false;
+    record.threadId = "";
+    await this.openThread();
+    this.deps.log(`模型 ${from} 用不了，换成 ${model} 新开了 thread（${record.threadId}）`);
+    if (before !== "") this.context.note(`这个会话原来的模型（${from}）用不了了，换成 ${model} 新开了会话，下面是之前的记录。接着做，做过的不用重复：\n${before}`);
+    this.saveRecord();
+  }
+
+  /** 这个 thread 到现在的记录（给人看的原文，见 replaceUnavailableModel）；读不到是空的 */
+  private async recapOf(rpc: CodexRpc, threadId: string): Promise<string> {
+    if (threadId === "") return "";
+    try {
+      const page = await rpc.request<{ data?: Array<{ items?: CodexItem[] }>; nextCursor?: string | null }>("thread/turns/list", { threadId, limit: HISTORY_TURNS, sortDirection: "desc", itemsView: "full" });
+      const history = historyOf([...(page.data ?? [])].toReversed(), (page.nextCursor ?? null) !== null, HISTORY_MESSAGES);
+      return recapText(history);
+    } catch (err) {
+      this.deps.log(`读 ${threadId} 的记录出错，新 thread 没有前情：${describe(err)}`);
+      return "";
+    }
   }
 
   async prompt(inputId: string, text: string, images: InputImage[], inputContext?: string): Promise<void> {
@@ -663,7 +731,7 @@ export class CodexSessionRunner {
     if (!this.opened.record.started) return { error: t("codex.child.noSession") };
     try {
       const rpc = await this.ready();
-      const forked = await rpc.request<StartedThread>("thread/fork", { threadId: this.opened.record.threadId, ...this.threadParams(), ephemeral: true, excludeTurns: true });
+      const forked = await rpc.request<StartedThread>("thread/fork", { threadId: this.opened.record.threadId, ...this.threadParams(), ...this.sessionModel(), ephemeral: true, excludeTurns: true });
       const thread = forked.thread.id;
       const outcome = await new Promise<{ text: string } | { error: string }>((resolve) => {
         const timer = setTimeout(() => {
@@ -720,13 +788,13 @@ export class CodexSessionRunner {
         lineage: this.lineage,
         fork: async (thread, beforeTurn) => {
           const rpc = this.rpc?.alive ? this.rpc : (await this.connect(), this.rpc!);
-          const forked = await rpc.request<StartedThread>("thread/fork", { threadId: thread, beforeTurnId: beforeTurn, ...this.threadParams(), excludeTurns: true });
+          const forked = await rpc.request<StartedThread>("thread/fork", { threadId: thread, beforeTurnId: beforeTurn, ...this.threadParams(), ...this.sessionModel(), excludeTurns: true });
           this.loaded.add(forked.thread.id);
           return forked.thread.id;
         },
         startFresh: async () => {
           const rpc = this.rpc?.alive ? this.rpc : (await this.connect(), this.rpc!);
-          const started = await rpc.request<StartedThread>("thread/start", { ...this.threadParams(), serviceName: "ergo" });
+          const started = await rpc.request<StartedThread>("thread/start", { ...this.threadParams(), ...this.sessionModel(), serviceName: "ergo" });
           this.loaded.add(started.thread.id);
           return started.thread.id;
         },
@@ -974,7 +1042,11 @@ export class CodexSessionRunner {
       return;
     }
     if (turn.status === "interrupted" || phase.aborting) return this.finishTurn("aborted");
-    if (turn.status === "failed") return this.finishTurn("error", turnError(turn.error, phase.failure));
+    if (turn.status === "failed") {
+      if (isModelUnavailable(turn.error)) this.opened.record.modelUnavailable = true;
+      return this.finishTurn("error", turnError(turn.error, phase.failure));
+    }
+    delete this.opened.record.modelUnavailable;
     this.finishTurn("completed");
   }
 

@@ -59,6 +59,8 @@ export class RealCodexLab {
   providerAuth = false;
   /** 把适配子进程给的 --disable unified_exec_tty 去掉（证明为什么要关） */
   allowTty = false;
+  /** 模型也用 -c 钉着（默认）；测换模型时关掉，模型只在 config.toml 里，和用户的一样 */
+  pinModel = true;
   /** 拉起 codex 时盖过去的环境（测钩子跑失败） */
   envOverride: Record<string, string> = {};
 
@@ -120,7 +122,10 @@ export class RealCodexLab {
     if (!entry) throw new Error("PATH 上找不到 codex：真机核对要本机装了 codex");
     const real = spawnCodexServer(entry);
     return (args, options) => {
-      const settings = this.settings().flatMap(([key, value]) => ["-c", `${key}=${value}`]);
+      // 模型默认也用 -c 钉着；要测换模型的只写 config.toml（和用户的一样），-c 的 model 盖过请求参数
+      const settings = this.settings()
+        .filter(([key]) => this.pinModel || key !== "model")
+        .flatMap(([key, value]) => ["-c", `${key}=${value}`]);
       const given = this.allowTty ? args.filter((arg, at) => !(arg === "--disable" && args[at + 1] === "unified_exec_tty") && !(arg === "unified_exec_tty" && args[at - 1] === "--disable")) : args;
       const proc = real([...given, ...settings], { ...options, env: { ...options.env, ...realCodexEnv(this.home, options.env), ...this.envOverride }, log: (line) => this.logs.push(line) });
       const stdout = new PassThrough();

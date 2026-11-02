@@ -37,7 +37,7 @@ Same as [Claude Code](claude-code.en.md):
 
 **Where:** in the new task or new project dialog, pick Codex under "Runtime", then click "Take over a Codex session…".
 
-1. Codex sessions on this computer are listed, each with title, working folder, branch and last activity. Sessions ergo started aren't listed.
+1. Codex sessions on this computer are listed, each with title, working folder, branch and last activity. Sessions ergo started aren't listed, and neither are `codex exec` runs (by default Codex only lists sessions from the terminal and VS Code).
 2. Pick a session and check its label:
    - **In use**: it was active minutes ago. Close it there, wait a moment and click "Refresh", or tick "Take over a fork (the original stays as it is)".
    - **May be open**: the list can't tell. So the fork is ticked by default; untick it to take over directly once you're sure it's closed. If it's actually still open, Codex refuses and ergo says to close it first.
@@ -71,7 +71,9 @@ The session starts with the backstory: the most recent stretch of the conversati
 **Where:** ⚙ · Runtime. All default to "Follow Codex's own settings".
 
 - **Model**: the list comes from Codex and is empty until the owner has started once. When the model changes, the old model writes a handoff summary and the new one continues in a new session.
-- **Sandbox**: read-only, write in the working folder only, or no sandbox (the guard only).
+  - **When the current model can't be used:** for example, your account doesn't support the model in Codex's settings. The first turn fails without using quota, and the task goes to "Waiting for you" with the reason. Pick another model in ⚙ and send another message. The old model can't write a handoff summary, so ergo starts a new session and puts the earlier record in its context. You have to pick for each task; to avoid that, change Codex's own settings (`model` in `config.toml`).
+  - **Forked takeovers and rollbacks:** they keep the model the session was using and don't fall back to the one in Codex's settings.
+- **Sandbox**: read-only, write in the working folder only, or no sandbox (the guard only). Following Codex's own settings can mean read-only (we ran into this), and then its file writes are refused and the model tells you so. To let it change files, pick "write in the working folder only".
 - **Thinking level**: low, medium, high, very high.
 
 The approval policy isn't a choice: ergo always uses the strictest, so calls go through the guard.
@@ -99,7 +101,7 @@ Commands (read-only ones like `dir` and `git status` too), file changes, MCP too
 - A model can run a command in another folder. ergo judges it again against the real folder, and the record gets one more call showing that folder. If the guard says no, the command doesn't run and the reason is in the record. When the folder is the owner's working folder, there's no extra call.
 - The guard knows PowerShell's file commands: deleting (`Remove-Item`, `del`), writing (`Set-Content`, `Add-Content`, `Out-File`, `New-Item`), moving and copying (`Move-Item`, `Rename-Item`, `Copy-Item`), reading (`Get-Content`, `Get-ChildItem`, `Test-Path`, `Select-String`) and their common aliases. They're judged the same as `rm` and `cat`. A bare file name (`Remove-Item x.json`) counts as a path in the folder the command runs in, so writing or deleting in ergo's config, database or program folders, and reading in the secrets area, are always refused, even with conversation approvals off.
 - When the guard can't tell which file a command touches, because the path has `$env:` or a variable in it, or the files come through the pipeline (`Get-ChildItem x | Remove-Item`): writes and deletes always ask you first. Reads ask when conversation approvals are on and go through when they're off, unless the command spells out the secrets area, which is still refused.
-- Some forms can't be split apart: script blocks (`% { … }`), `Invoke-Expression`, and expressions in parentheses (`Remove-Item (Join-Path a b)`). These count as unknown writes, so they ask when conversation approvals are on and go through when they're off. If the command spells out ergo's config, database, program or secrets folders, or runs inside one of them, it still asks or is refused. The guard can't see paths that are built up, such as added strings or variables inside a script block.
+- Some forms can't be split apart: script blocks (`% { … }`), `if (…) { … }`, `Invoke-Expression`, and expressions in parentheses (`Remove-Item (Join-Path a b)`). These count as unknown writes, so they ask when conversation approvals are on and go through when they're off. Models often write `if (Test-Path a.txt) { … }`, so with approvals on, even read-only checks often bring up a card. If the command spells out ergo's config, database, program or secrets folders, or runs inside one of them, it still asks or is refused. The guard can't see paths that are built up, such as added strings or variables inside a script block.
 - Interactive programs that need someone at the keyboard don't work here. Typing into a running terminal skips the guard, so ergo always turns that feature off when it starts Codex, and it can't be turned on.
 - When the hook fails and the call is declined at the approval step, Codex only knows it was declined. The reason is in ergo's record. When the hook stops a call, the reason gets through.
 - Codex doesn't report a result for some calls (reading the goal, for example), so the record shows an empty result.
@@ -110,6 +112,10 @@ Commands (read-only ones like `dir` and `git status` too), file changes, MCP too
 - Signed in with an API key: billed per use, real money. The usage page says there's no unit price here and to go by the provider's bill; not being in the cost total doesn't mean free.
 - `OPENAI_API_KEY`, `CODEX_API_KEY` and similar variables are removed from the environment given to Codex, so billing can't quietly change.
 - When the quota runs out, the turn fails and the task goes to "Waiting for you" saying so. Send another message once the quota is back.
+- One model call is roughly 13,000+ tokens, mostly the system prompt and tool descriptions (measured: 13,651 for a one-line hello). Later calls mostly hit the cache.
+- **Waiting for your approval costs little, but not nothing (cards only appear with conversation approvals on):** the default model runs commands inside a block of code. While a command waits on an approval card, it may check for the result a few times, and each check is a model call of roughly 10,000 to 20,000 tokens, mostly cached. ergo's system prompt tells it not to keep checking. Measured with a card left unclicked: 1 to 2 checks in three minutes (without that line in the prompt, 13 checks in two minutes).
+  - **It doesn't matter much how long you take:** after 5 minutes (`approvals.waitMinutes` in the config) the call is suspended. The model spends 2 more calls saying so, the turn ends, the task counts as done for now, and no more quota is used. Approve whenever you like: the task goes back to running and the model runs the same command again with no second card, for about 2 more calls. That's about 6 model calls per card. If you deny, the model gets the reason you wrote.
+  - **This isn't a hard guarantee:** it depends on the model following the prompt, and we have two samples. If it doesn't, each card costs at most what fits in those 5 minutes, about 30 calls at the rate without the prompt.
 
 ## Roll back
 
