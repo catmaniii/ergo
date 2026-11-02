@@ -91,7 +91,7 @@ interface DeviceEntry {
   soon?: number | undefined;
 }
 
-export function DevicesPage({ title, onBack, onPreviewPairing, onShowQr }: { title: string; onBack?: (() => void) | undefined; onPreviewPairing(): void; onShowQr(): void }) {
+export function DevicesPage({ title, onBack, onPreviewPairing, onShowQr }: { title: string; onBack?: (() => void) | undefined; onPreviewPairing?: (() => void) | undefined; onShowQr(): void }) {
   const { ui, deviceBatchAction } = useStore();
   const access = useAccess();
   const toast = useToast();
@@ -199,11 +199,13 @@ export function DevicesPage({ title, onBack, onPreviewPairing, onShowQr }: { tit
           <div className="muted">
             {t("pages.devices.howToPairText", { codeDigits: PAIRING_SHORT_CODE_DIGITS, fingerprintDigits: PAIRING_FINGERPRINT_HEX_DIGITS, duration: durationText(PAIRING_REQUEST_TTL_MS) })}
           </div>
-          <div className="auth-actions">
-            <button type="button" className="btn ghost" onClick={onPreviewPairing}>
-              {t("pages.devices.previewPairing")}
-            </button>
-          </div>
+          {onPreviewPairing && (
+            <div className="auth-actions">
+              <button type="button" className="btn ghost" onClick={onPreviewPairing}>
+                {t("pages.devices.previewPairing")}
+              </button>
+            </div>
+          )}
         </Section>
       </div>
       {selecting && <DeviceSelectBar devices={chosen} busy={busy} onAct={(action) => setAsking({ action, devices: chosen })} onDone={stopSelecting} />}

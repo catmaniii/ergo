@@ -9,7 +9,7 @@ export function AccessProvider({ access, children }: { access: AccessInfo | unde
   return <AccessContext.Provider value={access}>{children}</AccessContext.Provider>;
 }
 
-/** 这个页面的信任来源；直接打开构建产物（原型，没有守护进程）时是 undefined */
+/** 这个页面的信任来源；问不到时是 undefined */
 export function useAccess(): AccessInfo | undefined {
   return useContext(AccessContext);
 }

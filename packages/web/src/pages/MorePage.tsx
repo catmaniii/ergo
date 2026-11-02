@@ -310,7 +310,7 @@ function SettingsSection({ wide, page, item, go, navigate }: { wide: boolean; pa
 function SubPageCol({ page, item, onBack, go, navigate }: { page: Sub; item?: string | undefined; onBack: (() => void) | undefined; go(p: Sub): void; navigate: Navigate }) {
   // 配对二维码是设备配对的下一级：返回回到设备配对
   if (page === "devices" && item === "qr") return <PairingQrPage title={t("pages.devices.qr.title")} onBack={onBack} />;
-  if (page === "devices") return <DevicesPage title={pageTitle("devices")} onBack={onBack} onPreviewPairing={() => navigate({ tab: "pair-wait" })} onShowQr={() => navigate({ tab: "more", page: "devices", item: "qr" })} />;
+  if (page === "devices") return <DevicesPage title={pageTitle("devices")} onBack={onBack} onPreviewPairing={import.meta.env.MODE === "demo" ? () => navigate({ tab: "pair-wait" }) : undefined} onShowQr={() => navigate({ tab: "more", page: "devices", item: "qr" })} />;
   // 设置向导：标题栏上除了返回还有它自己的"先不弄了"（任何时候都能出去接着用），内容和步骤在 pages/SetupWizard.tsx
   if (page === "setup") return <SetupPage title={pageTitle("setup")} onBack={onBack} navigate={navigate} />;
   // 体检：标题栏右上"再查一遍"，八项在 pages/more/DoctorPage.tsx

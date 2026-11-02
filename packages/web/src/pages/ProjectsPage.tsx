@@ -90,7 +90,8 @@ import { Conversation, useConversationPane } from "../ui/conversation/Conversati
 import { JobAuthorization } from "../ui/job-authorization.tsx";
 import { ScopeRecordList } from "../ui/scope-records.tsx";
 import { AgentDialog, composerPlaceholderOf, TaskBrief, useTaskScene } from "./AgentConversation.tsx";
-import { ToolkitEditor, ToolkitPanel } from "./ToolkitEditor.tsx";
+import { ToolkitEditor } from "../prototype/proto-toolkit-editor.tsx";
+import { ToolkitPanel } from "./ToolkitEditor.tsx";
 import { TaskProgress } from "../ui/TaskProgress.tsx";
 
 /**
@@ -532,7 +533,8 @@ function ProjectHead({ view, onChat, narrow = false }: { view: ProjectView; onCh
 function ProjectSections({ view, job }: { view: ProjectView; job?: string | undefined }) {
   const { ui } = useStore();
   const p = view.project;
-  const detail = projectDetailOf(p.id);
+  // 演示页的假项目才有；安装版这个分支摇掉，假数据不进产物（app/prototype-mode.ts）
+  const detail = import.meta.env.MODE === "demo" ? projectDetailOf(p.id) : undefined;
   return (
     <>
       {p.charterCardId && (
@@ -547,7 +549,7 @@ function ProjectSections({ view, job }: { view: ProjectView; job?: string | unde
       <ProjectStandardSection project={p} />
       <ProjectOperations project={p} />
 
-      {detail ? (
+      {import.meta.env.MODE === "demo" && detail ? (
         <ProtoSections project={p} detail={detail} />
       ) : (
         <>

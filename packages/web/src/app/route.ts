@@ -1,4 +1,4 @@
-// 页面路由：用 URL 的 # 部分，直接从文件打开（file://）也能用，刷新后停在原来的页面。
+// 页面路由：用 URL 的 # 部分，演示页从文件打开（file://）也能用，刷新后停在原来的页面。
 // 地址怎么拆、怎么拼在 route-hash.ts（纯函数），这里只盯着地址的变化。跳转压一条记录并记下来处，标题栏的 ‹ 回上一级不压新记录
 // （history-nav.ts）。
 import { useCallback, useEffect, useState } from "react";

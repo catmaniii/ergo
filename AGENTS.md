@@ -55,7 +55,7 @@ npm run test:fast          # 改完每次跑（约 2 分钟）
 npm run typecheck
 npm run lint
 npm run i18n:check -- --data-dir <临时目录>   # 不带它会读 ~/.ergo/locales
-npm run build:web          # 改了网页时；再跑 npx vitest run --project web test/page-opens.test.ts
+npm run build:demo         # 改了网页时：用 file:// 打开 packages/web/dist-demo/index.html 看效果；再跑 npx vitest run --project web test/page-opens.test.ts
 npm run test:integration   # 改到守护进程主线、组合根、装配时
 npm run test:supervisor    # 改了 packages/supervisor 时
 npm run check:ops -- <ops.json 或方案.json> --url <服务地址>   # 不起二狗校验运营接口清单和方案

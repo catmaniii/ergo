@@ -36,7 +36,7 @@ npm run test:fast
 | 改了 | 再跑 |
 |---|---|
 | 一个模块 | `npx vitest run <测试文件或目录>`；按名字挑：`npx vitest run --project daemon -t "中止"` |
-| 网页 | `npm run build:web`，`npx vitest run --project web test/page-opens.test.ts` |
+| 网页 | `npm run build:demo` 用 `file://` 打开看效果，`npx vitest run --project web test/page-opens.test.ts`（自己构建） |
 | 守护进程主线、组合根、装配 | `npm run test:integration`（十几分钟），或者只跑相关的 `packages/daemon/test/main/<名字>.test.ts` |
 | `agent-host/`、`runtime/`、系统提示 | `npm run test:contract` |
 | `packages/supervisor` | `npm run test:supervisor` |

@@ -12,11 +12,14 @@
 //   开着的页面据此知道服务端的页面更新了。
 // -关于页的二狗版本和更新日志进了页面。更新日志原文照领域术语写着"秘书"，构建时换成名字占位、页面上填名字
 //   界面上照字面写着"秘书"的两处不换，所以按 base64 写进去，不在上面"页面里没有秘书"的检查之列。
+// -安装版一条假数据都不带（2026-11-02 朋友在 0.4.1 里看到了编的记忆）：演示页假数据里特有的字（哨兵）安装版一个都没有，
+//   演示页那份构建（--mode demo）每个都有，免得哪个字从假数据里改没了，这里还在假装查着。npm run release 也查同一份哨兵。
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { ASSISTANT_NAME_MARK, LEGACY_WORDING, webVersionInHtml, webVersionMeta } from "@ergo/protocol";
 import { build, type Rolldown } from "vite";
 import { beforeAll, describe, expect, test, vi } from "vitest";
+import { DEMO_SENTINELS, demoDataIn } from "../../daemon/build/demo-sentinels.ts";
 import { buildInfo, markAssistantName } from "../build/build-info-plugin.ts";
 import { changelogWithName } from "../src/state/index.ts";
 import { BASE_STYLE, previewCss, stylePageInfo, VISUAL_STYLES } from "../src/visual-styles/index.ts";
@@ -25,20 +28,27 @@ const WEB_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const REPO_CHANGELOG = fs.readFileSync(new URL("../../../CHANGELOG.md", import.meta.url), "utf8");
 
 let html = "";
+let demoHtml = "";
+
+/** 照 vite.config.ts 构建一份，不写盘；mode 是 demo 时是演示页那份 */
+async function buildPage(mode?: string): Promise<string> {
+  const result = await build({ root: WEB_ROOT, configFile: `${WEB_ROOT}/vite.config.ts`, logLevel: "silent", ...(mode ? { mode } : {}), build: { write: false } });
+  const outputs = (Array.isArray(result) ? result : [result]) as Rolldown.RolldownOutput[];
+  const page = outputs.flatMap((o) => o.output).find((f) => f.fileName === "index.html");
+  if (page?.type !== "asset") throw new Error("构建产物里没有 index.html");
+  return String(page.source);
+}
 
 beforeAll(async () => {
   // 和 npm run build:web 一样按生产环境构建（vitest 把 NODE_ENV 设成了 test，Vite 会照它打开发版）
   vi.stubEnv("NODE_ENV", "production");
   try {
-    const result = await build({ root: WEB_ROOT, configFile: `${WEB_ROOT}/vite.config.ts`, logLevel: "silent", build: { write: false } });
-    const outputs = (Array.isArray(result) ? result : [result]) as Rolldown.RolldownOutput[];
-    const page = outputs.flatMap((o) => o.output).find((f) => f.fileName === "index.html");
-    if (page?.type !== "asset") throw new Error("构建产物里没有 index.html");
-    html = String(page.source);
+    html = await buildPage();
+    demoHtml = await buildPage("demo");
   } finally {
     vi.unstubAllEnvs();
   }
-}, 60_000);
+}, 120_000);
 
 /** 产物里内联的样式（vite-plugin-singlefile 把 CSS 放进 <head> 里的一个 <style rel="stylesheet">） */
 function inlinedCss(): string {
@@ -46,6 +56,21 @@ function inlinedCss(): string {
   if (css === undefined) throw new Error("构建产物里没有内联的样式");
   return css;
 }
+
+describe("安装版不带演示数据", () => {
+  test("安装版里一个哨兵都没有", () => {
+    expect(demoDataIn(html)).toEqual([]);
+  });
+
+  test("演示页每个哨兵都有（哨兵没有过期）", () => {
+    expect(demoDataIn(demoHtml)).toEqual([...DEMO_SENTINELS]);
+  });
+
+  test("安装版带着“要经二狗打开”那一页的中英文，比演示页小得多", () => {
+    for (const text of ["这个页面要经二狗打开", "This page has to be opened through ergo"]) expect(html).toContain(text);
+    expect(html.length).toBeLessThan(demoHtml.length - 300_000);
+  });
+});
 
 describe("构建产物", () => {
   test("CSS 里没有 light-dark(：都降成了跟着 color-scheme 切的开关变量", () => {

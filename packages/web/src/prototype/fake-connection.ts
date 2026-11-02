@@ -21,7 +21,7 @@
 //   一次性的提醒（只提醒我、测试提醒）一小时内到点的照守护进程那样到点：待办里置顶一条、推一条 notify。
 // - 流程撤回之后等你：一次性的流程撤回之后停在那里，一分钟内没在它的会话里说话，待办里一条"流程在等你"（卡着它）、
 //   推一条 notify；说了话这条记成处理过。
-// 由守护进程提供页面时，接了真数据的频道（秘书会话、卡片、待我处理……）走 WebSocket，这里的假数据只给其余页面用。
+// 只有演示页用它（prototype/demo-wiring.ts）；安装版只有真连接（app/ws-connection.ts）。
 import { APP_VERSION } from "../app/build-info.ts";
 import { prototypeLanguage } from "../app/locale.ts";
 import { BUNDLED_LOCALES } from "../app/locale-bundle.ts";
@@ -537,11 +537,6 @@ export class FakeConnection implements Connection {
       const notify: NotifyEventPayload = { id: `n-proto-${item.id}`, title: item.title, body: item.body ?? "", itemId: item.id };
       this.deliver?.({ kind: "frame", frame: { channel: CHANNELS.inbox, seq: this.seqs[CHANNELS.inbox] ?? 0, type: EVENT_TYPES.notify, payload: notify } });
     });
-  }
-
-  /** 是不是原型里的假卡片（过渡期的分流连接据此把卡片动作交给假连接） */
-  hasCard(cardId: string): boolean {
-    return this.cards.has(cardId);
   }
 
   connect(cursors: Record<string, number>, deliver: (input: UiInput) => void): () => void {

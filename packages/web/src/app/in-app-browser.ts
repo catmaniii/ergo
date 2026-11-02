@@ -106,7 +106,7 @@ function linkIn(target: unknown): LinkLike | undefined {
 /** 打开时给的名字（标题栏先显示它，框里的页面没有 <title> 时一直用它）：按应用名记着，刷新后没有了就用应用名 */
 const titleHints = new Map<string, string>();
 
-/** 相对地址按什么解析：二狗的源；直接打开构建产物（原型，file://）时源是 "null"，按 file:/// 解析（原型里也能看内置浏览器的渲染层） */
+/** 相对地址按什么解析：二狗的源；演示页用 file:// 打开时源是 "null"，按 file:/// 解析（原型里也能看内置浏览器的渲染层） */
 function baseOf(origin: string): string {
   return origin === "null" ? "file:///" : `${origin}/`;
 }

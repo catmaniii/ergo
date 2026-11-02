@@ -69,8 +69,8 @@ Agent SDK（`@anthropic-ai/claude-agent-sdk`）是 Anthropic 自己的许可，�
 | lint | `npm run lint`（oxlint，配置在 `.oxlintrc.json`） |
 | 收尾全套 | `npm run check`（类型检查 + lint + 全量 + 服务管家） |
 | 多语言检查 | `npm run i18n:check`（[多语言](README.md#多语言)） |
-| 构建网页 | `npm run build:web`（产物是单个文件 `packages/web/dist/index.html`） |
-| 构建在线演示页 | `npm run build:demo`（产物在 `packages/web/dist-demo/`，[页面从哪里来](README.md#页面从哪里来原型和在线演示页)） |
+| 构建网页 | `npm run build:web`（安装版，不带假数据，产物是单个文件 `packages/web/dist/index.html`） |
+| 构建在线演示页 | `npm run build:demo`（产物在 `packages/web/dist-demo/`；改界面时先构建它，再用 `file://` 打开看效果，[页面从哪里来](README.md#页面从哪里来原型和在线演示页)） |
 | 部署后打开真的页面看一眼 | `npm run smoke:page`（无头 Chrome 打开 `http://127.0.0.1:8810/`，`-- <地址>` 换地址） |
 | 构建鸿蒙 App | `npm run build:harmony`（[手机 App](#手机-app)） |
 | 构建安卓 App | `npm run build:android`（[安卓 App](#安卓-app)） |
@@ -201,7 +201,7 @@ adb -s <设备号> logcat -s ErgoApp                  # App 和网页的日志
 - **主切面**（`packages/daemon/test/main/`）：`startTestDaemon(options)` 起一个真的守护进程（临时数据目录、系统挑的空闲端口，**从不占用 8810、8811**），秘书、负责人、评审、子 agent 接 pi 的 faux provider 按剧本回话，子进程真的拉起；`TestFrontend` 扮演前端，经 WebSocket 和 HTTP 收发、按频道等事件。时钟用 `ManualClock` 拨，不真等。
 - **守卫切面**（`packages/daemon/test/guard/`）：只调判定函数，不起进程；场景文件 `scenarios/*.guard.json` 逐个跑。
 - **pi 契约测试**（`packages/daemon/test/contract/`）：只验二狗依赖的 pi 行为。
-- **网页**：状态层用录下的事件流回放（`recordings/`，主切面现场录：`ERGO_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/recordings.test.ts`），页面用 `page-opens.test.ts` 在真 Chrome 里打开原型（本机没有 Chrome 时跳过）。
+- **网页**：状态层用录下的事件流回放（`recordings/`，主切面现场录：`ERGO_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/recordings.test.ts`），页面用 `page-opens.test.ts` 在真 Chrome 里打开原型，也就是演示页那份构建（本机没有 Chrome 时跳过）；`build.test.ts` 查安装版里没有假数据。
 - **插件**：假内核 `test/helpers/plugin-kernel.ts` 的 `startPluginKernel`（见插件开发手册）。
 - **测试里的密钥样本**在运行时拼（`test/helpers/fake-secrets.ts`），仓库里没有像真密钥的字符串。
 

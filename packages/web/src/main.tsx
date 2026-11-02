@@ -1,6 +1,6 @@
 // 页面日志（Debug 工具集）最先开始收：后面的模块执行时出的错也收得到
 import "./app/page-log-start.ts";
-// 多语言：画出来之前装上这台设备上次用的语言（记着的词典），原型（file://）按地址的 ?lang=，没写是中文。
+// 多语言：画出来之前装上这台设备上次用的语言（记着的词典），演示页按地址的 ?lang=（没写是中文），安装版被直接打开（file://）时跟系统语言。
 // 要在界面各模块加载之前装上（它们在模块顶层取的字才是这种语言的，不是 key），所以单放一个模块、排在前面引
 import "./app/locale-boot.ts";
 import { StrictMode } from "react";
@@ -24,6 +24,8 @@ import App from "./App.tsx";
 import { connectNativeApp } from "./app/page-native.ts";
 import { connectSystemNotify } from "./app/page-notify.ts";
 import { pageTheme } from "./app/page-theme.ts";
+import { openedWithoutDaemon } from "./app/prototype-mode.ts";
+import { OpenThroughErgo } from "./pages/OpenThroughErgo.tsx";
 
 // 外观和风格：index.html 的内联脚本已经按记住的选择挂好了，这里接手（设置里改、跟着系统深浅色变）
 pageTheme();
@@ -36,6 +38,7 @@ connectSystemNotify();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    {/* 安装版被直接打开（双击安装目录里的 index.html）：没有守护进程可连，只说怎么打开，别的一概不起 */}
+    {openedWithoutDaemon(window.location.protocol, import.meta.env.MODE) ? <OpenThroughErgo /> : <App />}
   </StrictMode>,
 );

@@ -10,6 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { DEMO_SENTINELS } from "../../build/demo-sentinels.ts";
 import { stageVersion, type StageResult, stampManifestRelease } from "../../build/stage.ts";
 
 const REPO = path.resolve(import.meta.dirname, "..", "..", "..", "..");
@@ -70,6 +71,17 @@ afterAll(() => {
     }
   }
   fs.rmSync(base, { recursive: true, force: true });
+});
+
+describe("网页产物里有演示数据", () => {
+  it("报错退出：写明查到了什么，版本目录不动", () => {
+    const web = path.join(base, "demo-web-dist");
+    fs.mkdirSync(web, { recursive: true });
+    fs.writeFileSync(path.join(web, "index.html"), `<!doctype html><script>const a="${DEMO_SENTINELS[0]}",b="示例实验小学"</script>`);
+    const target = path.join(base, "ergo-with-demo");
+    expect(() => stageVersion({ repo: REPO, out: target, kind: "release", version: "9.9.9", node: { exe: process.execPath, version: process.versions.node }, nodeModules: "link", webDist: web })).toThrow(/演示页的假数据（demo-pdf-reader、示例实验小学）/);
+    expect(fs.existsSync(target)).toBe(false);
+  });
 });
 
 describe("版本目录里有什么", () => {

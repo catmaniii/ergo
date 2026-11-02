@@ -82,7 +82,6 @@ import { nextTimeLabel, timeLabel } from "../util/time.ts";
 import type { BoardEntry, ScheduledJobSummary, Stage, TaskSummary } from "../model/types.ts";
 import { taskDetailOf } from "../prototype/fake-data.ts";
 import { protoAfter, protoSubject } from "../prototype/proto-task-acts.ts";
-import { useProto } from "../prototype/proto-store.tsx";
 import { useToast } from "../ui/toast.tsx";
 import { RemoteBadge, RuntimeChip } from "../ui/runtimes.tsx";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
@@ -105,7 +104,8 @@ import { BoardSelectBar } from "./board-select.tsx";
 import { StartTaskButton } from "./shared.tsx";
 import { AgentDialog, TaskConversation, useStageIncidents } from "./AgentConversation.tsx";
 import { remoteInStatus, statusText, taskSummary } from "./task-summary.ts";
-import { ToolkitEditor } from "./ToolkitEditor.tsx";
+import { useProto } from "../app/proto-context.ts";
+import { ToolkitEditor } from "../prototype/proto-toolkit-editor.tsx";
 
 /**
  * 看板和任务详情二选一（宽窄屏一样）：没点任务时整页是看板（宽屏多列网格），点了整页是任务详情，标题栏的 ‹ 回到看板
@@ -222,7 +222,9 @@ function useBoard() {
  */
 function subjectOf(ui: UiState, ts: TaskSummary): TaskMenuSubject {
   const task = ui.tasks[ts.id];
-  return task ? taskMenuSubject(ui, task) : protoSubject(ts);
+  if (task) return taskMenuSubject(ui, task);
+  // 演示页的假条目；安装版看板上的都在状态层里，这里只可能是刚好没了的（这个分支摇掉，假数据不进产物）
+  return import.meta.env.MODE === "demo" ? protoSubject(ts) : { state: ts.status as TaskMenuSubject["state"] };
 }
 
 /**
@@ -244,6 +246,8 @@ function useTaskTarget(): (ts: TaskSummary) => TaskActsTarget {
       const runNow = ts.trigger ? () => runJobNow(ts.trigger!.jobId) : undefined;
       return { title: ts.title, act, trigger, reschedule, runNow, announce: (on: boolean) => setVoiceAnnounce(ts.id, on), stages: realStageSource(ui, task, act) };
     }
+    // 安装版看板上的都在状态层里，这里只可能是刚好没了的，没有什么可做（下面演假任务的分支摇掉，假数据不进产物）
+    if (import.meta.env.MODE !== "demo") return { title: ts.title, act: () => undefined };
     const act = (action: TaskAction) => {
       // 删除：假任务从看板上拿掉
       if (action === "delete") {
@@ -781,7 +785,8 @@ function TaskDetail({ taskId, wide, at, onBack }: { taskId: string; wide: boolea
   }, [home, taskId, at]);
   if (home) return null;
   if (task) return <TaskConversation task={task} wide={wide} at={at} onBack={onBack} />;
-  return <ProtoTaskDetail taskId={taskId} wide={wide} at={at} onBack={onBack} />;
+  // 演示页的假任务；安装版没有这个任务（这个分支摇掉，假数据不进产物）
+  return import.meta.env.MODE === "demo" ? <ProtoTaskDetail taskId={taskId} wide={wide} at={at} onBack={onBack} /> : <div className="page-placeholder">{t("pages.tasks.missing")}</div>;
 }
 
 /** 原型里有假会话的几个任务（原型的演示数据，和看板上的名字一样） */

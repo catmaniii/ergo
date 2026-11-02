@@ -5,12 +5,16 @@ import { buildInfoPlugin } from "./build/build-info-plugin.ts";
 import { visualStylesPlugin } from "./build/visual-styles-plugin.ts";
 import { webVersionPlugin } from "./build/web-version-plugin.ts";
 
-// 打成单个 dist/index.html（JS、CSS 全内联，用 vite-plugin-singlefile）：
-// 原型还没有守护进程，评审时直接在浏览器里打开这个文件，不起开发服务器。
-// 由守护进程提供这份静态文件。
-// 在线演示页：`npm run build:demo` = `vite build --mode demo --outDir dist-demo`，同一套配置再构建一份，页面按
-// `import.meta.env.MODE` 认出是演示页、一律用原型的假数据（src/app/prototype-mode.ts），整个 dist-demo/ 放 GitHub Pages。
-export default defineConfig({
+/** 只属于原型的假连接、假数据（src/prototype/） */
+const PROTOTYPE_DIR = /[\\/]src[\\/]prototype[\\/]/;
+
+// 打成单个 index.html（JS、CSS 全内联，用 vite-plugin-singlefile）。同一套配置构建两份（src/app/prototype-mode.ts）：
+// - 安装版：`npm run build:web`，产物 dist/，由守护进程提供。一条假数据都不带：页面里用到原型的地方都写成
+//   `import.meta.env.MODE === "demo"` 的分支，构建时这个分支直接摇掉，下面再声明 src/prototype/ 没有副作用，引了没用就整个不进产物；
+//   test/build.test.ts 和 npm run release（packages/daemon/build/demo-sentinels.ts）都查产物。
+// - 演示页：`npm run build:demo` = `vite build --mode demo --outDir dist-demo`，全是原型的假数据，不连守护进程，
+//   整个 dist-demo/ 放 GitHub Pages；改界面时也用 file:// 打开它看效果，不起开发服务器。
+export default defineConfig(({ mode }) => ({
   base: "./",
   // 视觉风格：风格清单生成的 token 样式表、内联脚本里的风格表、拷字体（build/visual-styles-plugin.ts）
   // 页面是哪一版：产物内容的哈希写进 index.html 的 <meta name="ergo-web-version">（build/web-version-plugin.ts）
@@ -27,5 +31,6 @@ export default defineConfig({
     // test/build.test.ts 构建一遍，查产物里没有 light-dark( 留下。
     cssMinify: "lightningcss",
     cssTarget: ["chrome94", "edge94", "firefox93", "safari16.4", "ios16.4"],
+    ...(mode === "demo" ? {} : { rolldownOptions: { treeshake: { moduleSideEffects: (id: string) => (PROTOTYPE_DIR.test(id) ? false : undefined) } } }),
   },
-});
+}));

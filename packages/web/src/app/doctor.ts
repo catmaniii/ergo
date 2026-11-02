@@ -29,10 +29,10 @@ export async function fetchDoctor(): Promise<DoctorView> {
 }
 
 /**
- * 取一遍：打开页面时、点"再查一遍"时都走这一条。演示页（没有守护进程）不请求网络，给编好的数据
+ * 取一遍：打开页面时、点"再查一遍"时都走这一条。演示页（没有守护进程）不请求网络，给编好的数据（demo，由页面那一半给）
  */
-export async function loadDoctor(demo: boolean, load: () => Promise<DoctorView> = fetchDoctor): Promise<DoctorView> {
-  return demo ? demoDoctorView() : load();
+export async function loadDoctor(demo: (() => DoctorView) | undefined, load: () => Promise<DoctorView> = fetchDoctor): Promise<DoctorView> {
+  return demo ? demo() : load();
 }
 
 /** 演示页的假数据：六项是好的，组件缺记忆的向量模型、外网入口没查到依据——各带一句"怎么修" */

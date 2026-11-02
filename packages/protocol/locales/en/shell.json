@@ -14,6 +14,8 @@
   "shell.nav.inboxBadge": " ({unread} unread, {seen} seen but not handled)",
   "shell.nav.secretaryNews": " (new messages)",
   "shell.card.title": "Card",
+  "shell.openThroughErgo.title": "This page has to be opened through ergo",
+  "shell.openThroughErgo.how": "Opening this file directly won't work. Run {command} in a terminal, then open {address} in your browser.",
   "shell.more.title": "More",
   "shell.more.empty": "Everything fits in the navigation bar, so there's nothing else here",
   "shell.more.calendar": "Calendar",

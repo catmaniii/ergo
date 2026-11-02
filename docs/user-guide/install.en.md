@@ -362,6 +362,7 @@ Your data is in `%USERPROFILE%\.ergo` and the supervisor's in `%LOCALAPPDATA%\er
 | Won't start: port in use | 8810 / 8811 taken by another program (name and PID are in the log; if they can't be found, the log says someone holds the port but it can't tell who) | Close it, or change `ports` (and both 8810s in the entry) |
 | Won't start: another instance uses the same data directory | One was started by hand, or an old one didn't exit | Stop it (supervisor web UI or Task Manager), then let the supervisor start ergo |
 | The page shows 503 and says `npm run build:web` | The web UI isn't built | Run `npm run build:web` in the ergo directory |
+| The page only says "This page has to be opened through ergo" | You double-clicked `index.html` in the install folder | Run `ergo start`, then open <http://127.0.0.1:8810> in your browser |
 | It says "no model configured" or every reply errors | Key missing or wrong, or out of credit | Enter a new key under **Settings · Models** (or check `secrets\deepseek-api-key.txt`, just the key), then run the connection test |
 | Commands in tasks keep failing: Git Bash not found | Git for Windows missing, or WSL's `bash` comes first on PATH | Install Git for Windows; `where bash` should list `C:\Program Files\Git\bin\bash.exe` first |
 | Push-to-talk does nothing / recognition unavailable | Recognition model not installed, speech service not running; with faster-whisper: Python path not set, faster-whisper missing, GPU unavailable | See the status in **Settings · Voice**; set up per [Voice](voice.en.md) |

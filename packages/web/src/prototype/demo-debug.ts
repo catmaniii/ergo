@@ -1,4 +1,4 @@
-// 原型的 ?demo-debug：直接打开构建产物、地址里带 ?demo-debug 时，一打开就在"关于二狗"（没给别的地址时），
+// 原型的 ?demo-debug：演示页的地址里带 ?demo-debug 时，一打开就在"关于二狗"（没给别的地址时），
 // Debug 工具集已经打开（1 小时），通知记录、页面日志里先放几条假的，连接一组有假的断线次数（fake-connection.ts 的 stats），
 // 看各组的样子。不带参数什么都不变。
 import { notifyLog, openDebugForDemo, pageLog } from "../app/page-debug.ts";

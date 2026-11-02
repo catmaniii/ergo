@@ -5,7 +5,7 @@
 // - 由守护进程提供页面时：语言频道上的临时事件 locale（订阅时补推一条）带着实际在用的语言和词典的版本，版本和手里的对不上就
 //   GET /api/locale 取完整的词典（自带 + ~/.ergo/locales 里的，合好的），垫上打包进去的自带语言装上（守护进程比网页旧时，
 //   网页新加的句子照样有），记到这台设备上。换了语言、语言文件变了，开着的页面不刷新就换过来；
-// - 原型（file://）：假连接扮演守护进程，词典取自打包进去的（prototype/fake-http.ts）；
+// - 演示页：假连接扮演守护进程，词典取自打包进去的（prototype/fake-http.ts）；
 // - 界面重画：App 最外层用 useLocale()，换了语言整棵树重画（组件里直接调 t() 就行）；memo 了的组件、useMemo 里用了 t() 的，
 //   自己也调 useLocale()（或把它放进依赖），不然换了语言还是旧的；
 // - <html lang> 跟着换（读屏、浏览器的断词按它）。
@@ -72,13 +72,13 @@ function readCache(storage: DeviceStorage): LocaleDictionaryView | undefined {
   }
 }
 
-/** 原型（file://）一开始用哪种语言：地址里的 ?lang=（打包进去的那几种才认），没写是中文 */
+/** 演示页一开始用哪种语言：地址里的 ?lang=（打包进去的那几种才认），没写是中文 */
 export function prototypeLanguage(): string {
   const wanted = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("lang");
   return wanted !== null && BUNDLED_LOCALES.has(wanted) ? wanted : DEFAULT_LANGUAGE;
 }
 
-/** 页面一开始：装上这台设备上次用的那种（记着的词典），没记过用打包进去的中文；language 给了就用打包进去的那种（原型的 ?lang=） */
+/** 页面一开始：装上这台设备上次用的那种（记着的词典），没记过用打包进去的中文；language 给了就用打包进去的那种（演示页的 ?lang=、安装版被直接打开时的系统语言） */
 export function bootLocale(storage: () => DeviceStorage, language?: string): void {
   if (language !== undefined) return install(bundledLocale(language));
   let cached: LocaleDictionaryView | undefined;

@@ -1,6 +1,6 @@
 // 原型里的记忆推理库：结论、证据与推理、问题箱的假数据——照 weekend 那组"周末推掉活动"编的，
 // 和 fake-materials.ts 里的假素材对得上（话是同一批）。
-// 直接打开构建产物（file://）时没有守护进程，只读接口回这一份；地址带 ?demo-memory-empty（有库、空的）和
+// 演示页没有守护进程，只读接口回这一份；地址带 ?demo-memory-empty（有库、空的）和
 // ?demo-memory-off（库还没建）看空数据和降级的样子（截图、page-opens 测试）。
 import type {
   MemoryClaimBrief,

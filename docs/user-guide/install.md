@@ -362,6 +362,7 @@ ergo uninstall --delete-data  # 不问，连数据一起删
 | 起不来，说端口被占 | 8810 / 8811 被别的程序占着（日志里写着程序名和 PID；查不到时写"有人占着，查不到是谁"） | 关掉那个程序，或者改[配置文件](../architecture/README.md#配置文件)里的端口 |
 | 起不来，说同一个数据目录已经有实例在跑 | 手动起过一个、或者旧的没退干净 | 先停掉那个（服务管家的网页、任务管理器），再由服务管家起 |
 | 从源码跑时打开页面是 503，提示 `npm run build:web` | 网页还没构建 | 在二狗目录里 `npm run build:web` |
+| 打开页面只有一句"这个页面要经二狗打开" | 直接双击了安装目录里的 `index.html` | 先运行 `ergo start`，再用浏览器打开 <http://127.0.0.1:8810> |
 | 跟它说话，它说"还没配模型"或每次都出错 | key 没放、放错了，或者额度用完 | 在**设置 · 模型**里重新填一个 key（或检查 `secrets\deepseek-api-key.txt`，只有 key 一行），再点"连通测试" |
 | 任务里的命令总失败，说找不到 Git Bash | 没装 Git for Windows，或 PATH 上排在前面的是 WSL 的 `bash` | 装 Git for Windows；确认 `where bash` 第一条是 `C:\Program Files\Git\bin\bash.exe` |
 | 按住说话没反应、识别不可用 | 语音识别模型没装、语音服务没在运行 | 看 **设置 · 语音** 的状态和说明；照[语音](voice.md)装好 |

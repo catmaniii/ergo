@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ConnectionAddressesView } from "../state/index.ts";
 import { demoConnectionAddressesView, fetchConnectionAddresses, postManualAddress } from "./connection-addresses.ts";
-import { isPrototypePage } from "./prototype-mode.ts";
 import { useStore } from "./store.tsx";
 
 /** 页面开着时多久问一次：只问本机的守护进程，它手里的是服务管家推来的现成结果 */
@@ -23,12 +22,12 @@ export interface ConnectionAddressesState {
 export function useConnectionAddresses(): ConnectionAddressesState {
   const { ui } = useStore();
   const online = ui.connection === "online";
-  const demo = typeof window !== "undefined" && isPrototypePage(window.location.protocol, import.meta.env.MODE);
-  const [view, setView] = useState<ConnectionAddressesView | undefined>(() => (demo ? demoConnectionAddressesView() : undefined));
+  // 演示页不请求网络（字面的 MODE 比较：安装版这些分支摇掉，假地址不进产物）
+  const [view, setView] = useState<ConnectionAddressesView | undefined>(() => (import.meta.env.MODE === "demo" ? demoConnectionAddressesView() : undefined));
   const [error, setError] = useState<string | undefined>();
 
   useEffect(() => {
-    if (demo || !online) return;
+    if (import.meta.env.MODE === "demo" || !online) return;
     let live = true;
     const load = () =>
       fetchConnectionAddresses().then(
@@ -47,11 +46,11 @@ export function useConnectionAddresses(): ConnectionAddressesState {
       live = false;
       clearInterval(timer);
     };
-  }, [demo, online]);
+  }, [online]);
 
   const saveManual = useCallback(
     async (manual: string | null) => {
-      if (demo) {
+      if (import.meta.env.MODE === "demo") {
         setView(demoConnectionAddressesView(manual ?? undefined));
         return undefined;
       }
@@ -62,7 +61,7 @@ export function useConnectionAddresses(): ConnectionAddressesState {
         return messageOf(err);
       }
     },
-    [demo],
+    [],
   );
 
   return { view, error, saveManual };

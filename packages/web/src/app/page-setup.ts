@@ -9,12 +9,9 @@ import { useStore } from "./store.tsx";
 
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-let prototype: boolean | undefined;
-
-/** 这个页面是不是演示页（直接打开构建产物 file://、在线演示页）：没有守护进程，不请求网络；Node 里（没有 window）当不是 */
+/** 这个页面是不是演示页：没有守护进程，不请求网络 */
 export function setupPrototypePage(): boolean {
-  prototype ??= typeof window !== "undefined" && isPrototypePage(window.location.protocol, import.meta.env.MODE);
-  return prototype;
+  return isPrototypePage(import.meta.env.MODE);
 }
 
 /** 向导页、首页那条引导条用的：取到的五步、在不在取、失败的原因、打标记 */
@@ -30,13 +27,13 @@ export interface SetupState {
 
 /**
  * 打开时取一次（连上守护进程之后取：还没连上时取也是白取），之后只有打标记时换。
- * 演示页不取、不发请求：一上来就是 demoSetupView()，点了假装记下。
+ * 演示页不取、不发请求：一上来就是 demoSetupView()，点了假装记下（字面的 MODE 比较：安装版这些分支摇掉，假状态不进产物）。
  */
 export function useSetup(): SetupState {
   const { ui } = useStore();
   const online = ui.connection === "online";
   const demo = setupPrototypePage();
-  const [view, setView] = useState<SetupView | undefined>(() => (demo ? demoSetupView() : undefined));
+  const [view, setView] = useState<SetupView | undefined>(() => (import.meta.env.MODE === "demo" ? demoSetupView() : undefined));
   const [loading, setLoading] = useState(!demo);
   const [error, setError] = useState<string | undefined>();
   /** mark 是回调，读现在的这一份（演示页里接着上一份改） */
@@ -69,7 +66,7 @@ export function useSetup(): SetupState {
 
   const mark = useCallback(
     async (step: SetupStepId, skip: boolean): Promise<SetupView | undefined> => {
-      if (demo) {
+      if (import.meta.env.MODE === "demo") {
         const next = demoMarked(latest.current ?? demoSetupView(), step);
         setView(next);
         return next;
@@ -84,7 +81,7 @@ export function useSetup(): SetupState {
         return undefined;
       }
     },
-    [demo],
+    [],
   );
 
   return { view, loading, error, mark };

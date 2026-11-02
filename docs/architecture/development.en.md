@@ -69,8 +69,8 @@ From the repository root:
 | Lint | `npm run lint` (oxlint, configured in `.oxlintrc.json`) |
 | The full pre-merge set | `npm run check` (typecheck + lint + all tests + service manager) |
 | i18n check | `npm run i18n:check` ([Internationalization](README.en.md#internationalization)) |
-| Build the web UI | `npm run build:web` (a single file, `packages/web/dist/index.html`) |
-| Build the online demo | `npm run build:demo` (into `packages/web/dist-demo/`, [Where pages come from](README.en.md#where-pages-come-from-prototype-and-online-demo)) |
+| Build the web UI | `npm run build:web` (the installed page, no sample data; a single file, `packages/web/dist/index.html`) |
+| Build the online demo | `npm run build:demo` (into `packages/web/dist-demo/`; when changing the UI, build this and open it over `file://`, [Where pages come from](README.en.md#where-pages-come-from-prototype-and-online-demo)) |
 | Open the real page after deploying | `npm run smoke:page` (headless Chrome on `http://127.0.0.1:8810/`; `-- <url>` for another address) |
 | Build the HarmonyOS app | `npm run build:harmony` ([Phone apps](#phone-apps)) |
 | Build the Android app | `npm run build:android` ([Android app](#android-app)) |
@@ -201,7 +201,7 @@ With no toolchain, no output or an unacceptable output, only that package is ski
 - **Main slice** (`packages/daemon/test/main/`): `startTestDaemon(options)` starts a real daemon (temporary data directory, system-chosen free ports, **never 8810 or 8811**); the secretary, owners, reviewers and sub-agents talk to pi's faux provider following scripts, and child processes are really launched; `TestFrontend` plays the frontend over WebSocket and HTTP and waits for events per channel. Time is advanced with `ManualClock`, never waited out.
 - **Guard slice** (`packages/daemon/test/guard/`): calls the judging function only, no processes; scenario files `scenarios/*.guard.json` run one by one.
 - **pi contract tests** (`packages/daemon/test/contract/`): verify only the pi behavior ergo depends on.
-- **Web**: the state layer is tested by replaying recorded event streams (`recordings/`, recorded live by the main slice: `ERGO_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/recordings.test.ts`); pages by `page-opens.test.ts`, which opens the prototype in real Chrome (skipped if there's no Chrome).
+- **Web**: the state layer is tested by replaying recorded event streams (`recordings/`, recorded live by the main slice: `ERGO_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/recordings.test.ts`); pages by `page-opens.test.ts`, which opens the prototype, that is the demo build, in real Chrome (skipped if there's no Chrome); `build.test.ts` checks the installed page has no sample data.
 - **Plugins**: the fake kernel `startPluginKernel` in `test/helpers/plugin-kernel.ts` (see the plugin guide).
 - **Secret-looking test samples** are assembled at runtime (`test/helpers/fake-secrets.ts`); the repository contains no strings that look like real keys.
 

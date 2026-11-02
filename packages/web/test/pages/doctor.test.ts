@@ -137,9 +137,9 @@ describe("点\"再查一遍\"重新发请求", () => {
       calls += 1;
       return Promise.resolve(calls === 1 ? demoDoctorView() : okView());
     };
-    const first = await loadDoctor(false, fetcher);
+    const first = await loadDoctor(undefined, fetcher);
     expect(first.checks.filter((check) => !check.ok)).toHaveLength(2);
-    const second = await loadDoctor(false, fetcher);
+    const second = await loadDoctor(undefined, fetcher);
     expect(calls).toBe(2);
     expect(second.checks.every((check) => check.ok)).toBe(true);
     expect(second.at).toBe("2026-10-28T09:30:00.000Z");
@@ -151,7 +151,7 @@ describe("点\"再查一遍\"重新发请求", () => {
       calls += 1;
       return Promise.resolve(okView());
     };
-    const view = await loadDoctor(true, fetcher);
+    const view = await loadDoctor(demoDoctorView, fetcher);
     expect(calls).toBe(0);
     expect(view.checks).toHaveLength(DOCTOR_CHECKS.length);
   });
@@ -159,8 +159,8 @@ describe("点\"再查一遍\"重新发请求", () => {
 
 describe("页面", () => {
   test("标题栏右上是\"再查一遍\"（演示页里拿的是编好的数据），底下列出八项和查的时刻", () => {
-    // 演示页：直接打开构建产物（file://）时的那一种；Node 里没有 window，这里放一个够用的
-    vi.stubGlobal("window", { location: { protocol: "file:" } });
+    // 演示页那份构建（`--mode demo`）
+    vi.stubEnv("MODE", "demo");
     try {
       const offline = { connection: {} as Connection, http: {} as DaemonHttp } as ComponentProps<typeof StoreProvider>;
       const html = renderToStaticMarkup(createElement(StoreProvider, offline, createElement(DoctorPage, { title: "体检", onBack: noop })));
@@ -170,7 +170,7 @@ describe("页面", () => {
       expect(html).toContain("查的时刻：");
       for (const id of DOCTOR_CHECKS) expect(html).toContain(`data-check="${id}"`);
     } finally {
-      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
     }
   });
 });

@@ -1,13 +1,11 @@
 // 工具包：skill、MCP、bash 开关、联网开关、给秘书发消息开关、发附件开关。用户自己在项目页或任务详情里扩大或减少能力，不用走计划变更。
-// - ToolkitPanel：真项目、真任务的工具包区。skill 只能从 skill 库里选、MCP 只能选登记了的（配置区写的和项目自动转的，GET 工具包目录）；
+// ToolkitPanel：真项目、真任务的工具包区。skill 只能从 skill 库里选、MCP 只能选登记了的（配置区写的和项目自动转的，GET 工具包目录）；
 //   项目自己自动转的 MCP 一直在，只显示、不能去掉；
 //   每改一下就发 set_toolkit，守护进程写进工具包（负责人正在干活时等它做完手头这一步就按新工具包重新装配），
 //   项目、任务随后在各自的频道推来，这里跟着显示；skill 的选择里整套导入的集合显示成一项，可以整套选，点开也能单选（ui/skill-picker.tsx）；
-// - ToolkitEditor：原型数据（假项目、假任务）的工具包区，只在页面里改。
+// 原型数据（假项目、假任务）的工具包区在 prototype/proto-toolkit-editor.tsx。
 import { useEffect, useState } from "react";
 import { useStore } from "../app/store.tsx";
-import type { Toolkit } from "../model/types.ts";
-import { useProto } from "../prototype/proto-store.tsx";
 import {
   type McpServerEntry,
   type PlanToolkit,
@@ -125,92 +123,6 @@ export function ToolkitPanel({ target, toolkit, readOnly, readOnlyNote }: { targ
       ) : (
         <div className="hint">{t("pages.toolkit.liveHint")}</div>
       )}
-    </fieldset>
-  );
-}
-
-/** 已在二狗里登记的 MCP（原型） */
-const REGISTERED_MCPS = ["demo-exif-reader", "demo-mail-readonly", "demo-calendar-readonly", "demo-git-host"];
-
-/** 原型数据（假项目、假任务）的工具包区：只在页面里改 */
-export function ToolkitEditor({ initial, readOnly }: { initial: Toolkit; readOnly?: boolean }) {
-  const [kit, setKit] = useState(initial);
-  const { proto } = useProto();
-  const toast = useToast();
-  const changed = () => toast(t("pages.toolkit.protoChanged"));
-  const set = (k: Toolkit) => {
-    setKit(k);
-    changed();
-  };
-  const skillOptions = proto.skills.map((s) => s.name).filter((n) => !kit.skills.includes(n));
-  const mcpOptions = REGISTERED_MCPS.filter((m) => !kit.mcps.includes(m));
-  return (
-    <fieldset className="toolkit" disabled={readOnly}>
-      <div className="tk-row">
-        <div className="tk-k">skill</div>
-        <div className="chips">
-          {kit.skills.length === 0 && <span className="muted">{t("pages.toolkit.none")}</span>}
-          {kit.skills.map((s) => (
-            <button key={s} type="button" className="chip chip-data chip-x" onClick={() => set({ ...kit, skills: kit.skills.filter((x) => x !== s) })} aria-label={t("pages.toolkit.remove", { name: s })}>
-              {s} ×
-            </button>
-          ))}
-          {skillOptions.length > 0 && (
-            <select className="input chip-add" value="" onChange={(e) => e.target.value && set({ ...kit, skills: [...kit.skills, e.target.value] })} aria-label={t("pages.toolkit.addSkill")}>
-              <option value="">{t("pages.toolkit.addFromLibrary")}</option>
-              {skillOptions.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
-          )}
-        </div>
-      </div>
-      <div className="tk-row">
-        <div className="tk-k">MCP</div>
-        <div className="chips">
-          {kit.mcps.length === 0 && <span className="muted">{t("pages.toolkit.none")}</span>}
-          {kit.mcps.map((s) => (
-            <button key={s} type="button" className="chip chip-data chip-x" onClick={() => set({ ...kit, mcps: kit.mcps.filter((x) => x !== s) })} aria-label={t("pages.toolkit.remove", { name: s })}>
-              {s} ×
-            </button>
-          ))}
-          {mcpOptions.length > 0 && (
-            <select className="input chip-add" value="" onChange={(e) => e.target.value && set({ ...kit, mcps: [...kit.mcps, e.target.value] })} aria-label={t("pages.toolkit.addMcp")}>
-              <option value="">{t("pages.toolkit.addRegisteredMcp")}</option>
-              {mcpOptions.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
-          )}
-        </div>
-      </div>
-      <label className="tk-row tk-switch">
-        <div className="tk-k">bash</div>
-        <input type="checkbox" checked={kit.bash} onChange={(e) => set({ ...kit, bash: e.target.checked })} />
-        <span className="muted">{t("pages.toolkit.protoBashHint")}</span>
-      </label>
-      <label className="tk-row tk-switch">
-        <div className="tk-k">{t("pages.toolkit.network")}</div>
-        <input type="checkbox" checked={kit.network} onChange={(e) => set({ ...kit, network: e.target.checked })} />
-        <span className="muted">{t("pages.toolkit.protoNetworkHint")}</span>
-      </label>
-      <label className="tk-row tk-switch">
-        <div className="tk-k tk-k-wide">
-          <NamedText text={TELL_SECRETARY_LABEL} />
-        </div>
-        <input type="checkbox" checked={tellSecretaryOn(kit)} onChange={(e) => set(withTellSecretary(kit, e.target.checked))} />
-        <span className="muted">
-          <NamedText text={tellSecretaryHint()} />
-        </span>
-      </label>
-      <label className="tk-row tk-switch">
-        <div className="tk-k">{SEND_ATTACHMENT_LABEL}</div>
-        <input type="checkbox" checked={sendAttachmentOn(kit)} onChange={(e) => set(withSendAttachment(kit, e.target.checked))} />
-        <span className="muted">
-          <NamedText text={sendAttachmentHint()} />
-        </span>
-      </label>
-      <div className="hint">{t("pages.toolkit.protoHint")}</div>
     </fieldset>
   );
 }

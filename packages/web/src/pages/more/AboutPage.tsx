@@ -16,8 +16,8 @@ import { useAssistantName } from "../../ui/assistant-name.tsx";
 import { useToast } from "../../ui/toast.tsx";
 import { MarkdownBody } from "../ReportPage.tsx";
 
-/** 页面直接从构建产物打开、或者是在线演示页（原型，没有守护进程；app/prototype-mode.ts） */
-export const PROTOTYPE = typeof window !== "undefined" && isPrototypePage(window.location.protocol, import.meta.env.MODE);
+/** 页面是演示页（原型，没有守护进程；app/prototype-mode.ts） */
+export const PROTOTYPE = isPrototypePage(import.meta.env.MODE);
 
 /** 这台设备怎么连进来的 */
 export function connectionText(access: AccessInfo | undefined): string {

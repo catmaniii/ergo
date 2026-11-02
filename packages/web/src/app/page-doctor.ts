@@ -3,17 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { DoctorView } from "../state/index.ts";
 import { demoDoctorView, loadDoctor } from "./doctor.ts";
-import { isPrototypePage } from "./prototype-mode.ts";
 import { useStore } from "./store.tsx";
 
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-let prototype: boolean | undefined;
-
-/** 这个页面是不是演示页（直接打开构建产物 file://、在线演示页）：没有守护进程，不请求网络；Node 里（没有 window）当不是 */
-export function doctorPrototypePage(): boolean {
-  prototype ??= typeof window !== "undefined" && isPrototypePage(window.location.protocol, import.meta.env.MODE);
-  return prototype;
+/** 演示页（没有守护进程，不请求网络）才有的编好的数据；安装版这个分支摇掉，假数据不进产物（字面的 MODE 比较） */
+function demoView(): (() => DoctorView) | undefined {
+  return import.meta.env.MODE === "demo" ? demoDoctorView : undefined;
 }
 
 /** 体检页用的：查到的八项、在不在查、查不成的原因、再查一遍 */
@@ -34,8 +30,8 @@ export interface DoctorState {
 export function useDoctor(): DoctorState {
   const { ui } = useStore();
   const online = ui.connection === "online";
-  const demo = doctorPrototypePage();
-  const [view, setView] = useState<DoctorView | undefined>(() => (demo ? demoDoctorView() : undefined));
+  const demo = demoView();
+  const [view, setView] = useState<DoctorView | undefined>(() => demo?.());
   const [loading, setLoading] = useState(!demo);
   const [error, setError] = useState<string | undefined>();
 

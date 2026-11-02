@@ -8,7 +8,7 @@
 import { createContext, type ReactNode, useContext, useRef, useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import type { ReminderSummary } from "../../model/types.ts";
-import { useProto } from "../../prototype/proto-store.tsx";
+import { useProto } from "../../app/proto-context.ts";
 import { describeSchedule, isRepeating, nextClockTime, nowIso, REMINDER_STATUS_LABEL, type ReminderAction, type ReminderMenuItem, reminderMenu, scheduleClockTime, t } from "../../state/index.ts";
 import { nextTimeLabel, timeLabel } from "../../util/time.ts";
 import { useLongPress } from "../../ui/long-press.ts";

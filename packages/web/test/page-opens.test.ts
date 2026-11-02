@@ -1,4 +1,4 @@
-// 打开页面不崩（2026-10-18 用户要求：改了代码起码自己用网页打开看一下）：照 vite.config.ts 按生产环境构建一遍，存成临时文件，
+// 打开页面不崩（2026-10-18 用户要求：改了代码起码自己用网页打开看一下）：照 vite.config.ts 按生产环境构建一遍演示页（--mode demo），存成临时文件，
 // 用 file:// 在真 Chrome 里打开（不经守护进程，前端走原型的假数据），手机宽、电脑宽各一遍，挨个切到每一页（主导航各项、"更多"
 // 下面各页、任务和项目的详情），再开一遍侧边栏模式（?ergo=side）。页面抛出没接住的错误（React 崩了整页白屏——
 // 比如 useSyncExternalStore 的 snapshot 每次给新对象、无限重渲）或某一页一个字都没有，就算失败。
@@ -14,6 +14,7 @@
 // 小屏和手机上，会话缩小后点开的分支整块留在视口里。
 // 标题上的"等你……"手机、电脑都看得到、点得到，点了跳到要处理的那张卡、闪一下，再点一次再闪；卡在别的页的跳过去；答完就不再等你。
 // 同一个 agent 不管从哪进去都是同一个对话框（标题栏、阶段条、输入框都在）；老的 #/tasks/<任务> 跳过去并定位；做完收成一行；背后的 agent 的列表和只读对话。
+// 安装版（不带 --mode demo）被直接打开：只有一句"要经二狗打开"，中英跟系统语言，一个请求都不往外发。
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -215,19 +216,28 @@ const CJK = /[　-〿㐀-䶿一-鿿豈-﫿！-｠]/;
 
 let browser: Browser | undefined;
 let pageUrl = "";
+/** 安装版那份（不带 --mode demo）的 file:// 地址 */
+let installUrl = "";
 let tempDir = "";
+
+/** 照 vite.config.ts 构建一份，不写盘；mode 是 demo 时是演示页那份 */
+async function buildPage(mode?: string): Promise<string> {
+  const result = await build({ root: WEB_ROOT, configFile: `${WEB_ROOT}/vite.config.ts`, logLevel: "silent", ...(mode ? { mode } : {}), build: { write: false } });
+  const outputs = (Array.isArray(result) ? result : [result]) as Rolldown.RolldownOutput[];
+  const page = outputs.flatMap((o) => o.output).find((f) => f.fileName === "index.html");
+  if (page?.type !== "asset") throw new Error("构建产物里没有 index.html");
+  return String(page.source);
+}
 
 beforeAll(async () => {
   if (!CHROME) return;
-  // 和 npm run build:web 一样按生产环境构建（vitest 把 NODE_ENV 设成了 test，Vite 会照它打开发版）
+  // 和 npm run build:web、build:demo 一样按生产环境构建（vitest 把 NODE_ENV 设成了 test，Vite 会照它打开发版）
   vi.stubEnv("NODE_ENV", "production");
   let html: string;
+  let installHtml: string;
   try {
-    const result = await build({ root: WEB_ROOT, configFile: `${WEB_ROOT}/vite.config.ts`, logLevel: "silent", build: { write: false } });
-    const outputs = (Array.isArray(result) ? result : [result]) as Rolldown.RolldownOutput[];
-    const page = outputs.flatMap((o) => o.output).find((f) => f.fileName === "index.html");
-    if (page?.type !== "asset") throw new Error("构建产物里没有 index.html");
-    html = String(page.source);
+    html = await buildPage("demo");
+    installHtml = await buildPage();
   } finally {
     vi.unstubAllEnvs();
   }
@@ -235,6 +245,9 @@ beforeAll(async () => {
   const file = path.join(tempDir, "index.html");
   fs.writeFileSync(file, html);
   pageUrl = pathToFileURL(file).href;
+  const installFile = path.join(tempDir, "install.html");
+  fs.writeFileSync(installFile, installHtml);
+  installUrl = pathToFileURL(installFile).href;
   browser = await chromium.launch({ executablePath: CHROME });
 }, 120_000);
 
@@ -299,6 +312,41 @@ async function calendarEntries(viewport: { width: number; height: number }, sear
   expect(errors).toEqual([]);
   return { nav: nav + more, calendar, rules, manual, jump };
 }
+
+
+describe.skipIf(!CHROME)("安装版被直接打开（file://）", () => {
+  for (const { locale, title, how } of [
+    { locale: "zh-CN", title: "这个页面要经二狗打开", how: "先在命令行运行 ergo start，再用浏览器打开 http://127.0.0.1:8810" },
+    { locale: "en-US", title: "This page has to be opened through ergo", how: "Run ergo start in a terminal, then open http://127.0.0.1:8810 in your browser" },
+  ]) {
+    test(`${locale}：只有一句怎么打开，跟系统语言，没有导航、没有假数据，一个请求都不往外发`, async () => {
+      const context = await browser!.newContext({ locale, viewport: { width: 390, height: 844 } });
+      const page = await context.newPage();
+      const errors: string[] = [];
+      const outside: string[] = [];
+      page.on("pageerror", (e) => errors.push(String(e)));
+      page.on("console", (m) => {
+        if ((m.type() === "error" && !m.text().startsWith("Failed to load resource")) || m.text().startsWith("[i18n]")) errors.push(m.text());
+      });
+      page.on("request", (r) => {
+        if (!r.url().startsWith("file:") && !r.url().startsWith("data:")) outside.push(r.url());
+      });
+      page.on("websocket", (ws) => outside.push(ws.url()));
+      await page.goto(installUrl);
+      await page.locator('[data-testid="open-through-ergo"]').waitFor({ timeout: 10_000 });
+      const text = await bodyText(page);
+      expect(text).toContain(title);
+      expect(text).toContain(how);
+      expect(await page.locator("nav").count()).toBe(0);
+      expect(await page.locator('a[href="http://127.0.0.1:8810"]').count()).toBe(1);
+      // 等一下：真要连东西的话这时候也连了
+      await page.waitForTimeout(500);
+      expect(errors).toEqual([]);
+      expect(outside).toEqual([]);
+      await context.close();
+    });
+  }
+});
 
 describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里）", () => {
   for (const [name, viewport] of [

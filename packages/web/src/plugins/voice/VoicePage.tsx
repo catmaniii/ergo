@@ -11,7 +11,7 @@
 // - 每个 agent 的名字和音色（并成"角色"）：这一页不管了，挪到设置 · 角色与声音（pages/more/RolesPage.tsx）——
 //   角色就是名字 + 音色，每个 agent 选一个角色（⚙ 面板顶上那一块是同一件事，ui/agent-roles.tsx）；这里只剩参考音色本身。
 // 两个模型的状态：打开页面时经 HTTP 取一次（/api/voice-models，并进状态层），之后的变化经活动状态频道推来（UiState.voiceModels）。
-// 参考音色经 HTTP 取（/api/reference-voices，DaemonHttp）：页面由守护进程提供时是数据目录里的，直接打开构建产物时是原型的假数据。
+// 参考音色经 HTTP 取（/api/reference-voices，DaemonHttp）：页面由守护进程提供时是数据目录里的，演示页是原型的假数据。
 import { useCallback, useEffect, useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { toggleVoice, useVoicePlaying } from "../../app/page-voice.ts";

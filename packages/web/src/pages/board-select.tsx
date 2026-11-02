@@ -14,8 +14,8 @@
 import { useState } from "react";
 import { useStore } from "../app/store.tsx";
 import type { ReminderSummary, TaskSummary } from "../model/types.ts";
+import { useProto } from "../app/proto-context.ts";
 import { protoAfter, protoSubject } from "../prototype/proto-task-acts.ts";
-import { useProto } from "../prototype/proto-store.tsx";
 import {
   BATCH_ACTION_LABEL,
   BOARD_BATCH_ACTIONS,
@@ -115,7 +115,10 @@ function useBoardBatch(): (ids: readonly string[], action: TaskBatchAction) => P
         results.push(...batch.map((taskId): BatchItemResult => ({ taskId, ok: false, message: why })));
       }
     }
-    if (fake.length > 0) {
+    // 看板上有、状态层里没有的：演示页是假任务，在页面上演；安装版只可能是刚好没了的，算这次没做成
+    if (import.meta.env.MODE !== "demo") {
+      results.push(...fake.map((taskId): BatchItemResult => ({ taskId, ok: false, message: t("pages.boardSelect.notNow") })));
+    } else if (fake.length > 0) {
       let running = proto.board.filter((e) => e.kind === "task" && e.status === "running" && !fake.includes(e.id)).length;
       const patches = new Map<string, Partial<TaskSummary>>();
       for (const id of fake) {

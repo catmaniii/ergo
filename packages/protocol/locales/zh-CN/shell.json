@@ -14,6 +14,8 @@
   "shell.nav.inboxBadge": "（{unread} 条未读，{seen} 条看过没处理）",
   "shell.nav.secretaryNews": "（有没看过的新消息）",
   "shell.card.title": "卡片",
+  "shell.openThroughErgo.title": "这个页面要经二狗打开",
+  "shell.openThroughErgo.how": "直接打开这个文件用不了。先在命令行运行 {command}，再用浏览器打开 {address}。",
   "shell.more.title": "更多",
   "shell.more.empty": "导航里放得下全部的项，这里没有别的了",
   "shell.more.calendar": "日历",

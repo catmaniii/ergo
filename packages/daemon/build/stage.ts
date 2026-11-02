@@ -15,6 +15,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { type VersionInfo, type VersionKind, writeVersionInfo } from "../src/release/layout.ts";
+import { demoDataIn } from "./demo-sentinels.ts";
 import { type Closure, copyClosure, runtimeClosure } from "./deps.ts";
 import { LAUNCHER_CMD } from "./launcher.ts";
 import { collectLicenses, formatNotices, type LicenseItem, licensesJson } from "./licenses.ts";
@@ -120,6 +121,9 @@ export function stageVersion(options: StageOptions): StageResult {
   const webDist = options.webDist ?? path.join(repo, "packages", "web", "dist");
   const webIndex = path.join(webDist, "index.html");
   if (!fs.existsSync(webIndex)) throw new Error(`网页还没构建（没有 ${webIndex}）：先 npm run build:web`);
+  // 安装版不带演示数据（发布包、源码装、开发模式都走这里）：查到就不摆了
+  const leaked = demoDataIn(fs.readFileSync(webIndex, "utf8"));
+  if (leaked.length > 0) throw new Error(`网页产物 ${webIndex} 里有演示页的假数据（${leaked.join("、")}）：重新 npm run build:web，再查 vite.config.ts 和 packages/web/src 里引 prototype/ 的地方`);
 
   fs.rmSync(out, { recursive: true, force: true });
   const app = path.join(out, "app");

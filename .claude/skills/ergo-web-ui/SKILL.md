@@ -18,15 +18,15 @@ description: 改二狗（ergo）网页界面时用：加页面、改样式、加
 | `src/plugins/` | 网页插件宿主、清单、各插件 |
 | `src/visual-styles/` | 十一套风格的 token 和规则 |
 | `src/styles/` | 经典风格的规则，只用 `var(--token)` |
-| `src/prototype/` | 只属于原型的假连接、假数据 |
+| `src/prototype/` | 只属于原型的假连接、假数据，只进演示页（`build:demo`），不进安装版（`build:web`） |
 
 ## 看效果：不用守护进程
 
 ```powershell
-npm run build:web
+npm run build:demo
 ```
 
-直接打开 `packages/web/dist/index.html`（`file://`）就是原型，全是编的数据。地址带 `?lang=en` 看英文，`?demo-plugins-off=memory,reminders` 看插件停用，`?demo-plugins-removed=<名字>` 看移除。
+直接打开 `packages/web/dist-demo/index.html`（`file://`）就是原型，全是编的数据。安装版（`npm run build:web`，`dist/`）一条假数据都不带，直接打开它只有一句"要经二狗打开"，看效果别开它。地址带 `?lang=en` 看英文，`?demo-plugins-off=memory,reminders` 看插件停用，`?demo-plugins-removed=<名字>` 看移除。
 
 无头 Chrome 里换风格和深浅：`localStorage.setItem("ergo-style", "<风格 id>")`、`localStorage.setItem("ergo-theme", "dark")`，然后刷新。
 
@@ -100,7 +100,7 @@ npx vitest run packages/web/test/visual-styles packages/web/test/app/theme.test.
 2. 核心页：`src/app/route-hash.ts` 的 `MORE_PAGES` 加一项，`src/pages/` 写组件。加进 `MORE_PAGES` 的自动被页面测试切到。
 3. 别的地址加进 `packages/web/test/page-opens.test.ts` 的 `PAGES`。英文迁好的元素加进 `EN_DONE`。
 4. 要守护进程的数据：见下一节。
-5. 原型不能空着：`src/prototype/` 给假数据（`fake-connection.ts`、`fake-plugins.ts`、`fake-data-sources.ts`），不然 `file://` 打开是空的。假数据的中文写在 `fake-*.ts` 里，英文写在 `src/prototype/en/` 的同名文件里（"中文原文 → 英文"，有插值的地方写 `{}`）：结构、个数、状态、日期只有一份，英文只换字，金额换成美元（约 7 元 = 1 美元）。不进语言文件。缺的、多的 `test/prototype/fake-content.test.ts` 会报。
+5. 原型不能空着：`src/prototype/` 给假数据（`fake-connection.ts`、`fake-plugins.ts`、`fake-data-sources.ts`），不然演示页是空的。**真页面要用原型的东西，只能写在 `import.meta.env.MODE === "demo"` 字面的分支里**（三元、`if`，不走变量和函数，否则摇不掉），安装版的产物里才没有它；`test/build.test.ts` 查哨兵（`packages/daemon/build/demo-sentinels.ts`），`npm run release` 也查。假数据的中文写在 `fake-*.ts` 里，英文写在 `src/prototype/en/` 的同名文件里（"中文原文 → 英文"，有插值的地方写 `{}`）：结构、个数、状态、日期只有一份，英文只换字，金额换成美元（约 7 元 = 1 美元）。不进语言文件。缺的、多的 `test/prototype/fake-content.test.ts` 会报。
 6. 状态逻辑写进 `src/state/` 的纯函数，从 `state/index.ts` 导出，测试用录下的事件流回放（`packages/web/test/state/recordings/`）。
 
 ## 6. 网页要取数据
@@ -112,7 +112,7 @@ npx vitest run packages/web/test/visual-styles packages/web/test/app/theme.test.
 | 测什么 | 命令 |
 |---|---|
 | 状态层、组件、风格、构建检查 | `npx vitest run packages/web/test/<目录或文件>` |
-| 打开每一页不崩（中英、手机宽屏、插件停用都走一遍，要几分钟） | `npx vitest run --project web test/page-opens.test.ts`（自己构建一遍，不写 `dist/`） |
+| 打开每一页不崩（中英、手机宽屏、插件停用都走一遍，要几分钟） | `npx vitest run --project web test/page-opens.test.ts`（自己构建演示页和安装版，不写 `dist/`、`dist-demo/`） |
 | 只跑其中一部分 | 加 `-t "手机宽"` |
 | 中英文齐不齐 | `npm run i18n:check -- --data-dir <临时目录>` |
 | 真守护进程上看 | `npm run smoke:page -- http://127.0.0.1:<自己的端口>/`，不带地址会打开真的 8810 |

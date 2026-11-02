@@ -504,8 +504,8 @@ Gmail 可以连几个账号（`google/gmail-accounts.ts`）。密钥区 `secrets
 ### 页面从哪里来、原型和在线演示页
 
 - **由守护进程提供**：`npm run build:web` 之后，守护进程在 `http://127.0.0.1:8810/` 提供 `packages/web/dist/index.html`（Vite + `vite-plugin-singlefile`，JS、CSS 全内联；每次请求重新读，不用重启守护进程）。开着的页面几秒内会提示"二狗有新版本"，点"刷新"就是新版。
-- **原型**：直接打开构建产物（`file://`）时没有守护进程，全部用原型自带的编的数据（`src/prototype/`：假连接、假数据，名字和路径都是虚构的）。评审界面、页面测试（`test/page-opens.test.ts`）都这么开。地址的 `?lang=en` 换英文。
-- **在线演示页**：`npm run build:demo`（`vite build --mode demo --outDir dist-demo`）再构建一份，页面按 `import.meta.env.MODE` 认出是演示页、一律用原型的假数据（`src/app/prototype-mode.ts`），整个 `dist-demo/` 放 GitHub Pages（`.github/workflows/pages.yml`）。不装、不填 Key 就能点着看。
+- **在线演示页（原型）**：`npm run build:demo`（`vite build --mode demo --outDir dist-demo`）再构建一份，页面按 `import.meta.env.MODE` 认出是演示页、一律用原型自带的编的数据（`src/prototype/`：假连接、假数据，名字和路径都是虚构的；`src/app/prototype-mode.ts`），不连守护进程。整个 `dist-demo/` 放 GitHub Pages（`.github/workflows/pages.yml`），不装、不填 Key 就能点着看。评审界面用 `file://` 打开它，页面测试（`test/page-opens.test.ts`）也开它。地址的 `?lang=en` 换英文。
+- **安装版不带假数据**：`build:web` 的产物里没有 `src/prototype/` 的任何东西，不是运行时不显示。真页面里用到原型的地方都写在 `import.meta.env.MODE === "demo"` 字面的分支里，构建时摇掉，`vite.config.ts` 再声明 `src/prototype/` 没有副作用。`test/build.test.ts` 用一组哨兵比对两份产物，摆版本目录时（`npm run release`，`packages/daemon/build/stage.ts`）也查同一组（`packages/daemon/build/demo-sentinels.ts`）。直接打开安装版的 `index.html`（`file://`）只显示一句这个页面要经二狗打开、怎么打开，语言跟系统（`src/pages/OpenThroughErgo.tsx`）。
 
 **网页的目录**：
 

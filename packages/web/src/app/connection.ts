@@ -4,8 +4,8 @@
 //   新建项目、任务转为项目、项目页上的动作）；多数只管发，结果随后在频道上推来、被拒的变成 request_failed。要等结果的（一次处理
 //   多个任务，逐条回报；已配对设备的延期、吊销、删除，逐台回报）返回 Promise，被拒时同样变成 request_failed，Promise 也随之拒绝；
 // - 多订阅几个频道（watchChannels）：打开某个项目的负责人会话、任务详情时才订阅那个负责人的会话频道。
-// 用哪个实现由 App.tsx 注入（StoreProvider 的 connection）：WebSocket 实现（ws-connection.ts），
-// 原型的假实现（prototype/fake-connection.ts），过渡期按频道分流（prototype/split-connection.ts）。
+// 用哪个实现由 App.tsx 注入（StoreProvider 的 connection）：安装版是 WebSocket 实现（ws-connection.ts），
+// 演示页是原型的假实现（prototype/fake-connection.ts）。
 import type {
   BrowserOutcome,
   BrowserRequest,

@@ -1,7 +1,10 @@
 /**
  * 主框架：竖屏底部横栏、宽屏左侧竖栏（内容区分栏）。主导航按空间自适应（ui/main-nav.tsx）：秘书、任务、项目、
  * 待我处理、浏览（只在鸿蒙 App 里）、日历、消耗、记忆、设置按顺序放得下的直接显示，放不下的从末尾起收进"更多"。
- * 宽窄按内容区的实际宽度判断（以 600 为界），所以原型的"手机宽度"预览也能直接用。
+ * 宽窄按内容区的实际宽度判断（以 600 为界）。
+ *
+ * 演示页（`npm run build:demo`）的一整套假东西都从 prototype/demo-wiring.ts 来，只有 `import.meta.env.MODE === "demo"` 那一处引它：
+ * 安装版（`npm run build:web`）构建时摇掉，产物里一条假数据都没有，只连守护进程。
  *
  * 由守护进程提供页面时先问一次这个页面被信任吗（/api/access）：外网端口上还没配对的设备只看到配对等待页；
  * 用着用着凭证失效了（被吊销、过期），连接报 unpaired，也回到配对等待页。被吊销的设备不自动重新申请：
@@ -24,6 +27,7 @@ import { AccessProvider } from "./app/access.tsx";
 import { pageNativeApp } from "./app/page-native.ts";
 import { SIDE_MODE } from "./app/side-mode.ts";
 import { fetchAccess, httpPairingApi } from "./app/pairing-api.ts";
+import type { PairingApi } from "./app/pairing-flow.ts";
 import { revokedMark } from "./app/revoked-mark.ts";
 import { type Navigate, navItemOf, type Route, toHash, useRoute } from "./app/route.ts";
 import { StoreProvider, useStore } from "./app/store.tsx";
@@ -39,12 +43,9 @@ import { SetupBanner } from "./pages/SetupWizard.tsx";
 import { TasksPage } from "./pages/TasksPage.tsx";
 import type { Connection } from "./app/connection.ts";
 import { type DaemonHttp, HttpDaemonClient } from "./app/daemon-http.ts";
-import { FakeDaemonHttp } from "./prototype/fake-http.ts";
-import { localized, localizedFake } from "./prototype/fake-content.ts";
 import { daemonSocketUrl, WebSocketConnection } from "./app/ws-connection.ts";
-import { isPrototypePage } from "./app/prototype-mode.ts";
-import { FakeConnection } from "./prototype/fake-connection.ts";
-import { SplitConnection } from "./prototype/split-connection.ts";
+import { CardOutcomeToasts } from "./app/card-outcome-toasts.tsx";
+import { demoWiring } from "./prototype/demo-wiring.ts";
 import {
   type AccessInfo,
   activeLocale,
@@ -60,10 +61,6 @@ import {
   secretaryNavDot,
   t,
 } from "./state/index.ts";
-import { FAKE_ACCESS } from "./prototype/fake-data.ts";
-import { startDemoDebug } from "./prototype/demo-debug.ts";
-import { previewPairingApi } from "./prototype/preview-pairing.ts";
-import { ProtoProvider } from "./prototype/proto-store.tsx";
 import { AlertsView, FailureToasts } from "./ui/alerts.tsx";
 import { CardPanel } from "./ui/cards/CardPanel.tsx";
 import { TopBar, useElementWidth } from "./ui/common.tsx";
@@ -80,18 +77,14 @@ import { PluginBackground, PluginHostProvider, PluginRoutePage, PluginStatusSync
 /** 鸿蒙"一多"断点：≥600 视为宽屏 */
 const WIDE_MIN = 600;
 
-/**
- * 页面由守护进程提供（http://127.0.0.1:8810）；直接打开构建产物（file://）、在线演示页（`npm run build:demo` 那份）
- * 没有守护进程，全部用原型的假数据（app/prototype-mode.ts）
- */
-const SERVED_BY_DAEMON = !isPrototypePage(window.location.protocol, import.meta.env.MODE);
+/** 演示页（`npm run build:demo`）的假东西；安装版是 undefined，这个分支连同 prototype/ 在构建时摇掉（app/prototype-mode.ts） */
+const demo = import.meta.env.MODE === "demo" ? demoWiring() : undefined;
 
 /**
- * 已经接上真数据的频道：是秘书会话；卡片、待我处理，以及看板频道（目前只有简单提醒）；
- * 已配对设备；工作日历；项目列表（项目的负责人会话打开时再订阅）。
+ * 一打开就订阅的频道：秘书会话；卡片、待办，以及看板频道；已配对设备；工作日历；项目列表（负责人的会话打开时再订阅）。
  * 往这里加
  */
-const REAL_CHANNELS = [
+const OPENING_CHANNELS = [
   CHANNELS.secretary,
   CHANNELS.cards,
   CHANNELS.inbox,
@@ -123,17 +116,11 @@ async function checkAccess(): Promise<AccessInfo> {
   return info;
 }
 
-/**
- * 前端连接只在这里注入，别处不认具体的连接（原型的看板等假数据也只看前端状态层里的变化）。
- * 由守护进程提供页面时，接了真数据的频道走 WebSocket，其余频道仍是原型的假数据。
- */
-const fakeConnection = new FakeConnection();
-const connection: Connection = SERVED_BY_DAEMON
-  ? new SplitConnection(new WebSocketConnection({ url: daemonSocketUrl(window.location), channels: REAL_CHANNELS, checkAccess }), fakeConnection, REAL_CHANNELS)
-  : localizedFake(fakeConnection);
+/** 前端连接只在这里注入，别处不认具体的连接（原型的看板等假数据也只看前端状态层里的变化） */
+const connection: Connection = demo ? demo.connection : new WebSocketConnection({ url: daemonSocketUrl(window.location), channels: OPENING_CHANNELS, checkAccess });
 
-/** HTTP 那一半（上传附件、往上翻历史、媒体地址、改工作日历）：同样只在这里注入；原型的改工作日历交给假连接推事件 */
-const http: DaemonHttp = SERVED_BY_DAEMON ? new HttpDaemonClient() : localizedFake(new FakeDaemonHttp(fakeConnection));
+/** HTTP 那一半（上传附件、往上翻历史、媒体地址、改工作日历）：同样只在这里注入 */
+const http: DaemonHttp = demo ? demo.http : new HttpDaemonClient();
 
 /**
  * 网页插件宿主：一建好就按全开装上，收到守护进程报的状况再装、停。建在连接和 HTTP 之后、交给插件：
@@ -143,16 +130,15 @@ const http: DaemonHttp = SERVED_BY_DAEMON ? new HttpDaemonClient() : localizedFa
 const pluginHost = createWebPluginHost({ plugins: WEB_PLUGIN_MANIFEST, page: { connection, http, sideMode: SIDE_MODE } });
 
 // 原型的 ?demo-debug：一打开就在关于页，Debug 工具集已打开，各组有假数据（在页面读地址之前）
-if (!SERVED_BY_DAEMON && !SIDE_MODE) startDemoDebug();
+if (demo && !SIDE_MODE) demo.startDebug();
 
 /** 这个页面被信任吗：问的路上、问到了（问不到也照常进，连不上时界面会提示）、还没配对（配对等待页怎么开场） */
 type AccessState = { kind: "checking" } | { kind: "ready"; info?: AccessInfo } | { kind: "unpaired"; opening: PairingOpening };
 
 function useAccessCheck(): AccessState {
-  // 原型（直接打开构建产物）假装是从已配对的一台手机上打开的：设置 · 已配对设备里标"就是这台"
-  const [state, setState] = useState<AccessState>(SERVED_BY_DAEMON ? { kind: "checking" } : { kind: "ready", info: localized(FAKE_ACCESS) });
+  const [state, setState] = useState<AccessState>(demo ? { kind: "ready", info: demo.access() } : { kind: "checking" });
   useEffect(() => {
-    if (!SERVED_BY_DAEMON) return;
+    if (demo) return;
     checkAccess().then(
       (info) => setState(info.access === "none" ? { kind: "unpaired", opening: pairingOpening(info.reason, revokedMark.get()) } : { kind: "ready", info }),
       () => setState({ kind: "ready" }),
@@ -169,7 +155,7 @@ const reload = () => window.location.reload();
  * 原型里吊销、删除了"就是这台"也到这里，用假的配对接口（重新申请、模拟批准之后刷新，假数据从头来）
  */
 function Unpaired({ opening }: { opening: PairingOpening }) {
-  const [api] = useState(() => (SERVED_BY_DAEMON ? httpPairingApi : localizedFake(previewPairingApi(navigator.userAgent))));
+  const [api] = useState(() => (demo ? demo.pairingApi() : httpPairingApi));
   return <PairingWait api={api} onPaired={reload} opening={opening} onReapply={() => revokedMark.set(false)} />;
 }
 
@@ -222,10 +208,11 @@ export default function App() {
   const access = useAccessCheck();
   if (access.kind === "checking") return null;
   if (access.kind === "unpaired") return <Unpaired opening={access.opening} />;
+  const shell = SIDE_MODE ? <SideShell /> : <PrototypeStage />;
   return (
     <AccessProvider access={access.info}>
       {/* 原型换了语言重新连一遍：假数据按语言出内容，已经推过的跟着换 */}
-      <StoreProvider key={SERVED_BY_DAEMON ? undefined : activeLocale().meta.id} connection={connection} http={http}>
+      <StoreProvider key={demo ? activeLocale().meta.id : undefined} connection={connection} http={http}>
         <LocaleSync />
         <AgentRolesSync />
         <UserNameSync />
@@ -233,9 +220,8 @@ export default function App() {
           <PluginStatusSync />
           <PluginBackground />
           <ToastProvider>
-            <ProtoProvider realBoard={SERVED_BY_DAEMON && REAL_CHANNELS.includes(CHANNELS.board)}>
-              {SIDE_MODE ? <SideShell /> : <PrototypeStage />}
-            </ProtoProvider>
+            <CardOutcomeToasts />
+            {demo ? <demo.ProtoProvider>{shell}</demo.ProtoProvider> : shell}
           </ToastProvider>
         </PluginHostProvider>
       </StoreProvider>
@@ -343,8 +329,8 @@ function Shell({ width }: { width: number }) {
 
   // 用着用着凭证失效了（外网端口上被吊销、过期）：回到配对等待页
   if (ui.connection === "unpaired") return <UnpairedNow reason={ui.unpairedReason} />;
-  // 配对等待页的预览（设置 · 已配对设备里点进来）：新设备上看到的样子，用假的配对接口，没有 tab
-  if (shown.tab === "pair-wait") return <PairingPreview onExit={() => navigate({ tab: "more", page: "devices" })} />;
+  // 配对等待页的预览（演示页的设置 · 已配对设备里点进来）：新设备上看到的样子，用假的配对接口，没有 tab
+  if (demo && shown.tab === "pair-wait") return <PairingPreview api={demo.pairingApi} onExit={() => navigate({ tab: "more", page: "devices" })} />;
 
   const current = navItemOf(shown);
   const nav = <MainNav orientation={wide ? "rail" : "bar"} items={navItems} pages={pages} fit={fit} highlight={current && navHighlight(fit, current)} badge={badge} navigate={navigate} onMeasure={onMeasure} />;
@@ -353,7 +339,7 @@ function Shell({ width }: { width: number }) {
   // 演示页不显示。放在内容区里（narrow 是上下、wide 是左右，放进 .app 那一层会挤成左边一列）
   const page = (
     <>
-      {SERVED_BY_DAEMON && shown.tab === "secretary" && <SetupBanner />}
+      {!demo && shown.tab === "secretary" && <SetupBanner />}
       <PageUpdateBar />
       <Page route={shown} wide={wide} folded={fit.folded} navigate={navigate} />
       {route.tab === "app" && <InAppBrowser key={route.app} route={route} leaveTo={toHash(underlay)} />}
@@ -408,9 +394,9 @@ function PluginOffPage({ plugin }: { plugin: string | undefined }) {
   );
 }
 
-/** 原型：配对等待页的预览（不连守护进程） */
-function PairingPreview({ onExit }: { onExit(): void }) {
-  const [api] = useState(() => localizedFake(previewPairingApi(navigator.userAgent)));
+/** 演示页：配对等待页的预览（不连守护进程） */
+function PairingPreview({ api: makeApi, onExit }: { api(): PairingApi; onExit(): void }) {
+  const [api] = useState(makeApi);
   return <PairingWait api={api} onPaired={onExit} onExit={onExit} />;
 }
 
@@ -447,6 +433,8 @@ function Page({ route, wide, folded, navigate }: { route: Route; wide: boolean; 
       // 报告页：文本类附件渲染着看；不属于主导航的哪一项
       return <ReportPage mediaId={route.mediaId} />;
     case "pair-wait":
+      // 演示页的配对预览在 Shell 里就画了；安装版没有这个预览，老地址落到已配对设备
+      return <MorePage wide={wide} page="devices" folded={folded} navigate={navigate} />;
     // 内置浏览器盖在底下那一页上，由 Shell 画，不在这里
     case "app":
       return null;

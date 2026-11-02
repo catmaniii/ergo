@@ -32,7 +32,7 @@ export default defineConfig({
         test: {
           name: "web",
           include: ["test/**/*.test.ts"],
-          // page-opens 要真 Chrome 打开构建产物，放集成车道；build.test.ts 只构建、不写盘，留在快车道。
+          // page-opens 要真 Chrome 打开页面，放集成车道；build.test.ts 只构建、不写盘，留在快车道。
           exclude: ["test/page-opens.test.ts"],
           setupFiles: ["test/setup-locales.ts"],
           testTimeout: 15_000,
