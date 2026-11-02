@@ -479,7 +479,7 @@ If the address is recognizably a tailnet one, the Tailscale item comes first.
 - A bar at the very top of the app: **The ergo app needs updating to x.y**, with a button to go and update.
 - The same reminder in your inbox, which also goes to the notification bar while the app is in the background. Each phone is only reminded once.
 
-**How to update:** On Android, tap **Download**, then open the file to install over the old version. See [Android app](#android-app). On HarmonyOS, tap **Installation guide** and sign and install again as in [HarmonyOS app](#harmonyos-app). You don't need to pair again.
+**How to update:** On Android, tap **Download**, choose where to save it, then open it in the phone's Files app to install over the old version. The app doesn't start the install for you. The first time, Android asks whether to allow installs from this source; allow it, go back to Files and tap the file again. See [Android app](#android-app). On HarmonyOS, tap **Installation guide** and sign and install again as in [HarmonyOS app](#harmonyos-app). You don't need to pair again.
 
 Once it's updated, the bar and the reminder go away by themselves. When the app is new enough, nothing shows. The phone browser never needs updating and never shows this bar.
 

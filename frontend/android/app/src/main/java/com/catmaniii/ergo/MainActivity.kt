@@ -1017,7 +1017,12 @@ class MainActivity : Activity() {
         web.webViewClient = BrowserClient()
         web.webChromeClient = BrowserChrome()
         web.setFindListener { active, total, done -> browserTools.searchResult(active, total, done) }
-        web.setDownloadListener(downloadListener(web) { browserDownloads })
+        val download = downloadListener(web) { browserDownloads }
+        web.setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+            download.onDownloadStart(url, userAgent, contentDisposition, mimetype, contentLength)
+            // 拦下来渲染的文件（FileDocs）还要留着这个地址，不算离开
+            if (!fileDocs.showingDownload(url)) browser.downloadStarted()
+        }
         pageControl.install(web)
         content.addView(web, 1, FrameLayout.LayoutParams(maxOf(browserFrame.width, 1), maxOf(browserFrame.height, 1)).apply {
             leftMargin = browserFrame.x

@@ -25,7 +25,7 @@ describe("App 太旧的提示条", () => {
   test("安卓太旧：写要升到哪一版，按钮是 APK 链接，开新窗口", () => {
     const html = bar({ version: "0.0.1", platform: "android" });
     expect(html).toContain(`二狗 App 需要升级到 ${MIN_APP_VERSION}`);
-    expect(html).toMatch(/href="[^"]+\/downloads\/ergo-android-debug\.apk"/);
+    expect(html).toMatch(/href="[^"]+\/releases\/latest\/download\/ergo-android-debug\.apk"/);
     expect(html).toContain("下载新版");
     expect(html).toContain('target="_blank"');
   });

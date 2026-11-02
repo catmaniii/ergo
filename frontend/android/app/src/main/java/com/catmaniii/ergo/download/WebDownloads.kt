@@ -27,6 +27,13 @@ fun safeFileName(name: String): String {
     return if (cleaned.isNotEmpty()) cleaned.take(120) else t("harmony.downloads.defaultName")
 }
 
+/**
+ * 猜文件名时能信的类型：application/octet-stream 只是"说不清是什么"，不能拿它改文件名自己的扩展名
+ * （URLUtil 会把 xxx.apk、xxx.zip 改成 xxx.bin，存下来点了打不开）
+ */
+fun nameMime(mime: String?): String? =
+    mime?.takeUnless { it.substringBefore(';').trim().equals("application/octet-stream", ignoreCase = true) }
+
 /** 服务端给的文件名（filename* 优先，再 filename，再按地址猜） */
 fun fileNameOf(url: String, contentDisposition: String?, mime: String?): String {
     if (contentDisposition != null) {
@@ -39,7 +46,7 @@ fun fileNameOf(url: String, contentDisposition: String?, mime: String?): String 
             }
         }
     }
-    return URLUtil.guessFileName(url, contentDisposition, mime)
+    return URLUtil.guessFileName(url, contentDisposition, nameMime(mime))
 }
 
 /** 下载的请求带不带 cookie：二狗的设备凭证只给二狗自己的页面发起的下载（外部网页指向二狗地址的下载不带，SameSite=Strict 的意思） */

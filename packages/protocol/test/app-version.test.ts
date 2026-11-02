@@ -66,6 +66,11 @@ describe("去哪升级", () => {
     expect(ANDROID_APP_URL).toMatch(/ergo-android-debug\.apk$/);
   });
 
+  test("安卓走发布页的地址：raw/main 那个回的类型会让已经装好的 App 把安装包存成 .bin", () => {
+    expect(ANDROID_APP_URL).toContain("/releases/latest/download/");
+    expect(ANDROID_APP_URL).not.toContain("/raw/");
+  });
+
   test("鸿蒙是手机安装教程，跟着语言", () => {
     expect(appUpgradeLink("harmony", "zh-CN")).toEqual({ kind: "guide", url: expect.stringMatching(/docs\/user-guide\/mobile\.md#鸿蒙-app$/) });
     expect(appUpgradeLink("harmony", "en")).toEqual({ kind: "guide", url: expect.stringMatching(/docs\/user-guide\/mobile\.en\.md#harmonyos-app$/) });

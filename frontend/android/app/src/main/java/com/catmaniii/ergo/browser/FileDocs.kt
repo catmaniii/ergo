@@ -149,6 +149,9 @@ class FileDocs(
 
     override fun isDiverted(request: DownloadRequest): Boolean = request in diverted
 
+    /** 这个地址刚被拦下来，要在页面里渲染（不是真的存成文件） */
+    fun showingDownload(url: String): Boolean = diverted.any { it.url == url }
+
     /** 拦下的下完了：换掉上一份，报给网页；网页这时已经不渲染了（重新加载过）就照常弹"保存到" */
     override fun finished(request: DownloadRequest, name: String, file: File) {
         diverted.remove(request)

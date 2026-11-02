@@ -126,6 +126,22 @@ class InAppBrowser(
         pushState()
     }
 
+    /**
+     * 这次跳转是个下载，不会有新的一页：不再算加载中，地址回到还开着的那一页。
+     * 一页都没开过（打开的第一个地址就是下载）时地址清空，网页换回空的"浏览"页、把 WebView 藏起来：
+     * 一页都没有的 WebView 露在外面时整个窗口都是黑的，顶栏和页签也看不见
+     */
+    fun downloadStarted() {
+        val open = web?.copyBackForwardList()?.currentItem?.url
+        url = if (open != null && isWebUrl(open)) open else ""
+        if (url.isEmpty()) {
+            title = ""
+            progress = 0
+        }
+        loading = false
+        pushState()
+    }
+
     fun pageEnd(address: String?) {
         if (address != null && isWebUrl(address)) url = address
         loading = false

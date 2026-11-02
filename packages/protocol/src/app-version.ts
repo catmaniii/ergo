@@ -50,8 +50,12 @@ export function appPlatformOf(userAgent: string): AppPlatform | undefined {
 
 const REPO = "https://github.com/catmaniii/ergo";
 
-/** 安卓 App 的安装包（和手机教程里的下载链接同一个） */
-export const ANDROID_APP_URL = `${REPO}/raw/main/downloads/ergo-android-debug.apk`;
+/**
+ * 安卓 App 的安装包：用发布页的地址，它的响应写明了 APK 的类型和文件名。
+ * 别换成手机教程里 raw/main/downloads/ 那个（那是给手机浏览器用的）：它回 application/octet-stream，App 里的下载按类型改扩展名，
+ * 存下来是 ergo-android-debug.bin，点了装不上。要升级的正是旧 App，改 App 救不了它们，只能在这里给对的地址
+ */
+export const ANDROID_APP_URL = `${REPO}/releases/latest/download/ergo-android-debug.apk`;
 
 /** 手机教程里的小节：中文的一份锚点是中文标题，别的语言看英文那份 */
 const guideUrl = (language: string, zh: string, en: string): string => `${REPO}/blob/main/docs/user-guide/${language.startsWith("zh") ? `mobile.md#${zh}` : `mobile.en.md#${en}`}`;
