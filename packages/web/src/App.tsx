@@ -24,7 +24,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessProvider } from "./app/access.tsx";
-import { pageNativeApp } from "./app/page-native.ts";
+import { pageAppReport, pageNativeApp } from "./app/page-native.ts";
 import { SIDE_MODE } from "./app/side-mode.ts";
 import { fetchAccess, httpPairingApi } from "./app/pairing-api.ts";
 import type { PairingApi } from "./app/pairing-flow.ts";
@@ -67,6 +67,7 @@ import { TopBar, useElementWidth } from "./ui/common.tsx";
 import { DetailHost, FrameWidth } from "./ui/detail/DetailLayout.tsx";
 import { InAppBrowser } from "./ui/in-app-browser.tsx";
 import { MainNav, useNavFit } from "./ui/main-nav.tsx";
+import { AppUpgradeBar } from "./ui/app-upgrade.tsx";
 import { PageUpdateBar } from "./ui/page-update.tsx";
 import { PopupHost } from "./ui/popup.tsx";
 import { ToastProvider, ToastView } from "./ui/toast.tsx";
@@ -128,6 +129,10 @@ const http: DaemonHttp = demo ? demo.http : new HttpDaemonClient();
  * 浏览器的样子、办秘书的网页工具推来的事；原生浏览器）；不在 App 里什么都不做
  */
 const pluginHost = createWebPluginHost({ plugins: WEB_PLUGIN_MANIFEST, page: { connection, http, sideMode: SIDE_MODE } });
+
+// 开在手机 App 里：把 App 的版本报给守护进程（连上、重连后都报），够不够新由守护进程判断；不在 App 里什么都不报
+const appReport = pageAppReport();
+if (appReport) connection.reportAppVersion?.(appReport);
 
 // 原型的 ?demo-debug：一打开就在关于页，Debug 工具集已打开，各组有假数据（在页面读地址之前）
 if (demo && !SIDE_MODE) demo.startDebug();
@@ -334,12 +339,14 @@ function Shell({ width }: { width: number }) {
 
   const current = navItemOf(shown);
   const nav = <MainNav orientation={wide ? "rail" : "bar"} items={navItems} pages={pages} fit={fit} highlight={current && navHighlight(fit, current)} badge={badge} navigate={navigate} onMeasure={onMeasure} />;
+  // 手机 App 太旧了：内容区最上面一条"二狗 App 需要升级到 x.y"，不在 App 里、够新时什么都没有
   // 服务端的页面更新了：内容区最上面一条"二狗有新版本 · 刷新"，挤在页面上面、不盖住标题栏
   // 首页（会话页）顶上一条"花两分钟把二狗配一下"，五步没走完时才有（点 × 关掉、记在这台设备上，见 app/page-setup.ts）；
   // 演示页不显示。放在内容区里（narrow 是上下、wide 是左右，放进 .app 那一层会挤成左边一列）
   const page = (
     <>
       {!demo && shown.tab === "secretary" && <SetupBanner />}
+      <AppUpgradeBar report={pageAppReport()} />
       <PageUpdateBar />
       <Page route={shown} wide={wide} folded={fit.folded} navigate={navigate} />
       {route.tab === "app" && <InAppBrowser key={route.app} route={route} leaveTo={toHash(underlay)} />}

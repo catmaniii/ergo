@@ -5,7 +5,7 @@
 //   PC 本机直接用，不在这里。
 // 过期、作废的延期后 expiresAt 往后推，回到有效的一组；删了的状态层里就没有（ui-state.ts 收到 deleted 时去掉）。
 // 多选管理的个数、确认的话在 device-select.ts。
-import type { PairedDevice } from "./protocol.ts";
+import { appVersionOutdated, MIN_APP_VERSION, type PairedDevice, t } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
 
 /** 失效的原因：被吊销、启用之后太久没用、领到之后一直没用过 */
@@ -19,6 +19,14 @@ export interface InactiveDevice {
 export interface PairedDevices {
   active: PairedDevice[];
   inactive: InactiveDevice[];
+}
+
+/** 这台设备上手机 App 的版本那一小段：浏览器不报，是 undefined；太旧的写上要升到哪一版（outdated，行上标出来） */
+export function deviceAppNote(device: Pick<PairedDevice, "appVersion">): { text: string; outdated?: string } | undefined {
+  const { appVersion } = device;
+  if (appVersion === undefined) return undefined;
+  const text = appVersion === "" ? t("pages.devices.appVersionUnknown") : t("pages.devices.appVersion", { version: appVersion });
+  return appVersionOutdated(appVersion) ? { text, outdated: t("pages.devices.appOutdated", { version: MIN_APP_VERSION }) } : { text };
 }
 
 /** 新的在前 */

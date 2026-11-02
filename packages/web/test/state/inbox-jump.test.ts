@@ -91,6 +91,7 @@ describe("事项种类 → 去处", () => {
     ["快照校验失败", notice("snapshot_check_failed"), undefined],
     ["向量模型未下载：没有页面管它（正文写着要跑的命令）", notice("embedding_model_missing"), undefined],
     ["组件有新版本：去设置 · 组件点更新", notice("component_update_available"), { kind: "settings", page: "components" }],
+    ["App 太旧了：去设置 · 设备配对看是哪台", notice("app_outdated"), { kind: "settings", page: "devices" }],
     ["旧事项没记来源：不出按钮", notice("stuck_help", { data: { taskId: "t-1" } }), undefined],
     ["旧的卡片事项没记来源、卡片不是系统的", cardItem("c-old"), undefined, withCards(["c-old", "plan"])],
     ["卡片还没收到、没记来源", cardItem("c-none"), undefined],

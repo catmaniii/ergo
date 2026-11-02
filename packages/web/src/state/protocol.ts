@@ -173,6 +173,13 @@ export {
   // 已配对设备的多选管理：能做的动作、延期能选的天数、哪台要跳过、跳过的原因怎么说、延期后的到期日
   DEFAULT_DEVICE_EXTEND_DAYS,
   DEVICE_BATCH_ACTIONS,
+  // 手机 App 的版本（app-version.ts）
+  APP_UPGRADE_ACTION,
+  APP_VERSION_MAX_LENGTH,
+  appPlatformOf,
+  appUpgradeLink,
+  appVersionOutdated,
+  MIN_APP_VERSION,
   DEVICE_BATCH_MAX,
   DEVICE_EXTEND_DAYS,
   deviceBatchSkip,
@@ -398,6 +405,9 @@ export type {
   DeviceBatchActionResult,
   DeviceBatchItemResult,
   DeviceBatchSkip,
+  AppOutdatedNoticeData,
+  AppPlatform,
+  ReportAppVersionParams,
   TaskBatchAction,
   TaskBatchActionParams,
   TaskBatchActionResult,

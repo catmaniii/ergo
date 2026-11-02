@@ -16,6 +16,10 @@ val signing = Properties().apply { if (signingFile.exists()) signingFile.inputSt
 // 开了 WebView 调试的包绝不用它签：这样凡是这把钥匙签的包，都关着 WebView 调试
 val releaseDebugKeystore = providers.gradleProperty("ergoDebugKeystore").orNull?.takeUnless { webviewDebug }?.let { file(it) }
 
+// App 自己一个版本号，和电脑版分开：安卓、鸿蒙共用 frontend/app-version.json，这里读它（ADR-0047）。鸿蒙的 app.json5 读不了外部文件，由 frontend/test/app-version.test.ts 核对
+val appVersionJson = rootProject.file("../app-version.json").readText()
+fun appVersionField(name: String): String = Regex("\"$name\"\\s*:\\s*\"?([^\",\\s}]+)").find(appVersionJson)?.groupValues?.get(1) ?: error("frontend/app-version.json 里没有 $name")
+
 android {
     namespace = "com.catmaniii.ergo"
     compileSdk = 36
@@ -24,8 +28,8 @@ android {
         applicationId = "com.catmaniii.ergo"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1002
-        versionName = "0.4.2"
+        versionCode = appVersionField("code").toInt()
+        versionName = appVersionField("version")
         buildConfigField("boolean", "WEBVIEW_DEBUG", webviewDebug.toString())
     }
 

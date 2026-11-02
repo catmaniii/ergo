@@ -2627,6 +2627,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         revokeDevice: (params, idempotencyKey) => pairing.revoke(params.deviceId, idempotencyKey),
         // 设置里多选的延期、吊销、删除：能做的都做、逐台回报
         deviceBatchAction: (params, idempotencyKey) => pairing.batch(params, idempotencyKey),
+        reportAppVersion: (deviceId, params) => pairing.reportAppVersion(deviceId, params),
         startTask: (params, idempotencyKey) => ({ taskId: tasks.startFromButton(params, idempotencyKey).id }),
         updateWatchCategories: (params, idempotencyKey) => watchCategories.update(params, idempotencyKey),
         // 定时触发的任务运营中时的暂停、恢复、取消落到它的触发上（取消时任务随之取消）

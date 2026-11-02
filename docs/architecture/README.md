@@ -176,6 +176,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 - 同一来源 10 分钟内最多 5 个请求；待批的 5 分钟后过期；领到凭证后 24 小时内没用过一次就作废（防止半路丢了的"幽灵设备"）；用过以后有效期 365 天，每次用往后推。
 - 像网络上的自动访问的（无界面浏览器、命令行工具、爬虫的 User-Agent），卡片上会提示，但规则不变。
 - 吊销后网关立刻关掉这台设备开着的 WebSocket。
+- 页面开在手机 App 里时，连上就发 `report_app_version`（重连再发），记在这台设备上（`appVersion`、`appPlatform`）。低于协议包的 `MIN_APP_VERSION` 放一条待办 `app_outdated` 并提醒，够新了、设备吊销了自动归档；页面顶上的提示条（`ui/app-upgrade.tsx`）自己看本机版本和这个常量（ADR-0047）。
 
 ### 守卫
 

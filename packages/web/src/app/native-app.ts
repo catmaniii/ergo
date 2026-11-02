@@ -15,7 +15,8 @@
 // App 原生的字（地址页、出错页、下载的提示、交回网页的原因……，key 是 harmony.*）跟着二狗的全局语言：有 setTexts 的新版 App，
 // 网页开场、换了语言时把当前语言的这几句交过去（appTexts、followLocaleInApp）；旧版 App 没有，照旧中文。
 // 有手机这一组方法（新版 App）时 NativeApp.phone 是它的包装（native-phone.ts）：从通讯录挑人、读手机日历；没有时这两样做不了。
-import { activeLocale, onLocaleChange, t, type ThemeChoice } from "../state/index.ts";
+// App 的版本（nativeAppReport）：连上守护进程后报上去，够不够新由守护进程判断（ADR-0047）；页面上的提示条看本机版本和协议包的最低版本。
+import { activeLocale, APP_VERSION_MAX_LENGTH, appPlatformOf, type AppPlatform, onLocaleChange, type ReportAppVersionParams, t, type ThemeChoice } from "../state/index.ts";
 import { appObject, exposeToApp } from "./app-names.ts";
 import type { BackRegistry } from "./back-registry.ts";
 import { type NativeBrowser, type NativeBrowserScope, wrapNativeBrowser } from "./native-browser.ts";
@@ -26,8 +27,8 @@ import type { ThemeController } from "./theme.ts";
 
 /** 网页在 App 里时能做的事 */
 export interface NativeApp {
-  /** 哪种 App：现在只有鸿蒙 */
-  readonly platform: "harmony";
+  /** 哪种 App（按浏览器标识认）；认不出是 undefined */
+  readonly platform: AppPlatform | undefined;
   /** App 的版本号（versionName） */
   readonly version: string;
   /** 日志交给 App，写进 hilog */
@@ -101,11 +102,28 @@ function callBridge(bridge: BridgeObject, method: string, ...args: (string | boo
   }
 }
 
+/** 页面全局对象里的浏览器标识（App 挂的原生桥认不出是哪种 App，看它） */
+interface UserAgentScope {
+  navigator?: { userAgent?: string };
+}
+
+/**
+ * 开在 App 里时要报给守护进程的：版本号、哪种 App。有原生桥就算在 App 里；版本读不到（没有这个方法、出错、App 回空串）报空串，算最旧。
+ * 手机浏览器、电脑没有原生桥，是 undefined，什么都不报
+ */
+export function nativeAppReport(scope: { ergoNative?: unknown } & UserAgentScope): ReportAppVersionParams | undefined {
+  const bridge = appObject(scope, "ergoNative");
+  if (typeof bridge !== "object" || bridge === null) return undefined;
+  const version = callBridge(bridge as BridgeObject, "appVersion");
+  const platform = appPlatformOf(scope.navigator?.userAgent ?? "");
+  return { version: typeof version === "string" ? version.slice(0, APP_VERSION_MAX_LENGTH) : "", ...(platform === undefined ? {} : { platform }) };
+}
+
 /**
  * 页面的全局对象里有没有 App 注入的原生桥；没有、形状不对、App 拒绝了这个页面都返回 undefined。
  * 有原生录音时在 scope 上登记 App 推送用的 __ergoVoice，有原生浏览器时登记 __ergoBrowser。
  */
-export function detectNativeApp(scope: { ergoNative?: unknown } & NativeVoiceScope & NativeBrowserScope): NativeApp | undefined {
+export function detectNativeApp(scope: { ergoNative?: unknown } & UserAgentScope & NativeVoiceScope & NativeBrowserScope): NativeApp | undefined {
   const bridge = appObject(scope, "ergoNative");
   if (typeof bridge !== "object" || bridge === null) return undefined;
   const raw = bridge as BridgeObject;
@@ -119,7 +137,7 @@ export function detectNativeApp(scope: { ergoNative?: unknown } & NativeVoiceSco
   const setTexts = typeof raw.setTexts === "function" ? (texts: NativeAppTexts) => void callBridge(raw, "setTexts", JSON.stringify(texts)) : undefined;
   const phone = wrapNativePhone(raw);
   return {
-    platform: "harmony",
+    platform: appPlatformOf(scope.navigator?.userAgent ?? ""),
     version,
     log: (message) => void callBridge(raw, "log", message),
     editServer: () => void callBridge(raw, "editServer"),

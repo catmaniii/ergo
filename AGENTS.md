@@ -41,6 +41,7 @@ ergo（二狗）是一个装在用户自己 Windows 电脑上的个人 AI 助理
 - **给用户看的文字走 `t()`**，中英两份语言文件一起加（`packages/protocol/locales/`）；给模型看的、日志标 `@i18n-ignore`。写死中文的棘轮基线是 0。
 - **样式只用 `var(--token)`**，不写死颜色。
 - **依赖写死精确版本**；加依赖、加带安装脚本的依赖前先说明理由。
+- **手机 App 自己一个版本号**（`frontend/app-version.json`，ADR-0047）：电脑版改版本号不动它；改了 App 的代码（`frontend/` 下进 App 的、`packages/web/src/page-bridge`）才升，发版时没升会报错。
 
 ## 语言
 

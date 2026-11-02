@@ -74,7 +74,7 @@ From the repository root:
 | Open the real page after deploying | `npm run smoke:page` (headless Chrome on `http://127.0.0.1:8810/`; `-- <url>` for another address) |
 | Build the HarmonyOS app | `npm run build:harmony` ([Phone apps](#phone-apps)) |
 | Build the Android app | `npm run build:android` ([Android app](#android-app)) |
-| Build a release | `npm run release` (`--build-mobile` also builds the phone packages; see [Publishing the phone packages](#publishing-the-phone-packages)) |
+| Build a release | `npm run release` (`--build-mobile` builds the phone packages only if the app version went up; see [Publishing the phone packages](#publishing-the-phone-packages)) |
 | Download the embedding model | `npm run download-model` |
 | Back up now | `npm run backup` (installed builds have no `npm run`: `ergo backup`) |
 | Restore from a snapshot | `node packages/daemon/src/restore.ts <date>` (installed builds: `ergo restore <date>`; stop the daemon first either way) |
@@ -155,13 +155,32 @@ To debug pages in the WebView, install the `--webview-debug` build and use Chrom
 
 `npm run release` also puts two phone packages in the release directory and lists them in `SHA256SUMS`, signed along with the Windows package: `ergo-android-debug.apk` and `ergo-harmony-unsigned.hap`. The file names carry no version, so `releases/latest/download/<name>` keeps working. `latest.json` doesn't mention them; `ergo update` and the install script only look at the Windows package.
 
-After a release, copy these two files to `downloads/` in the repo, update the version in `downloads/README.md`, and commit them together. The download links in the README and guides point there.
+**The app has its own version number, separate from the desktop one** ([ADR-0047](adr/0047-app-version-separate-server-decides.md)). Changing the desktop version doesn't touch the app version, and the app version only goes up when app code changes.
 
 | Command | What it does |
 |---|---|
 | `npm run release` | Collects existing build outputs |
-| `npm run release -- --build-mobile` | Builds first, then collects. **Use this for a real release**: existing outputs may be from older code |
+| `npm run release -- --build-mobile` | Goes by the app version, see below. **Use this for a real release** |
 | `npm run release -- --no-mobile` | Leaves the phone packages out |
+
+`--build-mobile` compares `frontend/app-version.json` with the version written in `downloads/README.md`:
+
+| Situation | Result |
+|---|---|
+| They differ | The version went up: builds, and reminds you to update `downloads/` |
+| They match, and `frontend/` or `packages/web/src/page-bridge` changed since `frontend/app-version.json` last changed | Exits with an error saying the app version has to go up. Tests, `frontend/android/e2e`, docs and the config at the top of `frontend/` don't count |
+| They match, and nothing changed | Doesn't build and needs no toolchain: the release uses the two packages already in `downloads/`, and their SHA256 still goes in |
+
+At the end it prints one line for the release notes: `手机 App：不用升级` (no update needed), or `手机 App：需要升级到 x.y` (update to x.y needed, only when `MIN_APP_VERSION` is higher than in the previous release).
+
+**Raising the app version** (do it after the app code is done; if the code changes again afterwards, raise it again):
+
+1. Change `version` in `frontend/app-version.json` and add one to `code`. Android reads from this file.
+2. Change `versionName` and `versionCode` in `frontend/harmony/AppScope/app.json5` (major × 10⁹ + minor × 10⁶ + patch × 10³, so 0.4.2 is 4002000), and the version checked in `frontend/android/e2e/run.ts`.
+3. Run `npm run release -- --build-mobile`, copy the two packages it built to `downloads/` in the repo, and update the version in `downloads/README.md`. The download links in the README and guides point there.
+4. Commit all of this together. `frontend/test/app-version.test.ts` checks that these places agree and fails if one was missed.
+
+**Raising the minimum version:** raise `MIN_APP_VERSION` in the protocol package (`packages/protocol/src/app-version.ts`) only when the page starts depending on a new native capability. It can't be higher than the current app version. Apps below it get an inbox item and a system notification, and the page shows a bar at the top.
 
 With no toolchain, no output or an unacceptable output, only that package is skipped, with the reason printed, and the Windows package is still built; a failed build with the toolchain present is an error. Unacceptable means an APK whose certificate isn't the release one (`RELEASE_CERT_SHA256` in `frontend/scripts/android.ts`), or a HAP built with `--webview-debug`. A skipped package means its download link in the guides returns 404 for that version, so check the last lines of the output before publishing.
 

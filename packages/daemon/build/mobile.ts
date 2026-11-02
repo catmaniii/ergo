@@ -1,6 +1,7 @@
 // 手机安装包：npm run release 顺带收这两个文件，放进发布目录、写进 SHA256SUMS（和 Windows 包一起被签）。
 // latest.json 不提它们，ergo update 和安装脚本只按名字找 Windows 包，不受影响。
-//   - 默认收现成的产物；--build-mobile 先构建；--no-mobile 不带；
+//   - 默认收现成的产物；--no-mobile 不带；
+//   - --build-mobile 先看 App 版本（app-version.ts）：升了才构建，没变直接用 downloads/ 里现成的两个包，App 代码变了、版本号没升报错退出；
 //   - 没工具链、没产物、产物不合格，都只跳过这一个，写明原因，Windows 包照打。工具链齐了却构建失败才算出错。
 // 文件名不带版本号：教程里的 releases/latest/download/<文件名> 才一直有效。
 //
@@ -15,6 +16,7 @@ import path from "node:path";
 import { type AndroidTools, apkCertFrom, apkOutputs, findAndroidTools, findApkSigner, findDebugKeystore, RELEASE_CERT_SHA256 } from "../../../frontend/scripts/android.ts";
 import { findDevEco, hapOutputs, webviewDebugIn } from "../../../frontend/scripts/harmony.ts";
 import { sha256File } from "../src/components/downloader.ts";
+import { mobilePlan, type MobilePlan, staleMessage } from "./app-version.ts";
 
 export const ANDROID_PACKAGE = "ergo-android-debug.apk";
 export const HARMONY_PACKAGE = "ergo-harmony-unsigned.hap";
@@ -40,7 +42,7 @@ export interface MobileResult {
 export interface MobileOptions {
   repo: string;
   out: string;
-  /** 先构建（--build-mobile）；不给就只收现成的 */
+  /** --build-mobile：App 版本升了才构建，没变用 downloads/ 里现成的；不给就只收现成的产物 */
   build?: boolean;
   /** 不带手机包（--no-mobile） */
   none?: boolean;
@@ -49,6 +51,8 @@ export interface MobileOptions {
 
 /** 碰本机工具的几处，测试换成假的 */
 export interface MobileTools {
+  /** --build-mobile 这次该怎么办（查 git） */
+  plan(repo: string): MobilePlan;
   android(): AndroidTools | { error: string };
   keystore(): string | undefined | { error: string };
   harmony(): { error: string } | object;
@@ -59,6 +63,7 @@ export interface MobileTools {
 }
 
 const realTools: MobileTools = {
+  plan: mobilePlan,
   android: () => findAndroidTools(process.env, process.platform),
   keystore: () => findDebugKeystore(process.env, os.homedir()),
   harmony: () => findDevEco(process.env, process.platform),
@@ -116,13 +121,23 @@ function prepareHarmony(options: MobileOptions, tools: MobileTools): Prepared {
   return { file: hap };
 }
 
+/** App 没变：downloads/ 里现成的包（发那一版时核对过，这里不要工具链） */
+function prepareDownloaded(options: MobileOptions, name: string): Prepared {
+  const file = path.join(options.repo, "downloads", name);
+  return fs.existsSync(file) ? { file } : { reason: `downloads/ 里没有 ${name}` };
+}
+
 /** 收两个手机包到发布目录。上一次留在发布目录的同名文件先删掉，这次跳过了就不会把旧的当新的发出去 */
 export async function collectMobilePackages(options: MobileOptions, tools: MobileTools = realTools): Promise<MobileResult> {
   const log = options.log ?? (() => {});
   const result: MobileResult = { packages: [], skipped: [] };
+  const app = options.build && !options.none ? tools.plan(options.repo) : undefined;
+  if (app?.kind === "stale") throw new Error(staleMessage(app));
+  if (app?.kind === "unchanged") log(`手机 App 还是 ${app.version}，代码没变：不编译，用 downloads/ 里现成的包`);
+  const built = { ...options, build: app?.kind === "bumped" };
   const plan: Array<[name: string, prepare: () => Prepared]> = [
-    [ANDROID_PACKAGE, () => prepareAndroid(options, tools)],
-    [HARMONY_PACKAGE, () => prepareHarmony(options, tools)],
+    [ANDROID_PACKAGE, () => (app?.kind === "unchanged" ? prepareDownloaded(options, ANDROID_PACKAGE) : prepareAndroid(built, tools))],
+    [HARMONY_PACKAGE, () => (app?.kind === "unchanged" ? prepareDownloaded(options, HARMONY_PACKAGE) : prepareHarmony(built, tools))],
   ];
   for (const [name, prepare] of plan) {
     const dest = path.join(options.out, name);
@@ -138,5 +153,6 @@ export async function collectMobilePackages(options: MobileOptions, tools: Mobil
     result.packages.push(pack);
     log(`手机包 ${name}：${(pack.size / 1e6).toFixed(1)} MB，sha256 ${pack.sha256}（来自 ${prepared.file}${options.build ? "" : "，现成的，没重新构建：正式发版加 --build-mobile"}）`);
   }
+  if (app?.kind === "bumped") log(`手机 App 升到了 ${app.version}（downloads/ 里还是 ${app.packaged ?? "没写版本"}）：把这两个包复制到 downloads/，改 downloads/README.md 的版本号，和版本号的改动一起提交`);
   return result;
 }

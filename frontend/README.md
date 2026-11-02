@@ -10,6 +10,7 @@
 
 这一层的其他文件：
 
+- `app-version.json`：手机 App 自己的版本号，安卓、鸿蒙共用，和电脑版分开（[ADR-0047](../docs/architecture/adr/0047-app-version-separate-server-decides.md)）。安卓的 `build.gradle.kts` 读它，鸿蒙的 `app.json5` 由 `test/app-version.test.ts` 核对。
 - `scripts/build-harmony.ts`：`npm run build:harmony` 的实现，用 DevEco 自带的 hvigor 构建鸿蒙 App；`scripts/harmony.ts` 是它用到的辅助（找 DevEco、从模板生成本机的 `build-profile.json5`、认出签名材料）。
 - `scripts/build-android.ts`：`npm run build:android` 的实现；`scripts/android.ts` 是它用到的辅助。
 - `test/android.test.ts`：跟 `npm run check` 一起跑，核对安卓 App 的原生桥方法、安全规矩（不用 `addJavascriptInterface`、证书错误不放行）、语言文件。

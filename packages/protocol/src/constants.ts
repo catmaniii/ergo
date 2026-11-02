@@ -384,6 +384,11 @@ export const METHODS = {
   switchBranch: "switch_branch",
   /** 废弃分支的详情里一件遗留效果的「申请撤回」：记一笔"已提交撤销请求"、调撤销接口（默认什么都不做） */
   requestEffectUndo: "request_effect_undo",
+  /**
+   * 页面开在手机 App 里：连上后（重连也报）把 App 的版本报给守护进程，记在这台已配对设备上、判断够不够新（app-version.ts）。
+   * 不带幂等键（覆盖"现在的样子"）；本机端口的连接没有设备，报了也不记
+   */
+  reportAppVersion: "report_app_version",
 } as const;
 
 export type Method = (typeof METHODS)[keyof typeof METHODS];
@@ -1009,6 +1014,11 @@ export const NOTICE_TYPES = [
    * "知道了"收起。同一个组件的同一个版本只提醒一次，换上之后这条自动归档；data 是 ComponentUpdateNoticeData
    */
   "component_update_available",
+  /**
+   * 这台手机上的 App 低于最低版本（app-version.ts 的 MIN_APP_VERSION）：不卡任务；动作"去升级"是去下载或看教程的链接（不算处理），
+   * "知道了"收起。一台设备的同一个要求只提醒一次，报上来够新了自动归档；data 是 AppOutdatedNoticeData
+   */
+  "app_outdated",
 ] as const;
 
 // 待我处理事项的动作按字认（存进事件、点了按字找处理的），不跟着语言变；界面上显示时用 inboxActionText 换成当前语言
@@ -1020,6 +1030,9 @@ export const COMPONENTS_INSTALL_ACTION = "去装组件"; // @i18n-ignore fixed�
 
 /** "组件有新版本"事项的动作：去设置里的组件页点"更新"（不算处理；换上之后自动归档） */
 export const COMPONENTS_UPDATE_ACTION = "去更新组件"; // @i18n-ignore fixed：事项的动作按字认
+
+/** "App 太旧了"事项的动作：去下载或看教程（不算处理；升级后自动归档） */
+export const APP_UPGRADE_ACTION = "去升级"; // @i18n-ignore fixed：事项的动作按字认
 
 /** "关注类别设置文件有问题"事项的动作：去设置里的关注类别页修复 */
 export const WATCH_CATEGORIES_REPAIR_ACTION = "去设置页修复"; // @i18n-ignore fixed：事项的动作按字认
@@ -1081,9 +1094,9 @@ export const REMINDER_ACTION_MAX = 200;
 /**
  * 一台已配对设备的变化：批准配对后领到凭证（还没用过）、第一次带着凭证来（启用）、使用（续期）、被吊销；
  * 还有延期（到期日往后推，过期、作废了的因此重新有效）和删除（从列表里去掉、凭证一律不认；还没吊销的
- * 同一事务里先落一条吊销）
+ * 同一事务里先落一条吊销）；app_version 是这台手机上的 App 报的版本变了
  */
-export const DEVICE_CHANGES = ["paired", "activated", "used", "revoked", "extended", "deleted"] as const;
+export const DEVICE_CHANGES = ["paired", "activated", "used", "revoked", "extended", "deleted", "app_version"] as const;
 
 /** 设置 · 已配对设备多选能做的：延期、吊销、删除 */
 export const DEVICE_BATCH_ACTIONS = ["extend", "revoke", "delete"] as const;

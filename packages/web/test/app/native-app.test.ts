@@ -7,6 +7,7 @@ import {
   appBottomReserve,
   appTexts,
   detectNativeApp,
+  nativeAppReport,
   followBackInApp,
   followInsetsInApp,
   followLocaleInApp,
@@ -62,14 +63,54 @@ function fakeTheme(initial: ThemeChoice) {
   };
 }
 
+const HARMONY_UA = "Mozilla/5.0 (Phone; OpenHarmony 5.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 ArkWeb/4.1.6.1 Mobile";
+const ANDROID_UA = "Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36";
+
+describe("要报给守护进程的 App 版本", () => {
+  test("没有 ergoNative（手机浏览器、电脑）：什么都不报", () => {
+    expect(nativeAppReport({})).toBeUndefined();
+    expect(nativeAppReport({ ergoNative: null, navigator: { userAgent: ANDROID_UA } })).toBeUndefined();
+    expect(nativeAppReport({ ergoNative: 1 })).toBeUndefined();
+  });
+
+  test("App 报的版本和哪种 App", () => {
+    expect(nativeAppReport({ ergoNative: fakeBridge("0.4.2"), navigator: { userAgent: ANDROID_UA } })).toEqual({ version: "0.4.2", platform: "android" });
+    expect(nativeAppReport({ ergoNative: fakeBridge("0.4.1"), navigator: { userAgent: HARMONY_UA } })).toEqual({ version: "0.4.1", platform: "harmony" });
+    expect(nativeAppReport({ ergoNative: fakeBridge("0.4.1") })).toEqual({ version: "0.4.1" });
+  });
+
+  test.each([
+    ["App 回空串（这个页面不归它管）", fakeBridge("")],
+    ["没有 appVersion", { log() {} }],
+    ["appVersion 不是函数", { appVersion: "0.1.0" }],
+    [
+      "appVersion 出错",
+      {
+        appVersion() {
+          throw new Error("坏了");
+        },
+      },
+    ],
+    ["appVersion 回的不是字符串", { appVersion: () => 1 }],
+  ])("读不到版本（%s）：报空串，算最旧", (_name, ergoNative) => {
+    expect(nativeAppReport({ ergoNative, navigator: { userAgent: ANDROID_UA } })).toEqual({ version: "", platform: "android" });
+  });
+
+  test("太长的截短，守护进程那边的校验才收", () => {
+    expect(nativeAppReport({ ergoNative: fakeBridge("9".repeat(100)) })?.version).toHaveLength(32);
+  });
+});
+
 describe("检测原生桥", () => {
   test("页面里没有 ergoNative（手机浏览器、电脑）：不是在 App 里", () => {
     expect(detectNativeApp({})).toBeUndefined();
   });
 
-  test("有 ergoNative：认出是鸿蒙 App，带上 App 的版本号", () => {
-    const app = detectNativeApp({ ergoNative: fakeBridge("0.1.0") });
-    expect(app).toMatchObject({ platform: "harmony", version: "0.1.0" });
+  test("有 ergoNative：带上 App 的版本号，按浏览器标识认哪种 App", () => {
+    const harmony = detectNativeApp({ ergoNative: fakeBridge("0.1.0"), navigator: { userAgent: HARMONY_UA } });
+    expect(harmony).toMatchObject({ platform: "harmony", version: "0.1.0" });
+    expect(detectNativeApp({ ergoNative: fakeBridge("0.1.0"), navigator: { userAgent: ANDROID_UA } })?.platform).toBe("android");
+    expect(detectNativeApp({ ergoNative: fakeBridge("0.1.0") })?.platform).toBeUndefined();
   });
 
   test.each([

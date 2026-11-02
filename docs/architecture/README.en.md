@@ -175,6 +175,7 @@ Both ports listen only on `127.0.0.1`:
 - At most 5 requests per source per 10 minutes; pending requests expire after 5 minutes; a collected credential that is never used within 24 hours is voided (guarding against "ghost devices" whose response was lost); once used it lasts 365 days, extended on use.
 - Requests that look automated (headless browsers, command-line tools, crawler user agents) are flagged on the card; the rules don't change.
 - Revoking a device immediately closes its open WebSockets.
+- When the page is open inside the phone app, it sends `report_app_version` as soon as it connects (and again on reconnect), recorded on this device (`appVersion`, `appPlatform`). Below the protocol package's `MIN_APP_VERSION` it adds an `app_outdated` inbox item and alerts; it's archived automatically once the app is new enough or the device is revoked. The bar at the top of the page (`ui/app-upgrade.tsx`) checks the local version against that constant itself (ADR-0047).
 
 ### The guard
 

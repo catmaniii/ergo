@@ -14,6 +14,7 @@
 // - agent-letters.ts：agent 之间的来信（任务做完、负责人来信、秘书转达……）怎么认、一句话总结从哪来，守护进程和 Web 共用；
 // - deleted-event.ts：认彻底删除改写后的事件（"已删除"标记）；
 // - pairing.ts：设备配对和外网端口的常量、默认设备名，已配对设备多选管理的规则（守护进程和 Web 共用）；
+// - app-version.ts：手机 App 的最低版本、版本号怎么比、太旧了去哪升级（守护进程、网页、打包脚本共用）；
 // - project-internal.ts：项目内部的标记怎么判断、怎么标注（任务、待我处理事项、定时作业、建议卡共用一个 internal）；
 // - tasks.ts / task-schema.ts / plan.ts：任务、计划、看板分组的名字（不引用 TypeBox）、schema、
 //   计划的纯函数（授权项列表、卡上生成的文字、停点）；
@@ -121,6 +122,7 @@ export * from "./parts.ts";
 export * from "./agent-letters.ts";
 export * from "./deleted-event.ts";
 export * from "./pairing.ts";
+export * from "./app-version.ts";
 export * from "./tasks.ts";
 export * from "./project-internal.ts";
 export * from "./task-schema.ts";

@@ -74,7 +74,7 @@ Agent SDK（`@anthropic-ai/claude-agent-sdk`）是 Anthropic 自己的许可，�
 | 部署后打开真的页面看一眼 | `npm run smoke:page`（无头 Chrome 打开 `http://127.0.0.1:8810/`，`-- <地址>` 换地址） |
 | 构建鸿蒙 App | `npm run build:harmony`（[手机 App](#手机-app)） |
 | 构建安卓 App | `npm run build:android`（[安卓 App](#安卓-app)） |
-| 打发布包 | `npm run release`（`--build-mobile` 连手机安装包一起构建，[发布手机安装包](#发布手机安装包)） |
+| 打发布包 | `npm run release`（`--build-mobile` 按 App 版本决定手机安装包编不编，[发布手机安装包](#发布手机安装包)） |
 | 下载向量模型 | `npm run download-model` |
 | 马上备份一次 | `npm run backup`（装好的程序里没有 `npm run`，是 `ergo backup`） |
 | 从快照恢复 | `node packages/daemon/src/restore.ts <日期>`（装好的程序里是 `ergo restore <日期>`，都要先停守护进程） |
@@ -155,13 +155,32 @@ adb -s <设备号> logcat -s ErgoApp                  # App 和网页的日志
 
 `npm run release` 顺带把两个手机安装包放进发布目录、写进 `SHA256SUMS`，和 Windows 包一起被签：`ergo-android-debug.apk`、`ergo-harmony-unsigned.hap`。文件名不带版本号，这样 `releases/latest/download/<文件名>` 一直有效。`latest.json` 不提它们，`ergo update` 和安装脚本只认 Windows 包。
 
-发完版把这两个文件复制到仓库的 `downloads/`，改 `downloads/README.md` 里的版本号，一起提交：README 和教程的下载链接指向那里。
+**App 自己一个版本号，和电脑版分开**（[ADR-0047](adr/0047-app-version-separate-server-decides.md)）。电脑版改版本号时不动 App 的版本，App 代码没变就不升。
 
 | 命令 | 做什么 |
 |---|---|
 | `npm run release` | 收现成的产物 |
-| `npm run release -- --build-mobile` | 先构建再收。**正式发版用这个**，现成的产物可能是旧代码 |
+| `npm run release -- --build-mobile` | 按 App 版本来，见下面。**正式发版用这个** |
 | `npm run release -- --no-mobile` | 不带手机包 |
+
+`--build-mobile` 比较 `frontend/app-version.json` 和 `downloads/README.md` 写的版本：
+
+| 情况 | 结果 |
+|---|---|
+| 两边不一样 | 算升了版本：编译，并提示更新 `downloads/` |
+| 一样，从上次改 `frontend/app-version.json` 到现在 `frontend/` 或 `packages/web/src/page-bridge` 变了 | 报错退出，写明要升 App 版本。测试、`frontend/android/e2e`、说明文字、`frontend/` 顶层的配置不算 |
+| 一样，也没变 | 不编译，也不要工具链，发布附件直接用 `downloads/` 里现成的两个包，SHA256 照样算进去 |
+
+打包结束打印一行给发布说明用：`手机 App：不用升级`，或 `手机 App：需要升级到 x.y`（`MIN_APP_VERSION` 比上一个发布高了才这么说）。
+
+**升 App 版本**（App 代码改完再升，升完又改了代码就要再升）：
+
+1. 改 `frontend/app-version.json` 的 `version`，`code` 加一。安卓从它读。
+2. 改 `frontend/harmony/AppScope/app.json5` 的 `versionName` 和 `versionCode`（主版本 × 10⁹ + 次版本 × 10⁶ + 修订号 × 10³，0.4.2 是 4002000），改 `frontend/android/e2e/run.ts` 里核对的版本号。
+3. `npm run release -- --build-mobile`，把编出来的两个包复制到仓库的 `downloads/`，改 `downloads/README.md` 的版本号。README 和教程的下载链接指向那里。
+4. 这些一起提交。`frontend/test/app-version.test.ts` 核对几处一致，少改一处就红。
+
+**升最低版本**：页面开始依赖新的原生能力时才升协议包的 `MIN_APP_VERSION`（`packages/protocol/src/app-version.ts`），不能比现有的 App 版本还高。低于它的 App 会收到一条待办和系统通知，页面顶上一条提示。
 
 没工具链、没产物、产物不合格时，只跳过那一个，写明原因，Windows 包照打；工具链齐了却构建失败算出错。不合格指：APK 的证书不是发布用的那把（`frontend/scripts/android.ts` 的 `RELEASE_CERT_SHA256`），HAP 带了 `--webview-debug`。这次跳过了的包，教程里的下载地址在这个版本上会 404，发版前看一眼最后几行。
 

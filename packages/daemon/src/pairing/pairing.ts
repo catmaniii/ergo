@@ -28,9 +28,17 @@
 //   事件日志里的记录都留着，删除本身也是一条 device 事件（deleted）。
 // 能做的都做，不能做的跳过（协议包的 deviceBatchSkip），逐台回报；每台用由这次幂等键派生的键（<键>#<设备>），
 // 同一个键重发时做过的拿到当时的结果、不再做一遍。
+//
+// 手机 App 的版本（reportAppVersion，ADR-0047）：页面开在 App 里时连上就报，记在这台设备上（变了才落事件）。低于最低版本出一条待办、
+// 马上告诉用户（到了 App 里就是系统通知，App 在前台时只有页面顶上的提示）；一台设备的同一个要求只有一条。报上来够新了、要求变了、
+// 设备吊销或删除了，开着的那条自动归档。
 import { randomUUID } from "node:crypto";
 import net from "node:net";
 import {
+  APP_UPGRADE_ACTION,
+  appOutdatedItemId,
+  type AppOutdatedNoticeData,
+  appVersionOutdated,
   automatedAccess,
   type CredentialRejection,
   DEVICE_COOKIE_MAX_AGE_MS,
@@ -45,6 +53,7 @@ import {
   defaultDeviceName,
   durationText,
   extendedExpiry,
+  MIN_APP_VERSION,
   normalizeDeviceName,
   nowIso,
   PAIRING_CLAIM_WINDOW_MS,
@@ -55,6 +64,7 @@ import {
   type PairingCardPayload,
   type PairingRequestView,
   pairingRequestTitle,
+  type ReportAppVersionParams,
   type RevokeDeviceResult,
   t,
   tTable,
@@ -131,6 +141,8 @@ export interface PairingService {
   revoke(deviceId: string, idempotencyKey: string): RevokeDeviceResult;
   /** 设置里多选的延期、吊销、删除：能做的都做、逐台回报做了还是跳过 */
   batch(params: DeviceBatchActionParams, idempotencyKey: string): DeviceBatchActionResult;
+  /** 这台设备上的手机 App 报版本（页面连上后；本机端口的连接没有设备，不走这里）：记下来，太旧了出一条待办，够新了撤掉 */
+  reportAppVersion(deviceId: string, report: ReportAppVersionParams): void;
   /** 已配对设备（删了的不在里面） */
   list(): PairedDevice[];
   /** 设备凭证的 cookie 该活多久（毫秒）：至少 DEVICE_COOKIE_MAX_AGE_MS（400 天），延期到更远时活到那时，免得 cookie 先在浏览器里过期 */
@@ -229,8 +241,37 @@ export function createPairingService(options: PairingServiceOptions): PairingSer
     return next;
   };
 
+  /** 这台设备开着的"App 太旧了"归档；keep 是还要留着的那一条 */
+  const retireAppNotices = (deviceId: string, keep?: string) => {
+    const open = inbox.list().filter((item) => item.kind === "notice" && item.notice === "app_outdated" && (item.data as AppOutdatedNoticeData | undefined)?.deviceId === deviceId && item.id !== keep && !item.archived && !inbox.isProcessed(item));
+    if (open.length > 0) store.appendBatch(open.map((item) => inbox.buildUpdate(item, { archived: true, read: true }).event));
+  };
+
+  /** 这台设备的 App 低于现在的要求：放一条待办、马上告诉用户。放过的（归档了、用户删了）不再放 */
+  const announceOutdated = (device: PairedDevice, report: ReportAppVersionParams) => {
+    const id = appOutdatedItemId(device.id, MIN_APP_VERSION);
+    if (inbox.get(id)) return;
+    const data: AppOutdatedNoticeData = { deviceId: device.id, deviceName: device.name, version: report.version, minVersion: MIN_APP_VERSION, ...(report.platform === undefined ? {} : { platform: report.platform }) };
+    const item = inbox.add({
+      id,
+      kind: "notice",
+      notice: "app_outdated",
+      title: t("pairing.appOutdated.title", { version: MIN_APP_VERSION }),
+      body: report.version === "" ? t("pairing.appOutdated.bodyUnknown", { device: device.name, version: MIN_APP_VERSION }) : t("pairing.appOutdated.body", { device: device.name, current: report.version, version: MIN_APP_VERSION }),
+      source: inboxSource(),
+      urgency: "non_blocking",
+      // "去升级"由前端换成下载或教程的链接（不算处理），升级后这条自动归档
+      actions: [APP_UPGRADE_ACTION, "知道了"], // @i18n-ignore fixed：事项的动作按字认
+      data,
+    });
+    inbox.alert(item);
+  };
+
   const notifyRevoked = (deviceIds: readonly string[]) => {
-    for (const deviceId of deviceIds) for (const listener of revokedListeners) listener(deviceId);
+    for (const deviceId of deviceIds) {
+      retireAppNotices(deviceId);
+      for (const listener of revokedListeners) listener(deviceId);
+    }
   };
 
   /** 多选里的一台：要落的事件（最后一条带这台的幂等键）、做完之后的样子、这一下有没有吊销它；跳过的给原因 */
@@ -408,6 +449,21 @@ export function createPairingService(options: PairingServiceOptions): PairingSer
       if (events.length > 0) store.appendBatch(events);
       notifyRevoked(revoked);
       return { results };
+    },
+
+    reportAppVersion(deviceId, report) {
+      const device = getDevice(store.reader, deviceId);
+      if (!device || device.revoked || device.deletedAt !== undefined) return;
+      if (device.appVersion !== report.version || device.appPlatform !== report.platform) {
+        const next: PairedDevice = { ...device, appVersion: report.version };
+        if (report.platform === undefined) delete next.appPlatform;
+        else next.appPlatform = report.platform;
+        store.append(deviceEvent(next, "app_version"));
+      }
+      // 版本没变也要看：要求可能变了（电脑版升级、退回旧版）。一次连接报一回，翻一遍待办不算什么
+      const outdated = appVersionOutdated(report.version);
+      retireAppNotices(deviceId, outdated ? appOutdatedItemId(deviceId, MIN_APP_VERSION) : undefined);
+      if (outdated) announceOutdated(device, report);
     },
 
     list: () => listDevices(store.reader),

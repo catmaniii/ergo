@@ -2,6 +2,7 @@
 // 从外网用二狗的设备，可以随时延期、吊销、删除（吊销、删除后它开着的页面立刻被断开，回到配对页）。
 // PC 本机直接用，不需要配对。列表来自前端状态层（已配对设备频道上的 device 事件）。
 // 领到凭证、还没带着它来过的设备标"等待首次使用"（领取的响应可能丢了），到期还没用过就自动作废。
+// 开过手机 App 的设备写 App 的版本，太旧的标要升到哪一版（ADR-0047）。
 // 时长、位数都取共享协议包里的常量。
 // 多选管理，照待办的多选——
 // - 标题栏"多选"、行的长按 / 右键菜单和行尾"⋯"是同一个菜单（延期…、吊销、删除、多选），贴着按的地方弹出；
@@ -21,6 +22,7 @@ import {
   DEVICE_CREDENTIAL_TTL_MS,
   DEVICE_EXTEND_CHOICES,
   DEVICE_FIRST_USE_WINDOW_MS,
+  deviceAppNote,
   deviceSelfLine,
   type DeviceBatchAction,
   deviceActPrompt,
@@ -248,6 +250,7 @@ function DeviceRow({
   onSelect(): void;
 }) {
   const { device: d, note, paired, inactive, soon } = entry;
+  const app = deviceAppNote(d);
   const rowRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
   const [menu, setMenu] = useState<"row" | "more">();
@@ -271,6 +274,8 @@ function DeviceRow({
         <span className="muted">
           {inactive ? note : t("pages.devices.rowNote", { from: d.from, paired, note })}
           {soon !== undefined && <span className="device-soon"> · {t("pages.devices.expiresIn", { count: soon })}</span>}
+          {app && <span className="device-app"> · {app.text}</span>}
+          {app?.outdated && <span className="device-soon"> · {app.outdated}</span>}
         </span>
       </span>
     </>

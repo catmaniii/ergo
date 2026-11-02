@@ -45,6 +45,8 @@ function fakeTools(over: Partial<MobileTools> = {}): MobileTools & { builds: str
   const builds: string[] = [];
   return {
     builds,
+    // App 版本升了才构建；按版本号决定编不编的三种情况在 app-version-plan.test.ts
+    plan: () => ({ kind: "bumped", version: "9.9.9", packaged: "9.9.8" }),
     android: () => ({ javaHome: "jdk", sdk: "sdk" }),
     keystore: () => "ks",
     harmony: () => ({}),

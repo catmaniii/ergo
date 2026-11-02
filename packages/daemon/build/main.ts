@@ -2,7 +2,8 @@
 //   build    [--skip-web]
 //   release  [--node <目录或zip>] [--node-version <版本>] [--node-dist <地址>] [--out <目录>] [--version <版本>]
 //            [--sign-key <私钥文件>]（口令放环境变量 ERGO_SIGN_PASSWORD）[--skip-web] [--no-launcher] [--no-npm]
-//            [--build-mobile]（手机安装包先构建；不给就只收现成的产物）[--no-mobile]（不带手机安装包）
+//            [--build-mobile]（手机安装包按 App 版本来：升了才构建，没变用 downloads/ 里现成的，代码变了版本号没升报错；不给就只收现成的产物）
+//            [--no-mobile]（不带手机安装包）
 //   install  [--link] [--install-dir <目录>] [--no-switch] [--no-path] [--ref <标签或分支>] [--node-pointer]
 //   keygen   --out <目录> [--password]（口令放环境变量 ERGO_SIGN_PASSWORD）——生成一对 minisign 格式的发布钥匙（私钥别进仓库）
 import fs from "node:fs";
@@ -10,6 +11,7 @@ import path from "node:path";
 import { defaultInstallRoot } from "../src/release/layout.ts";
 import { formatPublicKey, formatSecretKey, generateKeyPair, keyIdHex } from "../src/release/minisign.ts";
 import { devBuild, installFromRepo } from "./install-local.ts";
+import { appUpgradeLine } from "./app-version.ts";
 import { buildRelease } from "./release.ts";
 import { quietStripWarning } from "./transpile.ts";
 
@@ -64,6 +66,8 @@ async function main(): Promise<number> {
       for (const s of result.mobile.skipped) log(`注意：这次没带 ${s.name}，教程里它的下载地址在这个版本上会 404。原因：${s.reason}`);
       log(`校验值：${result.sums}${result.signature ? `，签名：${result.signature}` : "（没签名：没给 --sign-key）"}`);
       log(`启动器：${result.launcher === "exe" ? "ergo.exe + ergo.cmd" : `只有 ergo.cmd（${result.launcherNote ?? "--no-launcher"}）`}`);
+      // 给发布说明用
+      log(appUpgradeLine(REPO, result.version));
       return 0;
     }
     case "install": {

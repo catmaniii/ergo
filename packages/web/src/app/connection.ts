@@ -10,6 +10,7 @@ import type {
   BrowserOutcome,
   BrowserRequest,
   BrowserStatusParams,
+  ReportAppVersionParams,
   BrowsingContext,
   CardAction,
   ConversationId,
@@ -343,6 +344,8 @@ export interface Connection {
   onBrowserRequest?(listener: (request: BrowserRequest) => void): () => void;
   /** 回 browser_request 的结果；没连着就不回（守护进程到时会回秘书"没回"） */
   browserReply?(id: string, result: BrowserOutcome): void;
+  /** 页面开在手机 App 里：报 App 的版本。只管发：记下来，连上、重连后自己再报。原型的假连接没有 */
+  reportAppVersion?(report: ReportAppVersionParams): void;
 }
 
 /** 这次打开以来的连接情况 */

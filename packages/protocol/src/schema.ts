@@ -1,6 +1,7 @@
 // 前端协议的 schema，用 TypeBox 定义。守护进程和 Web 都用这里生成的类型；
 // 守护进程还拿它校验收到的请求（见 request.ts）。
 import { type Static, Type } from "typebox";
+import { APP_PLATFORMS, APP_VERSION_MAX_LENGTH } from "./app-version.ts";
 import {
   CARD_ACTIONS,
   CARD_STATUSES,
@@ -1165,8 +1166,19 @@ export const PairedDevice = Type.Object({
   extendedAt: Type.Optional(Type.String()),
   /** 删除于：删了的不在列表里、凭证一律不认（删之前先吊销）；事件日志里的记录留着 */
   deletedAt: Type.Optional(Type.String()),
+  /** 这台设备上的手机 App 报的版本（读不到版本的 App 是空串，算最旧）；浏览器不报，没有这一项 */
+  appVersion: Type.Optional(Type.String({ maxLength: APP_VERSION_MAX_LENGTH })),
+  /** 哪种 App；认不出的没有 */
+  appPlatform: Type.Optional(Type.Enum(APP_PLATFORMS)),
 });
 export type PairedDevice = Static<typeof PairedDevice>;
+
+/** 页面开在手机 App 里时报的：App 的版本（读不到是空串）、哪种 App */
+export const ReportAppVersionParams = Type.Object({
+  version: Type.String({ maxLength: APP_VERSION_MAX_LENGTH }),
+  platform: Type.Optional(Type.Enum(APP_PLATFORMS)),
+});
+export type ReportAppVersionParams = Static<typeof ReportAppVersionParams>;
 
 /** `device` 事件：一台已配对设备的最新状态，以及这次是什么变化 */
 export const DeviceEventPayload = Type.Object({ device: PairedDevice, change: Type.Enum(DEVICE_CHANGES) });

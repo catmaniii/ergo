@@ -4,6 +4,8 @@
 // 配对页是哪一页（说明页、等批准、领凭证、已配对）、说明页上说哪一句——点了"请求配对"才发请求。
 import { describe, expect, test } from "vitest";
 import {
+  deviceAppNote,
+  MIN_APP_VERSION,
   type PairedDevice,
   pairedDevices,
   type PairingRequestView,
@@ -16,6 +18,25 @@ import {
 import { frame } from "./events.ts";
 
 const NOW = Date.parse("2026-10-08T09:00:00.000+08:00");
+
+describe("设备一行上的 App 版本", () => {
+  test("浏览器不报：什么都不写", () => {
+    expect(deviceAppNote({})).toBeUndefined();
+  });
+
+  test("够新：只写版本", () => {
+    expect(deviceAppNote({ appVersion: "99.0.0" })).toEqual({ text: "App 99.0.0" });
+    expect(deviceAppNote({ appVersion: MIN_APP_VERSION })).toEqual({ text: `App ${MIN_APP_VERSION}` });
+  });
+
+  test("太旧：标要升到哪一版", () => {
+    expect(deviceAppNote({ appVersion: "0.0.1" })).toEqual({ text: "App 0.0.1", outdated: `要升级到 ${MIN_APP_VERSION}` });
+  });
+
+  test("读不到版本：说读不到，算太旧", () => {
+    expect(deviceAppNote({ appVersion: "" })).toEqual({ text: "App 版本读不到", outdated: `要升级到 ${MIN_APP_VERSION}` });
+  });
+});
 
 function device(id: string, overrides: Partial<PairedDevice> = {}): PairedDevice {
   return {

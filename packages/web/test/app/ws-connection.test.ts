@@ -603,6 +603,20 @@ describe("浏览侧边栏", () => {
     expect(again.sent.filter((f) => f.method === "browser_status").map((f) => f.params)).toEqual([selected]);
   });
 
+  test("App 的版本：没连上时先记着，订阅上了就报（不带幂等键）；断线重连后再报一次，升级了的守护进程才看得到", () => {
+    const { connection } = connect();
+    const report = { version: "0.4.2", platform: "android" as const };
+    connection.reportAppVersion(report);
+    const socket = openAndSubscribe();
+    expect(socket.last("report_app_version")).toMatchObject({ params: report });
+    expect(socket.last("report_app_version").idempotencyKey).toBeUndefined();
+    expect(socket.sent.filter((f) => f.method === "report_app_version")).toHaveLength(1);
+    socket.drop();
+    vi.advanceTimersByTime(500);
+    const again = openAndSubscribe();
+    expect(again.sent.filter((f) => f.method === "report_app_version").map((f) => f.params)).toEqual([report]);
+  });
+
   test("守护进程推来的 browser_request：不进状态层，交给登记的那一处；结果连着才发、断着不发也不重发", () => {
     const { connection } = connect();
     const socket = openAndSubscribe();

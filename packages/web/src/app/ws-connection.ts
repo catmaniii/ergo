@@ -52,7 +52,7 @@ import type {
   ReminderActionRequest,
   UpdateWatchCategoriesRequest,
 } from "./connection.ts";
-import { type AccessInfo, type BrowserOutcome, type BrowserReplyParams, type BrowserRequest, type BrowserStatusParams, type CardActionParams, closeReasonText, type ConvertTaskParams, type CreateReminderParams, type DaemonInfo, type DaemonInfoParams, type DeviceBatchActionParams, type DeviceBatchActionResult, EVENT_TYPES, type EventFrame, FRONTEND_PROTOCOL_VERSION, type InboxActionParams, isEphemeralEventType, type MarkReadParams, type Method, METHODS, type NewProjectParams, nowIso, type ProjectActionParams, type ProjectServicesActionParams, type QueuedMessageActionParams, type RequestEffectUndoParams, type RequestEffectUndoResult, type RequestFrame, type RescheduleJobParams, type RescheduleJobResult, type ResetMaintainerParams, type ResponseFrame, type RetryVoiceParams, type RollbackSessionParams, type RollbackSessionResult, type RunJobNowParams, type RunJobNowResult, type ScheduledJobActionParams, type SendMessageParams, type SetProjectVoiceAnnounceParams, type SetProjectVoiceAnnounceResult, type SetToolkitParams, type SetVoiceAnnounceParams, type SetVoiceAnnounceResult, type StartTaskParams, type StopReplyParams, type SubscribeParams, type SubscribeResult, type SwitchBranchParams, type SwitchBranchResult, t, type TaskActionParams, type TaskBatchActionParams, type TaskBatchActionResult, type ReminderActionParams, type ReminderActionResult, type UiInput } from "../state/index.ts";
+import { type AccessInfo, type BrowserOutcome, type BrowserReplyParams, type BrowserRequest, type BrowserStatusParams, type CardActionParams, closeReasonText, type ConvertTaskParams, type CreateReminderParams, type DaemonInfo, type DaemonInfoParams, type DeviceBatchActionParams, type DeviceBatchActionResult, EVENT_TYPES, type EventFrame, FRONTEND_PROTOCOL_VERSION, type InboxActionParams, isEphemeralEventType, type MarkReadParams, type Method, METHODS, type NewProjectParams, nowIso, type ProjectActionParams, type ProjectServicesActionParams, type QueuedMessageActionParams, type RequestEffectUndoParams, type RequestEffectUndoResult, type RequestFrame, type ReportAppVersionParams, type RescheduleJobParams, type RescheduleJobResult, type ResetMaintainerParams, type ResponseFrame, type RetryVoiceParams, type RollbackSessionParams, type RollbackSessionResult, type RunJobNowParams, type RunJobNowResult, type ScheduledJobActionParams, type SendMessageParams, type SetProjectVoiceAnnounceParams, type SetProjectVoiceAnnounceResult, type SetToolkitParams, type SetVoiceAnnounceParams, type SetVoiceAnnounceResult, type StartTaskParams, type StopReplyParams, type SubscribeParams, type SubscribeResult, type SwitchBranchParams, type SwitchBranchResult, t, type TaskActionParams, type TaskBatchActionParams, type TaskBatchActionResult, type ReminderActionParams, type ReminderActionResult, type UiInput } from "../state/index.ts";
 
 /** 浏览器 WebSocket 里用到的那部分（测试换成假的） */
 export interface SocketLike {
@@ -126,6 +126,8 @@ export class WebSocketConnection implements Connection {
   private manualDrop = false;
   /** 浏览器最后一次的样子：重新订阅上了再报 */
   private browser: BrowserStatusParams | undefined;
+  /** App 的版本：重新订阅上了再报（守护进程据此判断够不够新，升级后的守护进程在重连时才有机会看到） */
+  private appVersion: ReportAppVersionParams | undefined;
   /** 办 browser_request 的 */
   private readonly browserListeners = new Set<(request: BrowserRequest) => void>();
 
@@ -354,6 +356,11 @@ export class WebSocketConnection implements Connection {
     this.fireAndForget(METHODS.browserStatus, status);
   }
 
+  reportAppVersion(report: ReportAppVersionParams): void {
+    this.appVersion = report;
+    this.fireAndForget(METHODS.reportAppVersion, report);
+  }
+
   onBrowserRequest(listener: (request: BrowserRequest) => void): () => void {
     this.browserListeners.add(listener);
     return () => void this.browserListeners.delete(listener);
@@ -580,6 +587,7 @@ export class WebSocketConnection implements Connection {
     for (const request of this.outbox.values()) this.socket?.send(JSON.stringify(request));
     // 浏览器的样子：守护进程按连接认，新连接上再报一次
     if (this.browser) this.fireAndForget(METHODS.browserStatus, this.browser);
+    if (this.appVersion) this.fireAndForget(METHODS.reportAppVersion, this.appVersion);
   }
 
   /**

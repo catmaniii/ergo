@@ -449,7 +449,7 @@ If the address is recognizably a tailnet one, the Tailscale item comes first.
 
 **Step by step:**
 
-1. Each device has a row showing where it connects from, when it was paired, when it was last used, and the date its credential runs until. With 30 days or less left, it's marked **expires in N days**.
+1. Each device has a row showing where it connects from, when it was paired, when it was last used, and the date its credential runs until. A phone that has opened the app shows the app version, and one that's too old is marked **needs updating to x.y** (see [Update the app](#update-the-app)). With 30 days or less left, it's marked **expires in N days**.
 2. Click ⋯ at the end of the row, or long-press or right-click the row, to open the menu.
 
    ![Clicking ⋯ opens the menu: Extend…, Revoke, Delete, Select](images/mobile/10-device-menu.png)
@@ -469,6 +469,21 @@ If the address is recognizably a tailnet one, the Tailscale item comes first.
 - If a credential isn't used even once within 24 hours of being issued, it's automatically void.
 - If you lose your phone, revoke it from your computer.
 - A revoked phone says **This device has been revoked**. Tap **Request pairing** to apply again, and you'll have to approve it again too.
+
+## Update the app
+
+**What it is:** The app is only a shell, and the pages come from ergo on your computer. So when ergo on your computer updates, the app on your phone usually doesn't need to. You only have to update it when ergo starts relying on something new in the app.
+
+**When it's too old you'll see:**
+
+- A bar at the very top of the app: **The ergo app needs updating to x.y**, with a button to go and update.
+- The same reminder in your inbox, which also goes to the notification bar while the app is in the background. Each phone is only reminded once.
+
+**How to update:** On Android, tap **Download**, then open the file to install over the old version. See [Android app](#android-app). On HarmonyOS, tap **Installation guide** and sign and install again as in [HarmonyOS app](#harmonyos-app). You don't need to pair again.
+
+Once it's updated, the bar and the reminder go away by themselves. When the app is new enough, nothing shows. The phone browser never needs updating and never shows this bar.
+
+**To see the current version:** Settings · Data & devices · Device pairing. A phone that has opened the app shows the app version in its row. On the phone you can also look under **Running in the phone app** at the top of More · Settings.
 
 ## System notifications
 

@@ -44,6 +44,7 @@ const INBOX_ACTION_TEXT_KEYS: Readonly<Record<string, string>> = {
   去导入参考音色: "protocol.inboxAction.importVoice",
   去装组件: "protocol.inboxAction.installComponent",
   去更新组件: "protocol.inboxAction.updateComponent",
+  去升级: "protocol.inboxAction.upgradeApp",
   去设置页修复: "protocol.inboxAction.fixInSettings",
   发起更新任务: "protocol.inboxAction.startUpdate",
   确认删除: "protocol.inboxAction.confirmDelete",

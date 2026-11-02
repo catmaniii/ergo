@@ -474,6 +474,11 @@ button:disabled {
   flex: 1;
   white-space: nowrap;
 }
+/* 写成链接的按钮（去设置里修、去下载）：和旁边的按钮一样 */
+.auth-actions a.btn {
+  text-align: center;
+  text-decoration: none;
+}
 .auth-result {
   margin-top: 12px;
   font-size: var(--fs-m);

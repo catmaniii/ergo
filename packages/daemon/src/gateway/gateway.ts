@@ -98,6 +98,7 @@ import {
   type SetProjectVoiceAnnounceResult,
   type SetVoiceAnnounceParams,
   type SetVoiceAnnounceResult,
+  type ReportAppVersionParams,
   type WebVersionEventPayload,
   type WebVersionView,
   WS_CLOSE_UNPAIRED,
@@ -151,6 +152,8 @@ export interface RequestHandlers {
   revokeDevice(params: RevokeDeviceParams, idempotencyKey: string): RevokeDeviceResult;
   /** 设置里多选的延期、吊销、删除（pairing/pairing.ts）；吊销、删除的设备开着的 WebSocket 由网关随后关掉 */
   deviceBatchAction(params: DeviceBatchActionParams, idempotencyKey: string): DeviceBatchActionResult;
+  /** 这台已配对设备上的手机 App 报版本（pairing/pairing.ts） */
+  reportAppVersion(deviceId: string, params: ReportAppVersionParams): void;
   /** 点"发起任务"按钮（tasks/tasks.ts）：直接建出任务（规划中） */
   startTask(params: StartTaskParams, idempotencyKey: string): StartTaskResult;
   /** 设置页改关注类别（watch-categories/）：设置随后在关注类别频道推送 */
@@ -791,6 +794,10 @@ class FrontendConnection implements BrowserPeer {
         links.reply(this, request.params);
         return this.respond({ id: request.id, ok: true, result: {} });
       }
+      case METHODS.reportAppVersion:
+        // 本机端口的连接没有设备，没地方记：页面自己的提示条照常看本机版本
+        if (this.deviceId !== undefined) this.requests.reportAppVersion(this.deviceId, request.params);
+        return this.respond({ id: request.id, ok: true, result: {} });
       case METHODS.daemonInfo:
         if (!this.requests.daemonInfo) return this.fail(request.id, { code: "not_implemented", message: t("gateway.ws.daemonInfo") });
         return this.respond({ id: request.id, ok: true, result: this.requests.daemonInfo() });

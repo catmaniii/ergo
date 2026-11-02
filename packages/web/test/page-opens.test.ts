@@ -15,6 +15,7 @@
 // 标题上的"等你……"手机、电脑都看得到、点得到，点了跳到要处理的那张卡、闪一下，再点一次再闪；卡在别的页的跳过去；答完就不再等你。
 // 同一个 agent 不管从哪进去都是同一个对话框（标题栏、阶段条、输入框都在）；老的 #/tasks/<任务> 跳过去并定位；做完收成一行；背后的 agent 的列表和只读对话。
 // 安装版（不带 --mode demo）被直接打开：只有一句"要经二狗打开"，中英跟系统语言，一个请求都不往外发。
+// 手机 App 太旧（假的 ergoNative）：页面顶上一条提示，点了去下载或看教程；够新、不在 App 里没有；设备页写 App 的版本。
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -120,6 +121,7 @@ const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boo
   // 待办通知的动作按钮：存的是中文原字（按字认），显示时换成当前语言（协议包的 inboxActionText）
   { hash: "#/inbox/i-sjob", selector: ".auth-actions" },
   { hash: "#/inbox/i-backup", selector: ".auth-actions" },
+  { hash: "#/inbox/i-app-outdated", selector: ".auth-actions" },
   // pages/ 里的字——各页的标题栏、分节标题、说明（名字标签是用户起的名字）。从状态层、ui/ 来的字（状态名、阶段名、标签、
   // 外观与风格的副标题、时间日期……）不算，原型的演示数据（任务名、项目名、素材……）是内容，这几处选得避开它们
   { hash: "#/browse", selector: ".chat-col" },
@@ -1056,6 +1058,104 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
   }, 60_000);
 
   // 演示版演的是现在的行为
+  describe("手机 App 的版本", () => {
+    const HARMONY_UA = "Mozilla/5.0 (Phone; OpenHarmony 5.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 ArkWeb/4.1.6.1 Mobile";
+    const ANDROID_UA = "Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36";
+    const PHONE = { width: 390, height: 844 };
+
+    /** 开一页；version 给了就是开在 App 里（假的原生桥），undefined 是手机浏览器 */
+    async function openInApp(version: string | undefined, userAgent: string, search = "") {
+      const context = await browser!.newContext({ viewport: PHONE, userAgent });
+      if (version !== undefined) await context.addInitScript(`window.ergoNative = { appVersion: () => ${JSON.stringify(version)}, log() {} };`);
+      const page = await context.newPage();
+      const errors: string[] = [];
+      page.on("pageerror", (e) => errors.push(String(e)));
+      await page.goto(pageUrl + search);
+      await page.locator("nav").first().waitFor();
+      return { context, page, errors };
+    }
+
+    test.each([
+      ["安卓", ANDROID_UA, "", "下载新版", /ergo-android-debug\.apk$/, "二狗 App 需要升级到"],
+      ["鸿蒙", HARMONY_UA, "", "看安装教程", /docs\/user-guide\/mobile\.md#%E9%B8%BF%E8%92%99-app$|mobile\.md#鸿蒙-app$/, "二狗 App 需要升级到"],
+      ["安卓（英文）", ANDROID_UA, "?lang=en", "Download", /ergo-android-debug\.apk$/, "The ergo app needs updating to"],
+      ["鸿蒙（英文）", HARMONY_UA, "?lang=en", "Installation guide", /mobile\.en\.md#harmonyos-app$/, "The ergo app needs updating to"],
+    ])("太旧的 App，%s：手机宽上一条提示，按钮去对的地方、放得下", async (_name, ua, search, label, href, text) => {
+      const { context, page, errors } = await openInApp("0.0.1", ua, search);
+      try {
+        const bar = page.locator(".app-upgrade-bar");
+        await bar.waitFor();
+        expect(await bar.innerText()).toContain(text);
+        const link = bar.locator("a");
+        expect((await link.innerText()).trim()).toBe(label);
+        expect(await link.getAttribute("href")).toMatch(href);
+        const box = (await link.boundingBox())!;
+        expect(box.x + box.width).toBeLessThanOrEqual(PHONE.width);
+        expect(errors).toEqual([]);
+      } finally {
+        await context.close();
+      }
+    }, 60_000);
+
+    test("读不到版本的 App 算最旧：也有提示", async () => {
+      const { context, page } = await openInApp("", ANDROID_UA);
+      try {
+        await page.locator(".app-upgrade-bar").waitFor();
+        expect(await page.locator(".app-upgrade-bar a").getAttribute("href")).toMatch(/ergo-android-debug\.apk$/);
+      } finally {
+        await context.close();
+      }
+    }, 60_000);
+
+    test.each([
+      ["够新的 App", "99.0.0", ANDROID_UA],
+      ["手机浏览器", undefined, ANDROID_UA],
+    ])("%s：没有提示", async (_name, version, ua) => {
+      const { context, page } = await openInApp(version, ua);
+      try {
+        expect(await page.locator(".update-bar.app-upgrade-bar").count()).toBe(0);
+      } finally {
+        await context.close();
+      }
+    }, 60_000);
+
+    test.each([
+      ["", "App 0.4.2", "App 0.4.0", "要升级到"],
+      ["?lang=en", "App 0.4.2", "App 0.4.0", "needs updating to"],
+    ])("设备页（%s）：写 App 的版本，太旧的标要升级；浏览器那几台不写", async (search, fresh, old, mark) => {
+      const { page, errors } = await open(PHONE, search);
+      try {
+        await page.evaluate("location.hash = '#/more/devices'");
+        const rows = page.locator(".device-row .device-text");
+        await rows.first().waitFor();
+        const texts = await rows.allInnerTexts();
+        const freshRow = texts.find((row) => row.includes(fresh))!;
+        const oldRow = texts.find((row) => row.includes(old))!;
+        expect(freshRow).not.toContain(mark);
+        expect(oldRow).toContain(mark);
+        expect(texts.filter((row) => row.includes("Safari") || row.includes("Edge")).every((row) => !row.includes("App "))).toBe(true);
+        expect(errors).toEqual([]);
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+
+    test("待办里那条：去升级是外部链接（按那台手机是哪种 App），知道了是按钮", async () => {
+      const { page, errors } = await open({ width: 1280, height: 800 });
+      try {
+        await page.evaluate("location.hash = '#/inbox/i-app-outdated'");
+        const upgrade = page.locator(".auth-actions a", { hasText: "去升级" });
+        await upgrade.waitFor();
+        expect(await upgrade.getAttribute("href")).toMatch(/ergo-android-debug\.apk$/);
+        expect(await upgrade.getAttribute("target")).toBe("_blank");
+        expect(await page.locator(".auth-actions button", { hasText: "知道了" }).count()).toBe(1);
+        expect(errors).toEqual([]);
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+  });
+
   test("演示数据：待办没有等你验收，提醒和越界通知和真实的一样，长程任务没有由你过目的阶段，界面上没有 LSM", async () => {
     const { page, errors } = await open({ width: 1280, height: 800 });
     const go = (to: string) => page.evaluate(`window.location.hash = ${JSON.stringify(to)}`);

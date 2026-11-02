@@ -1,11 +1,15 @@
 // 待我处理事项的种类名和通知的动作按钮（从 pages/InboxPage.tsx 抽出来）：待办详情（NoticeView）和会话里的"等你处理"栏
 // （ui/conversation/InboxBar.tsx）用同一份——点了哪个动作都是同一个请求（inbox_action handle，choice 是这个动作），两边一起变；
-// 去设置里某一页修的动作是去那一页的链接，不算处理。
+// 去设置里某一页修的动作是去那一页的链接，不算处理；"App 太旧了"的"去升级"是去下载或看教程的外部链接，也不算处理。
 import { useState } from "react";
 import { type MorePage, toHash } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
 import { CARD_TYPE_LABEL } from "../model/cards.ts";
 import {
+  activeLocale,
+  APP_UPGRADE_ACTION,
+  type AppOutdatedNoticeData,
+  appUpgradeLink,
   COMPONENTS_INSTALL_ACTION,
   COMPONENTS_UPDATE_ACTION,
   inboxActionText,
@@ -51,6 +55,7 @@ const NOTICE_LABEL: Readonly<Record<NoticeType, string>> = tTable({
   rollback_wait: "ui.inboxNotice.kind.rollbackWait",
   reverify_failed: "ui.inboxNotice.kind.reverifyFailed",
   component_update_available: "ui.inboxNotice.kind.componentUpdateAvailable",
+  app_outdated: "ui.inboxNotice.kind.appOutdated",
 });
 
 /**
@@ -98,6 +103,14 @@ export function NoticeActions({ item, small = false, className = "auth-actions" 
       {item.actions.map((a, i) => {
         const look = `btn${size} ${i === 0 ? "primary" : "ghost"}`;
         const page = settingsLink(item.notice, a);
+        // 去下载或看教程：按那台手机是哪种 App，不看现在是在哪台设备上点的
+        if (item.notice === "app_outdated" && a === APP_UPGRADE_ACTION) {
+          return (
+            <a key={a} className={look} href={appUpgradeLink((item.data as AppOutdatedNoticeData | undefined)?.platform, activeLocale().meta.id).url} target="_blank" rel="noopener noreferrer">
+              {inboxActionText(a)}
+            </a>
+          );
+        }
         return page ? (
           <a key={a} className={look} href={toHash({ tab: "more", page })}>
             {inboxActionText(a)}

@@ -1,6 +1,7 @@
 // 这个页面是不是开在鸿蒙 App 里：把 app/native-app.ts 接到页面的 window 上。
 // 单独一个文件，app/native-app.ts 就不碰浏览器的全局变量，能在 Node 里测。
-import { appBottomReserve, type BackScope, detectNativeApp, followBackInApp, followInsetsInApp, followLocaleInApp, followThemeInApp, type InsetsScope, type NativeApp } from "./native-app.ts";
+import type { ReportAppVersionParams } from "../state/index.ts";
+import { appBottomReserve, type BackScope, detectNativeApp, followBackInApp, followInsetsInApp, followLocaleInApp, followThemeInApp, type InsetsScope, type NativeApp, nativeAppReport } from "./native-app.ts";
 import type { NativeBrowserScope } from "./native-browser.ts";
 import type { NativeVoiceScope } from "./native-voice.ts";
 import { pageBack } from "./page-back.ts";
@@ -12,6 +13,13 @@ let detected: { app: NativeApp | undefined } | undefined;
 export function pageNativeApp(): NativeApp | undefined {
   detected ??= { app: detectNativeApp(window as { ergoNative?: unknown } & NativeVoiceScope & NativeBrowserScope) };
   return detected.app;
+}
+
+/** 开在 App 里时要报的版本（读不到是空串）；不在 App 里是 undefined。App 在页面加载前就注入好了，版本在 App 的一次运行里不变 */
+let reported: { report: ReportAppVersionParams | undefined } | undefined;
+export function pageAppReport(): ReportAppVersionParams | undefined {
+  reported ??= { report: nativeAppReport(window) };
+  return reported.report;
 }
 
 /**

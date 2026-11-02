@@ -15,6 +15,7 @@ import {
   InboxActionParams,
   MarkReadParams,
   QueuedMessageActionParams,
+  ReportAppVersionParams,
   RequestFrame,
   RevokeDeviceParams,
   SendMessageParams,
@@ -67,6 +68,7 @@ const PARAM_SCHEMAS = {
   [METHODS.rollbackSession]: RollbackSessionParams,
   [METHODS.switchBranch]: SwitchBranchParams,
   [METHODS.requestEffectUndo]: RequestEffectUndoParams,
+  [METHODS.reportAppVersion]: ReportAppVersionParams,
 } as const;
 
 /** 每个方法的参数类型（由 PARAM_SCHEMAS 推出） */

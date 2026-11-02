@@ -31,6 +31,8 @@ import {
   localDate,
   type NoticeType,
   type PairedDevice,
+  APP_UPGRADE_ACTION,
+  type AppOutdatedNoticeData,
   OUT_OF_SCOPE_ACK,
   REVERIFY_ACTIONS,
   type ReverifyNoticeData,
@@ -633,7 +635,7 @@ function cardItem(x: Fresh & { cardId: string }): InboxItem {
   return { kind: "card", version: 1, pinned: false, archived: false, deleted: false, ...x };
 }
 
-function notice(x: Fresh & { notice: NoticeType; body: string; actions: string[]; pinned?: boolean; archiveList?: ArchiveListData["archiveList"]; data?: ReverifyNoticeData }): InboxItem {
+function notice(x: Fresh & { notice: NoticeType; body: string; actions: string[]; pinned?: boolean; archiveList?: ArchiveListData["archiveList"]; data?: ReverifyNoticeData | AppOutdatedNoticeData }): InboxItem {
   const { archiveList, data, ...rest } = x;
   return { kind: "notice", version: 1, pinned: false, archived: false, deleted: false, ...rest, ...(archiveList ? { data: { archiveList } satisfies ArchiveListData } : data ? { data: { ...data } } : {}) };
 }
@@ -703,6 +705,18 @@ const FAKE_INBOX_ITEMS: InboxItem[] = [
     createdAt: at("10-06", "21:40"),
     read: true,
     actions: [OUT_OF_SCOPE_ACK],
+  }),
+  notice({
+    id: "i-app-outdated",
+    notice: "app_outdated",
+    title: "二狗 App 需要升级到 0.4.1",
+    body: "「备用手机 · 二狗 App（Android 14）」上的 App 是 0.4.0，这版二狗要 0.4.1 或更新的。点“去升级”下载或看教程，升级后这条自动消失。",
+    source: "设备配对",
+    urgency: "non_blocking",
+    createdAt: at("10-05", "08:30"),
+    read: true,
+    actions: [APP_UPGRADE_ACTION, OUT_OF_SCOPE_ACK],
+    data: { deviceId: "d9", deviceName: "备用手机 · 二狗 App（Android 14）", version: "0.4.0", minVersion: "0.4.1", platform: "android" },
   }),
   notice({ id: "i-backup", notice: "backup_failed", title: "昨晚的备份没写进同步目录", body: "03:30 的备份：快照已在本机做好，但配置里的同步目录（网盘的同步文件夹）不存在。", source: "系统", urgency: "non_blocking", createdAt: at("10-07", "03:31"), read: false, actions: ["重试", "知道了"] }),
   notice({ id: "i-sjob", notice: "scheduled_job_auto_paused", title: "定时触发的任务「每周日备份照片」已自动暂停", body: "连续失败 3 次（10-04、09-27、09-20），最近一次：NAS 没挂载。", source: "项目「相册库」", urgency: "non_blocking", createdAt: at("10-04", "03:05"), read: true, actions: ["恢复", "保持暂停"] }),
@@ -823,9 +837,12 @@ export const FAKE_ACCESS: AccessInfo = { access: "device", device: { id: FAKE_SE
 
 /**
  * 已配对设备：假连接作为已配对设备频道上的 device 事件推给前端状态层。各种状态都有一台（多选、延期、吊销、删除都能演示）：
- * 有效的（就是这台、平板）、快到期的、等待首次使用的、过期的（连续 365 天没用）、没用过作废的、吊销了的
+ * 有效的（就是这台、平板）、快到期的、等待首次使用的、过期的（连续 365 天没用）、没用过作废的、吊销了的；
+ * 还有开手机 App 的两台：App 够新的、App 太旧的（设备页写版本、标要升级）
  */
 export const FAKE_DEVICES: PairedDevice[] = [
+  { id: "d8", name: "华为 Pura · 二狗 App（HarmonyOS 6）", from: "经隧道 · 198.51.100.7", pairedAt: at("09-20", "20:00"), activated: true, lastUsedAt: fromNow(-HOUR_MS), expiresAt: fromNow(365 * DAY_MS - HOUR_MS), revoked: false, appVersion: "0.4.2", appPlatform: "harmony" },
+  { id: "d9", name: "备用手机 · 二狗 App（Android 14）", from: "经隧道 · 198.51.100.23", pairedAt: at("09-25", "20:00"), activated: true, lastUsedAt: fromNow(-3 * DAY_MS), expiresAt: fromNow(362 * DAY_MS), revoked: false, appVersion: "0.4.0", appPlatform: "android" },
   { id: "d1", name: "iPhone · Safari（iOS 19）", from: "经隧道 · 203.0.113.24", pairedAt: at("09-12", "21:00"), activated: true, lastUsedAt: fromNow(-5 * 60_000), expiresAt: fromNow(365 * DAY_MS - 5 * 60_000), revoked: false },
   { id: "d2", name: "华为 MatePad · 浏览器（HarmonyOS 6）", from: "经隧道 · 198.51.100.7", pairedAt: at("08-30", "10:00"), activated: true, lastUsedAt: fromNow(-2 * DAY_MS), expiresAt: fromNow(363 * DAY_MS), revoked: false },
   { id: "d4", name: "家里的旧手机 · Chrome（Android 14）", from: "经隧道 · 198.51.100.23", pairedAt: fromNow(-400 * DAY_MS), activated: true, lastUsedAt: fromNow(-359 * DAY_MS), expiresAt: fromNow(6 * DAY_MS), revoked: false },

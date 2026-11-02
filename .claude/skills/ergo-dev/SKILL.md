@@ -40,6 +40,7 @@ npm run test:fast
 | 守护进程主线、组合根、装配 | `npm run test:integration`（十几分钟），或者只跑相关的 `packages/daemon/test/main/<名字>.test.ts` |
 | `agent-host/`、`runtime/`、系统提示 | `npm run test:contract` |
 | `packages/supervisor` | `npm run test:supervisor` |
+| 手机 App 的代码（`frontend/` 下进 App 的、`packages/web/src/page-bridge`） | App 版本要升，不然发版时 `--build-mobile` 报错：`frontend/app-version.json` 是 App 自己的版本号，和电脑版分开，改版本号的步骤见 `docs/architecture/development.md` 的"发布手机安装包"（ADR-0047）。页面开始依赖新的原生能力时再升协议包的 `MIN_APP_VERSION` |
 | 插件宿主、手册摘录的代码 | `npx vitest run packages/daemon/test/plugins/plugin-guide-doc.test.ts` |
 
 几套测试同时跑时设 `ERGO_TEST_WORKERS=2`。
