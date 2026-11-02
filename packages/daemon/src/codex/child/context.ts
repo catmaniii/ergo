@@ -66,6 +66,9 @@ export class CodexContext {
 /** 追加进 developerInstructions 的一句：负责人的系统提示是按 pi 写的，说清二狗的工具在 Codex 里叫什么、提示里说的 pi 的工具对应它自带的哪个 */
 export const CODEX_TOOL_NOTE = [
   `（二狗补充：你现在跑在 Codex 里。上面说的二狗的工具在这里名字前面带 mcp__${ERGO_MCP_SERVER}__，比如 submit_plan 就是 mcp__${ERGO_MCP_SERVER}__submit_plan；`,
-  `工具包里的 MCP 工具在这里写成 mcp__${ERGO_MCP_SERVER}__<服务>__<工具>。上面说的 read、write、edit、bash、grep、find、ls 用你自带的命令和 apply_patch 做。`,
+  `工具包里的 MCP 工具在这里写成 mcp__${ERGO_MCP_SERVER}__<服务>__<工具>。`,
+  // 实测 0.166：MCP 工具一律延迟加载，不搜就调回 unsupported call（直接调的模型）；代码模式的模型在 exec 里能直接 await tools.mcp__ergo__xxx(...)
+  "这些工具一开始可能不在你的工具清单里：有 tool_search 的先用它搜出来再调；用 exec 的在 tools 上直接调，名字可以从 ALL_TOOLS 里找。",
+  "上面说的 read、write、edit、bash、grep、find、ls 用你自带的命令和 apply_patch 做。不要开要人敲键盘的交互程序：这里关掉了 TTY。",
   "工具包里的 skill 已经放进你能发现的 skill 目录。）",
 ].join("");

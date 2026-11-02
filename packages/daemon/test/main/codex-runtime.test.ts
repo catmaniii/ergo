@@ -132,7 +132,8 @@ describe("Codex 插件（假 app-server）", () => {
     const store = storeOf(codex, task);
     expect(store.violations).toEqual([]);
     expect(store.executed.map((e) => (e.input as { command: string }).command)).toEqual(["git status"]);
-    const denied = toolCalls(codex, task).find((c) => c.tool === "bash" && c.argsSummary === dangerous);
+    // 摘要是给守卫看的那句：反斜杠换成了正斜杠（child/translator.ts 的 commandForGuard），不换的话守卫认不出路径
+    const denied = toolCalls(codex, task).find((c) => c.tool === "bash" && c.argsSummary === dangerous.replaceAll("\\", "/"));
     expect(denied).toMatchObject({ outcome: "denied" });
   }, 90_000);
 

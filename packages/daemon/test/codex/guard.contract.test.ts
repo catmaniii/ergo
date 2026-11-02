@@ -1,14 +1,17 @@
 // Codex 的工具调用都过二狗守卫（用户第 4 条决定，ADR-0046）：适配子进程、钩子脚本（真的经 cmd /C ergo-guard-hook 拉起）、MCP 中转都是真的，app-server 是假的。
 // 三个口子：PreToolUse 钩子（主闸口）、审批请求、item/started 上的事后核对；这里逐个核对"判不放行时真的没执行"，以及拦不住的那几样照实记录、打断。
 import { spawn } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { fromGuardArgs, toGuardCall } from "../../src/codex/child/guard.ts";
-import { pathsOfPatch } from "../../src/codex/child/translator.ts";
+import { innerCommand, pathsOfPatch } from "../../src/codex/child/translator.ts";
+import { CODEX_GUARD_TOOLS } from "../../src/codex/guard-tools.ts";
 import type { GuardVerdict, HostToolSpec } from "../../src/runtime/index.ts";
 import { startCodexChild } from "../helpers/codex-child.ts";
 import type { FakeStep } from "../helpers/fake-codex-app-server.ts";
+import { makeTempDir } from "../helpers/temp-dir.ts";
 
 const PATCH = "*** Begin Patch\n*** Add File: notes/new.md\n+hello\n*** Update File: src/a.ts\n@@\n-x\n+y\n*** Delete File: old.txt\n*** Update File: b.ts\n*** Move to: c.ts\n*** End Patch";
 
@@ -173,8 +176,16 @@ describe("审批请求（第二道）", () => {
     expect(server.executed).toEqual([]);
   });
 
-  it("往终端里送输入：映射成 write_stdin 过守卫；不放行没送", async () => {
-    const { log, server } = await run([{ kind: "write_stdin", id: "s-1", input: "y\n" }, { kind: "reply", text: "好" }], () => deny());
+  it("往终端里送字符：实测不过钩子、不走审批，只有事后通知：照样记一次、过守卫（拦不住，这是启动时关掉 TTY 的原因）；空字符是轮询输出，不算", async () => {
+    const { log, child } = await run([{ kind: "write_stdin", id: "s-1", input: "rm x\n" }, { kind: "write_stdin", id: "s-1", input: "" }, { kind: "reply", text: "好" }]);
+    expect(log.ofType("guard_request")).toHaveLength(1);
+    expect(log.ofType("guard_request")[0]).toMatchObject({ toolName: "write_stdin", args: { input: "rm x\n", processId: "1234" } });
+    expect(log.ofType("tool_call_end")[0]).toMatchObject({ toolName: "write_stdin", isError: false });
+    expect(child.logs.join("\n")).toContain("钩子没拦到");
+  });
+
+  it("往终端里送字符（协议里还有的审批，0.166 实测没发过）：映射成 write_stdin 过守卫；不放行没送", async () => {
+    const { log, server } = await run([{ kind: "write_stdin", id: "s-1", input: "y\n", approval: true }, { kind: "reply", text: "好" }], () => deny());
     expect(log.ofType("guard_request")[0]).toMatchObject({ toolName: "write_stdin", args: { input: "y\n" } });
     expect(server.executed).toEqual([]);
     expect(log.ofType("tool_call_end")[0]).toMatchObject({ toolName: "write_stdin", isError: true });
@@ -225,17 +236,203 @@ describe("事后核对（第三道：拦不住，只能记录、打断）", () =
     expect(child.server.executed).toHaveLength(1);
   });
 
-  it("看图（Codex 自己做）：映射成 read 记录", async () => {
-    const { log } = await run([{ kind: "image_view", path: "D:\\a.png", id: "i-1" }, { kind: "reply", text: "好" }]);
-    expect(log.ofType("guard_request")[0]).toMatchObject({ toolName: "read", args: { path: "D:\\a.png" }, native: { toolName: "view_image" } });
+  it("看图：实测过钩子，映射成 read 判路径，只有一条记录；判不放行就没看，模型收到原因", async () => {
+    const { log, child } = await run([{ kind: "image_view", path: "D:\\a.png", id: "i-1" }, { kind: "reply", text: "好" }]);
+    expect(log.ofType("guard_request")).toHaveLength(1);
+    expect(log.ofType("guard_request")[0]).toMatchObject({ toolName: "read", args: { path: "D:\\a.png" }, native: { toolName: "view_image", args: { path: "D:\\a.png" } } });
+    expect(log.ofType("tool_call_start")).toHaveLength(1);
     expect(log.ofType("tool_call_end")[0]).toMatchObject({ toolCallId: "i-1", toolName: "read", isError: false });
+    expect(child.logs.join("\n")).not.toContain("钩子没拦到");
+
+    const denied = await run([{ kind: "image_view", path: "D:\\secret.png", id: "i-2" }, { kind: "reply", text: "好" }], () => deny("不许看"));
+    expect(denied.server.toolResults.get("i-2")).toBe("不许看");
+    expect(denied.log.ofType("tool_call_end")[0]).toMatchObject({ toolCallId: "i-2", isError: true, resultText: "不许看" });
   });
 
-  it("派子代理：事后过守卫、记录；子代理里的命令照常过钩子", async () => {
+  it("派子代理：实测过钩子，判不放行就不派；放行了挂在派它的那次下面，子代理里的命令照常过钩子", async () => {
     const { log, server } = await run([{ kind: "collab", id: "c-1", steps: [{ kind: "command", command: "rm x", id: "sub-1" }] }, { kind: "reply", text: "好" }], (request) => (request.toolName === "bash" ? deny() : { allow: true }));
     expect(log.ofType("guard_request").map((r) => r.toolName)).toEqual(["spawnAgent", "bash"]);
+    expect(log.ofType("guard_request")[0]).toMatchObject({ args: { prompt: "看看", task_name: "worker" }, native: { toolName: "collaborationspawn_agent" } });
     expect(server.executed).toEqual([]);
     expect(log.ofType("tool_call_end").find((e) => e.toolCallId === "sub-1")).toMatchObject({ parentToolCallId: "c-1", isError: true });
+    expect(log.ofType("tool_call_end").find((e) => e.toolCallId === "c-1")).toMatchObject({ toolName: "spawnAgent", isError: false, resultText: "/root/worker" });
+
+    const denied = await run([{ kind: "collab", id: "c-2", steps: [{ kind: "command", command: "echo 不该跑", id: "sub-2" }] }, { kind: "reply", text: "好" }], () => deny("不许派"));
+    expect(denied.server.toolResults.get("c-2")).toBe("不许派");
+    expect(denied.server.executed).toEqual([]);
+  });
+
+  it("钩子报的工具名把命名空间拼在前面（实测）：sleep、子代理工具换成登记表里的名字；MCP 不动", () => {
+    expect(toGuardCall("a", "clocksleep", { duration_ms: 100 })).toMatchObject({ toolName: "sleep", args: { durationMs: 100 }, native: { toolName: "clocksleep" } });
+    expect(toGuardCall("b", "clockcurr_time", {})).toMatchObject({ toolName: "curr_time" });
+    expect(toGuardCall("c", "collaborationlist_agents", {})).toMatchObject({ toolName: "listAgents" });
+    expect(toGuardCall("d", "collaborationwait_agent", { timeout_ms: 1 })).toMatchObject({ toolName: "wait", args: { timeout_ms: 1 } });
+    expect(toGuardCall("e", "multi_agent_v1spawn_agent", { message: "看看" })).toMatchObject({ toolName: "spawnAgent", args: { prompt: "看看" } });
+    expect(toGuardCall("f", "view_image", { path: "x.png" })).toMatchObject({ toolName: "read", args: { path: "x.png" } });
+    expect(toGuardCall("g", "mcp__clockwork__sleep", { a: 1 })).toMatchObject({ toolName: "mcp__clockwork__sleep", args: { a: 1 } });
+    expect(toGuardCall("h", "create_goal", { objective: "x" })).toMatchObject({ toolName: "create_goal", args: { objective: "x" } });
+  });
+
+  it("Codex 自带的、钩子看得到的工具都登记了（不会被当成未登记的写操作去问用户）", () => {
+    const names = new Set(CODEX_GUARD_TOOLS.map((tool) => tool.name));
+    for (const hookName of ["clocksleep", "clockcurr_time", "get_goal", "create_goal", "update_goal", "request_user_input", "request_user_input_async", "list_mcp_resources", "list_mcp_resource_templates", "read_mcp_resource", "collaborationspawn_agent", "collaborationfollowup_task", "collaborationsend_message", "collaborationwait_agent", "collaborationinterrupt_agent", "collaborationlist_agents"]) {
+      expect(names).toContain(toGuardCall("x", hookName, {}).toolName);
+    }
+  });
+
+  it("过了钩子、没有条目的调用（goal 这一类，实测）：下一次用量通知时按没出错收尾，不留到轮次结束记成出错；真的执行了", async () => {
+    const { log, server } = await run([{ kind: "itemless", name: "get_goal", id: "g-1" }, { kind: "reply", text: "看过了" }, { kind: "reply", text: "好" }]);
+    expect(server.executed).toEqual([{ tool: "get_goal", input: {} }]);
+    expect(log.ofType("tool_call_end")).toEqual([{ type: "tool_call_end", toolCallId: "g-1", toolName: "get_goal", isError: false, resultText: "" }]);
+    const reports = log.reports.map((r) => r.type);
+    expect(reports.indexOf("tool_call_end")).toBeLessThan(reports.lastIndexOf("usage"));
+  });
+
+  it("没有条目、这一轮又没有用量通知的：轮次结束时也按没出错收尾；打断的还是写没等到结果", async () => {
+    const { log } = await run([{ kind: "itemless", name: "update_goal", args: { status: "complete" }, id: "g-2" }]);
+    expect(log.ofType("tool_call_end")[0]).toMatchObject({ toolCallId: "g-2", isError: false, resultText: "" });
+  });
+
+  it("钩子跑失败（实测 Codex 接着往下走）：日志写明原因；审批接住，判定用模型写的那句，不是外壳包好的；不放行回 decline，原因记在结果上", async () => {
+    const child = startCodexChild({ server: { hookFails: true, turns: [[{ kind: "command", command: "Remove-Item keep.txt", id: "c-1" }, { kind: "reply", text: "好" }]] } });
+    child.answerGuard(() => deny("不许删"));
+    await child.log.next("ready");
+    await child.turn("in-1", "干活");
+    expect(child.logs.join("\n")).toContain("守卫钩子跑失败了：hook exited with code 1");
+    expect(child.log.ofType("guard_request")).toHaveLength(1);
+    expect(child.log.ofType("guard_request")[0]).toMatchObject({ toolName: "bash", args: { command: "Remove-Item keep.txt" } });
+    expect(child.server.executed).toEqual([]);
+    expect(child.log.ofType("tool_call_end")[0]).toMatchObject({ toolCallId: "c-1", isError: true, resultText: expect.stringContaining("不许删") });
+  });
+
+  describe("模型写了 workdir（钩子看不到，条目和审批的 cwd 才是真的目录）：补判一次", () => {
+    const OTHER = "E:\\elsewhere\\sub";
+    const denyCwd = (request: { toolCallId: string }): GuardVerdict => (request.toolCallId.endsWith("#cwd") ? deny("不许在外面删") : { allow: true });
+    const start = (steps: FakeStep[], session: Parameters<typeof startCodexChild>[0] = {}) => startCodexChild({ ...session, server: { turns: [steps] } });
+    /** 等过事后打断的那一小会儿（guard.ts 的 AUDIT_INTERRUPT_DELAY_MS） */
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 300));
+
+    it("判不放行：审批回 decline，没执行；补判自己一条记录，原因也写在这条命令的记录上", async () => {
+      const child = start([{ kind: "command", command: "Remove-Item keep.txt", id: "c-1", workdir: OTHER }, { kind: "reply", text: "好" }]);
+      child.answerGuard(denyCwd);
+      await child.log.next("ready");
+      await child.turn("in-1", "干活");
+      expect(child.server.executed).toEqual([]);
+      expect(child.log.ofType("guard_request").map((r) => [r.toolCallId, r.args])).toEqual([
+        ["c-1", { command: "Remove-Item keep.txt" }],
+        ["c-1#cwd", { command: 'cd "E:/elsewhere/sub" && Remove-Item keep.txt' }],
+      ]);
+      expect(child.log.ofType("guard_request")[1]).toMatchObject({ native: { toolName: "Bash", args: { command: "Remove-Item keep.txt", workdir: OTHER } } });
+      expect(child.log.ofType("tool_call_end").find((e) => e.toolCallId === "c-1#cwd")).toMatchObject({ isError: true, resultText: "不许在外面删" });
+      expect(child.log.ofType("tool_call_end").find((e) => e.toolCallId === "c-1")).toMatchObject({ isError: true, resultText: expect.stringContaining("不许在外面删") });
+      // 审批接住了，不用事后打断
+      await settle();
+      expect(child.logs.join("\n")).not.toContain("打断这一轮");
+      expect(child.server.callsOf("turn/interrupt")).toHaveLength(0);
+    });
+
+    it("放行：执行了；每条开始、结束各报一次", async () => {
+      const child = start([{ kind: "command", command: "Remove-Item keep.txt", id: "c-1", workdir: OTHER }, { kind: "reply", text: "好" }]);
+      child.answerGuard();
+      await child.log.next("ready");
+      await child.turn("in-1", "干活");
+      expect(child.server.executed).toHaveLength(1);
+      expect(child.log.ofType("tool_call_start").map((s) => s.toolCallId)).toEqual(["c-1", "c-1#cwd"]);
+      expect(child.log.ofType("tool_call_end").map((e) => [e.toolCallId, e.isError])).toEqual([["c-1#cwd", false], ["c-1", false]]);
+    });
+
+    it("审批要等补判回来才答复：判定没回之前没有执行，也不打断", async () => {
+      const child = start([{ kind: "command", command: "Remove-Item keep.txt", id: "c-1", workdir: OTHER }, { kind: "reply", text: "好" }]);
+      await child.log.next("ready");
+      child.send({ type: "user_input", inputId: "in-1", text: "干活" });
+      const first = await child.log.next("guard_request");
+      child.send({ type: "guard_reply", requestId: first.requestId, verdict: { allow: true } });
+      const second = await child.log.next("guard_request");
+      expect(second.toolCallId).toBe("c-1#cwd");
+      await settle();
+      expect(child.server.executed).toEqual([]);
+      expect(child.server.callsOf("turn/interrupt")).toHaveLength(0);
+      child.send({ type: "guard_reply", requestId: second.requestId, verdict: { allow: true } });
+      expect((await child.log.next("turn_end")).outcome).toBe("completed");
+      expect(child.server.executed).toHaveLength(1);
+    });
+
+    it("判了要改参数：审批改不了，回 decline，写明", async () => {
+      const child = start([{ kind: "command", command: "Remove-Item keep.txt", id: "c-1", workdir: OTHER }, { kind: "reply", text: "好" }]);
+      child.answerGuard((request) => (request.toolCallId.endsWith("#cwd") ? { allow: true, args: { command: "dir" } } : { allow: true }));
+      await child.log.next("ready");
+      await child.turn("in-1", "干活");
+      expect(child.server.executed).toEqual([]);
+      expect(child.log.ofType("tool_call_end").find((e) => e.toolCallId === "c-1")).toMatchObject({ isError: true, resultText: expect.stringContaining("审批改不了") });
+    });
+
+    it("没有审批的（execpolicy 放行）：已经跑了，判了不放行打断这一轮，写日志；放行不打断", async () => {
+      const child = start([{ kind: "command", command: "type secret.txt", id: "c-1", approval: false, workdir: OTHER }, { kind: "hang" }]);
+      child.answerGuard(denyCwd);
+      await child.log.next("ready");
+      expect((await child.turn("in-1", "干活")).outcome).toBe("aborted");
+      expect(child.server.executed).toHaveLength(1);
+      expect(child.server.callsOf("turn/interrupt")).toHaveLength(1);
+      expect(child.logs.join("\n")).toContain("事后核对判了不放行");
+
+      const fine = start([{ kind: "command", command: "type a.txt", id: "c-1", approval: false, workdir: OTHER }, { kind: "reply", text: "好" }]);
+      fine.answerGuard();
+      await fine.log.next("ready");
+      expect((await fine.turn("in-1", "干活")).outcome).toBe("completed");
+      expect(fine.log.ofType("guard_request").map((r) => r.toolCallId)).toEqual(["c-1", "c-1#cwd"]);
+      expect(fine.server.callsOf("turn/interrupt")).toHaveLength(0);
+    });
+
+    it("和工作目录相同：不多一条记录；盘符大小写、斜杠方向、末尾分隔符、短文件名都不算不同", async () => {
+      // 系统临时目录常是短文件名（CATMAN~1）：负责人的工作目录照它写，真实路径算同一个
+      const cwd = makeTempDir("ergo-codex-same-");
+      const same = [cwd, cwd.replaceAll("\\", "/"), `${cwd}\\`, cwd.toUpperCase(), cwd.toLowerCase(), fs.realpathSync.native(cwd)];
+      const steps: FakeStep[] = [...same.map((workdir, index): FakeStep => ({ kind: "command", command: `echo ${index}`, id: `c-${index}`, workdir })), { kind: "reply", text: "好" }];
+      const child = startCodexChild({ server: { turns: [steps] }, session: { cwd } });
+      child.answerGuard();
+      await child.log.next("ready");
+      await child.turn("in-1", "干活");
+      expect(child.server.executed).toHaveLength(same.length);
+      expect(child.log.ofType("guard_request")).toHaveLength(same.length);
+      expect(child.log.ofType("guard_request").filter((r) => r.toolCallId.endsWith("#cwd"))).toEqual([]);
+    });
+
+    it("钩子跑失败：两次判定都在审批这里等，判的是模型写的那句", async () => {
+      const child = startCodexChild({ server: { hookFails: true, turns: [[{ kind: "command", command: "Remove-Item keep.txt", id: "c-1", workdir: OTHER }, { kind: "reply", text: "好" }]] } });
+      child.answerGuard(denyCwd);
+      await child.log.next("ready");
+      await child.turn("in-1", "干活");
+      expect(child.server.executed).toEqual([]);
+      expect(child.log.ofType("guard_request").map((r) => r.args)).toEqual([{ command: "Remove-Item keep.txt" }, { command: 'cd "E:/elsewhere/sub" && Remove-Item keep.txt' }]);
+    });
+
+    it("钩子按计划改过参数：补判的是改过的那句（实际跑的）", async () => {
+      const child = start([{ kind: "command", command: "Remove-Item keep.txt", id: "c-1", workdir: OTHER }, { kind: "reply", text: "好" }]);
+      child.answerGuard((request) => (request.toolCallId === "c-1" ? { allow: true, args: { command: "Remove-Item plan.txt" } } : { allow: true }));
+      await child.log.next("ready");
+      await child.turn("in-1", "干活");
+      expect(child.log.ofType("guard_request")[1]).toMatchObject({ toolCallId: "c-1#cwd", args: { command: 'cd "E:/elsewhere/sub" && Remove-Item plan.txt' } });
+    });
+
+    it("不接守卫的会话：不补判", async () => {
+      const child = start([{ kind: "command", command: "dir", id: "c-1", approval: false, hook: false, workdir: OTHER }, { kind: "reply", text: "好" }], { session: { forwardToolCalls: false } });
+      await child.log.next("ready");
+      await child.turn("in-1", "干活");
+      expect(child.log.ofType("guard_request")).toEqual([]);
+    });
+  });
+
+  it("模型写的反斜杠路径：守卫看到正斜杠（按 Git Bash 拆时反斜杠是转义），执行的、native 里的还是原样", async () => {
+    const { log, server } = await run([{ kind: "command", command: "Remove-Item .\\sub\\a.txt", id: "c-1" }, { kind: "reply", text: "好" }]);
+    expect(log.ofType("guard_request")[0]).toMatchObject({ args: { command: "Remove-Item ./sub/a.txt" }, native: { args: { command: "Remove-Item .\\sub\\a.txt" } } });
+    expect(server.executed).toEqual([{ tool: "Bash", input: { command: "Remove-Item .\\sub\\a.txt" } }]);
+  });
+
+  it("几条连着写的命令（commandActions 不止一条）不拆，照外壳包好的判", () => {
+    const wrapped = `"powershell.exe" -Command 'a; b'`;
+    expect(innerCommand({ command: wrapped, commandActions: [{ type: "unknown", command: "a" }, { type: "unknown", command: "b" }] })).toBe(wrapped);
+    expect(innerCommand({ command: wrapped, commandActions: [{ type: "read", command: "Get-Content a.txt", name: "a.txt", path: "a.txt" }] })).toBe("Get-Content a.txt");
+    expect(innerCommand({ command: wrapped })).toBe(wrapped);
   });
 });
 

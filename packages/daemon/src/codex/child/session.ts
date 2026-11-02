@@ -11,6 +11,8 @@
 // 守卫钩子（ADR-0046）：
 // - Windows 上钩子命令要交给 cmd /C，路径里有空格时 Codex 转义的引号 cmd 认不了，所以 hook 的命令固定写 ergo-guard-hook，PATH 前面加 <runtimeDir>/bin，里面的包装脚本只认环境变量；
 // - -c 给的钩子默认 untrusted、不会跑：起来后问 hooks/list，没信任就把它报的 key 和 hash 写进 -c hooks.state 重起一次（记在 runtimeDir，下次不用重起）；还不行就不起（绝不在没有守卫时跑）。
+// - 钩子拦不到往开着的终端里送字符（write_stdin）：实测 0.166 既不过钩子也不走审批，开一个交互 shell 再送命令就绕开了守卫。所以启动时关掉 TTY（--disable unified_exec_tty）：
+//   要 tty 的 exec_command 被 Codex 回错、模型换成管道，管道的 stdin 是关着的（实测）。代价：要人敲键盘的交互程序在 Codex 负责人这里跑不了；
 // 没登录：account/read 看得出来，这一轮按出错收尾，写清怎么登录；关掉 app-server，下一条输入重新起（登录是另一个进程做的，缓存着的还是旧的）。额度用完（usageLimitExceeded……）同样按出错收尾，写明。
 // app-server 自己退出了：手头这一轮按出错收尾，下一条输入重新起、按 thread id 恢复。
 // @i18n-ignore-file log：子进程的日志（守护进程记进日志）
@@ -37,14 +39,14 @@ import {
 } from "../../runtime/host-protocol.ts";
 import { codexProcessEnv } from "../install.ts";
 import { codexChoices } from "../settings.ts";
-import { CodexRpc, CodexRpcError, type CodexServerSpawn } from "./app-server.ts";
+import { CodexRpc, CodexRpcError, type CodexServerSpawn, isWriterConflict } from "./app-server.ts";
 import { type Bridge, openBridge } from "./bridge.ts";
 import { CODEX_TOOL_NOTE, CodexContext } from "./context.ts";
 import { CodexGuard } from "./guard.ts";
 import { ERGO_MCP_SERVER, HostToolBridge } from "./host-tools.ts";
 import { type CodexLineage, emptyLineage, navigateCodex } from "./navigation.ts";
 import { type OpenedRecord, openSessionRecord, writeRecord } from "./records.ts";
-import { type CodexItem, type CodexToolCall, CodexTranslator, toolOfItem, type TokenUsageNotice } from "./translator.ts";
+import { type CodexItem, type CodexToolCall, CodexTranslator, commandForGuard, innerCommand, toolOfItem, type TokenUsageNotice } from "./translator.ts";
 
 export interface CodexSessionDeps {
   spawn: CodexServerSpawn;
@@ -130,16 +132,12 @@ function userInput(text: string, images: readonly InputImage[]): unknown[] {
 function turnError(error: unknown, fallback: string | undefined): string {
   const e = (typeof error === "object" && error !== null ? error : {}) as { message?: unknown; codexErrorInfo?: unknown };
   const message = typeof e.message === "string" && e.message !== "" ? e.message : fallback;
-  switch (e.codexErrorInfo) {
-    case "usageLimitExceeded":
-    case "rateLimitExceeded":
-    case "sessionBudgetExceeded":
-      return t("codex.child.usageLimit", { detail: message ?? "" });
-    case "unauthorized":
-      return t("codex.child.notLoggedIn");
-    default:
-      return message ?? t("codex.child.turnFailed");
-  }
+  const info = e.codexErrorInfo;
+  // 实测：有的错是 { httpConnectionFailed: { httpStatusCode: 401 } } 这样带状态码的（登录过期时也可能这样），不只是枚举值
+  const status = typeof info === "object" && info !== null ? (Object.values(info)[0] as { httpStatusCode?: unknown } | null | undefined)?.httpStatusCode : undefined;
+  if (info === "usageLimitExceeded" || info === "rateLimitExceeded" || info === "sessionBudgetExceeded" || status === 429) return t("codex.child.usageLimit", { detail: message ?? "" });
+  if (info === "unauthorized" || status === 401) return t("codex.child.notLoggedIn");
+  return message ?? t("codex.child.turnFailed");
 }
 
 export class CodexSessionRunner {
@@ -168,6 +166,7 @@ export class CodexSessionRunner {
   private differs = false;
   /** 这次起来时换了模型的结果（ready 里报回） */
   private handoffResult: HandoffReport | undefined;
+  private stdinSeq = 0;
   /** ready 之后才报的（写交接摘要那次的用量；模型列表） */
   private afterReadyReports: AgentReport[] = [];
   private holdReports = false;
@@ -304,6 +303,8 @@ export class CodexSessionRunner {
         ? [
             "--enable",
             "hooks",
+            "--disable",
+            "unified_exec_tty",
             "-c",
             `hooks.PreToolUse=[{matcher=".*",hooks=[{type="command",command=${toml(GUARD_HOOK_COMMAND)},timeout=${GUARD_HOOK_TIMEOUT_S}}]}]`,
             ...(trust ? ["-c", `hooks.state={${toml(trust.key)}={trusted_hash=${toml(trust.hash)}}}`] : []),
@@ -446,7 +447,10 @@ export class CodexSessionRunner {
     const { record } = this.opened;
     if (record.threadId && this.loaded.has(record.threadId)) return;
     if (record.started && record.threadId) {
-      const resumed = await rpc.request<StartedThread>("thread/resume", { threadId: record.threadId, ...this.threadParams(), excludeTurns: true });
+      const resumed = await rpc.request<StartedThread>("thread/resume", { threadId: record.threadId, ...this.threadParams(), excludeTurns: true }).catch((err: unknown) => {
+        // 终端里还开着：Codex 不让第二个进程写它
+        throw isWriterConflict(err) ? new Error(t("codex.child.threadBusy")) : err;
+      });
       this.noteThread(resumed);
       return;
     }
@@ -822,8 +826,12 @@ export class CodexSessionRunner {
       case "item/reasoning/textDelta":
         if (threadId === current) this.translator.delta(String(params.itemId), "thinking", String(params.delta ?? ""));
         return;
+      case "item/commandExecution/terminalInteraction":
+        if (threadId === current || parent !== undefined) this.onStdin(params, parent);
+        return;
       case "thread/tokenUsage/updated":
         if (threadId === current) this.onTokenUsage(params.tokenUsage as TokenUsageNotice | undefined);
+        else if (parent !== undefined) this.onSubAgentUsage(threadId!, parent, params.tokenUsage as TokenUsageNotice | undefined);
         return;
       case "error":
         if (threadId === current && params.willRetry !== true && phase.kind === "turn") phase.failure = turnError(params.error, undefined);
@@ -837,17 +845,20 @@ export class CodexSessionRunner {
         return;
       case "account/rateLimits/updated": {
         const limits = params.rateLimits as { rateLimitReachedType?: string | null; primary?: { usedPercent?: number } | null } | undefined;
-        this.deps.log(`Codex 额度：用了 ${limits?.primary?.usedPercent ?? "?"}%${limits?.rateLimitReachedType ? `，到限了（${limits.rateLimitReachedType}）` : ""}`);
+        if (limits?.primary || limits?.rateLimitReachedType) this.deps.log(`Codex 额度：用了 ${limits.primary?.usedPercent ?? "?"}%${limits.rateLimitReachedType ? `，到限了（${limits.rateLimitReachedType}）` : ""}`);
         return;
       }
       case "hook/completed": {
-        const run = params.run as { status?: string; eventName?: string; statusMessage?: string | null } | undefined;
-        // 钩子自己出错 Codex 会接着往下走：记进日志，靠审批和事后核对兜着
-        if (run?.eventName === "preToolUse" && run.status === "failed") this.deps.log(`守卫钩子跑失败了：${run.statusMessage ?? ""}`);
+        const run = params.run as { status?: string; eventName?: string; statusMessage?: string | null; entries?: Array<{ text?: string }> } | undefined;
+        // 钩子自己出错 Codex 会接着往下走（实测）：记进日志，靠审批和事后核对兜着。原因在 entries 里，statusMessage 是空的
+        if (run?.eventName === "preToolUse" && run.status === "failed") this.deps.log(`守卫钩子跑失败了：${[run.statusMessage, ...(run.entries ?? []).map((entry) => entry.text)].filter(Boolean).join("；")}`);
         return;
       }
       case "configWarning":
         this.deps.log(`Codex 的配置有警告：${String(params.summary)}`);
+        return;
+      case "warning":
+        this.deps.log(`Codex 的警告：${String(params.message)}`);
         return;
       default:
         return;
@@ -860,14 +871,21 @@ export class CodexSessionRunner {
       if (this.assembly.scopeReview) this.emit({ type: "compacting", reason: this.phase.kind === "compacting" ? "manual" : "threshold" });
       return;
     }
-    if (item.type === "collabAgentToolCall") this.noteSubAgents(item);
+    this.noteSubAgents(item);
     const call = toolOfItem(item, (relayName) => this.tools.hostNameOf(relayName));
     if (!call) return;
     if (item.type === "fileChange") this.fileCalls.set(call.id, call);
     this.translator.ensureStarted(call, parent);
+    this.translator.noteItem(call.id);
     // 二狗的工具在中转那边过守卫；联网搜索开始时还不知道搜什么（Codex 在服务端做，反正拦不住），结束时再核对
     if (call.native.toolName.startsWith(`mcp__${ERGO_MCP_SERVER}__`) || item.type === "webSearch") return;
     this.guard.audit(call);
+    if (call.toolName === "bash" && typeof item.cwd === "string" && this.runsElsewhere(item.cwd)) this.guard.checkCwd(call, item.cwd, parent);
+  }
+
+  /** 这条命令实际跑的目录不是负责人的工作目录（模型写了 workdir，钩子看不到，见 guard.ts） */
+  private runsElsewhere(cwd: string): boolean {
+    return canonicalDir(path.resolve(this.assembly.cwd, cwd)) !== canonicalDir(this.assembly.cwd);
   }
 
   private onItemCompleted(item: CodexItem, parent: string | undefined): void {
@@ -882,19 +900,42 @@ export class CodexSessionRunner {
       default:
         break;
     }
-    if (item.type === "collabAgentToolCall") this.noteSubAgents(item);
+    this.noteSubAgents(item);
     const call = toolOfItem(item, (relayName) => this.tools.hostNameOf(relayName));
     if (!call) return;
     this.fileCalls.delete(call.id);
     this.translator.ensureStarted(call, parent);
+    this.translator.noteItem(call.id);
     if (!call.native.toolName.startsWith(`mcp__${ERGO_MCP_SERVER}__`)) this.guard.audit(call);
     this.translator.itemDone(item, parent, this.assembly.forwardToolCalls && this.guard.pending(call.id));
   }
 
+  /** 记下子代理的 thread 是哪次调用派的：实测 0.166 派子代理报 subAgentActivity（agentThreadId）；receiverThreadIds 是旧的多代理工具（collabAgentToolCall）报的 */
   private noteSubAgents(item: CodexItem): void {
-    const ids = item.receiverThreadIds;
-    if (!Array.isArray(ids) || typeof item.id !== "string") return;
-    for (const id of ids) if (typeof id === "string") this.subAgents.set(id, item.id);
+    if (typeof item.id !== "string") return;
+    if (item.type === "subAgentActivity") {
+      if (item.kind === "started" && typeof item.agentThreadId === "string") this.subAgents.set(item.agentThreadId, item.id);
+      return;
+    }
+    if (item.type !== "collabAgentToolCall" || !Array.isArray(item.receiverThreadIds)) return;
+    for (const id of item.receiverThreadIds) if (typeof id === "string") this.subAgents.set(id, item.id);
+  }
+
+  /** 实测 0.166：往开着的终端里送字符既不过钩子也不走审批，只有这个事后通知。启动时关了 TTY，正常到不了这里（空字符是轮询输出，不算）；万一来了照样记一次、事后核对 */
+  private onStdin(params: Record<string, unknown>, parent: string | undefined): void {
+    const stdin = typeof params.stdin === "string" ? params.stdin : "";
+    if (stdin === "") return;
+    const id = `${String(params.itemId ?? "")}:stdin:${++this.stdinSeq}`;
+    const call: CodexToolCall = { id, toolName: "write_stdin", args: { input: stdin, processId: params.processId ?? null }, native: { toolName: "write_stdin", args: params } };
+    this.translator.ensureStarted(call, parent);
+    this.guard.audit(call);
+    this.translator.itemDone({ id, type: "terminalInteraction" }, parent, this.assembly.forwardToolCalls && this.guard.pending(id));
+  }
+
+  /** 子代理的模型调用也花额度：各算各的累计，一次一条 */
+  private onSubAgentUsage(thread: string, parent: string, notice: TokenUsageNotice | undefined): void {
+    this.translator.closeItemless(parent, (id) => this.guard.pending(id));
+    if (notice) this.translator.usage(notice, undefined, `subagent-${thread}-${notice.total?.totalTokens ?? ""}`, thread);
   }
 
   private onCompactionDone(): void {
@@ -905,6 +946,7 @@ export class CodexSessionRunner {
   }
 
   private onTokenUsage(notice: TokenUsageNotice | undefined): void {
+    this.translator.closeItemless(undefined, (id) => this.guard.pending(id));
     if (!notice) return;
     if (typeof notice.modelContextWindow === "number" && notice.modelContextWindow > 0) this.opened.record.contextWindow = notice.modelContextWindow;
     if (this.phase.kind === "compacting") this.translator.usage(notice, "compaction", `compaction-${++this.compactionSeq}`);
@@ -1014,8 +1056,13 @@ export class CodexSessionRunner {
       const url = `${network.protocol ?? "https"}://${network.host}`;
       return this.approveOnce({ id: key, toolName: "web_fetch", args: { url }, native: { toolName: "network_access", args: params } });
     }
-    const command = typeof params.command === "string" ? params.command : "";
-    return this.guard.approve({ id, toolName: "bash", args: { command }, native: { toolName: "Bash", args: { command, cwd: params.cwd ?? null } } });
+    const command = innerCommand(params);
+    const call: CodexToolCall = { id, toolName: "bash", args: { command: commandForGuard(command) }, native: { toolName: "Bash", args: { command, cwd: params.cwd ?? null } } };
+    // 在别的目录跑的（见 guard.ts）：两个判定都回了才答复 Codex。一起开始，条目那边的事后打断马上知道这里接住了
+    const parent = typeof params.threadId === "string" ? this.subAgents.get(params.threadId) : undefined;
+    const elsewhere = typeof params.cwd === "string" && this.runsElsewhere(params.cwd) ? this.guard.approveCwd(call, params.cwd, parent) : true;
+    const allowed = await this.guard.approve(call);
+    return (await elsewhere) && allowed;
   }
 
   /** 不对应一个条目的审批（往终端送输入、要联网）：单独记一次调用，判完就结束 */
@@ -1091,6 +1138,18 @@ export class CodexSessionRunner {
       this.deps.log(`写会话记录出错：${describe(err)}`);
     }
   }
+}
+
+/** 比较目录用：真实路径（短文件名、目录联接展开；不存在的照写的），去掉末尾分隔符，Windows 上不分大小写和斜杠方向 */
+function canonicalDir(dir: string): string {
+  let real = dir;
+  try {
+    real = fs.realpathSync.native(dir);
+  } catch {
+    // 不存在的目录：Codex 跑不起来，照写的比
+  }
+  const resolved = path.resolve(real);
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
 }
 
 function readTrust(file: string): { key: string; hash: string } | undefined {

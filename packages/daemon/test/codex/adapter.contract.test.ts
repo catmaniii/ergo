@@ -7,7 +7,7 @@ import { RECORD_EXT } from "../../src/codex/child/records.ts";
 import { CODEX_SETTING } from "../../src/codex/settings.ts";
 import { HOST_PROTOCOL_VERSION } from "../../src/runtime/index.ts";
 import { type CodexChild, startCodexChild } from "../helpers/codex-child.ts";
-import { type FakeCodexEcho, FakeCodexServer } from "../helpers/fake-codex-app-server.ts";
+import { type FakeCodexEcho, FakeCodexServer, FakeCodexStore } from "../helpers/fake-codex-app-server.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 /** 最近一条回复里 echo 回的 */
@@ -73,6 +73,8 @@ describe("Codex 适配子进程（假 app-server）", () => {
     expect(spawn.args.join(" ")).toContain('mcp_servers.ergo.default_tools_approval_mode="approve"');
     // Codex 自己的联网搜索钩子拦不到：一律关掉，要联网走二狗的 web_search（调用之前过守卫）
     expect(spawn.args).toContain('web_search="disabled"');
+    // 往开着的终端里送字符钩子拦不到（实测）：关掉 TTY，开不了能接着送命令的终端
+    expect(spawn.args.join(" ")).toContain("--disable unified_exec_tty");
     expect(spawn.env.OPENAI_API_KEY).toBeUndefined();
     expect(spawn.env.CODEX_API_KEY).toBeUndefined();
     expect(spawn.env.CODEX_HOME).toBe("D:\\my-codex-home");
@@ -309,6 +311,36 @@ describe("Codex 适配子进程（假 app-server）", () => {
     expect((await child.turn("in-3", "三")).outcome).toBe("completed");
     expect(child.server.callsOf("thread/resume")).toMatchObject([{ threadId: ready.sessionId }]);
     expect(child.server.spawns.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("接着的会话别的进程开着（写入锁）：start_failed 写清楚先去关掉或者分叉，不把 Codex 的原话交给用户", async () => {
+    const store = new FakeCodexStore();
+    store.addThread({ id: "open-1", cwd: "D:\\work" });
+    store.activeWriters.add("open-1");
+    const child = startCodexChild({ server: { store }, session: { resumeRuntimeSession: "open-1", continueSession: false } });
+    const error = await child.log.next("error");
+    expect(error).toMatchObject({ code: "start_failed", fatal: true, message: expect.stringContaining("先在那边关掉，或者分叉一份接管") });
+    expect((error as { message: string }).message).not.toContain("active writer");
+  });
+
+  it("子代理的模型调用也记用量（各算各的累计），另起 messageId；登录过期（带状态码的 401）写明要登录、429 写明额度", async () => {
+    const child = startCodexChild({
+      server: {
+        turns: [
+          [{ kind: "collab", id: "c-1", steps: [{ kind: "reply", text: "子代理说的", usage: { cacheHit: 0, cacheMiss: 70, output: 7 } }] }, { kind: "reply", text: "好", usage: { cacheHit: 0, cacheMiss: 10, output: 1 } }],
+          [{ kind: "fail", message: "unexpected status 401", codexErrorInfo: { httpConnectionFailed: { httpStatusCode: 401 } } as never }],
+          [{ kind: "fail", message: "unexpected status 429", codexErrorInfo: { httpConnectionFailed: { httpStatusCode: 429 } } as never }],
+        ],
+      },
+    });
+    child.answerGuard();
+    await child.log.next("ready");
+    expect((await child.turn("in-1", "派一个")).outcome).toBe("completed");
+    const usage = child.log.ofType("usage");
+    expect(usage.map((u) => u.input + u.output)).toEqual([77, 11]);
+    expect(new Set(usage.map((u) => u.messageId)).size).toBe(2);
+    expect((await child.turn("in-2", "再来")).errorMessage).toContain("codex login");
+    expect((await child.turn("in-3", "再来")).errorMessage).toContain("额度用完");
   });
 
   it("子代理：它的工具调用带 parentToolCallId，挂在派它的那次下面；正文不当成回复", async () => {

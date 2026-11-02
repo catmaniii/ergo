@@ -91,7 +91,7 @@ describe("从已有的 Codex 会话接管", () => {
     const byId = new Map(listed.body.sessions.map((s) => [s.id, s]));
     expect(byId.get("s-idle")).toMatchObject({ title: "修 CI 的 flaky 测试", cwd: dirs.idle, branch: "fix/flaky", unsure: expect.stringContaining("可能还开着，先在那边关掉，或者分叉一份接管") });
     expect(byId.get("s-idle")!.busy).toBeUndefined();
-    expect(byId.get("s-open")!.busy).toBe("Codex 说这个会话正开着");
+    expect(byId.get("s-open")!.busy).toBe("这个会话正开着（有别的 Codex 进程在写它）");
     expect(byId.get("s-recent")!.busy).toContain("可能还开着");
     expect((await takeoverApi.sessions(td.url, "pi")).status).toBe(400);
   }, 60_000);

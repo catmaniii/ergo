@@ -101,7 +101,7 @@ export function fakeRuntimes(): AgentRuntimeView[] {
 
 /** 原型里本机的 Codex 会话（编的）：判不准占没占的默认引导分叉，开着的、最近有活动的标占着 */
 export function fakeCodexSessions(): ResumableSessionView[] {
-  const unsure = "判不准它是不是还开着（Codex 不告诉别人谁开着它）：可能还开着，先在那边关掉，或者分叉一份接管";
+  const unsure = "列表里看不出它是不是还开着：可能还开着，先在那边关掉，或者分叉一份接管";
   return [
     { id: "019a-codex-recent", title: "把导出改成流式", cwd: "D:\\code\\ledger", branch: "feat/stream", updatedAt: "2026-10-08T09:58:00+08:00", busy: "3 分钟前还有活动，可能还开着" },
     { id: "019a-codex-old", title: "修登录页的时区问题", cwd: "D:\\code\\web-app", branch: "fix/timezone", updatedAt: "2026-10-06T18:20:00+08:00", unsure },

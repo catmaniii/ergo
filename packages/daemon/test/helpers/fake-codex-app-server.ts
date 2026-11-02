@@ -1,12 +1,17 @@
 // 假的 codex app-server（只在测试里）：不启动真的 codex、不联网、不花额度、不碰 ~/.codex。适配子进程是真的（child/），它经 CodexServerSpawn 拿到这里的流，
 // 说的是和真的一样的 JSON-RPC：请求参数、回复、通知、发来的审批请求都按 0.166 生成的 schema 校验（helpers/codex-schema.ts），对不上的记进 violations。
-// 照真的（0.166，临时 CODEX_HOME 下实测的）做的几样：
+// 照真的做的几样（0.166，真的 codex + 假模型实测，test/codex/real-codex.test.ts，真的变了改那里、也改这里）：
 // - 钩子只认 -c 给的 hooks.PreToolUse，默认 untrusted 不跑，hooks.state 写对了 key 和 hash 才跑；--enable hooks 没开也不跑；真的拉起钩子命令（cmd /C ergo-guard-hook，env 里的 PATH），
-//   stdin 喂 PreToolUse 的 JSON，读 stdout；钩子不给判定、跑失败时照真的放行（靠审批和事后核对兜着）；"allow" 不带 updatedInput、deny 不写原因当错；
+//   stdin 喂 PreToolUse 的 JSON，读 stdout；钩子跑失败时照真的放行（hook/completed 的 status 是 failed，原因在 entries 里，靠审批和事后核对兜着）；"allow" 不带 updatedInput、deny 不写原因当错；
+// - 钩子的覆盖面：命令（Bash）、补丁（apply_patch）、MCP、看图（view_image）、sleep（clocksleep）、派子代理（collaborationspawn_agent）都先过钩子，tool_use_id 就是条目 id；deny 之后没有条目；
+//   没有条目的调用（itemless：goal、request_user_input……）也过钩子；
+// - 不过钩子的：往终端里送字符（write_stdin，也没有审批，只有事后的 terminalInteraction 通知）、Codex 不管设置硬报的联网搜索；
+// - 条目和审批请求里的 command 是外壳包好的，commandActions 里才是模型写的那句；模型写的 workdir 钩子看不到，只在条目和审批请求的 cwd 里；
+// - 派子代理报 subAgentActivity（kind: started，id 是调用 id，agentThreadId 是子线程），子线程上的用量、条目单独通知；
 // - MCP 中转真的拉起（-c mcp_servers.ergo.*），说 MCP：initialize、tools/list、tools/call；
 // - 第一条用户消息之前 thread 不落盘：resume、fork、turns/list、read 都回 no rollout found；beforeTurnId、additionalContext 要 initialize 声明 experimentalApi；
-// - 审批策略看 untrusted：命令、补丁走 item/*/requestApproval（放行才执行），审批在 item/started 之后；只读命令（approval: false）不问；
-// - 联网搜索、看图这些 Codex 自己做的不过钩子，开始了才让人知道。
+// - 写入锁：别的进程开着的（store.activeWriters）thread/resume 回 already has an active writer，thread/fork、read 不受影响；status 跨进程永远是 notLoaded；
+// - 审批策略看 untrusted：命令、补丁走 item/*/requestApproval（放行才执行），审批在 item/started 之后；execpolicy 放行的（approval: false）不问。
 // 剧本：一轮一组步骤（FakeStep）；FauxStep 由 turnsOfFaux 换成它（主切面的负责人剧本）。线程存进 FakeCodexStore（给了文件就落盘，子进程重启后还在，测试也读它）。
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -28,8 +33,8 @@ type Json = Record<string, unknown>;
 export type FakeStep =
   /** 一次模型回复：思考、文字，带用量 */
   | { kind: "reply"; text?: string; thinking?: string; usage?: FauxUsage }
-  /** 一条命令；hook: false 是钩子没拦到（没覆盖到）；approval: false 是 Codex 判成只读、不问；itemAfterDeny：钩子拦下后还报条目（declined）；id 不给自动起 */
-  | { kind: "command"; command: string; id?: string; hook?: boolean; approval?: boolean; exitCode?: number; output?: string; itemAfterDeny?: boolean; network?: string }
+  /** 一条命令；hook: false 是钩子没拦到（比如跑失败了）；approval: false 是 execpolicy 放行、不问；itemAfterDeny：钩子拦下后还报条目（declined，实测 0.166 不这样，留着看守卫不怕）；id 不给自动起 */
+  | { kind: "command"; command: string; id?: string; hook?: boolean; approval?: boolean; exitCode?: number; output?: string; itemAfterDeny?: boolean; network?: string; workdir?: string }
   /** 一次补丁（apply_patch 的正文） */
   | { kind: "patch"; patch: string; id?: string; hook?: boolean; approval?: boolean }
   /** 按名字调一个工具（二狗的、用户的 MCP、bash……），调的时候看中转的清单决定怎么走 */
@@ -38,16 +43,18 @@ export type FakeStep =
   | { kind: "user_mcp"; server: string; tool: string; args: Json; id?: string; hook?: boolean; elicit?: boolean }
   /** Codex 在服务端做的联网搜索：不过钩子 */
   | { kind: "web_search"; query: string; id?: string; holdMs?: number }
-  /** Codex 自己看图：不过钩子 */
+  /** Codex 自己看图：过钩子（view_image），放行才有条目 */
   | { kind: "image_view"; path: string; id?: string }
-  /** 派子代理：steps 在子线程上跑 */
+  /** 过钩子、没有条目的调用（goal、request_user_input、curr_time……）；name 是钩子报的名字 */
+  | { kind: "itemless"; name: string; args?: Json; id?: string }
+  /** 派子代理：过钩子（collaborationspawn_agent），steps 在子线程上跑 */
   | { kind: "collab"; steps: FakeStep[]; prompt?: string; id?: string }
   /** Codex 要问用户 */
   | { kind: "ask"; question: string; options: string[]; id?: string }
   /** 要更多权限 */
   | { kind: "permissions"; id?: string }
-  /** 往终端里送输入（要审批） */
-  | { kind: "write_stdin"; id?: string; input: string }
+  /** 往终端里送字符：实测不过钩子、不走审批，只有事后通知（itemId 是开那个终端的命令）；approval: true 是协议里写着、0.166 实测没发过的审批 */
+  | { kind: "write_stdin"; id?: string; input: string; approval?: boolean }
   /** 自动压缩 */
   | { kind: "compaction" }
   /** 这一轮出错 */
@@ -98,6 +105,8 @@ export class FakeCodexStore {
   executed: Array<{ tool: string; input: unknown }> = [];
   violations: string[] = [];
   seq = 0;
+  /** 别的进程开着的 thread（写入锁，不落盘） */
+  readonly activeWriters = new Set<string>();
   private readonly file: string | undefined;
 
   constructor(file?: string) {
@@ -151,6 +160,8 @@ export interface FakeCodexOptions {
   hooksOff?: boolean;
   /** 钩子永远不算信任 */
   neverTrust?: boolean;
+  /** 钩子跑失败（退出码不是 0） */
+  hookFails?: boolean;
   /** 不认得的 thread 当成本机已有的（主切面：接管列表是编的） */
   lenientThreads?: boolean;
   /** 上下文窗口 */
@@ -184,6 +195,11 @@ function patchChanges(patch: string): Json[] {
     changes.push({ path: match[2]!.trim(), kind, diff: "" });
   }
   return changes;
+}
+
+/** 外壳包好的命令（实测 0.166 Windows 上条目和审批请求里就是这样），commandActions 里才是模型写的那句 */
+function shellWrapped(command: string): string {
+  return `"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '${command}'`;
 }
 
 /** 假 Codex：一个 FakeCodexServer 可以被拉起好几次（spawn），线程和剧本接着 */
@@ -524,6 +540,7 @@ export class FakeConnection {
       }
       case "thread/resume": {
         const thread = this.materialized(params.threadId);
+        if (store.activeWriters.has(thread.id)) throw new RpcFailure(`thread ${thread.id} already has an active writer`);
         if (params.model) thread.model = params.model as string;
         await this.attach(thread, params);
         return this.threadResponse(thread, params);
@@ -693,18 +710,39 @@ export class FakeConnection {
         }
         case "image_view": {
           const id = step.id ?? this.server.store.nextId("img");
+          const verdict = await this.runHook(turn, scope, "view_image", { path: step.path }, id);
+          if (verdict.deny !== undefined) {
+            this.server.toolResults.set(id, verdict.deny);
+            break;
+          }
           const item = { type: "imageView", id, path: step.path };
           this.itemStarted(scope, item);
           this.itemCompleted(scope, item);
           break;
         }
+        case "itemless": {
+          const id = step.id ?? this.server.store.nextId("call");
+          const verdict = await this.runHook(turn, scope, step.name, step.args ?? {}, id);
+          if (verdict.deny !== undefined) this.server.toolResults.set(id, verdict.deny);
+          else this.server.store.executed.push({ tool: step.name, input: step.args ?? {} });
+          break;
+        }
         case "collab": {
           const id = step.id ?? this.server.store.nextId("collab");
+          const message = step.prompt ?? "看看";
+          const verdict = await this.runHook(turn, scope, "collaborationspawn_agent", { task_name: "worker", message }, id);
+          if (verdict.deny !== undefined) {
+            this.server.toolResults.set(id, verdict.deny);
+            break;
+          }
           const sub = this.server.store.addThread({ id: this.server.store.nextId("sub"), cwd: turn.thread.cwd, originator: "ergo_codex", ephemeral: true, materialized: true });
-          const base = { type: "collabAgentToolCall", id, tool: "spawnAgent", senderThreadId: turn.thread.id, receiverThreadIds: [sub.id], prompt: step.prompt ?? "看看", model: null, reasoningEffort: null, agentsStates: {} };
-          this.itemStarted(scope, { ...base, status: "inProgress" });
+          const activity = (itemId: string, kind: string) => ({ type: "subAgentActivity", id: itemId, kind, agentThreadId: sub.id, agentPath: "/root/worker", model: null, reasoningEffort: null });
+          this.itemStarted(scope, activity(id, "started"));
+          this.itemCompleted(scope, activity(id, "started"));
           await this.playSteps(turn, step.steps, { id, thread: sub });
-          this.itemCompleted(scope, { ...base, status: "completed" });
+          const done = activity(`subagent-completed-${sub.id}`, "completed");
+          this.itemStarted(scope, done);
+          this.itemCompleted(scope, done);
           break;
         }
         case "ask":
@@ -793,16 +831,24 @@ export class FakeConnection {
   private async runHook(turn: ActiveTurn, scope: Pick<ActiveTurn, "id" | "thread">, toolName: string, toolInput: unknown, id: string): Promise<{ deny?: string; updatedInput?: unknown; context?: string }> {
     const hook = this.hook;
     if (!hook?.trusted) return {};
+    const run = { id: `pre-tool-use:0:${hook.key}:${id}`, eventName: "preToolUse", handlerType: "command", executionMode: "sync", scope: "turn", sourcePath: "C:\\<session-flags>\\config.toml", source: "sessionFlags", displayOrder: 0, startedAt: 1, statusMessage: null };
+    this.notify("hook/started", { threadId: scope.thread.id, turnId: turn.id, run: { ...run, status: "running", completedAt: null, durationMs: null, entries: [] } });
+    if (this.server.options.hookFails) {
+      this.notify("hook/completed", { threadId: scope.thread.id, turnId: turn.id, run: { ...run, status: "failed", completedAt: 1, durationMs: 1, entries: [{ kind: "error", text: "hook exited with code 1" }] } });
+      return {};
+    }
     const payload = {
       cwd: scope.thread.cwd,
       hook_event_name: "PreToolUse",
       model: scope.thread.model,
       permission_mode: "default",
-      session_id: scope.thread.id,
+      // 实测：session_id 永远是主线的，子代理的 thread 在 agent_id 里
+      session_id: turn.thread.id,
+      ...(scope.thread === turn.thread ? {} : { agent_id: scope.thread.id, agent_type: "default" }),
       tool_input: toolInput,
       tool_name: toolName,
       tool_use_id: id,
-      transcript_path: null,
+      transcript_path: "C:\\fake-codex-home\\sessions\\rollout.jsonl",
       turn_id: turn.id,
     };
     const stdout = await new Promise<string>((resolve) => {
@@ -830,7 +876,9 @@ export class FakeConnection {
     }
     this.server.hookRuns.push({ toolName, id, output });
     const specific = output.hookSpecificOutput;
-    if (specific?.permissionDecision === "deny") {
+    const blocked = specific?.permissionDecision === "deny";
+    this.notify("hook/completed", { threadId: scope.thread.id, turnId: turn.id, run: { ...run, status: blocked ? "blocked" : "completed", completedAt: 1, durationMs: 1, entries: blocked ? [{ kind: "feedback", text: specific.permissionDecisionReason ?? "" }] : [] } });
+    if (blocked) {
       if (!specific.permissionDecisionReason) this.server.violation(`deny 没写原因：${toolName}`);
       return { deny: specific.permissionDecisionReason ?? "denied" };
     }
@@ -848,7 +896,7 @@ export class FakeConnection {
       if (verdict.deny !== undefined) {
         this.server.toolResults.set(id, verdict.deny);
         if (step.itemAfterDeny) {
-          const item = { type: "commandExecution", id, command, commandActions: [], cwd: scope.thread.cwd, status: "declined", source: "agent", exitCode: null, aggregatedOutput: null };
+          const item = { type: "commandExecution", id, command: shellWrapped(command), commandActions: [{ type: "unknown", command }], cwd: scope.thread.cwd, status: "declined", source: "agent", exitCode: null, aggregatedOutput: null };
           this.itemStarted(scope, { ...item, status: "inProgress" });
           this.itemCompleted(scope, item);
         }
@@ -856,7 +904,8 @@ export class FakeConnection {
       }
       if (verdict.updatedInput !== undefined) command = (verdict.updatedInput as { command: string }).command;
     }
-    const base = { type: "commandExecution", id, command, commandActions: [], cwd: scope.thread.cwd, source: "agent", processId: null };
+    const cwd = step.workdir ?? scope.thread.cwd;
+    const base = { type: "commandExecution", id, command: shellWrapped(command), commandActions: [{ type: "unknown", command }], cwd, source: "agent", processId: null };
     this.itemStarted(scope, { ...base, status: "inProgress", exitCode: null, aggregatedOutput: null });
     if (step.approval !== false) {
       const reply = (await this.ask("item/commandExecution/requestApproval", {
@@ -864,8 +913,9 @@ export class FakeConnection {
         turnId: turn.id,
         itemId: id,
         startedAtMs: Date.now(),
-        command,
-        cwd: scope.thread.cwd,
+        command: shellWrapped(command),
+        commandActions: [{ type: "unknown", command }],
+        cwd,
         ...(step.network ? { networkApprovalContext: { host: step.network, protocol: "https" } } : {}),
       })) as { decision?: unknown };
       if (reply.decision !== "accept") {
@@ -1000,6 +1050,12 @@ export class FakeConnection {
 
   private async playWriteStdin(turn: ActiveTurn, scope: Pick<ActiveTurn, "id" | "thread">, step: Extract<FakeStep, { kind: "write_stdin" }>): Promise<void> {
     const id = step.id ?? this.server.store.nextId("stdin");
+    if (step.approval !== true) {
+      this.server.store.executed.push({ tool: "write_stdin", input: step.input });
+      this.server.store.save();
+      this.notify("item/commandExecution/terminalInteraction", { threadId: scope.thread.id, turnId: turn.id, itemId: id, processId: "1234", stdin: step.input });
+      return;
+    }
     const reply = (await this.ask("item/commandExecution/requestApproval", { threadId: scope.thread.id, turnId: turn.id, itemId: id, startedAtMs: Date.now(), kind: "writeStdin", command: step.input, approvalId: "a1" })) as { decision?: unknown };
     this.server.toolResults.set(id, String(reply.decision));
     if (reply.decision === "accept") {

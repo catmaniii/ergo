@@ -1,10 +1,10 @@
 // Codex 运行时接管已有会话的那几样，守护进程这一侧：
 // - 会话从哪来（CodexSessionSource，可注入）：正式运行是一次性子进程（child/sessions-main.ts，经内核的 KERNEL.oneShot 拉起，里面起一个 codex app-server），
 //   主切面换成假的（不读用户真实的会话、不起 codex）；
-// - 占没占：Codex 没有"谁开着"的接口。thread/loaded/list 只认同一个 app-server 进程里加载的，终端里开着的看不到；能拿到的信号是状态字段和最近活动时间：
-//   · 状态不是"没加载"，或者最近 CODEX_BUSY_RECENT_MS 内还有活动：写"可能还开着"（busy：不能直接接，先在那边关掉，或者分叉一份接管）；
-//   · 再早的也判不准（开着没说话的终端看不出来）：写明 unsure，界面默认勾上分叉，用户确认关了可以取消勾选直接接；
-// - 收回前核对：同样按状态和最近活动，只算交还之后的活动（交还之前是二狗自己写的）。
+// - 占没占：状态字段跨进程永远是 notLoaded，thread/loaded/list 只认同一个进程（实测），都看不出来。真正的信号是 Codex 的写入锁（child/sessions.ts 探一次 thread/resume，被拒就是开着，报成 loaded）：
+//   · 列表不探（一个一个探太慢）：最近 CODEX_BUSY_RECENT_MS 内有活动的写"可能还开着"（busy：不能直接接，先在那边关掉，或者分叉一份接管），再早的写明 unsure，界面默认勾上分叉，用户确认关了可以取消勾选直接接；
+//     真开着的适配子进程起不来，写明先去关掉（child/session.ts）；
+//   · 收回前核对（sessionBusy）：探写入锁；真的终端界面占不占写入锁没验证（这里驱动不了它），所以最近活动的规则还留着兜底，只算交还之后的活动（交还之前是二狗自己写的）。
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { nowIso, type ResumableSessionView, t } from "@ergo/protocol";

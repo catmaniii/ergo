@@ -60,6 +60,14 @@ export class CodexRpcError extends Error {
   }
 }
 
+/**
+ * 这个会话有别的进程开着：Codex 有写入锁（实测 0.166：别的 app-server、codex exec 开着的会话，thread/resume 回 "thread X already has an active writer"，thread/fork 不受影响）。
+ * 接管、收回前用它判断比状态字段准：thread/list、thread/read 的 status 跨进程永远是 notLoaded
+ */
+export function isWriterConflict(err: unknown): boolean {
+  return err instanceof Error && err.message.includes("already has an active writer");
+}
+
 /** 客户端的名字：会话的 originator 记的就是它（列本机会话时认出二狗自己开的，不列） */
 export const CODEX_CLIENT_NAME = "ergo_codex";
 

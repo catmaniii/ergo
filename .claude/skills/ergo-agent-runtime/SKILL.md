@@ -128,7 +128,7 @@ Claude Code 的目录照搬：
 
 改到协议层跑 `npm run test:contract`。协议有改动要把 `HOST_PROTOCOL_VERSION` 加一，并在文件开头记一句。
 
-用本机程序、不随二狗分发的（Codex）：假的外部程序说的话要按它自己生成的协议校验（`packages/daemon/test/helpers/codex-schema.ts`），不然假的和真的会越走越远；测试结果不能看这台机器装没装：`startTestDaemon` 默认把 Codex 插件换成假的（`packages/daemon/test/helpers/fake-codex.ts`），拉起真进程的 `packages/daemon/test/main/entry.test.ts` 在 PATH 前面放一个编的"npm 装好的 codex"。再接一个同样的要照做。
+用本机程序、不随二狗分发的（Codex）：假的外部程序说的话要按它自己生成的协议校验（`packages/daemon/test/helpers/codex-schema.ts`），不然假的和真的会越走越远；生成的协议只说形状，不说行为（钩子管到哪、调用 id 对不对得上、有没有写入锁），要拿真程序连本机假模型核对：`packages/daemon/test/codex/real-codex.test.ts`（`ERGO_TEST_REAL_CODEX=1` 才跑，不花钱，升级后重跑），假的照它写；测试结果不能看这台机器装没装：`startTestDaemon` 默认把 Codex 插件换成假的（`packages/daemon/test/helpers/fake-codex.ts`），拉起真进程的 `packages/daemon/test/main/entry.test.ts` 在 PATH 前面放一个编的"npm 装好的 codex"。再接一个同样的要照做。
 
 ## 完成前检查
 

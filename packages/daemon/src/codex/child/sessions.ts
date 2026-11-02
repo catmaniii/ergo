@@ -3,11 +3,13 @@
 // - 列：thread/list（默认的交互来源：终端、VS Code），按最近活动排；二狗自己开的（originator 是 CODEX_CLIENT_NAME）不列，免得被别的任务再接管一次；
 // - 前情：thread/turns/list（itemsView: full，从新往旧读），翻成二狗的样子（用户说的一句、它的一条回复：文字、思考、工具调用——工具名照守卫登记表映射，结果截短）；
 //   老的 legacy 会话这个接口读不了时退到 thread/read（includeTurns）；
-// - 分叉：thread/fork（原会话不动）。一次性进程退出后新 thread 在盘上，负责人按 id 接着。
+// - 分叉：thread/fork（原会话不动，它开着也能分叉，实测）。一次性进程退出后新 thread 在盘上，负责人按 id 接着；
+// - 状况：thread/read 的 status 跨进程永远是 notLoaded，看不出来；开着没有靠 thread/resume 探写入锁（isWriterConflict）。实测探一次不改会话记录（文件大小、修改时间都不变），
+//   代价是这个进程会拉起一次用户配的 MCP 服务，进程退出就收掉。接着就退出了，没有写。
 // @i18n-ignore-file data：前情里的占位（图片）；给人看的说明在守护进程那一侧按语言写
 import type { RuntimeHistory, RuntimeHistoryItem, RuntimeHistoryPart } from "../../runtime/index.ts";
 import type { CodexSessionInfo, CodexSessionsRequest, CodexSessionsResult } from "../sessions-protocol.ts";
-import { CODEX_CLIENT_NAME, type CodexRpc } from "./app-server.ts";
+import { CODEX_CLIENT_NAME, type CodexRpc, isWriterConflict } from "./app-server.ts";
 import { type CodexItem, endOfItem, toolOfItem } from "./translator.ts";
 
 /** 前情里一段文字最多留多少字 */
@@ -60,7 +62,7 @@ export async function handleSessionsRequest(request: CodexSessionsRequest, rpc: 
     case "state": {
       const read = await rpc.request<{ thread: ThreadView }>("thread/read", { threadId: request.sessionId });
       const info = sessionInfo(read.thread);
-      return { op: "state", state: { updatedAt: info.updatedAt, loaded: info.loaded } };
+      return { op: "state", state: { updatedAt: info.updatedAt, loaded: info.loaded || (await hasWriter(request.sessionId, rpc)) } };
     }
     case "history":
       return { op: "history", history: await readHistory(request.sessionId, request.turns, request.messages, rpc) };
@@ -68,6 +70,16 @@ export async function handleSessionsRequest(request: CodexSessionsRequest, rpc: 
       const forked = await rpc.request<{ thread: { id: string } }>("thread/fork", { threadId: request.sessionId, cwd: request.cwd, approvalPolicy: "untrusted", approvalsReviewer: "user", excludeTurns: true });
       return { op: "fork", sessionId: forked.thread.id };
     }
+  }
+}
+
+/** 有别的进程开着这个会话（见文件开头）：探不出来的（别的错）当没有，由最近活动兜着 */
+async function hasWriter(threadId: string, rpc: Pick<CodexRpc, "request">): Promise<boolean> {
+  try {
+    await rpc.request("thread/resume", { threadId, excludeTurns: true });
+    return false;
+  } catch (err) {
+    return isWriterConflict(err);
   }
 }
 

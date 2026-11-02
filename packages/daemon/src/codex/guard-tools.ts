@@ -34,9 +34,17 @@ const CODEX_TOOLS: Untitled[] = [
   look("list_mcp_resource_templates", { server: other }),
   look("read_mcp_resource", { server: other, uri: other }),
   look("sleep", { durationMs: other }),
+  look("curr_time", {}),
+  // 会话内的目标：只记在 Codex 自己的状态里，碰不到外面
+  look("get_goal", {}),
+  look("create_goal", { objective: other, token_budget: other }),
+  look("update_goal", { status: other }),
+  // Codex 问用户：同步的只有 Plan 模式能用（别的模式 Codex 自己回不可用）；异步的立刻返回，问题变成一条消息
+  look("request_user_input", { questions: other }),
+  look("request_user_input_async", { questions: other }),
   { name: "image_generation", categories: [], args: { revisedPrompt: content } },
   // 派子代理（它里面的每次调用另外过守卫、另外记录）
-  { name: "spawnAgent", categories: [], args: { prompt: content, model: other, reasoningEffort: other, receiverThreadIds: other } },
+  { name: "spawnAgent", categories: [], args: { prompt: content, model: other, reasoningEffort: other, receiverThreadIds: other, task_name: other, fork_turns: other } },
   { name: "sendInput", categories: [], args: { prompt: content, receiverThreadIds: other } },
   { name: "sendMessage", categories: [], args: { prompt: content, receiverThreadIds: other } },
   { name: "followupTask", categories: [], args: { prompt: content, receiverThreadIds: other } },

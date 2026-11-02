@@ -43,7 +43,7 @@ agent 的**每一次工具调用**在执行前都过守卫（一个纯函数，�
 - **时序规则**：比如"删除前必须已备份""读过密钥之后不许往外送"。
 - **三条硬底线**谁说了都不放：不写二狗自己的配置区、数据库区和程序目录；不读密钥区；确定要把密钥发出去的不做。
 - 判断不了的（缺环境事实、参数没法规范化）一律先问你。
-- Claude Code、Codex 这类外部运行时的工具调用同样过二狗的守卫、留记录。Codex 自己做的几样（看图、生成图片、派子代理、钩子没管到的只读命令）只能事后记录、判了不放行就打断，见 [ADR-0046](docs/architecture/adr/0046-codex-runtime-guard-and-tools.md)。
+- Claude Code、Codex 这类外部运行时的工具调用同样过二狗的守卫、留记录。Codex 的命令、改文件、MCP、看图、派子代理实测都先过守卫；不过守卫的几样（找工具、代码模式外层的那段代码）碰不到文件和网络，模型硬要用的联网搜索、钩子跑失败又被用户放行的命令只能事后记录、判了不放行就打断。模型让命令在别的目录跑时按真的目录再判一次，不放行就不执行；被用户放行的命令没有审批可接，已经跑了，只能打断。Codex 默认跑 PowerShell，守卫不认得它的 cmdlet：只写文件名的（`Remove-Item x.json`）只按跑在哪个目录判，跑在配置、数据库、程序目录里时对话审批关着会放行；密钥区一律拒绝。自带的联网搜索和 TTY 固定关着，代价是搜索走二狗配的服务、交互程序跑不了。见 [ADR-0046](docs/architecture/adr/0046-codex-runtime-guard-and-tools.md)。
 
 ### 密钥区
 
@@ -118,7 +118,7 @@ Outside access (Tailscale, self-hosted Headscale, VPS tunnel + nginx; see the [D
 - **Temporal rules**: e.g. "back up before deleting", "never send anything out after reading a secret".
 - **Three hard bottom lines** nobody can override: never write ergo's own config area, database area or program directory; never read the secrets area; never send something known to be a secret.
 - Anything that cannot be judged (missing facts, arguments that can't be normalized) asks you first.
-- Tool calls from external runtimes such as Claude Code and Codex go through the same guard and are recorded. A few things Codex does on its own (viewing images, generating images, sending subagents, read-only commands the hook missed) can only be recorded afterwards, with the turn interrupted if the guard says no. See [ADR-0046](docs/architecture/adr/0046-codex-runtime-guard-and-tools.md).
+- Tool calls from external runtimes such as Claude Code and Codex go through the same guard and are recorded. Tested on real Codex: its commands, file changes, MCP calls, image viewing and subagents all go through the guard first. The few things that don't (tool search, the outer code block in code mode) can't reach files or the network. A web search the model does anyway, or a command the user set to always run when the hook also fails, can only be recorded afterwards, with the turn interrupted if the guard says no. When a model runs a command in another folder, it's judged again against the real folder and doesn't run if the guard says no; a command the user set to always run has no approval step to catch it, so it has already run and the turn can only be interrupted. Codex runs PowerShell by default and the guard doesn't know its cmdlets: a bare file name (`Remove-Item x.json`) is judged only by the folder it runs in, so in the config, database or program folders it goes through when conversation approvals are off; the secrets area is always refused. Codex's own web search and TTY stay off, at the cost of searches going through the service set up in ergo and interactive programs not working. See [ADR-0046](docs/architecture/adr/0046-codex-runtime-guard-and-tools.md).
 
 ### The secrets area
 

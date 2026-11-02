@@ -249,6 +249,12 @@
   },
   "configWarning": {
    "$ref": "#/definitions/v2/ConfigWarningNotification"
+  },
+  "warning": {
+   "$ref": "#/definitions/v2/WarningNotification"
+  },
+  "item/commandExecution/terminalInteraction": {
+   "$ref": "#/definitions/v2/TerminalInteractionNotification"
   }
  },
  "definitions": {
@@ -5370,6 +5376,33 @@
      }
     ]
    },
+   "TerminalInteractionNotification": {
+    "properties": {
+     "itemId": {
+      "type": "string"
+     },
+     "processId": {
+      "type": "string"
+     },
+     "stdin": {
+      "type": "string"
+     },
+     "threadId": {
+      "type": "string"
+     },
+     "turnId": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "itemId",
+     "processId",
+     "stdin",
+     "threadId",
+     "turnId"
+    ],
+    "type": "object"
+   },
    "TextElement": {
     "properties": {
      "byteRange": {
@@ -8798,6 +8831,23 @@
      "high"
     ],
     "type": "string"
+   },
+   "WarningNotification": {
+    "properties": {
+     "message": {
+      "type": "string"
+     },
+     "threadId": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    },
+    "required": [
+     "message"
+    ],
+    "type": "object"
    },
    "WebSearchAction": {
     "oneOf": [

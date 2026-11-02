@@ -161,7 +161,7 @@ describe("占没占（判不准，照实写）", () => {
       ]),
       () => NOW,
     );
-    expect(listed[0]).toMatchObject({ id: "loaded", busy: "Codex 说这个会话正开着" });
+    expect(listed[0]).toMatchObject({ id: "loaded", busy: "这个会话正开着（有别的 Codex 进程在写它）" });
     expect(listed[1]).toMatchObject({ id: "recent", busy: "1 分钟前还有活动，可能还开着" });
     expect(listed[2]!.busy).toBeUndefined();
     expect(listed[2]!.unsure).toContain("可能还开着，先在那边关掉，或者分叉一份接管");
@@ -182,8 +182,31 @@ describe("占没占（判不准，照实写）", () => {
     ]);
     expect(await sessionBusy(sessions, "before", returnedAt, () => NOW)).toBeUndefined();
     expect(await sessionBusy(sessions, "after", returnedAt, () => NOW)).toContain("可能还开着");
-    expect(await sessionBusy(sessions, "open", returnedAt, () => NOW)).toBe("Codex 说这个会话正开着");
+    expect(await sessionBusy(sessions, "open", returnedAt, () => NOW)).toBe("这个会话正开着（有别的 Codex 进程在写它）");
     // 接管时（不带交还时刻）最近的也算
     expect(await sessionBusy(sessions, "before", undefined, () => NOW)).toContain("可能还开着");
+  });
+
+  it("状况靠写入锁判断：别的进程开着的 thread/resume 被拒就是开着（status 跨进程永远是 notLoaded）；没人开着的探一次不算开着；thread/read 查不到照样抛出", async () => {
+    const store = storeWithThreads();
+    const { rpc, server } = await connect(store);
+    store.activeWriters.add("t-1");
+    expect(await handleSessionsRequest({ op: "state", sessionId: "t-1" }, rpc)).toEqual({ op: "state", state: { updatedAt: SECONDS * 1000, loaded: true } });
+    expect(await handleSessionsRequest({ op: "state", sessionId: "t-2" }, rpc)).toEqual({ op: "state", state: { updatedAt: (SECONDS - 100) * 1000, loaded: false } });
+    expect(server.callsOf("thread/resume").map((p) => p.excludeTurns)).toEqual([true, true]);
+    // 列的时候不探（一个一个探太慢，还会拉起用户的 MCP）
+    const before = server.callsOf("thread/resume").length;
+    const list = await handleSessionsRequest({ op: "list", limit: 10 }, rpc);
+    expect(list.op === "list" && list.sessions.find((s) => s.sessionId === "t-1")?.loaded).toBe(false);
+    expect(server.callsOf("thread/resume")).toHaveLength(before);
+    await expect(handleSessionsRequest({ op: "state", sessionId: "没有这个" }, rpc)).rejects.toThrow("no rollout found");
+  });
+
+  it("开着也能分叉（写入锁只拦 resume）", async () => {
+    const store = storeWithThreads();
+    const { rpc } = await connect(store);
+    store.activeWriters.add("t-1");
+    const forked = await handleSessionsRequest({ op: "fork", sessionId: "t-1", cwd: "D:\\work\\a" }, rpc);
+    expect(forked.op === "fork" && forked.sessionId).toBeTruthy();
   });
 });

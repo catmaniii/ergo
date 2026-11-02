@@ -62,6 +62,8 @@ const NOTIFICATIONS = [
   "hook/started",
   "hook/completed",
   "configWarning",
+  "warning",
+  "item/commandExecution/terminalInteraction",
 ];
 
 const refOf = (name) => (whole.definitions.v2[name] ? `#/definitions/v2/${name}` : whole.definitions[name] ? `#/definitions/${name}` : undefined);

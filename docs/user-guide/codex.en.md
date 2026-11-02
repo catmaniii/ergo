@@ -39,8 +39,8 @@ Same as [Claude Code](claude-code.en.md):
 
 1. Codex sessions on this computer are listed, each with title, working folder, branch and last activity. Sessions ergo started aren't listed.
 2. Pick a session and check its label:
-   - **In use**: Codex says it's open, or it was active minutes ago. Close it there and click "Refresh", or tick "Take over a fork (the original stays as it is)".
-   - **May be open**: can't tell. Codex doesn't say who has a session open, and a terminal sitting idle looks the same as a closed one. So the fork is ticked by default; untick it to take over directly once you're sure it's closed.
+   - **In use**: it was active minutes ago. Close it there, wait a moment and click "Refresh", or tick "Take over a fork (the original stays as it is)".
+   - **May be open**: the list can't tell. So the fork is ticked by default; untick it to take over directly once you're sure it's closed. If it's actually still open, Codex refuses and ergo says to close it first.
    - **Held**: another ergo task or project has it. Only a fork can be taken over.
 3. For a task, write what it should do next. For a project you can leave this empty.
 4. Click "Take over" or "Take over a fork".
@@ -49,7 +49,7 @@ The session starts with the backstory: the most recent stretch of the conversati
 
 **Good to know**
 
-- Codex sessions have no lock. If both sides write, the session splits and what one side said is lost. Don't open it in a terminal while ergo holds it.
+- Codex doesn't let two processes write to a session at once: ergo can't take over a session another program has open, and other programs can't open one ergo holds. An open session can still be forked. Whether Codex's terminal interface behaves the same hasn't been tested yet, so don't open the session in a terminal while ergo holds it.
 - A fork is a new session; the original stays as it is.
 
 ## Hand back to the terminal, then take it back
@@ -62,8 +62,8 @@ The session starts with the backstory: the most recent stretch of the conversati
 
 **Good to know**
 
-- Before taking it back, ergo checks the status and recent activity. If it was touched after you handed it back and is still active within minutes, it refuses and says why. Try again a little later.
-- A terminal left open without talking can't be detected. Make sure it's closed first, or the session will split when both sides write.
+- Before taking it back, ergo checks: it refuses if another program still has the session open, or if the session was touched after you handed it back and was active within the last few minutes, and says why. Try again a little later.
+- Make sure the terminal is closed first: whether a terminal interface left open without talking can be detected hasn't been tested yet.
 - After a rollback, ergo carries on in a forked session, so that's the one to pick in `codex resume`.
 
 ## Model, sandbox, thinking level
@@ -78,18 +78,29 @@ The approval policy isn't a choice: ergo always uses the strictest, so calls go 
 
 ## What the guard covers
 
-Every command, file change and MCP tool call goes through ergo's guard first; if it says no, it doesn't run. Arguments and results are recorded in ergo.
+These are results from testing against real Codex 0.166.
 
-**These can't be stopped, only recorded afterwards:**
+Commands (read-only ones like `dir` and `git status` too), file changes, MCP tool calls, image viewing, sending subagents, and all of these inside a subagent go through ergo's guard first. If it says no, the call doesn't run and Codex gets the reason. Arguments and results are recorded in ergo. Some models write their tool calls inside a piece of code; each call in there goes through the guard the same way.
 
-- Commands the hook missed and Codex treated as read-only: recorded after they ran. If the guard says no, the turn is interrupted.
-- Codex's own image viewing, plan list, tool search, MCP resource reading and sleep: recorded afterwards.
-- Image generation: done on the model service's side. Recorded afterwards; if the guard says no, the turn is interrupted.
-- Sending subagents: recorded afterwards. Commands and file changes inside a subagent still go through the guard.
+**These don't go through the guard, and ergo doesn't record them:**
 
-Codex's own web search is turned off, because it happens on the model service's side and can't be stopped. Owners that may use the internet use ergo's web search, which goes through the guard before each call. With the network switch off, they can't search.
+- Tool search (`tool_search`): it only reads tool descriptions.
+- That piece of code itself and waiting for its result (`exec`, `wait`): it can't reach files or the network, except through the calls above.
 
-When an approval is declined, Codex only knows it was declined, not why. When the hook stops a call, the reason gets through.
+**These are only known afterwards:**
+
+- Web search: Codex's own stays off, isn't in its tool list, and can't be turned on. Owners that may use the internet use ergo's web search, which goes through the guard before each call; the cost is that searches go through the service set up in ergo, which needs the internet tools and a working provider. If a model searches anyway, it's recorded afterwards, and the turn is interrupted if the guard says no.
+- A command you set to always run in Codex, when the guard's hook also fails: known only after it ran. When only the hook fails, Codex still asks for approval, and ergo can stop the call at that step.
+- A command you set to always run in Codex, when the model runs it in another folder: it has already run. If the guard says no, the turn can only be interrupted, and what it read may already have reached the model.
+- Image generation: not tested yet.
+
+**Other limits:**
+
+- A model can run a command in another folder. ergo judges it again against the real folder, and the record gets one more call showing that folder. If the guard says no, the command doesn't run and the reason is in the record. When the folder is the owner's working folder, there's no extra call.
+- For PowerShell commands, the guard only recognizes paths that are written out: `Remove-Item .\x.json` and `Remove-Item D:\x.json` are judged by path. `Remove-Item x.json`, with only a file name, doesn't show which file it touches, so it's judged only by the folder it runs in. In ergo's config, database or program folders, that means it asks you when conversation approvals are on, and goes through when they're off. The secrets area isn't affected: commands running there are always refused.
+- Interactive programs that need someone at the keyboard don't work here. Typing into a running terminal skips the guard, so ergo always turns that feature off when it starts Codex, and it can't be turned on.
+- When the hook fails and the call is declined at the approval step, Codex only knows it was declined. The reason is in ergo's record. When the hook stops a call, the reason gets through.
+- Codex doesn't report a result for some calls (reading the goal, for example), so the record shows an empty result.
 
 ## What it costs
 
