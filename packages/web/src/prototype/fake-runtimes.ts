@@ -85,7 +85,7 @@ export function fakeRuntimes(): AgentRuntimeView[] {
             { value: "workspace-write", title: "只能写工作目录" },
             { value: "danger-full-access", title: "不用沙箱（只靠守卫）" },
           ],
-          default: "inherit",
+          default: "workspace-write",
         },
         {
           id: "effort",

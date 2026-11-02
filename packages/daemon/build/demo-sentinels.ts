@@ -12,7 +12,7 @@ export const DEMO_SENTINELS: readonly string[] = [
   "p-fake-mom",
   "project-ledger",
   "ergo.tail.example.com",
-  // 中文：记忆管理员的假访谈（2026-11-02 朋友在 0.4.1 里看到的就是这些）、看板和项目上的假名字
+  // 中文：记忆管理员的假访谈（0.4.1 的真页面里显示过这些）、看板和项目上的假名字
   "示例实验小学",
   "我是个什么样的人",
   "家庭照片整理与去重",

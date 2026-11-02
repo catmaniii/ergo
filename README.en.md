@@ -20,7 +20,7 @@ So we built ergo: **everything about you is kept on your own computer, and only 
 
 - It still calls large models and outside services, but each call carries only the small part this turn needs, and you decide who receives it.
 - Models are swappable: use DeepSeek today, or point it at any OpenAI-compatible service.
-- Claude Code sessions already on your PC can be taken over by ergo and handed back to the official app at any time. Codex is planned.
+- Claude Code and Codex sessions already on your PC can be taken over by ergo and handed back at any time. Codex support is experimental: ergo may not spot a session still open in a terminal, so close the terminal or fork a copy before taking over. What the guard can't cover is listed in the [Codex guide](docs/user-guide/codex.en.md).
 - Whatever you swap, the memory that understands you best stays in your hands.
 
 The English name ergo sounds like the Chinese name "二狗" (Ergou), and Latin *ergo* means "therefore" — reasoning from what you say to what you really want. ergo is built on [pi](https://github.com/earendil-works/pi) and can be seen as a single-user [OpenClaw](https://github.com/openclaw/openclaw) rebuilt around one person's needs.

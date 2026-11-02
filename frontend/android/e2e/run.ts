@@ -112,7 +112,7 @@ try {
     const views = await WebViews.connect(device, 9333);
     main = await views.attach((url) => url.startsWith(devices.external));
     await main.waitFor("window.ergoNative && document.getElementById('root') && document.getElementById('root').childElementCount > 0");
-    expectEqual(await main.eval("window.ergoNative.appVersion()"), "0.4.1", "App 的版本号");
+    expectEqual(await main.eval("window.ergoNative.appVersion()"), "0.4.2", "App 的版本号");
     expectTrue(await main.eval("typeof window.ergoNative.setColorMode === 'function'"), "原生桥的方法在");
     expectEqual(await main.eval("typeof window.ergoNative.phoneContactsPick"), "undefined", "手机数据源的方法不提供");
     await sleep(1500);

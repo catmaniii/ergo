@@ -73,7 +73,7 @@ The session starts with the backstory: the most recent stretch of the conversati
 - **Model**: the list comes from Codex and is empty until the owner has started once. When the model changes, the old model writes a handoff summary and the new one continues in a new session.
   - **When the current model can't be used:** for example, your account doesn't support the model in Codex's settings. The first turn fails without using quota, and the task goes to "Waiting for you" with the reason. Pick another model in ⚙ and send another message. The old model can't write a handoff summary, so ergo starts a new session and puts the earlier record in its context. You have to pick for each task; to avoid that, change Codex's own settings (`model` in `config.toml`).
   - **Forked takeovers and rollbacks:** they keep the model the session was using and don't fall back to the one in Codex's settings.
-- **Sandbox**: read-only, write in the working folder only, or no sandbox (the guard only). Following Codex's own settings can mean read-only (we ran into this), and then its file writes are refused and the model tells you so. To let it change files, pick "write in the working folder only".
+- **Sandbox**: writes in the working folder only by default. You can also pick read-only, no sandbox (the guard only), or Codex's own settings. Codex's own settings can mean read-only (we ran into this), and then its file writes are refused and the model tells you so.
 - **Thinking level**: low, medium, high, very high.
 
 The approval policy isn't a choice: ergo always uses the strictest, so calls go through the guard.

@@ -20,7 +20,7 @@
 
 - 它也要调用大模型和外部服务，但每次只发这一轮用得上的一小部分，发给哪家，由你定。
 - 模型随时能换：现在可以用 DeepSeek，也可以填任何 OpenAI 兼容的服务。
-- 你电脑上已有的 Claude Code 会话，也能接管到二狗里接着做，再随时交回官方 App。Codex 还在计划里。
+- 你电脑上已有的 Claude Code、Codex 会话，也能接管到二狗里接着做，再随时交回去。Codex 这一路是实验性的：终端里开着的会话二狗不一定认得出来，先关掉终端或者分叉一份再接管；几样守卫管不到的写在 [Codex 手册](docs/user-guide/codex.md)里。
 - 换来换去，最懂你的那份记忆，一直在你手里。
 
 英文名 ergo 取"二狗"的谐音，拉丁语 *ergo* 又是"所以、因此"——从你说的话里推出你真正想要的。二狗基于 [pi](https://github.com/earendil-works/pi) 搭建，可以看作一个只服务一个人、按自己需求重做的 [OpenClaw](https://github.com/openclaw/openclaw)。

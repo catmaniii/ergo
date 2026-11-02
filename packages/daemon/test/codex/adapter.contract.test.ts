@@ -33,11 +33,11 @@ describe("Codex 适配子进程（假 app-server）", () => {
       { id: "gpt-other", title: "GPT Other" },
     ]);
 
-    // 最严的审批策略、送到二狗；二狗的系统提示只追加（用户配置里的在前）；不传 model、sandbox（跟 Codex 自己的设置）
+    // 最严的审批策略、送到二狗；二狗的系统提示只追加（用户配置里的在前）；不传 model（跟 Codex 自己的设置）；沙箱没选是只能写工作目录
     const [start] = child.server.callsOf("thread/start");
     expect(start).toMatchObject({ cwd: child.assembly.cwd, approvalPolicy: "untrusted", approvalsReviewer: "user" });
     expect(start).not.toHaveProperty("model");
-    expect(start).not.toHaveProperty("sandbox");
+    expect(start).toMatchObject({ sandbox: "workspace-write" });
     expect(start!.developerInstructions).toMatch(/^用户自己的说明\n\n你是二狗的负责人。MARKER_ERGO_APPEND\n\n（二狗补充：/);
 
     expect((await child.turn("in-1", "把下载目录整理一下")).outcome).toBe("completed");
