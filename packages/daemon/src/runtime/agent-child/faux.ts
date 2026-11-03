@@ -32,7 +32,7 @@ export const FAUX_REVIEW_PROVIDER_ID = "faux-review";
 export function registerFauxModel(spec: FauxModelSpec, modelRuntime: ModelRuntime, providerId = FAUX_PROVIDER_ID): Model<string> {
   const faux = fauxProvider({
     provider: providerId,
-    models: [{ id: FAUX_MODEL_ID, name: "Faux" }],
+    models: [{ id: FAUX_MODEL_ID, name: "Faux", ...(spec.contextWindow === undefined ? {} : { contextWindow: spec.contextWindow }) }],
     ...(spec.tokensPerSecond === undefined ? {} : { tokensPerSecond: spec.tokensPerSecond }),
   });
   faux.setResponses(spec.script.map(toResponseStep));

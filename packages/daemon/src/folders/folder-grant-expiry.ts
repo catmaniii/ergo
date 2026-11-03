@@ -14,7 +14,7 @@ const MODE_KEY = { read: "folders.grants.mode.read", write: "folders.grants.mode
 /** 内部作业的名字 */
 export const FOLDER_GRANT_EXPIRY_JOB = "folder_grant_expiry_check";
 
-export interface FolderGrantRemindersOptions {
+export interface FolderGrantExpiryNoticesOptions {
   grants: FolderGrants;
   inbox: Pick<InboxService, "add">;
   internalJobs: Pick<InternalJobs, "register">;
@@ -26,14 +26,14 @@ export interface FolderGrantRemindersOptions {
   log: (line: string) => void;
 }
 
-export interface FolderGrantReminders {
+export interface FolderGrantExpiryNotices {
   start(): void;
   stop(): void;
   /** 看一遍：没提示过、三天内到期、还没到期的，各放一条 */
   check(): void;
 }
 
-export function createFolderGrantReminders(options: FolderGrantRemindersOptions): FolderGrantReminders {
+export function createFolderGrantExpiryNotices(options: FolderGrantExpiryNoticesOptions): FolderGrantExpiryNotices {
   const { grants, inbox, internalJobs, clock } = options;
   const offs: Array<() => void> = [];
 

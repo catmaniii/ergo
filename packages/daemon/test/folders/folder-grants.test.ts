@@ -1,4 +1,4 @@
-// 目录授权表（folders/folder-grants.ts、folder-grant-reminders.ts，ADR-0049）：
+// 目录授权表（folders/folder-grants.ts、folder-grant-expiry.ts，ADR-0049）：
 // - 登记：只认完整路径、在、是目录，存它的真实路径（目录联接登记的是它指过去的地方）；数据目录、程序目录不能登记；
 //   只有能有表的 agent（个人助理、项目和任务的负责人）能登记；读写删至少一种；到期时间要是以后的；
 // - 同一个 agent 同一个目录只有一条：再加换掉；审批卡上的"以后都允许"并进去、变成长期有效；
@@ -10,7 +10,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { type InboxItem, nowIso } from "@ergo/protocol";
 import { RequestRejected } from "../../src/errors.ts";
-import { createFolderGrantReminders } from "../../src/folders/folder-grant-reminders.ts";
+import { createFolderGrantExpiryNotices } from "../../src/folders/folder-grant-expiry.ts";
 import { folderGrantsView, openFolderGrants } from "../../src/folders/folder-grants.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -160,7 +160,7 @@ describe("快到期的提示", () => {
     const added: Array<Record<string, unknown>> = [];
     const jobs: string[] = [];
     let at = NOW;
-    const reminders = createFolderGrantReminders({
+    const reminders = createFolderGrantExpiryNotices({
       grants,
       inbox: { add: (item) => (added.push(item as Record<string, unknown>), item as unknown as InboxItem) },
       internalJobs: { register: (job) => (jobs.push(job.name), () => {}) },

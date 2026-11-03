@@ -203,7 +203,7 @@ import { agentFoldersBlock } from "./folders/folders-block.ts";
 import { createFolderBrowser } from "./folders/folder-browser.ts";
 import { openLocalFolders } from "./folders/local-folders.ts";
 import { folderGrantsView, openFolderGrants } from "./folders/folder-grants.ts";
-import { createFolderGrantReminders } from "./folders/folder-grant-reminders.ts";
+import { createFolderGrantExpiryNotices } from "./folders/folder-grant-expiry.ts";
 import { recentFolderGrantUses } from "./guard-runtime/folder-grants.ts";
 import { secretaryToolList } from "./secretary/tool-list.ts";
 import { BROWSING, savedPageOf } from "./browsing/api.ts";
@@ -2643,7 +2643,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 认不得的（项目、任务删掉了）不写名字，设置页上照样能删
     const folderGrantLabel = (agentId: string): string | undefined =>
       agentId === SECRETARY_AGENT_ID ? ASSISTANT_NAME_MARK : folderGrantHolders(agentId) ? agentHost.agentHandle(agentId)?.label : undefined;
-    const folderGrantReminders = createFolderGrantReminders({
+    const folderGrantExpiryNotices = createFolderGrantExpiryNotices({
       grants: folderGrants,
       inbox,
       internalJobs,
@@ -2652,8 +2652,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       timeText: (iso) => `${iso.slice(0, 10)} ${clockLabel(iso)}`,
       log,
     });
-    folderGrantReminders.start();
-    teardown.push(() => folderGrantReminders.stop());
+    folderGrantExpiryNotices.start();
+    teardown.push(() => folderGrantExpiryNotices.stop());
     const folderGrantsNow = () =>
       folderGrantsView(folderGrants.list(), {
         now: clock.now(),
@@ -2666,7 +2666,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       add(body) {
         folderGrants.add({ ...body, addedBy: "user" });
         // 加的时候离到期已经不到三天的，马上提示
-        folderGrantReminders.check();
+        folderGrantExpiryNotices.check();
         return folderGrantsNow();
       },
       remove(grantId) {

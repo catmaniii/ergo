@@ -69,6 +69,8 @@ export interface StartTestDaemonOptions {
   secretary?: FauxStep[];
   /** 秘书流式输出的速度（token/秒）；不填则尽快吐完 */
   secretaryTokensPerSecond?: number;
+  /** 秘书 faux 模型的上下文窗口（token）；不填是 faux 默认的 128000 */
+  secretaryContextWindow?: number;
   /**
    * 记忆管理员的 faux 剧本：每一步对应一次模型调用。不填则它一被调用就得到错误回复
    * （03:00 那一夜照旧整理，失败也照旧记，不崩守护进程）
@@ -323,7 +325,10 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
       : {
           secretaryModel:
             options.secretaryModel ??
-            fauxModel(options.secretary ?? [], options.secretaryTokensPerSecond === undefined ? {} : { tokensPerSecond: options.secretaryTokensPerSecond }),
+            fauxModel(options.secretary ?? [], {
+              ...(options.secretaryTokensPerSecond === undefined ? {} : { tokensPerSecond: options.secretaryTokensPerSecond }),
+              ...(options.secretaryContextWindow === undefined ? {} : { contextWindow: options.secretaryContextWindow }),
+            }),
         }),
     ...(options.secretaryDownThresholdMs === undefined ? {} : { secretaryDownThresholdMs: options.secretaryDownThresholdMs }),
     // 翻斜杠命令的说明（不填是不翻）
@@ -595,7 +600,7 @@ function makeTestWebRoot(tempDir: (prefix: string) => string): string {
 }
 
 /** faux 模型：按剧本回话，不连网 */
-export function fauxModel(script: FauxStep[], options: { tokensPerSecond?: number } = {}): FauxModelSpec {
+export function fauxModel(script: FauxStep[], options: { tokensPerSecond?: number; contextWindow?: number } = {}): FauxModelSpec {
   return { kind: "faux", thinkingLevel: "off", script, ...options };
 }
 

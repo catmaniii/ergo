@@ -194,6 +194,8 @@ export interface FauxModelSpec {
   script: FauxStep[];
   /** 流式输出的速度（token/秒）；不填则尽快吐完。测"中止"时调慢 */
   tokensPerSecond?: number;
+  /** 上下文窗口（token）；不填是 faux 默认的 128000。回显整段上下文、来回几轮就贴近窗口的测试调大，免得提前自动压缩吃掉剧本的一步 */
+  contextWindow?: number;
 }
 
 /** faux 剧本的一步，对应一次模型调用。 */

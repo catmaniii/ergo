@@ -202,6 +202,8 @@ describe("用户给秘书发附件", () => {
         { kind: "reply", toolCalls: [{ name: "read_attachment", arguments: { ref: otherRef } }] },
         { kind: "echo_context" },
       ],
+      // 每轮回显整段上下文（连同 40 KB 的全文），三轮下来贴近 faux 默认的 128000 窗口：调大，免得提前自动压缩吃掉剧本的一步
+      secretaryContextWindow: 1_000_000,
     });
     await media.upload(url, log, { name: "日志.txt", mime: "text/plain" });
     await media.upload(url, secret, { name: "秘密.txt", mime: "text/plain" });

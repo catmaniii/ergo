@@ -69,7 +69,7 @@ describe("插件清单和配置", () => {
     expect(seen).not.toMatch(/reminder|提醒/);
     expect(seen).toContain("[tool] send_attachment\n[tool] search_materials\n[tool] read_material");
     expect(seen).toContain("你有一块自己的草稿区");
-    expect(seen).toContain("建定时触发的普通任务或流程。将来");
+    expect(seen).toContain("请用户在“发起任务”对话框里建。将来");
     expect(frontend.events({ channel: BOARD, type: EVENT_TYPES.reminder })).toEqual([]);
     expect(frontend.events({ channel: CARDS, type: EVENT_TYPES.card })).toEqual([]);
     // 发起对话框里的"只提醒我"
@@ -137,6 +137,6 @@ describe("插件清单和配置", () => {
     const seen = assemblyOf(lastSecretaryText(f3));
     expect(seen).toContain("[tool] send_attachment\n[tool] create_reminder\n[tool] update_reminder\n[tool] cancel_reminder\n[tool] archive_reminder\n[tool] search_materials\n[tool] read_material");
     expect(seen).toContain("用户要你到点提醒他做什么时，直接用 create_reminder 建简单提醒");
-    expect(seen).toContain("建定时触发的普通任务或流程；只要到点提醒一声的建简单提醒。将来");
+    expect(seen).toContain("请用户在“发起任务”对话框里建；只要到点提醒一声的建简单提醒。将来");
   });
 });
