@@ -54,4 +54,11 @@ export const EN_MATERIALS: Phrases = {
   "午饭 32 元": "Lunch $12",
   "打车 46 元": "Taxi $7",
   "观察到的本人行为": "Something you did (observed)",
+  "存下的外部信息": "Saved outside info",
+  "苏州两日游：拙政园、平江路、山塘街": "Two days in Suzhou: Humble Administrator's Garden, Pingjiang Road, Shantang Street",
+  "第一天：上午拙政园（建议提前预约），中午平江路吃苏式面，傍晚去山塘街。\n第二天：虎丘、苏州博物馆（周一闭馆）。\n交通：高铁到苏州站，换地铁 4 号线。":
+    "Day 1: Humble Administrator's Garden in the morning (book ahead), Suzhou noodles on Pingjiang Road for lunch, Shantang Street in the evening.\nDay 2: Tiger Hill and the Suzhou Museum (closed Mondays).\nGetting there: high-speed rail to Suzhou Station, then Metro Line 4.",
+  "物业通知：周六上午小区停水": "Building notice: water off Saturday morning",
+  "各位业主：\n本周六上午 8:00–12:00 小区二期水管检修，期间停水，请提前储水。\n有疑问请联系物业服务中心。":
+    "Dear residents,\nThis Saturday 8:00–12:00 the water pipes in Phase 2 will be serviced and the water will be off. Please store some water in advance.\nContact the management office with any questions.",
 };

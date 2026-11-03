@@ -15,6 +15,7 @@ import {
   PAIRING_REQUEST_STATUSES,
 } from "./constants.ts";
 import { HTTP_ERROR_CODES, MEDIA_ID_PATTERN, TOOL_CALL_CLEAR_REASONS } from "./http.ts";
+import { IngestedInfoView } from "./ingested-materials-schema.ts";
 import {
   ConversationId,
   DeletedEventPayload,
@@ -287,6 +288,8 @@ export const MaterialMarks = Type.Object({
   internal: Type.Optional(ProjectInternal),
   /** 来自了解你访谈（访谈开着时在记忆管理员的会话里说的） */
   interview: Type.Optional(Type.Literal(true)),
+  /** 存下的外部信息到了建议清理的时间（存的时候给了建议几天后清理的才有；只是标出来，不自动删） */
+  cleanupDue: Type.Optional(Type.Literal(true)),
 });
 export type MaterialMarks = Static<typeof MaterialMarks>;
 
@@ -378,6 +381,8 @@ export const MaterialDetailView = Type.Object({
   /** 原文副本（本人素材才有）：相对素材区的路径 */
   original: Type.Optional(Type.String()),
   marks: MaterialMarks,
+  /** 存下的外部信息：哪种、标题、出处、信息本身的时间、建议清理的时间（原始事件还在、没被彻底删除时从事件里取） */
+  ingested: Type.Optional(IngestedInfoView),
 });
 export type MaterialDetailView = Static<typeof MaterialDetailView>;
 

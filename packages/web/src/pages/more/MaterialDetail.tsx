@@ -169,7 +169,8 @@ export function MaterialDetail({ id, navigate, onDeleted, onChanged }: { id: str
             </button>
           ))}
         </div>
-        <div className="muted dt-note">{t("pages.materialDetail.deleteNote")}</div>
+        {/* 存下的外部信息删就是彻底删（没有忘掉），说明跟着换 */}
+        <div className="muted dt-note">{t(view.ingested ? "pages.materialDetail.deleteNoteIngested" : "pages.materialDetail.deleteNote")}</div>
       </Section>
       {confirming && (
         <Sheet title={CONFIRM_TITLE[confirming.mode]} onClose={() => setConfirming(undefined)} center>

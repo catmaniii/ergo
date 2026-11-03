@@ -119,7 +119,7 @@ import { createTakeoverService } from "./takeover/index.ts";
 import { createMaintainers, userMessageScope, type Maintainers } from "./maintainers/maintainers.ts";
 import { inboxView } from "./inbox/views.ts";
 import { openMediaStore } from "./media/media-store.ts";
-import { cardDismissedPurge, createBgeM3Embedder, type Embedder, type Materials, openMaterials } from "./materials/index.ts";
+import { cardDismissedPurge, createBgeM3Embedder, type Embedder, ingestedOf, type Materials, openMaterials } from "./materials/index.ts";
 import { migrateMaterialsDb } from "./materials/migrate-materials.ts";
 import {
   createBulkMaterialDeletion,
@@ -1720,6 +1720,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       materials,
       abandoned: (m) => inAbandonedBranch(store.reader, m.ref.event),
       internal: (m) => internalRecordOf(m, materialOwners),
+      // 存下的外部信息到没到建议清理的时间按守护进程的时钟算
+      now: () => clock.now(),
     });
     // 网页"记忆"页的结论、证据与推理、问题箱：推理库的只读视图，每次打开一次引擎、读完整理关掉。
     // 最新一夜的整理记录在 ergo.db 的派生视图里（记忆插件的），插件没启用过时没有这张表，读不到就不带那一行
@@ -2051,11 +2053,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         file: layout.rgDb,
         embedder: kernelEmbedderAdapter(memoryEmbedder),
         materials,
-        // 和秘书那一份同一个认法：项目内部的记录看不到；存的网页按正文读；在废弃分支里的标出来
+        // 和秘书那一份同一个认法：项目内部的记录看不到；存的网页、存下的外部信息按正文读；在废弃分支里的标出来
         materialOptions: {
           hidden: (m) => internalRecordOf(m, materialOwners) !== undefined,
           abandoned: (m) => inAbandonedBranch(store.reader, m.ref.event),
           savedPage: (m) => savedPageOf(store, m),
+          ingested: (m) => ingestedOf(store, m),
         },
         nightly,
         config: config.memory,

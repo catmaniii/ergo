@@ -69,7 +69,7 @@ describe("记忆插件", () => {
     expect(cardsOf(frontend)).toEqual([]);
     // 秘书没有 search_materials、read_material、ask_memory、ask_curator、mark_woven_question（提醒的四个工具后面是内核的；Google 日历、Gmail、Looki 的按需查排在中间，没连上的不给），系统提示里不讲记忆命令，快速动作那一段照样通顺
     const assembly = assemblyOf(seen);
-    expect(assembly).not.toMatch(/search_materials|read_material|ask_memory|ask_curator|mark_woven_question|remember|forget|no_infer/);
+    expect(assembly).not.toMatch(/search_materials|read_material|ask_memory|ask_curator|mark_woven_question|remember|forget|no_infer|ingest_material/);
     expect(assembly).toContain("[tool] cancel_reminder\n[tool] archive_reminder\n[tool] mcp_call\n[tool] propose_quick_action");
     expect(assembly).toContain("否则出卡请用户确认）。哪天不上班、要上班用 workday_calendar");
     expect(td.daemon.quickActions.registry.list().map((e) => e.type)).toEqual(expect.not.arrayContaining(["remember", "forget", "purge", "no_infer"]));
@@ -120,7 +120,7 @@ describe("记忆插件", () => {
     // 醒来简报、记忆简报都不带；秘书的记忆工具一样都没有
     expect(echoed).not.toContain("【醒来简报】");
     expect(echoed).not.toContain("【记忆简报】");
-    expect(assemblyOf(echoed)).not.toMatch(/search_materials|read_material|ask_memory|ask_curator|remember_memory/);
+    expect(assemblyOf(echoed)).not.toMatch(/search_materials|read_material|ask_memory|ask_curator|remember_memory|ingest_material/);
     await frontend.close();
   });
 
@@ -178,15 +178,15 @@ describe("记忆插件", () => {
     expect(third.daemon.materials.vectorStatus().state).not.toBe("off");
   });
 
-  it("开着时秘书多一个 ask_memory、一个 ask_curator、一个 mark_woven_question、一个 remember_memory（在 read_material 后面、propose_quick_action 前面）；推理库还空着时没有简报上下文块", { timeout: 60_000 }, async () => {
+  it("开着时秘书多一个 ask_memory、一个 ask_curator、一个 mark_woven_question、一个 remember_memory、一个 ingest_material（在 read_material 后面、propose_quick_action 前面）；推理库还空着时没有简报上下文块", { timeout: 60_000 }, async () => {
     const td = await startTestDaemon({ secretary: [echo] });
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe(ALL);
     await tell(frontend, "在吗");
     const seen = lastSecretaryText(frontend);
-    // 工具排在哪：记忆插件的六个工具按登记先后，之后是数据源的按需查（查 Google 日历；搜、读 Gmail 邮件；查 Looki——没连上的不给，这里都没连），再后面才是内核的 mcp_call、propose_quick_action
+    // 工具排在哪：记忆插件的七个工具按登记先后，之后是数据源的按需查（查 Google 日历；搜、读 Gmail 邮件；查 Looki——没连上的不给，这里都没连），再后面才是内核的 mcp_call、propose_quick_action
     expect(assemblyOf(seen)).toContain(
-      "[tool] read_material\n[tool] ask_memory\n[tool] ask_curator\n[tool] mark_woven_question\n[tool] remember_memory\n[tool] mcp_call\n[tool] propose_quick_action",
+      "[tool] read_material\n[tool] ask_memory\n[tool] ask_curator\n[tool] mark_woven_question\n[tool] remember_memory\n[tool] ingest_material\n[tool] mcp_call\n[tool] propose_quick_action",
     );
     expect(assemblyOf(seen)).not.toMatch(/query_google_calendar|search_gmail|read_gmail|query_looki/);
     // 推理库刚建好、还没整理出结论：简报是空串，不注入（模型看到的消息里没有那一块）；每条消息的记忆简报也没有

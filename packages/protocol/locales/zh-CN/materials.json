@@ -21,6 +21,7 @@
   "materials.kind.observedBehavior": "观察到的本人行为",
   "materials.kind.receivedWriting": "别人写给你的",
   "materials.kind.ownWriting": "本人写的",
+  "materials.kind.ingestedInfo": "存下的外部信息",
   "materials.webPageLabel": "{title}（{url}）",
   "materials.screenshotLabel": "截图：{name}",
   "materials.deletion.personalFile": "删个人档案里的东西时连出处一起{command} {n} 条素材",

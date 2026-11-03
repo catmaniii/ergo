@@ -24,6 +24,7 @@
   "materials.kind.observedBehavior": "Something you did (observed)",
   "materials.kind.receivedWriting": "Written to you by someone else",
   "materials.kind.ownWriting": "Something you wrote",
+  "materials.kind.ingestedInfo": "Saved outside info",
   "materials.webPageLabel": "{title} ({url})",
   "materials.screenshotLabel": "Screenshot: {name}",
   "materials.deletion.personalFile_one": "{command}: {n} material, removed with an entry in your personal files",

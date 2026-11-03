@@ -8,8 +8,11 @@
 // - 你存的网页（"浏览"的 ⋮ 菜单里存进素材的）：网页那一段画成标题、网址和存下的正文（守护进程从原始事件里补上的，外部数据），
 //   截断了写明；情境标签 saved_web_page 写成"你存的网页"。
 // - 记下来的文件（"这张图记下来"）：和附件一样按 part 画（守护进程拼好的），取不到原文件存的截图在小标题上写明。
+// - 存下的外部信息（按你的要求存的邮件、网页、日程……，来源外部）：正文那一段的小标题写哪种和标题，来源里多出处、信息本身的时间、
+//   建议清理（到了写明，不自动删）；到了建议清理的时间，列表和详情的小签写"该清理了"；删法只有彻底删除和别推断（删就是彻底删）。
 import { conversationAtJump, type InboxJump } from "./inbox-jump.ts";
 import {
+  INGESTED_INFO_KIND_LABEL,
   type MaterialDetailView,
   type MaterialListItem,
   type MaterialMarks,
@@ -66,6 +69,8 @@ export function materialMarkChips(marks: MaterialMarks): string[] {
     ...(marks.internal ? [t("state.materials.chip.internal", { project: marks.internal.projectName })] : []),
     // 了解你访谈里说的
     ...(marks.interview ? [t("state.materials.chip.interview")] : []),
+    // 存下的外部信息到了建议清理的时间
+    ...(marks.cleanupDue ? [t("state.materials.chip.cleanupDue")] : []),
   ];
 }
 
@@ -141,9 +146,14 @@ function blockOf(s: MaterialSegmentView): MaterialBlock {
   }
 }
 
-/** 详情里的每一段，按素材里的先后 */
+/** 详情里的每一段，按素材里的先后；存下的外部信息的正文那一段，小标题写哪种和标题 */
 export function materialBlocks(view: MaterialDetailView): MaterialBlock[] {
-  return view.segments.map(blockOf);
+  const ingested = view.ingested;
+  return view.segments.map((s) => {
+    const block = blockOf(s);
+    if (!ingested || s.form !== "quote") return block;
+    return { ...block, title: t("state.materials.blockTitleIngested", { source: MATERIAL_SOURCE_LABEL[s.source], kind: INGESTED_INFO_KIND_LABEL[ingested.kind], title: ingested.title }) };
+  });
 }
 
 export interface MaterialFact {
@@ -170,6 +180,16 @@ export function materialFacts(view: MaterialDetailView): { head: string; rows: M
   if (view.message) rows.push({ label: t("state.materials.fact.message"), value: `${view.message.id} · ${MESSAGE_STATE_TEXT[view.message.state]}` });
   if (view.cardId !== undefined) rows.push({ label: t("state.materials.fact.card"), value: view.cardId });
   if (view.recordId !== undefined) rows.push({ label: t("state.materials.fact.record"), value: view.recordId });
+  // 存下的外部信息：出处、信息本身的时间、建议清理
+  const ingested = view.ingested;
+  if (ingested) {
+    rows.push({ label: t("state.materials.fact.sourceRef"), value: ingested.sourceRef, mono: true });
+    rows.push({ label: t("state.materials.fact.capturedAt"), value: minuteOf(ingested.capturedAt, true) });
+    if (ingested.ttlDays !== undefined && ingested.cleanupAt !== undefined) {
+      const params = { count: ingested.ttlDays, date: minuteOf(ingested.cleanupAt, true) };
+      rows.push({ label: t("state.materials.fact.cleanup"), value: t(ingested.cleanupDue ? "state.materials.cleanupDueValue" : "state.materials.cleanupValue", params) });
+    }
+  }
   rows.push({ label: t("state.materials.fact.original"), value: view.original ?? t("state.materials.noOriginal") });
   rows.push({ label: t("state.materials.fact.event"), value: t("state.materials.eventValue", { channel: view.event.channel, seq: view.event.seq, type: view.event.type }), mono: true });
   if (view.context.length > 0) rows.push({ label: t("state.materials.fact.context"), value: view.context.map((c) => CONTEXT_LABEL[c] ?? c).join(t("state.materials.listSep")) });
@@ -190,9 +210,10 @@ export interface MaterialDeleteChoice {
   readonly disabled?: string;
 }
 
-/** 详情里的三种删法（同设置里按范围删的口径） */
+/** 详情里的三种删法（同设置里按范围删的口径）；存下的外部信息删就是彻底删，没有"忘掉" */
 export function materialDeleteChoices(view: MaterialDetailView): MaterialDeleteChoice[] {
-  return MEMORY_DELETE_MODES.map((mode) => ({
+  const modes = view.ingested ? MEMORY_DELETE_MODES.filter((mode) => mode !== "forget") : MEMORY_DELETE_MODES;
+  return modes.map((mode) => ({
     mode,
     label: MEMORY_COMMAND_LABEL[mode],
     ...(mode === "no_infer" && view.marks.noInfer ? { disabled: t("state.materials.alreadyNoInfer") } : {}),

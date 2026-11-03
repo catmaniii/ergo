@@ -3,8 +3,9 @@
 // 新的内部作业、上下文块（记忆简报照 when: "wake" / "input" 作为消息追加进会话）、工具、视图都经这里的 ctx 登记。
 // - 数据契约（停用也登记）：
 //   - 它拥有的事件怎么变成素材：显式记忆命令（memory_command 里的"记住"和用户下的删除命令）、建议卡和提问卡长期没处理（card_stale，
-//     回避信号计时追加的）——声明进内核的素材库，停用时照样声明（素材库按它给本人的话留原话副本，重建 materials.db 时照样采得出来）；
-//   - 这两类事件的改写函数（彻底删除照常）；
+//     回避信号计时追加的）、秘书存下的外部信息（material_ingested，materials/ingested.ts）——声明进内核的素材库，停用时照样声明
+//     （素材库按它给本人的话留原话副本，重建 materials.db 时照样采得出来）；
+//   - 这三类事件的改写函数（彻底删除照常）；
 //   - 记忆删除卡（卡上的动作现取 MEMORY，没启用时回"记忆插件没启用"）。
 // - 装配：
 //   - 开始采成素材（素材库的 collect：写进 materials.db 和关键词索引、从原文副本补回、向量补算和语义检索、回避信号计时），停用时停掉，
@@ -14,6 +15,8 @@
 //   - agent 那一侧：秘书的素材检索工具 search_materials、读素材 read_material、问记忆 ask_memory（
 //     按需深查推理图谱）、问记忆管理员 ask_curator（把要深聊、要改/要忘的话转给它）经 agent 贡献缝只给秘书；
 //     还多一个记一句 remember_memory（用户说"帮我记一句"时把原话交给记忆插件槽的宿主，插件没起来就只有别的几个）；
+//     和存外部信息 ingest_material（ingest-tool.ts：用户要秘书把读到的邮件、网页、日程……存进素材时，写一条 material_ingested 事件，
+//     素材由数据契约里登记的采集函数产生，来源外部（不可信）；不自动存）；
 //     每轮醒来（和压缩之后）的简报上下文块 memory.brief（只给秘书，空串就不注入）；
 //     每条输入后面的记忆简报（message-brief.ts，只给秘书：用户这句话有相关的记忆就带相关的结论连原话，同一段对话里带过没变的不再带，
 //     结构化的部分随回话进"回忆了 N 条记忆"、账本记一笔估的 token；记忆页的设置里能关，默认开；和顺口问那块都跟在这一轮输入后面，简报在前；
@@ -47,12 +50,23 @@ import { CHANNELS, DEFAULT_MEMORY_SETTINGS, EVENT_TYPES, MEMORY_CURATOR_CONVERSA
 import { clockIso } from "../scheduler/clock.ts";
 import { INTERNAL_CHANNEL } from "../scheduler/internal-jobs.ts";
 import { RequestRejected } from "../errors.ts";
-import { cardStalePurge, cardStaleSource, MATERIALS_CHANNEL, type Material, memoryCommandSource, rememberCommandPurge } from "../materials/index.ts";
+import {
+  cardStalePurge,
+  cardStaleSource,
+  ingestedOf,
+  MATERIALS_CHANNEL,
+  type Material,
+  materialIngestedPurge,
+  materialIngestedSource,
+  memoryCommandSource,
+  rememberCommandPurge,
+} from "../materials/index.ts";
 import type { PluginDefinition } from "../plugins/host.ts";
 import { KERNEL } from "../plugins/kernel.ts";
 import { MEMORY, MEMORY_INTERVIEWS, MEMORY_NIGHTLY, type MemoryNightlyService } from "./api.ts";
 import { createMemoryInterviews, INTERVIEW_EVENT, interviewCardType, interviewFilesCardType, startInterviewAction } from "./interview.ts";
 import { askMemoryTool } from "./ask-tool.ts";
+import { ingestMaterialTool } from "./ingest-tool.ts";
 import { MEMORY_BRIEF_BLOCK_ID, wakeBriefText } from "./context.ts";
 import { askCuratorTool } from "./curator-link.ts";
 import { kernelEmbedderAdapter } from "./embedder-adapter.ts";
@@ -87,7 +101,7 @@ export const memoryPlugin: PluginDefinition = {
   },
   get brings() {
     return {
-      tools: [t("memory.tool.search"), t("memory.tool.read"), t("memory.tool.ask"), t("memory.tool.curator"), t("memory.tool.woven"), t("memory.tool.remember")],
+      tools: [t("memory.tool.search"), t("memory.tool.read"), t("memory.tool.ask"), t("memory.tool.curator"), t("memory.tool.woven"), t("memory.tool.remember"), t("memory.tool.ingest")],
       cards: [t("memory.plugin.card"), t("memory.plugin.interviewCard"), t("memory.plugin.interviewFilesCard")],
     };
   },
@@ -114,8 +128,10 @@ export const memoryPlugin: PluginDefinition = {
     // 拥有的事件怎么变成素材（声明进内核的素材库）
     ctx.materialSources.register(memoryCommandSource);
     ctx.materialSources.register(cardStaleSource);
-    // 彻底删除："记住"的命令只换掉内容；长期没处理的卡只换掉卡片的纯文本降级
-    ctx.purge.register(rememberCommandPurge, cardStalePurge);
+    // 秘书按用户的要求存下的外部信息：来源外部（不可信），正文只进检索
+    ctx.materialSources.register(materialIngestedSource);
+    // 彻底删除："记住"的命令只换掉内容；长期没处理的卡只换掉卡片的纯文本降级；存下的外部信息换掉标题、正文、出处
+    ctx.purge.register(rememberCommandPurge, cardStalePurge, materialIngestedPurge);
     ctx.cardTypes.register(memoryDeleteCardType(() => ctx.active(MEMORY)));
     // 约访卡（动作现取访谈的服务，插件没启用时回"记忆插件没启用"）
     ctx.cardTypes.register(interviewCardType(() => ctx.active(MEMORY_INTERVIEWS)));
@@ -227,7 +243,7 @@ export const memoryPlugin: PluginDefinition = {
     // 每轮醒来（和每次压缩之后）的简报：只给秘书；空的就不注入（空库、还没结论时都是空串）
     ctx.agent.context.register({ to: { agents: ["secretary"] }, when: "wake", id: MEMORY_BRIEF_BLOCK_ID, text: () => wakeBriefText(engineProvider.get()) });
 
-    // 秘书的素材检索、读素材、问记忆、问记忆管理员、标顺口问、记一句：只给秘书（工具在下面顺口问建好以后一起登记）
+    // 秘书的素材检索、读素材、问记忆、问记忆管理员、标顺口问、记一句、存外部信息：只给秘书（工具在下面顺口问建好以后一起登记）
     // 废弃分支里的话：照样检索得到，标"在废弃分支里"、排在当前分支的后面
     // 用户存的网页：正文从原始事件里取，夹在外部数据标记里给
     const store = ctx.use(KERNEL.store);
@@ -238,6 +254,8 @@ export const memoryPlugin: PluginDefinition = {
       hidden: (m: Material) => internalRecordOf(m, owners) !== undefined,
       abandoned: (m: Material) => inAbandonedBranch(store.reader, m.ref.event),
       savedPage: (m: Material) => savedPageOf(store, m),
+      // 存下的外部信息：正文、出处从原始事件里取，夹在外部数据标记里给
+      ingested: (m: Material) => ingestedOf(store, m),
     };
     // 每条消息的记忆简报（message-brief.ts）：用户这句话有相关的记忆（本机检索和相关门槛判，不调模型）就追加一块【记忆简报】
     // 在这一轮输入的尾部，结论连原话、上限照 BRIEF_LIMITS，同一段对话里带过没变的不再带；结构化的部分随这一轮的回话进"回忆了 N 条记忆"；
@@ -284,6 +302,8 @@ export const memoryPlugin: PluginDefinition = {
       // 用户说"帮我记一句"时秘书调它，转给记忆插件槽（在跑的那个记忆插件）。槽没接上就不给这个工具
       // 用户说"这张图记下来"时连文件一起存：这一轮长按的元素取回来的文件经组合根现取（浏览插件没启用时只能记文字）
       ...(memorySlot === undefined ? [] : [rememberTool({ remember: (input) => memorySlot.remember(input), store, elementToRemember: (ref, call) => ctx.optional(KERNEL.elementFiles)?.toRemember(ref, call) })]),
+      // 用户要把读到的邮件、网页、日程……存进素材时秘书调它：只写一条事件，素材由上面数据契约里登记的采集函数产生
+      ingestMaterialTool({ store, now: () => clockIso(clock) }),
     ];
     ctx.agent.tools.register({ to: { agents: ["secretary"] }, tools: () => tools });
 

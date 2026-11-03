@@ -57,6 +57,7 @@
   "memory.tool.curator": "Ask the memory curator",
   "memory.tool.woven": "Note a question asked in passing",
   "memory.tool.remember": "Remember this",
+  "memory.tool.ingest": "Save outside info",
   "memory.curator.label": "Memory curator",
   "memory.curator.source": "Memory curator",
   "memory.curator.interrupted": "The memory curator was interrupted before it finished; ask it again if you need it",

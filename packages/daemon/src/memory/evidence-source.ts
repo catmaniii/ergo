@@ -23,6 +23,9 @@
 // 数据源的素材（信封上有出处 origin）另走一条路（data-source-evidence.ts）：证据的性质跟着三种素材走（观察到的本人行为 →
 // 本人做的、别人写给你的 → 别人转述的、本人写的 → 本人说的），原文后面接一行场景（时间段、地点、和谁），场景标签按日子和插件给的标签；
 // 出处里写的敏感类别有一类没打开就不读，位置没打开时不带地点；同一个数据源、同一种、同一天多的合成一条，当天的先不读，每晚有上限。
+//
+// 存下的外部信息（秘书按用户的要求存的邮件、网页……）来源外部（不可信）：照来源等级读成 untrusted 的证据（别人转述的），
+// 推理图谱里出处是别人转述（third_party_reported）、不能当已验证的前提、不能确认或否认结论；原文只有标题（引用的说明），正文不读。
 import { clauseContext, type EvidenceDraft, type EvidenceSource, isKnownContextTag, localDate, type SourceLevel } from "@ergo/memory";
 import type { SensitiveCategory } from "../config/config.ts";
 import type { Materials } from "../materials/materials.ts";
@@ -50,6 +53,8 @@ const EVIDENCE_KIND_OF: Readonly<Record<MaterialKind, EvidenceDraft["kind"]>> = 
   task_outcome: "action",
   avoidance_signal: "action",
   ...DATA_SOURCE_EVIDENCE_KIND,
+  // 存下的外部信息：来源外部（不可信），读成别人转述的话，只当背景、不撑关于用户的结论（原文只有标题，正文不读）
+  ingested_info: "utterance",
 };
 
 export interface MaterialsEvidenceSourceOptions {

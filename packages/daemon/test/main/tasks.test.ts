@@ -183,6 +183,8 @@ describe("发起任务的三条路", () => {
       "[tool] mark_woven_question",
       // 记一句（用户明确让记的时候，转给记忆插件槽的 remember）
       "[tool] remember_memory",
+      // 存外部信息（用户要把读到的邮件、网页……存进素材时）
+      "[tool] ingest_material",
       // 带参调一个登记过的 MCP 工具（只读直接跑、会改东西先出卡、底线只递入口）
       "[tool] mcp_call",
       "[tool] propose_quick_action",

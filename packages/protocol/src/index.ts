@@ -101,6 +101,8 @@
 //   每项查出来的结构化事实（GET /api/doctor 的样子）；给人看的那句话和"怎么修"由网页按当前语言拼。
 // - memory-interview.ts / memory-interview-schema.ts：了解你访谈——五个主题和先后、每月一次的"最近有什么变化"、
 //   素材上"来自访谈"的情境标签；约访卡的负载、GET / POST /api/memory/interview 的形状。
+// - ingested-materials.ts / ingested-materials-schema.ts：存下的外部信息——秘书按用户的要求存进素材的邮件、网页、日程、Looki 时刻、
+//   别的外部文字：有哪几种、上限、建议清理的时间；素材频道上 material_ingested 事件的负载、设置里点开时多给的一块。
 //
 // 包的 package.json 声明了 sideEffects: false：Web 只用常量和类型，打包时 schema 和 TypeBox 会被摇掉。
 //
@@ -218,5 +220,7 @@ export * from "./connection-addresses.ts";
 export * from "./connection-addresses-schema.ts";
 export * from "./memory-interview.ts";
 export * from "./memory-interview-schema.ts";
+export * from "./ingested-materials.ts";
+export * from "./ingested-materials-schema.ts";
 export * from "./i18n/index.ts";
 export * from "./i18n-schema.ts";

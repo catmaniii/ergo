@@ -943,6 +943,9 @@ export type { BrowseSearchEngineId } from "@ergo/protocol";
 // 存进二狗的素材："浏览"的 ⋮ 菜单里存一页网页的请求和结果、存下的网页的素材的情境标签
 export type { SaveWebPageBody, SaveWebPageResult } from "@ergo/protocol";
 export { SAVED_WEB_PAGE_CONTEXT } from "@ergo/protocol";
+// 存下的外部信息：秘书按用户的要求存进素材的邮件、网页、日程……（哪几种、名字；设置里点开时多给的一块）
+export { INGESTED_INFO_KIND_LABEL, INGESTED_INFO_KINDS, ingestedCleanupAtMs } from "@ergo/protocol";
+export type { IngestedInfoKind, IngestedInfoView } from "@ergo/protocol";
 // 运营手段"服务"、项目的服务：上线到哪了、在不在线、入口
 export { OPERATION_SERVICE_MEANS, projectPower, SERVICE_EVENT_OUTCOME_LABEL, serviceCanOpen, serviceEnvText, serviceEventNameOf, serviceEventWoke, serviceOpenLabel, serviceShown, serviceStateText } from "@ergo/protocol";
 // 服务首页的缩略图：多久算旧、地址里的 seen

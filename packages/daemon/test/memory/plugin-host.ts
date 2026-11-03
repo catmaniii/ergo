@@ -13,7 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import { type ChatModel, FakeChatModel } from "@ergo/memory";
 import { workdayCalendar } from "@ergo/protocol";
-import { createAgentContributions } from "../../src/agent-host/contributions.ts";
+import { type AgentContributions, createAgentContributions } from "../../src/agent-host/contributions.ts";
 import { createAppRegistry } from "../../src/apps/registry.ts";
 import { BoardKindRegistry } from "../../src/board/kinds.ts";
 import type { CardService } from "../../src/cards/cards.ts";
@@ -84,6 +84,8 @@ export interface MemoryPluginHost {
   readonly materials: Materials;
   /** 记忆插件登记的快速动作（手动整理一次、记忆命令） */
   readonly quickActions: QuickActionRegistry;
+  /** 插件给 agent 的工具、上下文块（按给谁筛：toolsFor） */
+  readonly agent: AgentContributions;
   /** 记忆插件起来时的日志 */
   readonly logs: string[];
   /** 停宿主、停内部作业和素材库、关库、删临时目录 */
@@ -143,6 +145,7 @@ export async function createMemoryPluginHost(options: MemoryPluginHostOptions = 
     kernel.push(KERNEL.memoryModel);
   }
   const host = createPluginHost({ plugins: [memoryPlugin], kernel, log });
+  const agent = createAgentContributions({ log });
   await host.setup({
     services,
     surfaces: {
@@ -154,7 +157,7 @@ export async function createMemoryPluginHost(options: MemoryPluginHostOptions = 
       boardKinds: new BoardKindRegistry([]),
       eventSubscribers: new EventSubscriberRegistry(),
       operationMeans: new OperationMeansRegistry(),
-      agent: createAgentContributions({ log }),
+      agent,
       apps: createAppRegistry(),
       views: { detach: (name) => store.detachView(name), attach: (view) => store.attachView(view) },
       runtimes: createRuntimeRegistry({ log }),
@@ -177,6 +180,7 @@ export async function createMemoryPluginHost(options: MemoryPluginHostOptions = 
     internalJobs,
     materials,
     quickActions,
+    agent,
     logs,
     async close() {
       if (closed) return;

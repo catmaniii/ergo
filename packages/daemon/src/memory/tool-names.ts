@@ -1,4 +1,4 @@
-// 素材检索、读素材、问记忆、问记忆管理员、标顺口问这几个工具的名字（模型调用时用的名字；系统提示、彻底删除找工具调用记录、改写会话文件时也引用它）。
+// 素材检索、读素材、问记忆、问记忆管理员、标顺口问、记一句、存外部信息这几个工具的名字（模型调用时用的名字；系统提示、彻底删除找工具调用记录、改写会话文件时也引用它）。
 /** 检索素材：关键词加语义 */
 export const SEARCH_MATERIALS = "search_materials";
 /** 读一条素材的全文（用户存的网页的正文夹在外部数据标记里） */
@@ -11,3 +11,5 @@ export const ASK_CURATOR = "ask_curator";
 export const MARK_WOVEN_QUESTION = "mark_woven_question";
 /** 按原话记一条：用户明确让"帮我记一句"时秘书调它，转给记忆插件槽的 remember；只给秘书，不自己随手记 */
 export const REMEMBER_MEMORY = "remember_memory";
+/** 存外部信息：用户要秘书把读到的邮件、网页、日程……存进素材时调它（来源外部，正文只进检索）；只给秘书，不自己判断有用就存 */
+export const INGEST_MATERIAL = "ingest_material";

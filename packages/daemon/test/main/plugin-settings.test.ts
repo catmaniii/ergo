@@ -106,7 +106,7 @@ describe("设置 · 插件", () => {
       "聊天里提到过的提醒内容（你让它建提醒时说的话、它的回话）",
       "备份快照里的一份（随快照轮换消失：本机约 7 天，同步目录最长约 5 周）",
     ]);
-    expect(memory).toMatchObject({ brings: { tools: ["检索素材", "读素材", "问记忆", "问记忆管理员", "记下顺口问了", "记一句"], cards: ["记忆删除卡", "约访卡（了解你访谈）", "访谈的档案核对卡（了解你访谈收尾时，逐条确认）"], jobs: [] } });
+    expect(memory).toMatchObject({ brings: { tools: ["检索素材", "读素材", "问记忆", "问记忆管理员", "记下顺口问了", "记一句", "存外部信息"], cards: ["记忆删除卡", "约访卡（了解你访谈）", "访谈的档案核对卡（了解你访谈收尾时，逐条确认）"], jobs: [] } });
     expect(memory!.removal!.keeps[0]).toContain("素材属于内核，要删请去 记忆 · 素材 的成批删除");
     // 语音插件：带来口语总结、发语音；连数据删删录音、合成的音频、语音事件里的文字，会话里交给过二狗的不删
     expect(voice).toMatchObject({ summary: expect.stringContaining("按住说话"), brings: { tools: ["口语总结", "发语音"], cards: [], jobs: [] }, needs: [], neededBy: [] });
@@ -132,7 +132,7 @@ describe("设置 · 插件", () => {
     await tell(frontend, "在吗");
     const tools = toolsIn(lastSecretaryText(frontend));
     expect(tools.filter((name) => name.endsWith("_reminder"))).toHaveLength(reminders!.brings.tools.length);
-    expect(tools.filter((name) => ["search_materials", "read_material", "ask_memory", "ask_curator", "mark_woven_question", "remember_memory"].includes(name))).toHaveLength(memory!.brings.tools.length);
+    expect(tools.filter((name) => ["search_materials", "read_material", "ask_memory", "ask_curator", "mark_woven_question", "remember_memory", "ingest_material"].includes(name))).toHaveLength(memory!.brings.tools.length);
     expect(tools.filter((name) => name === "spoken_summary" || name === "send_voice")).toHaveLength(voice!.brings.tools.length);
     // Google 带来的三个是数据源的按需查：没连上的不给秘书（这里都没填地址、密码）
     expect(google!.brings.tools).toHaveLength(3);

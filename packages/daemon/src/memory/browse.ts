@@ -14,6 +14,10 @@
 //   列表新的在前按素材的时间（以前按原始事件倒着排：识别得慢的语音、补回的素材会排错日子，页面按日期分组）。
 // -filter 再加一项 dataSource（素材信封出处的 origin.dataSource）：数据源详情的"已获取的"按它列。
 // -记下来的文件（"这张图记下来"）不在消息里，那一段的 part 由素材里记的媒体拼出来，照附件的样子画。
+// - 存下的外部信息（秘书按用户的要求存的邮件、网页、日程……）：素材里引用块那一段只记了标题和哈希，正文、出处、信息本身的时间、
+//   建议几天后清理在原始事件里（materials/ingested.ts 的 ingestedOf），事件还在、没被彻底删除时补上：正文进那一段的 quoted，
+//   别的进详情的 ingested（建议清理的时间、到了没有按现在算）；到了建议清理的时间在列表、详情的标记里标出来（cleanupDue），不自动删。
+//   搜的时候这类也按正文、出处比对。
 // 这是内核的（同设置里的批量删除 bulk.ts）：记忆插件停用时照样能看、能删已有的素材。只读。
 import {
   attachmentPartFrom,
@@ -34,7 +38,18 @@ import { savedPageOf } from "../browsing/api.ts";
 import { getMessage } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
 import { RequestRejected } from "../errors.ts";
-import { excerptOf, type Material, MATERIAL_KIND_LABEL, type Materials, matchesFacets, queryTerms, REMEMBERED_FILE_FIELD, snippetOf } from "../materials/index.ts";
+import {
+  excerptOf,
+  ingestedCleanup,
+  ingestedOf,
+  type Material,
+  MATERIAL_KIND_LABEL,
+  type Materials,
+  matchesFacets,
+  queryTerms,
+  REMEMBERED_FILE_FIELD,
+  snippetOf,
+} from "../materials/index.ts";
 import { materialsInScope } from "./bulk.ts";
 
 /** 列表的摘录长度（一行半左右） */
@@ -60,25 +75,33 @@ export interface MaterialBrowserOptions {
   abandoned(material: Material): boolean;
   /** 由系统记下的项目内部记录是哪个项目的（internal-records.ts 的 internalRecordOf）；不是的为 undefined */
   internal(material: Material): ProjectInternal | undefined;
+  /** 现在（毫秒）：存下的外部信息到没到建议清理的时间按它算；不给用系统时间 */
+  now?: () => number;
 }
 
 export function createMaterialBrowser(options: MaterialBrowserOptions): MaterialBrowser {
   const { store, materials } = options;
+  const now = options.now ?? Date.now;
 
   const marksOf = (m: Material, abandoned = options.abandoned(m)): MaterialMarks => {
     const internal = options.internal(m);
+    const ingested = ingestedOf(store, m);
     return {
       ...(m.noInfer ? { noInfer: true as const } : {}),
       ...(abandoned ? { abandoned: true as const } : {}),
       ...(internal ? { internal } : {}),
       // 了解你访谈里说的（情境标签 interview）
       ...(m.context.includes(INTERVIEW_CONTEXT) ? { interview: true as const } : {}),
+      // 存下的外部信息到了建议清理的时间
+      ...(ingested && ingestedCleanup(ingested, now())?.due ? { cleanupDue: true as const } : {}),
     };
   };
 
-  /** 搜的那份文字：同关键词索引（本人的话、引用的说明），存的网页再接上存下的正文 */
-  const searchableText = (m: Material): string =>
-    [searchTextOf(m), savedPageOf(store, m)?.text].filter((text): text is string => text !== undefined && text.length > 0).join("\n");
+  /** 搜的那份文字：同关键词索引（本人的话、引用的说明），存的网页再接上存下的正文，存下的外部信息接上正文和出处 */
+  const searchableText = (m: Material): string => {
+    const ingested = ingestedOf(store, m);
+    return [searchTextOf(m), savedPageOf(store, m)?.text, ingested?.text, ingested?.sourceRef].filter((text): text is string => text !== undefined && text.length > 0).join("\n");
+  };
 
   const itemOf = (m: Material, query: string | undefined): MaterialListItem => ({
     id: m.id,
@@ -128,6 +151,8 @@ export function createMaterialBrowser(options: MaterialBrowserOptions): Material
       const message = messageId === undefined ? undefined : liveMessage(store, messageId);
       const state = message === undefined ? "gone" : abandoned ? "abandoned" : "shown";
       const saved = savedPageOf(store, m);
+      const ingested = ingestedOf(store, m);
+      const cleanup = ingested && ingestedCleanup(ingested, now());
       return {
         id: m.id,
         kind: MATERIAL_KIND_LABEL[m.kind],
@@ -138,13 +163,25 @@ export function createMaterialBrowser(options: MaterialBrowserOptions): Material
         ...(m.project === null ? {} : { projectId: m.project }),
         source: m.source,
         context: m.context,
-        segments: m.segments.map((s) => segmentView(s, message, saved)),
+        segments: m.segments.map((s) => segmentView(s, message, saved, ingested?.text)),
         event: { channel: m.ref.event.channel, seq: m.ref.event.seq, type: m.ref.event.type },
         ...(messageId === undefined ? {} : { message: { id: messageId, state } }),
         ...(cardId === undefined ? {} : { cardId }),
         ...(recordId === undefined ? {} : { recordId }),
         ...(m.original ? { original: m.original.path } : {}),
         marks: marksOf(m, abandoned),
+        ...(ingested
+          ? {
+              ingested: {
+                kind: ingested.kind,
+                title: ingested.title,
+                sourceRef: ingested.sourceRef,
+                capturedAt: ingested.capturedAt,
+                ...(ingested.ttlDays === undefined ? {} : { ttlDays: ingested.ttlDays }),
+                ...(cleanup ? { cleanupAt: cleanup.at, ...(cleanup.due ? { cleanupDue: true as const } : {}) } : {}),
+              },
+            }
+          : {}),
       };
     },
   };
@@ -170,8 +207,11 @@ function liveMessage(store: EventStore, messageId: string): MessageEnvelope | un
   return getMessage(store.reader, messageId);
 }
 
-/** 一段：信封里的（不含位置），出处的消息还在时补上引用块的原文、附件和语音在消息里的 part；你存的网页补上存下的正文 */
-function segmentView(s: Material["segments"][number], message: MessageEnvelope | undefined, saved?: MaterialSegmentView["saved"]): MaterialSegmentView {
+/**
+ * 一段：信封里的（不含位置），出处的消息还在时补上引用块的原文、附件和语音在消息里的 part；你存的网页补上存下的正文；
+ * 存下的外部信息的引用块补上存下的正文（ingestedText）
+ */
+function segmentView(s: Material["segments"][number], message: MessageEnvelope | undefined, saved?: MaterialSegmentView["saved"], ingestedText?: string): MaterialSegmentView {
   const view: MaterialSegmentView = {
     form: s.form,
     source: s.source,
@@ -184,6 +224,7 @@ function segmentView(s: Material["segments"][number], message: MessageEnvelope |
     ...(s.cardId === undefined ? {} : { cardId: s.cardId }),
   };
   if (s.form === "web_page" && saved) return { ...view, saved };
+  if (s.form === "quote" && ingestedText !== undefined) return { ...view, quoted: ingestedText };
   if (s.form === "attachment" && s.locator.field === REMEMBERED_FILE_FIELD) return { ...view, ...rememberedPart(s.media) };
   if (!message) return view;
   const { part: index, start, end } = s.locator;

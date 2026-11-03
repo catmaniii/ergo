@@ -212,6 +212,8 @@ describe("七类素材事件和回避信号", () => {
       observed_behavior: "do",
       received_writing: "say",
       own_writing: "say",
+      // 秘书按用户的要求存下的外部信息
+      ingested_info: "say",
     });
   });
 

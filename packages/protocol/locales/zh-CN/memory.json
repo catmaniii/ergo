@@ -52,6 +52,7 @@
   "memory.tool.curator": "问记忆管理员",
   "memory.tool.woven": "记下顺口问了",
   "memory.tool.remember": "记一句",
+  "memory.tool.ingest": "存外部信息",
   "memory.curator.label": "记忆管理员",
   "memory.curator.source": "记忆管理员",
   "memory.curator.interrupted": "记忆管理员这次被打断了，没说完；需要的话再问它一次",

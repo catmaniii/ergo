@@ -171,6 +171,47 @@ describe("你存的网页", () => {
 /** 来源的各行：名字 → 值 */
 const factRows = (v: MaterialDetailView) => Object.fromEntries(materialFacts(v).rows.map((r) => [r.label, r.value]));
 
+describe("存下的外部信息", () => {
+  const ingested = (extra: Partial<NonNullable<MaterialDetailView["ingested"]>> = {}): MaterialDetailView => {
+    // 不来自消息、没有原文副本（不是本人的话）
+    const { message: _message, original: _original, ...rest } = view({
+      kind: "存下的外部信息",
+      source: "external_untrusted",
+      context: [],
+      recordId: "ing-1",
+      event: { channel: "materials", seq: 4, type: "material_ingested" },
+      segments: [{ form: "quote", source: "external_untrusted", notes: [], label: "物业通知：周六上午停水", quoted: "本周六上午 8:00–12:00 停水" }],
+      ingested: { kind: "email", title: "物业通知：周六上午停水", sourceRef: "<notice@example.com>", capturedAt: "2026-10-05T08:55:00+08:00", ...extra },
+    });
+    return rest;
+  };
+
+  test("正文那一段的小标题写哪种和标题，下面是存下的正文", () => {
+    expect(materialBlocks(ingested())).toEqual([{ kind: "quote", title: "外部、不可信 · 邮件「物业通知：周六上午停水」", text: "本周六上午 8:00–12:00 停水" }]);
+  });
+
+  test("来源里多出处、信息本身的时间；给了建议几天后清理的写哪天清理，到了写明不会自动删", () => {
+    const rows = factRows(ingested());
+    expect(rows["出处"]).toBe("<notice@example.com>");
+    expect(rows["信息本身的时间"]).toBe("2026-10-05 08:55");
+    expect(rows).not.toHaveProperty("建议清理");
+    expect(materialFacts(ingested()).head).toBe("存下的外部信息 · 说 · 外部、不可信");
+    expect(factRows(ingested({ ttlDays: 30, cleanupAt: "2026-11-05T22:40:00.000+08:00" }))["建议清理"]).toBe("建议 30 天后清理（2026-11-05 22:40）");
+    expect(factRows(ingested({ ttlDays: 3, cleanupAt: "2026-10-09T22:40:00.000+08:00", cleanupDue: true }))["建议清理"]).toBe("建议 3 天后清理，2026-10-09 22:40 已经到了（不会自动删，要删在下面点彻底删除）");
+  });
+
+  test("到了建议清理的时间：列表和详情的小签写该清理了", () => {
+    expect(materialMarkChips({ cleanupDue: true })).toEqual(["该清理了"]);
+  });
+
+  test("删就是彻底删：没有忘掉，只有彻底删除和别推断", () => {
+    expect(materialDeleteChoices(ingested())).toEqual([
+      { mode: "purge", label: "彻底删除" },
+      { mode: "no_infer", label: "别推断" },
+    ]);
+  });
+});
+
 describe("来源", () => {
   test("种类、说还是做、来源等级一行；时间、会话、任务、项目、消息现在怎样、卡片、记录、原文副本、原始事件、情境各一行", () => {
     const facts = materialFacts(view({ taskId: "t-1", projectId: "p-1", cardId: "c-1", recordId: "v-1" }));

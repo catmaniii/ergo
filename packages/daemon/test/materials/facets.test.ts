@@ -1,4 +1,4 @@
-// 记忆 · 素材按种类筛：给用户看的几种（说过的话、做过的、附件、语音、存的网页、数据源、记忆命令）怎么从素材认出来。
+// 记忆 · 素材按种类筛：给用户看的几种（说过的话、做过的、附件、语音、存的网页、数据源、存下的外部信息、记忆命令）怎么从素材认出来。
 // 一条可以同时算几种；每条素材至少算一种（不然筛哪种都看不到它）。
 import { MATERIAL_FACETS, SAVED_WEB_PAGE_CONTEXT } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";
@@ -33,6 +33,8 @@ describe("种类", () => {
     ["数据源：观察到的本人行为", material("observed_behavior", [seg("text")]), ["did", "data_source"]],
     ["数据源：别人写给你的", material("received_writing", [seg("quote", "external_untrusted")]), ["data_source"]],
     ["数据源：本人写的", material("own_writing", [seg("typed")]), ["said", "data_source"]],
+    // 秘书按用户的要求存下的外部信息：只算这一种，不算你说的话
+    ["存下的外部信息", material("ingested_info", [seg("quote", "external_untrusted")]), ["ingested"]],
   ])("%s", (_name, m, facets) => {
     expect(materialFacets(m)).toEqual(facets);
   });

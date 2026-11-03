@@ -6,6 +6,8 @@
 //   （按快速动作卡上记的工具调用 id 找）和紧跟着的效果日志也有；
 // - 素材的卡片上用户写的说明（关掉卡片、拒绝审批时写的，卡片处理结果的 note）；审批决定的那次工具调用的记录
 //   （守卫接入把"你拒绝了：<说明>"写进了结果摘要，按审批记录里的工具调用 id 找）；
+// - 秘书存下的外部信息：存它的那次工具调用（参数里就是正文，按事件里记的 toolCallId 找；同一轮再调一次的按回的素材 id 找）——
+//   记录、完整内容、执行记录，会话文件里这次调用的参数和结果整个换掉；
 // - 检索素材的工具调用记录（结果摘要里有素材的摘录，按素材 id 找）和紧跟着的效果日志；效果日志里提到素材 id 的；
 //   读素材的同样（参数里就是素材 id，返回里有全文，存的网页还有存下的正文），而且会话文件里它的参数和结果整个换掉
 //   （检索的结果在会话文件里按行换：提到被删素材的那一行，存的网页那一段正文也写在同一行里）；
@@ -30,6 +32,7 @@ import {
   type InboxItemEventPayload,
   interruptedNoticeData,
   isDeletedEventPayload,
+  type MaterialIngestedEventPayload,
   type MemoryCommandEventPayload,
   type MessageEventPayload,
   type MessagesPurgedEventPayload,
@@ -53,7 +56,7 @@ import type { Material } from "../materials/index.ts";
 import { operationRecordKey } from "../quick-actions/index.ts";
 import { mentionsId } from "../util/mentions.ts";
 import type { PurgeRewriters } from "./rewriters.ts";
-import { ASK_CURATOR, ASK_MEMORY, READ_MATERIAL, SEARCH_MATERIALS } from "./tool-names.ts";
+import { ASK_CURATOR, ASK_MEMORY, INGEST_MATERIAL, READ_MATERIAL, SEARCH_MATERIALS } from "./tool-names.ts";
 
 export interface PurgeDeps {
   store: EventStore;
@@ -282,6 +285,15 @@ export function purgePlan(
         target(source);
         targetRemember(command);
       }
+    } else if (source?.type === EVENT_TYPES.materialIngested) {
+      // 存下的外部信息：存它的那次调用的参数里就是正文——记录、完整内容、执行记录，会话文件里这次调用的参数和结果整个换掉
+      target(source);
+      const { toolCallId, conversation } = source.payload as MaterialIngestedEventPayload;
+      if (toolCallId !== undefined) {
+        targetToolCalls(toolCallId, (call) => call.callId === toolCallId);
+        targetExecution(toolCallId);
+        rewriteInSession(conversation, toolCallId);
+      }
     } else if (source) target(source);
     // 卡片上用户写的说明（关掉卡片、拒绝审批时写的）
     if (material.ref.cardId !== undefined) {
@@ -310,6 +322,13 @@ export function purgePlan(
     // 检索素材、读素材的记录、效果日志里提到它的、列出过它的卡片；检索的完整返回里列出过它的（结果摘要只有开头，记录里不一定有它）
     targetToolCalls(material.id, (call) => call.tool === SEARCH_MATERIALS);
     targetToolCalls(material.id, (call) => call.tool === READ_MATERIAL, true);
+    // 存外部信息的调用：同一轮同样的内容再调一次的（回的是同一个素材 id），参数里同样是正文，会话文件里整个换掉
+    targetToolCalls(material.id, (call) => call.tool === INGEST_MATERIAL, true);
+    for (const event of detailEventsOfToolMentioning(store, INGEST_MATERIAL, material.id)) {
+      target(event);
+      const detail = event.payload as ToolCallDetail;
+      if (detail.conversation !== null) rewriteInSession(detail.conversation, detail.callId);
+    }
     // 问记忆：调用记忆的部分列着命中的素材——那次调用的记录、完整内容（返回里引着原话）一起改写；
     // 会话文件里它的结果按证据编号换行（after-purge.ts）
     targetToolCalls(material.id, (call) => call.tool === ASK_MEMORY);

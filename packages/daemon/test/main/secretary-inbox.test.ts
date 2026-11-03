@@ -49,6 +49,8 @@ const SECRETARY_TOOLS = [
   "mark_woven_question",
   // 记一句（用户明确让记的时候，转给记忆插件槽的 remember；只在记忆里新增一条）
   "remember_memory",
+  // 存外部信息（用户要把读到的邮件、网页……存进素材时；只往素材里新增一条）
+  "ingest_material",
   // 归档简单提醒
   "archive_reminder",
   "bash",

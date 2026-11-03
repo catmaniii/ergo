@@ -58,6 +58,28 @@ In this chapter, **Memory · Materials** means: open the Memory page, then click
 - In the built-in browser, long-press an image and say "Remember this image", and the image itself is saved to materials as well. See [Built-in browser](browser.en.md).
 - If you misspoke, there's no need to look for somewhere to fix it. Just say "No, not …, it's …". That sentence is saved as material too, and the next consolidation recognizes it as a correction.
 
+## Having ergo save what it read
+
+**What it is:** Emails, web pages, calendar events and Looki moments the secretary reads for you are normally gone once it's done with them. If you want to ask about one later ("what did that building email say last month?"), have it saved to materials. Nothing is saved unless you ask; the secretary doesn't pick things to keep on its own.
+
+**Things you can just say:**
+
+- Save this email
+- Save this page to materials, a month is enough
+
+**Step by step:**
+
+1. Right after the secretary has read it, say something like the above.
+2. The secretary replies that it's saved. It keeps the title, the text (shortened first if it's too long), the source (email ID, web address and so on) and the item's own date.
+3. When you ask about it later, the secretary can find it and says the answer comes from that item.
+4. To check, open Memory · Materials and click **Saved outside info** in the filters.
+
+**Good to know:**
+
+- What's saved was written by someone else and doesn't count as something you said. Memory consolidation only uses it as background and never infers anything about you from it.
+- If you said how long to keep it ("keep it for a month"), the material's details show when cleanup is suggested; once that date passes, the list tags it **Due for cleanup**. It's never deleted automatically; delete it yourself.
+- Deleting one of these always deletes it completely: the details only have **Delete completely** and **Don't infer**. Afterwards the secretary can't find it, and the text in the chat record of the call that saved it is deleted too.
+
 ## Having ergo forget something
 
 **What it is:** there are things you'd rather ergo stopped using. There are three ways to delete:
@@ -247,7 +269,7 @@ This page is view-only. To answer, just reply when the secretary asks; to bring 
 
 1. Pick a time range: Today, Last 7 days (default), Last 30 days, Custom. Use **‹ Earlier** and **Later ›** to move through it.
 2. To search, type keywords at the top; all the space-separated words must appear. If nothing turns up in this period, click **Search all time instead**.
-3. To filter, click kinds: Said, Did, Attachments, Voice, Saved pages, Data sources, Memory commands. You can pick several.
+3. To filter, click kinds: Said, Did, Attachments, Voice, Saved pages, Data sources, Saved outside info, Memory commands. You can pick several.
 4. To see only one conversation, pick it in the **Conversation** dropdown. Click **Clear filters** to clear kinds and conversation.
 5. The list shows 30 at a time; click **Show N more** to continue.
 6. Click one to open **Material details**.
@@ -258,7 +280,7 @@ This page is view-only. To answer, just reply when the secretary asks; to bring 
 
 **Good to know:**
 
-- Items in the list can have tags: **From an interview**, **Excluded from inference**, **On an abandoned branch**.
+- Items in the list can have tags: **From an interview**, **Excluded from inference**, **On an abandoned branch**, **Due for cleanup** (saved outside info past its suggested cleanup date).
 - The kind also tells you where it came from: What you said, Approval decision, Answer to a clarifying question, Task outcome, Something you did (observed)…
 - Finding materials by meaning needs the [embedding model](#troubleshooting). Search on this page uses keywords and doesn't need it.
 

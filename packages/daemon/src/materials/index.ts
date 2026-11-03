@@ -10,7 +10,8 @@
 //   素材的摘录（excerptOf：记忆删除卡、检索结果、设置里的素材列表）、挨着检索词的一段（snippetOf，挪进来）；
 //   记忆 · 素材按种类筛（materialFacets、matchesFacets）；
 // - 记忆插件（memory/plugin.ts）：采成素材（Materials.collect 和它要的 CollectOptions）、它声明的素材来源
-//   （memoryCommandSource、cardStaleSource）。
+//   （memoryCommandSource、cardStaleSource、存下的外部信息 materialIngestedSource 和它的改写函数）；
+//   存下的外部信息从原始事件里取回正文和出处（ingestedOf：设置里点开、秘书检索和读素材），建议清理的时间（ingestedCleanup）。
 export { type CollectOptions, openMaterials, type Materials } from "./materials.ts";
 export { type MaterialDraft, materialId, type MaterialSource, userDecisionDraft } from "./capture.ts";
 export { type MaterialPiece, messagePieces, segmentPieces } from "./segments.ts";
@@ -20,5 +21,6 @@ export { excerptOf, queryTerms, snippetOf } from "./excerpt.ts";
 export { materialFacets, matchesFacets } from "./facets.ts";
 export { MATERIALS_CHANNEL, MEMORY_COMMAND_SOURCE, memoryCommandSource, REMEMBERED_FILE_FIELD, rememberCommandPurge, rememberedMediaOf, scopeLabel } from "./commands.ts";
 export { cardDismissedPurge, cardStalePurge, cardStaleSource, conversationKind, interviewQuestionSegments } from "./sources.ts";
+export { ingestedCleanup, ingestedOf, MATERIAL_INGESTED_SOURCE, materialIngestedPurge, materialIngestedSource } from "./ingested.ts";
 export { type Embedder, EmbeddingUnavailable } from "./embedding/embedder.ts";
 export { BGE_M3, createBgeM3Embedder } from "./embedding/bge-m3.ts";

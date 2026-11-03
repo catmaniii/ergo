@@ -8,10 +8,13 @@
 // （materials/facets.ts、memory/browse.ts）在这里再做一遍，搜的时候摘录换成命中的那一段。
 // 数据源详情的"已获取的"：另编几条数据源导入的（fake-data-source-materials：示例相机、手机的位置和照片、编的账单），按 filter.dataSource 筛。
 // "这张图记下来"：另编两条记下来的图：一张原图、一张截图，连同描述、来源网页和地址。
+// 存下的外部信息：另编两条（一个网页、一封到了建议清理时间的邮件）。
 import {
   type Card,
   CHANNELS,
   EVENT_TYPES,
+  ingestedCleanupAtMs,
+  type IngestedInfoKind,
   type MaterialDetailView,
   type MaterialFacet,
   type MaterialListFilter,
@@ -276,6 +279,42 @@ function rememberedImage(n: number, time: string, description: string, image: { 
   );
 }
 
+/**
+ * 一条存下的外部信息（秘书按用户的要求存的）：引用块那一段只记标题，详情里补上正文；出处、信息本身的时间、建议清理在 ingested 里，
+ * 到了建议清理的时间标"该清理了"（照守护进程的 memory/browse.ts，按打开页面的这一刻算）
+ */
+function ingestedMaterial(n: number, time: string, info: { kind: IngestedInfoKind; title: string; text: string; sourceRef: string; capturedAt: string; ttlDays?: number }): FakeMaterial {
+  const id = `mat-fake-recent-${n}`;
+  const segment: MaterialSegmentView = { form: "quote", source: "external_untrusted", notes: [], sha256: "0".repeat(64), label: info.title, quoted: info.text };
+  const kind = "存下的外部信息";
+  const cleanupAt = info.ttlDays === undefined ? undefined : ingestedCleanupAtMs(time, info.ttlDays);
+  const due = cleanupAt !== undefined && Date.now() >= cleanupAt;
+  const marks = due ? { cleanupDue: true as const } : {};
+  return {
+    item: { id, kind, time, conversation: CHANNELS.secretary, excerpt: excerptOf([segment]), marks },
+    detail: {
+      id,
+      kind,
+      mode: "say",
+      time,
+      conversation: CHANNELS.secretary,
+      source: "external_untrusted",
+      context: [],
+      segments: [segment],
+      event: { channel: "materials", seq: 300 + n, type: EVENT_TYPES.materialIngested },
+      recordId: `ing-fake-${n}`,
+      marks,
+      ingested: {
+        kind: info.kind,
+        title: info.title,
+        sourceRef: info.sourceRef,
+        capturedAt: info.capturedAt,
+        ...(info.ttlDays === undefined || cleanupAt === undefined ? {} : { ttlDays: info.ttlDays, cleanupAt: nowIso(new Date(cleanupAt)), ...(due ? { cleanupDue: true as const } : {}) }),
+      },
+    },
+  };
+}
+
 const LEDGER = "maintainer:project-ledger";
 const PHOTOS = "maintainer:project-photos";
 const INVOICES = "maintainer:tm-invoices";
@@ -297,6 +336,23 @@ function recentMaterials(): FakeMaterial[] {
       text: "第一周：每次跑 3 公里，跑走结合，心率别超过 150。\n第二周：加到 4 公里，每周三次。\n第四周：试着一口气跑完 5 公里。\n装备：一双合脚的跑鞋比什么都重要；天凉了跑前多热身五分钟。",
       truncated: false,
       total: 96,
+    }),
+    // 存下的外部信息：一个网页（建议 90 天后清理，还没到）、一封邮件（建议 3 天后清理，已经到了）
+    ingestedMaterial(19, ago(1, "16:40"), {
+      kind: "web_page",
+      title: "苏州两日游：拙政园、平江路、山塘街",
+      text: "第一天：上午拙政园（建议提前预约），中午平江路吃苏式面，傍晚去山塘街。\n第二天：虎丘、苏州博物馆（周一闭馆）。\n交通：高铁到苏州站，换地铁 4 号线。",
+      sourceRef: "https://travel.example.com/suzhou-2days",
+      capturedAt: ago(1, "16:35"),
+      ttlDays: 90,
+    }),
+    ingestedMaterial(20, ago(5, "09:20"), {
+      kind: "email",
+      title: "物业通知：周六上午小区停水",
+      text: "各位业主：\n本周六上午 8:00–12:00 小区二期水管检修，期间停水，请提前储水。\n有疑问请联系物业服务中心。",
+      sourceRef: "<notice-0412@property.example.com>",
+      capturedAt: ago(5, "08:55"),
+      ttlDays: 3,
     }),
     recent(5, ago(1, "20:15"), "用户发言", "say", [said("外卖单独算一类，别和餐饮混在一起")], { conversation: LEDGER }),
     recent(6, ago(1, "19:02"), "审批决定", "do", [chose("批准：把 10 月账单导出到草稿区")], { conversation: LEDGER, context: ["decision:approve", "maintainer"], recordId: "ap-fake-recent-6" }),
@@ -332,20 +388,21 @@ function facetsOf(d: MaterialDetailView): MaterialFacet[] {
   const forms = new Set(d.segments.map((s) => s.form));
   const command = d.kind === "显式记忆命令";
   const webPage = d.context.includes(SAVED_WEB_PAGE_CONTEXT);
+  const ingested = d.ingested !== undefined;
   const out: MaterialFacet[] = [];
-  if (!command && d.mode === "say" && !webPage && (forms.size === 0 || [...forms].some((f) => f !== "attachment" && f !== "voice" && f !== "web_page"))) out.push("said");
+  if (!command && !ingested && d.mode === "say" && !webPage && (forms.size === 0 || [...forms].some((f) => f !== "attachment" && f !== "voice" && f !== "web_page"))) out.push("said");
   if (!command && d.mode === "do") out.push("did");
   if (forms.has("attachment")) out.push("attachment");
   if (forms.has("voice")) out.push("voice");
   if (webPage) out.push("web_page");
+  if (ingested) out.push("ingested");
   if (command) out.push("memory_command");
   return out;
 }
 
-/** 搜的那份文字：本人的话、引用的说明，存的网页接上正文 */
+/** 搜的那份文字：本人的话、引用的说明，存的网页接上正文，存下的外部信息接上正文和出处 */
 function searchableText(d: MaterialDetailView): string {
-  return d.segments
-    .flatMap((s) => [s.source === "self" ? s.text : s.label, s.saved?.text])
+  return [...d.segments.flatMap((s) => [s.source === "self" ? s.text : s.label, s.saved?.text, d.ingested ? s.quoted : undefined]), d.ingested?.sourceRef]
     .filter((t): t is string => t !== undefined && t.length > 0)
     .join("\n");
 }

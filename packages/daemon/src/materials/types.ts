@@ -1,12 +1,13 @@
 // 素材的词汇：七类素材事件加回避信号、说或做、来源等级、切段，以及统一的信封。
 // 第一阶段只积累和建索引，没有素材的页面，所以这些类型只在守护进程里，不进共享协议包。
 // 设置里能看每条素材的内容：来源等级、切段的形态和注明前端也要认，挪进了共享协议包（这里直接用那几个）。
-// 加了数据源素材的三种（观察到的本人行为、别人写给你的、本人写的）和信封上的出处 origin（哪个数据源、场景、敏感类别）。
+// 加了数据源素材的三种（观察到的本人行为、别人写给你的、本人写的）和信封上的出处 origin（哪个数据源、场景、敏感类别）；
+// 又加了存下的外部信息（秘书按用户的要求存的，来源外部）。
 import { MATERIAL_SOURCE_LEVELS, type MaterialSegmentForm, type MaterialSegmentNote, type MaterialSourceLevel, tTable } from "@ergo/protocol";
 import type { SensitiveCategory } from "../config/config.ts";
 
 /**
- * 素材的种类：七类素材事件，加上回避信号，加上数据源素材的三种。
+ * 素材的种类：七类素材事件，加上回避信号，加上数据源素材的三种，加上存下的外部信息。
  * 每一种固定是"说"或"做"（MATERIAL_MODE）：说是用户说出来的话，做是用户的行为（以及系统观察到的不处理）。
  */
 export const MATERIAL_KINDS = [
@@ -32,6 +33,11 @@ export const MATERIAL_KINDS = [
   "received_writing",
   /** 本人写的（数据源）：发出的邮件、笔记、日记……本人说的话，来源本人 */
   "own_writing",
+  /**
+   * 存下的外部信息：秘书按用户的要求（或任务书写明要存）存的邮件、网页、日程、Looki 时刻、别的外部文字（materials/ingested.ts）。
+   * 来源外部（不可信），只留标题当说明和哈希，正文只进检索；读成证据是别人转述的，只当背景、不撑结论
+   */
+  "ingested_info",
 ] as const;
 
 export type MaterialKind = (typeof MATERIAL_KINDS)[number];
@@ -67,6 +73,7 @@ export const MATERIAL_MODE: Readonly<Record<MaterialKind, MaterialMode>> = {
   observed_behavior: "do",
   received_writing: "say",
   own_writing: "say",
+  ingested_info: "say",
 };
 
 /** 名字（设置里的素材页、记忆删除卡上用，跟着当前语言；检索工具给模型的那份在 memory/search-tool.ts） */
@@ -82,6 +89,7 @@ export const MATERIAL_KIND_LABEL: Readonly<Record<MaterialKind, string>> = tTabl
   observed_behavior: "materials.kind.observedBehavior",
   received_writing: "materials.kind.receivedWriting",
   own_writing: "materials.kind.ownWriting",
+  ingested_info: "materials.kind.ingestedInfo",
 });
 
 /**

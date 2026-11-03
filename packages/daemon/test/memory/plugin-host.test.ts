@@ -1,8 +1,12 @@
 // 记忆插件在假宿主里的装配（真的插件、真的插件宿主，内核是临时目录里的真实现；不碰真实守护进程和用户数据）。
 // 覆盖：插件开着时每晚整理作业排上、到点跑、停用后撤销（下一夜不再跑、rg.db 留着）；memory.enabled = false 时不排作业、
 // 不建库但登记着手动整理的入口；手动整理一次走同一份作业、受同一夜一次的限制；整理关着时点了回原因、不跑。
+// 存外部信息（ingest_material）只给秘书：三种负责人（任务、项目、定时作业）不经贡献缝拿到它，记忆管理员自己那套工具里也没有
+// （子 agent、评审不收插件的工具）。
 import fs from "node:fs";
 import { describe, expect, it } from "vitest";
+import type { ContributionTarget } from "../../src/agent-host/contributions.ts";
+import { CURATOR_TOOL_NAMES } from "../../src/memory/curator-tools.ts";
 import { isAsyncQuickAction } from "../../src/quick-actions/index.ts";
 import { createMemoryPluginHost, nightlyRecords, silentChat } from "./plugin-host.ts";
 
@@ -20,6 +24,23 @@ function nightlyAction(t: Awaited<ReturnType<typeof createMemoryPluginHost>>) {
 const context = { actionId: "qa-1", cardId: "card-1", conversation: "secretary", basis: "confirmed" } as const;
 
 describe("记忆插件在假宿主里", () => {
+  it("存外部信息只给秘书：任务、项目、定时作业的负责人（哪种会话、开没开联网都一样）没有，记忆管理员的工具里也没有", async () => {
+    const t = await createMemoryPluginHost({ at: at(10, 9) });
+    try {
+      const names = (target: ContributionTarget) => t.agent.toolsFor(target).map((tool) => tool.spec.name);
+      expect(names({ agent: "secretary", agentId: "secretary", session: "secretary" })).toContain("ingest_material");
+      const toolkit = { skills: [], mcp: [], bash: true, network: true };
+      for (const agent of ["task", "project", "job"] as const) {
+        for (const session of ["planning", "execution", "plain", "run", "chat", "fixed"] as const) {
+          expect(names({ agent, agentId: `${agent}-1`, session, toolkit })).not.toContain("ingest_material");
+        }
+      }
+      expect(CURATOR_TOOL_NAMES).not.toContain("ingest_material");
+    } finally {
+      await t.close();
+    }
+  });
+
   it("开着：每晚整理的作业排上、到点跑一次；运行中停用后作业撤销、下一夜不再跑，rg.db 留着", async () => {
     // 不给模型：到点照旧跑，记一条"没配 key"的 skipped（不联网、不花钱）
     const t = await createMemoryPluginHost({ at: at(10, 9) });

@@ -105,6 +105,12 @@ export const EVENT_TYPES = {
    * 产生一条"用户主动投喂的材料"素材（情境 saved_web_page），正文是网页上的外部数据，只在这条事件里，不进素材、不进索引
    */
   webPageSaved: "web_page_saved",
+  /**
+   * 素材频道（守护进程内部，前端不订阅）：秘书按用户的要求存下的一条外部信息（邮件、网页、日程、Looki 时刻、别的外部文字）——
+   * 标题、正文、出处、信息本身的时间、建议几天后清理（负载见 ingested-materials-schema.ts）。产生一条"存下的外部信息"素材，
+   * 来源外部（不可信）；正文只在这条事件里，只进检索的索引
+   */
+  materialIngested: "material_ingested",
   /** 任务看板频道：一个任务的最新状态，以及这次的变化和谁改的 */
   task: "task",
   /** 活动状态频道：某个 agent 的活动状态变了（休眠、干活中、等你、排队；有"排队"） */
@@ -865,10 +871,11 @@ export const MATERIAL_LIST_MAX = 100;
 
 /**
  * 记忆 · 素材按种类筛（给用户看的分法，不是素材的八种 kind）：说过的话、做过的（对产出的反应、审批、点卡片、关掉或一直没处理的卡、任务结局）、
- * 附件、语音、存的网页（"浏览"里存进素材的）、数据源导入的（观察到的本人行为、别人写给你的、本人写的）、记忆命令。
+ * 附件、语音、存的网页（"浏览"里存进素材的）、数据源导入的（观察到的本人行为、别人写给你的、本人写的）、
+ * 存下的外部信息（秘书按用户的要求存的邮件、网页、日程……，不是你说的）、记忆命令。
  * 一条素材可以同时算几种：发了附件还说了话的，既是说过的话、也是附件。怎么认在守护进程的 materials/facets.ts（materialFacets）
  */
-export const MATERIAL_FACETS = ["said", "did", "attachment", "voice", "web_page", "data_source", "memory_command"] as const;
+export const MATERIAL_FACETS = ["said", "did", "attachment", "voice", "web_page", "data_source", "ingested", "memory_command"] as const;
 export type MaterialFacet = (typeof MATERIAL_FACETS)[number];
 
 export const MATERIAL_FACET_LABEL: Readonly<Record<MaterialFacet, string>> = tTable({
@@ -878,6 +885,7 @@ export const MATERIAL_FACET_LABEL: Readonly<Record<MaterialFacet, string>> = tTa
   voice: "protocol.materialFacet.voice",
   web_page: "protocol.materialFacet.webPage",
   data_source: "protocol.materialFacet.dataSource",
+  ingested: "protocol.materialFacet.ingested",
   memory_command: "protocol.materialFacet.memoryCommand",
 });
 
@@ -889,6 +897,7 @@ export const MATERIAL_FACET_HINT: Readonly<Record<MaterialFacet, string>> = tTab
   voice: "protocol.materialFacet.hint.voice",
   web_page: "protocol.materialFacet.hint.webPage",
   data_source: "protocol.materialFacet.hint.dataSource",
+  ingested: "protocol.materialFacet.hint.ingested",
   memory_command: "protocol.materialFacet.hint.memoryCommand",
 });
 

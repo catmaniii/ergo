@@ -160,7 +160,7 @@ flowchart TB
 
 - 插件经 `ctx.agent` 给 agent 三样：工具、每轮的上下文块（`input` 跟在每条输入后，`wake` 在唤起和压缩后）、钩子订阅。
 - 工具由守护进程代为执行（`serveHostTools`），子进程里只转手；上下文块和钩子当数据经宿主协议下发，子进程里的 `ContributionBridge` 翻译给 pi。
-- 记忆插件现在用了三样：工具（`search_materials`、`read_material`、`ask_memory`、`ask_curator`、`mark_woven_question`、`remember_memory`，只给秘书；最后一个加，用户说"帮我记一句"时把原话交给记忆插件槽的宿主 `remember`，插件没在跑时没有；加可选的 `file`：用户在长按的网页元素上说记下来时带上 `browse_element_content` 这一轮给的文件编号，文件、来源网页和地址一起进"显式记忆命令"素材，忘掉、彻底删除连文件删）、`wake` 上下文块（醒来简报 `memory.brief`，只给秘书）和两块 `input` 上下文块（记忆简报在前、顺口问在后，都只给秘书、这一轮有内容才有）。钩子没用。 `input` 块的文字可以异步算（会话等齐了再交这条输入，出错的那块当没有），还能给 `replyParts`：结构化的部分放进这一轮的第一条回话。
+- 记忆插件现在用了三样：工具（`search_materials`、`read_material`、`ask_memory`、`ask_curator`、`mark_woven_question`、`remember_memory`，只给秘书；最后一个加，用户说"帮我记一句"时把原话交给记忆插件槽的宿主 `remember`，插件没在跑时没有；加可选的 `file`：用户在长按的网页元素上说记下来时带上 `browse_element_content` 这一轮给的文件编号，文件、来源网页和地址一起进"显式记忆命令"素材，忘掉、彻底删除连文件删；再加 `ingest_material`：用户要把读到的邮件、网页……存进素材时用，只写一条事件、素材由采集函数产生，来源外部，见 3.4 的工具表）、`wake` 上下文块（醒来简报 `memory.brief`，只给秘书）和两块 `input` 上下文块（记忆简报在前、顺口问在后，都只给秘书、这一轮有内容才有）。钩子没用。 `input` 块的文字可以异步算（会话等齐了再交这条输入，出错的那块当没有），还能给 `replyParts`：结构化的部分放进这一轮的第一条回话。
 
 **网页，素材这一半**：
 
@@ -302,7 +302,7 @@ flowchart TB
 - **顺口问**（接进线上，改成秘书用自己的话问；`packages/daemon/src/memory/woven-questions.ts`，照之前的规矩，流程见 4.8）：秘书开始处理用户的每一句时，记忆插件的 `input` 上下文块先看上一轮——秘书紧挨着这句之前的那一轮标过某个"问过、等回答"的问题（会话里那次 `mark_woven_question` 的工具调用），就按那个问题读这句（规则版，不调模型，只认明显的）：在答就把这句话的素材读成证据草稿、`recordQuestionAnswer`；"跳过"记跳过一次；"别问这个"这一类不再问；认不出的（隐含的回答、在说别的）不动，问题还等着，留给每晚整理时记忆管理员判（下一条）。再用这句话挑这一轮要不要顺口问（`pickQuestion` 只看不记、`settle: false`：话题对上、不急、上一轮不在等用户做决定、今天还没问过），挑中了就交一块【顺口问】：问题的编号、要问的、为什么问（要弄清的那几种说法，写明是猜测、别说给用户听）、怎么问（跟着这一轮的话题和语气用自己的话带一句，不照抄、不说"顺便问一句"，只问具体的事、不带诱导，不合适就别问，用户问起为什么照实说）、问了先调 `mark_woven_question` 标一下。这一轮做完（`turn_end`）秘书标了、也真的回了话才记"问过"；没标的不算（回话里原样带了那一句也不算），标错编号的工具回错、也不算。秘书的工具只在内存里记个标记，写由记忆插件代记忆管理员写——秘书照旧没有写推理库的路。这几样写都经唯一写入口、用随用随开的可写引擎，留痕写明谁写的、"经秘书顺口问"（`WOVEN_VIA`）：回答（连同回答证据入库、明确时马上判的确认和重定那组）、跳过是用户的表态，"别问这个"是用户发起（夜班、管理员自己下的写入口拒），记问过是记忆管理员。记忆页的设置里能关（默认开，`createMemorySettings`，配置区的 `memory-settings.json`）。
 - **夜里判回答**（@ergo/memory 的 `rg/reply-judge.ts`，守护进程的 `packages/daemon/src/memory/reply-follow-ups.ts`，流程见 4.8）：每晚整理时，问过、还在等回答、不是当天才问的问题，记忆管理员（整理同一个模型 `LlmReplyJudge`、同一份预算）把问题、为什么问、秘书当时怎么问的、用户之后的几句话（同一个会话、从秘书标了它的那一轮之后、24 小时内、最多 6 句，每句对到能当依据的本人证据）一起看：答了 → 那句话当回答经 `recordQuestionAnswer` 回写（读成模型说的是 / 不是 / 说不好；规则也读成同一边、又有加重的才算明确，马上判，别的同一夜按判法记强的），留痕写明"用户的表态 · 经记忆管理员夜里判"；没答 → 算跳过一次（夜班）；拿不准 → 留到下一夜（经过里记一笔 `unsure`），下一夜用户又说了话再判一次、没再说什么就当没答，最多两夜。一句都没说的不问模型、直接当没答。预算：判回答那一道从前段里划一小份保底（`min(10, 这一夜要问模型的问题数)`），排在新证据之后、重跑旧追问之前（4.3）。白天挑问题不再把问了没答的记跳过（`settle: false`），统一夜里判过再记。
 - **问记忆** `ask_memory`：按需深查推理图谱，交回 D 式的记忆简报（记录 + 对用户的理解 + 还没分出胜负的解释 + 明说过的要求和禁忌），≤4000 字。只读、不调模型。库用不了时回"记忆还没准备好"。还交回结构化的调用记忆（`MemoryRecall`，`source` 是 `ask`），网页画进"回忆了 N 条记忆"那一行。
-- 素材检索 `search_materials` / `read_material` 照旧。秘书的记忆工具依次是 `search_materials`、`read_material`、`ask_memory`、`ask_curator`、`mark_woven_question`（标一下这一轮顺口问了哪个问题）。
+- 素材检索 `search_materials` / `read_material` 照旧。秘书的记忆工具依次是 `search_materials`、`read_material`、`ask_memory`、`ask_curator`、`mark_woven_question`（标一下这一轮顺口问了哪个问题）、`remember_memory`、`ingest_material`（存外部信息）。
 - 注意时间差：`search_materials` 查的是素材库（马上就有），`ask_memory` 和两种简报读的是推理库，只到上一次整理为止。
 
 **记忆页的只读接口**（`packages/daemon/src/memory/graph.ts`）：
@@ -544,7 +544,7 @@ flowchart LR
 | ✅ | `Materials.vectorStatus` | `packages/daemon/src/materials/materials.ts` | 无 | `VectorStatus`：模型、已算、待算、`state` |
 | ✅ | `Materials.collecting` | `packages/daemon/src/materials/materials.ts` | 无 | 在不在采成素材 |
 | ✅ | `MaterialSource` | `packages/daemon/src/materials/capture.ts` | `name`（定了别改）、`eventType`、`capture(event)` 确定性的 | `MaterialDraft[]` |
-| ✅ | `MaterialDraft.indexText` | `packages/daemon/src/materials/capture.ts` | 只有用户存的网页给；只进索引，不进信封和原文副本 | 无 |
+| ✅ | `MaterialDraft.indexText` | `packages/daemon/src/materials/capture.ts` | 用户存的网页、数据源里别人写给你的正文、秘书存下的外部信息（正文和出处）给；只进索引，不进信封和原文副本 | 无 |
 | ✅ | `materialId` | `packages/daemon/src/materials/capture.ts` | 事件、采集规则名、第几条 | `mat-` 加 24 位哈希 |
 | ✅ | `Embedder` | `packages/daemon/src/materials/embedding/embedder.ts` | `model`、`available()`、`embed(texts)`、`close()`；查询和文档不分 | 向量 |
 | ✅ | `createBgeM3Embedder` | `packages/daemon/src/materials/embedding/bge-m3.ts` | 数据目录；模型在模型区，懒加载，工作线程 | `Embedder` |
@@ -685,6 +685,7 @@ flowchart LR
 | ✅ | `ask_curator` | 秘书 | `packages/daemon/src/memory/tool-names.ts` | 把用户的话转给记忆管理员，等它答完（最多 90 秒）带回来 |
 | ✅ | `mark_woven_question` | 秘书 | `packages/daemon/src/memory/tool-names.ts` | 标一下这一轮用自己的话问了【顺口问】交给它的那个问题：编号对得上才记下，这一轮做完由记忆插件记"问过"；只在内存里记个标记，不改记忆 |
 | 🧪 | `remember_memory` | 秘书 | `packages/daemon/src/memory/tool-names.ts` | 用户明确让"帮我记一句"时把用户的原话交给记忆插件槽（宿主的 `remember`）：按原话存成一条记忆，说明里写明只有用户让你记时才用；带 `file` 时连文件存（编号只认这一轮 `browse_element_content` 给的，这时 text 是秘书写的描述）；记忆插件没在跑时没有这个工具 |
+| ✅ | `ingest_material` | 秘书 | `packages/daemon/src/memory/tool-names.ts` | 存外部信息（`packages/daemon/src/memory/ingest-tool.ts`）：用户这一轮要求存（或任务书写明要存）时，把读到的邮件、网页、日程、Looki 时刻、别的外部文字存进素材；参数 `kind`、`title`、`text`（≤ 8KB，超了回错）、`sourceRef`（必填）、`capturedAt`、可选 `ttlDays`。只在素材频道写一条 `material_ingested` 事件，素材由 `materials/ingested.ts` 的采集函数产生：种类"存下的外部信息"，来源 `external_untrusted`，只留标题当说明，正文和出处只进检索（`indexText`）；读成证据是 untrusted（别人转述的），不撑关于用户的结论。检索、读素材、素材详情从原始事件里取正文和出处（`ingestedOf`）；彻底删除改写标题、正文、出处，连同存它的那次工具调用；`ttlDays` 只在列表上标"该清理了"，不自动删 |
 | ✅ | `run_memory_consolidation` | 记忆管理员 | `packages/daemon/src/memory/curator-tools.ts` | 现在整理一次：03:00 是这一夜的 `run`，平时是 `runNow` |
 | ✅ | `inspect_memory` | 记忆管理员 | `packages/daemon/src/memory/curator-tools.ts` | 看一条结论的来龙去脉（记忆页同一份只读视图） |
 | ✅ | `review_memory_claim` | 记忆管理员 | `packages/daemon/src/memory/curator-tools.ts` | 记下用户对一条结论的表态：对（确认，已验证）、不对（撤回）、拿不准（加复核标记，不改真值状态）；走引擎的 `recordClaimVerdict`，整理不改回 |
