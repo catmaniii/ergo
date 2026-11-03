@@ -187,6 +187,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 - **三条硬底线**谁说了都不放：不写二狗自己的配置区、数据库区和程序目录；不读密钥区；确定要把密钥发出去的不做。
 - 判断不了的（缺环境事实、参数没法规范化……）一律先问。
 - **授权的文件夹**（`GuardInput.authorizedFolders`，调用方每次判定现读）：读里面的文件不算越出项目目录，计划比对也不算越界。只放开读，按真实路径比，取不到真实路径的不算；数据目录、受保护区域、密钥文件、跑脚本、git、`cd`、bash 里写着 `..` 的路径都不算（[ADR-0041](adr/0041-authorized-folders-read-only-in-guard.md)）。
+- **目录授权**（`GuardInput.folderGrants`，调用方每次判定现读发起调用的这个 agent 的那一份：秘书、每个项目、每个任务各一份，子 agent 和评审没有）：登记目录里做登记了的那种操作（读、写、删分开）不算越出项目目录，文件工具写也不再硬拒绝；没登记的照旧（对话里先问、任务里找计划的授权项）。按真实路径比，删除另要写的路径本身也在登记目录里；只认文件工具和 bash 拆出来看得清的读写删；受保护区域、数据目录照旧，登记目录里名字像密钥的文件读写一律硬拒绝（`secret_file`）；过期按 `now` 算。放行的每一处记使用记录（`folder_grant_used`），对话里因为越出项目目录要问的审批卡上可以"以后都允许"（[ADR-0049](adr/0049-per-agent-folder-grants.md)）。表在配置区 `folder-grants.json`（`folders/folder-grants.ts`），只由运行时写。
 - **联网开关关着时只连本机的不算联网**：curl 只发往 `127.0.0.1`、`localhost`、`::1`（发往二狗自己端口的不算本机）；脚本用到 `socket`、`urllib`、`http.server`、`fetch` 这些能连本机的库，里面写的地址又都是本机（`guard-runtime/script-scan.ts` 的 `localOnly`）。bash 起的进程 `NO_PROXY` 写着本机（`process/child-env.ts`）。地址从参数、环境变量来的看不出来，这一层本来就是尽力而为。
 - 默认值按"功能先跑通、安全后接"（[ADR-0026](adr/0026-features-first-security-later.md)），新装时两个开关不勾（见[关注类别](../user-guide/settings.md#关注类别)）。
 

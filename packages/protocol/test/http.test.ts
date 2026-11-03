@@ -8,6 +8,13 @@ const queryOf = (url: string) => Object.fromEntries(new URL(url, "http://127.0.0
 describe("HTTP 接口的路径", () => {
   it("拼出来的路径拆得回去：接口和参数一样", () => {
     expect(parseHttpPath(pathOf(HTTP_PATHS.uploads))).toEqual({ route: "uploads" });
+    // 目录授权：全部、删一条、一次清掉几条、使用记录
+    expect(parseHttpPath(pathOf(HTTP_PATHS.folderGrants))).toEqual({ route: "folder_grants" });
+    expect(parseHttpPath(pathOf(HTTP_PATHS.folderGrant("fg-1")))).toEqual({ route: "folder_grant", grantId: "fg-1" });
+    expect(parseHttpPath(pathOf(HTTP_PATHS.folderGrantsClear))).toEqual({ route: "folder_grants_clear" });
+    expect(HTTP_PATHS.folderGrantUses({ limit: 20 })).toBe("/api/folder-grants/uses?limit=20");
+    expect(parseHttpPath(pathOf(HTTP_PATHS.folderGrantUses({ limit: 20 })))).toEqual({ route: "folder_grant_uses" });
+    expect(parseHttpPath("/api/folder-grants/fg-1/x")).toBeUndefined();
     expect(HTTP_PATHS.serviceEvents).toBe("/api/service-events");
     expect(parseHttpPath(pathOf(HTTP_PATHS.serviceEvents))).toEqual({ route: "service_events" });
     expect(parseHttpPath("/api/service-events/x")).toBeUndefined();

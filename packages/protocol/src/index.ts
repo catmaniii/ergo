@@ -93,6 +93,7 @@
 //   上下文、能力清单、条目/素材/查询/删除/体检的形状、几个可选能力（简报、整理、额外工具）和接口版本（MEMORY_API_VERSION）。
 // - memory-settings-schema.ts：记忆的设置——秘书顺口问开不开，配置文件和设置接口 GET / PUT /api/memory/settings 的 schema。
 // - safety-settings-schema.ts：安全和预算的两个开关——先问我、任务的预算，设置接口 GET / PUT /api/safety-settings 的 schema。
+// - folder-grants-schema.ts：目录授权——每个 agent 一份的目录授权表（读、写、删分开，可过期）、设置接口和使用记录的 schema，审批卡上"以后都允许"登记的目录（ADR-0049）。
 // - connection-addresses.ts、connection-addresses-schema.ts：连接地址——手机从外面连到二狗用的地址：种类、校验、排序，GET / POST /api/connection-addresses 的样子。
 // - autostart.ts、autostart-schema.ts：服务管家的开机自启——向导里的开关，GET / PUT /api/autostart 的样子。
 // - setup.ts / setup-schema.ts：首次设置向导——网页上要走的五步、每步做完了没有（GET /api/setup 的样子）、
@@ -213,6 +214,7 @@ export * from "./memory.ts";
 export * from "./memory-provider.ts";
 export * from "./memory-settings-schema.ts";
 export * from "./safety-settings-schema.ts";
+export * from "./folder-grants-schema.ts";
 export * from "./setup.ts";
 export * from "./setup-schema.ts";
 export * from "./doctor.ts";

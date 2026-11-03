@@ -179,6 +179,11 @@ const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boo
   // 授权的文件夹单独一页
   { hash: "#/more/authorized-folders", selector: ".sec-head" },
   { hash: "#/more/authorized-folders", selector: ".sys-note" },
+  // 目录授权：说明、每条授权的标签和为什么给、使用记录（个人助理的名字是用户起的，不算）
+  { hash: "#/more/folder-grants", selector: ".sec-head", except: ".assistant-name" },
+  { hash: "#/more/folder-grants", selector: ".sys-note" },
+  { hash: "#/more/folder-grants", selector: ".fg-row", except: ".assistant-name" },
+  { hash: "#/more/folder-grants", selector: ".fg-use", except: ".assistant-name" },
   { hash: "#/more/browsing", selector: ".settings-link-row small" },
   { hash: "#/more/skills", selector: ".sec-head", except: ".assistant-name" },
   { hash: "#/more/debug", selector: ".page-placeholder" },

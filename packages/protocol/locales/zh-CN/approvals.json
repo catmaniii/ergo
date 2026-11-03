@@ -3,6 +3,8 @@
   "approvals.cardText": "审批（{source}）：{tool}「{args}」",
   "approvals.cardTextCategories": "审批（{source}）：{tool}「{args}」 · {categories}",
   "approvals.listSep": "、",
+  "approvals.noFolderGrant": "这张卡没有可以登记的目录",
+  "approvals.folderAllowed": "以后都允许：已登记 {path}",
   "approvals.decision.approved": "批准",
   "approvals.decision.denied": "拒绝",
   "approvals.decision.narrowed": "收窄",

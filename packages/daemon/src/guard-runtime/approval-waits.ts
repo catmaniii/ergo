@@ -10,6 +10,7 @@
 // 时钟可注入（等审批的 5 分钟跟着它走）。被杀重启后从审批表恢复（还待处理的记成挂起，不新建卡、不再提示）在 recovery/。
 // 子进程里的调用停着等用户的这段时间，开始、结束都报给 userWaits（agent 管家）：这个 agent 的活动状态是"等你"。
 // @i18n-ignore-file model：等审批的调用交回 agent 的话、给 agent 的通知
+import type { ApprovalFolderGrant } from "@ergo/protocol";
 import type { UserWaits } from "../agent-manager/agent-manager.ts";
 import type { ApprovalService } from "../approvals/approvals.ts";
 import { appendAgentNotice } from "../conversation/messages.ts";
@@ -51,6 +52,8 @@ export interface AskRequest {
   argsSummary: string;
   /** 守卫的说明 */
   reason: string;
+  /** 审批卡上"以后都允许"要登记的目录和操作（对话里因为越出项目目录要问的，见 folder-grants.ts）；没有不写 */
+  folderGrant?: ApprovalFolderGrant;
   /** 回子进程的判定 */
   reply: (verdict: GuardVerdict) => void;
   /** 属于哪个接上的会话（回合结束、子进程退出时撤掉它的等待） */
@@ -176,6 +179,7 @@ export function createApprovalWaits(options: ApprovalWaitsOptions): ApprovalWait
         fingerprint: request.fingerprint,
         categories: request.categories,
         reason: request.reason,
+        ...(request.folderGrant ? { folderGrant: request.folderGrant } : {}),
       });
       if (request.suspendNow !== undefined) {
         state.outcome = "suspended";

@@ -69,6 +69,7 @@ import {
   type WorkFolderChoice,
   workFolderRuntime,
   folderChoiceLine,
+  folderGrantModesText,
 } from "../../state/index.ts";
 import { useStore } from "../../app/store.tsx";
 import { AssistantName, NamedText } from "../assistant-name.tsx";
@@ -110,6 +111,8 @@ export function ApprovalCard({ state, payload: p, act }: CardProps<ApprovalPaylo
       actions={
         <>
           <Btn onClick={() => act("deny")}>{t("ui.cards.deny")}</Btn>
+          {/* 对话里因为越出项目目录要问的：以后都允许（把这个目录按这次要的操作登记成它的长期目录授权，同时批准这一次） */}
+          {p.folderGrant && <Btn onClick={() => act("allow_folder")}>{t("ui.cards.approval.allowFolder")}</Btn>}
           <Btn kind="primary" onClick={() => act("approve")}>
             {t("ui.cards.approval.approveOnce")}
           </Btn>
@@ -129,6 +132,9 @@ export function ApprovalCard({ state, payload: p, act }: CardProps<ApprovalPaylo
         <span className="chip">{t("ui.cards.approval.askFirst")}</span>
       </div>
       <div className="sys-note">{p.reason}</div>
+      {p.folderGrant && (
+        <div className="muted approval-folder-grant">{t("ui.cards.approval.allowFolderWhat", { path: p.folderGrant.path, modes: folderGrantModesText(p.folderGrant.modes) })}</div>
+      )}
     </CardShell>
   );
 }

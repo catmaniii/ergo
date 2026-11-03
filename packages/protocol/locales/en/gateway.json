@@ -129,6 +129,7 @@
   "gateway.http.noProject": "No such project: {projectId} (it may have been deleted)",
   "gateway.http.noFolderBrowser": "This version doesn't have the folder picker yet",
   "gateway.http.noLocalFolders": "This version doesn't have authorized folders yet",
+  "gateway.http.noFolderGrants": "This version does not have folder grants yet",
   "gateway.http.noAgentSettings": "This version doesn't have the agent ⚙ yet",
   "gateway.http.noBackgroundAgent": "No such background agent: {agent}",
   "gateway.http.noSystemPrompts": "This version doesn't have system prompt settings yet",

@@ -129,6 +129,11 @@ import type {
   LocalFoldersChangeBody,
   FolderBrowseView,
   FolderEntry,
+  FolderGrantAddBody,
+  FolderGrantsClearBody,
+  FolderGrantsView,
+  FolderGrantUsesView,
+  FolderGrantView,
   PageVoiceResult,
   ConversationId,
   RollbackPreview,
@@ -154,7 +159,7 @@ import { fakeMemoryClaim, fakeMemoryClaims, fakeMemoryQuestions, fakeMemoryStrat
 import { FakeDataSources } from "./fake-data-sources.ts";
 import { fakeAutostart, FakeComponents } from "./fake-components.ts";
 import { FAKE_HISTORY, FAKE_TAKEOVER_TASK } from "./fake-conversations.ts";
-import { FAKE_CURATOR_COMMANDS, FAKE_GRANT_USES, FAKE_SESSIONS, FAKE_SLASH_COMMANDS, FAKE_SLASH_SKILLS, FAKE_STAGE_EFFECTS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary, taskDetailOf } from "./fake-data.ts";
+import { FAKE_CURATOR_COMMANDS, FAKE_GRANT_USES, FAKE_PROJECTS, FAKE_SESSIONS, FAKE_SLASH_COMMANDS, FAKE_SLASH_SKILLS, FAKE_STAGE_EFFECTS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary, taskDetailOf } from "./fake-data.ts";
 import { longTaskStageView } from "./fake-long-tasks.ts";
 import { FakeAgentSettings } from "./fake-agent-settings.ts";
 import { FAKE_CLAUDE_CODE, FAKE_CLAUDE_COMMANDS, FAKE_CLAUDE_MAINTAINERS, FAKE_CLAUDE_SKILLS, FAKE_CODEX, fakeCodexSessions, fakeRuntimes, setFakeDefaultFolder } from "./fake-runtimes.ts";
@@ -1253,6 +1258,96 @@ export class FakeDaemonHttp implements DaemonHttp {
       ...(node.parent === undefined ? {} : { parent: node.parent }),
       folders: node.children.map((name) => ({ name, path: join(name) })),
       total: node.children.length,
+    });
+  }
+
+  /** 原型里的目录授权（只在内存里）：个人助理一份，第一个项目的负责人两条（一条快到期、一条已过期） */
+  private folderGrantList: Omit<FolderGrantView, "agentLabel">[] = [
+    { id: "fg-demo-1", agentId: "secretary", path: "D:\\笔记", modes: ["read"], note: "整理读书笔记", addedBy: "user", addedAt: "2026-10-20T09:00:00.000+08:00", state: "active" },
+    {
+      id: "fg-demo-2",
+      agentId: FAKE_PROJECTS[0]!.maintainerId,
+      path: "D:\\账单导出",
+      modes: ["read", "write"],
+      expiresAt: "2026-11-08T18:00:00.000+08:00",
+      note: "每月导入银行账单",
+      addedBy: "approval",
+      addedAt: "2026-10-28T21:15:00.000+08:00",
+      state: "active",
+    },
+    {
+      id: "fg-demo-3",
+      agentId: FAKE_PROJECTS[0]!.maintainerId,
+      path: "E:\\旧备份",
+      modes: ["read", "delete"],
+      expiresAt: "2026-10-31T00:00:00.000+08:00",
+      note: "清理旧备份",
+      addedBy: "user",
+      addedAt: "2026-10-24T10:30:00.000+08:00",
+      state: "expired",
+    },
+  ];
+
+  /** 原型里这个 agent 叫什么（照 ⚙ 上的说法） */
+  private grantLabelOf(agentId: string): string | undefined {
+    try {
+      return this.agentPanels.view(agentId).label;
+    } catch {
+      return undefined;
+    }
+  }
+
+  folderGrants(): Promise<FolderGrantsView> {
+    return Promise.resolve({
+      grants: this.folderGrantList.map((g) => {
+        const label = this.grantLabelOf(g.agentId);
+        return label === undefined ? g : { ...g, agentLabel: label };
+      }),
+      authorizedFolders: [...this.folders],
+    });
+  }
+
+  addFolderGrant(body: FolderGrantAddBody): Promise<FolderGrantsView> {
+    const path = body.path.trim();
+    if (!/^[A-Za-z]:[\\/]|^\//.test(path)) return Promise.reject(new Error(`要写完整的路径（比如 D:\\照片）：${path}`));
+    const grant: Omit<FolderGrantView, "agentLabel"> = {
+      id: `fg-demo-${Date.now().toString(36)}`,
+      agentId: body.agentId,
+      path,
+      modes: body.modes,
+      ...(body.expiresAt ? { expiresAt: body.expiresAt } : {}),
+      note: body.note ?? "",
+      addedBy: "user",
+      addedAt: new Date().toISOString(),
+      state: "active",
+    };
+    const same = (g: Omit<FolderGrantView, "agentLabel">) => g.agentId === grant.agentId && g.path.toLowerCase() === path.toLowerCase();
+    this.folderGrantList = [...this.folderGrantList.filter((g) => !same(g)), grant];
+    return this.folderGrants();
+  }
+
+  removeFolderGrant(grantId: string): Promise<FolderGrantsView> {
+    this.folderGrantList = this.folderGrantList.filter((g) => g.id !== grantId);
+    return this.folderGrants();
+  }
+
+  clearFolderGrants(body: FolderGrantsClearBody): Promise<FolderGrantsView> {
+    const hit = (g: Omit<FolderGrantView, "agentLabel">) =>
+      (body.agentId === undefined || g.agentId === body.agentId) && ((body.ids?.includes(g.id) ?? false) || (body.expired === true && g.state === "expired") || (body.ids === undefined && body.expired !== true));
+    this.folderGrantList = this.folderGrantList.filter((g) => !hit(g));
+    return this.folderGrants();
+  }
+
+  folderGrantUses(): Promise<FolderGrantUsesView> {
+    const project = FAKE_PROJECTS[0]!.maintainerId;
+    const label = this.grantLabelOf(project);
+    const of = (agentId: string) => (agentId === "secretary" ? { agentLabel: this.grantLabelOf("secretary") ?? "" } : label === undefined ? {} : { agentLabel: label });
+    return Promise.resolve({
+      uses: [
+        { at: "2026-11-02T21:04:00.000+08:00", agentId: project, ...of(project), grantId: "fg-demo-2", dir: "D:\\账单导出", path: "D:\\账单导出\\2026-10.csv", mode: "write", tool: "write", viaShell: false, bytes: 18432 },
+        { at: "2026-11-02T21:03:00.000+08:00", agentId: project, ...of(project), grantId: "fg-demo-2", dir: "D:\\账单导出", path: "D:\\账单导出\\2026-09.csv", mode: "read", tool: "read", viaShell: false, bytes: 17210 },
+        { at: "2026-11-01T10:12:00.000+08:00", agentId: "secretary", ...of("secretary"), grantId: "fg-demo-1", dir: "D:\\笔记", path: "D:\\笔记", mode: "read", tool: "grep", viaShell: true },
+      ],
     });
   }
 

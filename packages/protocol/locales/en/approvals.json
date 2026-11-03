@@ -3,6 +3,8 @@
   "approvals.cardText": "Approval ({source}): {tool} “{args}”",
   "approvals.cardTextCategories": "Approval ({source}): {tool} “{args}” · {categories}",
   "approvals.listSep": ", ",
+  "approvals.noFolderGrant": "This card has no folder to register",
+  "approvals.folderAllowed": "Always allowed: registered {path}",
   "approvals.decision.approved": "Approved",
   "approvals.decision.denied": "Denied",
   "approvals.decision.narrowed": "Narrowed",

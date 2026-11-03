@@ -129,6 +129,7 @@
   "gateway.http.noProject": "没有这个项目：{projectId}（可能已经删了）",
   "gateway.http.noFolderBrowser": "这个版本还没有选文件夹的框",
   "gateway.http.noLocalFolders": "这个版本还没有授权的文件夹",
+  "gateway.http.noFolderGrants": "这个版本还没有目录授权",
   "gateway.http.noAgentSettings": "这个版本还没有 agent 的 ⚙",
   "gateway.http.noBackgroundAgent": "没有这个背后的 agent：{agent}",
   "gateway.http.noSystemPrompts": "这个版本还没有系统提示的设置",

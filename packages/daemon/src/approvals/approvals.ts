@@ -2,12 +2,14 @@
 // - 请求：审批表的一条（approval_requested）、审批卡、待我处理事项、（对话里）聊天里的卡片引用，同一事务追加，
 //   审批表在最前：前端收到审批卡时，审批表里一定已有这条记录；
 // - 决定：用户在审批卡上批准这一次或拒绝（卡片动作，只接受来自前端的请求），和卡片更新同一事务追加 approval_decided。
+//   对话里因为越出项目目录要问的卡上还有"以后都允许（登记这个目录）"（负载带 folderGrant 时）：先把目录按这次要的操作登记成
+//   这个 agent 的长期目录授权（ADR-0049，登记不成就不批准、回原因），再和批准一样；
 //   决定时子进程里那次调用还在等（守卫接入用 markWaiting 登记）就接着执行或拦下；不在等（已挂起，或 agent 已不等了）的，
 //   批准记成一条按调用指纹匹配的一次性授权（findOneTimeGrant / consume）：只放行命中的关注类别都在当初批准过的类别里的重试；
 // - 挂起：等的那次调用超时，记 approval_suspended（带任务和阶段），审批仍待处理。
 // 这里不碰子进程：等待、超时、回判定都在守卫接入（guard-runtime/guard-runtime.ts）。
 import { randomUUID } from "node:crypto";
-import { ApprovalCardPayload, internalMark, PURGED_TEXT, t, type Urgency } from "@ergo/protocol";
+import { type ApprovalFolderGrant, ApprovalCardPayload, internalMark, PURGED_TEXT, t, type Urgency } from "@ergo/protocol";
 import type { CardService } from "../cards/cards.ts";
 import { defineCardType } from "../cards/registry.ts";
 import { buildMessage } from "../conversation/messages.ts";
@@ -24,6 +26,7 @@ import {
   GUARD_EVENTS,
   originScope,
 } from "../guard-runtime/events.ts";
+import { RequestRejected } from "../errors.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import { oneLine } from "../util/text.ts";
 import { type Approval, type ApprovalStatus, findOneTimeGrant, getApproval, listApprovals } from "./views.ts";
@@ -40,6 +43,8 @@ export interface NewApproval {
   /** 命中的关注类别：id 记进审批表，名字显示在卡上 */
   categories: { id: string; title: string }[];
   reason: string;
+  /** 卡上"以后都允许"要登记的目录和操作（对话里因为越出项目目录要问的）；没有不写 */
+  folderGrant?: ApprovalFolderGrant;
 }
 
 export interface ApprovalService {
@@ -89,6 +94,7 @@ export function createApprovalService(options: ApprovalServiceOptions): Approval
         argsSummary: input.argsSummary,
         categoryTitles: input.categories.map((c) => c.title),
         reason: input.reason,
+        ...(input.folderGrant ? { folderGrant: input.folderGrant } : {}),
       };
       // 对话里的审批不卡任务；任务里的按卡住任务算（接任务一侧）
       const urgency: Urgency = origin.taskId === null ? "non_blocking" : "blocking";
@@ -136,8 +142,11 @@ export function createApprovalService(options: ApprovalServiceOptions): Approval
   };
 }
 
-/** 审批卡（卡片类型注册表里的 approval）：批准这一次、拒绝（可附说明） */
-export function approvalCardType(approvals: ApprovalService) {
+/**
+ * 审批卡（卡片类型注册表里的 approval）：批准这一次、拒绝（可附说明）、以后都允许（负载带 folderGrant 时：allowFolder 先登记，
+ * 抛错就不批准）
+ */
+export function approvalCardType(approvals: ApprovalService, allowFolder?: (agentId: string, grant: ApprovalFolderGrant) => void) {
   const decided = (p: ApprovalCardPayload, cardId: string, decision: "approved" | "denied", time: string, note: string | undefined): NewEvent => {
     const approval = approvals.get(p.approvalId);
     // 审批表和审批卡同一事务写入，正常总能找到；找不到时按卡上的写
@@ -165,6 +174,15 @@ export function approvalCardType(approvals: ApprovalService) {
     actions: {
       approve: { input: undefined, run: ({ card, payload, now: time, note }) => ({ status: "handled", events: [decided(payload, card.id, "approved", time, note)] }) },
       deny: { input: undefined, run: ({ card, payload, now: time, note }) => ({ status: "handled", events: [decided(payload, card.id, "denied", time, note)] }) },
+      allow_folder: {
+        input: undefined,
+        run: ({ card, payload, now: time, note }) => {
+          const agentId = approvals.get(payload.approvalId)?.origin.agentId;
+          if (!payload.folderGrant || !allowFolder || !agentId) throw new RequestRejected("bad_params", t("approvals.noFolderGrant"));
+          allowFolder(agentId, payload.folderGrant);
+          return { status: "handled", events: [decided(payload, card.id, "approved", time, note)], note: t("approvals.folderAllowed", { path: payload.folderGrant.path }) };
+        },
+      },
     },
     toText: (p) =>
       t(p.categoryTitles.length > 0 ? "approvals.cardTextCategories" : "approvals.cardText", {

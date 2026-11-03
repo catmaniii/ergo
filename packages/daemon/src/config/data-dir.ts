@@ -61,6 +61,11 @@ export interface DataDirLayout {
   /** 授权的文件夹（叫这个名字）：所有 agent 读里面的文件都不用问，秘书和"浏览"里的二狗找文件时搜它们，设置 · 授权的文件夹里能看能改 */
   localFoldersFile: string;
   /**
+   * 目录授权（ADR-0049，folders/folder-grants.ts）：每个 agent 一份，登记了的目录能读、写、删哪几种不用问。
+   * 只由运行时写（设置 · 目录授权、各 agent 的 ⚙、审批卡上的"以后都允许"），在配置区里，agent 写不了
+   */
+  folderGrantsFile: string;
+  /**
    * 用户改过的各 agent 的系统提示（<编号>.md）：有就用它，没有用程序目录里默认的。只由设置页写（用户也可以手改），
    * 在配置区里，agent 写不了
    */
@@ -219,6 +224,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     mcpHistoryDir: path.join(config, ".history"),
     secretarySkillsFile: path.join(config, "secretary-skills.json"),
     localFoldersFile: path.join(config, "local-folders.json"),
+    folderGrantsFile: path.join(config, "folder-grants.json"),
     prompts: path.join(config, "prompts"),
     agentPrompts: path.join(config, "agent-prompts"),
     holidaysDir: path.join(config, "holidays"),

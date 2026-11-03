@@ -920,6 +920,20 @@ export {
   pageFieldValueOf,
   pageUrlForModel,
 } from "@ergo/protocol";
+// 目录授权（ADR-0049）：每个 agent 一份的目录授权表、使用记录、审批卡上"以后都允许"登记的目录
+export type {
+  ApprovalFolderGrant,
+  FolderGrantAddBody,
+  FolderGrantExpiringData,
+  FolderGrantMode,
+  FolderGrantsClearBody,
+  FolderGrantState,
+  FolderGrantsView,
+  FolderGrantUsesView,
+  FolderGrantUseView,
+  FolderGrantView,
+} from "@ergo/protocol";
+export { FOLDER_GRANT_MODES, FOLDER_GRANT_USES_DEFAULT, FOLDER_GRANTS_PER_AGENT_MAX } from "@ergo/protocol";
 // 浏览侧边栏：侧边栏、悬浮按钮发的消息带的网页上下文、设备报的浏览器样子、秘书的网页工具转给设备的请求和结果、网页候选卡
 // 网页上能点的东西（PageElement）
 export type {

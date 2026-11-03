@@ -31,7 +31,7 @@ export type Tab = "secretary" | "tasks" | "projects" | "inbox" | "browse" | "cal
  * 数据源分两层——#/more/data-sources 是卡片总览，点一张卡是单独全屏的详情（#/more/data-sources/<数据源 id>），
  * 共用的导入文件夹也是一张卡（#/more/data-sources/import_folder：数据源的 id 只有小写英文、数字和连字符，撞不上）
  */
-export const MORE_PAGES = ["usage", "settings", "setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "codex", "data-sources", "authorized-folders", "materials-delete", "backup", "doctor", "about", "debug", "files"] as const;
+export const MORE_PAGES = ["usage", "settings", "setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "codex", "data-sources", "authorized-folders", "folder-grants", "materials-delete", "backup", "doctor", "about", "debug", "files"] as const;
 
 export type MorePage = (typeof MORE_PAGES)[number];
 
@@ -111,7 +111,7 @@ export type Route =
   | { tab: "app"; app: string; path?: string };
 
 /** 设置下面的几页（最前面还有"设置向导"） */
-const SETTINGS_PAGES: readonly MorePage[] = ["setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "codex", "data-sources", "authorized-folders", "backup", "materials-delete", "doctor", "about", "debug"];
+const SETTINGS_PAGES: readonly MorePage[] = ["setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "codex", "data-sources", "authorized-folders", "folder-grants", "backup", "materials-delete", "doctor", "about", "debug"];
 
 /** 这一页属于主导航的哪一项："更多"本身是 more；配对等待页独占整页，不属于任何一项 */
 export function navItemOf(route: Route): NavItem | "more" | undefined {

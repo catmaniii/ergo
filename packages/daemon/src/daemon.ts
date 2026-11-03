@@ -12,8 +12,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEEPSEEK_DEFAULT_MODEL, type ChatModel } from "@ergo/memory";
 import {
+  ASSISTANT_NAME_MARK,
   CHANNELS,
+  clockLabel,
   COMPONENT_FEATURES,
+  fillAssistantName,
   type ConversationId,
   EVENT_TYPES,
   type EventFrame,
@@ -94,7 +97,7 @@ import {
 } from "./components/index.ts";
 import { createDataSourceRegistry, createDataSources, createDataSourceSecrets, createDataSourceSettings, type DataSources, openFolderOnDesktop, registerDataSourceDeletion } from "./data-sources/index.ts";
 import { startGateway } from "./gateway/gateway.ts";
-import { createHttpApi } from "./gateway/http-api.ts";
+import { createHttpApi, type FolderGrantsApi } from "./gateway/http-api.ts";
 import { createLanguageService, createLocales, type LanguageService, type Locales, withLanguageLine } from "./i18n/index.ts";
 import { createAgentSettings } from "./agent-settings/index.ts";
 import { openAgentRoles, type AgentRoles } from "./agent-roles/index.ts";
@@ -199,6 +202,9 @@ import { AUTHORIZED_FOLDERS_BLOCK_ID, authorizeFoldersAction, secretaryFoldersBl
 import { agentFoldersBlock } from "./folders/folders-block.ts";
 import { createFolderBrowser } from "./folders/folder-browser.ts";
 import { openLocalFolders } from "./folders/local-folders.ts";
+import { folderGrantsView, openFolderGrants } from "./folders/folder-grants.ts";
+import { createFolderGrantReminders } from "./folders/folder-grant-reminders.ts";
+import { recentFolderGrantUses } from "./guard-runtime/folder-grants.ts";
 import { secretaryToolList } from "./secretary/tool-list.ts";
 import { BROWSING, savedPageOf } from "./browsing/api.ts";
 import { TASK_DONE_SETTLE_MS } from "./secretary/task-done.ts";
@@ -871,7 +877,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const pairing = createPairingService({ store, cards, inbox, scheduler, clock });
     registry.register(pairingCardType(pairing));
     const approvals = createApprovalService({ store, cards, inbox, now });
-    registry.register(approvalCardType(approvals));
+    // 审批卡上的"以后都允许"：把目录按这次要的操作登记成这个 agent 的长期目录授权（folderGrants 在下面打开，点的时候早就有了）
+    registry.register(approvalCardType(approvals, (agentId, grant) => void folderGrants.allow(agentId, grant.path, grant.modes)));
     // 关注类别设置：设置页改配置区的文件；守卫、任务、快速动作都经它现读（文件被手改、改坏了会记一条事件，设置页跟着变）。
     // 能匹配的工具在秘书的工具、快速动作登记好之后才齐，start() 放在后面。设置文件坏了时放待我处理事项；
     // 新的自定义类别 id 要躲开计划里的，删除、调松时说明还有几个进行中的任务按确认时的快照检查它（任务模块在下面建，现取）
@@ -1300,6 +1307,20 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 语音插件、浏览插件装配时要用，在插件之前打开
     const media = openMediaStore({ mediaDir: layout.media, uploadsDir: layout.uploads, maxUploadBytes: config.media.maxUploadBytes });
     const localFolders = openLocalFolders({ file: layout.localFoldersFile, log });
+    // 目录授权（ADR-0049）：每个 agent 一份——秘书、每个项目（项目负责人的 id）、每个任务（任务负责人的 id）；子 agent、评审、记忆管理员没有。
+    // 守卫每次判定现读这个 agent 的那一份；设置 · 目录授权、各 agent 的 ⚙、审批卡上的"以后都允许"改它
+    const folderGrantHolders = (agentId: string) => {
+      if (agentId === SECRETARY_AGENT_ID) return true;
+      const project = projectDirectory.ofMaintainer(agentId);
+      return project !== undefined ? !project.deleted : tasks.ofMaintainer(agentId) !== undefined;
+    };
+    const folderGrants = openFolderGrants({
+      file: layout.folderGrantsFile,
+      now: () => clock.now(),
+      forbidden: () => [places.dataDir.root, places.programDir],
+      canHold: folderGrantHolders,
+      log,
+    });
     // 向量函数（正式运行是数据目录模型区里的 bge-m3，测试注入假的）：记忆插件、记忆管理员共用一份
     // （打开推理库时 manifest 里记着它的名字；管理员改一条结论时不能把它写成"没有"）
     const memoryEmbedder = options.embedder ?? createBgeM3Embedder(layout.root);
@@ -1623,6 +1644,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       settings: watchSettings,
       // 授权的文件夹：每次判定现读，读里面的不算越出项目目录
       authorizedFolders: () => localFolders.list(),
+      // 目录授权：每次判定现读这个 agent 的那一份（没有表的 agent 是 undefined）
+      folderGrants: (agentId) => (folderGrantHolders(agentId) ? folderGrants.forAgent(agentId) : undefined),
+      dirExists: (dir) => fs.existsSync(dir),
       approvalWaitMs: config.approvalWaitMs,
       // 对话审批的开关（改了关着时的范围）：配置 guard.conversationApprovals，默认关着——秘书除了特别敏感的都直接做，
       // 任务的 agent 超出授权先不管，都照常记录、标关注类别；开着时一切照原样。现取（设置里改了，下一次判定就按新的）
@@ -2606,6 +2630,64 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       return taskExecution.act(params, idempotencyKey);
     };
 
+    // 目录授权（ADR-0049）的设置接口和到期提示：表的主人给人看的名字照 ⚙ 上的说法（秘书是名字占位，界面上换成用户起的名字），
+    // 认不得的（项目、任务删掉了）不写名字，设置页上照样能删
+    const folderGrantLabel = (agentId: string): string | undefined =>
+      agentId === SECRETARY_AGENT_ID ? ASSISTANT_NAME_MARK : folderGrantHolders(agentId) ? agentHost.agentHandle(agentId)?.label : undefined;
+    const folderGrantReminders = createFolderGrantReminders({
+      grants: folderGrants,
+      inbox,
+      internalJobs,
+      clock,
+      agentName: (agentId) => fillAssistantName(folderGrantLabel(agentId) ?? agentId, assistantName.current()),
+      timeText: (iso) => `${iso.slice(0, 10)} ${clockLabel(iso)}`,
+      log,
+    });
+    folderGrantReminders.start();
+    teardown.push(() => folderGrantReminders.stop());
+    const folderGrantsNow = () =>
+      folderGrantsView(folderGrants.list(), {
+        now: clock.now(),
+        labelOf: folderGrantLabel,
+        authorizedFolders: localFolders.list(),
+        isDirectory: (dir) => fs.existsSync(dir) && fs.statSync(dir).isDirectory(),
+      });
+    const folderGrantsApi: FolderGrantsApi = {
+      view: folderGrantsNow,
+      add(body) {
+        folderGrants.add({ ...body, addedBy: "user" });
+        // 加的时候离到期已经不到三天的，马上提示
+        folderGrantReminders.check();
+        return folderGrantsNow();
+      },
+      remove(grantId) {
+        if (folderGrants.remove([grantId]) === 0) throw new RequestRejected("not_found", t("folders.grants.notFound", { id: grantId }));
+        return folderGrantsNow();
+      },
+      clear(body) {
+        folderGrants.clear(body);
+        return folderGrantsNow();
+      },
+      uses: (limit) => ({
+        uses: recentFolderGrantUses(store, limit).map((u) => {
+          const label = folderGrantLabel(u.agentId);
+          return {
+            at: u.time,
+            agentId: u.agentId,
+            ...(label === undefined ? {} : { agentLabel: label }),
+            grantId: u.grantId,
+            dir: u.dir,
+            path: u.path,
+            mode: u.mode,
+            tool: u.tool,
+            viaShell: u.viaShell,
+            ...(u.bytes === undefined ? {} : { bytes: u.bytes }),
+            ...(u.failed ? { failed: true } : {}),
+          };
+        }),
+      }),
+    };
+
     const gateway = await startGateway({
       port: localPort,
       externalPort: options.externalPort ?? config.ports.external,
@@ -2700,6 +2782,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         browsing: () => plugins.service(BROWSING),
         // 授权的文件夹（内核的）；设置页选文件夹的框列子文件夹（常用位置按守卫看到的用户目录，测试里列盘换成假的）
         localFolders,
+        // 目录授权：设置 · 目录授权、各 agent 的 ⚙
+        folderGrants: folderGrantsApi,
         folderBrowser: createFolderBrowser({ homeDir: () => places.homeDir, ...(options.folderDrives ? { drives: options.folderDrives } : {}) }),
         materialDeletion,
         materialBrowser,

@@ -1,7 +1,8 @@
 // 守卫判定的输入和输出。
 // 输入：一次工具调用、发起的 agent 及其工具包、所属任务的计划、当前阶段和授权项、效果日志、
-// 全局与本任务的关注类别设置、调用方现取后传入的环境事实、当前时间。
+// 全局与本任务的关注类别设置、调用方现取后传入的环境事实、授权的文件夹和这个 agent 的目录授权、当前时间。
 // 输出：硬拒绝、按规则退回、处置、命中的关注类别、是否通用 bash、命中的时序规则、是否属于授权内、给模型的说明。
+import type { FolderGrantMode } from "@ergo/protocol";
 import type { Disposition } from "./disposition.ts";
 import type { ShellOrderStep } from "./shell/split.ts";
 import type { TemporalRule, TemporalRuleHit } from "./temporal-rules.ts";
@@ -420,6 +421,51 @@ export interface GuardInput {
    * 密钥区、受保护区域、整个数据目录、密钥文件就算在这里面也不算；取不到真实路径的不算。不给就没有
    */
   authorizedFolders?: readonly string[];
+  /**
+   * 这个 agent 的目录授权表（ADR-0049：秘书、项目的负责人、任务的负责人各有一份，调用方判定前现读；没登记也给空的）。
+   * 文件工具和 bash 拆出来的读、写、删，目标的真实路径落在登记目录里、做的是登记了的那种操作的，不落入"越出项目目录"
+   * （文件工具写围栏外也不再硬拒绝）；没登记的那种操作照旧。登记目录里名字像密钥的文件读写一律硬拒绝（secret_file）。
+   * 受保护区域、整个数据目录、项目档案的历史区、备用数据流就算在登记目录里也不算；过期的不算。
+   * 不给是这个 agent 没有表（子 agent、评审、记忆管理员）：判定和说明都和以前一样
+   */
+  folderGrants?: readonly GuardFolderGrant[];
+}
+
+/**
+ * 这个 agent 的一条目录授权（ADR-0049，folders/folder-grants.ts）：调用方判定前现读这个 agent 自己那一份交进来
+ */
+export interface GuardFolderGrant {
+  grantId: string;
+  /**
+   * 登记的目录：登记时取的真实路径。判定时不再现取它的真实路径——登记之后被换成链接、目录联接的，
+   * 里面的东西按真实路径比就不在它里面了
+   */
+  dir: string;
+  /** 登记了的操作：读、写、删（删除单独登记，不带写） */
+  modes: readonly FolderGrantMode[];
+  /** 到期时间（毫秒）；不给是长期有效。到了（now 不早于它）就算过期 */
+  expiresAt?: number;
+}
+
+/** 因为目录授权放开的一处：哪条授权、登记的目录、碰到的路径（解析出的绝对路径）、哪种操作、第几条调用 */
+export interface FolderGrantUse {
+  grantId: string;
+  dir: string;
+  path: string;
+  mode: FolderGrantMode;
+  call: number;
+}
+
+/**
+ * 对话里因为越出项目目录要问、登记了就会放开的一处（审批卡上"以后都允许"据此登记）：碰到的路径、它的真实路径、
+ * 是不是目录（调用方现取的环境事实）、要的操作、第几条调用
+ */
+export interface FolderGrantCandidate {
+  path: string;
+  realPath: string;
+  isDirectory: boolean;
+  mode: FolderGrantMode;
+  call: number;
 }
 
 /** 对话里的审批开不开：on 是原来的样子（先问我出审批卡），off 是先问我按直接做 */
@@ -454,9 +500,10 @@ export interface JudgedCall {
  * - network_off：联网开关关着时联网；
  * - no_bash：工具包没开 bash（含带类型的 bash 工具）；
  * - not_in_toolkit：工具包没给这个工具；
- * - sub_agent_records：子 agent 写项目档案（文件工具和 bash 都算）。
+ * - sub_agent_records：子 agent 写项目档案（文件工具和 bash 都算）；
+ * - secret_file：碰目录授权的登记目录里名字像密钥的文件（读、写、删都算，ADR-0049）。
  */
-export type HardRefusalId = "fence" | "secrets_area" | "network_off" | "no_bash" | "not_in_toolkit" | "sub_agent_records";
+export type HardRefusalId = "fence" | "secrets_area" | "network_off" | "no_bash" | "not_in_toolkit" | "sub_agent_records" | "secret_file";
 
 /** 一条处置依据 */
 export interface DispositionFinding {
@@ -585,6 +632,10 @@ export interface GuardJudgement {
    * 至少有一处读的是授权的文件夹。流程执行时的计划比对据此不算计划外、超范围（plan-monitor.ts）。不是的不写
    */
   authorizedRead?: true;
+  /** 因为这个 agent 的目录授权放开的路径（执行了就记使用记录）；没有的不写 */
+  folderGrantUses?: FolderGrantUse[];
+  /** 越出项目目录、登记了就会放开的路径（对话里审批卡上的"以后都允许"据此登记）；没有的不写 */
+  folderGrantCandidates?: FolderGrantCandidate[];
   /** 给模型的说明：命中了什么、为什么、接下来该怎么做 */
   explanation: string;
   findings: GuardFinding[];

@@ -6,6 +6,7 @@
 //   "恢复用通用模板"；下面是现在实际用的系统提示全文（只读，收着）；
 // - 清空当前对话：先确认；项目负责人是重置负责人（入口并到这里，项目档案栏里不再另放一个）；
 // - 上下文用量：用了多少 / 窗口多大和进度条、上次压缩、离自动压缩还有多少，"现在压缩"；
+// - 目录授权（秘书、项目、任务的负责人；记忆管理员没有）：这个 agent 登记了哪些目录、能读写删哪几种，能加能删（ui/folder-grants.tsx）；
 // - 模型（只有项目、任务的负责人有）：跟随设置 · 模型里它那一行，或者单独选定模型和思考档位；可选的模型、看图能力的说法
 //   和设置 · 模型页同一套（取同一个接口），写明下一个新会话用的、最近在跑的会话实际用的、什么时候换。
 // - 运行时（只有项目、任务的负责人有；只有 pi 能用、用的也是 pi 时不显示）：用哪个运行时（下拉：现在能用的；换了先确认——手头这一条做完，原来的写交接摘要，
@@ -52,6 +53,7 @@ import {
 } from "../state/index.ts";
 import { NamedText } from "./assistant-name.tsx";
 import { AgentRoleBlock } from "./agent-roles.tsx";
+import { FolderGrantsBlock } from "./folder-grants.tsx";
 import { Section, Segmented, Sheet } from "./common.tsx";
 import { T } from "./i18n.tsx";
 import { Icon } from "./icons.tsx";
@@ -135,6 +137,8 @@ function AgentSettingsSheet({ agentId, wide, onClose }: { agentId: string; wide:
           {runtimeBlockShown(runtimes, view.runtime) && <RuntimeBlock view={view} runtimes={runtimes} onView={setView} />}
           {/* 二狗的模型目录（pi 用的）：运行时有自己的模型列表的（Claude Code）不显示，模型在运行时一块里选 */}
           {view.model && !runtimeOwnModels(runtimes, view.runtime?.id) && <ModelBlock view={view} onView={setView} />}
+          {/* 目录授权：秘书、项目、任务的负责人各有一份（记忆管理员没有） */}
+          {view.kind !== "curator" && <FolderGrantsBlock agentId={agentId} readOnly={view.readOnly !== undefined} />}
           <ClearBlock view={view} onView={setView} />
           <ContextBlock view={view} onView={setView} canCompact={runtimeSupports(runtimes, view.runtime?.id, "compact")} />
         </div>

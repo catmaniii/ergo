@@ -740,6 +740,8 @@ export const CARD_ACTIONS = [
   /** skill 变更卡上和库里同名时：覆盖同名的、改名后进库（放弃是 deny） */
   "overwrite",
   "rename",
+  /** 审批卡上的"以后都允许（登记这个目录）"：登记成这个 agent 的长期目录授权，同时批准这一次 */
+  "allow_folder",
 ] as const;
 
 /** 卡片状态：待处理、已处理、已关闭（用户关掉不处理）、已过期。 */
@@ -1035,6 +1037,11 @@ export const NOTICE_TYPES = [
    * "知道了"收起。一台设备的同一个要求只提醒一次，报上来够新了自动归档；data 是 AppOutdatedNoticeData
    */
   "app_outdated",
+  /**
+   * 一条目录授权过三天就到期（ADR-0049）：每条只提示一次，不卡任务；到期后自动失效。点了由前端带到设置 · 目录授权（不算处理），
+   * data 是 FolderGrantExpiringData
+   */
+  "folder_grant_expiring",
 ] as const;
 
 // 待我处理事项的动作按字认（存进事件、点了按字找处理的），不跟着语言变；界面上显示时用 inboxActionText 换成当前语言

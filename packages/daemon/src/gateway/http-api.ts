@@ -51,6 +51,12 @@ import {
   LanguageBody,
   t,
   checkHttpBody,
+  FOLDER_GRANT_USES_DEFAULT,
+  FOLDER_GRANT_USES_MAX,
+  FolderGrantAddBody,
+  FolderGrantsClearBody,
+  type FolderGrantsView,
+  type FolderGrantUsesView,
   ConnectionAddressesBody,
   CompleteUploadBody,
   BackupConfigBody,
@@ -301,6 +307,8 @@ export interface HttpApiOptions {
   /** 授权的文件夹（叫这个名字）和设置页选文件夹的框列子文件夹；不给就没有这两个接口 */
   localFolders?: LocalFolders;
   folderBrowser?: FolderBrowser;
+  /** 目录授权（ADR-0049）：设置 · 目录授权、各 agent 的 ⚙ 里看、加、删、清，最近的使用记录；不给就没有这几个接口 */
+  folderGrants?: FolderGrantsApi;
   /**
    * 项目的服务首页的缩略图：按项目编号和服务名给文件和截图时间（顺带算"有人在看"，旧了的守护进程补截一张）；
    * 没有是 undefined；不给就没有这个接口
@@ -347,6 +355,17 @@ const MAX_PAGE_VOICE_BODY = Math.ceil((PAGE_COMMAND_AUDIO_MAX_BYTES * 4) / 3) + 
 export type HttpApi = (req: http.IncomingMessage, res: http.ServerResponse, url: URL) => void;
 
 type Handler = (req: http.IncomingMessage, res: http.ServerResponse, url: URL) => Promise<void> | void;
+
+/** 目录授权的设置接口要的 */
+export interface FolderGrantsApi {
+  view(): FolderGrantsView;
+  /** 加一条；目录不对、agent 不能有表、到期时间不对抛 bad_params */
+  add(body: FolderGrantAddBody): FolderGrantsView;
+  /** 删一条；没有这条抛 not_found */
+  remove(grantId: string): FolderGrantsView;
+  clear(body: FolderGrantsClearBody): FolderGrantsView;
+  uses(limit: number): FolderGrantUsesView;
+}
 
 export function createHttpApi(options: HttpApiOptions): HttpApi {
   const { media, store, log } = options;
@@ -1457,6 +1476,39 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             sendJson(res, 200, folders.view());
           },
         };
+      case "folder_grants":
+        return {
+          // 目录授权：全部 agent 的，连同所有 agent 都能读的授权的文件夹
+          GET(_req, res) {
+            sendJson(res, 200, folderGrants().view());
+          },
+          async POST(req, res) {
+            const body = checkHttpBody(FolderGrantAddBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badFolders", { message: body.message }));
+            sendJson(res, 200, folderGrants().add(body.value));
+          },
+        };
+      case "folder_grant":
+        return {
+          DELETE(_req, res) {
+            sendJson(res, 200, folderGrants().remove(route.grantId));
+          },
+        };
+      case "folder_grants_clear":
+        return {
+          async POST(req, res) {
+            const body = checkHttpBody(FolderGrantsClearBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badFolders", { message: body.message }));
+            sendJson(res, 200, folderGrants().clear(body.value));
+          },
+        };
+      case "folder_grant_uses":
+        return {
+          GET(_req, res, url) {
+            const limit = Math.min(optionalInt(url, HTTP_QUERY.limit, 1) ?? FOLDER_GRANT_USES_DEFAULT, FOLDER_GRANT_USES_MAX);
+            sendJson(res, 200, folderGrants().uses(limit));
+          },
+        };
       case "service_thumbnail":
         return {
           // 项目的服务首页的缩略图：JPEG；每次都问一声有没有换（no-cache + ETag 是截图时间），换了新图前端也会换地址
@@ -1515,6 +1567,10 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
     return options.backup;
   };
 
+  const folderGrants = () => {
+    if (!options.folderGrants) throw new HttpError("not_found", t("gateway.http.noFolderGrants"));
+    return options.folderGrants;
+  };
   const localFolders = () => {
     if (!options.localFolders) throw new HttpError("not_found", t("gateway.http.noLocalFolders"));
     return options.localFolders;

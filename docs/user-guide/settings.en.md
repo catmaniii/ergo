@@ -378,6 +378,28 @@ The secretary shows a card, and it's added only after you click **Run**. Agents 
 
 See [Built-in browser](browser.en.md) for more.
 
+### Folder grants
+
+**What it is:** Each agent has its own list: one for your personal assistant, one per project, one per task. In a registered folder, it can do the kinds of access you ticked (read, write and delete are ticked separately) without asking you. Sub-agents and reviewers don't inherit them.
+
+**Where:** Settings · Folder grants lists every agent's grants. The top group, "All agents · read only", is the authorized folders above; recent use is listed at the bottom. Adding and removing happens in each agent's own ⚙ (the title bar of the personal assistant, a project page or a task page).
+
+**How to add one:**
+
+1. In that agent's ⚙, click **Register a folder**.
+2. Write the full path, tick read, write and/or delete (ticking delete doesn't include write), pick how long it's valid (the default is "No expiry"), and write a line about why.
+3. Click **Register**.
+
+When a chat raises an approval card because the agent reached a folder outside its scope, the card also has **Always allow (register this folder)**: it registers the folder as a lasting grant for the kinds of access needed this time, and approves this once.
+
+**Good to know:**
+
+- Kinds of access you didn't tick work as before: in chat it asks you, in tasks it has to be in the plan.
+- Never allowed, registered or not: ergo's own config, secrets, database and program folders; secret files in a registered folder such as .env, *.key, *.pem, secrets*, id_rsa* and credentials* are refused for reading and writing.
+- Grants stop working when they expire and are marked "Expired"; you get one reminder in Inbox three days before. You can clear all expired grants at once, or all of one agent's.
+- The usage log only records the paths written in a bash command, not every file the program actually touched.
+- `rm -rf` outside the project is still never done, even with delete ticked.
+
 ### Delete materials
 
 **What it is:** Delete materials in bulk by conversation or time range.

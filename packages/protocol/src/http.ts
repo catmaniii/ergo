@@ -333,6 +333,8 @@ const VOICE = "voice";
 const PAGE_THUMB = "thumb";
 const LOCAL_FOLDERS = "local-folders";
 const BROWSE = "browse";
+const FOLDER_GRANTS = "folder-grants";
+const USES = "uses";
 const SERVICE_THUMBNAILS = "service-thumbnails";
 const PLUGINS = "plugins";
 const RUNTIMES = "runtimes";
@@ -661,6 +663,17 @@ export const HTTP_PATHS = {
   /** 列守护进程那台电脑上的子文件夹（GET，响应 FolderBrowseView）：不给路径是常用位置和各个盘 */
   localFoldersBrowse: (folder?: string) => `${api(LOCAL_FOLDERS, BROWSE)}${query({ [HTTP_QUERY.path]: folder })}`,
   /**
+   * 目录授权（ADR-0049，形状在 folder-grants-schema.ts）：GET 全部 agent 的授权连同授权的文件夹（FolderGrantsView），
+   * POST 加一条（FolderGrantAddBody → FolderGrantsView）
+   */
+  folderGrants: api(FOLDER_GRANTS),
+  /** 删一条目录授权（DELETE，响应 FolderGrantsView） */
+  folderGrant: (grantId: string) => api(FOLDER_GRANTS, grantId),
+  /** 一次清掉几条目录授权（POST，请求体 FolderGrantsClearBody，响应 FolderGrantsView） */
+  folderGrantsClear: api(FOLDER_GRANTS, CLEAR),
+  /** 目录授权最近的使用记录（GET，响应 FolderGrantUsesView）：limit 默认 FOLDER_GRANT_USES_DEFAULT，最多 FOLDER_GRANT_USES_MAX */
+  folderGrantUses: (q: { limit?: number | undefined } = {}) => `${api(FOLDER_GRANTS, USES)}${query({ [HTTP_QUERY.limit]: q.limit?.toString() })}`,
+  /**
    * 项目的一个服务首页的缩略图（GET，image/jpeg）：按项目编号和服务名取；还没截过是 404。at 是前端手里这张的截图时间
    * （换了新图换地址），seen 见 HTTP_QUERY.seen。守护进程收到这个请求就当"有人在看"：那张旧了（6 小时）、还没有的补截一张
    */
@@ -778,6 +791,10 @@ export type HttpRoute =
   | { route: "page_file_thumb"; token: string }
   | { route: "local_folders" }
   | { route: "local_folders_browse" }
+  | { route: "folder_grants" }
+  | { route: "folder_grants_clear" }
+  | { route: "folder_grant_uses" }
+  | { route: "folder_grant"; grantId: string }
   | { route: "service_thumbnail"; projectId: string; name: string }
   | { route: "project_standard"; projectId: string };
 
@@ -922,6 +939,12 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === PAGE_FILES && id !== undefined && tail === PAGE_THUMB && item === undefined) return { route: "page_file_thumb", token: id };
   if (head === LOCAL_FOLDERS && id === undefined) return { route: "local_folders" };
   if (head === LOCAL_FOLDERS && id === BROWSE && tail === undefined) return { route: "local_folders_browse" };
+  if (head === FOLDER_GRANTS && tail === undefined) {
+    if (id === undefined) return { route: "folder_grants" };
+    if (id === CLEAR) return { route: "folder_grants_clear" };
+    if (id === USES) return { route: "folder_grant_uses" };
+    return { route: "folder_grant", grantId: id };
+  }
   if (head === SERVICE_THUMBNAILS && id !== undefined && tail !== undefined) return { route: "service_thumbnail", projectId: id, name: tail };
   if (head === PROJECTS && id !== undefined && tail === STANDARD) return { route: "project_standard", projectId: id };
   return undefined;

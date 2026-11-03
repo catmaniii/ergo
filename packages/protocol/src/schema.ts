@@ -2,6 +2,7 @@
 // 守护进程还拿它校验收到的请求（见 request.ts）。
 import { type Static, Type } from "typebox";
 import { APP_PLATFORMS, APP_VERSION_MAX_LENGTH } from "./app-version.ts";
+import { ApprovalFolderGrant } from "./folder-grants-schema.ts";
 import {
   CARD_ACTIONS,
   CARD_STATUSES,
@@ -1049,7 +1050,7 @@ export type MarkReadResult = Static<typeof MarkReadResult>;
 
 /**
  * 审批卡的负载（卡片类型注册表里 approval 的 schema）：守卫判定"先问我"的一次工具调用。
- * 动作：批准这一次（approve）、拒绝（deny，可附说明）。同一张卡出现在聊天和待我处理里。
+ * 动作：批准这一次（approve）、拒绝（deny，可附说明）、以后都允许（allow_folder，带 folderGrant 时才有）。同一张卡出现在聊天和待我处理里。
  */
 export const ApprovalCardPayload = Type.Object({
   approvalId: Type.String(),
@@ -1066,6 +1067,11 @@ export const ApprovalCardPayload = Type.Object({
   categoryTitles: Type.Array(Type.String()),
   /** 守卫为什么要问 */
   reason: Type.String(),
+  /**
+   * 对话里因为越出项目目录要问、碰到的都在同一个能登记的目录里：卡上多一个"以后都允许（登记这个目录）"（动作 allow_folder），
+   * 点了把它按这次要的操作登记成这个 agent 的长期目录授权，同时批准这一次（ADR-0049）
+   */
+  folderGrant: Type.Optional(ApprovalFolderGrant),
 });
 export type ApprovalCardPayload = Static<typeof ApprovalCardPayload>;
 

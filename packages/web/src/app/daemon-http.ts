@@ -14,7 +14,7 @@
 // 每个 agent 的会话里的 ⚙：面板、单独的提示词、清空当前对话、现在压缩；项目、任务的负责人单独配模型。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 演示页是原型的假实现（prototype/fake-http.ts）。
-import { type BackgroundAgentList, type BackgroundAgentTranscript, type AutostartBody, type AutostartView, type AgentModelBody, type AgentPromptBody, type AgentRuntimeBody, type RuntimeFolderBody, type RuntimeSessionsView, type WorkFolderCheckResult, type TakeoverAction, type TakeOverBody, type TakeOverResult, type AgentRoleAssignmentBody, type AgentRoleBody, type AgentRolesView, type AgentRoleUpdateBody, type AgentSettingsView, type AssistantNameResult, type BranchView, type CalendarMonthView, type ConversationId, type DebugRecognizeBody, type DebugRecognizeResult, type DebugSpeakBody, type DebugSpeakResult, type DeleteMaterialsBody, type DeleteMaterialsResult, type FileTextResult, type FolderBrowseView, type FramePreview, type HistoryPage, HTTP_PATHS, type HttpErrorBody, type ImportReferenceVoiceBody, type ImportSkillBody, type ImportSkillResult, type InterviewStartResult, type InterviewStatusView, type LanguageResult, type LocaleDictionaryView, type LocaleListView, type LocalFoldersBody, type LocalFoldersChangeBody, type LocalFoldersView, type MaterialDetailView, type MaterialListFilter, type MaterialListPage, type MaterialScope, type MaterialScopeSummary, type MediaTextResult, type MediaTextView, type MemoryClaimDetailView, type MemoryClaimListPage, type MemoryClaimQuery, type MemoryDeleteMode, type MemoryQuestionsView, type MemoryStrategiesView, type MemorySettingsBody, type MemorySettingsView, type MemorySummaryView, type SafetySettingsBody, type SafetySettingsView, type ModelSettingsBody, type ModelSettingsView, type ModelTestBody, type ModelTestResult, type ModelCustomModelsBody, type ModelCustomModelsResult, type PageVoiceBody, type PageVoiceResult, type PluginAction, type PluginActionResult, type PluginsView, type ProjectStandardView, type ReferenceVoice, type ReferenceVoiceList, type RollbackPreview, type RollbackTarget, type SaveWebPageBody, type SaveWebPageResult, type SecretarySkillsBody, type SecretarySkillsView, type SlashCommandList, type SystemPromptBody, type SystemPromptDetail, type SystemPromptList, t, type TaskStageView, type ToolCallCleanupResult, type ToolCallDetail, type ToolCallStorageView, type BackupConfigBody, type BackupFolderCheck, type BackupOpenResult, type BackupPlace, type BackupSnapshotsView, type BackupStatusView, type ToolkitCatalog, type UploadedMedia, type UsageSummary, type UserNameResult, type UserNameView, type AddPersonBody, type PersonalFileChangeBody, type PersonalFileDeleteBody, type PersonalFileDeleteResult, type PersonalFileLearnedView, type PersonalFilesView, type PersonalFileView, type VoiceModelsView, type WebSettingsBody, type WebSettingsView, type WebVersionView, type WorkdayChange, type WorkdayChangeResult, type RuntimesView, type DataSourceActionBody, type DataSourceActionResult, type DataSourceLiveBody, type DataSourceLiveResult, type DataSourceStoredBody, type DataSourceStoredPage, type DataSourcesView, type ImportFolderActionBody, type ImportFolderActionResult, type DataSourcePushBody, type DataSourcePushResult, type ModelKeyBody, type ModelKeyView, type ModelKeyWriteResult, type ComponentAction, type ComponentImportResult, type ComponentsView } from "../state/index.ts";
+import { type BackgroundAgentList, type BackgroundAgentTranscript, type AutostartBody, type AutostartView, type AgentModelBody, type AgentPromptBody, type AgentRuntimeBody, type RuntimeFolderBody, type RuntimeSessionsView, type WorkFolderCheckResult, type TakeoverAction, type TakeOverBody, type TakeOverResult, type AgentRoleAssignmentBody, type AgentRoleBody, type AgentRolesView, type AgentRoleUpdateBody, type AgentSettingsView, type AssistantNameResult, type BranchView, type CalendarMonthView, type ConversationId, type DebugRecognizeBody, type DebugRecognizeResult, type DebugSpeakBody, type DebugSpeakResult, type DeleteMaterialsBody, type DeleteMaterialsResult, type FileTextResult, type FolderBrowseView, type FolderGrantAddBody, type FolderGrantsClearBody, type FolderGrantsView, type FolderGrantUsesView,type FramePreview, type HistoryPage, HTTP_PATHS, type HttpErrorBody, type ImportReferenceVoiceBody, type ImportSkillBody, type ImportSkillResult, type InterviewStartResult, type InterviewStatusView, type LanguageResult, type LocaleDictionaryView, type LocaleListView, type LocalFoldersBody, type LocalFoldersChangeBody, type LocalFoldersView, type MaterialDetailView, type MaterialListFilter, type MaterialListPage, type MaterialScope, type MaterialScopeSummary, type MediaTextResult, type MediaTextView, type MemoryClaimDetailView, type MemoryClaimListPage, type MemoryClaimQuery, type MemoryDeleteMode, type MemoryQuestionsView, type MemoryStrategiesView, type MemorySettingsBody, type MemorySettingsView, type MemorySummaryView, type SafetySettingsBody, type SafetySettingsView, type ModelSettingsBody, type ModelSettingsView, type ModelTestBody, type ModelTestResult, type ModelCustomModelsBody, type ModelCustomModelsResult, type PageVoiceBody, type PageVoiceResult, type PluginAction, type PluginActionResult, type PluginsView, type ProjectStandardView, type ReferenceVoice, type ReferenceVoiceList, type RollbackPreview, type RollbackTarget, type SaveWebPageBody, type SaveWebPageResult, type SecretarySkillsBody, type SecretarySkillsView, type SlashCommandList, type SystemPromptBody, type SystemPromptDetail, type SystemPromptList, t, type TaskStageView, type ToolCallCleanupResult, type ToolCallDetail, type ToolCallStorageView, type BackupConfigBody, type BackupFolderCheck, type BackupOpenResult, type BackupPlace, type BackupSnapshotsView, type BackupStatusView, type ToolkitCatalog, type UploadedMedia, type UsageSummary, type UserNameResult, type UserNameView, type AddPersonBody, type PersonalFileChangeBody, type PersonalFileDeleteBody, type PersonalFileDeleteResult, type PersonalFileLearnedView, type PersonalFilesView, type PersonalFileView, type VoiceModelsView, type WebSettingsBody, type WebSettingsView, type WebVersionView, type WorkdayChange, type WorkdayChangeResult, type RuntimesView, type DataSourceActionBody, type DataSourceActionResult, type DataSourceLiveBody, type DataSourceLiveResult, type DataSourceStoredBody, type DataSourceStoredPage, type DataSourcesView, type ImportFolderActionBody, type ImportFolderActionResult, type DataSourcePushBody, type DataSourcePushResult, type ModelKeyBody, type ModelKeyView, type ModelKeyWriteResult, type ComponentAction, type ComponentImportResult, type ComponentsView } from "../state/index.ts";
 import { fetchFileText } from "./file-source.ts";
 import { httpErrorMessage, notJsonMessage } from "./http-error.ts";
 import { type UploadProgress, uploadFile } from "./uploader.ts";
@@ -313,6 +313,16 @@ export interface DaemonHttp {
   changeLocalFolders(change: LocalFoldersChangeBody): Promise<LocalFoldersView>;
   /** 选文件夹的框：列守护进程那台电脑上的子文件夹；不给路径是常用位置和各个盘 */
   browseFolders(folder?: string): Promise<FolderBrowseView>;
+  /** 目录授权：全部 agent 的，连同所有 agent 都能读的授权的文件夹 */
+  folderGrants(): Promise<FolderGrantsView>;
+  /** 加一条目录授权；目录不对、到期时间不对抛错（message 是原因） */
+  addFolderGrant(body: FolderGrantAddBody): Promise<FolderGrantsView>;
+  /** 删一条目录授权 */
+  removeFolderGrant(grantId: string): Promise<FolderGrantsView>;
+  /** 一次清掉几条目录授权（这几条、全部已过期的、某个 agent 的） */
+  clearFolderGrants(body: FolderGrantsClearBody): Promise<FolderGrantsView>;
+  /** 目录授权最近的使用记录，新的在前 */
+  folderGrantUses(limit?: number): Promise<FolderGrantUsesView>;
 }
 
 
@@ -900,6 +910,28 @@ export class HttpDaemonClient implements DaemonHttp {
 
   browseFolders(folder?: string): Promise<FolderBrowseView> {
     return fetch(`${this.baseUrl}${HTTP_PATHS.localFoldersBrowse(folder)}`, { cache: "no-store" }).then((res) => this.json<FolderBrowseView>(res));
+  }
+
+  folderGrants(): Promise<FolderGrantsView> {
+    return fetch(`${this.baseUrl}${HTTP_PATHS.folderGrants}`, { cache: "no-store" }).then((res) => this.json<FolderGrantsView>(res));
+  }
+
+  async addFolderGrant(body: FolderGrantAddBody): Promise<FolderGrantsView> {
+    const res = await fetch(`${this.baseUrl}${HTTP_PATHS.folderGrants}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    return this.json<FolderGrantsView>(res);
+  }
+
+  async removeFolderGrant(grantId: string): Promise<FolderGrantsView> {
+    return this.json<FolderGrantsView>(await fetch(`${this.baseUrl}${HTTP_PATHS.folderGrant(grantId)}`, { method: "DELETE" }));
+  }
+
+  async clearFolderGrants(body: FolderGrantsClearBody): Promise<FolderGrantsView> {
+    const res = await fetch(`${this.baseUrl}${HTTP_PATHS.folderGrantsClear}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    return this.json<FolderGrantsView>(res);
+  }
+
+  folderGrantUses(limit?: number): Promise<FolderGrantUsesView> {
+    return fetch(`${this.baseUrl}${HTTP_PATHS.folderGrantUses({ limit })}`, { cache: "no-store" }).then((res) => this.json<FolderGrantUsesView>(res));
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {

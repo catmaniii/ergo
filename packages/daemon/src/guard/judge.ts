@@ -3,6 +3,7 @@
 // 判定的步骤：
 // 1. 把这次调用展开成要判定的调用：真实工具调用就是它自己；通用 bash 拆成伪工具调用（拆不开的是一条"未知的写操作"）；
 // 2. 对每一条按规则逐项找依据（CALL_RULES）：工具包、路径（围栏、受保护区域、密钥区、越出项目目录——读授权的文件夹不算越出，
+//    这个 agent 的目录授权里登记了的那种操作也不算、登记目录里名字像密钥的文件硬拒绝（ADR-0049），
 //    删除或覆盖——任务、项目自己的临时文件除外，own-temp.ts）、脚本里写着的受保护区域路径、
 //    注册表的类别标签、HTTP 方法（发往二狗自己的端口的不算发往本机）、用浏览器打开二狗自己的页面、联网开关、
 //    两条底线、自定义类别、"做完告诉我"；
@@ -16,7 +17,8 @@
 //
 // 说明和依据的话走 t()，按判定时的语言写：守护进程判给 agent 的那一次在中文下判（model-language.ts 的 inModelLanguage），
 // 审批卡、"交给我做"这些给用户看的在用户的语言下照同样的输入再判一遍（判定是纯函数，结论一样）。
-import { t } from "@ergo/protocol";
+import { type FolderGrantMode, t } from "@ergo/protocol";
+import { win32 } from "node:path";
 import { DISPOSITION_INFO, executes, strictest, type Disposition } from "./disposition.ts";
 import { findCoveringGrant, planConcernsCategory } from "./grants.ts";
 import {
@@ -33,7 +35,7 @@ import {
   type ShellEnv,
 } from "./paths.ts";
 import { dataDirMentions, globCanReach, isLocalUrl, ownApiNote, ownPortsOf, related, sendsInText, urlsInText, wildcardPrefix } from "./bottom-line-risk.ts";
-import { isSecretFile } from "./secret-files.ts";
+import { isSecretFile, isSecretLikeFile } from "./secret-files.ts";
 import { outboundTextOf, readSecretTitle, secretsIn } from "./secrets.ts";
 import { READ_ONLY_COMMANDS } from "./shell/programs.ts";
 import { splitShellCommand } from "./shell/split.ts";
@@ -50,15 +52,19 @@ import {
   TOOL,
   type ArgKind,
   type ArgRule,
+  type PathAccess,
   type ToolDescriptor,
   type ToolRegistry,
 } from "./tool-registry.ts";
 import {
   type DispositionFinding,
   type FileFact,
+  type FolderGrantCandidate,
+  type FolderGrantUse,
   GRANT_OTHER_STAGE,
   type Grant,
   type GuardFinding,
+  type GuardFolderGrant,
   type GuardInput,
   type GuardPlaces,
   type GuardJudgement,
@@ -87,7 +93,8 @@ const sep = () => t("guard.sep");
 export function judgeToolCall(input: GuardInput): GuardJudgement {
   const ctx = new JudgeContext(input);
   const { calls, genericShell, findings } = expandCall(ctx);
-  calls.forEach((call, index) => findings.push(...judgeOneCall(ctx, call, index)));
+  const grantSink: GrantSink = { uses: [], candidates: [] };
+  calls.forEach((call, index) => findings.push(...judgeOneCall(ctx, call, index, grantSink)));
   settlePlanListed(ctx, calls, findings);
   findings.push(...neverObjectFindings(ctx, calls, findings));
 
@@ -146,6 +153,8 @@ export function judgeToolCall(input: GuardInput): GuardJudgement {
     temporalRules,
     withinGrant: hardRefusal === null && pullBack === null && executes(disposition) && dispositionFindings.some((f) => f.grantId !== undefined),
     ...(readsOnlyAuthorized(ctx, calls, findings) ? { authorizedRead: true as const } : {}),
+    ...(grantSink.uses.length > 0 ? { folderGrantUses: grantSink.uses } : {}),
+    ...(grantSink.candidates.length > 0 ? { folderGrantCandidates: grantSink.candidates } : {}),
     deviation: hardRefusal === null && pullBack === null && disposition === "ask_first" ? deviationOf(dispositionFindings) : null,
     explanation: explain({ disposition, refused: hardRefusal !== null, pulledBack: pullBack !== null, findings: dispositionFindings, refusals, pullBacks, genericShell }),
     findings,
@@ -339,6 +348,8 @@ class JudgeContext {
   readonly ownTemp: (path: string) => boolean;
   /** 授权的文件夹：读它们里面的不落入"越出项目目录" */
   readonly authorizedFolders: readonly string[];
+  /** 这个 agent 的目录授权表（ADR-0049）：登记了的那种操作不落入"越出项目目录"；没有表（子 agent、评审……）是 undefined */
+  readonly folderGrants: readonly GuardFolderGrant[] | undefined;
   /** 按 agent 定下的说法 */
   readonly words: {
     /** 围栏叫什么（"草稿区"、"项目档案和工作目录"） */
@@ -397,6 +408,7 @@ class JudgeContext {
     this.wildcards = new Map(Object.entries(input.facts.wildcards ?? {}).map(([k, v]) => [comparable(k), v]));
     this.ownTemp = ownTempTest(input, this.env, (e) => inEffectScope(input, e));
     this.authorizedFolders = input.authorizedFolders ?? [];
+    this.folderGrants = input.folderGrants;
   }
 
   fileFact(path: string): FileFact | undefined {
@@ -490,8 +502,8 @@ const CALL_RULES: readonly CallRule[] = [
   notifyRule,
 ];
 
-function judgeOneCall(ctx: JudgeContext, call: JudgedCall, index: number): GuardFinding[] {
-  const out = new FindingCollector(ctx, index);
+function judgeOneCall(ctx: JudgeContext, call: JudgedCall, index: number, grantSink?: GrantSink): GuardFinding[] {
+  const out = new FindingCollector(ctx, index, grantSink);
   const toolkitTools = ctx.input.agent.toolkit.tools;
   const tool = findTool(ctx.input.tools, call.tool);
   if (call.origin === "tool" && toolkitTools && !toolkitTools.includes(call.tool) && !isShellTool(ctx, call.tool) && !isRuntimeOwnTool(ctx, tool)) {
@@ -567,9 +579,13 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
     const matches = prefix === undefined ? [] : ctx.wildcardMatches(p.resolved.path).filter((m) => comparable(m) !== comparable(prefix));
     if (prefix !== undefined && matches.length === 0 && wildcardUnexpanded(ctx, kc, p, prefix, writes, out)) continue;
     targets.push(...matches);
-    // 读授权的文件夹：展不开的通配符看不全会读到什么，不算；每个目标按它自己的真实路径算
-    const authorizable = readsAsAuthorized(ctx, kc, p) && !(prefix !== undefined && matches.length === 0);
-    const authorized = (target: string) => authorizable && inAuthorizedFolder(ctx, target, real !== undefined && comparable(target) === comparable(real) ? real : ctx.fileFact(target)?.realPath);
+    // 读授权的文件夹、目录授权：展不开的通配符看不全会碰到什么，不算；每个目标按它自己的真实路径算
+    const expanded = !(prefix !== undefined && matches.length === 0);
+    const authorizable = readsAsAuthorized(ctx, kc, p) && expanded;
+    const realOf = (target: string) => (real !== undefined && comparable(target) === comparable(real) ? real : ctx.fileFact(target)?.realPath);
+    const authorized = (target: string) => authorizable && inAuthorizedFolder(ctx, target, realOf(target));
+    /** 越出了自己的范围：按这个 agent 的目录授权看（放开了、硬拒绝了是 undefined，否则是说明后面补的一句） */
+    const outsideNote = (target: string, verb: string) => folderGrantOutside(ctx, kc, p, { target, real: realOf(target), expanded, verb }, out);
 
     for (const target of targets) {
       const verb = t(access === "read" ? "guard.judge.verb.read" : access === "delete" ? "guard.judge.verb.delete" : "guard.judge.verb.write");
@@ -594,19 +610,30 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
       if (writes && isGitControlPath(target) && isWithinAny(target, ctx.shellRoots)) {
         out.category("outside_project", t("guard.judge.gitControl", { what, verb, target, scope: ctx.words.scope }), [p.name]);
       }
+      // 越出了自己的范围：这个 agent 的目录授权里登记了这种操作的放开（ADR-0049），别的说明后面补一句为什么没放开
       if (shellMode) {
         // 秘书要写、删草稿区之外的：对话审批关着也要用户授权；看不出读写的程序（robocopy 这类）也算
         const outsideWrite = ctx.input.agent.kind === "secretary" && access !== "read";
-        if (!isWithinAny(target, ctx.shellRoots) && !authorized(target)) out.category("outside_project", t("guard.judge.shellOutside", { what, scope: ctx.words.scope, target }), [p.name], outsideWrite ? { writesOutsideScratch: true } : {});
+        if (!isWithinAny(target, ctx.shellRoots) && !authorized(target)) {
+          const note = outsideNote(target, verb);
+          if (note !== undefined) out.category("outside_project", t("guard.judge.shellOutside", { what, scope: ctx.words.scope, target }) + note, [p.name], outsideWrite ? { writesOutsideScratch: true } : {});
+        }
       } else if (writes) {
         if (!isWithinAny(target, ctx.writeRoots)) {
+          const note = outsideNote(target, verb);
+          if (note === undefined) continue;
           // 秘书的文件工具写草稿区之外：对话审批关着时不再硬拒绝，改成先问用户、批了才写（受保护区域照旧永不）
           if (ctx.input.agent.kind === "secretary" && ctx.input.conversationApprovals === "off") {
-            out.category("outside_project", t("guard.judge.writeOutsideScratch", { what, target }), [p.name], { writesOutsideScratch: true });
-          } else out.refuse("fence", t("guard.judge.fence", { what, target, fence: ctx.words.fence }));
+            out.category("outside_project", t("guard.judge.writeOutsideScratch", { what, target }) + note, [p.name], { writesOutsideScratch: true });
+          } else {
+            // 为什么没放开（登记了只读、没登记……）写在围栏的固定说法前面：卡上、记录里截短时也看得到
+            const fence = note === "" ? ctx.words.fence : `${note.slice(sep().length)}${sep()}${ctx.words.fence}`;
+            out.refuse("fence", t("guard.judge.fence", { what, target, fence }));
+          }
         }
       } else if (!isWithinAny(target, ctx.readRoots) && !authorized(target)) {
-        out.category("outside_project", t("guard.judge.readOutside", { what, scope: ctx.words.readScope, target }), [p.name]);
+        const note = outsideNote(target, verb);
+        if (note !== undefined) out.category("outside_project", t("guard.judge.readOutside", { what, scope: ctx.words.readScope, target }) + note, [p.name]);
       }
     }
 
@@ -623,6 +650,164 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
     }
   }
   if (deletes.length > 0) out.category("delete_or_overwrite", t("guard.judge.deletes", { what, deletes: deletes.join(t("pages.common.listSep")) }), deleteArgs);
+}
+
+// ───────────────────────── 目录授权（ADR-0049） ─────────────────────────
+
+/** 判定时收集的：因为目录授权放开的、登记了就会放开的 */
+interface GrantSink {
+  uses: FolderGrantUse[];
+  candidates: FolderGrantCandidate[];
+}
+
+/**
+ * 目录授权认的调用：文件工具的读、写、编辑、列、搜，bash 拆出来的读、写（重定向）、列、搜、复制、移动、建目录、删除。
+ * 别的照旧，就算路径落在登记目录里：跑脚本（可做的不止是读写）、git（仓库的配置能让它跑命令）、看不出读写的程序、
+ * 带类型的 bash 工具、MCP 和代为执行的工具
+ */
+const FOLDER_GRANT_TOOLS: ReadonlySet<string> = new Set([TOOL.read, TOOL.ls, TOOL.grep, TOOL.find, TOOL.write, TOOL.edit, TOOL.copy, TOOL.move, TOOL.make_dir, TOOL.delete]);
+
+/** 路径参数的读写删换成目录授权的操作；看不出读写的（unknown）没有 */
+function grantModeOf(access: PathAccess | undefined): FolderGrantMode | undefined {
+  return access === "read" || access === "write" || access === "delete" ? access : undefined;
+}
+
+/**
+ * 这个路径参数能不能按目录授权算：工具是认的那几种（来源是文件工具或 bash 拆出来的伪工具），操作看得清；bash 拆出来的，
+ * 不只是读的（cd、别的程序的路径参数、awk -f）、写着 `..` 的、拿到了守卫看不见的输入的（管道喂来的、xargs 补上的参数）不算；
+ * 展不开的通配符不算（看不全会碰到什么）
+ */
+function grantableCall({ call, tool }: KnownCall, p: PathArg, expanded: boolean): boolean {
+  if (!expanded || grantModeOf(p.rule.access) === undefined || !FOLDER_GRANT_TOOLS.has(call.tool)) return false;
+  return (tool.source === "builtin" || tool.source === "pseudo") && call.notJustRead !== true && call.parentDir !== true && call.unseenInput !== true;
+}
+
+/** 落在哪都不算目录授权的范围：整个数据目录、受保护区域（含二狗程序目录），备用数据流 */
+function neverGranted(ctx: JudgeContext, path: string): boolean {
+  return isWithin(path, ctx.input.places.dataDir.root) || ctx.protectedAreas.some((a) => isWithin(path, a.dir)) || path.slice(2).includes(":");
+}
+
+/**
+ * 名字像密钥的：.ssh 下的、名字是 .env 和密钥文件的（isSecretFile），或者登记目录下面那一段里有像密钥的名字（isSecretLikeFile；
+ * 登记目录自己和上级的名字不算）。没给登记目录的只看名字
+ */
+function secretLikeIn(paths: readonly string[], grants: readonly GuardFolderGrant[]): boolean {
+  return paths.some((path) => {
+    if (isSecretFile(path.replace(/[. ]+$/, ""))) return true;
+    if (grants.length === 0) return isSecretLikeFile(win32.basename(path));
+    return grants.some((g) => isWithin(path, g.dir) && isSecretLikeFile(win32.relative(g.dir, path)));
+  });
+}
+
+/** 登记目录最深的那条（说明里按它说） */
+function nearestGrant(grants: readonly GuardFolderGrant[]): GuardFolderGrant {
+  return grants.toSorted((a, b) => comparable(b.dir).length - comparable(a.dir).length)[0]!;
+}
+
+/** 一处越出了自己范围的路径碰到目录授权时怎样 */
+type GrantVerdict =
+  /** 登记了这种操作：放开 */
+  | { kind: "granted"; grant: GuardFolderGrant; mode: FolderGrantMode }
+  /** 在有效的登记目录里、名字像密钥：读写删都拒 */
+  | { kind: "secret" }
+  /** 在有效的登记目录里，但这种调用不按目录授权算（跑脚本、git、看不出读写、取不到真实路径、真实路径不在里面……） */
+  | { kind: "not_counted"; grant: GuardFolderGrant }
+  /** 在有效的登记目录里，没登记这种操作 */
+  | { kind: "missing_mode"; grant: GuardFolderGrant; mode: FolderGrantMode }
+  /** 只在过期了的登记目录里 */
+  | { kind: "expired"; grant: GuardFolderGrant }
+  /** 没登记 */
+  | { kind: "none" };
+
+/** 一处越出了自己范围的目标：写的（或展开成的）路径、它的真实路径（调用方给的环境事实）、通配符展没展开 */
+interface GrantTarget {
+  target: string;
+  real: string | undefined;
+  expanded: boolean;
+}
+
+/**
+ * 一处越出了自己范围的路径按这个 agent 的目录授权看（纯的：过期按 input.now 算，真实路径是调用方给的环境事实）：
+ * - 只看有效的登记（长期有效的、到期时间晚于 now 的）；只落在过期的登记目录里的说"已过期"；
+ * - 目标的真实路径落在登记目录里、做的是登记了的那种操作、调用是认的那几种，才放开；删除另要写的路径本身也在登记目录里
+ *   （删的是目录项：从别处指进来的链接，删掉的是别处的那个链接）；
+ * - 名字像密钥的读写删都拒；数据目录、受保护区域、备用数据流，写和删 git 的配置和钩子，都不算
+ */
+function grantVerdict(ctx: JudgeContext, kc: KnownCall, p: PathArg, at: GrantTarget): GrantVerdict | undefined {
+  const grants = ctx.folderGrants;
+  if (grants === undefined) return undefined;
+  const { target, real } = at;
+  const paths = real === undefined ? [target] : [target, real];
+  const hits = grants.filter((g) => paths.some((path) => isWithin(path, g.dir)));
+  const active = hits.filter((g) => g.expiresAt === undefined || g.expiresAt > ctx.input.now);
+  if (active.length === 0) return hits.length > 0 ? { kind: "expired", grant: nearestGrant(hits) } : { kind: "none" };
+  if (secretLikeIn(paths, active)) return { kind: "secret" };
+  const nearest = nearestGrant(active);
+  const mode = grantModeOf(p.rule.access);
+  if (mode === undefined || real === undefined || !grantableCall(kc, p, at.expanded) || paths.some((path) => neverGranted(ctx, path) || (mode !== "read" && isGitControlPath(path)))) {
+    return { kind: "not_counted", grant: nearest };
+  }
+  const covering = active.filter((g) => isWithin(real, g.dir) && (mode !== "delete" || isWithin(target, g.dir)));
+  if (covering.length === 0) return { kind: "not_counted", grant: nearest };
+  const grant = covering.find((g) => g.modes.includes(mode));
+  return grant ? { kind: "granted", grant, mode } : { kind: "missing_mode", grant: nearestGrant(covering), mode };
+}
+
+/**
+ * 越出了自己范围的一处，按这个 agent 的目录授权处理（pathRule 用）：
+ * - 登记了这种操作：记一处放开的（执行了就记使用记录），返回 undefined（不落入越出项目目录，文件工具写也不再硬拒绝）；
+ * - 登记目录里名字像密钥的：硬拒绝（理由"密钥类文件"），返回 undefined（不再另记越出项目目录）；
+ * - 别的：返回说明后面补的一句（没登记、登记了只读没登记写、已过期、这种调用不按目录授权算）；登记了就会放开的记一处候选
+ *   （对话里审批卡上的"以后都允许"）。这个 agent 没有表的返回空串：判定和说明都和以前一样
+ */
+function folderGrantOutside(ctx: JudgeContext, kc: KnownCall, p: PathArg, at: GrantTarget & { verb: string }, out: FindingCollector): string | undefined {
+  const verdict = grantVerdict(ctx, kc, p, at);
+  if (verdict === undefined) return "";
+  const { target } = at;
+  switch (verdict.kind) {
+    case "granted":
+      out.grantUse({ grantId: verdict.grant.grantId, dir: verdict.grant.dir, path: target, mode: verdict.mode });
+      return undefined;
+    case "secret":
+      out.refuse("secret_file", t("guard.judge.grant.secretFile", { what: kc.what, verb: at.verb, target }));
+      return undefined;
+    case "not_counted":
+      return sep() + t("guard.judge.grant.notCounted", { dir: verdict.grant.dir });
+    case "missing_mode":
+      noteCandidate(ctx, kc, p, at, out);
+      return sep() + t("guard.judge.grant.missingMode", { dir: verdict.grant.dir, has: grantModesText(verdict.grant.modes), mode: grantModeText(verdict.mode) });
+    case "expired":
+      noteCandidate(ctx, kc, p, at, out);
+      return sep() + t("guard.judge.grant.expired", { dir: verdict.grant.dir });
+    case "none":
+      noteCandidate(ctx, kc, p, at, out);
+      return sep() + t("guard.judge.grant.none", { target });
+  }
+}
+
+/**
+ * 登记了就会放开的一处（对话里审批卡上的"以后都允许"据此登记）：调用是认的那几种、取得到真实路径、名字不像密钥、
+ * 不在不算的地方；删除的要写的路径就是它的真实路径（从别处指进来的链接，登记了也不放）
+ */
+function noteCandidate(ctx: JudgeContext, kc: KnownCall, p: PathArg, at: GrantTarget, out: FindingCollector): void {
+  const { target, real } = at;
+  const mode = grantModeOf(p.rule.access);
+  if (mode === undefined || real === undefined || !grantableCall(kc, p, at.expanded)) return;
+  const paths = [target, real];
+  if (secretLikeIn(paths, []) || paths.some((path) => neverGranted(ctx, path) || (mode !== "read" && isGitControlPath(path)))) return;
+  if (mode === "delete" && comparable(target) !== comparable(real)) return;
+  const fact = ctx.fileFact(target) ?? ctx.fileFact(real);
+  out.grantCandidate({ path: target, realPath: real, isDirectory: fact?.isDirectory === true, mode });
+}
+
+/** 登记了的操作怎么说："只读"，或者"读、写" */
+function grantModesText(modes: readonly FolderGrantMode[]): string {
+  if (modes.length === 1 && modes[0] === "read") return t("guard.judge.grant.readOnly");
+  return modes.map(grantModeText).join(t("pages.common.listSep"));
+}
+
+function grantModeText(mode: FolderGrantMode): string {
+  return t(mode === "read" ? "guard.judge.verb.read" : mode === "write" ? "guard.judge.verb.write" : "guard.judge.verb.delete");
 }
 
 // ───────────────────────── 授权的文件夹 ─────────────────────────
@@ -891,10 +1076,26 @@ class FindingCollector {
   readonly findings: GuardFinding[] = [];
   private readonly ctx: JudgeContext;
   private readonly index: number;
+  private readonly grantSink: GrantSink | undefined;
 
-  constructor(ctx: JudgeContext, index: number) {
+  constructor(ctx: JudgeContext, index: number, grantSink?: GrantSink) {
     this.ctx = ctx;
     this.index = index;
+    this.grantSink = grantSink;
+  }
+
+  /** 因为目录授权放开的一处（同一条调用的同一个路径、同一种操作只记一次） */
+  grantUse(use: Omit<FolderGrantUse, "call">): void {
+    const uses = this.grantSink?.uses;
+    if (!uses || uses.some((u) => u.call === this.index && u.mode === use.mode && comparable(u.path) === comparable(use.path))) return;
+    uses.push({ ...use, call: this.index });
+  }
+
+  /** 登记了就会放开的一处（同一条调用的同一个真实路径、同一种操作只记一次） */
+  grantCandidate(candidate: Omit<FolderGrantCandidate, "call">): void {
+    const candidates = this.grantSink?.candidates;
+    if (!candidates || candidates.some((c) => c.call === this.index && c.mode === candidate.mode && comparable(c.realPath) === comparable(candidate.realPath))) return;
+    candidates.push({ ...candidate, call: this.index });
   }
 
   push(f: Omit<DispositionFinding, "call"> | Omit<HardRefusalFinding, "call">): void {

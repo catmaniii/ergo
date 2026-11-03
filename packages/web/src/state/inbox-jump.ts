@@ -11,7 +11,7 @@ import { CHANNELS, type InboxItem, localDate, MAINTAINER_CHANNEL_PREFIX, type No
 import type { UiState } from "./ui-state.ts";
 
 /** 系统的事项去设置里的哪一页（app/route-hash.ts 的 MorePage 里的几页） */
-export type InboxJumpSettingsPage = "watch" | "voice" | "workday-rules" | "components" | "devices";
+export type InboxJumpSettingsPage = "watch" | "voice" | "workday-rules" | "components" | "devices" | "folder-grants";
 
 export type InboxJump =
   /** 任务的整页（负责它的 agent 的会话）；at：会话里定位到这张卡、这次调用 */
@@ -38,6 +38,7 @@ const SETTINGS_OF: Partial<Record<NoticeType, InboxJumpSettingsPage>> = {
   holiday_import_problem: "workday-rules",
   component_update_available: "components",
   app_outdated: "devices",
+  folder_grant_expiring: "folder-grants",
 };
 
 /** 这一项"去看看 ›"去哪；没有去处是 undefined（不出按钮） */

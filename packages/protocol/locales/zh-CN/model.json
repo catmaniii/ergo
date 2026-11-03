@@ -106,6 +106,7 @@
   "model.cards.action.decline": "不再约了",
   "model.cards.action.overwrite": "已覆盖",
   "model.cards.action.rename": "已改名",
+  "model.cards.action.allowFolder": "已批准，以后都允许",
   "model.cards.type.interviewFiles": "访谈档案核对",
   "model.cards.type.personalFileSuggest": "档案候选",
   "model.cards.type.runtimeQuestion": "运行时的提问",

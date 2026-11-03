@@ -26,13 +26,15 @@
 // 子进程意外退出时还没结束的记 tool_call_interrupted（守护进程被杀时没机会记，重启时由 recovery/ 补记）。
 // 守护进程停止时（stop 之后）子进程被结束不算中断：没结束的留着，下次启动时按被杀恢复。
 // 授权的文件夹：每次判定现读名单（改了下一次调用就生效）、连同真实路径交给判定函数，读里面的不算越出项目目录（guard/judge.ts）。
+// 目录授权（ADR-0049）：每次判定现读这个 agent 自己的那一份交给判定函数（登记了的那种操作不算越出项目目录）；因为它放行、执行了的
+// 调用记使用记录；对话里因为越出项目目录要问、登记一个目录就会整个放开的，审批卡上带着"以后都允许"（folder-grants.ts）。
 // 语言：判定和计划比对都在中文下做（guard/model-language.ts）——说明交回 agent，给模型的话不翻；判定的身份
 // （计划检查的 findingKey、审批记下的类别 id）因此也不随语言变。用户的语言不是中文时，审批卡的原因、"交给我做"的说明、
 // 时间线上的纠偏、工具调用记录上被拦下的原因按用户的语言另算一份：照同样的输入在用户的语言下再判一遍（userView，都是纯的）。
 import { type ConversationId, internalMark, type MemoryRecall, nowIso, type ProjectInternal, t } from "@ergo/protocol";
 import type { ApprovalService } from "../approvals/approvals.ts";
 import type { MessageScope } from "../conversation/messages.ts";
-import type { EventStore } from "../events/event-store.ts";
+import type { EventStore, NewEvent } from "../events/event-store.ts";
 import {
   agentShellEnv,
   attributedTask,
@@ -40,6 +42,7 @@ import {
   effectRecordsFor,
   findingKey,
   type GuardAgent,
+  type GuardFolderGrant,
   type GuardInput,
   type GuardJudgement,
   type GuardOwnWork,
@@ -79,6 +82,7 @@ import {
 } from "./events.ts";
 import { callText, interruptionEvents, needsExecutionRecord, unsettledExecutions } from "./executions.ts";
 import { authorizedFolderRoots, gatherFacts } from "./facts.ts";
+import { folderGrantSuggestion, folderGrantUseEvents } from "./folder-grants.ts";
 import {
   checkAgainstPlan,
   correctionRecord,
@@ -152,6 +156,13 @@ export interface GuardRuntimeOptions {
   settings: () => WatchCategorySettings;
   /** 授权的文件夹（folders/local-folders.ts）：每次判定现读；读里面的不算越出项目目录。不给就没有 */
   authorizedFolders?: () => readonly string[];
+  /**
+   * 这个 agent 的目录授权表（folders/folder-grants.ts，ADR-0049）：每次判定现读；undefined 是这个 agent 没有表（子 agent、评审、
+   * 记忆管理员）。不给就谁都没有
+   */
+  folderGrants?: (agentId: string) => readonly GuardFolderGrant[] | undefined;
+  /** 审批卡上"以后都允许"要登记的目录现在在不在（不给按在） */
+  dirExists?: (dir: string) => boolean;
   /** 子进程里等审批最多等多久（毫秒） */
   approvalWaitMs: number;
   /**
@@ -288,6 +299,17 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
     }
   };
 
+  /** 这个 agent 此刻的目录授权表；子 agent 一律没有；取的时候出错就当没登记（一切照旧，越出项目目录照旧问） */
+  const folderGrantsNow = (agent: GuardAgent): readonly GuardFolderGrant[] | undefined => {
+    if (agent.kind === "sub_agent" || !options.folderGrants) return undefined;
+    try {
+      return options.folderGrants(agent.agentId);
+    } catch (err) {
+      log(`取 ${agent.agentId} 的目录授权出错，按没登记判：${err instanceof Error ? err.message : String(err)}`);
+      return [];
+    }
+  };
+
   /** 判定一次调用：先判一次看要哪些路径和脚本，现取环境事实（加上这个范围里读过的密钥值），再判一次 */
   const judge = (session: GuardedSession, toolName: string, args: unknown): Judged => {
     const agent = agentNow(session);
@@ -300,6 +322,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
     const neverObjects = attributed ? neverObjectsIn(attributed.taskId) : [];
     const ownWork = ownWorkOf(session);
     const authorizedFolders = authorizedNow();
+    const folderGrants = folderGrantsNow(agent);
     const base: GuardInput = {
       call: { toolName, args },
       agent,
@@ -308,6 +331,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       ...(neverObjects.length > 0 ? { neverObjects } : {}),
       ...(ownWork ? { ownWork } : {}),
       ...(authorizedFolders.length > 0 ? { authorizedFolders } : {}),
+      ...(folderGrants ? { folderGrants } : {}),
       ...(session.segmentId === undefined ? {} : { segmentId: session.segmentId }),
       effectLog,
       settings,
@@ -323,7 +347,8 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       homeDir: places.homeDir,
       ...(options.autoVersioning ? { backedUp: options.autoVersioning.covers } : {}),
       ...(ownWork ? { ownWork: true } : {}),
-      ...(authorizedFolders.length > 0 ? { authorizedFolders } : {}),
+      // 通配符展开成的路径落在授权的文件夹、登记目录里的另取文件事实（按真实路径算）
+      ...(authorizedFolders.length > 0 || (folderGrants?.length ?? 0) > 0 ? { authorizedFolders: [...authorizedFolders, ...(folderGrants ?? []).map((g) => g.dir)] } : {}),
     });
     const secretValues = readSecrets.valuesFor(scope);
     const input: GuardInput = { ...base, facts: secretValues.length > 0 ? { ...facts, secretValues } : facts };
@@ -391,6 +416,8 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         const view = userView(state, judged);
         const planForUser = view.plan?.outcome.kind === "ask" ? view.plan.outcome.askAbout : plan?.findings;
         const reason = [...(asksItself ? [view.judgement.explanation] : []), ...(plan && planForUser ? [planAskReason(planForUser)] : [])].join("\n");
+        // 对话里因为越出项目目录要问、登记一个目录就会放开的：卡上多一个"以后都允许"（流程的计划检查也要问的不给）
+        const folderGrant = !plan && session.conversation !== null ? folderGrantSuggestion(input, judgement, options.dirExists ?? (() => true)) : undefined;
         // 用户批准时再按此刻的工具包判一次：等审批的这段时间工具包被收窄了，没了的能力照样用不到
         const replyNow = (verdict: GuardVerdict) => {
           if (!verdict.allow) return reply(verdict);
@@ -420,6 +447,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
           args: privacy.deep(state.args),
           argsSummary: privacy.text(summarizeArgs(session.tools, state.toolName, state.args)),
           reason: privacy.text(reason),
+          ...(folderGrant ? { folderGrant } : {}),
           reply: replyNow,
           owner,
         });
@@ -651,10 +679,14 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
           ok && state.plan
             ? { taskId: state.plan.taskId, planId: state.plan.planId, toolCallId: state.toolCallId, tool: state.toolName, stepId: state.plan.outcome.assessment.matchedStep ?? null, time: time() }
             : undefined;
-        const also = [
+        const also: NewEvent[] = [
           ...(finished ? [{ channel: GUARD_CHANNEL, type: GUARD_EVENTS.toolCallFinished, payload: finished }] : []),
           ...(committed ? [{ channel: GUARD_CHANNEL, type: GUARD_EVENTS.planCallCommitted, payload: committed }] : []),
         ];
+        // 因为目录授权放行、执行了的：碰到的每个路径记一条使用记录（执行出错的也记，标上出错）
+        if (state.outcome === "allowed" && state.input && state.judgement?.folderGrantUses) {
+          also.push(...folderGrantUseEvents(state.input, state.judgement, { toolCallId: state.toolCallId, resultText: end.resultText, isError: end.isError, time: time() }));
+        }
         if (ok && state.input && state.judgement) {
           recordEffects(store, state.input, state.judgement, { callId: state.toolCallId, resultText: end.resultText, at: clock.now(), privacy, also });
         } else if (also.length > 0) store.appendBatch(also);

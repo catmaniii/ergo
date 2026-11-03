@@ -108,6 +108,7 @@
   "model.cards.action.decline": "No more invites",
   "model.cards.action.overwrite": "Replaced",
   "model.cards.action.rename": "Renamed",
+  "model.cards.action.allowFolder": "Approved and always allowed",
   "model.cards.type.interviewFiles": "Interview profile check",
   "model.cards.type.personalFileSuggest": "File suggestions",
   "model.cards.type.runtimeQuestion": "Runtime question",
