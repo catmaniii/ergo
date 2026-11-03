@@ -9,11 +9,13 @@
 //   app\packages\memory\        src\（.js）、package.json
 //   app\packages\supervisor\    服务管家（本来就是 .js）：bin\、src\、webui\、clients\、examples\、deploy\、公开的文档
 //   app\packages\web\dist\      构建好的网页
+//   app\downloads\              安卓 App 的安装包和它是哪一版（ergo-android-debug.apk、ergo-android.json）：手机上的 App 从二狗下（票 399）
 //   app\node_modules\           运行时要的第三方包（deps.ts），开发模式下是联接到仓库的 node_modules
 //   LICENSE、THIRD_PARTY_NOTICES.txt、third-party-licenses.json
 // 只按白名单拿：不会带上内部笔记、测试、评测数据、服务管家的私有数据和设计记录这些。
 import fs from "node:fs";
 import path from "node:path";
+import { ANDROID_APP_DESCRIPTOR, ANDROID_APP_FILE, type AndroidAppSource, locateAndroidApp } from "../src/pairing/app-package.ts";
 import { type VersionInfo, type VersionKind, writeVersionInfo } from "../src/release/layout.ts";
 import { demoDataIn } from "./demo-sentinels.ts";
 import { type Closure, copyClosure, runtimeClosure } from "./deps.ts";
@@ -58,6 +60,11 @@ export interface StageOptions {
   releaseKey?: string;
   /** 构建好的网页在哪（不给是 <仓库>/packages/web/dist；测试给一个假的） */
   webDist?: string;
+  /**
+   * 要带的安卓安装包（手机上的 App 从二狗下）：发布包由 release.ts 给核过签名证书的那一个，或者不带的原因（skip）；
+   * 不给时源码装、开发模式用仓库 downloads/ 里的（downloads/README.md 的版本要和 frontend/app-version.json 一样），发布包不带
+   */
+  androidApp?: AndroidAppSource | { skip: string };
   log?: (line: string) => void;
 }
 
@@ -110,6 +117,21 @@ export function stampManifestRelease(file: string, version: string): void {
   const stamped = text.replace(/("release"\s*:\s*)"[^"]*"/, `$1${JSON.stringify(version)}`);
   if (stamped === text && !text.includes(`"release": ${JSON.stringify(version)}`)) throw new Error(`${file} 里没有 release 字段`);
   fs.writeFileSync(file, stamped);
+}
+
+/** 带上安卓安装包：复制成 app\downloads\ergo-android-debug.apk，旁边写一份 ergo-android.json（是哪一版）。不带的写明原因 */
+function stageAndroidApp(options: StageOptions, app: string, log: (line: string) => void): void {
+  const given = options.androidApp;
+  const source = given ?? (options.kind === "release" ? { skip: "发布包要 release.ts 给核过签名的安装包" } : locateAndroidApp(options.repo));
+  if ("skip" in source || "reason" in source) {
+    log(`不带安卓安装包（手机上的 App 没法从二狗更新，照旧去发布页下）：${"skip" in source ? source.skip : source.reason}`);
+    return;
+  }
+  const dir = path.join(app, "downloads");
+  fs.mkdirSync(dir, { recursive: true });
+  fs.copyFileSync(source.file, path.join(dir, ANDROID_APP_FILE));
+  writeJson(path.join(dir, ANDROID_APP_DESCRIPTOR), { version: source.version, code: source.code });
+  log(`带上安卓安装包 ${source.version}（${source.code}）：${source.file}`);
 }
 
 /** 摆一个版本目录 */
@@ -169,6 +191,9 @@ export function stageVersion(options: StageOptions): StageResult {
 
   // 网页：构建产物
   copyDir(webDist, path.join(app, "packages", "web", "dist"));
+
+  // 安卓 App 的安装包（票 399）
+  stageAndroidApp(options, app, log);
 
   // 第三方包
   const closure = runtimeClosure(repo);

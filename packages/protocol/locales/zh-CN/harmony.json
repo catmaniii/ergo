@@ -80,6 +80,8 @@
   "harmony.android.webViewTooOld": "系统的 WebView 版本太旧，二狗的 App 用不了。请到应用商店升级「Android System WebView」后再打开。",
   "harmony.android.microphoneReason": "按住说话时录下你的语音，发给二狗",
   "harmony.android.notifyChannel": "服务提醒",
+  "harmony.android.updatedTitle": "二狗 App 已更新到 {version}",
+  "harmony.android.updatedBody": "点这里打开",
   "harmony.address.scan": "扫码连接",
   "harmony.address.scanHint": "在电脑上打开二狗的设置 · 设备配对，点\"显示配对二维码\"，用这里扫一下。",
   "harmony.scan.title": "扫电脑上的配对二维码",

@@ -376,6 +376,25 @@ button.device-main {
 .device-soon {
   color: var(--op-fg);
 }
+/* 安卓 App 的"更新"（这台手机那一行、App 太旧的提示条，ui/app-update.tsx）：按钮后面跟一句进度或没装上的原因，放不下换行 */
+.app-update {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.device-text .app-update {
+  margin-top: 6px;
+}
+.app-update a.btn {
+  text-decoration: none;
+}
+.app-update-note {
+  font-size: var(--fs-s);
+}
+.app-update-failed {
+  color: var(--high-fg);
+}
 /* 菜单里做不了的一项（吊销了的不能延期、不能再吊销）：灰掉 */
 .row-menu button:disabled {
   opacity: 0.45;

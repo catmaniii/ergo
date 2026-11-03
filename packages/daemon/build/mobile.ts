@@ -16,6 +16,7 @@ import path from "node:path";
 import { type AndroidTools, apkCertFrom, apkOutputs, findAndroidTools, findApkSigner, findDebugKeystore, RELEASE_CERT_SHA256 } from "../../../frontend/scripts/android.ts";
 import { findDevEco, hapOutputs, webviewDebugIn } from "../../../frontend/scripts/harmony.ts";
 import { sha256File } from "../src/components/downloader.ts";
+import { type AndroidAppSource, APP_VERSION_FILE, locateAndroidApp, readAppVersionInfo } from "../src/pairing/app-package.ts";
 import { mobilePlan, type MobilePlan, staleMessage } from "./app-version.ts";
 
 export const ANDROID_PACKAGE = "ergo-android-debug.apk";
@@ -37,6 +38,8 @@ export interface MobileSkip {
 export interface MobileResult {
   packages: MobilePackage[];
   skipped: MobileSkip[];
+  /** --build-mobile 时这次是怎么办的（升了版本、没变）；不给参数是 undefined */
+  app?: MobilePlan;
 }
 
 export interface MobileOptions {
@@ -153,6 +156,35 @@ export async function collectMobilePackages(options: MobileOptions, tools: Mobil
     result.packages.push(pack);
     log(`手机包 ${name}：${(pack.size / 1e6).toFixed(1)} MB，sha256 ${pack.sha256}（来自 ${prepared.file}${options.build ? "" : "，现成的，没重新构建：正式发版加 --build-mobile"}）`);
   }
+  if (app) result.app = app;
   if (app?.kind === "bumped") log(`手机 App 升到了 ${app.version}（downloads/ 里还是 ${app.packaged ?? "没写版本"}）：把这两个包复制到 downloads/，改 downloads/README.md 的版本号，和版本号的改动一起提交`);
   return result;
+}
+
+/**
+ * 发布包里带给手机 App 更新用的安卓安装包（票 399，ergo 守护进程从这里发给手机）：和发布附件同一套核对，证书要对得上 RELEASE_CERT_SHA256。
+ *   - 这次升了 App 版本（--build-mobile、bumped）：刚按 frontend/app-version.json 构建、收进发布目录的那一个；
+ *   - 别的情况：仓库 downloads/ 里的，downloads/README.md 的版本要和 frontend/app-version.json 一样。
+ * 不带的回原因（Windows 包照打，手机上照旧去发布页下）
+ */
+export function androidAppForDaemon(repo: string, mobile: Pick<MobileResult, "packages" | "app">, tools: Pick<MobileTools, "android" | "apkCert"> = realTools): AndroidAppSource | { skip: string } {
+  let source: AndroidAppSource | { reason: string };
+  const built = mobile.app?.kind === "bumped" ? mobile.packages.find((p) => p.name === ANDROID_PACKAGE) : undefined;
+  if (built) {
+    const want = readAppVersionInfo(path.join(repo, ...APP_VERSION_FILE.split("/")));
+    source = want ? { file: built.file, ...want } : { reason: `读不到 App 的版本号（${APP_VERSION_FILE}）` };
+  } else {
+    source = locateAndroidApp(repo);
+  }
+  if ("reason" in source) return { skip: source.reason };
+  const android = tools.android();
+  if ("error" in android) return { skip: `这台机器没有安卓工具链，核对不了安装包的签名：${android.error}` };
+  let cert: string;
+  try {
+    cert = tools.apkCert(source.file, android);
+  } catch (err) {
+    return { skip: `核对不了安装包的签名：${err instanceof Error ? err.message : String(err)}` };
+  }
+  if (cert !== RELEASE_CERT_SHA256) return { skip: `${source.file} 不是发布用的调试钥匙签的（证书 ${cert}），手机上覆盖安装不了` };
+  return source;
 }

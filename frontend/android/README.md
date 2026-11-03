@@ -4,6 +4,7 @@ Kotlin 原生壳加系统 WebView，加载用户配好的二狗地址，不把�
 
 - 包名 `com.catmaniii.ergo`，最低 API 26（安卓 8），目标 API 36。
 - 只侧载，不上应用商店。发布页上的 `ergo-android-debug.apk` 是调试版，用发布用的调试钥匙签（见下面）；正式签名材料只放本机，不进仓库。
+- 电脑上的二狗带着同一版的这个包（`downloads/`，发布包里在 `app\downloads\`）：设置 · 设备配对里点"更新"，App 自己从二狗下载、核对、调起系统安装（`update/`，要 `REQUEST_INSTALL_PACKAGES`）。旧 App 没有这个方法，页面退回成从二狗直接下载 APK。
 - 通知是本地通知，不接 FCM，没有前台服务。App 被系统杀掉后收不到，手册写明。
 - 第一版不做手机数据源（通讯录、日历、相册、位置）。网页发现 App 没有这组方法，只显示说明，不报错。
 
@@ -64,6 +65,7 @@ adb -s <串号> logcat -s ErgoApp               # App 和网页的日志
 | `assets/ergo-native-shim.js` | 网页这一侧的垫片：定义 `window.ergoNative`，只注入配好的来源 |
 | `browser/` | 内置浏览器（`InAppBrowser`）、页面桥（`PageControl`）、⋮ 菜单（`BrowserTools`）、能渲染的文件（`FileDocs`）、侧边栏（`SidePanel`） |
 | `download/` | 下载：App 自己发请求，弹系统的保存框 |
+| `update/` | 在 App 里更新 App（票 399）：从二狗下载它带的安装包、核 SHA-256 和包名、versionCode、签名证书，交给系统的 PackageInstaller 装；`UpdateChecks.kt` 是不碰系统的判断（JVM 单测） |
 | `voice/` | 原生录音 |
 | `notify/` | 系统通知 |
 | `ui/ErgoTheme.kt` | 从鸿蒙取来的颜色、字号、间距、动画时长，注释写着对应鸿蒙哪个文件 |
@@ -98,6 +100,8 @@ node frontend/android/e2e/run.ts emulator-5570 <截图目录>       # 外壳、�
 node frontend/android/e2e/browser.ts emulator-5570 <截图目录>   # 外部页面碰不到 ergoNative、内置浏览器、侧边栏、下载、⋮ 菜单
 node frontend/android/e2e/scan.ts emulator-5570 <截图目录>      # 扫码连接：相机权限、取景、每种连不上的报错、真的二维码喂给 ZXing、就地批准
 node frontend/android/e2e/scan-camera.ts run emulator-5570 17590 <截图目录>   # 相机这条路：虚拟场景相机对着墙上的二维码海报（模拟器的启动参数不同，见文件开头）
+node frontend/android/e2e/app-update.ts new emulator-5570 <旧包> <新包> <换钥匙的包> <新版本号> <截图目录>   # App 内更新：有新版、三种不装、第一次授权、装好（包怎么准备见文件开头）
+node frontend/android/e2e/app-update.ts old emulator-5570 downloads/ergo-android-debug.apk <截图目录>       # 旧 App：从二狗直接下载 .apk，在"文件"里点开装上
 ```
 
 `-no-audio` 下麦克风全静音：网页收到录音、判为没声音，联调到这一步为止。真人说话和上传识别要真机验。

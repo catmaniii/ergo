@@ -27,8 +27,16 @@ private const val BODY_MAX = 200
 /** 通知的 id、页面地址最长多少 */
 private const val ID_MAX = 200
 private const val ROUTE_MAX = 512
-/** 渠道（对应鸿蒙的 SlotType.SERVICE_INFORMATION：横幅、响铃、锁屏可见） */
-private const val CHANNEL_ID = "ergo_service"
+/** 渠道（对应鸿蒙的 SlotType.SERVICE_INFORMATION：横幅、响铃、锁屏可见）；App 内更新装好后"点这里打开"那一条也用它 */
+const val NOTIFY_CHANNEL_ID = "ergo_service"
+private const val CHANNEL_ID = NOTIFY_CHANNEL_ID
+
+/** 建通知渠道：名字跟着 App 现在的语言；已经建了的再建一次只是改名字，用户改过的设置不动 */
+fun ensureNotifyChannel(manager: NotificationManager) {
+    val channel = NotificationChannel(CHANNEL_ID, t("harmony.android.notifyChannel"), NotificationManager.IMPORTANCE_HIGH)
+    channel.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+    manager.createNotificationChannel(channel)
+}
 
 /** 网页的页面地址（#/ 开头）：只认这种，别的应用拉起 App 时带来的别的东西不认 */
 fun isNoticeRoute(route: String): Boolean = route.startsWith("#/") && route.length <= ROUTE_MAX
@@ -189,11 +197,7 @@ class NativeNotify(
     }
 
     /** 渠道的名字跟着 App 现在的语言；已经建了的再建一次只是改名字，用户改过的设置不动 */
-    private fun ensureChannel() {
-        val channel = NotificationChannel(CHANNEL_ID, t("harmony.android.notifyChannel"), NotificationManager.IMPORTANCE_HIGH)
-        channel.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-        manager.createNotificationChannel(channel)
-    }
+    private fun ensureChannel() = ensureNotifyChannel(manager)
 
     /** 系统设置里这个应用的通知开没开 */
     private fun enabled(): Boolean {

@@ -1080,10 +1080,11 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       return { context, page, errors };
     }
 
+    // 原型里二狗带着安卓安装包（假的 GET /api/app-update），安卓的按钮是"更新"：这个假原生桥没有 installAppUpdate（旧 App），是从二狗直接下载的链接
     test.each([
-      ["安卓", ANDROID_UA, "", "下载新版", /ergo-android-debug\.apk$/, "二狗 App 需要升级到"],
+      ["安卓", ANDROID_UA, "", "更新", /^\/api\/app-update\/android\.apk$/, "二狗 App 需要升级到"],
       ["鸿蒙", HARMONY_UA, "", "看安装教程", /docs\/user-guide\/mobile\.md#%E9%B8%BF%E8%92%99-app$|mobile\.md#鸿蒙-app$/, "二狗 App 需要升级到"],
-      ["安卓（英文）", ANDROID_UA, "?lang=en", "Download", /ergo-android-debug\.apk$/, "The ergo app needs updating to"],
+      ["安卓（英文）", ANDROID_UA, "?lang=en", "Update", /^\/api\/app-update\/android\.apk$/, "The ergo app needs updating to"],
       ["鸿蒙（英文）", HARMONY_UA, "?lang=en", "Installation guide", /mobile\.en\.md#harmonyos-app$/, "The ergo app needs updating to"],
     ])("太旧的 App，%s：手机宽上一条提示，按钮去对的地方、放得下", async (_name, ua, search, label, href, text) => {
       const { context, page, errors } = await openInApp("0.0.1", ua, search);
@@ -1106,7 +1107,35 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       const { context, page } = await openInApp("", ANDROID_UA);
       try {
         await page.locator(".app-upgrade-bar").waitFor();
-        expect(await page.locator(".app-upgrade-bar a").getAttribute("href")).toMatch(/ergo-android-debug\.apk$/);
+        expect(await page.locator(".app-upgrade-bar a").getAttribute("href")).toMatch(/^\/api\/app-update\/android\.apk$/);
+      } finally {
+        await context.close();
+      }
+    }, 60_000);
+
+    test("新版安卓 App（原生桥上有 installAppUpdate）：提示条的'更新'交给 App 装，进度写在按钮后面", async () => {
+      const context = await browser!.newContext({ viewport: PHONE, userAgent: ANDROID_UA });
+      await context.addInitScript(
+        `window.ergoNative = { appVersion: () => "0.0.1", log() {}, installAppUpdate(json) { window.__sent = json; window.__ergoAppUpdate('{"state":"downloading","percent":40}'); return new Promise(() => {}); } };`,
+      );
+      const page = await context.newPage();
+      const errors: string[] = [];
+      page.on("pageerror", (e) => errors.push(String(e)));
+      try {
+        await page.goto(pageUrl);
+        const button = page.locator(".app-upgrade-bar button[data-action=app-update]");
+        await button.waitFor();
+        expect((await button.innerText()).trim()).toBe("更新");
+        await button.click();
+        await page.locator(".app-upgrade-bar .app-update-note", { hasText: "40%" }).waitFor();
+        expect(await button.isDisabled()).toBe(true);
+        const sent = JSON.parse((await page.evaluate("window.__sent")) as string) as { url: string; sha256: string; version: string; code: number };
+        expect(sent.url).toMatch(/\/api\/app-update\/android\.apk$/);
+        expect(sent).toMatchObject({ version: "0.4.3", code: 1003 });
+        expect(sent.sha256).toMatch(/^[0-9a-f]{64}$/);
+        const box = (await button.boundingBox())!;
+        expect(box.x + box.width).toBeLessThanOrEqual(PHONE.width);
+        expect(errors).toEqual([]);
       } finally {
         await context.close();
       }
@@ -1139,6 +1168,10 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
         expect(freshRow).not.toContain(mark);
         expect(oldRow).toContain(mark);
         expect(texts.filter((row) => row.includes("Safari") || row.includes("Edge")).every((row) => !row.includes("App "))).toBe(true);
+        // 二狗带着 0.4.3 的安卓包：安卓那台写"有新版"，鸿蒙那台（0.4.2）不写
+        const update = search === "" ? "有新版 0.4.3" : "new version 0.4.3";
+        expect(oldRow).toContain(update);
+        expect(freshRow).not.toContain(update);
         expect(errors).toEqual([]);
       } finally {
         await page.close();

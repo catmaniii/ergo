@@ -44,6 +44,8 @@ const lsmEnv = fakeLsm
 
 const td = await startTestDaemon({
   stopOnTestFinished: false,
+  // App 内更新的联调（app-update.ts）：程序目录换成它摆好的（downloads/ 里放着要发给手机的安装包）
+  ...(process.env.E2E_PROGRAM_DIR ? { programDir: process.env.E2E_PROGRAM_DIR } : {}),
   webRoot: path.resolve(WEB_ROOT),
   secretary: [...SCRIPT],
   // 组件都算装好了（实际接的是测试底座的假识别）：网页上才有按住说话；什么都不下载

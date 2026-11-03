@@ -2,7 +2,8 @@
 // 从外网用二狗的设备，可以随时延期、吊销、删除（吊销、删除后它开着的页面立刻被断开，回到配对页）。
 // PC 本机直接用，不需要配对。列表来自前端状态层（已配对设备频道上的 device 事件）。
 // 领到凭证、还没带着它来过的设备标"等待首次使用"（领取的响应可能丢了），到期还没用过就自动作废。
-// 开过手机 App 的设备写 App 的版本，太旧的标要升到哪一版（ADR-0047）。
+// 开过手机 App 的设备写 App 的版本，太旧的标要升到哪一版（ADR-0047）。安卓手机的 App 比二狗带的安装包旧时写"有新版 x.y.z"，
+// 就是这台手机的那一行（在 App 里开着设置）多一个"更新"按钮（ui/app-update.tsx，票 399）；鸿蒙不出（装不了，版本号还是两边共用的）。
 // 时长、位数都取共享协议包里的常量。
 // 多选管理，照待办的多选——
 // - 标题栏"多选"、行的长按 / 右键菜单和行尾"⋯"是同一个菜单（延期…、吊销、删除、多选），贴着按的地方弹出；
@@ -14,6 +15,7 @@
 // 这一页自己排一栏（MorePage 不再替它包滚动区）：标题栏、滚动区、多选时的底部操作栏（和待办一样贴在一栏的底边）。
 import { useRef, useState } from "react";
 import { useAccess } from "../../app/access.tsx";
+import { pageAppReport } from "../../app/page-native.ts";
 import { useStore } from "../../app/store.tsx";
 import {
   DEFAULT_DEVICE_EXTEND_DAYS,
@@ -26,6 +28,8 @@ import {
   deviceSelfLine,
   type DeviceBatchAction,
   deviceActPrompt,
+  type AppUpdateView,
+  appUpdateFor,
   deviceBatchCounts,
   deviceBatchSkip,
   deviceBatchTargets,
@@ -42,6 +46,7 @@ import {
   toggleSelected,
 } from "../../state/index.ts";
 import { Section, Segmented, Sheet, TopBar, useNow } from "../../ui/common.tsx";
+import { AppUpdateAction, useAppUpdateView } from "../../ui/app-update.tsx";
 import { useLongPress } from "../../ui/long-press.ts";
 import { PopupMenu } from "../../ui/popup.tsx";
 import { SelectExit, SelectToggle, useSelectingBack } from "../../ui/select-mode.tsx";
@@ -100,6 +105,8 @@ export function DevicesPage({ title, onBack, onPreviewPairing, onShowQr }: { tit
   const now = useNow(60_000);
   const { active, inactive } = pairedDevices(ui, now);
   const self = access?.access === "device" ? access.device.id : undefined;
+  // 二狗带着哪一版安卓 App：比它旧的安卓手机写"有新版"
+  const appUpdate = useAppUpdateView();
   // 多选：勾上了哪几台
   const [selecting, setSelecting] = useState(false);
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
@@ -146,6 +153,7 @@ export function DevicesPage({ title, onBack, onPreviewPairing, onShowQr }: { tit
         key={e.device.id}
         entry={e}
         self={e.device.id === self}
+        appUpdate={appUpdate}
         selecting={selecting}
         checked={picked.has(e.device.id)}
         onToggle={() => setPicked((s) => toggleSelected(s, e.device.id))}
@@ -235,6 +243,7 @@ export function DevicesPage({ title, onBack, onPreviewPairing, onShowQr }: { tit
 function DeviceRow({
   entry,
   self,
+  appUpdate,
   selecting,
   checked,
   onToggle,
@@ -243,6 +252,7 @@ function DeviceRow({
 }: {
   entry: DeviceEntry;
   self: boolean;
+  appUpdate: AppUpdateView | undefined;
   selecting: boolean;
   checked: boolean;
   onToggle(): void;
@@ -251,6 +261,9 @@ function DeviceRow({
 }) {
   const { device: d, note, paired, inactive, soon } = entry;
   const app = deviceAppNote(d);
+  // 有新版：失效的不写；"更新"只在这台手机自己的安卓 App 里（别的设备上点了也装不到那台手机上）
+  const update = inactive ? undefined : appUpdateFor(d, appUpdate);
+  const canUpdateHere = update !== undefined && self && !selecting && pageAppReport()?.platform === "android";
   const rowRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
   const [menu, setMenu] = useState<"row" | "more">();
@@ -276,7 +289,9 @@ function DeviceRow({
           {soon !== undefined && <span className="device-soon"> · {t("pages.devices.expiresIn", { count: soon })}</span>}
           {app && <span className="device-app"> · {app.text}</span>}
           {app?.outdated && <span className="device-soon"> · {app.outdated}</span>}
+          {update && <span className="device-soon device-app-update"> · {t("pages.devices.appUpdate", { version: update.version })}</span>}
         </span>
+        {canUpdateHere && <AppUpdateAction pkg={update} />}
       </span>
     </>
   );

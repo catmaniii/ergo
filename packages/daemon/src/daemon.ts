@@ -177,6 +177,7 @@ import { createEventTriggers, createServiceEventDesk, dataDirTitle, EventSubscri
 import { daemonBusy, mayChangeBusy } from "./lsm/busy.ts";
 import { linkToLsm, type LsmLink } from "./lsm/link.ts";
 import { type ConnectionAddressesService, createConnectionAddresses } from "./pairing/addresses.ts";
+import { createAppPackages } from "./pairing/app-package.ts";
 import { daemonRunning, removePidFile, writePidFile } from "./process/pid-file.ts";
 import { ownersText, portProblem } from "./process/port-owner.ts";
 import { createJobObject, type JobObject } from "./process/job-object.ts";
@@ -2860,6 +2861,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         autostart,
         // 体检：八项检查现在的样子（GET /api/doctor）
         doctor,
+        // 手机 App 的更新：程序目录里带的安卓安装包（GET /api/app-update、/api/app-update/android.apk，票 399）
+        appPackages: createAppPackages({ programDir, log }),
         // 连接地址：设备配对页的二维码界面用（GET / POST /api/connection-addresses）
         connectionAddresses,
         // 设置 · 插件：列出、运行中停用、启用、移除

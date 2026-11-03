@@ -9,6 +9,10 @@
     <!-- 扫码连接：只在点"扫码连接"时才要；没有相机的设备照样能装，手填地址 -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- 在 App 里更新 App（update/AppUpdater.kt）：用系统的 PackageInstaller 装二狗发来的新版。第一次要用户在系统设置里允许"安装未知应用" -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- 安卓 12 起 App 更新自己时，系统允许就不弹确认（setRequireUserAction）；目标 API 33 起要声明这个 -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
 
     <application
         android:allowBackup="false"
@@ -33,5 +37,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 在 App 里更新 App：系统装的结果（会话 commit 时给的显式 PendingIntent，不导出） -->
+        <receiver
+            android:name=".update.InstallStatusReceiver"
+            android:exported="false" />
+        <!-- 装好了：系统发给新版的 MY_PACKAGE_REPLACED，App 里点"更新"装的才把 App 再打开 -->
+        <receiver
+            android:name=".update.UpdatedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

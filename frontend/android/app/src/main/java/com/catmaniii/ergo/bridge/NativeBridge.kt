@@ -19,6 +19,8 @@ val NATIVE_BRIDGE_PROMISE_METHODS = listOf(
     "voicePrepare", "voiceStart", "voiceStop",
     "notifyPrepare", "notifyShow",
     "browserPage", "browserFileChunk", "browserFiles", "browserChooser", "browserDiscard", "browserDoc", "browserTool",
+    // 在 App 里更新 App（票 399）：只有安卓有、只开给主界面（侧边栏那份没有）
+    "installAppUpdate",
 )
 
 val MAIN_METHODS = BridgeMethods(NATIVE_BRIDGE_MIRROR_METHODS, NATIVE_BRIDGE_FIRE_METHODS, NATIVE_BRIDGE_PROMISE_METHODS)
@@ -73,6 +75,8 @@ interface BridgeHost {
     fun browserDoc(op: String, id: String, reply: (String) -> Unit)
     /** ⋮ 菜单用到的原生工具 */
     fun browserTool(op: String, json: String, reply: (String) -> Unit)
+    /** 在 App 里更新 App：json 是要装的安装包（{ url, sha256, version, code, size }），回最后一步 */
+    fun installAppUpdate(json: String, reply: (String) -> Unit)
 }
 
 /**
@@ -118,6 +122,7 @@ class NativeBridge(private val host: BridgeHost, private val voice: NativeVoice)
             "browserDiscard" -> host.browserDiscard(call.string(0).ifEmpty { "[]" }) { call.reply(it) }
             "browserDoc" -> host.browserDoc(call.string(0), call.string(1)) { call.reply(it) }
             "browserTool" -> host.browserTool(call.string(0), call.string(1).ifEmpty { "{}" }) { call.reply(it) }
+            "installAppUpdate" -> host.installAppUpdate(call.string(0)) { call.reply(it) }
             else -> Log.w(TAG, "bridge method not handled: ${call.method}")
         }
     }

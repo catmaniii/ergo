@@ -80,6 +80,8 @@
   "harmony.android.webViewTooOld": "The system WebView is too old for the ergo app. Update \"Android System WebView\" in your app store, then open ergo again.",
   "harmony.android.microphoneReason": "Records your voice while you hold to talk, and sends it to ergo",
   "harmony.android.notifyChannel": "Reminders",
+  "harmony.android.updatedTitle": "The ergo app is updated to {version}",
+  "harmony.android.updatedBody": "Tap to open it",
   "harmony.address.scan": "Scan to connect",
   "harmony.address.scanHint": "On your computer, open Settings · Device pairing in ergo, choose \"Show pairing code\", then scan it here.",
   "harmony.scan.title": "Scan the pairing code on your computer",

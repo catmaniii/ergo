@@ -60,6 +60,9 @@ import com.catmaniii.ergo.browser.PageControl
 import com.catmaniii.ergo.browser.parseFrame
 import com.catmaniii.ergo.browser.parseSideLayout
 import com.catmaniii.ergo.browser.sideUrlOf
+import com.catmaniii.ergo.update.AppUpdater
+import com.catmaniii.ergo.update.UpdateHost
+import com.catmaniii.ergo.update.UpdatedReceiver
 import com.catmaniii.ergo.common.AppSettings
 import com.catmaniii.ergo.common.AppTexts
 import com.catmaniii.ergo.common.ServerAddress
@@ -194,6 +197,24 @@ class MainActivity : Activity() {
         override fun browserDoc(op: String, id: String, reply: (String) -> Unit) = fileDocs.run(op, id, reply)
         override fun browserTool(op: String, json: String, reply: (String) -> Unit) =
             if (op.startsWith("element")) elementFiles.run(op, json, reply) else browserTools.run(op, json, reply)
+        override fun installAppUpdate(json: String, reply: (String) -> Unit) = appUpdater.install(json, reply)
+    }
+
+    /** 在 App 里更新 App（票 399）：下载二狗带的安装包、核对、交给系统装；进度推给网页的 window.__ergoAppUpdate */
+    private val appUpdater: AppUpdater by lazy {
+        AppUpdater(this, { server?.origin ?: "" }, object : UpdateHost {
+            override fun canInstall(): Boolean = packageManager.canRequestPackageInstalls()
+
+            override fun openInstallSettings() {
+                startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.fromParts("package", packageName, null)))
+            }
+
+            override fun startConfirm(intent: Intent) = startActivity(intent)
+
+            override fun push(json: String) {
+                channel?.callPage("__ergoAppUpdate", json)
+            }
+        })
     }
 
     /** 系统通知：整个 App 一份，换地址不重建；记着 App 在不在前台（在前台不发，页面顶上已经有了） */
@@ -378,6 +399,7 @@ class MainActivity : Activity() {
         AppTexts.listen(null)
         bridge?.close()
         sideBridge?.close()
+        appUpdater.close()
         mainWeb?.destroy()
         sideWeb?.destroy()
         super.onDestroy()
@@ -387,6 +409,8 @@ class MainActivity : Activity() {
         super.onResume()
         // 切后台时相机放掉了（下面的 onPause）：回来接着扫
         if (scanning) scanPage.start()
+        // 更新 App 时去系统设置里允许安装了：回来接着装
+        appUpdater.resumed()
     }
 
     override fun onPause() {
@@ -408,6 +432,8 @@ class MainActivity : Activity() {
     override fun onStart() {
         super.onStart()
         nativeNotify.setForeground(true)
+        // App 里点"更新"装好后通知栏里那条"点这里打开"：打开了就收掉
+        UpdatedReceiver.clearReopenNotice(this)
     }
 
     /** App 切到后台：放掉原生录音器（后台不录；网页的 visibilitychange 不一定先到）。回到前台由网页重新要。之后来的提醒发到系统通知栏 */

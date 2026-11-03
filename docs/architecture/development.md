@@ -182,6 +182,8 @@ adb -s <设备号> logcat -s ErgoApp                  # App 和网页的日志
 
 **升最低版本**：页面开始依赖新的原生能力时才升协议包的 `MIN_APP_VERSION`（`packages/protocol/src/app-version.ts`），不能比现有的 App 版本还高。低于它的 App 会收到一条待办和系统通知，页面顶上一条提示。
 
+**二狗自己也带着安卓包**（手机上的 App 从二狗更新，[ADR-0047](adr/0047-app-version-separate-server-decides.md) 的补充）：版本目录里多一个 `app\downloads\`，放 `ergo-android-debug.apk` 和 `ergo-android.json`（`{ version, code }`），守护进程经 `GET /api/app-update`、`/api/app-update/android.apk` 发给已配对的手机（`packages/daemon/src/pairing/app-package.ts`）。发布包带哪一个由 `build/mobile.ts` 的 `androidAppForDaemon` 定：这次升了 App 版本就是刚编的那个，否则是 `downloads/` 里的（`downloads/README.md` 的版本要和 `frontend/app-version.json` 一样），证书都要对得上 `RELEASE_CERT_SHA256`，不合格就不带、写明原因（手机上照旧去发布页下）。源码装、`npm run build` 用仓库 `downloads/` 里的，不核证书。直接从仓库跑守护进程时看仓库的 `downloads/`，README 的版本和 App 版本对不上就当没有。npm 的 `ergo-ai` 包不带它。
+
 没工具链、没产物、产物不合格时，只跳过那一个，写明原因，Windows 包照打；工具链齐了却构建失败算出错。不合格指：APK 的证书不是发布用的那把（`frontend/scripts/android.ts` 的 `RELEASE_CERT_SHA256`），HAP 带了 `--webview-debug`。这次跳过了的包，教程里的下载地址在这个版本上会 404，发版前看一眼最后几行。
 
 **发布用的调试钥匙：** 安卓包都用同一把钥匙签，用户才能一直覆盖安装。默认放在 `~/.ergo-release/ergo-android-debug.keystore`，也可以用环境变量 `ERGO_ANDROID_DEBUG_KEYSTORE` 指定，不进仓库。`npm run build:android` 找到它就用它签，找不到就用这台机器默认的调试签名，所以外人自己构建不受影响。带 `--webview-debug` 的包绝不用它签，这样凡是这把钥匙签的包都关着 WebView 调试。

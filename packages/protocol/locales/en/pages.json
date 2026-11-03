@@ -711,6 +711,7 @@
   "pages.devices.appVersion": "App {version}",
   "pages.devices.appVersionUnknown": "App version unknown",
   "pages.devices.appOutdated": "needs updating to {version}",
+  "pages.devices.appUpdate": "new version {version}",
   "pages.devices.expiresIn_one": "expires in {count} day",
   "pages.devices.expiresIn_other": "expires in {count} days",
   "pages.devices.moreActions": "More actions",

@@ -29,6 +29,19 @@
 - App 在前台时通知走现有规则，不进系统通知栏，只有页面顶上的提示和提示条。首次发现太旧多半就是这种情况；系统通知主要用在 App 在后台、服务端升级后重连的时候。App 的进程没了就发不出，等用户打开时看提示条。
 - 升了 `MIN_APP_VERSION` 的那一版，所有低于它的 App 都会被提醒，所以它不能比现有的 App 版本还高（测试查）。
 
+
+## 补充：安卓在 App 里更新，安装包由二狗发（票 399，2026-11-03）
+
+"做成二狗服务端的功能、App 只下载和调起系统安装、只对安卓"是用户定的，其余是实现时定的。
+
+1. **二狗带着同一版的安卓包**：版本目录的 `app\downloads\`（安装包加 `ergo-android.json`），直接从仓库跑时是仓库的 `downloads/`（`downloads/README.md` 的版本要等于 `frontend/app-version.json`）。发布包里的和发布附件同一套核对（证书对得上 `RELEASE_CERT_SHA256`），不合格就不带。运行时不去 GitHub 下。
+2. **接口**：`GET /api/app-update`（`AppUpdateView`：版本、versionCode、SHA-256、大小）、`GET /api/app-update/android.apk`（`application/vnd.android.package-archive`，文件名 `ergo-android-<版本>.apk`，带长度，版本和 SHA-256 也在响应头）。和别的接口一样，外网端口要设备凭证。
+3. **该不该更新还是服务端判断**：页面（服务端给的）比这台设备报上来的版本和二狗带的版本，低就在设置 · 设备配对那一行写"有新版"，这台手机自己的那一行多一个"更新"。**只对安卓**：版本号两边共用，鸿蒙包没变也会跟着升号，而且装不了。低于 `MIN_APP_VERSION` 的提示条照旧，安卓带着包时按钮换成"更新"。`MIN_APP_VERSION` 不升：新页面在旧 App 上照样能用（退回成直接下载）。
+4. **App 这边**：原生桥多一个 `installAppUpdate`（Promise），只开给主界面。App 自己带设备凭证下到缓存目录，只认配好的二狗来源、不跟重定向；核 SHA-256，再核包名、versionCode 比装着的高、签名证书和装着的一样，不对就不装、回原因；没有"安装未知应用"的授权先带去系统设置，回来接着装；`PackageInstaller` 会话装，安卓 12 起 `USER_ACTION_NOT_REQUIRED`（要声明 `UPDATE_PACKAGES_WITHOUT_USER_ACTION`）。进度推给网页的 `window.__ergoAppUpdate`。装的时候系统关掉 App，装好后 `MY_PACKAGE_REPLACED` 里把它再打开（只认 App 里点的那一次）。
+5. **旧 App（0.4.2 及以前）没有这个方法**：按钮退回成从二狗直接下载的链接，类型给对了，旧 App 的下载也存成 `.apk`，在"文件"里点开装。装上第一个带这功能的版本之后，以后都在 App 里点一下。
+
+被否掉的：App 自己去 GitHub 下（国内慢，而且要 App 知道去哪下，判断又回到 App 里）；后台自动下载、自动装（用户点了才下）；鸿蒙自更新（不经华为应用市场装不了）。
+
 ## Considered Options
 
 - **App 里存服务端版本、自己判断：** 判断规则焊进了 App，要改规则先得升 App，而太旧的 App 正是不会升的那些。用户明确不要。

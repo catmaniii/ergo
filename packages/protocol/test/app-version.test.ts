@@ -1,6 +1,6 @@
 // 手机 App 的版本：按数字段比，读不到的最旧；从浏览器标识认哪种 App；太旧了去哪升级；报版本的参数怎么校验。
 import { describe, expect, test } from "vitest";
-import { ANDROID_APP_URL, appOutdatedItemId, appPlatformOf, appUpgradeLink, appVersionOutdated, compareAppVersions, METHODS, MIN_APP_VERSION, parseRequest } from "../src/index.ts";
+import { ANDROID_APP_URL, ANDROID_PACKAGE_MIME, androidPackageFileName, appOutdatedItemId, appUpdateFor, appPlatformOf, appUpgradeLink, appVersionOutdated, compareAppVersions, METHODS, MIN_APP_VERSION, parseRequest } from "../src/index.ts";
 
 describe("比版本号", () => {
   test.each([
@@ -94,5 +94,37 @@ describe("报版本的请求", () => {
     expect(parse({ version: 1 })).toMatchObject({ ok: false, error: { code: "bad_params" } });
     expect(parse({ version: "0.4.2", platform: "ios" })).toMatchObject({ ok: false, error: { code: "bad_params" } });
     expect(parse({ version: "9".repeat(33) })).toMatchObject({ ok: false, error: { code: "bad_params" } });
+  });
+});
+
+describe("App 有没有新版可装（票 399）", () => {
+  const view = { android: { version: "0.4.3", code: 1003, sha256: "a".repeat(64), size: 3 } };
+
+  test("安卓报的版本低于二狗带的那一版：有，回那个安装包", () => {
+    expect(appUpdateFor({ appVersion: "0.4.2", appPlatform: "android" }, view)).toBe(view.android);
+    // 读不到版本的算最旧
+    expect(appUpdateFor({ appVersion: "", appPlatform: "android" }, view)).toBe(view.android);
+  });
+
+  test("一样新、更新的没有", () => {
+    expect(appUpdateFor({ appVersion: "0.4.3", appPlatform: "android" }, view)).toBeUndefined();
+    expect(appUpdateFor({ appVersion: "0.5.0", appPlatform: "android" }, view)).toBeUndefined();
+  });
+
+  test("鸿蒙不出：共用版本号，鸿蒙包没变也会升号，而且装不了", () => {
+    expect(appUpdateFor({ appVersion: "0.4.2", appPlatform: "harmony" }, view)).toBeUndefined();
+  });
+
+  test("浏览器（没报过版本）、认不出哪种 App、二狗没带安装包的都没有", () => {
+    expect(appUpdateFor({ appPlatform: "android" }, view)).toBeUndefined();
+    expect(appUpdateFor({ appVersion: "0.4.2" }, view)).toBeUndefined();
+    expect(appUpdateFor({ appVersion: "0.4.2", appPlatform: "android" }, {})).toBeUndefined();
+    expect(appUpdateFor({ appVersion: "0.4.2", appPlatform: "android" }, undefined)).toBeUndefined();
+  });
+
+  test("下载下来的文件名带版本、.apk 结尾；类型是安卓安装包", () => {
+    expect(androidPackageFileName("0.4.3")).toBe("ergo-android-0.4.3.apk");
+    expect(androidPackageFileName('0.4/"3')).toBe("ergo-android-0.4__3.apk");
+    expect(ANDROID_PACKAGE_MIME).toBe("application/vnd.android.package-archive");
   });
 });

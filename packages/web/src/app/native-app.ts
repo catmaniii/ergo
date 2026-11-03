@@ -15,9 +15,11 @@
 // App 原生的字（地址页、出错页、下载的提示、交回网页的原因……，key 是 harmony.*）跟着二狗的全局语言：有 setTexts 的新版 App，
 // 网页开场、换了语言时把当前语言的这几句交过去（appTexts、followLocaleInApp）；旧版 App 没有，照旧中文。
 // 有手机这一组方法（新版 App）时 NativeApp.phone 是它的包装（native-phone.ts）：从通讯录挑人、读手机日历；没有时这两样做不了。
+// 有 installAppUpdate（新版安卓 App）时 NativeApp.appUpdate 是它的包装（native-app-update.ts）：在 App 里更新 App；没有时退回成从二狗下载 APK。
 // App 的版本（nativeAppReport）：连上守护进程后报上去，够不够新由守护进程判断（ADR-0047）；页面上的提示条看本机版本和协议包的最低版本。
 import { activeLocale, APP_VERSION_MAX_LENGTH, appPlatformOf, type AppPlatform, onLocaleChange, type ReportAppVersionParams, t, type ThemeChoice } from "../state/index.ts";
 import { appObject, exposeToApp } from "./app-names.ts";
+import { type AppUpdateScope, type NativeAppUpdate, wrapNativeAppUpdate } from "./native-app-update.ts";
 import type { BackRegistry } from "./back-registry.ts";
 import { type NativeBrowser, type NativeBrowserScope, wrapNativeBrowser } from "./native-browser.ts";
 import { type NativeNotify, wrapNativeNotify } from "./native-notify.ts";
@@ -51,6 +53,8 @@ export interface NativeApp {
   readonly setTexts?: (texts: NativeAppTexts) => void;
   /** 读本机：从通讯录挑人、读手机日历；旧版 App 没有 */
   readonly phone?: NativePhone;
+  /** 在 App 里更新 App（安卓，票 399）：下载二狗带的安装包、调起系统安装；旧版 App 和鸿蒙没有 */
+  readonly appUpdate?: NativeAppUpdate;
 }
 
 /** 交给 App 的原生的字：二狗现在用的语言、harmony.* 的 key → 当前语言的句子（缺的已经用中文补上） */
@@ -123,7 +127,7 @@ export function nativeAppReport(scope: { ergoNative?: unknown } & UserAgentScope
  * 页面的全局对象里有没有 App 注入的原生桥；没有、形状不对、App 拒绝了这个页面都返回 undefined。
  * 有原生录音时在 scope 上登记 App 推送用的 __ergoVoice，有原生浏览器时登记 __ergoBrowser。
  */
-export function detectNativeApp(scope: { ergoNative?: unknown } & UserAgentScope & NativeVoiceScope & NativeBrowserScope): NativeApp | undefined {
+export function detectNativeApp(scope: { ergoNative?: unknown } & UserAgentScope & NativeVoiceScope & NativeBrowserScope & AppUpdateScope): NativeApp | undefined {
   const bridge = appObject(scope, "ergoNative");
   if (typeof bridge !== "object" || bridge === null) return undefined;
   const raw = bridge as BridgeObject;
@@ -136,6 +140,7 @@ export function detectNativeApp(scope: { ergoNative?: unknown } & UserAgentScope
   const browser = wrapNativeBrowser(raw, scope);
   const setTexts = typeof raw.setTexts === "function" ? (texts: NativeAppTexts) => void callBridge(raw, "setTexts", JSON.stringify(texts)) : undefined;
   const phone = wrapNativePhone(raw);
+  const appUpdate = wrapNativeAppUpdate(raw, scope);
   return {
     platform: appPlatformOf(scope.navigator?.userAgent ?? ""),
     version,
@@ -149,6 +154,7 @@ export function detectNativeApp(scope: { ergoNative?: unknown } & UserAgentScope
     ...(browser ? { browser } : {}),
     ...(setTexts ? { setTexts } : {}),
     ...(phone ? { phone } : {}),
+    ...(appUpdate ? { appUpdate } : {}),
   };
 }
 

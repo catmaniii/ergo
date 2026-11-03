@@ -480,7 +480,21 @@ If the address is recognizably a tailnet one, the Tailscale item comes first.
 - A bar at the very top of the app: **The ergo app needs updating to x.y**, with a button to go and update.
 - The same reminder in your inbox, which also goes to the notification bar while the app is in the background. Each phone is only reminded once.
 
-**How to update:** On Android, tap **Download**, choose where to save it, then open it in the phone's Files app to install over the old version. The app doesn't start the install for you. The first time, Android asks whether to allow installs from this source; allow it, go back to Files and tap the file again. See [Android app](#android-app). On HarmonyOS, tap **Installation guide** and sign and install again as in [HarmonyOS app](#harmonyos-app). You don't need to pair again.
+**Android: tap Update in the app.** ergo on your computer carries the Android app of the same version, so the phone downloads it from ergo instead of GitHub, which is also fast in mainland China.
+
+1. In the ergo app on your phone, open Settings · Data & devices · Device pairing. This phone's row says **new version x.y.z**, with an **Update** button under it. When the app is too old, the button in the bar at the top is **Update** too.
+2. Tap **Update**. The percentage downloaded shows under it.
+3. **Only the first time:** Android opens the **Install unknown apps** page. Turn on **Allow from this source**, press Back to return to ergo, and the install continues. You won't be asked again.
+4. On Android 12 and later, when Android allows an app to update itself, there's nothing more to confirm. When it wants a confirmation, it shows a dialog; tap **Update**.
+5. The ergo app closes while it installs. When it's done, a notification says **The ergo app is updated to x.y.z**; tap it to open the app (without notification permission, just open the app again). The **new version** note in the row is gone, and you're still paired.
+
+When it doesn't install, the reason shows under **Update**: the download failed (check your network and tap again), the downloaded file doesn't match the checksum from ergo (tap again to download it again), it isn't an ergo app package, it isn't newer than the app on your phone, it's signed differently from the app on your phone (one you built yourself and a released one have different signatures; the only way is to uninstall, reinstall and pair again), you cancelled, your phone is out of storage, or ergo isn't allowed to install apps. The temporary file is deleted either way.
+
+**What we tested and what we didn't:** steps 1 to 5, plus the three refusals (different signature, not newer than the installed app, checksum mismatch), on an Android 16 emulator in English: the first time it went to **Install unknown apps**, carried on after allowing it, and Android showed no confirmation dialog; once installed, the app didn't open by itself (since Android 10 apps can't open their own screens from the background), and tapping the notification opened it. **Not tested:** real phones, Android versions before 12, and how each brand words the prompts or whether it asks to confirm.
+
+**Older apps (0.4.2 and earlier)** don't have this, so the first update to a version that does goes like this: tap **Update** the same way, and the app downloads the package. Choose where to save it (the file is called `ergo-android-x.y.z.apk`), then open it in the phone's Files app to install over the old version. The first time, Android asks whether to allow installs from this source; allow it, go back to Files and tap the file again. After that, every update is one tap in the app. When ergo on your computer doesn't carry the package (for example a source install whose `downloads/` version doesn't match), the button is **Download** and takes you to the releases page; see [Android app](#android-app).
+
+**HarmonyOS:** tap **Installation guide** and sign and install again as in [HarmonyOS app](#harmonyos-app). HarmonyOS never shows **new version**: both apps share one version number, so the HarmonyOS package gets a new number even when nothing in it changed, and ergo can't install it for you (you sign it yourself). It only reminds you when the app is below the minimum version. You don't need to pair again.
 
 Once it's updated, the bar and the reminder go away by themselves. When the app is new enough, nothing shows. The phone browser never needs updating and never shows this bar.
 

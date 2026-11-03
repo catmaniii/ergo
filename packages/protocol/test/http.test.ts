@@ -8,6 +8,13 @@ const queryOf = (url: string) => Object.fromEntries(new URL(url, "http://127.0.0
 describe("HTTP 接口的路径", () => {
   it("拼出来的路径拆得回去：接口和参数一样", () => {
     expect(parseHttpPath(pathOf(HTTP_PATHS.uploads))).toEqual({ route: "uploads" });
+    // 手机 App 的更新：带着哪一版、安装包本身（.apk 结尾）
+    expect(HTTP_PATHS.appUpdate).toBe("/api/app-update");
+    expect(parseHttpPath(HTTP_PATHS.appUpdate)).toEqual({ route: "app_update" });
+    expect(HTTP_PATHS.androidAppPackage).toBe("/api/app-update/android.apk");
+    expect(parseHttpPath(HTTP_PATHS.androidAppPackage)).toEqual({ route: "android_app_package" });
+    expect(parseHttpPath("/api/app-update/harmony.hap")).toBeUndefined();
+    expect(parseHttpPath("/api/app-update/android.apk/x")).toBeUndefined();
     // 目录授权：全部、删一条、一次清掉几条、使用记录
     expect(parseHttpPath(pathOf(HTTP_PATHS.folderGrants))).toEqual({ route: "folder_grants" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.folderGrant("fg-1")))).toEqual({ route: "folder_grant", grantId: "fg-1" });

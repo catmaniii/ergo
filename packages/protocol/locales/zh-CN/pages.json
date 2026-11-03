@@ -699,6 +699,7 @@
   "pages.devices.appVersion": "App {version}",
   "pages.devices.appVersionUnknown": "App 版本读不到",
   "pages.devices.appOutdated": "要升级到 {version}",
+  "pages.devices.appUpdate": "有新版 {version}",
   "pages.devices.expiresIn": "还有 {count} 天到期",
   "pages.devices.moreActions": "更多操作",
   "pages.devices.extend": "延期…",

@@ -19,8 +19,8 @@ export interface TestDaemonHandle {
   stop(): Promise<void>;
 }
 
-export async function startDaemon(options: { fakeLsm?: boolean } = {}): Promise<TestDaemonHandle> {
-  const env = options.fakeLsm ? { ...process.env, E2E_FAKE_LSM: "1" } : process.env;
+export async function startDaemon(options: { fakeLsm?: boolean; programDir?: string } = {}): Promise<TestDaemonHandle> {
+  const env = { ...process.env, ...(options.fakeLsm ? { E2E_FAKE_LSM: "1" } : {}), ...(options.programDir ? { E2E_PROGRAM_DIR: options.programDir } : {}) };
   const child: ChildProcess = spawn(process.execPath, [path.join(HERE, "test-daemon.ts")], { cwd: HERE, stdio: ["pipe", "pipe", "ignore"], env });
   const lines: Array<Record<string, unknown>> = [];
   const reader = readline.createInterface({ input: child.stdout! });

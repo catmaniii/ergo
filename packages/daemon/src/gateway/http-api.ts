@@ -26,6 +26,9 @@
 import fs from "node:fs";
 import type http from "node:http";
 import {
+  ANDROID_PACKAGE_MIME,
+  androidPackageFileName,
+  APP_PACKAGE_HEADERS,
   AgentClearBody,
   AgentDefaultRoleBody,
   AgentModelBody,
@@ -158,6 +161,7 @@ import type { AutostartSwitch } from "../lsm/autostart-switch.ts";
 import type { SetupStateService } from "../config/setup-state.ts";
 import type { DoctorService } from "../doctor/doctor.ts";
 import type { ConnectionAddressesService } from "../pairing/addresses.ts";
+import type { AppPackages } from "../pairing/app-package.ts";
 import type { WebSettingsService } from "../web/index.ts";
 import type { PluginSettings } from "../plugins/settings.ts";
 import type { RuntimeRegistry } from "../runtime/index.ts";
@@ -273,6 +277,11 @@ export interface HttpApiOptions {
   setup?: Pick<SetupStateService, "view" | "mark">;
   /** 体检（319b）：GET /api/doctor（八项检查现在的样子，每次现算）；不给就没有这个接口 */
   doctor?: Pick<DoctorService, "view">;
+  /**
+   * 二狗带着的手机 App 安装包（票 399）：GET /api/app-update（哪一版）、GET /api/app-update/android.apk（安装包本身）。
+   * 外网端口上和别的接口一样要设备凭证（网关挡），没配对的拿不到。不给就没有这两个接口
+   */
+  appPackages?: Pick<AppPackages, "view" | "android">;
   /** 连接地址：GET / POST /api/connection-addresses（设备配对页的二维码界面用）；不给就没有这个接口 */
   connectionAddresses?: Pick<ConnectionAddressesService, "view" | "setManual">;
   /** 设置里 agent 的联网搜索、读网页走哪条路；不给就没有这个接口 */
@@ -1169,6 +1178,14 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             sendJson(res, 200, options.setup.mark(body.value));
           },
         };
+      case "app_update":
+        return {
+          GET(_req, res) {
+            sendJson(res, 200, appPackages().view());
+          },
+        };
+      case "android_app_package":
+        return { GET: (req, res) => serveAndroidApp(req, res) };
       case "doctor":
         return {
           // 体检（319b）：八项检查现在的样子，每次现算；只查本机（除探本机端口外不联网、不调用模型、不改状态）
@@ -1632,6 +1649,33 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
       res.destroy();
     });
     stream.pipe(res);
+  };
+
+  const appPackages = () => {
+    if (!options.appPackages) throw new HttpError("not_found", t("gateway.http.noAppPackage"));
+    return options.appPackages;
+  };
+
+  /**
+   * 安卓安装包：类型是安卓安装包（旧 App 的下载按类型定扩展名，octet-stream 会存成 .bin）、文件名带版本以 .apk 结尾、带长度；
+   * 版本和 SHA-256 也写在响应头里。没带安装包 404
+   */
+  const serveAndroidApp = (req: http.IncomingMessage, res: http.ServerResponse) => {
+    const app = appPackages().android();
+    if (!app) throw new HttpError("not_found", t("gateway.http.noAppPackage"));
+    serveFile(req, res, {
+      file: app.file,
+      size: app.size,
+      label: "安卓安装包", // @i18n-ignore log：只进读文件出错的日志
+      headers: {
+        "Content-Type": ANDROID_PACKAGE_MIME,
+        "Content-Disposition": contentDisposition("attachment", androidPackageFileName(app.version)),
+        "Cache-Control": "no-store",
+        [APP_PACKAGE_HEADERS.version]: app.version,
+        [APP_PACKAGE_HEADERS.code]: String(app.code),
+        [APP_PACKAGE_HEADERS.sha256]: app.sha256,
+      },
+    });
   };
 
   const serveMedia = (req: http.IncomingMessage, res: http.ServerResponse, mediaId: string, url: URL) => {

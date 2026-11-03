@@ -113,6 +113,7 @@
     __ergoBrowser: true,
     __ergoNotifyOpen: true,
     __ergoSide: true,
+    __ergoAppUpdate: true,
   };
 
   channel.onmessage = function (event) {

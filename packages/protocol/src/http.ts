@@ -306,6 +306,9 @@ const SERVICE_EVENTS = "service-events";
 const PROJECT_OPS_MCP = "project-ops-mcp";
 const SETUP = "setup";
 const DOCTOR = "doctor";
+const APP_UPDATE = "app-update";
+/** 安卓安装包在 /api/app-update/ 下的名字：.apk 结尾，按地址猜文件名的下载器也存成 .apk */
+const ANDROID_APK = "android.apk";
 const CONNECTION_ADDRESSES = "connection-addresses";
 const WEB_SETTINGS = "web-settings";
 const TEST = "test";
@@ -551,6 +554,16 @@ export const HTTP_PATHS = {
    */
   doctor: api(DOCTOR),
   /**
+   * 手机 App 的更新（票 399）：GET 二狗带着哪一版安卓安装包（AppUpdateView：版本、versionCode、SHA-256、大小），
+   * 设置里"有新版"、提示条的"更新"看它。和别的接口一样，外网端口要设备凭证
+   */
+  appUpdate: api(APP_UPDATE),
+  /**
+   * GET / HEAD：安卓安装包本身（application/vnd.android.package-archive，文件名 ergo-android-<版本>.apk，带长度，
+   * 版本和 SHA-256 也在响应头 APP_PACKAGE_HEADERS 里）。没带安装包时 404
+   */
+  androidAppPackage: api(APP_UPDATE, ANDROID_APK),
+  /**
    * 连接地址（形状在 connection-addresses.ts）：GET 手机从外面连到二狗能用的地址（ConnectionAddressesView，问服务管家的加手填的，排好序）；
    * POST 改手填的那个（ConnectionAddressesBody → ConnectionAddressesView）。设备配对页的二维码界面用
    */
@@ -751,6 +764,8 @@ export type HttpRoute =
   | { route: "project_ops_mcp" }
   | { route: "setup" }
   | { route: "doctor" }
+  | { route: "app_update" }
+  | { route: "android_app_package" }
   | { route: "connection_addresses" }
   | { route: "web_settings" }
   | { route: "plugins" }
@@ -902,6 +917,10 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === PROJECT_OPS_MCP && id === undefined) return { route: "project_ops_mcp" };
   if (head === SETUP && id === undefined) return { route: "setup" };
   if (head === DOCTOR && id === undefined) return { route: "doctor" };
+  if (head === APP_UPDATE && tail === undefined) {
+    if (id === undefined) return { route: "app_update" };
+    if (id === ANDROID_APK) return { route: "android_app_package" };
+  }
   if (head === CONNECTION_ADDRESSES && id === undefined) return { route: "connection_addresses" };
   if (head === MODEL_SETTINGS && tail === undefined) {
     if (id === undefined) return { route: "model_settings" };

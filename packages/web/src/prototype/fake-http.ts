@@ -123,6 +123,7 @@ import type {
   UsageSummary,
   VoiceModelsView,
   WebVersionView,
+  AppUpdateView,
   WorkdayChange,
   WorkdayChangeResult,
   LocalFoldersView,
@@ -1185,6 +1186,11 @@ export class FakeDaemonHttp implements DaemonHttp {
   webVersion(): Promise<WebVersionView> {
     const version = fakeServerWebVersion();
     return Promise.resolve(version === undefined ? {} : { version });
+  }
+
+  /** 二狗带着的手机 App 安装包：编的一版，比假设备里那台安卓手机（0.4.0）新，设置 · 设备配对里那一行写"有新版" */
+  appUpdate(): Promise<AppUpdateView> {
+    return Promise.resolve({ android: { version: "0.4.3", code: 1003, sha256: "0".repeat(64), size: 2_990_000 } });
   }
 
   /** Debug 工具集：原型里没有识别进程，过 0.8 秒回一句假的识别结果 */

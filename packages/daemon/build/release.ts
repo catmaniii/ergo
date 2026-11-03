@@ -9,6 +9,7 @@
 //   7. 带上填好公钥的 install.ps1、npm 的两个包（ergo-ai：给有 Node 的人 npm i -g；ergo-ai-win32-x64：装着发布包，npmmirror 会同步，国内快）、
 //      winget / Scoop 清单草稿（不提交）；
 //   8. 手机安装包（mobile.ts）：最先收，收到的写进第 6 步的 SHA256SUMS。没工具链的机器跳过，只打 Windows 包。
+//      安卓的那个同时带进版本目录（app\downloads\），手机上的 App 从二狗更新（票 399），核对同一套。
 // 真发到 npm、GitHub 之前要问用户；这里只打包，不发。
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -19,7 +20,7 @@ import { formatSums, type ReleaseIndex } from "../src/release/fetch.ts";
 import { formatPublicKey, type MinisignSecretKey, parseSecretKey, sign } from "../src/release/minisign.ts";
 import { ZipWriter } from "../src/release/zip.ts";
 import { compileLauncher, probeLauncher } from "./launcher.ts";
-import { collectMobilePackages, type MobilePackage, type MobileResult } from "./mobile.ts";
+import { androidAppForDaemon, collectMobilePackages, type MobilePackage, type MobileResult } from "./mobile.ts";
 import { buildScratch, obtainNode, TESTED_NODE_VERSIONS } from "./node-dist.ts";
 import { stageVersion } from "./stage.ts";
 
@@ -240,6 +241,8 @@ export async function buildRelease(options: ReleaseOptions): Promise<ReleaseResu
     const publicKeyText = secret ? formatPublicKey(secret) : undefined;
 
     const stage = path.join(out, "stage", base);
+    // 带给手机 App 更新用的安卓安装包：和发布附件同一套核对（证书对得上发布用的钥匙），不合格就不带、写明原因
+    const androidApp = androidAppForDaemon(repo, mobile);
     const staged = stageVersion({
       repo,
       out: stage,
@@ -250,6 +253,7 @@ export async function buildRelease(options: ReleaseOptions): Promise<ReleaseResu
       ...(launcherExe ? { launcherExe } : {}),
       ...(commitOf(repo) ? { commit: commitOf(repo)! } : {}),
       ...(publicKeyText ? { releaseKey: publicKeyText } : {}),
+      androidApp,
       log,
     });
     log(`版本目录摆好了：${stage}（第三方包 ${staged.closure.keys.length} 个，许可证 ${staged.licenses.length} 条）`);

@@ -9,6 +9,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { compareAppVersions } from "@ergo/protocol";
+import { packagedVersionIn } from "../src/pairing/app-package.ts";
 
 export const APP_VERSION_FILE = "frontend/app-version.json";
 const DOWNLOADS_README = "downloads/README.md";
@@ -47,7 +48,7 @@ export function readAppVersion(repo: string): string {
 export function packagedAppVersion(repo: string): string | undefined {
   const file = path.join(repo, DOWNLOADS_README);
   if (!fs.existsSync(file)) return undefined;
-  return /^版本 \/ Version:\s*(\S+)/m.exec(fs.readFileSync(file, "utf8"))?.[1];
+  return packagedVersionIn(fs.readFileSync(file, "utf8"));
 }
 
 const lines = (text: string) => text.split("\n").filter(Boolean);

@@ -549,6 +549,11 @@ export function StoreProvider({ connection, http, snapshots, children }: { conne
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }
 
+/** 不在 StoreProvider 里时是 null（只画样子的组件测试里）：用得上就用、用不上照旧的地方用它 */
+export function useOptionalStore(): Store | null {
+  return useContext(StoreContext);
+}
+
 export function useStore(): Store {
   const s = useContext(StoreContext);
   if (!s) throw new Error("useStore 必须在 StoreProvider 里用"); // @i18n-ignore log：用错了地方的编程错误

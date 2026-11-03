@@ -1,5 +1,5 @@
 // App 和网页之间的名字：原生桥 window.ergoNative、侧边栏的 window.ergoSide 这些 App 挂给网页的对象，
-// window.__ergoBack、__ergoInsets、__ergoVoice、__ergoBrowser、__ergoNotifyOpen、__ergoSide 这些网页挂给 App 调的函数。
+// window.__ergoBack、__ergoInsets、__ergoVoice、__ergoBrowser、__ergoNotifyOpen、__ergoSide、__ergoAppUpdate 这些网页挂给 App 调的函数。
 
 /** App 挂在页面全局对象上的对象 */
 export function appObject(scope: object, name: string): unknown {

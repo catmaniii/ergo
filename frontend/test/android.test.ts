@@ -33,6 +33,9 @@ function bridgeList(name: string): string[] {
   return (match[1] ?? "").match(/"[A-Za-z.]+"/g)?.map((n) => n.slice(1, -1)) ?? [];
 }
 
+/** 只有安卓有、鸿蒙没有的方法：在 App 里更新 App（鸿蒙要用户自己签名，装不了） */
+const ANDROID_ONLY = ["installAppUpdate"];
+
 const mainMethods = () => [...bridgeList("NATIVE_BRIDGE_MIRROR_METHODS"), ...bridgeList("NATIVE_BRIDGE_FIRE_METHODS"), ...bridgeList("NATIVE_BRIDGE_PROMISE_METHODS")];
 
 /** 能渲染文件的扩展名表 */
@@ -98,10 +101,38 @@ describe("原生桥的方法名和网页一侧一样", () => {
     for (const name of ["notifyPrepare", "notifyShow"]) expect(bridgeList("NATIVE_BRIDGE_PROMISE_METHODS")).toContain(name);
   });
 
-  test("和鸿蒙的方法表比：除了第一版不做的手机数据源，一个不少", () => {
+  test("和鸿蒙的方法表比：除了第一版不做的手机数据源，一个不少；多的只有安卓才有的 App 内更新", () => {
     const harmony = read(path.join(REPO, "frontend/harmony/entry/src/main/ets/bridge/NativeBridge.ets"));
     const all = /NATIVE_BRIDGE_METHODS: string\[\] = \[([^\]]*)\]/.exec(harmony)![1]!.match(/'[A-Za-z]+'/g)!.map((n) => n.slice(1, -1));
-    expect(all.filter((name) => !name.startsWith("phone")).toSorted()).toEqual(mainMethods().toSorted());
+    expect(all.filter((name) => !name.startsWith("phone")).toSorted()).toEqual(mainMethods().filter((name) => !ANDROID_ONLY.includes(name)).toSorted());
+  });
+
+  test("App 内更新（票 399）：installAppUpdate 回 Promise，只开给主界面、侧边栏那份没有；进度推给网页的 __ergoAppUpdate", () => {
+    const web = read(path.join(REPO, "packages/web/src/app/native-app-update.ts"));
+    const name = /NATIVE_APP_UPDATE_METHOD = "([A-Za-z]+)"/.exec(web)![1]!;
+    expect(ANDROID_ONLY).toEqual([name]);
+    expect(bridgeList("NATIVE_BRIDGE_PROMISE_METHODS")).toContain(name);
+    const side = [...bridgeList("NATIVE_SIDE_MIRROR_METHODS"), ...bridgeList("NATIVE_SIDE_FIRE_METHODS"), ...bridgeList("NATIVE_SIDE_PROMISE_METHODS")];
+    expect(side).not.toContain(name);
+    expect(shim()).toMatch(/__ergoAppUpdate: true/);
+    expect(kotlin("MainActivity.kt")).toContain('callPage("__ergoAppUpdate"');
+    // 网页认的失败原因和 App 回的一样
+    const failures = /APP_UPDATE_FAILURES = \[([^\]]*)\]/.exec(web)![1]!.match(/"[a-z]+"/g)!.map((n) => n.slice(1, -1));
+    const kotlinFailures = [...kotlin("update/UpdateChecks.kt").matchAll(/const val [A-Z]+ = "([a-z]+)"/g)].map((m) => m[1]!);
+    expect(kotlinFailures.toSorted()).toEqual(failures.toSorted());
+  });
+
+  test("App 内更新要的权限和接收器都在：安装未知应用、更新自己不弹确认；两个接收器都不导出", () => {
+    const manifest = read(path.join(SRC, "AndroidManifest.xml"));
+    expect(manifest).toContain('android:name="android.permission.REQUEST_INSTALL_PACKAGES"');
+    expect(manifest).toContain('android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION"');
+    for (const receiver of [".update.InstallStatusReceiver", ".update.UpdatedReceiver"]) {
+      expect(manifest).toMatch(new RegExp(`android:name="${receiver.replaceAll(".", "\\.")}"\\s+android:exported="false"`));
+    }
+    const updater = kotlin("update/AppUpdater.kt");
+    expect(updater).toContain("USER_ACTION_NOT_REQUIRED");
+    expect(updater).toContain("instanceFollowRedirects = false");
+    expect(updater).toContain("updateUrlAllowed(request.url, serverOrigin())");
   });
 
   test("第一版不开手机数据源：一个 phone 开头的方法都没有，网页认不出这一组，功能自然不出现", () => {

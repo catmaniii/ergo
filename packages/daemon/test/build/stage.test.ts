@@ -12,6 +12,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DEMO_SENTINELS } from "../../build/demo-sentinels.ts";
 import { stageVersion, type StageResult, stampManifestRelease } from "../../build/stage.ts";
+import { locateAndroidApp } from "../../src/pairing/app-package.ts";
 
 const REPO = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 
@@ -44,6 +45,8 @@ beforeAll(() => {
   fs.writeFileSync(path.join(web, "index.html"), "<!doctype html><title>ergo</title>");
   fs.writeFileSync(path.join(web, "fonts", "a.woff2"), "font");
   out = path.join(base, "ergo-9.9.9");
+  // 发布包里带的安卓安装包（release.ts 给核过签名的那一个）
+  fs.writeFileSync(path.join(base, "android.apk"), "fake apk");
   result = stageVersion({
     repo: REPO,
     out,
@@ -54,6 +57,7 @@ beforeAll(() => {
     commit: "abc123",
     releaseKey: "untrusted comment: minisign public key 0000000000000000\nRWQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n",
     webDist: web,
+    androidApp: { file: path.join(base, "android.apk"), version: "0.4.3", code: 1003 },
   });
 }, 120_000);
 
@@ -150,6 +154,15 @@ describe("版本目录里有什么", () => {
     expect(list.some((i) => i.name.startsWith("@anthropic-ai/claude-agent-sdk"))).toBe(false);
     // 每一条都有许可证全文或写明包里没有
     for (const i of list) expect(notices).toContain(`${i.name} `);
+  });
+});
+
+describe("安卓 App 的安装包（手机上的 App 从二狗更新，票 399）", () => {
+  it("带进 app/downloads/：安装包和它是哪一版；守护进程认得出", () => {
+    const downloads = path.join(out, "app", "downloads");
+    expect(fs.readFileSync(path.join(downloads, "ergo-android-debug.apk"), "utf8")).toBe("fake apk");
+    expect(JSON.parse(fs.readFileSync(path.join(downloads, "ergo-android.json"), "utf8"))).toEqual({ version: "0.4.3", code: 1003 });
+    expect(locateAndroidApp(path.join(out, "app"))).toMatchObject({ version: "0.4.3", code: 1003 });
   });
 });
 

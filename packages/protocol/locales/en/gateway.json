@@ -88,6 +88,7 @@
   "gateway.http.noAutostart": "This version doesn't have the autostart switch yet",
   "gateway.http.noSetup": "This version doesn't have the setup wizard endpoints yet",
   "gateway.http.badSetup": "Bad parameters for marking a setup step: {message}",
+  "gateway.http.noAppPackage": "This ergo doesn't carry a phone app package",
   "gateway.http.noDoctor": "This version doesn't have the doctor endpoint yet",
   "gateway.http.badModelSettings": "Bad model settings: {message}",
   "gateway.http.badModelKey": "Bad model key request: {message}",

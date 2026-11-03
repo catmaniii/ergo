@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { RELEASE_CERT_SHA256 } from "../../../../frontend/scripts/android.ts";
-import { ANDROID_PACKAGE, collectMobilePackages, HARMONY_PACKAGE, type MobileTools } from "../../build/mobile.ts";
+import { ANDROID_PACKAGE, androidAppForDaemon, collectMobilePackages, HARMONY_PACKAGE, type MobileTools } from "../../build/mobile.ts";
 import { writeSums } from "../../build/release.ts";
 import { parseSums, type ReleaseIndex, verifyRelease } from "../../src/release/fetch.ts";
 import { releaseKey } from "../helpers/fake-release.ts";
@@ -204,5 +204,37 @@ describe("校验值清单和更新", () => {
     expect(written.signature).toBeUndefined();
     expect(fs.existsSync(path.join(out, "SHA256SUMS.minisig"))).toBe(false);
     expect([...parseSums(fs.readFileSync(written.sums, "utf8")).keys()]).toEqual([zipName]);
+  });
+});
+
+describe("发布包里带给手机 App 更新用的安卓安装包（票 399）", () => {
+  /** 假仓库：App 版本 9.9.9，downloads/ 里的包是 readme 写的那一版 */
+  function repoWithDownloads(readme: string): string {
+    const repo = tmp();
+    put(path.join(repo, "frontend/app-version.json"), JSON.stringify({ version: "9.9.9", code: 1099 }));
+    put(path.join(repo, "downloads/README.md"), `版本 / Version: ${readme}\n`);
+    put(path.join(repo, "downloads", ANDROID_PACKAGE), "downloaded apk");
+    return repo;
+  }
+
+  it("App 版本没变：用 downloads/ 里的，证书核过；版本、versionCode 取 frontend/app-version.json", () => {
+    const repo = repoWithDownloads("9.9.9");
+    const checked: string[] = [];
+    const got = androidAppForDaemon(repo, { packages: [] }, fakeTools({ apkCert: (apk) => (checked.push(apk), RELEASE_CERT_SHA256) }));
+    expect(got).toEqual({ file: path.join(repo, "downloads", ANDROID_PACKAGE), version: "9.9.9", code: 1099 });
+    expect(checked).toEqual([path.join(repo, "downloads", ANDROID_PACKAGE)]);
+  });
+
+  it("这次升了 App 版本：用刚构建、收进发布目录的那一个（downloads/ 还是旧的）", () => {
+    const repo = repoWithDownloads("9.9.8");
+    const built = { name: ANDROID_PACKAGE, file: path.join(repo, "out", ANDROID_PACKAGE), sha256: "x", size: 1 };
+    const got = androidAppForDaemon(repo, { packages: [built], app: { kind: "bumped", version: "9.9.9", packaged: "9.9.8" } }, fakeTools());
+    expect(got).toEqual({ file: built.file, version: "9.9.9", code: 1099 });
+  });
+
+  it("不带的情况都写明原因：downloads/ 的版本对不上、没工具链、证书不对", () => {
+    expect(androidAppForDaemon(repoWithDownloads("9.9.8"), { packages: [] }, fakeTools())).toEqual({ skip: expect.stringContaining("对不上") });
+    expect(androidAppForDaemon(repoWithDownloads("9.9.9"), { packages: [] }, fakeTools({ android: () => ({ error: "没有 JDK" }) }))).toEqual({ skip: expect.stringContaining("没有 JDK") });
+    expect(androidAppForDaemon(repoWithDownloads("9.9.9"), { packages: [] }, fakeTools({ apkCert: () => "0".repeat(64) }))).toEqual({ skip: expect.stringContaining("不是发布用的调试钥匙签的") });
   });
 });
