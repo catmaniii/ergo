@@ -410,7 +410,8 @@ function unavailableStorage(): never {
  */
 function runBootScript({ document, storage, systemDark }: { document: ReturnType<typeof fakeDocument>; storage: () => unknown; systemDark: boolean }) {
   const html = injectStyleTable(webFile("index.html"), STYLES);
-  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  // 内联脚本有两段：外观和风格这一段，界面字号那一段（test/app/font-scale.test.ts 跑它）
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]!).filter((s) => s.includes('"ergo-theme"'));
   expect(scripts).toHaveLength(1);
   const globals = {
     document,

@@ -24,8 +24,9 @@ describe("经典的导航图标", () => {
     const before = /:root\[data-style="classic"\] \.tab-icon::before \{([^}]*)\}/.exec(css)?.[1] ?? "";
     expect(before).toContain("background: currentColor;");
     expect(before).toContain("mask: var(--classic-icon) center / contain no-repeat;");
-    expect(before).toContain("width: 22px;");
-    expect(before).toContain("height: 22px;");
+    // 图标框 22×22，跟着界面字号走（导航里按栏的比例），最大 28
+    expect(before).toContain("width: min(22px * var(--fs-k), 28px);");
+    expect(before).toContain("height: min(22px * var(--fs-k), 28px);");
   });
 
   test.each(ENTRIES)("%s 有自己的图标：24×24 的 SVG，# 写成 %%23（不然 data: 地址在 # 处就断了）", (entry) => {

@@ -82,8 +82,8 @@
 :root[data-style="pixel"] .voice-toggle::before {
   content: "";
   display: block;
-  width: 22px;
-  height: 22px;
+  width: min(22px * var(--fs-k), 28px);
+  height: min(22px * var(--fs-k), 28px);
   background: currentColor;
   -webkit-mask: var(--pixel-icon) center / contain no-repeat;
   mask: var(--pixel-icon) center / contain no-repeat;
@@ -116,7 +116,7 @@
 }
 /* 带返回键的二级页（任务详情这类，TopBar 挂 data-back）：标题长，小一号，少截掉几个字 */
 :root[data-style="pixel"] .topbar[data-back] .title {
-  font-size: 16px;
+  font-size: calc(16px * var(--fs-k));
 }
 /* 标题栏上的"发起任务"：40 高的草地绿像素按钮（设计稿） */
 :root[data-style="pixel"] .topbar .btn.primary {
@@ -446,7 +446,7 @@
   padding: 0 2px;
   background: none;
   box-shadow: none;
-  font-size: 8px;
+  font-size: max(8px * var(--fs-k), 8px);
   font-weight: 400;
   line-height: 16px;
   text-shadow:
@@ -479,7 +479,7 @@
 /* 时间写在话的上面（设计稿："二狗 08:00"在话上面一行；产品的消息只带时间），Press Start 2P 9px */
 :root[data-style="pixel"] .msg-meta {
   order: -1;
-  font-size: 9px;
+  font-size: max(9px * var(--fs-k), 9px);
   line-height: 1.6;
 }
 /* 发送中、发送失败、正在回复这几句是中文：照经典的字号，不缩到 9px */
@@ -594,7 +594,7 @@
   opacity: 1;
 }
 :root[data-style="pixel"] .voice-duration {
-  font-size: 9px;
+  font-size: max(9px * var(--fs-k), 9px);
 }
 :root[data-style="pixel"] .assistant .voice-duration {
   color: var(--muted);
@@ -840,7 +840,7 @@
   padding: 3px 5px;
   background: var(--primary-fill);
   color: var(--primary-text);
-  font-size: 9px;
+  font-size: max(9px * var(--fs-k), 9px);
   line-height: 1.4;
 }
 /*
@@ -1121,7 +1121,7 @@
   content: ">" / "";
   margin-right: 8px;
   font-family: var(--font-num);
-  font-size: 9px;
+  font-size: max(9px * var(--fs-k), 9px);
 }
 /* 每一项一个像素框，隔 10（设计稿的 .row）；未读的标题粗体，看过的中等 */
 :root[data-style="pixel"] .inbox-row {
@@ -1165,7 +1165,7 @@
   width: 40px;
   padding: 4px 6px 4px 0;
   color: var(--muted);
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
   text-align: right;
 }
 :root[data-style="pixel"] .inbox-hint {
@@ -1184,5 +1184,5 @@
   line-height: 1.6;
 }
 :root[data-style="pixel"] .dg-n {
-  font-size: 9px;
+  font-size: max(9px * var(--fs-k), 9px);
 }

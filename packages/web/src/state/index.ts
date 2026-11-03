@@ -46,6 +46,7 @@ export * from "./voice-autoplay.ts";
 export * from "./scope-records.ts";
 export * from "./theme.ts";
 export * from "./visual-style.ts";
+export * from "./font-scale.ts";
 export * from "./scheduled-jobs.ts";
 export * from "./operations-lock.ts";
 export * from "./triggers.ts";

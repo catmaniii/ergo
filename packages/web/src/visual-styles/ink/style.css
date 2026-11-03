@@ -37,22 +37,22 @@
   font-weight: 400;
 }
 :root[data-style="ink"] .empty-title {
-  font-size: 26px;
+  font-size: calc(26px * var(--fs-k));
 }
 :root[data-style="ink"] .modal-title {
-  font-size: 24px;
+  font-size: calc(24px * var(--fs-k));
   line-height: 1.2;
 }
 :root[data-style="ink"] .sec-head h3 {
-  font-size: 20px;
+  font-size: calc(20px * var(--fs-k));
   line-height: 1.25;
 }
 :root[data-style="ink"] .dt-section h4 {
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
   line-height: 1.3;
 }
 :root[data-style="ink"] .detail-bar-title {
-  font-size: 20px;
+  font-size: calc(20px * var(--fs-k));
 }
 
 /* 画线条图标：图标是 --ink-icon（按导航项、输入栏的按钮换），细线用当前字色画；原来的表情符号、全角加号藏起来 */
@@ -66,8 +66,8 @@
 :root[data-style="ink"] .composer .voice-toggle::before {
   content: "";
   display: block;
-  width: 22px;
-  height: 22px;
+  width: min(22px * var(--fs-k), 28px);
+  height: min(22px * var(--fs-k), 28px);
   background: currentColor;
   -webkit-mask: var(--ink-icon) center / contain no-repeat;
   mask: var(--ink-icon) center / contain no-repeat;
@@ -85,7 +85,7 @@
 }
 /* 带返回键的二级页（任务详情这类，TopBar 挂 data-back）：标题长，小一号，少截掉几个字 */
 :root[data-style="ink"] .topbar[data-back] .title {
-  font-size: 24px;
+  font-size: calc(24px * var(--fs-k));
 }
 /* 标题后面的小字（宽屏秘书页的"主线会话"）：宋体灰字、字距拉开（设计稿标题下面那行"秘书主线"） */
 :root[data-style="ink"] .title-sub {
@@ -232,7 +232,7 @@
 :root[data-style="ink"] .composer-placeholder .assistant-name {
   display: inline-block;
   margin: 0 2px;
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-k));
   line-height: 1.55;
   vertical-align: middle;
 }
@@ -248,7 +248,7 @@
   padding: 0 7px;
   overflow: hidden;
   box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.45);
-  font-size: 24px;
+  font-size: calc(24px * var(--fs-k));
   line-height: 1.35;
   text-overflow: ellipsis;
   vertical-align: middle;
@@ -446,7 +446,7 @@
 :root[data-style="ink"] .siderail-brand {
   padding: 4px 0 14px;
   color: var(--primary);
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
   line-height: 1.1;
 }
 :root[data-style="ink"] .siderail .tab {
@@ -709,7 +709,7 @@
 :root[data-style="ink"] .xcard-tag {
   padding: 0;
   background: none;
-  font-size: 24px;
+  font-size: calc(24px * var(--fs-k));
   line-height: 1.1;
 }
 :root[data-style="ink"] .xcard-title {
@@ -802,7 +802,7 @@
   font-size: var(--fs-s);
 }
 :root[data-style="ink"] .bgroup-h b {
-  font-size: 24px;
+  font-size: calc(24px * var(--fs-k));
   line-height: 1.1;
 }
 /* 分组标题不上色（设计稿）：等你的那一组靠每行状态前面的朱砂小方块 */
@@ -982,7 +982,7 @@
 :root[data-style="ink"] .inbox-group {
   padding: 14px 16px 2px;
   color: var(--text);
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
   line-height: 1.4;
 }
 :root[data-style="ink"] .inbox-row {

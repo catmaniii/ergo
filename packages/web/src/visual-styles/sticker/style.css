@@ -48,16 +48,16 @@
   font-family: var(--font-body);
 }
 :root[data-style="sticker"] .sec-head h3 {
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
 }
 :root[data-style="sticker"] .empty-title {
-  font-size: 24px;
+  font-size: calc(24px * var(--fs-k));
 }
 :root[data-style="sticker"] .modal-title {
-  font-size: 22px;
+  font-size: calc(22px * var(--fs-k));
 }
 :root[data-style="sticker"] .detail-bar-title {
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
 }
 
 /* 画线条图标：图标是 --sticker-icon（按导航项、输入栏的按钮换），线条用当前字色画；原来的表情符号、全角加号藏起来 */
@@ -71,8 +71,8 @@
 :root[data-style="sticker"] .voice-toggle::before {
   content: "";
   display: block;
-  width: 22px;
-  height: 22px;
+  width: min(22px * var(--fs-k), 28px);
+  height: min(22px * var(--fs-k), 28px);
   background: currentColor;
   -webkit-mask: var(--sticker-icon) center / contain no-repeat;
   mask: var(--sticker-icon) center / contain no-repeat;
@@ -95,7 +95,7 @@
 }
 /* 带返回键的二级页（任务详情这类，TopBar 挂 data-back）：标题长，小一号，少截掉几个字 */
 :root[data-style="sticker"] .topbar[data-back] .title {
-  font-size: 22px;
+  font-size: calc(22px * var(--fs-k));
 }
 :root[data-style="sticker"] .title-sub {
   font-size: var(--fs-s);
@@ -194,7 +194,7 @@
   margin: 0 4px 0 2px;
   padding: 0 7px;
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-k));
   line-height: 1.5;
   vertical-align: middle;
 }
@@ -420,7 +420,7 @@
 }
 :root[data-style="sticker"] .siderail-brand {
   padding: 0 0 12px;
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
 }
 :root[data-style="sticker"] .siderail .tab {
   padding: 8px 3px;
@@ -725,7 +725,7 @@
   padding: 0;
   border-radius: 0;
   background: none;
-  font-size: 20px;
+  font-size: calc(20px * var(--fs-k));
   line-height: 1.2;
 }
 /*
@@ -808,7 +808,7 @@
   padding: 4px 4px 2px;
 }
 :root[data-style="sticker"] .bgroup-h b {
-  font-size: 22px;
+  font-size: calc(22px * var(--fs-k));
   line-height: 1.25;
 }
 /* 分组标题不上色（设计稿）：等你的那一组靠卡片上的暖红药丸 */
@@ -995,7 +995,7 @@
   width: 40px;
   padding: 4px 6px 4px 0;
   color: var(--muted);
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
   text-align: right;
 }
 :root[data-style="sticker"] .inbox-hint {

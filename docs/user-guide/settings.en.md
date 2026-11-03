@@ -80,6 +80,7 @@ See [Voice](voice.en.md) for more.
 **How to change it:** Open it.
 
 - **Appearance:** Light, Dark, System. The default is System.
+- **Display · Text size:** Small, Default, Large, Extra large, plus a slider below for fine-tuning (85% to 150%). The example below changes as you go, and so does the whole page. With bigger text the title bar and navigation grow only a little and the blank space doesn't grow with them, so messages keep the room; with smaller text only reading text shrinks, while buttons, links and input boxes stay at the default size so they're still easy to tap, and the smallest text never goes below 11 pixels. Phone width, unfolded width, and tablet or computer width each keep their own size: folding or unfolding switches to the size for that width, and widths you haven't changed stay at Default.
 - **Style:** Classic, Paper journal, Clean grid, Night cockpit, Soft candy, Glass glow, Blueprint, Sticker bento, Pixel cottage, Ink wash, Retro magazine. Each has a preview with light on the left and dark on the right; click to switch.
 - **Accent color:** With Classic selected a row of swatches appears: Blue, Indigo, Teal, Green, Orange, Red, Pink, Graphite.
 

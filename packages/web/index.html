@@ -48,6 +48,28 @@
         }
       })();
     </script>
+    <script>
+      // 界面字号：页面脚本加载前就按这台设备、这种屏幕形态（窄屏、中屏、宽屏）记住的比例写好根元素的 --fs-k 和
+      // data-font-scale（调大 up、调小 down），不先闪一下原来的大小。和 src/app/font-scale.ts、src/state/font-scale.ts
+      // 做的是同一件事（形态的分界、键名、范围和步长都一样），改一处要改另一处（test/app/font-scale.test.ts 比对两边的结果）。
+      (function () {
+        var width = window.innerWidth || 0;
+        var form = width >= 840 ? "wide" : width >= 600 ? "medium" : "narrow";
+        var raw = null;
+        try {
+          raw = localStorage.getItem("ergo-font-scale-" + form);
+        } catch (e) {
+          // 存储用不了：就是 1
+        }
+        if (raw === null || String(raw).trim() === "") return;
+        var scale = Number(raw);
+        if (!isFinite(scale)) return;
+        scale = Math.round(Math.min(1.5, Math.max(0.85, scale)) / 0.05) / 20;
+        if (scale === 1) return;
+        document.documentElement.style.setProperty("--fs-k", String(scale));
+        document.documentElement.setAttribute("data-font-scale", scale > 1 ? "up" : "down");
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

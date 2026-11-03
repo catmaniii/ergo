@@ -14,8 +14,8 @@
 :root[data-style="classic"] .tab-icon::before {
   content: "";
   display: block;
-  width: 22px;
-  height: 22px;
+  width: min(22px * var(--fs-k), 28px);
+  height: min(22px * var(--fs-k), 28px);
   background: currentColor;
   -webkit-mask: var(--classic-icon) center / contain no-repeat;
   mask: var(--classic-icon) center / contain no-repeat;

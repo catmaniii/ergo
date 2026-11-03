@@ -236,9 +236,67 @@ export function resolveColor(tokens: Tokens, name: TokenName, theme: Theme): str
   return toHex([r, g, b].map((c, i) => c * a + under[i]! * (1 - a)));
 }
 
-/** 一个 token 写成样式：浅深不一样的用 light-dark()，跟着根元素的 color-scheme 取值（见 styles/base.css 开头） */
+/**
+ * 界面字号（设置 · 外观与风格 · 显示，state/font-scale.ts）：根元素上的 --fs-k 是这台设备、这种屏幕形态选的比例
+ * （没调过是 1，就是风格本来的样子），--space-k 是间距跟着走的那一部分（0.7 + 0.3 × 比例，styles/base.css 里由 --fs-k 算）。
+ * 生成样式表时这几类 token 写成算式，所以每套风格的这几样跟着比例走，不用 zoom、不改 html 的字号：
+ * - 字号阶 fs-*：乘 --fs-k；缩小时不低于 min(它本来的大小, 11px)——8、10、11 不缩，12 最多缩到 11，字不会小到伤眼；
+ * - 间距 space-page、space-msg：乘 --space-k；
+ * - 标题栏高 bar-h：调大时乘 --space-k，最多比本来高 12px，也不超过 max(56px, 本来的高)（本来就高的风格调大时不再长）；
+ *   调小时不变矮（栏里的按钮是撑满栏高的点击区，不让它们跟着变小）。
+ * 比例是 1 时算出来就是原值（max(15px * 1, 11px) 是 15px），每套风格在 1 下一像素不变。
+ * 只认像素写法；var(--别的 token) 原样留着（跟着它引用的那个走，不乘两遍），别的写法报错（test/visual-styles/font-scale.test.ts 查每套风格）
+ */
+export const FONT_SCALE_TOKENS = {
+  /** 缩小时字号不低于 min(本来的大小, 这么多像素) */
+  fontFloorPx: 11,
+  /** 标题栏调大以后最高这么多像素（本来就比它高的风格按本来的高） */
+  barMaxPx: 56,
+  /** 标题栏调大以后最多比本来高这么多像素 */
+  barGrowMaxPx: 12,
+} as const;
+
+/** 栏：标题栏、详情页的标题栏、导航（手机底部一条、宽屏左边一栏）。调大时里面的字只跟一部分（--bar-k），栏不因为字大撑高、变宽 */
+export const BAR_REGIONS = ":is(.topbar, .detail-bar, .tabbar, .siderail)";
+
+/**
+ * 能点的东西：调小时它们（和它们里面的字）保持 1 时的大小，点击区不跟着变小。
+ * 正文里的链接（段落、列表、气泡、Markdown 里的）不算：它们跟着正文一起缩，不然一行字里链接比旁边的字大
+ */
+export const CONTROLS =
+  ':is(button, a[href]:not(:is(p, li, td, .bubble, .md) a), input, select, textarea, summary, [role="button"], [role="tab"], [role="radio"], [role="switch"], [role="menuitem"])';
+
+/** 跟着字号比例走的 token 怎么乘：字号阶、间距、标题栏高；别的 token 原样 */
+function scaleKind(name: TokenName): "font" | "space" | "bar" | undefined {
+  if (name.startsWith("fs-")) return "font";
+  if (name === "space-page" || name === "space-msg") return "space";
+  if (name === "bar-h") return "bar";
+  return undefined;
+}
+
+/** 写成像素的数（"15px"、"12.5px"）；别的写法给 undefined */
+function plainPx(value: string): number | undefined {
+  const m = /^\s*(\d+(?:\.\d+)?)px\s*$/.exec(value);
+  return m ? Number(m[1]) : undefined;
+}
+
+/** 一个 token 的值跟着字号比例走的写法（不跟着走的原样给回去） */
+export function scaledTokenValue(name: TokenName, value: string): string {
+  const kind = scaleKind(name);
+  if (kind === undefined || /^var\(--[a-z0-9-]+\)$/.test(value.trim())) return value;
+  const px = plainPx(value);
+  // @i18n-ignore-next log：风格清单写错了（构建、测试时报）
+  if (px === undefined) throw new Error(`--${name} 是 ${value}：跟着字号比例走的 token 要写成像素（或 var(--别的 token)）`);
+  const { fontFloorPx, barMaxPx, barGrowMaxPx } = FONT_SCALE_TOKENS;
+  if (kind === "font") return `max(${px}px * var(--fs-k), ${Math.min(px, fontFloorPx)}px)`;
+  if (kind === "space") return `calc(${px}px * var(--space-k))`;
+  return `clamp(${px}px, ${px}px * var(--space-k), ${Math.min(Math.max(barMaxPx, px), px + barGrowMaxPx)}px)`;
+}
+
+/** 一个 token 写成样式：浅深不一样的用 light-dark()，跟着根元素的 color-scheme 取值（见 styles/base.css 开头）；跟着字号比例走的写成算式 */
 function declaration(name: TokenName, value: TokenValue): string {
-  const css = typeof value === "string" || value[0] === value[1] ? tokenValue(value, "light") : `light-dark(${value[0]}, ${value[1]})`;
+  const one = (v: string) => scaledTokenValue(name, v);
+  const css = typeof value === "string" || value[0] === value[1] ? one(tokenValue(value, "light")) : `light-dark(${one(value[0])}, ${one(value[1])})`;
   return `  --${name}: ${css};`;
 }
 
@@ -256,6 +314,18 @@ export function visualStylesCss(styles: readonly VisualStyle[], base: BaseVisual
     const tokens = effectiveTokens(style, base);
     blocks.push(`[data-style="${style.id}"] {\n${TOKEN_NAMES.map((n) => declaration(n, tokens[n])).join("\n")}\n}`);
   }
+  // 一块地方换一个比例：在这块地方把 --fs-k 换掉，字号阶照这套风格的值重算一遍（token 在根元素上就算好了，光换 --fs-k
+  // 不够）；写死像素、乘 var(--fs-k) 的字号在这块地方里自然也跟着换。特异度一样的，后写的压过先写的：经典在前
+  // - 栏里的字只跟一部分：--fs-k 换成 --bar-k（styles/base.css）；
+  // - 调小了（根元素挂 data-font-scale="down"）时能点的东西不缩：--fs-k 换成 1，按钮、链接、输入框和它们里面的字
+  //   保持 1 时的大小，点击区不跟着变小；只缩看的字
+  const fontNames = TOKEN_NAMES.filter((n) => scaleKind(n) === "font");
+  const regionBlock = (scope: string, region: string, k: string, tokens: Tokens) =>
+    `${scope} ${region} {\n  --fs-k: ${k};\n${fontNames.map((n) => declaration(n, tokens[n])).join("\n")}\n}`;
+  blocks.push(regionBlock(":root", BAR_REGIONS, "var(--bar-k)", base.tokens));
+  for (const style of styles) blocks.push(regionBlock(`[data-style="${style.id}"]`, BAR_REGIONS, "var(--bar-k)", effectiveTokens(style, base)));
+  blocks.push(regionBlock(`:root[data-font-scale="down"]`, CONTROLS, "1", base.tokens));
+  for (const style of styles) blocks.push(regionBlock(`[data-style="${style.id}"][data-font-scale="down"]`, CONTROLS, "1", effectiveTokens(style, base)));
   for (const style of styles) {
     for (const accent of style.accents ?? []) {
       const names = TOKEN_NAMES.filter((n) => accent.tokens[n] !== undefined);

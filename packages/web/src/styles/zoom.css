@@ -1138,7 +1138,7 @@
 .sbox-no {
   flex: none;
   color: var(--c-plan);
-  font-size: 12.5px;
+  font-size: max(12.5px * var(--fs-k), 11px);
   font-weight: 700;
 }
 .sbox-title {
@@ -1169,7 +1169,7 @@
 }
 .sbox-st {
   flex: none;
-  font-size: 12.5px;
+  font-size: max(12.5px * var(--fs-k), 11px);
   white-space: nowrap;
 }
 .sbox-st-ok {
@@ -1226,7 +1226,7 @@
   background: none;
   color: var(--primary);
   font: inherit;
-  font-size: 12.5px;
+  font-size: max(12.5px * var(--fs-k), 11px);
   cursor: pointer;
 }
 .sbox-more .sbox-caret {
@@ -1317,7 +1317,7 @@
   border-left: 1px solid var(--border);
   background: none;
   color: var(--muted);
-  font-size: 20px;
+  font-size: calc(20px * var(--fs-k));
   cursor: pointer;
 }
 .strip-body {
@@ -1353,7 +1353,7 @@
   border: none;
   background: none;
   color: var(--primary);
-  font-size: 12.5px;
+  font-size: max(12.5px * var(--fs-k), 11px);
   cursor: pointer;
 }
 .strip-reject {
@@ -1407,7 +1407,7 @@
   border-left: none;
   border-radius: 0;
   background: none;
-  font-size: 12.5px;
+  font-size: max(12.5px * var(--fs-k), 11px);
 }
 .zi-grp-open .thinking {
   margin: 0;
@@ -1491,7 +1491,7 @@ button.zd-note {
   display: inline-grid;
   width: 14px;
   height: 14px;
-  font-size: 8.5px;
+  font-size: 8.5px; /* 不跟字号：图例里 14×14 的图标框，不跟字号 */
 }
 .zh-legend .zh-glyphs .ic-ok {
   display: none;

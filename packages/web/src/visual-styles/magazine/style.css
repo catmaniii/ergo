@@ -70,10 +70,10 @@
   font-weight: 700;
 }
 :root[data-style="magazine"] .empty-title {
-  font-size: 22px;
+  font-size: calc(22px * var(--fs-k));
 }
 :root[data-style="magazine"] .modal-title {
-  font-size: 22px;
+  font-size: calc(22px * var(--fs-k));
   line-height: 1.2;
 }
 /* 黑体的小字：按钮、分段、小签、说明、副标题（设计稿的 .sans / .lbl） */
@@ -100,14 +100,14 @@
   line-height: 1.15;
 }
 :root[data-style="magazine"] .topbar[data-back] .title {
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
 }
 /*
  * 宽屏右边那一栏的标题（任务详情、待办事项、项目详情……：标题是任务名、事项的标题，长）24 号，少截掉几个字；
  * 左边列表栏（任务看板、待办）和秘书页（"个人秘书：<名字>"，字号自己算，见下面"个人助理的名字"）照旧
  */
 :root[data-style="magazine"] .app.wide .pane-main .topbar .title {
-  font-size: 24px;
+  font-size: calc(24px * var(--fs-k));
 }
 /* 窄屏整页滑入、宽屏右边的详情页（.detail-bar）：标题栏下面也是 3px 墨线 */
 :root[data-style="magazine"] .detail-bar {
@@ -423,8 +423,8 @@
 :root[data-style="magazine"] .voice-icon::before {
   content: "";
   display: block;
-  width: 22px;
-  height: 22px;
+  width: min(22px * var(--fs-k), 28px);
+  height: min(22px * var(--fs-k), 28px);
   background: currentColor;
   -webkit-mask: var(--magazine-icon) center / contain no-repeat;
   mask: var(--magazine-icon) center / contain no-repeat;
@@ -520,7 +520,7 @@
 }
 :root[data-style="magazine"] .siderail-brand {
   padding: 8px 0 14px;
-  font-size: 16px;
+  font-size: calc(16px * var(--fs-k));
   line-height: 1;
 }
 /*
@@ -571,7 +571,7 @@
   /* 回复是 .bubble.md，会带上阶段抽屉 .md 的下边线；这套风格不套气泡，下边线不要 */
   border-bottom: none;
   background: none;
-  font-size: 16px;
+  font-size: calc(16px * var(--fs-k));
   line-height: 1.65;
   text-wrap: pretty;
 }
@@ -755,7 +755,7 @@
 :root[data-style="magazine"] .xcard-tag {
   padding: 0;
   background: none;
-  font-size: 24px;
+  font-size: calc(24px * var(--fs-k));
   line-height: 1.1;
 }
 :root[data-style="magazine"] .xcard-done .xcard-tag {
@@ -859,7 +859,7 @@
   background: var(--magazine-dbl-under);
 }
 :root[data-style="magazine"] .bgroup-h b {
-  font-size: 20px;
+  font-size: calc(20px * var(--fs-k));
   line-height: 1.1;
 }
 :root[data-style="magazine"] .bg-waiting .bgroup-h b {
@@ -876,7 +876,7 @@
   align-self: baseline;
   color: var(--primary);
   font-family: var(--font-title);
-  font-size: 26px;
+  font-size: calc(26px * var(--fs-k));
   font-weight: 900;
   line-height: 1;
 }
@@ -923,7 +923,7 @@
   box-shadow: var(--magazine-row-on);
 }
 :root[data-style="magazine"] .bcard-title {
-  font-size: 16px;
+  font-size: calc(16px * var(--fs-k));
   font-weight: 400;
   line-height: 1.45;
   /* 挨着种类签折行时不让最后一个字单独掉到下一行 */
@@ -962,7 +962,7 @@
   padding: 12px 0 13px;
   background: var(--magazine-dbl-under);
   color: var(--text);
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
   font-weight: 900;
   line-height: 1.1;
 }
@@ -988,7 +988,7 @@
   box-shadow: none;
 }
 :root[data-style="magazine"] .inbox-title {
-  font-size: 16px;
+  font-size: calc(16px * var(--fs-k));
   line-height: 1.45;
   /* 折行时不让最后一个字单独掉到下一行（"也扫一 / 遍"） */
   text-wrap: pretty;

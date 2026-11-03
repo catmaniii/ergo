@@ -50,7 +50,7 @@
   border-radius: var(--radius-xs);
   background: var(--surface);
   color: var(--primary-text);
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-k));
   font-weight: 700;
   line-height: 1;
 }
@@ -483,7 +483,7 @@ button.device-main {
 .pair-qr-none h2,
 .pair-qr-request h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
   line-height: 1.4;
 }
 .pair-qr-none p {

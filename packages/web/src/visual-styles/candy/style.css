@@ -30,10 +30,10 @@
   font-family: var(--font-body);
 }
 :root[data-style="candy"] .sec-head h3 {
-  font-size: 17px;
+  font-size: calc(17px * var(--fs-k));
 }
 :root[data-style="candy"] .empty-title {
-  font-size: 22px;
+  font-size: calc(22px * var(--fs-k));
 }
 
 /* 画线条图标：图标是 --candy-icon（按导航项、按钮、卡片类型换），线条用当前字色画（卡片类型的圆里另给颜色） */
@@ -43,8 +43,8 @@
 :root[data-style="candy"] .xcard-tag::after {
   content: "";
   display: block;
-  width: 22px;
-  height: 22px;
+  width: min(22px * var(--fs-k), 28px);
+  height: min(22px * var(--fs-k), 28px);
   background: currentColor;
   -webkit-mask: var(--candy-icon) center / contain no-repeat;
   mask: var(--candy-icon) center / contain no-repeat;
@@ -60,12 +60,12 @@
   padding-right: 16px;
 }
 :root[data-style="candy"] .topbar .title {
-  font-size: 26px;
+  font-size: calc(26px * var(--fs-k));
   line-height: 1.2;
 }
 /* 带返回键的二级页（任务详情这类，TopBar 挂 data-back）：标题长，小一号，少截掉几个字 */
 :root[data-style="candy"] .topbar[data-back] .title {
-  font-size: 21px;
+  font-size: calc(21px * var(--fs-k));
 }
 :root[data-style="candy"] .title-sub {
   font-size: var(--fs-s);
@@ -305,7 +305,7 @@
   background: var(--primary-fill);
   color: var(--primary-text);
   font-family: var(--font-title);
-  font-size: 17px;
+  font-size: calc(17px * var(--fs-k));
   line-height: 1;
 }
 :root[data-style="candy"] .conv[data-mode="secretary"] .zi.ck-card .msg.assistant::before {
@@ -573,7 +573,7 @@
   border-radius: 0;
   background: none;
   color: var(--text);
-  font-size: 17px;
+  font-size: calc(17px * var(--fs-k));
   line-height: 1.2;
 }
 :root[data-style="candy"] .xcard-tag::before {
@@ -659,7 +659,7 @@
   padding: 6px 4px 4px;
 }
 :root[data-style="candy"] .bgroup-h b {
-  font-size: 19px;
+  font-size: calc(19px * var(--fs-k));
   line-height: 1.3;
 }
 :root[data-style="candy"] .bg-waiting .bgroup-h b {

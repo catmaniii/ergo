@@ -99,7 +99,7 @@
   line-height: 1.6;
 }
 .detail-empty-icon {
-  font-size: 26px;
+  font-size: calc(26px * var(--fs-k));
   opacity: 0.45;
 }
 
@@ -1589,7 +1589,7 @@
   gap: 6px;
   margin: 10px 0 0;
   padding: 0;
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--fs-k));
   line-height: 1.45;
   list-style: none;
 }
@@ -1652,7 +1652,7 @@
 .mo-st {
   flex: none;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: max(11.5px * var(--fs-k), 11px);
 }
 .mo-caret {
   flex: none;
@@ -1674,7 +1674,7 @@
   border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
   border-radius: var(--radius-l);
   background: var(--bg);
-  font-size: 12.5px;
+  font-size: max(12.5px * var(--fs-k), 11px);
   line-height: 1.5;
 }
 .mp-node-head {
@@ -1686,12 +1686,12 @@
 .mp-node-no {
   flex: none;
   color: var(--c-plan);
-  font-size: 11.5px;
+  font-size: max(11.5px * var(--fs-k), 11px);
   font-weight: 700;
 }
 .mp-node-title {
   flex: 1;
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--fs-k));
 }
 .mp-node .mp-node-k {
   width: 6.2em;
@@ -1704,7 +1704,7 @@
 .mp-node-more {
   margin-top: 8px;
   padding: 0;
-  font-size: 12.5px;
+  font-size: max(12.5px * var(--fs-k), 11px);
 }
 .mg-legend {
   display: flex;

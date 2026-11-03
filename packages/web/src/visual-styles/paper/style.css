@@ -19,7 +19,7 @@
   font-weight: 400;
 }
 :root[data-style="paper"] .modal-title {
-  font-size: 19px;
+  font-size: calc(19px * var(--fs-k));
   font-weight: 700;
 }
 /* 标题栏上的"发起任务"：设计稿里是墨绿细边框按钮，不是实色块 */
@@ -106,8 +106,8 @@
 :root[data-style="paper"] .composer .voice-toggle::before {
   content: "";
   display: block;
-  width: 22px;
-  height: 22px;
+  width: min(22px * var(--fs-k), 28px);
+  height: min(22px * var(--fs-k), 28px);
   background: currentColor;
   -webkit-mask: var(--paper-icon) center / contain no-repeat;
   mask: var(--paper-icon) center / contain no-repeat;
@@ -171,7 +171,7 @@
 /* 竖栏：顶上的"二狗"是墨绿，选中的那一项铺浅绿底 */
 :root[data-style="paper"] .siderail-brand {
   color: var(--primary);
-  font-size: 16px;
+  font-size: calc(16px * var(--fs-k));
   letter-spacing: 0.06em;
   padding: 6px 0 14px;
 }
@@ -456,7 +456,7 @@
   font-size: var(--fs-s);
 }
 :root[data-style="paper"] .bgroup-h b {
-  font-size: 16px;
+  font-size: calc(16px * var(--fs-k));
   font-weight: 700;
 }
 :root[data-style="paper"] .bg-waiting .bgroup-h b {

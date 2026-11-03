@@ -97,7 +97,7 @@
 /* 铃铛是共用的线条图标（ui/icons.tsx，原来是 🔔） */
 .alert-icon {
   display: flex;
-  font-size: 20px;
+  font-size: calc(20px * var(--fs-k));
 }
 .alert-count {
   color: var(--muted);
@@ -409,7 +409,7 @@ fieldset {
 }
 .msg-meta {
   font-family: var(--font-num);
-  font-size: 10.5px;
+  font-size: max(10.5px * var(--fs-k), 10.5px);
   color: var(--muted);
 }
 .msg-pending .bubble {
@@ -443,7 +443,7 @@ fieldset {
 }
 .queued-tag {
   font-family: var(--font-body, inherit);
-  font-size: 10.5px;
+  font-size: max(10.5px * var(--fs-k), 10.5px);
   padding: 1px 6px;
   border-radius: var(--radius-s, 4px);
   border: 1px dashed var(--muted);
@@ -459,7 +459,7 @@ fieldset {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--muted);
-  font-size: 14px;
+  font-size: 14px; /* 不跟字号：图标框是 22×22 的圆，叉号跟着它不跟字号 */
   line-height: 18px;
   padding: 0;
   text-align: center;
@@ -497,7 +497,7 @@ fieldset {
 }
 .msg-system {
   align-items: stretch;
-  font-size: 12.5px;
+  font-size: max(12.5px * var(--fs-k), 11px);
   line-height: 1.5;
 }
 .msg-system .sys-note {
@@ -566,7 +566,7 @@ fieldset {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.18);
   color: #fff;
-  font-size: 30px;
+  font-size: 30px; /* 不跟字号：看大图时盖在图上的 44×44 圆钮，不跟字号 */
   line-height: 44px;
   text-align: center;
   cursor: pointer;
@@ -612,10 +612,10 @@ fieldset {
   opacity: 0.35;
 }
 .iab-act {
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
 }
 .iab-close {
-  font-size: 26px;
+  font-size: calc(26px * var(--fs-k));
 }
 .iab-frame {
   flex: 1;
@@ -1094,7 +1094,7 @@ a.att-icon:hover {
 }
 .letter-time {
   font-family: var(--font-num);
-  font-size: 10.5px;
+  font-size: max(10.5px * var(--fs-k), 10.5px);
 }
 .letter-more {
   padding-left: 2px;
@@ -1178,7 +1178,7 @@ a.att-icon:hover {
   align-self: flex-end;
 }
 .attach-btn {
-  font-size: 22px;
+  font-size: calc(22px * var(--fs-k));
   padding: 8px 6px;
 }
 .attach-menu {
@@ -1218,7 +1218,7 @@ a.att-icon:hover {
   gap: 8px;
 }
 .attach-menu-label .icon {
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
   color: var(--muted);
 }
 .attach-menu small {
@@ -1347,7 +1347,7 @@ a.att-icon:hover {
   border-radius: 999px;
   background: none;
   color: var(--muted);
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
 }
 .slash-more[aria-pressed="true"] {
   color: var(--primary);
@@ -1478,7 +1478,7 @@ a.att-icon:hover {
 .attach-icon {
   flex: none;
   display: flex;
-  font-size: 16px;
+  font-size: calc(16px * var(--fs-k));
   color: var(--muted);
 }
 /* 说完了、排着等附件的语音：状态用操作色，看得出它还没发 */
@@ -1519,7 +1519,7 @@ a.att-icon:hover {
 .xcard-tag {
   font-family: var(--font-title);
   flex: none;
-  font-size: 11.5px;
+  font-size: max(11.5px * var(--fs-k), 11px);
   font-weight: 600;
   padding: 2px 8px;
   border-radius: var(--radius-s);
@@ -1875,7 +1875,7 @@ a.att-icon:hover {
 /* 提问卡 */
 .qa legend {
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--fs-k));
   padding: 0;
   margin-bottom: 6px;
 }
@@ -1901,7 +1901,7 @@ a.att-icon:hover {
   font-weight: 600;
 }
 .qa-rec {
-  font-size: 10.5px;
+  font-size: max(10.5px * var(--fs-k), 10.5px);
   padding: 0 5px;
   border-radius: var(--radius-xs);
   background: var(--sys-bg);
@@ -2059,10 +2059,10 @@ a.att-icon:hover {
   gap: 2px;
 }
 .pair-codes b {
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
 }
 .pair-codes-big b {
-  font-size: 26px;
+  font-size: calc(26px * var(--fs-k));
 }
 /* 像网络上的自动访问的配对请求：配对卡、批准页上醒目的一句；待办那一行上的短标 */
 .pair-bot {
@@ -2092,7 +2092,7 @@ a.att-icon:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 12px;
-  font-size: 12.5px;
+  font-size: max(12.5px * var(--fs-k), 11px);
   color: var(--muted);
 }
 .look-tail-you {
@@ -2107,7 +2107,7 @@ a.att-icon:hover {
   border-top: 1px solid var(--border);
 }
 .plan-sec-h {
-  font-size: 12.5px;
+  font-size: max(12.5px * var(--fs-k), 11px);
   font-weight: 600;
   color: var(--muted);
   padding: 0;
@@ -2141,7 +2141,7 @@ a.att-icon:hover {
 }
 .chip-locked::before {
   content: "🔒 ";
-  font-size: 9px;
+  font-size: max(9px * var(--fs-k), 9px);
 }
 .chip-x {
   border: none;
@@ -2455,7 +2455,7 @@ a.att-icon:hover {
 /* ---------- 项目 ---------- */
 .pst {
   flex: none;
-  font-size: 11.5px;
+  font-size: max(11.5px * var(--fs-k), 11px);
   font-weight: 600;
   padding: 1px 8px;
   border-radius: var(--radius-pill);
@@ -2540,7 +2540,7 @@ a.att-icon:hover {
   flex-direction: column;
 }
 .pwall:not([data-layout]) .pwall-stat b {
-  font-size: 20px;
+  font-size: calc(20px * var(--fs-k));
 }
 .pwall-stat {
   display: flex;
@@ -2552,7 +2552,7 @@ a.att-icon:hover {
 }
 .pwall-stat b {
   font-family: var(--font-num);
-  font-size: 24px;
+  font-size: calc(24px * var(--fs-k));
   font-weight: 700;
   line-height: 1.15;
   color: var(--text);
@@ -2800,14 +2800,14 @@ a.att-icon:hover {
   background: var(--surface);
 }
 .lane-h {
-  font-size: 12.5px;
+  font-size: max(12.5px * var(--fs-k), 11px);
   font-weight: 600;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 .lane-item {
-  font-size: 12.5px;
+  font-size: max(12.5px * var(--fs-k), 11px);
   line-height: 1.45;
   padding: 6px 8px;
   border-radius: var(--radius-m);
@@ -3320,6 +3320,49 @@ a.att-icon:hover {
 .appearance-choice .seg button {
   flex: 1;
 }
+/* 设置 · 外观与风格 · 显示：字号的预设、细调滑杆、示例（示例跟着整页一起变，就是实时预览） */
+.font-scale {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.font-scale-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 420px;
+  font-size: var(--fs-m);
+  color: var(--muted);
+}
+.font-scale-slider input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  margin: 0;
+  accent-color: var(--primary-fill);
+}
+.font-scale-value {
+  font-family: var(--font-num);
+  min-width: 3.2em;
+  text-align: right;
+  color: var(--text);
+}
+.font-scale-preview {
+  max-width: 420px;
+  border: var(--card-border);
+}
+.font-scale-preview-title {
+  font-family: var(--font-title);
+  font-size: var(--fs-title);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.font-scale-preview p {
+  margin: 6px 0;
+  line-height: 1.5;
+}
 /* 设置 · 浏览与填框：选中的搜索引擎下面一行它的搜索地址（地址长，窄屏上随处断行） */
 .engine-url {
   overflow-wrap: anywhere;
@@ -3470,7 +3513,7 @@ a.att-icon:hover {
   display: inline-flex;
 }
 .web-queue-moves .icon-btn {
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
   padding: 6px;
   color: var(--text);
 }
@@ -4525,7 +4568,7 @@ a.att-icon:hover {
 }
 .stat-v {
   font-family: var(--font-num);
-  font-size: 20px;
+  font-size: calc(20px * var(--fs-k));
   font-weight: 700;
 }
 .bars {
@@ -4600,7 +4643,7 @@ a.att-icon:hover {
 }
 .cat-row select {
   width: 100%;
-  font-size: 12.5px;
+  font-size: max(12.5px * var(--fs-k), 11px);
 }
 .cat-locked {
   grid-template-columns: 1fr auto;
@@ -4802,7 +4845,7 @@ a.att-icon:hover {
   background: none;
   padding: 4px 8px;
   border-radius: var(--radius-m);
-  font-size: 16px;
+  font-size: calc(16px * var(--fs-k));
   font-weight: 600;
 }
 .cal-pick-btn:hover,
@@ -6488,7 +6531,7 @@ button.ds-item {
 }
 .pair-card h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: calc(20px * var(--fs-k));
 }
 .pair-card p {
   margin: 0;
@@ -6548,10 +6591,10 @@ button.ds-item {
   cursor: pointer;
 }
 .sc-mode b {
-  font-size: 14px;
+  font-size: calc(14px * var(--fs-k));
 }
 .sc-mode span {
-  font-size: 11.5px;
+  font-size: max(11.5px * var(--fs-k), 11px);
   line-height: 1.4;
   color: var(--muted);
 }
@@ -6574,7 +6617,7 @@ button.ds-item {
   padding: 0 5px;
   border-radius: 6px;
   font-style: normal;
-  font-size: 11px;
+  font-size: max(11px * var(--fs-k), 11px);
   font-weight: 500;
   color: var(--primary);
   background: color-mix(in srgb, var(--primary) 12%, transparent);
@@ -6604,7 +6647,7 @@ button.ds-item {
   .sc-mode-hint {
     display: block;
     margin: 0 2px 10px;
-    font-size: 12px;
+    font-size: max(12px * var(--fs-k), 11px);
     line-height: 1.5;
     color: var(--muted);
   }
@@ -6627,7 +6670,7 @@ button.ds-item {
 .runtime-picker .sc-mode-hint {
   display: block;
   margin: 0 2px 8px;
-  font-size: 12px;
+  font-size: max(12px * var(--fs-k), 11px);
   line-height: 1.5;
   color: var(--muted);
 }
@@ -6814,7 +6857,7 @@ button.ds-item {
 .work-folder .work-folder-hint {
   display: block;
   margin: 0 2px 8px;
-  font-size: 12px;
+  font-size: max(12px * var(--fs-k), 11px);
   line-height: 1.5;
   color: var(--muted);
   overflow-wrap: anywhere;
@@ -6901,7 +6944,7 @@ button.ds-item {
   border-radius: 10px;
   padding: 10px 12px;
   background: color-mix(in srgb, var(--c-plan) 5%, transparent);
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-k));
   line-height: 1.5;
 }
 .rp-head {
@@ -6912,7 +6955,7 @@ button.ds-item {
 }
 .rp-verdict {
   margin-left: auto;
-  font-size: 12px;
+  font-size: max(12px * var(--fs-k), 11px);
 }
 .rp-verdict.ok {
   color: var(--ok);
@@ -6924,7 +6967,7 @@ button.ds-item {
   color: var(--high-fg);
 }
 .rp-ms {
-  font-size: 11px;
+  font-size: max(11px * var(--fs-k), 11px);
   font-weight: 400;
   color: var(--muted);
 }
@@ -6962,7 +7005,7 @@ button.ds-item {
   border-radius: 50%;
   background: var(--c-plan);
   color: #fff;
-  font-size: 11px;
+  font-size: max(11px * var(--fs-k), 11px);
   font-weight: 700;
 }
 .rp-body {
@@ -6988,12 +7031,12 @@ button.ds-item {
   border-radius: 5px;
   background: color-mix(in srgb, var(--c-plan) 20%, transparent);
   color: var(--c-plan);
-  font-size: 11px;
+  font-size: max(11px * var(--fs-k), 11px);
   font-weight: 600;
 }
 .rp-where {
   margin-right: 6px;
-  font-size: 11px;
+  font-size: max(11px * var(--fs-k), 11px);
   color: var(--muted);
   opacity: 0.8;
 }
@@ -7046,17 +7089,17 @@ button.ds-item {
 }
 .step-id {
   margin-right: 6px;
-  font-size: 11px;
+  font-size: max(11px * var(--fs-k), 11px);
   color: var(--muted);
 }
 .step-call {
   margin-top: 2px;
-  font-size: 12px;
+  font-size: max(12px * var(--fs-k), 11px);
   color: var(--muted);
   word-break: break-all;
 }
 .step-gist {
-  font-size: 12px;
+  font-size: max(12px * var(--fs-k), 11px);
   color: var(--muted);
   margin-top: 2px;
 }
@@ -7067,13 +7110,13 @@ button.ds-item {
   border-radius: 6px;
   background: color-mix(in srgb, var(--c-plan) 22%, transparent);
   color: var(--c-plan);
-  font-size: 11px;
+  font-size: max(11px * var(--fs-k), 11px);
   font-weight: 600;
   vertical-align: 1px;
 }
 .step-patch {
   margin-top: 2px;
-  font-size: 12px;
+  font-size: max(12px * var(--fs-k), 11px);
   color: var(--c-plan);
 }
 /* 每一步要满足的条件（时序规则写成人话，连同审查时查出的结果） */
@@ -7084,7 +7127,7 @@ button.ds-item {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  font-size: 12px;
+  font-size: max(12px * var(--fs-k), 11px);
   line-height: 1.45;
 }
 .cond-status {
@@ -7092,7 +7135,7 @@ button.ds-item {
   margin-right: 6px;
   padding: 0 6px;
   border-radius: 5px;
-  font-size: 11px;
+  font-size: max(11px * var(--fs-k), 11px);
   font-weight: 600;
   background: var(--data-bg);
   color: var(--ok);
@@ -7115,7 +7158,7 @@ button.ds-item {
   border-top: 1px solid var(--border);
 }
 .auth-summary {
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-k));
   line-height: 1.5;
   color: var(--muted);
 }
@@ -7126,7 +7169,7 @@ button.ds-item {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-k));
   line-height: 1.45;
 }
 .auth-confirms label {
@@ -7148,7 +7191,7 @@ button.ds-item {
   border-radius: 8px;
   background: var(--op-bg);
   color: var(--op-fg);
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-k));
   line-height: 1.5;
 }
 .refused-note .muted {
@@ -7158,7 +7201,7 @@ button.ds-item {
 .step-outside {
   margin-top: 4px;
   color: var(--op-fg);
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-k));
 }
 /* 审查面板里逐条规则的复测 */
 .rp-probes {
@@ -7203,7 +7246,7 @@ button.ds-item {
 .when-picker .sc-mode-hint {
   display: block;
   margin: 0 2px 8px;
-  font-size: 12px;
+  font-size: max(12px * var(--fs-k), 11px);
   line-height: 1.5;
   color: var(--muted);
 }
@@ -7639,7 +7682,7 @@ button.progress:active {
   background: none;
   color: var(--text);
   font-family: var(--font-num);
-  font-size: 34px;
+  font-size: calc(34px * var(--fs-k));
   font-weight: 700;
   line-height: 1.2;
   padding: 2px 16px;
@@ -8782,7 +8825,7 @@ a.ops-sum-row-in:hover {
   border-radius: 50%;
   background: rgb(0 0 0 / 0.3);
   color: var(--primary-text);
-  font-size: 12px;
+  font-size: 12px; /* 不跟字号：缩略图角上 20×20 的勾，不跟字号 */
   font-weight: 700;
   line-height: 16px;
   text-align: center;
@@ -8891,7 +8934,7 @@ a.ops-sum-row-in:hover {
 .pf-menu-icon {
   display: inline-flex;
   justify-content: center;
-  font-size: 20px;
+  font-size: calc(20px * var(--fs-k));
   color: var(--muted);
 }
 .pf-head {

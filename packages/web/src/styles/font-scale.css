@@ -1,0 +1,75 @@
+/*
+ * 界面字号调过以后才要的排版（设置 · 外观与风格 · 显示）。字号、间距、栏高跟着比例走写在 token 那一层
+ * （visual-styles/tokens.ts 的 scaledTokenValue、base.css 开头）；这里是字大了以后放不下时怎么收：
+ * - 标题单行省略号，次要信息（种类、来源、时间）收成一行，不因为字大换行把行撑高、栏撑高；
+ * - 标题栏里放不下时，胶囊（背后的 agent）跟着收、字截成省略号，按钮不被挤出屏幕，标题至少留几个字；
+ * - 列表的一行有个最矮的高度，调小了照样好点（调小时按钮、链接本身不缩，在 token 那一层，tokens.ts 的 CONTROLS）。
+ * 全部挂在 :root[data-font-scale] 下面（调大了是 up、调小了是 down，1 时不挂；app/font-scale.ts、index.html 的内联脚本），
+ * 比例是 1 时这里一条都不生效，十一套风格在 1 下的样子不受影响。
+ */
+
+/* ---------- 标题栏 ---------- */
+:root[data-font-scale="up"] .topbar > .title {
+  min-width: min(4em, 30%);
+}
+:root[data-font-scale="up"] .topbar > .bg-entry {
+  flex-shrink: 1;
+  min-width: 2.5em;
+  overflow: hidden;
+}
+:root[data-font-scale="up"] .topbar .bg-entry-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- 输入框上面那一条"等你处理 N 项"：一行，放不下的截成省略号，动作按钮不换到第二行 ---------- */
+:root[data-font-scale="up"] .ibar-head {
+  flex-wrap: nowrap;
+}
+:root[data-font-scale="up"] .ibar-head > .ibar-sum {
+  flex-basis: 0;
+}
+:root[data-font-scale="up"] .ibar-head > :not(.ibar-sum) {
+  flex: none;
+}
+
+/* ---------- 输入框空着时只占一行：提示字（"直接给负责人下指令…"）字大了折成两行也不把输入框撑高，打了字照常跟着长高 ---------- */
+:root[data-font-scale="up"] .composer-field textarea:placeholder-shown {
+  field-sizing: fixed;
+}
+:root[data-font-scale="up"] .composer-field textarea::placeholder {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 和秘书说话的假占位（带名字标签）：右边让出"放大"钮（输入框右内边距 32px + 边框 1px），字大了不钻到钮底下 */
+:root[data-font-scale="up"] .composer-field .composer-placeholder {
+  right: 33px;
+}
+
+/* ---------- 会话里"调用了 N 个工具 · …  ›"这类一行小字：不换行，字截成省略号，行尾的 › 紧跟着、露全 ---------- */
+:root[data-font-scale="up"] .tool-sum {
+  flex-wrap: nowrap;
+}
+:root[data-font-scale="up"] .tool-sum > :is(.tool-sum-text, .tool-sum-tag) {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+:root[data-font-scale="up"] .tool-sum > :is(.tool-dot, .tool-more) {
+  flex: none;
+}
+
+/* ---------- 列表的一行（设置、"更多"、待办、弹出菜单）：最矮 max(44px, 1.6em)，调小了照样好点 ---------- */
+:root[data-font-scale] :is(.menu-item, .inbox-main, [role="menuitem"]) {
+  min-height: max(44px, 1.6em);
+}
+
+/* ---------- 手机上的待办列表：标题一行、种类 · 来源 · 时间一行 ---------- */
+:root[data-font-scale="up"] .app.narrow :is(.inbox-title, .inbox-text > .muted) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -21,6 +21,22 @@
    * 底部的东西一律用它，不直接写 env(safe-area-inset-bottom)
    */
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /*
+   * 界面字号（设置 · 外观与风格 · 显示）：--fs-k 是这台设备、这种屏幕形态选的比例，没调过是 1（风格本来的样子）。
+   * 选了别的由 index.html 的内联脚本和 app/font-scale.ts 写在根元素的 style 上，压过这里。
+   * - 字号阶乘它（visual-styles/tokens.ts 的 scaledTokenValue）；写死像素的字号写成 calc(13px * var(--fs-k))，
+   *   本来不到 13px 的再兜一个下限 max(…, min(本来的大小, 11px))，和字号阶一样；
+   * - 间距只跟一部分：--space-k = 0.7 + 0.3 × 比例（写成 1 + 0.3 × (比例 - 1)，比例是 1 时正好是 1）；
+   * - 栏里的字（标题栏、详情页的标题栏、导航——手机底部一条、宽屏左边一栏）调大时只跟四成：
+   *   --bar-k = 1 + 0.4 × (比例 - 1)，调小时全跟。生成的样式表在这几种栏上把 --fs-k 换成它、字号阶重算一遍，栏不因为字大撑高；
+   * - 调小时能点的东西（按钮、链接、输入框和它们里面的字）保持 1 时的大小：生成的样式表在它们上面把 --fs-k 换成 1，
+   *   点击区不跟着变小，只缩看的字；
+   * - 容器封顶：标题栏高（tokens.ts，调大最多高 12px、调小不变矮）、导航图标（最大 28px）、卡片内边距（最多 16px），
+   *   调过以后列表行最矮 max(44px, 1.6em)（styles/font-scale.css）
+   */
+  --fs-k: 1;
+  --space-k: calc(1 + 0.3 * (var(--fs-k) - 1));
+  --bar-k: min(var(--fs-k), 1 + 0.4 * (var(--fs-k) - 1));
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -110,18 +126,22 @@ button:disabled {
 .secretary-title-lead {
   flex: none;
 }
-/* 手机竖屏：标题栏分两行，第二行是副标题、状态，再长也只在这一行里截 */
+/*
+ * 手机竖屏：标题栏分两行，第二行是副标题、状态，再长也只在这一行里截。
+ * 字调大时两行的字长高了，上下的留白（原来各 6px）跟着收，最少 2px：标题栏不因为字大多出一大块（--bar-k 是 1 时正好 6px）
+ */
 .app.narrow .topbar[data-two-line] {
+  --two-line-pad: clamp(2px, 6px - (var(--bar-k) - 1) * 20px, 6px);
   height: auto;
   min-height: calc(var(--bar-h) + env(safe-area-inset-top, 0px));
-  padding-bottom: 6px;
+  padding-bottom: var(--two-line-pad);
 }
 .app.narrow .topbar[data-two-line] > .title {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 2px;
-  padding-top: 6px;
+  padding-top: var(--two-line-pad);
 }
 .app.narrow .topbar[data-two-line] .title-sub {
   display: flex;
@@ -156,7 +176,7 @@ button:disabled {
   border: none;
   background: none;
   color: var(--text);
-  font-size: 20px;
+  font-size: calc(20px * var(--fs-k));
   line-height: 1;
   padding: 4px 8px;
 }
@@ -198,7 +218,7 @@ button:disabled {
 }
 .empty-title {
   font-family: var(--font-title);
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-k));
   font-weight: 600;
 }
 .empty-sub {
@@ -455,11 +475,12 @@ button:disabled {
 }
 
 /* ---------- 卡片底板 ---------- */
+/* 内边距跟着间距走一部分（--space-k），字调大时最多 16px，不让卡片里空出一大圈 */
 .card {
   background: var(--surface);
   border: var(--panel-border);
   border-radius: var(--radius-2xl);
-  padding: 14px;
+  padding: min(14px * var(--space-k), 16px);
 }
 .plan {
   border: 1px solid var(--c-plan);
@@ -557,7 +578,7 @@ button:disabled {
   border-radius: 50%;
 }
 .app.narrow .composer-append .icon {
-  font-size: 22px;
+  font-size: calc(22px * var(--fs-k));
 }
 .app.narrow .composer-btn-label {
   display: none;
@@ -583,7 +604,7 @@ button:disabled {
   width: 28px;
   height: 28px;
   padding: 0;
-  font-size: 16px;
+  font-size: calc(16px * var(--fs-k));
   color: var(--muted);
 }
 .composer-spacer {

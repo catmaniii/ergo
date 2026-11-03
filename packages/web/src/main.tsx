@@ -17,18 +17,23 @@ import "./styles/detail.css";
 import "./styles/manage.css";
 // 视觉规矩（颜色、线型、动效），压在前面几份上面
 import "./styles/look.css";
+// 界面字号调过以后才要的排版（字大了放不下时怎么收；比例是 1 时一条都不生效）
+import "./styles/font-scale.css";
 // 视觉风格：风格清单生成的 token，和清单里每套风格自己的规则（<id>/style.css，限定在这套风格下），
 // 压在上面几份后面（build/visual-styles-plugin.ts）
 import "virtual:visual-styles";
 import App from "./App.tsx";
 import { connectNativeApp } from "./app/page-native.ts";
 import { connectSystemNotify } from "./app/page-notify.ts";
+import { pageFontScale } from "./app/page-font-scale.ts";
 import { pageTheme } from "./app/page-theme.ts";
 import { openedWithoutDaemon } from "./app/prototype-mode.ts";
 import { OpenThroughErgo } from "./pages/OpenThroughErgo.tsx";
 
 // 外观和风格：index.html 的内联脚本已经按记住的选择挂好了，这里接手（设置里改、跟着系统深浅色变）
 pageTheme();
+// 界面字号：同样内联脚本已经写好了这种屏幕形态的比例，这里接手（设置里调、折叠屏折起展开换形态）
+pageFontScale();
 // 开在鸿蒙 App 里：外观告诉 App、接上系统返回键；不在 App 里什么都不做
 connectNativeApp();
 // App 的系统通知：点了通知栏里的一条把 App 拉起来的，页面画出来之前先换到那一项；第一次问通知授权

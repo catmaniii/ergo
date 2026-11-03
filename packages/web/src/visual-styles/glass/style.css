@@ -233,7 +233,7 @@
   gap: 6px;
 }
 :root[data-style="glass"] .topbar[data-back] .title {
-  font-size: 16px;
+  font-size: calc(16px * var(--fs-k));
 }
 /* 详情页的标题栏：同样浮起，矮一点 */
 :root[data-style="glass"] .detail-bar {
@@ -420,8 +420,8 @@
 :root[data-style="glass"] .tab-icon::before {
   content: "";
   display: block;
-  width: 22px;
-  height: 22px;
+  width: min(22px * var(--fs-k), 28px);
+  height: min(22px * var(--fs-k), 28px);
   background: currentColor;
   -webkit-mask: var(--glass-icon) center / contain no-repeat;
   mask: var(--glass-icon) center / contain no-repeat;
