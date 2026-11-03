@@ -209,6 +209,8 @@ describe("发起任务的三条路", () => {
       // 调运营中的项目的接口（list / describe / call，各项目的接口用到才读）
       "[tool] project_ops",
       "[tool] propose_go_live",
+      // 提交 skill（只出"skill 变更"卡）
+      "[tool] propose_skill",
       "[tool] list_inbox",
       "[tool] show_card",
       // 浏览侧边栏里的网页工具（工具列表固定，只在侧边栏发的那一轮能用）
