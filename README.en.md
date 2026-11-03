@@ -20,7 +20,7 @@ So we built ergo: **everything about you is kept on your own computer, and only 
 
 - It still calls large models and outside services, but each call carries only the small part this turn needs, and you decide who receives it.
 - Models are swappable: use DeepSeek today, or point it at any OpenAI-compatible service.
-- Claude Code and Codex sessions already on your PC can be taken over by ergo and handed back at any time. Codex support is experimental: ergo may not spot a session still open in a terminal, so close the terminal or fork a copy before taking over. What the guard can't cover is listed in the [Codex guide](docs/user-guide/codex.en.md).
+- Claude Code and Codex sessions already on your PC can be taken over by ergo and handed back at any time (Codex support is experimental). For what works and what doesn't, see [Taking over Claude Code and Codex sessions](#taking-over-claude-code-and-codex-sessions) below.
 - Whatever you swap, the memory that understands you best stays in your hands.
 
 The English name ergo sounds like the Chinese name "二狗" (Ergou), and Latin *ergo* means "therefore" — reasoning from what you say to what you really want. ergo is built on [pi](https://github.com/earendil-works/pi) and can be seen as a single-user [OpenClaw](https://github.com/openclaw/openclaw) rebuilt around one person's needs.
@@ -68,7 +68,33 @@ The working agents aren't a fixed cast of PM, architect, developer and tester ei
 
 **All of it works by voice.** Out and about, hold the button on your phone and say "fix that login bug from yesterday and tell me when it's done"; the PC at home gets to work, and ergo reads you the result when it's finished. Each project's owner can have its own name and voice, so you know who's reporting with your eyes closed. Speech recognition and synthesis run locally and need extra components, see [Voice](docs/user-guide/voice.en.md); to reach home from your phone, see [On your phone](docs/user-guide/mobile.en.md).
 
-If Claude Code is signed in on your PC, owners can also work through it (on your own subscription), with ergo's guard still checking each tool call.
+#### Taking over Claude Code and Codex sessions
+
+If Claude Code or Codex is installed on your PC, owners can also work through it, with your own sign-in and configuration. A session you left halfway in a terminal can be taken over by ergo to carry on, then handed back. Codex support is experimental.
+
+**What works**
+
+- It lists the sessions on this computer; pick one to carry on, in the session's original working folder.
+- It becomes a plain task, or a project created right away; the most recent stretch of the earlier conversation shows at the top, for you only.
+- A session still open elsewhere isn't taken over directly; you can take over a fork instead, and the original stays as it is.
+- While ergo holds the session, only ergo writes to it. Every message and every tool call is recorded in ergo, and tool calls go through ergo's guard first.
+- Hand it back to the terminal in ⚙ and take it back when you're done; before taking it back, ergo checks it's closed over there.
+- A Claude Code session can also go to the official app, so you can keep talking on your phone when you're out, then take it back.
+- ↶ rollback still works: a new session forks from before that message, and the original stays as a branch you can switch back to.
+- It runs on your own quota: variables that would change billing are removed from its environment. Codex signed in with an API key is billed per use, and the usage page says so.
+
+**What doesn't, or has limits**
+
+- Claude Code sessions have no lock: if you open one in a terminal while ergo holds it, ergo can't tell, and if both sides write, what one side said is lost.
+- ergo may not spot a Codex session still open in a terminal. Close the terminal first, or take over a fork.
+- Rolling back, Claude Code restores only files changed with Write or Edit, not ones changed through Bash; Codex rolls back the conversation only, not files.
+- While a session is in the official app, tool calls there don't go through ergo's guard; ergo just copies what happened about once a minute. Codex can't go to the official app.
+- With Codex, a few kinds of calls skip the guard or are only known afterwards, such as tool search or a model insisting on web search. The guide lists them one by one.
+- Codex's own web search and typing into a running terminal are always off: searches go through the service set up in ergo, and interactive programs that need someone at the keyboard don't work.
+- Codex hasn't been through the full round in a real terminal yet: whether a session open there is recognized; taking over directly, handing back to the terminal, and taking it back.
+- The secretary, subagents and reviewers are still pi; scope review and the branch summary on rollback still use the model you set up in ergo.
+
+Details are in the [Claude Code guide](docs/user-guide/claude-code.en.md#what-it-can-and-cant-do) and the [Codex guide](docs/user-guide/codex.en.md#what-it-can-and-cant-do).
 
 ### 2. Long-running tasks
 
@@ -165,7 +191,7 @@ This is only in the phone app. On Android, [download the APK](https://github.com
 
 Three triggers: once now; scheduled (optionally "on my working days", with Chinese and Singaporean holidays and make-up days); on an event (another task finished, a new file arrived in a folder). Write "every Monday at 8 am…" when starting a task and the schedule is set from it; results can be read aloud to you automatically.
 
-**Everything is a plugin**: the daemon is split into a kernel and plugins. **Reminders, memory, calendar, voice, built-in browser, Claude Code, Google (calendar, contacts), Looki and phone** are all plugins that you can disable, enable or remove under **Settings · Plugins** without restarting; disabling only hides pages and tools, the data stays. Want a new ability later? Write another plugin, following the [plugin guide](docs/architecture/plugin-development.md) (in Chinese), which starts from a minimal "notes" plugin.
+**Everything is a plugin**: the daemon is split into a kernel and plugins. **Reminders, memory, calendar, voice, built-in browser, Claude Code, Codex, Google (calendar, contacts), Looki and phone** are all plugins that you can disable, enable or remove under **Settings · Plugins** without restarting; disabling only hides pages and tools, the data stays. Want a new ability later? Write another plugin, following the [plugin guide](docs/architecture/plugin-development.md) (in Chinese), which starts from a minimal "notes" plugin.
 
 **Your way**:
 

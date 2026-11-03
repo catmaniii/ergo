@@ -8,6 +8,8 @@ Codex sessions you already have going in a terminal can be handed to ergo to car
 
 Only task and project owners can use Codex. The secretary can't.
 
+Codex support is experimental. What it can and can't do is gathered in [the last section](#what-it-can-and-cant-do).
+
 ## Before you start
 
 1. Install Codex: `npm i -g @openai/codex`. Version 0.166.0 or newer is needed.
@@ -130,6 +132,49 @@ Once a conversation is zoomed out, the ↶ on the left of a bar works as usual. 
 - ergo doesn't read your `~/.codex`, and doesn't write to it or to project configuration.
 - Toolkit changes don't apply on the spot: once this turn is done, it restarts with the new toolkit.
 - Handing over to Codex's official app isn't available. The secretary, subagents and reviewers are still pi.
+
+## What it can and can't do
+
+The scope of taking over and handing back, all in one place. For the guard in detail see [What the guard covers](#what-the-guard-covers); for quota see [What it costs](#what-it-costs).
+
+**What it can do**
+
+- **Which sessions**: Codex sessions from the terminal and VS Code on this computer, up to 100. `codex exec` runs and sessions ergo started itself aren't listed.
+- **Where it carries on**: in the session's original working folder. If that folder is gone, or is inside ergo's data or program folder, the session can't be taken over.
+- **What it becomes**: same as Claude Code, a plain task or a project created directly.
+- **How far the conversation got**: Codex carries on with the session's own context. At the top of the session ergo lists the most recent stretch, for you only: it doesn't count as new input and isn't saved as memory material.
+- **Open sessions**: Codex doesn't let two programs write to a session at once. ergo can't take over a session another program has open, and other programs can't open one ergo holds. An open session can still be taken over as a fork; the original stays as it is.
+- **Model**: forked takeovers and rollbacks keep the model the session was using, and don't fall back to the one in Codex's settings.
+- **Who records**: while ergo holds the session, only ergo writes to it. Commands, file changes, MCP calls, image viewing, sending subagents, and all of these inside a subagent go through the guard first; arguments and results are recorded in ergo, and usage goes into the ledger.
+- **Handing back and taking back**: hand it back in ⚙, carry on in a terminal with `codex resume`, and take it back when you're done. Before taking it back, ergo checks no other program has it open and it hasn't been active in the few minutes since you handed it back.
+- **Rolling back**: a new session forks from before that message and carries on; the original stays as a branch you can switch back to.
+- **Whose quota**: signed in with a ChatGPT account, your subscription quota; signed in with an API key, billed per use, and the usage page says so. `OPENAI_API_KEY`, `CODEX_API_KEY` and similar variables are removed from the environment it gets.
+- **Your configuration**: Codex's own configuration and login. ergo doesn't read `~/.codex`, and doesn't write to it or to project configuration.
+
+**What it can't do, or does with limits**
+
+- **Experimental**: ergo connects through a program interface Codex itself marks as experimental, checked against 0.166. If a Codex update changes it, ergo has to catch up.
+- **A session open in a terminal may not be spotted**: the list only guesses from recent activity. Sessions active in the last 5 minutes are labeled **In use**, older ones **May be open**, with the fork ticked by default. Close the terminal first, or take over a fork.
+- **Only taken-over sessions can be handed back**: sessions ergo started have no **Hand back to Codex**.
+- **No handing back mid-turn**: wait for the turn to finish, or stop it first.
+- **Switching to pi cuts the link**: once a taken-over owner is switched to pi in ⚙, it no longer carries on the original session and can't hand it back.
+- **Skips the guard, and ergo doesn't record it**: tool search (`tool_search`); the piece of code the model writes itself, and waiting for its result (`exec`, `wait`).
+- **Only known afterwards**: a model insisting on web search; a command you set to always run in Codex, when the guard's hook also fails or the command runs in another folder. If the guard says no, the turn can only be interrupted.
+- **PowerShell forms the guard can't split apart**: script blocks, `if`, `Invoke-Expression` and expressions in parentheses count as unknown writes. Paths that are built up can't be seen.
+- **Always off**: Codex's own web search, so searches go through the service set up in ergo; typing into a running terminal, so interactive programs that need someone at the keyboard don't work. The approval policy is also always the strictest.
+- **Rollback is conversation only**: files it changed stay as they are. It can only go back to before a message, not to the start of a stage or step, and not past the conversation from before the takeover. After a rollback, ergo carries on in the forked session, so that's the one to pick in `codex resume` after handing back.
+- **After a model change**: if a taken-over session's model is changed in ergo, ergo carries on in a newly started session from then on, while what you get back in the terminal is still the original one.
+- **Other things it can't do**: go to Codex's official app; use slash commands from the Codex terminal here; switch toolkits on the spot (it restarts with the new toolkit once the turn is done).
+- **Waiting for your approval still costs a little**: it may check for the result a few times. A prompt keeps this down; it isn't a hard guarantee.
+- **Still on ergo's own model**: scope review and the branch summary when rolling back.
+- **Who can use it**: only task and project owners. The secretary, subagents and reviewers are still pi.
+
+**Not yet fully checked in a real terminal**
+
+- Whether Codex keeps ergo out while its terminal interface has the session open. With `codex exec` or another program holding it, testing showed it does.
+- The full round of taking over a session used in a terminal directly (not a fork), handing it back, carrying on in the terminal with `codex resume`, and taking it back to ergo. The way these steps work has been run through with sessions opened by `codex exec`.
+- Whether image generation and the extra tools a ChatGPT account brings (apps, plugins) go through the guard.
+- The real errors Codex gives when the quota runs out or the login expires. For now ergo handles them the way they were simulated: the task goes to "Waiting for you" with the reason.
 
 ## See also
 

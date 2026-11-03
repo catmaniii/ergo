@@ -10,7 +10,7 @@ A Claude Code session already open in a terminal can also be handed to ergo to c
 
 Only task and project owners can use Claude Code. The secretary can't switch.
 
-This chapter covers connecting it, creating and taking over sessions, and handing them back and forth. By the end you can have Claude Code work under ergo's management.
+This chapter covers connecting it, creating and taking over sessions, and handing them back and forth. By the end you can have Claude Code work under ergo's management. What it can and can't do is gathered in [the last section](#what-it-can-and-cant-do).
 
 ## What you need first
 
@@ -240,6 +240,42 @@ Files it changed with Write or Edit are restored to how they were before that me
 - Scope review and the branch summary when rolling back still use ergo's own model.
 - ergo doesn't touch your `~/.claude` or the project's `.claude/`.
 - Newly authorized [folders](browser.en.md#authorized-folders): the next call is judged against the new list. But in the **Don't ask (deny anything not allowed)** permission mode, they can only be read after the next process start; and in this mode, reading elsewhere through Bash never works.
+
+## What it can and can't do
+
+The scope of taking over and handing back, all in one place. For how to do each thing, see the sections above.
+
+**What it can do**
+
+- **Which sessions**: the ones `/resume` shows in a terminal on this computer, up to 100. Sessions run with `claude -p` and ones ergo started itself aren't listed.
+- **Where it carries on**: in the session's original working folder, which is also what the guard treats as the working folder. If that folder is gone, or is inside ergo's data or program folder, the session can't be taken over.
+- **What it becomes**: a plain task that carries on right away, or a project created directly, with no card from the secretary; the project's owner carries on once you say something in its session.
+- **How far the conversation got**: Claude Code carries on with the session's own context. At the top of the session ergo lists the most recent stretch (up to 60 messages), for you only: it doesn't count as new input and isn't saved as memory material.
+- **Sessions in use**: one open in a terminal or running as a background session isn't taken over directly, and neither is one another ergo task or project holds. You can take over a fork of any of them; the original stays as it is.
+- **Who records**: while ergo holds the session, only ergo writes to it. Every message, and every tool call's arguments and results (inside subagents too), is recorded in ergo, and usage goes into the ledger.
+- **What the guard covers**: every tool call goes through ergo's guard first, and the allow rules in your Claude Code settings can't get around it. The same goes for its calls to ergo's tools and the MCP servers in the toolkit.
+- **Handing back and taking back**: hand it back to the terminal in ⚙, and take it back when you're done. Before taking it back, ergo checks it isn't open somewhere else.
+- **Handing to the official app**: both taken-over sessions and ones ergo started can go there, so you can keep talking on your phone or on claude.ai, then take it back. It's only ever on one side at a time.
+- **Rolling back**: a new session forks from before that message and carries on; the original becomes a branch you can switch back to. Files changed with Write or Edit go back to how they were before that message.
+- **Whose quota**: the subscription you're signed in with on this computer. `ANTHROPIC_API_KEY` is removed from the environment it gets.
+- **Your configuration**: CLAUDE.md, skills, MCP and hooks load as usual. ergo doesn't touch `~/.claude` or the project's `.claude/`.
+
+**What it can't do, or does with limits**
+
+- **Sessions have no lock**: if you open one in a terminal while ergo holds it, ergo can't tell. If both sides write, the session splits and what one side said is lost.
+- **When ergo can't tell whether a session is in use**: for example when the `claude` command on this computer won't run, every session counts as in use, and you can only take over a fork.
+- **Only taken-over sessions can be handed back**: sessions ergo started have no **Hand back to Claude Code**; they can only go to the official app.
+- **No handing back mid-turn**: wait for the turn to finish, or stop it first.
+- **Switching to pi cuts the link**: once a taken-over owner is switched to pi in ⚙, it no longer carries on the original session and can't hand it back.
+- **Handing to the official app**: the current turn is interrupted, and after you take it back the owner waits for your next message. It only works with a subscription sign-in. The turns said here while ergo held it may not show in the official app.
+- **While it's in the official app**: it runs as Claude Code's own background session, so tool calls there don't go through ergo's guard, and ergo's tools aren't available. ergo copies what happened about once a minute, and tool calls are recorded as a summary only, without their full content.
+- **Rolling back**: files changed through Bash can't be traced. Rolling back to the start of a stage or step doesn't restore files. You can't roll back past the backstory imported at takeover.
+- **What the guard can't split apart**: commands in its PowerShell tool are always judged as **Unknown write**. MCP servers you configured yourself, and the MCP resource, scheduling and worktree tools, are judged the same way.
+- **Spawning subagents**: when it asks for a subagent to run in the cloud or in a separate worktree, the guard doesn't judge that separately; it's treated like any other subagent.
+- **When it wants to ask you something itself**: once the guard has allowed the call, ergo just allows it and doesn't ask you again.
+- **The Don't ask permission mode**: a newly authorized folder can only be read after the next process start, and reading elsewhere through Bash never works.
+- **Still on ergo's own model**: scope review and the branch summary when rolling back.
+- **Who can use it**: only task and project owners. The secretary, subagents and reviewers are still pi.
 
 ## Related
 
