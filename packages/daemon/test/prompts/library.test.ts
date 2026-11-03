@@ -213,12 +213,12 @@ describe("插件贡献的条件、占位符、片段", () => {
     expect(on).toBe(secretarySystemPrompt(defaultPromptLibrary(), "二狗"));
     const reminderLine = fs.readFileSync(remindersPrompts.fragments[0]!.defaultFile, "utf8").trim().replaceAll("{{create_reminder}}", "create_reminder").replaceAll("{{update_reminder}}", "update_reminder").replaceAll("{{cancel_reminder}}", "cancel_reminder").replaceAll("{{archive_reminder}}", "archive_reminder").replaceAll("{{propose_quick_action}}", "propose_quick_action").replaceAll("{{delete_reminder}}", "delete_reminder");
     expect(on.split("\n")[2]).toBe(reminderLine);
-    expect(on).toContain("建定时触发的普通任务或流程；只要到点提醒一声的建简单提醒。将来");
+    expect(on).toContain("请用户在“发起任务”对话框里建；只要到点提醒一声的建简单提醒。将来");
     expect(on).toContain("（流程或长程任务），要你到点提醒的建简单提醒，要将来");
 
     const off = secretarySystemPrompt(withReminders(false), "二狗");
     expect(off).not.toMatch(/提醒|reminder/);
-    expect(off).toContain("建定时触发的普通任务或流程。将来");
+    expect(off).toContain("请用户在“发起任务”对话框里建。将来");
     expect(off).toContain("（流程或长程任务），要将来");
     expect(off.split("\n")).toEqual(on.split("\n").filter((line) => line !== reminderLine).map((line) => line.replace("；只要到点提醒一声的建简单提醒", "").replace("要你到点提醒的建简单提醒，", "")));
   });

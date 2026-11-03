@@ -171,6 +171,7 @@ import {
   projectActionTarget,
   type SuggestProjectCardPayload,
   type SuggestTaskCardPayload,
+  type ScheduleTaskCardPayload,
   type Task,
   type TaskEventPayload,
   type TaskKind,
@@ -833,7 +834,13 @@ export class FakeConnection implements Connection {
       // "建议发起任务"卡的两个按钮：作为流程、作为长程任务
       const kind: TaskKind | undefined = card.type !== "suggest_task" ? undefined : req.action === "start_workflow" ? "workflow" : req.action === "start_task" ? "long_running" : undefined;
       const started = kind ? this.createTask(card.payload as SuggestTaskCardPayload, "suggestion", (card.payload as SuggestTaskCardPayload).projects ?? [], kind) : undefined;
-      const payload = started && kind ? { ...(card.payload as SuggestTaskCardPayload), taskId: started.id, kind } : this.projectCardEffect(card, req.action, req.note);
+      // "定时任务"卡的确认：建成定时触发的普通任务（运营中，登记触发），卡上记着任务编号
+      const scheduled = card.type === "schedule_task" && req.action === "confirm" ? this.scheduleFromCard(card.payload as ScheduleTaskCardPayload) : undefined;
+      const payload = scheduled
+        ? { ...(card.payload as ScheduleTaskCardPayload), taskId: scheduled.id }
+        : started && kind
+          ? { ...(card.payload as SuggestTaskCardPayload), taskId: started.id, kind }
+          : this.projectCardEffect(card, req.action, req.note);
       const next: Card = {
         ...card,
         ...(payload ? { payload } : {}),
@@ -915,6 +922,13 @@ export class FakeConnection implements Connection {
   }
 
   /** 建一个假任务（规划中；普通任务是排队中，定时的普通任务是运营中，某个时间做一次的普通任务是等时间），推到看板频道 */
+  /** "定时任务"卡上点了确认：和发起对话框里选"定时"建出来的一样（定时触发的普通任务，运营中，登记触发） */
+  private scheduleFromCard(p: ScheduleTaskCardPayload): Task {
+    const task = this.createTask({ title: p.title, why: p.instructions }, "suggestion", [], "plain", { kind: "schedule", schedule: p.schedule }, false, p.runtime);
+    this.registerTrigger(task);
+    return task;
+  }
+
   private createTask(
     what: { title: string; why: string },
     origin: TaskOrigin,

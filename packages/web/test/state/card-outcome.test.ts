@@ -12,6 +12,7 @@ describe("卡片处理后提示什么", () => {
   test("各种卡按动作说各自的话，名字带上", () => {
     expect(toast("suggest_project", "kickoff", { name: "菜谱" })).toBe("项目「菜谱」诞生了（筹备中），负责人随之产生");
     expect(toast("suggest_task", "start_task", { title: "写周报" })).toBe("已发起任务「写周报」（规划中）");
+    expect(toast("schedule_task", "confirm", { title: "每天收邮件" })).toBe("已建好定时任务「每天收邮件」，在任务看板的「运营中」");
     expect(toast("charter", "confirm_start")).toBe("已开工：发起了首个建设任务，项目进入建设中");
     expect(toast("charter", "confirm")).toBe("立项书已确认，项目留在筹备中");
     expect(toast("charter_change", "confirm")).toBe("立项书改好了，末尾记了这次变更");
@@ -27,12 +28,15 @@ describe("卡片处理后提示什么", () => {
     expect(toast("suggest_project", "dismiss", { name: "菜谱" })).toBeUndefined();
     expect(toast("pairing", "reject")).toBeUndefined();
     expect(toast("plan", "confirm")).toBeUndefined();
+    // 定时任务卡点了取消：什么都没建，不提示
+    expect(toast("schedule_task", "cancel", { title: "每天收邮件" })).toBeUndefined();
   });
 
   test("英文", () => {
     setActiveLocale(activeLocaleFrom(TEST_LOCALES, "en"));
     expect(toast("suggest_project", "kickoff", { name: "Recipes" })).toBe("Project “Recipes” is born (in preparation), and its owner comes with it");
     expect(toast("pairing", "approve")).toBe("Approved, the new device got its credentials");
+    expect(toast("schedule_task", "confirm", { title: "Daily email check" })).toBe("Scheduled task “Daily email check” created. It is under Operating on the task board");
   });
 });
 

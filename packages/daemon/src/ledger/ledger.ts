@@ -19,6 +19,7 @@ import {
   EVENT_TYPES,
   type HolidayYear,
   type LedgerOwner,
+  ledgerOwnerKey,
   type LedgerPurpose,
   type LedgerRole,
   type TokenCounts,
@@ -102,6 +103,11 @@ export interface TokenLedger {
   stageTokens(taskId: string, stageId: string, options?: { budget?: boolean }): number;
   /** 单次计量：这个 agent 现在一次调用大约记多少 token、大约多少钱 */
   callMeter(agentId: string): CallMeter;
+  /**
+   * 几段时间里记在各自名下的用量合计（token 总量：命中 + 未命中 + 输出）和粗估成本（秘书提议定时任务时估每次大概花多少）：
+   * 每段是一个名下、[from, to] 两头都算的协议时间。cost 只在每一笔都有单价、合起来大于 0 时给
+   */
+  usageIn(windows: ReadonlyArray<{ owner: LedgerOwner; from: string; to: string }>): { tokens: number; cost?: { amount: number; currency: string } };
   /** 消耗页：from 到 to（YYYY-MM-DD，含两头）按天、按 agent 的汇总，系统开销、未归属单列，粗估成本 */
   summary(range: { from: string; to: string }): UsageSummary;
   /** 每记一条叫一次（事件已经落盘）；返回取消登记的函数 */
@@ -186,6 +192,26 @@ export function createTokenLedger(options: TokenLedgerOptions): TokenLedger {
       const total = recent.reduce((n, r) => n + pricing.cost(r.model, r.time, r.tokens), 0);
       const { currency, unpriced } = pricing.result();
       return total > 0 && unpriced.length === 0 ? { perCall, costPerCall: { amount: total / recent.length, currency } } : { perCall };
+    },
+    usageIn(windows) {
+      const pricing = createSummaryPricing(options.prices, options.holidays());
+      const byOwner = new Map<string, LedgerEntry[]>();
+      let tokens = 0;
+      let cost = 0;
+      for (const { owner, from, to } of windows) {
+        const key = ledgerOwnerKey(owner);
+        const entries = byOwner.get(key) ?? listEntries(store.reader, owner);
+        byOwner.set(key, entries);
+        const [start, end] = [Date.parse(from), Date.parse(to)];
+        for (const e of entries) {
+          const at = Date.parse(e.time);
+          if (at < start || at > end) continue;
+          tokens += tokenTotal(e.tokens);
+          cost += pricing.cost(e.model, e.time, e.tokens);
+        }
+      }
+      const { currency, unpriced } = pricing.result();
+      return cost > 0 && unpriced.length === 0 ? { tokens, cost: { amount: cost, currency } } : { tokens };
     },
     summary({ from, to }) {
       const pricing = createSummaryPricing(options.prices, options.holidays());

@@ -18,7 +18,7 @@
 // 摘要被截断、彻底删除过）就退回。工具的中文名照守护进程登记的 title 抄一份在这里；
 // MCP 工具（mcp__<MCP 名>__<工具名>）前端不知道中文名，写原名。纯函数。
 // 句子和工具名按当前语言（state.callSentence.*；英文的说法同样是动词加对象）。
-import { describeWorkdayChange, MEMORY_COMMAND_LABEL, type MessagePart, PURGED_TEXT, type RepeatRule, describeRepeatRule, t, TELL_SECRETARY_CAPABILITY, tTable, type WorkdayChange } from "./protocol.ts";
+import { describeWorkdayChange, MEMORY_COMMAND_LABEL, type MessagePart, PURGED_TEXT, REPEAT_KINDS, type RepeatRule, describeRepeatRule, t, TELL_SECRETARY_CAPABILITY, tTable, type WorkdayChange } from "./protocol.ts";
 import { bashSentence } from "./shell-sentence.ts";
 import { cutTo, FALLBACK_MAX, joinList, pathsText, shortPath, shortUrl } from "./sentence-parts.ts";
 import { awaitingApproval } from "./timeline.ts";
@@ -76,6 +76,8 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = labelTable(
     create_task: "state.callSentence.tool.create_task",
     delegate_task: "state.callSentence.tool.delegate_task",
     suggest_task: "state.callSentence.tool.suggest_task",
+    // 提议定时任务（只出"定时任务"卡）
+    schedule_task: "state.callSentence.tool.schedule_task",
     ask_questions: "state.callSentence.tool.ask_questions",
     write_task_brief: "state.callSentence.tool.write_task_brief",
     spoken_summary: "state.callSentence.tool.spoken_summary",
@@ -579,6 +581,14 @@ const TEMPLATES: Readonly<Record<string, Template>> = {
   suggest_task: (s) => {
     const a = summaryArgs(s, ["title", "why", "projects"]);
     return a.title && t("state.callSentence.suggestTask", { title: a.title });
+  },
+  // 提议定时任务：标题，拼得出的再写时间表（每 N 天没给起算日的不写从哪天起）
+  schedule_task: (s) => {
+    const a = summaryArgs(s, ["title", "instructions", "when", "time", "start", "runtime"]);
+    if (!a.title) return undefined;
+    const rule = objectOf(a.when) as RepeatRule | undefined;
+    const when = rule && (REPEAT_KINDS as readonly string[]).includes(rule.kind) && a.time ? describeRepeatRule(rule, a.time) : undefined;
+    return when ? t("state.callSentence.scheduleTaskWhen", { title: a.title, when }) : t("state.callSentence.scheduleTask", { title: a.title });
   },
   ask_questions: (s) => {
     const a = summaryArgs(s, ["taskId", "intro", "questions"]);

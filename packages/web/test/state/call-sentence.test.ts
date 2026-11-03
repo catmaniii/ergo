@@ -138,6 +138,10 @@ describe("每个模板（动词加对象，不带“了”）", () => {
     ["create_task", "title=X 的调研 summary=帮我整理一份 X 的调研", "发起长程任务「X 的调研」"],
     ["delegate_task", "title=整理九月发票 instructions=把草稿区里的发票按月汇总", "交给后台做「整理九月发票」"],
     ["suggest_task", "title=整理发票 why=你提了三次发票", "建议发起任务「整理发票」"],
+    // 提议定时任务：拼得出的写时间表，拼不出的只写标题
+    ["schedule_task", 'title=每天收邮件 instructions=收邮件、挑出要回的 when={"kind":"daily"} time=08:10', "提议定时任务「每天收邮件」：每天 08:10"],
+    ["schedule_task", 'title=浇花 instructions=看一眼花 when={"kind":"everyNDays","interval":3} time=20:00', "提议定时任务「浇花」：每 3 天 20:00"],
+    ["schedule_task", 'title=收邮件 instructions=收邮件 when={"kind":"cron"} time=08:10', "提议定时任务「收邮件」"],
     ["ask_questions", 'taskId=t-1 questions=[{"question":"调研给谁看？","options":["自己","团队"],"recommended":"自己"}]', "向你提问：调研给谁看？"],
     ["write_task_brief", 'taskId=t-1 goal=整理一份 X 的调研 acceptanceCriteria=["覆盖三种主流方案"]', "写任务书 t-1：整理一份 X 的调研"],
   ])("%s「%s」→ %s", (tool, summary, expected) => {

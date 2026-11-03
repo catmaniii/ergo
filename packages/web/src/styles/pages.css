@@ -1832,6 +1832,34 @@ a.att-icon:hover {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* 定时任务卡：多久一次、第一次、之后（左边一列小标签），任务书全文（长了在框里滚） */
+.xcard-schedule_task .xcard-body {
+  min-width: 0;
+}
+.schedule-task-when {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 2px 10px;
+  margin: 0;
+}
+.schedule-task-when dt {
+  color: var(--muted);
+}
+.schedule-task-when dd {
+  margin: 0;
+  min-width: 0;
+}
+.schedule-task-brief {
+  max-height: 240px;
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 /* 和库里同名时的改名：新名字输入框和两个按钮占满一行 */
 .skill-change-rename {
   display: flex;

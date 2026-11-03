@@ -12,8 +12,8 @@
 //   工具说明写清楚什么时候该交、什么时候在对话里自己做；做完了运行时交给秘书一句结果，它在对话里转告。
 // start_workflow / create_task / delegate_task 能带 runtime（负责人用哪个 agent 运行时，不写是 pi）：用户点名要用别的运行时
 // （比如"用 Claude Code 做"）时写它的 id；写了不认得、没启用的，工具回错（原因里列出现在能用的），不建任务。建成项目内部任务的不看它（照项目的）。
-// 秘书没有建定时触发的任务的工具：不属于项目的由用户在发起对话框里建；某个项目的（给项目开定时、改运营）由秘书转达给
-// 项目的负责人，它交运营方案出卡给用户确认。这些工具都只产生卡片或改任务看板，
+// 定时触发的任务秘书不直接建：不属于项目的用 schedule_task（schedule-tool.ts）只出一张"定时任务"卡，用户点了确认才建；
+// 某个项目的（给项目开定时、改运营）由秘书转达给项目的负责人，它交运营方案出卡给用户确认。这些工具都只产生卡片或改任务看板，
 // 不落入任何关注类别。
 // @i18n-ignore-file model：工具说明、参数说明、工具结果都给秘书看，照旧中文；工具的中文名（title，界面上显示）跟着当前语言
 import { forModel, isProjectInternal, nowIso, PI_RUNTIME_ID, QuestionDraft, t, type Task, TaskBrief, type TaskKind, TASK_KIND_LABEL, Type, type WorkFolderChoice } from "@ergo/protocol";
@@ -34,8 +34,8 @@ import { TASK_TOOL } from "./tool-names.ts";
 
 export { TASK_TOOL } from "./tool-names.ts";
 
-/** 负责人用哪个运行时 */
-const RUNTIME_PARAM = Type.Optional(
+/** 负责人用哪个运行时（提议定时任务的 schedule_task 也用它） */
+export const RUNTIME_PARAM = Type.Optional(
   Type.String({
     minLength: 1,
     maxLength: 80,
@@ -140,7 +140,7 @@ const DELEGATE_DESCRIPTION =
   `和别的发起工具的界线：用户点明了要发起流程或长程任务（说了“按流程做”“发起任务”“长程任务”之类，或者输入 ${launchCommandText("workflow")}、${launchCommandText("long_running")}）时不能用它，用 ${TASK_TOOL.startWorkflow}、${TASK_TOOL.createTask}（运行时会拒绝）；` +
   `要事先规划、让用户授权、但用户没点明的，用 ${TASK_TOOL.suggestTask} 给建议卡，也不用它。` +
   "instructions 是任务书：写清要做什么、做到什么程度、交付什么（文件放哪、要什么格式），只带完成这件事需要的信息（链接、文件在哪、和这件事有关的要求），不带无关的私人内容——任务书在任务看板、任务详情、工单里都看得到；执行的 agent 看不到你们的对话。" +
-  `用户要的是将来某个时间再做的（“明天早上帮我……”“下午三点去查一下……”），给 at：任务建好后等到那个时间才开始，做完一样算完成、通知你；只是到点提醒用户、不用 agent 干活的，用建提醒的工具，不用它。要按时间表反复做的（每天、每周）你建不了：是某个项目的（给项目开定时、改运营），用 ${PROPOSE_QUICK_ACTION} 的 ${RELAY_ACTION.project} 把用户的话转给那个项目的负责人，由它出运营方案的卡给用户确认；不属于项目的，请用户在“发起任务”对话框里选“定时”。`;
+  `用户要的是将来某个时间再做的（“明天早上帮我……”“下午三点去查一下……”），给 at：任务建好后等到那个时间才开始，做完一样算完成、通知你；只是到点提醒用户、不用 agent 干活的，用建提醒的工具，不用它。要按时间表反复做的（每天、每周）不用它：不属于项目的用 ${TASK_TOOL.scheduleTask} 出一张“定时任务”卡，用户点确认才建；是某个项目的（给项目开定时、改运营），用 ${PROPOSE_QUICK_ACTION} 的 ${RELAY_ACTION.project} 把用户的话转给那个项目的负责人，由它出运营方案的卡给用户确认。`;
 
 /** 替用户在项目里建好内部任务之后交回秘书的话：它看不到细节，只告诉用户建在哪儿 */
 export const internalLaunchedText = (task: Pick<Task, "internal">) => {
@@ -175,7 +175,7 @@ function secretaryLaunch(tasks: TaskService, kind: TaskKind, runtimeRefusal: Run
 export type RuntimeRefusal = (runtime: string) => string | undefined;
 
 /** 秘书写的运行时：pi 不写；别的现在不能用就抛 RequestRejected（原因交回秘书，guarded 接住） */
-function checkedRuntime(runtime: string | undefined, runtimeRefusal: RuntimeRefusal | undefined): string | undefined {
+export function checkedRuntime(runtime: string | undefined, runtimeRefusal: RuntimeRefusal | undefined): string | undefined {
   if (runtime === undefined || runtime === PI_RUNTIME_ID) return undefined;
   const refused = runtimeRefusal?.(runtime);
   if (refused !== undefined) throw new RequestRejected("bad_params", refused);

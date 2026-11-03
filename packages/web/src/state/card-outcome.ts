@@ -6,6 +6,8 @@ export function cardOutcomeToast(card: Card, action: CardAction): string | undef
   const payload = card.payload as Record<string, unknown>;
   if (card.type === "suggest_project" && action === "kickoff") return t("state.cards.outcome.projectBorn", { name: String(payload.name) });
   if (card.type === "suggest_task" && action === "start_task") return t("state.cards.outcome.taskStarted", { title: String(payload.title) });
+  // 助理提议的定时任务：点了确认才建，建好了在看板运营中
+  if (card.type === "schedule_task" && action === "confirm") return t("state.cards.outcome.scheduled", { title: String(payload.title) });
   if (card.type === "charter") return t(action === "confirm_start" ? "state.cards.outcome.charterStarted" : "state.cards.outcome.charterConfirmed");
   // 立项要求变更
   if (card.type === "charter_change") return t(action === "confirm" ? "state.cards.outcome.charterChanged" : "state.cards.outcome.charterKept");

@@ -11,7 +11,8 @@
 // 普通任务（ADR 0025）：不规划、不授权、不检查，建出就排队（不经"规划中""待确认"），有名额就开始做（执行控制器），
 // 要做的事（Task.summary）就是交给 agent 的任务书；不写任务书、不交计划。除了用户在发起对话框里选它，助理可以自己决定交出去
 // （delegate：不必等用户点明，origin 是 delegated）。只涉及一个项目的同样建成这个项目的内部任务，由项目的负责人在执行的工单段里做。
-// 触发方式（ADR 0025）：发起对话框里选了"定时"的普通任务、流程（Task.trigger；长程任务只能现在做一次）。
+// 触发方式（ADR 0025）：发起对话框里选了"定时"的普通任务、流程（Task.trigger；长程任务只能现在做一次）；秘书提议的"定时任务"卡上
+// 用户点了确认的定时普通任务走同一条路（buildScheduledFromCard → buildCreate，同样过 checkedTrigger）。
 // 定时的普通任务建出就是运营中（不排队），由触发底座（scheduled-jobs/）登记它的触发、按时间表一次次运行；定时的流程照常规划、
 // 计划卡上授权一次，授权之后是运营中（不排队），之后每次运行都按步骤核对。以前的定时作业迁移成定时触发的普通任务（buildMigrated）。
 // 项目内部任务：由项目的负责人执行、只在项目内部看得到的流程或长程任务（buildInternal，Task.internal）。
@@ -256,6 +257,12 @@ export interface TaskService {
    * instructions 是交给 agent 的那段话（用户交代的事加上必要的上下文）。只写了一个项目的建成这个项目的内部任务
    */
   delegate(input: { title: string; instructions: string; projects?: readonly string[]; at?: string; runtime?: string; folder?: WorkFolderChoice }): Task;
+  /**
+   * 用户在秘书提议的"定时任务"卡上点了确认（schedule_task）：建一个定时触发的普通任务——和发起对话框里选"定时"建出来的一样
+   * （buildCreate、过 checkedTrigger：运营中，触发底座看到它就登记触发），origin 是 suggestion（秘书提议、用户点了才建）。
+   * 不挂项目（项目的定时走运营方案）。事件不追加（和卡片更新同一事务）；运行时现在不能用、时间表拼不出来的抛 RequestRejected
+   */
+  buildScheduledFromCard(input: { title: string; instructions: string; schedule: ReminderSchedule; runtime?: string }): { task: Task; events: NewEvent[] };
   /**
    * 项目内部任务的建出事件（不追加）：执行的就是项目的负责人，涉及的项目只有这一个，只在项目内部看得到。
    * 项目要在项目列表里、立项书已确认（只有首个建设任务例外：origin 是 project_build）、没归档，不然抛 RequestRejected 说明原因。
@@ -988,6 +995,21 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       }
       store.appendBatch(built.events);
       return built.task;
+    },
+    buildScheduledFromCard(input) {
+      // 运行时提议时查过，点确认时再查一遍（期间插件可能停了）
+      const runtime = checkedRuntime(input.runtime);
+      return buildCreate(
+        {
+          title: input.title,
+          summary: input.instructions,
+          origin: "suggestion",
+          kind: "plain",
+          trigger: { kind: "schedule", schedule: input.schedule },
+          ...(runtime === undefined ? {} : { runtime }),
+        },
+        "user",
+      );
     },
     buildInternal,
     buildAuthorizedWorkflow,

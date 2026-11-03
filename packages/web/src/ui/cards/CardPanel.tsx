@@ -36,6 +36,7 @@ import { PersonalFileSuggestCard } from "./PersonalFileSuggestCard.tsx";
 import { PlanCard } from "./PlanCard.tsx";
 import { PlanChangeCard } from "./PlanChangeCard.tsx";
 import { RuntimeQuestionCard } from "./RuntimeQuestionCard.tsx";
+import { ScheduleTaskCard } from "./ScheduleTaskCard.tsx";
 import { WorkflowPlanCard } from "./WorkflowPlanCard.tsx";
 
 // 每种卡片的负载形状不同；CardProps<never> 能接住任何一种负载的组件。网页插件拥有的几种（reminder、memory_delete）不在这里，见上
@@ -75,6 +76,8 @@ const BY_TYPE: Partial<Record<CardType, ComponentType<CardProps<never>>>> = {
   personal_file_suggest: PersonalFileSuggestCard,
   // 运行时的提问卡：Claude Code 自己要问你的选择题、退出计划模式的批准
   runtime_question: RuntimeQuestionCard,
+  // 定时任务卡：助理提议的定时触发的普通任务，你点确认才建
+  schedule_task: ScheduleTaskCard,
   // 网页候选卡（browse_pick）是浏览插件登记的
 };
 

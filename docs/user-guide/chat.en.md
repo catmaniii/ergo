@@ -189,6 +189,7 @@ To back out, press Esc or click elsewhere. On a phone, tapping a row selects it;
 | **Questions** | It needs something cleared up | Click one option per question, or write in **None fit? Write your own**. Click **Submit answers**. If the ones marked **Recommended** are all fine, click **Use all recommendations** |
 | **Approval** | It wants to do something risky. By default only especially sensitive things get one; see [Safety defaults](getting-started.en.md#step-5-safety-defaults) | **Deny**, **Approve once**. It acts only if you approve |
 | **Suggested task** | It thinks this should be a task | **No thanks**, **Start as Workflow**, **Start as Long-running task** |
+| **Scheduled task** | You want something done on a schedule, like checking email every morning | **Cancel**, **Confirm and schedule**. The card shows how often, the next three runs, the full brief and the model. See [Running on a schedule](tasks.en.md#running-on-a-schedule) |
 | **Suggested project** | It thinks this should be a project | **No thanks**, **Start project** |
 | **Memory deletion**, **File check** | Before deleting memories or writing to personal files | See [Memory](memory.en.md) |
 | **Plan review**, **Plan change**, **Work order** | A task needs your confirmation | See [Tasks](tasks.en.md) |

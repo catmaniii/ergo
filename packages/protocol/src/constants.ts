@@ -617,6 +617,11 @@ export const CARD_TYPES = [
    * 退出计划模式时的批准；答案交回那次调用，这一轮结束了还没答的作废
    */
   "runtime_question",
+  /**
+   * "定时任务"卡：秘书提议建一个定时触发的普通任务——时间表和接下来几次、任务书全文、按什么模型跑、估得出的每次大概花多少；
+   * 你点"确认"才建（看板运营中），"取消"什么都不建
+   */
+  "schedule_task",
 ] as const;
 
 export type CardType = (typeof CARD_TYPES)[number];
@@ -701,6 +706,8 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   interview_files: 1,
   /** 运行时的提问卡 */
   runtime_question: 1,
+  /** 秘书提议的定时任务 */
+  schedule_task: 1,
 };
 
 /** 卡片上的按钮动作（"对卡片做动作"请求里的动作名） */

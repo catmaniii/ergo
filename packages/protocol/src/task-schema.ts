@@ -4,7 +4,7 @@
 // - 计划（Plan）：负责人用"提交计划"工具交出的结构化数据（工具的参数就是这个 schema），存在二狗自己的存储里；
 //   计划卡由代码从它生成；
 // - 任务书（TaskBrief）：秘书写给执行的负责人的一页说明；
-// - 三种卡的负载和动作输入：计划卡（plan）、提问卡（questions）、"建议发起任务"卡（suggest_task）；
+// - 四种卡的负载和动作输入：计划卡（plan）、提问卡（questions）、"建议发起任务"卡（suggest_task）、"定时任务"卡（schedule_task）；
 // - 发起任务的请求（start_task）。
 // 名字（状态、分组、枚举）在 tasks.ts，计划的纯函数（授权项列表、生成的文字、停点）在 plan.ts。
 import { type Static, type TSchema, Type } from "typebox";
@@ -995,3 +995,42 @@ export const SuggestTaskCardPayload = Type.Object({
   internal: Type.Optional(ProjectInternal),
 });
 export type SuggestTaskCardPayload = Static<typeof SuggestTaskCardPayload>;
+
+/** 定时任务卡上写的最多几次接下来的运行时间（第一个就是首次运行时间） */
+export const SCHEDULE_CARD_UPCOMING = 3;
+
+/**
+ * 同类运行每次大概花多少（定时任务卡上写）：不属于项目的、用同一个运行时的定时或事件触发的普通任务，最近结束了的几次运行，
+ * 每次运行起止之间记在任务名下的用量取平均。runs 是按几次算的；cost 只在每一笔都有单价时有
+ */
+export const ScheduleRunEstimate = Type.Object({
+  runs: Type.Integer({ minimum: 1 }),
+  tokens: Type.Integer({ minimum: 0 }),
+  cost: Type.Optional(Type.Object({ amount: Type.Number({ minimum: 0 }), currency: Type.String() })),
+});
+export type ScheduleRunEstimate = Static<typeof ScheduleRunEstimate>;
+
+/**
+ * "定时任务"卡：秘书提议建一个定时触发的普通任务，只出这张卡；用户点"确认"才建成（和发起对话框里选"定时"建出来的一样，
+ * 运营中），点"取消"什么都不建，两种结果都交回秘书。时间表在提议那一刻定下（每 N 天的起算日、接下来几次的时间），
+ * 卡上写清每次会跑什么（任务书全文）、多久一次、每次到点启动一个 agent、按什么模型跑，估得出的写每次大概花多少。
+ * 不挂项目：项目的定时照旧走运营方案
+ */
+export const ScheduleTaskCardPayload = Type.Object({
+  title: Type.String({ minLength: 1, maxLength: 80 }),
+  /** 任务书：每次到点交给 agent 的话（建出的任务的"要做的事"） */
+  instructions: Type.String({ minLength: 1, maxLength: 4000 }),
+  /** 时间表（重复的） */
+  schedule: ReminderSchedule,
+  /** 提议时按时间表算的接下来几次（协议时间，先到的在前；第一个是首次运行时间） */
+  upcoming: Type.Array(Type.String(), { minItems: 1, maxItems: SCHEDULE_CARD_UPCOMING }),
+  /** 执行它的 agent 用哪个运行时；不写是 pi */
+  runtime: Type.Optional(Type.String({ minLength: 1 })),
+  /** 按什么模型跑：pi 的是提议时任务负责人那一行的模型；别的运行时没有（按它自己的设置） */
+  model: Type.Optional(Type.String({ minLength: 1 })),
+  /** 每次大概花多少（估不出没有） */
+  estimate: Type.Optional(ScheduleRunEstimate),
+  /** 用户点了确认之后建出的任务 */
+  taskId: Type.Optional(Type.String()),
+});
+export type ScheduleTaskCardPayload = Static<typeof ScheduleTaskCardPayload>;

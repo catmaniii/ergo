@@ -6,11 +6,13 @@
 // - maintainers.ts：作业自己的负责人（以前登记的、不属于项目的定时作业，jm-<n>；迁移成普通任务后照旧由它做）的会话；
 // - tools.ts：执行它的 agent 报告这次运行失败的工具；system-prompt.ts：作业负责人的系统提示；
 // - views.ts：派生视图 scheduled_jobs、job_runs；texts.ts：说法；keys.ts：幂等键；thresholds.ts：默认值；
-// - purge.ts：删项目、删任务时属于它的定时作业（触发登记）换掉文字（"删除参与方"登记表）。
+// - purge.ts：删项目、删任务时属于它的定时作业（触发登记）换掉文字（"删除参与方"登记表）；
+// - run-estimate.ts：同类运行每次大概花多少（秘书提议定时任务时卡上写）。
 // 每周的归档清单是任务模块的内部作业，在 tasks/archive-list.ts。
 export { createScheduledJobs, type FireOutcome, isJobMaintainerId, type JobCalendarEntry, jobMaintainerId, runPlanId, type ScheduledJobs } from "./jobs.ts";
 export { createJobMaintainers, type JobMaintainers } from "./maintainers.ts";
 export { registerJobDeletion } from "./purge.ts";
+export { RUN_ESTIMATE_SAMPLE, scheduledRunEstimate } from "./run-estimate.ts";
 export { jobMaintainerSystemPrompt } from "./system-prompt.ts";
 export { DEFAULT_SCHEDULED_JOB_THRESHOLDS, type ScheduledJobThresholds } from "./thresholds.ts";
 export { countRunningOwnRuns, getJob, jobOfTask, listJobs, runsIn, runsOfJob, scheduledJobsView } from "./views.ts";

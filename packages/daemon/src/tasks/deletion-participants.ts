@@ -24,10 +24,10 @@ import { purgedTask } from "./material-sources.ts";
 import { listTasks } from "./views.ts";
 
 /**
- * 负载里记着任务编号、但在别人会话里的卡（不随任务删）：秘书的提问卡、建议发起任务卡、快速动作卡，项目负责人为工单的提问卡、
+ * 负载里记着任务编号、但在别人会话里的卡（不随任务删）：秘书的提问卡、建议发起任务卡、定时任务卡、快速动作卡，项目负责人为工单的提问卡、
  * 工单卡，每周的归档清单
  */
-const KEEP_CARD_TYPES: ReadonlySet<CardType> = new Set<CardType>(["questions", "suggest_task", "quick_action", "archive_list", "work_order"]);
+const KEEP_CARD_TYPES: ReadonlySet<CardType> = new Set<CardType>(["questions", "suggest_task", "schedule_task", "quick_action", "archive_list", "work_order"]);
 
 /** plan.tasks 里这几个任务自己的记录（见文件开头） */
 function claimTaskRecords(plan: DeletionPlan): void {

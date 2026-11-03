@@ -3,7 +3,7 @@
 //   （同一 id、同一状态），在聊天里点按钮后，待我处理里这张卡同步变为已处理；
 // - 待我处理新增事项本身不进秘书的模型输入（不主动转述）；秘书的工具里没有任何对卡片做动作的工具；
 // - 用户要秘书去做一件需要任务的事（"以后每天早上给我出一份简报"），秘书同一轮里直接建任务（规划中），不出建议卡；
-//   秘书没有建定时作业的工具；固定的系统提示写明承诺即任务的三条。
+//   秘书建不了定时作业（定时任务它只能出"定时任务"卡，用户点确认才建）；固定的系统提示写明承诺即任务的三条。
 import { type Card, type CardEventPayload, CHANNELS, EVENT_TYPES, type InboxItem, type InboxItemEventPayload, type MessageEventPayload, type PlanCardPayload } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import type { FauxStep } from "../../src/runtime/index.ts";
@@ -39,7 +39,7 @@ const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: C
 const inboxOf = (frontend: TestFrontend): InboxItem[] => frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }).map((f) => (f.payload as InboxItemEventPayload).item);
 const toolResultOf = (context: string, tool: string) => context.slice(context.lastIndexOf(`[toolResult] ${tool}: `) + `[toolResult] ${tool}: `.length).split("\n[")[0]!;
 
-/** 秘书的全部工具（echo_context 回显的 [tool] 行）：没有任何对卡片做动作的，也没有建定时作业的 */
+/** 秘书的全部工具（echo_context 回显的 [tool] 行）：没有任何对卡片做动作的，也没有直接建定时作业的（schedule_task 只出卡） */
 const SECRETARY_TOOLS = [
   // 问记忆（推理图谱里和问题相关的结论）
   "ask_memory",
@@ -71,6 +71,8 @@ const SECRETARY_TOOLS = [
   "read_attachment",
   "read_material",
   "read_project_records",
+  // 提议定时任务（只出"定时任务"卡，用户点确认才建；不对已有的卡做动作）
+  "schedule_task",
   "search_materials",
   "send_attachment",
   "show_card",
@@ -138,7 +140,7 @@ describe("待我处理", () => {
     const first = await tell(frontend, "在吗");
     expect(first).not.toContain(item.title);
     expect(first).not.toContain(plan.id);
-    // 秘书的工具：没有对卡片做动作的，没有建定时作业的
+    // 秘书的工具：没有对卡片做动作的，没有直接建定时作业的
     expect(first.split("\n").filter((l) => l.startsWith("[tool] ")).map((l) => l.slice("[tool] ".length)).toSorted()).toEqual(SECRETARY_TOOLS);
 
     const second = await tell(frontend, "现在有什么等我处理的");

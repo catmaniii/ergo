@@ -400,6 +400,8 @@ export type {
   QuestionsCardPayload,
   StartTaskParams,
   SuggestTaskCardPayload,
+  // 秘书提议的定时任务卡
+  ScheduleTaskCardPayload,
   Task,
   TaskAction,
   TaskAct,

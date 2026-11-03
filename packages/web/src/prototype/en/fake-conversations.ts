@@ -654,4 +654,11 @@ export const EN_CONVERSATIONS: Phrases = {
   "---\nname: weekly-notes\ndescription: >-\n  {}\n---\n\n# 整理一周的笔记\n\n1. 读这周的笔记，按日期归并。\n2. 带 TODO 的标成待办，单列一节。\n3. 最后写 3 条这周的要点。\n":
     "---\nname: weekly-notes\ndescription: >-\n  {}\n---\n\n# Tidy up a week of notes\n\n1. Read this week's notes and merge them by date.\n2. Mark the ones with TODO as to-dos, in a section of their own.\n3. End with 3 key points for the week.\n",
   "你导入的 weekly-notes": "weekly-notes, which you imported",
+  "以后每天早上 8 点 10 分帮我收一下邮件，挑出要回的": "From now on, check my email every morning at 8:10 and pick out the ones I need to answer",
+  "好，每天 08:10 收一遍、挑出要回的。卡上写了每次怎么做，你看一下，点确认我才建：": "Sure: every day at 08:10, check the inbox and pick out what needs a reply. The card says what it does each time. Have a look; I'll only set it up once you confirm:",
+  'title=每天收邮件 instructions=收一遍工作邮箱和个人邮箱里昨天以来的新邮件 when={"kind":"daily"} time=08:10': 'title=Daily email check instructions=Go through new mail in the work and personal inboxes since yesterday when={"kind":"daily"} time=08:10',
+  "已在聊天里放了一张“定时任务”卡（任务还没建）": "Put a scheduled-task card in the chat (the task isn't created yet)",
+  "每天收邮件": "Daily email check",
+  "收一遍工作邮箱和个人邮箱里昨天以来的新邮件：\n1. 挑出要我回的（同事、客户直接问我的），每封一句话说要回什么；\n2. 账单、快递通知归在一起，只列金额和日期；\n3. 广告不用管。\n结果写成一段：要回的在前，账单快递在后。":
+    "Go through new mail in the work and personal inboxes since yesterday:\n1. Pick out the ones I need to answer (colleagues or clients asking me directly), one line each on what to reply;\n2. Group bills and delivery notices together, listing just amounts and dates;\n3. Ignore ads.\nWrite it up as one paragraph: replies first, then bills and deliveries.",
 };

@@ -50,6 +50,7 @@ import {
   type JobRun,
   type ScheduledJob,
   type ScheduledJobEventPayload,
+  type ScheduleTaskCardPayload,
   type ServiceEntryCardPayload,
   type SkillChangeCardPayload,
   type Speaker,
@@ -100,6 +101,13 @@ function tool(
     ...(o.recall ? { recall: o.recall } : {}),
   };
   return { ...part, nature: o.nature ?? toolNatureOf(part) };
+}
+
+/** 一次工具调用，编号写死（插在中间的，不让后面那些调用的编号挪动） */
+function toolAs(callId: string, ...args: Parameters<typeof tool>): MessagePart {
+  const part = tool(...args);
+  callNo -= 1;
+  return { ...part, callId } as MessagePart;
 }
 
 /**
@@ -548,6 +556,20 @@ export const FAKE_CARDS: Card[] = [
     outcome: { action: "start_task" },
   }),
   card("c-st-2", "suggest_task", { title: "整理 NAS 上的旧电影", why: "NAS 剩余空间不到 8%，电影目录占了 61%。" } satisfies SuggestTaskPayload),
+  // 秘书提议的定时任务：每天 08:10 收邮件、挑出要回的；等你点确认才建（按最近 6 次同类运行估了每次大约多少 token）
+  card(
+    "c-sched-1",
+    "schedule_task",
+    {
+      title: "每天收邮件",
+      instructions: "收一遍工作邮箱和个人邮箱里昨天以来的新邮件：\n1. 挑出要我回的（同事、客户直接问我的），每封一句话说要回什么；\n2. 账单、快递通知归在一起，只列金额和日期；\n3. 广告不用管。\n结果写成一段：要回的在前，账单快递在后。",
+      schedule: { kind: "daily", time: "08:10" },
+      upcoming: [at("10-08", "08:10"), at("10-09", "08:10"), at("10-10", "08:10")],
+      model: "deepseek-flash",
+      estimate: { runs: 6, tokens: 31_800 },
+    } satisfies ScheduleTaskCardPayload,
+    { createdAt: at("10-07", "09:40") },
+  ),
   card("c-sp-1", "suggest_project", { name: "家电档案", goal: "把家里电器的保修单、说明书和维修记录收在一处，保修到期前提醒我。" } satisfies SuggestProjectPayload, {
     version: 2,
     status: "handled",
@@ -1185,6 +1207,19 @@ const SECRETARY: MessageEnvelope[] = [
       "九月三张卡在吃上一共花了 **¥3,412.60**，比八月多 12%。\n\n- 外卖 ¥1,286.00（38%）\n- 餐馆 ¥1,530.60\n- 超市生鲜 ¥596.00\n\n外卖大多在工作日晚上 9 点以后。要不要让记账本在周报里把「外卖」单列出来？",
     ),
   ),
+  // 要定时反复干活的事：秘书提议定时任务，只出卡，等你点确认才建（id 写死，不经 msg() 编号，后面消息的 id 不变）
+  { id: "msg-sched-demo-1", conversation: S, speaker: "user", time: at("10-07", "09:40"), parts: [text("以后每天早上 8 点 10 分帮我收一下邮件，挑出要回的")] },
+  {
+    id: "msg-sched-demo-2",
+    conversation: S,
+    speaker: "agent",
+    time: at("10-07", "09:40"),
+    parts: [
+      toolAs("call-sched-demo", "schedule_task", 'title=每天收邮件 instructions=收一遍工作邮箱和个人邮箱里昨天以来的新邮件 when={"kind":"daily"} time=08:10', { result: "已在聊天里放了一张“定时任务”卡（任务还没建）" }),
+      text("好，每天 08:10 收一遍、挑出要回的。卡上写了每次怎么做，你看一下，点确认我才建："),
+      cardRef("c-sched-1"),
+    ],
+  },
   // 提醒、联网搜索、读网页各一次，工具调用说成人话
   msg(S, "user", at("10-07", "10:02"), text("下周三早上提醒我交季度报告；再查查西安十一月中旬的天气")),
   msg(

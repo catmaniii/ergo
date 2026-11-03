@@ -195,7 +195,7 @@ import { createWorkFolders } from "./work-folders/index.ts";
 import { type Clock, clockIso, systemClock } from "./scheduler/clock.ts";
 import { createInternalJobs, type InternalJobs, internalJobsView } from "./scheduler/internal-jobs.ts";
 import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
-import { createJobMaintainers, createScheduledJobs, getJob, isJobMaintainerId, registerJobDeletion, type ScheduledJobs, scheduledJobsView } from "./scheduled-jobs/index.ts";
+import { createJobMaintainers, createScheduledJobs, getJob, isJobMaintainerId, registerJobDeletion, type ScheduledJobs, scheduledJobsView, scheduledRunEstimate } from "./scheduled-jobs/index.ts";
 import { relayActions } from "./secretary/relay.ts";
 import { type Secretary, SECRETARY_AGENT_ID, SECRETARY_TARGET, startSecretary } from "./secretary/secretary.ts";
 import { AUTHORIZED_FOLDERS_BLOCK_ID, authorizeFoldersAction, secretaryFoldersBlock } from "./folders/authorize-folders.ts";
@@ -212,7 +212,7 @@ import { createSecretaryLetters } from "./secretary/letters.ts";
 import { type ArchiveList, archiveListCardType, createArchiveList } from "./tasks/archive-list.ts";
 import { createTaskBatch } from "./tasks/batch.ts";
 import { DAY_MS } from "./tasks/thresholds.ts";
-import { planCardType, questionsCardType, suggestTaskCardType, workflowPlanCardType } from "./tasks/cards.ts";
+import { planCardType, questionsCardType, scheduleTaskCardType, suggestTaskCardType, workflowPlanCardType } from "./tasks/cards.ts";
 import { reviewWorkflowDraft } from "./tasks/workflow-plan.ts";
 import type { WorkflowExecutor, WorkflowReviewer } from "./tasks/workflow-tools.ts";
 import { planChangeCardType } from "./tasks/plan-change-card.ts";
@@ -1039,6 +1039,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       workFolder: (runtime, choice, title) => workFolders.settle(runtime, choice, title),
     });
     registry.register(suggestTaskCardType(tasks));
+    // 秘书提议的定时任务：用户点确认才建（和发起对话框里选"定时"建出来的一样）
+    registry.register(scheduleTaskCardType(tasks, scheduleContext));
     registry.register(planCardType(tasks));
     // 流程计划卡：一次授权执行，或拒绝
     registry.register(workflowPlanCardType(tasks, () => wired("taskExecution")));
@@ -1984,6 +1986,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       boardKinds,
       // 秘书建任务时写的运行时：现在能用的才行
       runtimeRefusal,
+      // 提议定时任务：接下来几次按守护进程的时钟和工作日历算；pi 跑的写任务负责人那一行现在的模型；每次大概花多少按同类运行的历史用量
+      scheduling: {
+        now: () => new Date(clock.now()),
+        scheduleContext,
+        taskModel: () => modelSettings.modelFor("task_maintainer").modelId,
+        estimate: (runtime) => scheduledRunEstimate({ reader: store.reader, tasks: () => tasks.list(), usageIn: (windows) => ledger.usageIn(windows) }, runtime),
+      },
       now,
       log,
     });

@@ -124,6 +124,8 @@ describe("秘书建提醒", () => {
       "[tool] suggest_task",
       "[tool] ask_questions",
       "[tool] write_task_brief",
+      // 提议定时任务（只出"定时任务"卡，用户点确认才建）
+      "[tool] schedule_task",
       "[tool] suggest_project",
       // 只读工具
       "[tool] view_board",

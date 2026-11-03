@@ -88,7 +88,7 @@ Type `/task` or `/workflow` in the input box, followed by what to do. A sentence
   - Workflow: "Follow a workflow", "Follow this workflow", "Start a workflow", "Start a new workflow".
   - Long-running task: "Start a task", "Start a new task", "Start a long-running task". "Start a task" and 发起任务 on their own count as long-running tasks.
 - If you don't, the secretary can at most offer a **Suggested task** card, with **Start as Workflow**, **Start as Long-running task** and **No thanks**. It creates the task only after you click.
-- The secretary can't create scheduled or event-triggered tasks. If they don't belong to a project, it asks you to create them in this dialog. If they do, it passes them to the project's owner, and an [Operations plan change card](projects.en.md#operations-plan) appears.
+- For repeating work that doesn't belong to a project, the secretary offers a **Scheduled task** card, and nothing is created until you click **Confirm**. See [Running on a schedule](#running-on-a-schedule). If it belongs to a project, it passes it to the project's owner, and an [Operations plan change card](projects.en.md#operations-plan) appears. For event-triggered tasks and scheduled workflows, it asks you to create them in this dialog.
 - A task's kind can't be changed once it's created.
 - By default at most 3 tasks run at once; the rest wait. While waiting, the card says **Queued**.
 - If the only project you picked is still in kickoff, you can't start the task until its charter is confirmed.
@@ -480,6 +480,18 @@ When an owner makes small changes to the plan without widening its grants, it do
    - **Once at a set time:** Pick a date and time. It runs once at that time and then counts as done.
 5. Click the button, for example **Create scheduled plain task**.
 
+**Or tell the secretary:** for example, "From now on, check my email every morning at 8:10 and pick out the ones I need to answer". It doesn't create anything yet. It offers a **Scheduled task** card:
+
+| On the card | What it is |
+|---|---|
+| **How often** | The schedule, for example **Every day at 08:10** or **Every 2 days at 20:00, starting Nov 3** |
+| **First run**, **Then** | When the next three runs are |
+| The brief | What the agent is given each time it's due, in full |
+| **Model** | The model it runs on. If it runs on something like Claude Code, it names that instead |
+| **About … per run** | Usage based on the last few similar runs, plus a rough cost if prices are known. With no similar runs yet, it says there's no estimate and shows no numbers |
+
+Click **Confirm and schedule** to create it. It's the same as choosing **On a schedule** in the dialog, and shows under **Operating** on the board. **Cancel** creates nothing. Either way, the secretary is told. It offers at most one card per turn.
+
 **After it's created:**
 
 - **Plain task:** Registered right away, and runs in the background on time. Repeating ones are in **Operating** on the board; ones set to run once at a set time are in **In progress**, marked **Scheduled**.
@@ -496,6 +508,7 @@ When an owner makes small changes to the plan without widening its grants, it do
 
 **Things you can just say:**
 
+- From now on, check my email every morning at 8:10 (offers a Scheduled task card; nothing is created until you confirm)
 - Run the morning briefing again
 - From now on, read the morning briefing to me when it's done
 

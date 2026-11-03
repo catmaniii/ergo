@@ -146,7 +146,7 @@ describe("发起任务的三条路", () => {
     expect(daemon.materials.list({ kind: "user_utterance" })[0]?.context).toEqual(["start_task_button", "project:记账本", "project:家庭网盘"]);
   });
 
-  it("用户在消息里点明了发起任务（要点明）：秘书用建任务工具直接建任务卡（规划中），这一轮不产生“建议发起任务”卡；秘书没有建定时作业的工具", async () => {
+  it("用户在消息里点明了发起任务（要点明）：秘书用建任务工具直接建任务卡（规划中），这一轮不产生“建议发起任务”卡；秘书没有直接建定时作业的工具（定时任务只出卡）", async () => {
     const { url } = await startTestDaemon({ secretary: [createTask, { kind: "echo_context" }] });
     const frontend = await connect(url);
     await tell(frontend, "发起任务：帮我整理一份 X 的调研");
@@ -157,7 +157,7 @@ describe("发起任务的三条路", () => {
     expect(cardsOf(frontend)).toEqual([]);
     const seen = textOf(messagesOf(frontend, SECRETARY).at(-1)!);
     expect(seen).toContain("[toolResult] create_task: 已建好长程任务 t-1「X 的调研」（规划中）");
-    // 秘书的工具：没有对卡片做动作的，也没有建定时作业的（定时作业只通过任务的计划建）
+    // 秘书的工具：没有对卡片做动作的，也没有直接建定时作业的（schedule_task 只出"定时任务"卡，用户点确认才建）
     expect(seen.split("\n").filter((l) => l.startsWith("[tool]"))).toEqual([
       "[tool] read",
       "[tool] write",
@@ -198,6 +198,8 @@ describe("发起任务的三条路", () => {
       "[tool] suggest_task",
       "[tool] ask_questions",
       "[tool] write_task_brief",
+      // 提议定时任务（只出"定时任务"卡，用户点确认才建）
+      "[tool] schedule_task",
       "[tool] suggest_project",
       // 只读工具：查看板、读项目档案、列出待我处理、把卡片放进聊天（不对卡片做动作）
       "[tool] view_board",

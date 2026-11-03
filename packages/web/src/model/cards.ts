@@ -63,6 +63,7 @@ export const CARD_TYPE_LABEL: Readonly<Record<CardType, string>> = tTable({
   interview: "model.cards.type.interview",
   interview_files: "model.cards.type.interviewFiles",
   runtime_question: "model.cards.type.runtimeQuestion",
+  schedule_task: "model.cards.type.scheduleTask",
 });
 
 /** 卡片动作处理完以后显示的结果文字 */

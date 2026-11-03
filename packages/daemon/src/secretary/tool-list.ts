@@ -1,5 +1,6 @@
 // 秘书的工具里内核的那些（守护进程代为执行）：提议快速动作，任务发起的四个和
-// 交给后台（普通任务），建议立项，只读的查看板、读项目档案、列出待我处理和把卡片放进聊天（没有任何对卡片做动作的工具），
+// 交给后台（普通任务），提议定时任务（schedule_task，tasks/schedule-tool.ts：只出"定时任务"卡，排在任务发起那几个后面），
+// 建议立项，只读的查看板、读项目档案、列出待我处理和把卡片放进聊天（没有任何对卡片做动作的工具），
 // 给出项目的服务的入口（open_service，放一张服务入口卡；查看板时多一节"项目的服务"），启动、关闭项目的服务（
 // switch_project_services，和项目卡片上的按钮同一个入口），调使用中的项目的操作（project_ops，list / describe / call，
 // 各项目的操作不注册成单独的工具，用到才读登记着的那一版清单；有白送的通用操作、参数校验、能念的 say、四种实现方式、
@@ -28,6 +29,7 @@ import type { McpCallService } from "../mcp/call.ts";
 import type { SecretaryProjects } from "../projects/api.ts";
 import { proposeQuickActionTool, type QuickActionService, readUserTurn } from "../quick-actions/index.ts";
 import type { SkillChangeService } from "../skills/change.ts";
+import { type ScheduleTaskToolDeps, scheduleTaskTool } from "../tasks/schedule-tool.ts";
 import { taskTools } from "../tasks/secretary-tools.ts";
 import type { TaskService } from "../tasks/tasks.ts";
 
@@ -49,6 +51,8 @@ export interface SecretaryToolDeps {
   boardKinds: BoardKinds;
   /** 秘书建任务时写的运行时现在能不能用：不能用的原因；不给就不查 */
   runtimeRefusal?: (runtime: string) => string | undefined;
+  /** 提议定时任务：守护进程的时钟、工作日历、任务负责人的模型、同类运行的用量 */
+  scheduling: Omit<ScheduleTaskToolDeps, "cards" | "runtimeRefusal">;
   now: () => string;
   log: (line: string) => void;
 }
@@ -63,6 +67,8 @@ export function secretaryToolList(deps: SecretaryToolDeps): HostTool[] {
     readPersonalFileTool(personalFiles),
     // 发起任务要用户这一轮点明了（看秘书正在处理的那条用户消息）
     ...taskTools(tasks, { store, cards, inbox }, (inputMessageId) => readUserTurn(store, cards, inputMessageId), deps.runtimeRefusal),
+    // 提议定时任务（只出"定时任务"卡，用户点确认才建；不用点明）
+    scheduleTaskTool({ cards, runtimeRefusal: deps.runtimeRefusal, ...deps.scheduling }),
     // 建议立项
     projects.suggestTool(),
     // 查看板，多一节"项目的服务"

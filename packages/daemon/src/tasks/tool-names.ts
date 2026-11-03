@@ -43,4 +43,6 @@ export const TASK_TOOL = {
   writeTaskBrief: "write_task_brief",
   /** 秘书自己把用户交代的一件事交给后台，建成普通任务（不必等用户点明） */
   delegateTask: "delegate_task",
+  /** 秘书提议建一个定时触发的普通任务：只出"定时任务"卡，用户点了确认才建（定义在 schedule-tool.ts） */
+  scheduleTask: "schedule_task",
 } as const;

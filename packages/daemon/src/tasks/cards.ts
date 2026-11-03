@@ -9,14 +9,23 @@
 // - 计划卡（plan）：代码从结构化计划生成。唯一的"确认"按钮（可带勾掉、收窄的授权项），或附意见"打回"；
 // - 流程计划卡（workflow_plan）：审查结果、步骤和每一步的条件；需要你确认的事项逐条勾完，"授权执行"一次授权，
 //   或"拒绝"（可以附说明）。
+// - "定时任务"卡（schedule_task）：秘书提议建的定时触发的普通任务。"确认"建出（和发起对话框里选"定时"建出来的一样，运营中），
+//   "取消"什么都不建（关掉）；两种结果都作为一条通知交回秘书。
 // 卡上处理结果的一句（note）、点按钮被拒的原因按当时的语言写；交给秘书的回答照旧中文。
 // toText（卡片的纯文字说法：网页卡片详情的标题、引用卡片那一行、认不得的卡都显示它）和别的卡一样按当时的语言写
 // 秘书出的提问卡也进待我处理（createSecretaryQuestions），标题说在等你的卡，待办里一定有一条
 import {
   ASSISTANT_NAME_MARK,
   type Card,
+  CARD_TYPE_VERSIONS,
   CHANNELS,
   describeSchedule,
+  describeTime,
+  forModel,
+  nextOccurrence,
+  type ScheduleContext,
+  ScheduleTaskCardPayload,
+  type Task,
   t,
   internalScopeLabel,
   PlanCardPayload,
@@ -80,6 +89,63 @@ export function suggestTaskCardType(tasks: TaskService) {
       p.internal
         ? t("tasks.cards.text.suggestInternal", { scope: internalScopeLabel(p.internal.projectName), title: p.title, why: p.why })
         : t("tasks.cards.text.suggest", { title: p.title, why: p.why }),
+  });
+}
+
+// 交回秘书的两种结果（给模型看，照旧中文）
+// @i18n-ignore-start model
+/** 用户点了确认：建好了哪个任务、时间表、下一次 */
+function scheduleConfirmedNotice(task: Task, schedule: ScheduleTaskCardPayload["schedule"], next: Date | undefined, now: Date): string {
+  const when = forModel(() => `${describeSchedule(schedule, now)}${next ? `，下一次是 ${describeTime(next, now)}` : ""}`);
+  return (
+    `用户在“定时任务”卡上点了确认：已建好定时触发的普通任务 ${task.id}「${task.title}」，在任务看板的“运营中”，时间表：${when}。` +
+    "到点由它自己的 agent 照任务书做，每次做完你会收到通知。简短告诉用户一声就行，不用再问。"
+  );
+}
+
+/** 用户点了取消：什么都没建 */
+function scheduleCancelledNotice(payload: ScheduleTaskCardPayload, note: string | undefined): string {
+  const said = note?.trim();
+  return `用户在“定时任务”卡上点了取消：「${payload.title}」没有建，什么都没变。${said ? `用户附了一句：${said}。` : ""}用户没再说要建的话，不要再提这件事。`;
+}
+// @i18n-ignore-end
+
+/**
+ * "定时任务"卡（schedule_task）：秘书提议的定时触发的普通任务。"确认"建出（TaskService.buildScheduledFromCard：和发起对话框里
+ * 选"定时"建出来的一样，运营中），卡上记着建出的任务编号；运行时没启用、时间表拼不出来的被拒（原因写在卡上，卡留着）。
+ * "取消"什么都不建（关掉，算回避信号）。两种结果都作为一条通知交回秘书，和卡片的更新同一事务。
+ * scheduleContext：算下一次用（按我的工作日要当时的工作日历）
+ */
+export function scheduleTaskCardType(tasks: TaskService, scheduleContext: () => ScheduleContext) {
+  return defineCardType({
+    type: "schedule_task",
+    version: CARD_TYPE_VERSIONS.schedule_task,
+    payload: ScheduleTaskCardPayload,
+    actions: {
+      confirm: {
+        input: undefined,
+        run: ({ payload, now, idempotencyKey }) => {
+          const { task, events } = tasks.buildScheduledFromCard({
+            title: payload.title,
+            instructions: payload.instructions,
+            schedule: payload.schedule,
+            ...(payload.runtime === undefined ? {} : { runtime: payload.runtime }),
+          });
+          const at = new Date(now);
+          const next = nextOccurrence(payload.schedule, at, scheduleContext());
+          const notice = buildAgentNotice(CHANNELS.secretary, scheduleConfirmedNotice(task, payload.schedule, next, at), `${idempotencyKey}#notice`);
+          return { status: "handled", payload: { ...payload, taskId: task.id }, events: [...events, notice.event] };
+        },
+      },
+      cancel: {
+        input: undefined,
+        run: ({ payload, note, idempotencyKey }) => ({ status: "dismissed", events: [buildAgentNotice(CHANNELS.secretary, scheduleCancelledNotice(payload, note), `${idempotencyKey}#notice`).event] }),
+      },
+    },
+    toText: (p) =>
+      p.taskId
+        ? t("tasks.cards.text.scheduleCreated", { title: p.title, schedule: describeSchedule(p.schedule), task: p.taskId })
+        : t("tasks.cards.text.schedule", { title: p.title, schedule: describeSchedule(p.schedule), first: describeTime(new Date(p.upcoming[0]!)) }),
   });
 }
 
