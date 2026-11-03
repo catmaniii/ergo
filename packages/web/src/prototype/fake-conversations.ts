@@ -51,6 +51,7 @@ import {
   type ScheduledJob,
   type ScheduledJobEventPayload,
   type ServiceEntryCardPayload,
+  type SkillChangeCardPayload,
   type Speaker,
   type Task,
   type TaskEventPayload,
@@ -453,6 +454,9 @@ const standardBackfillOldsite: StandardBackfillPayload = {
     { key: "ops", path: "ops.json", state: "missing" },
   ],
 };
+
+/** 秘书提交的 skill 的触发说明（卡上的"它会改变什么行为"，也写在拼好的 SKILL.md 里） */
+const FAKE_SKILL_DESCRIPTION = "你说「整理这周的笔记」时用: 按日期归并，标出待办，最后列 3 条要点";
 
 export const FAKE_CARDS: Card[] = [
   card("c-rem-1", "reminder", {
@@ -887,6 +891,32 @@ export const FAKE_CARDS: Card[] = [
   }),
   // 家庭菜谱的负责人交的新一份运营方案（菜单改时间、去掉一条、加上一条；还改了菜谱网页的启动命令），等你确认
   card("c-ops-recipes", "operations_change", RECIPES_OPERATIONS_CHANGE, { urgency: "non_blocking", createdAt: at("10-07", "18:40") }),
+  // 秘书提交的 skill：库里已经有你导入的同名的，卡上让你选覆盖、改名、放弃
+  card(
+    "c-skill-proposed",
+    "skill_change",
+    {
+      action: "add",
+      name: "weekly-notes",
+      description: FAKE_SKILL_DESCRIPTION,
+      submitter: { kind: "secretary" },
+      why: "你说以后每周五都这样整理，记成 skill 下次照做",
+      source: {
+        path: "/demo/scratch/.skill-drafts/weekly-notes",
+        dirName: "weekly-notes",
+        skillMd: `---\nname: weekly-notes\ndescription: >-\n  ${FAKE_SKILL_DESCRIPTION}\n---\n\n# 整理一周的笔记\n\n1. 读这周的笔记，按日期归并。\n2. 带 TODO 的标成待办，单列一节。\n3. 最后写 3 条这周的要点。\n`,
+        files: [{ path: "SKILL.md", bytes: 362 }],
+        fileCount: 1,
+        totalBytes: 362,
+        scriptCount: 0,
+        excluded: [],
+        linked: [],
+        fingerprint: "0".repeat(64),
+      },
+      sameName: { owner: "你导入的 weekly-notes", overwritable: true },
+    } satisfies SkillChangeCardPayload,
+    { urgency: "non_blocking", createdAt: at("10-07", "10:30") },
+  ),
   card(
     "c-pair-1",
     "pairing",

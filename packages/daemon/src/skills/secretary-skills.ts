@@ -1,6 +1,7 @@
 // 秘书用的 skill：秘书也能用 skill 库里的 skill（之前只有执行中的负责人和项目负责人的对话段才有）。
 // - 名单存在数据目录配置区的 secretary-skills.json（随数据目录备份，不进仓库），是真相；只由运行时写（设置里的 skill 库页，
-//   POST HTTP_PATHS.secretarySkills）；配置区是受保护区域，agent 用任何方式都写不进，所以秘书不能自己给自己加 skill。
+//   POST HTTP_PATHS.secretarySkills；秘书提交的 skill 用户在卡上批准进库之后，add 加上它）；配置区是受保护区域，
+//   agent 用任何方式都写不进，所以秘书不能自己给自己加 skill。
 // - 没有这个文件时按默认的（DEFAULT_SECRETARY_SKILLS：agent-browser、yt-dlp）；默认的这两个库里还没有的
 //   不装也不记日志（导入之后下一次装配自动装上）——在设置里改过名单也一样：名单里留着的默认项可以先于导入（只有它们可以），
 //   别的只能选库里有的。文件读不了、写错了时按默认的装，设置页上显示问题。
@@ -21,6 +22,11 @@ export interface SecretarySkills {
   view(): SecretarySkillsView;
   /** 改名单：只能选 skill 库里有的（默认的两个可以先于导入留着；别的不在库里的抛 RequestRejected），去重后写文件；有变化时叫 onChange 登记的函数 */
   set(skills: readonly string[]): SecretarySkillsView;
+  /**
+   * 秘书提交的 skill 进库了：加进名单（只查这一个在库里，名单里别的照旧，被删了的名字也留着）。
+   * 已经在名单里的不写文件、返回 false；加了返回 true，并叫 onChange 登记的函数
+   */
+  add(name: string): boolean;
   /** 装配秘书时交给子进程的 skill 目录（库里没有的跳过） */
   paths(): string[];
   /** 名单在设置里改了时叫 fn；返回取消登记的函数 */
@@ -91,6 +97,16 @@ export function createSecretarySkills(options: SecretarySkillsOptions): Secretar
       const same = before.skills.length === wanted.length && before.skills.every((s, i) => s === wanted[i]);
       if (!same) for (const fn of listeners) fn();
       return withSize({ skills: wanted, isDefault: false });
+    },
+    add(name) {
+      if (library.missing([name]).length > 0) throw new RequestRejected("not_found", t("skills.secretary.missing", { names: name }));
+      const now = readList();
+      // 设置文件读不了、写错了：不替用户覆盖，原因交回去（卡上写明没配进去）
+      if (now.problem !== undefined) throw new RequestRejected("conflict", now.problem);
+      if (now.skills.includes(name)) return false;
+      writeJsonAtomic(file, { format: 1, skills: [...now.skills, name] } satisfies SecretarySkillsFileShape);
+      for (const fn of listeners) fn();
+      return true;
     },
     paths() {
       const now = readList();

@@ -3,6 +3,7 @@
 // 点整条看详情（itemId 是它在条目层的 id）。重做记录画成阶段重开那一行。
 import { type ConversationRecord, isTimelineRecordKind, MARK_KIND_LABEL, t, TIMELINE_RECORD_KIND_INFO } from "../../state/index.ts";
 import { clockLabel } from "../../util/time.ts";
+import { NamedText } from "../assistant-name.tsx";
 
 export function RecordRow({ record, time, itemId, onDetail }: { record: ConversationRecord; time: string | undefined; itemId: string; onDetail?: ((id: string) => void) | undefined }) {
   const open = onDetail && (() => onDetail(itemId));
@@ -35,11 +36,16 @@ export function RecordRow({ record, time, itemId, onDetail }: { record: Conversa
       </div>
     );
   const info = isTimelineRecordKind(timeline.kind) ? TIMELINE_RECORD_KIND_INFO[timeline.kind] : undefined;
+  // 守护进程写的话里提到个人助理的是名字占位（秘书提交的 skill 变更记在它的主线上）：按现在的名字显示
   return (
     <div className={cls} data-item={itemId}>
       <div className={`sys-note tl-record sev-${info?.severity ?? "info"}`} onClick={open}>
-        <b>{info?.label ?? t("ui.recordRow.record")}</b> · {timeline.summary}
-        {timeline.detail && <div className="muted">{timeline.detail}</div>}
+        <b>{info?.label ?? t("ui.recordRow.record")}</b> · <NamedText text={timeline.summary} />
+        {timeline.detail && (
+          <div className="muted">
+            <NamedText text={timeline.detail} />
+          </div>
+        )}
         {time ? <span className="muted"> · {clockLabel(time)}</span> : null}
       </div>
     </div>

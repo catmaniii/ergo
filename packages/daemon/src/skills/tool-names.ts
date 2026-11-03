@@ -2,3 +2,6 @@
 
 /** 负责人把一个 skill 加进 skill 库、改、删（出一张"skill 变更"卡，用户确认之后由运行时写 skill 区）的工具 */
 export const REQUEST_SKILL_CHANGE_TOOL = "request_skill_change";
+
+/** 秘书提交一个 skill（内容直接给，出同一张"skill 变更"卡，用户确认之后由运行时写 skill 区）的工具 */
+export const PROPOSE_SKILL_TOOL = "propose_skill";

@@ -5,6 +5,7 @@
 // 各项目的操作不注册成单独的工具，用到才读登记着的那一版清单；有白送的通用操作、参数校验、能念的 say、四种实现方式、
 // 清单验收和版本号，装配在 project-ops/ 的 createProjectOps），提转入使用（propose_go_live，只出确认卡，用户在卡上确认才转）。
 // 读个人档案（read_personal_file）紧跟在提议快速动作后面（写档案是快速动作 personal_file）。
+// 提交 skill（propose_skill，skills/change.ts）排在项目的那几样后面、待办的两个前面：只出"skill 变更"卡。
 // 带参调 MCP（mcp_call）排在插件给的 ask_memory 后面、别的内核工具前面——用户要动一个登记过的 MCP 时
 // 先看它（登记过就调，参数自由传；没登记、服务没起来时它自己会说清楚）。
 // 从组合根挪到这里。建、改、取消提醒由提醒插件、素材检索由记忆插件经 agent 贡献缝给秘书
@@ -26,6 +27,7 @@ import { inboxTools } from "../inbox/secretary-tools.ts";
 import type { McpCallService } from "../mcp/call.ts";
 import type { SecretaryProjects } from "../projects/api.ts";
 import { proposeQuickActionTool, type QuickActionService, readUserTurn } from "../quick-actions/index.ts";
+import type { SkillChangeService } from "../skills/change.ts";
 import { taskTools } from "../tasks/secretary-tools.ts";
 import type { TaskService } from "../tasks/tasks.ts";
 
@@ -41,6 +43,8 @@ export interface SecretaryToolDeps {
   personalFiles: PersonalFilesService;
   /** 带参调 MCP */
   mcpCalls: Pick<McpCallService, "tool">;
+  /** 提交 skill（和负责人的 request_skill_change 同一张卡、同一段校验和写入） */
+  skillChanges: Pick<SkillChangeService, "secretaryTool">;
   /** 看板上有哪几种（查看板） */
   boardKinds: BoardKinds;
   /** 秘书建任务时写的运行时现在能不能用：不能用的原因；不给就不查 */
@@ -65,6 +69,8 @@ export function secretaryToolList(deps: SecretaryToolDeps): HostTool[] {
     viewBoardTool(store, boardKinds, () => projects.boardSection()),
     // 读项目档案、给出服务入口、启停项目的服务、调使用中的项目的操作、提转入使用（只出确认卡）
     ...projects.tools(),
+    // 提交一个 skill（只出"skill 变更"卡，用户确认了运行时才写 skill 区）
+    deps.skillChanges.secretaryTool(),
     // 项目内部任务的事项秘书只看到是哪个项目内部的
     ...inboxTools(inbox, cards),
   ];

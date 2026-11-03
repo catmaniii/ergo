@@ -675,8 +675,11 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   browse_pick: 1,
   /** 负责人提的 MCP 登记变更（加、改、删），确认后由运行时写配置区的 mcp.json */
   mcp_change: 1,
-  /** 负责人提的 skill 变更（加、改、删），确认后由运行时写 skill 区 */
-  skill_change: 1,
+  /**
+   * 负责人提的 skill 变更（加、改、删），确认后由运行时写 skill 区。
+   * 2：秘书也能提交（提交人是 secretary，SKILL.md 就在卡上）；库里已有同名的时卡上带着同名检查（sameName），可以覆盖、改名、放弃
+   */
+  skill_change: 2,
   /** 本项目的规范改写、跟新版规范，确认了才生效 */
   standard_change: 1,
   /** 规范上线之前建的项目补齐规范文档，选补齐才建任务 */
@@ -727,6 +730,9 @@ export const CARD_ACTIONS = [
   "start",
   "later",
   "decline",
+  /** skill 变更卡上和库里同名时：覆盖同名的、改名后进库（放弃是 deny） */
+  "overwrite",
+  "rename",
 ] as const;
 
 /** 卡片状态：待处理、已处理、已关闭（用户关掉不处理）、已过期。 */

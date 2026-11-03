@@ -539,6 +539,8 @@ const INTERNAL: ReadonlyArray<readonly [string, "card" | "record" | "system" | "
   ["request_mcp_change", "card", "mcp_change"],
   // 把 skill 提交进 skill 库（加、改、删，用户确认之后运行时才写 skill 区）
   ["request_skill_change", "card", "skill_change"],
+  // 秘书提交 skill（同一张卡）
+  ["propose_skill", "card", "skill_change"],
   ["adjust_skills", "record", "toolkit"],
   ["dispatch_work_order", "record", "work_order"],
 ];

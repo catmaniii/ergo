@@ -87,6 +87,21 @@ The card shows the name, description, who submitted it, the file list and size. 
 - Click **Deny**: nothing changes. Either way you can attach a note to the owner.
 - If the source has changed since it was submitted, approving doesn't add it to the library, and the card says it needs to be submitted again.
 
+### Asking ergo to save it as a skill
+
+Tell ergo "save this way of doing it as a skill". You don't have to save any file yourself: it puts a **Skill change** card in your Inbox, titled as submitted by it.
+
+The card shows the name, **What it changes** (that is, when to use it), the full SKILL.md, and a name check.
+
+- No skill with the same name in the library: click **Approve** to add it, or **Deny** to change nothing.
+- The library already has one with the same name: the buttons become three.
+  - **Replace**: swaps it for this one and keeps a copy of the old version. Skills that ship with the framework and members of a collection can't be replaced, so the card has no such button.
+  - **Rename…**: type a new name (lowercase letters, digits, hyphens) and add it under that name. If the new name is taken too, the card says so; pick another and click again.
+  - **Drop**: nothing changes.
+- Once it's in the library, it's added to ergo's skills and works from the next turn of conversation. It isn't added to any project's toolkit; a project that wants it adds it itself.
+
+ergo can only submit new ones. To change or delete one already in the library, use this page or ask an owner.
+
 ### Deleting a skill
 
 There's no delete button on the page. There are two ways:

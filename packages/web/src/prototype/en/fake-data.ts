@@ -2,6 +2,7 @@
 import type { Phrases } from "./phrases.ts";
 
 export const EN_DATA: Phrases = {
+  "skill 变更：{}要加 skill weekly-notes": "Skill change: {} wants to add skill weekly-notes",
   "VPS 证书续期检查": "VPS certificate renewal check",
   "个税年度汇算材料": "Annual income tax filing paperwork",
   "用了 452000 token、41 次工具调用（预算 200000 token、30 次），超过预算的 2 倍": "Used 452,000 tokens and 41 tool calls (budget: 200,000 tokens, 30 calls). That's over 2 times the budget.",

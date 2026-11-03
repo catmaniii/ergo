@@ -81,6 +81,8 @@ const SECRETARY_TOOLS = [
   // 调运营中的项目的接口（list / describe / call）
   "project_ops",
   "propose_go_live",
+  // 提交 skill（只出"skill 变更"卡，用户确认之后运行时才写 skill 区）
+  "propose_skill",
   "view_board",
   "write",
   "write_task_brief",

@@ -19,12 +19,12 @@ export const SkillEntry = Type.Object({
   origin: Type.Union([Type.Literal("framework"), Type.Literal("imported")]),
   /** 属于哪个集合（集合名）；单个导入的、框架自带的没有 */
   collection: Type.Optional(Type.String()),
-  /** 负责人提交的：谁提的；用户自己导入的、框架自带的没有 */
+  /** 负责人、秘书提交的：谁提的；用户自己导入的、框架自带的没有 */
   submittedBy: Type.Optional(
     Type.Object({
-      kind: Type.Union([Type.Literal("project"), Type.Literal("task")]),
-      /** 项目名或任务标题（提交时的） */
-      title: Type.String(),
+      kind: Type.Union([Type.Literal("project"), Type.Literal("task"), Type.Literal("secretary")]),
+      /** 项目名或任务标题（提交时的）；秘书提交的没有（界面上写用户给它起的名字） */
+      title: Type.Optional(Type.String()),
       at: Type.String(),
     }),
   ),

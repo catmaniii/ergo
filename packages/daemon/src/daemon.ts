@@ -1201,7 +1201,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       log,
     });
     // skill 变更：负责人用 request_skill_change 提加、改、删一个 skill，用户在卡上确认之后运行时才写 skill 区并自检，配进提交人的工具包。
-    // 来源只能是提交人自己的工作目录、项目档案（任务由项目的负责人执行的，按项目）
+    // 来源只能是提交人自己的工作目录、项目档案（任务由项目的负责人执行的，按项目）。秘书用 propose_skill 提交（内容放在卡上），同一张卡
     const skillChanges = createSkillChangeService({
       store,
       cards,
@@ -1226,6 +1226,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         const why = skillChangeTexts.addedToToolkitWhy(name);
         return toolkits.addSkill(submitter.kind === "project" ? { kind: "project", projectId: submitter.projectId } : { kind: "task", taskId: submitter.taskId }, name, why);
       },
+      // 秘书提交的（propose_skill）：卡上的 SKILL.md 校验、写入时临时落在秘书草稿区里一格；进库后配进秘书用的 skill，不配进任何工具包
+      secretaryScratch: realLayout.scratch,
+      addToSecretary: (name) => secretarySkills.add(name),
       listProjects: () => projectDirectory.list(),
       listTasks: () => tasks.list(),
       taskToolkit: (taskId) => tasks.confirmedPlan(taskId)?.plan.toolkit,
@@ -1950,6 +1953,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       // 读个人档案
       personalFiles,
       mcpCalls,
+      // 提交 skill：和负责人同一张"skill 变更"卡
+      skillChanges,
       boardKinds,
       // 秘书建任务时写的运行时：现在能用的才行
       runtimeRefusal,

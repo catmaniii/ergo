@@ -650,6 +650,8 @@ const FAKE_INBOX_ITEMS: InboxItem[] = [
   cardItem({ id: "i-pc", cardId: "c-pc-1", title: "计划变更：第 3 阶段加 MCP「demo-exif-reader」", source: "任务「家庭照片整理与去重」", urgency: "blocking", createdAt: at("10-07", "09:05"), read: true }),
   cardItem({ id: "i-pc2", cardId: "c-pc-2", title: "扩大授权：上线时改 DNS 记录", source: "任务「博客迁移到 Astro」", urgency: "non_blocking", createdAt: at("10-06", "23:10"), read: true }),
   cardItem({ id: "i-cc", cardId: "c-cc-ledger", title: "立项要求变更：记账本的报表改成每周一份", source: "项目「记账本」", urgency: "non_blocking", createdAt: at("10-06", "21:38"), read: false }),
+  // 秘书提交的 skill，库里已经有同名的
+  cardItem({ id: "i-skill", cardId: "c-skill-proposed", title: `skill 变更：${ASSISTANT_NAME_MARK}要加 skill weekly-notes`, source: ASSISTANT_NAME_MARK, urgency: "non_blocking", createdAt: at("10-07", "10:30"), read: false }),
   // 记忆管理员这周的约访卡（不卡事）
   cardItem({ id: "i-interview", cardId: "c-interview", title: "有空聊 10 分钟吗？这次聊：工作和一天怎么过", source: "记忆管理员", urgency: "non_blocking", createdAt: at("10-07", "10:00"), read: false }),
   notice({

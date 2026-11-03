@@ -1643,6 +1643,7 @@
   "state.backup.place.sync": "同步目录",
   "state.backup.retention": "本机留 {local} 份；同步目录留每日 {daily} 份、每周 {weekly} 份。更早的到时候自动删掉，这几个数现在改不了。",
   "state.callSentence.tool.request_skill_change": "提交 skill 变更",
+  "state.callSentence.tool.propose_skill": "提交 skill",
   "state.chatItems.internal.skillChangeCard": "skill 变更卡",
   "state.detailPane.agents": "背后的 agent",
   "state.backgroundAgents.state.running": "运行中",

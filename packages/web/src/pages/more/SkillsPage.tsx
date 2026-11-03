@@ -207,8 +207,16 @@ function SkillRow({ skill, used }: { skill: LibrarySkill; used: readonly string[
       <div>
         <b>{skill.name}</b>
         <div className="muted">{skill.description}</div>
-        {/* 负责人提交的：标上谁提的 */}
-        {skill.submittedBy && <div className="muted">{t(skill.submittedBy.kind === "project" ? "pages.skills.submittedByProject" : "pages.skills.submittedByTask", { title: skill.submittedBy.title })}</div>}
+        {/* 负责人、秘书提交的：标上谁提的（秘书写用户给它起的名字） */}
+        {skill.submittedBy && (
+          <div className="muted">
+            {skill.submittedBy.kind === "secretary" ? (
+              <NamedText text={t("pages.skills.submittedBySecretary", { name: ASSISTANT_NAME_MARK })} />
+            ) : (
+              t(skill.submittedBy.kind === "project" ? "pages.skills.submittedByProject" : "pages.skills.submittedByTask", { title: skill.submittedBy.title ?? "" })
+            )}
+          </div>
+        )}
         <div className="muted">{used.length ? t("pages.skills.usedIn", { list: used.join(t("pages.common.listSep")) }) : t("pages.skills.notUsed")}</div>
       </div>
     </div>

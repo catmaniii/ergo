@@ -7,7 +7,8 @@
 // - 用写文件、bash 直接往 skill 区写被拦下（处置"永不"）；
 // - 删了之后工具包里留着的名字不挡别的改动（改工具包、会话照常拉起）；
 // - 任务自己的负责人（执行中）也有这个工具，配进任务的工具包；
-// - 用 Claude Code 跑的负责人走同一条路（mcp__ergo__request_skill_change），子 agent 没有这个工具。
+// - 用 Claude Code 跑的负责人走同一条路（mcp__ergo__request_skill_change），子 agent 没有这个工具；
+// - 秘书用 propose_skill 提交（内容直接给）：只出卡；确认后进库、配进秘书用的 skill，下一轮系统提示里就有它。
 import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, EVENT_TYPES, maintainerChannel, METHODS, type SkillChangeCardPayload, type SkillDecidedPayload } from "@ergo/protocol";
@@ -259,6 +260,44 @@ description: ${MARKER}
     const sub = subAgentAssembly(maintainer, { agentId: "sa-1", cwd: "C:\\w", hostTools: [REQUEST_SKILL_CHANGE_TOOL, "web_search"] });
     expect(sub.hostTools).toEqual(["web_search"]);
     expect(sub.guardAgent.toolkit.tools).not.toContain(REQUEST_SKILL_CHANGE_TOOL);
+  });
+
+  it("秘书提交 skill：内容直接给，只出卡、skill 区不动；用户确认后进库、配进秘书用的 skill（不进工具包），通知秘书时它已经按新名单装配好，系统提示里有这个 skill", { timeout: 120_000 }, async () => {
+    const SECRETARY = CHANNELS.secretary;
+    // 冒号、# 照字面：pi 用 YAML 读出来要和卡上一样
+    const description = "用户说「记一下」时用: 先查 # 标签，再写进笔记";
+    const td = await startTestDaemon({
+      secretary: [call("propose_skill", { name: "notes-style", description, body: "# 记笔记\n\n先查标签，再写进去。", why: "用户让我记成 skill" }), echo, echo],
+    });
+    const frontend = await connect(td, [SECRETARY]);
+    await frontend.sendText("把记笔记的规矩记成 skill");
+    const card = await cardWhere(frontend, (c) => c.type === "skill_change", "秘书提的 skill 变更卡");
+    const payload = card.payload as SkillChangeCardPayload;
+    expect(payload).toMatchObject({ action: "add", name: "notes-style", description, why: "用户让我记成 skill", submitter: { kind: "secretary" }, source: { fileCount: 1, scriptCount: 0 } });
+    expect(payload).not.toHaveProperty("sameName");
+    expect(inboxOf(frontend).find((item) => item.kind === "card" && item.cardId === card.id)?.origin).toEqual({ conversation: SECRETARY });
+    const first = await nthReply(frontend, SECRETARY, 1);
+    expect(first).toContain("[toolResult] propose_skill");
+    expect(first).toContain("已提交“skill 变更”卡");
+    // 没确认之前：skill 区、秘书用的 skill 名单都没动
+    expect(listing(skillArea(td))).toEqual([]);
+    expect(fs.existsSync(dataDirLayout(td.dataDir).secretarySkillsFile)).toBe(false);
+
+    await waitUntil(() => frontend.events({ channel: SECRETARY, type: EVENT_TYPES.turnEnd }).length >= 1, { timeoutMs: 30_000, describe: () => "等秘书这一轮说完" });
+    ok(await frontend.cardAction({ cardId: card.id, action: "approve", expectedVersion: card.version, note: "收了" }));
+    expect(fs.readFileSync(path.join(skillArea(td), "notes-style", "SKILL.md"), "utf8")).toBe(payload.source!.skillMd);
+    expect((await toolkitApi.catalog(td.url)).body.skills.find((s) => s.name === "notes-style")).toMatchObject({ description, submittedBy: { kind: "secretary" } });
+    expect((await toolkitApi.secretarySkills(td.url)).body.skills).toEqual(["agent-browser", "yt-dlp", "notes-style"]);
+    expect(td.daemon.store.read("skills", 0).map((e) => e.payload as SkillDecidedPayload)).toMatchObject([{ decision: "approved", action: "add", name: "notes-style", submitter: { kind: "secretary" }, applied: true, note: "收了" }]);
+    // 通知秘书的那一轮：已经按新名单装配好（pi 读出来的说明和卡上一样）
+    const second = await nthReply(frontend, SECRETARY, 2);
+    expect(second).toContain("用户批准了你提交的 skill");
+    const system = second.slice(second.lastIndexOf("[system]"));
+    expect(system).toContain("<name>notes-style</name>");
+    expect(system).toContain(`<description>${description}</description>`);
+    expect(recordsOf(frontend, SECRETARY).map((r) => r.record).filter((r) => r.kind === "skill").at(-1)?.summary).toContain("自检通过");
+    await eventually(() => td.daemon.materials.list({ kind: "approval_decision" }).filter((m) => m.context.includes("card:skill_change")), (m) => m.context.includes("decision:approved"), "秘书提交的 skill 的审批决定素材");
+    await frontend.close();
   });
 
   it("负责人的系统提示里写清楚了什么时候值得提交、SKILL.md 怎么写、要用户确认；工具说明同样", { timeout: 120_000 }, async () => {

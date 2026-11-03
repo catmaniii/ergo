@@ -441,7 +441,7 @@ Within a group, newest first. Each row shows its kind, where it came from, and t
 
 | Comes from | Kind shown in the list | Buttons |
 |---|---|---|
-| The secretary's chat | **Questions**, **Approval**, **Quick action** | On the card; see [Cards in replies](#cards-in-replies) |
+| The secretary's chat | **Questions**, **Approval**, **Quick action**, **Skill change** | On the card; see [Cards in replies](#cards-in-replies); for **Skill change** see [Asking ergo to save it as a skill](skills-mcp-plugins.en.md#asking-ergo-to-save-it-as-a-skill) |
 | Reminders | **Reminder**, **Missed reminder** | **Got it** |
 | Tasks | **Questions**, **Approval**, **Plan review**, **Workflow plan**, **Plan change**, **Work order**, **Run in parallel**, **Runtime question** | On the card |
 | Tasks | **Awaiting your acceptance** (only old tasks from before the update have this; stages are all accepted automatically now) | **Accept**, **Send back** |

@@ -1692,6 +1692,7 @@
   "pages.dataSources.confirm.itemBody": "{stop}，这个账号填过的密钥从这台电脑上删掉，别的账号不受影响。它已经导入的 {n} 条怎么办？",
   "pages.skills.submittedByProject": "负责人提交的：项目「{title}」",
   "pages.skills.submittedByTask": "负责人提交的：任务「{title}」",
+  "pages.skills.submittedBySecretary": "{name}提交的",
   "pages.devices.showQr": "显示配对二维码",
   "pages.devices.qr.title": "配对二维码",
   "pages.devices.qr.waiting": "等手机扫码",

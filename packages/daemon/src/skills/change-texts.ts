@@ -7,8 +7,9 @@ import { ASSISTANT_NAME_MARK, type SkillChangeAction, type SkillChangeCardPayloa
 /** 几个名字之间 */
 const listOf = (names: readonly string[]) => names.join(t("skills.listSep"));
 
-/** 一个提交的人的叫法（"项目「X」的负责人"、"任务「T」的负责人"，项目内部的任务带上项目） */
+/** 一个提交的人的叫法（"项目「X」的负责人"、"任务「T」的负责人"，项目内部的任务带上项目；秘书写名字占位，前端按用户起的名字显示） */
 export function whoText(submitter: SkillChangeSubmitter): string {
+  if (submitter.kind === "secretary") return t("skills.change.who.secretary", { assistant: ASSISTANT_NAME_MARK });
   if (submitter.kind === "project") return t("skills.change.who.project", { project: submitter.projectName });
   return submitter.projectName === undefined ? t("skills.change.who.task", { task: submitter.taskTitle }) : t("skills.change.who.taskInProject", { task: submitter.taskTitle, project: submitter.projectName });
 }
@@ -39,6 +40,38 @@ export const REQUEST_SKILL_CHANGE_PARAMS = {
   path: "add、update 必写：skill 所在的目录，只能是你的工作目录或项目档案里的一个子目录（绝对路径，或相对工作目录）",
   why: "为什么要这么改（用户在卡上看得到）",
 } as const;
+// @i18n-ignore-end
+
+// ───────────────────────── 工具（给秘书） ─────────────────────────
+
+export const proposeSkillTitle = () => t("skills.tool.proposeSkill");
+// @i18n-ignore-start model：工具说明和参数说明（给秘书）
+export const PROPOSE_SKILL_DESCRIPTION = [
+  "把一套做法写成 skill 提交进 skill 库：出一张“skill 变更”卡放进用户的待办，**要用户确认**。什么时候值得提交：用户让你记成 skill 的、以后反复要照着做的一套固定做法、查清的用法、踩过的坑；一次性的事、只是记一句偏好的不用（记偏好走记忆）。",
+  "内容直接给，不用先写文件：name（skill 名，库里唯一，也是斜杠命令：小写字母、数字、短横线）、description（一句话写清什么时候用它、用了它你会怎么做——用户在卡上看的“它会改变什么行为”就是这句）、body（SKILL.md 的正文：照着就能做的步骤，Markdown，不写开头的 frontmatter）、why（为什么要它）。只是说明文字：不带脚本，不要写密钥。",
+  "运行时替你拼成 SKILL.md、当场校验，不过就回原因、不出卡；过了出卡，卡上有 SKILL.md 全文和同名检查。库里已经有同名的也照样出卡，用户在卡上选覆盖、改名或放弃，不用你先换名字。用户确认之后运行时才写进 skill 区、自检，配进你用的 skill，下一轮起就能用（不配进任何项目的工具包）；拒绝则什么都不变。结果会通知你。",
+  "不要自己往 skill 区写（受保护区域，守卫会拦下），也不要把内容贴在聊天里让用户手工存。改、删库里已有的 skill 不归你：告诉用户去设置的 skill 库页。",
+].join("");
+export const PROPOSE_SKILL_PARAMS = {
+  name: "skill 名：小写字母、数字和短横线，最长 64（也是 skill 区里的目录名、斜杠命令）",
+  description: "一句话：什么时候用它、用了它你会怎么做（写进 SKILL.md 的 description，用户在卡上看得到）",
+  body: "SKILL.md 的正文（Markdown，不写 frontmatter）：别的 agent 或你自己以后照着就能做的步骤",
+  why: "为什么要它（用户在卡上看得到）",
+} as const;
+// @i18n-ignore-end
+
+/** 秘书给的说明、正文去掉空白之后是空的 */
+export const emptyFieldText = (field: "description" | "body") => t(field === "description" ? "skills.change.emptyDescription" : "skills.change.emptyBody");
+/** 秘书提交的卡上的覆盖、改名只给秘书提交的加 skill 用 */
+export const resolutionNotForThisText = () => t("skills.change.resolution.notForThis");
+/** 覆盖不了（不是能改的单个 skill、同名的已经没了） */
+export const cannotOverwriteText = (problem: string) => t("skills.change.resolution.cannotOverwrite", { problem });
+/** 改名、覆盖之后还是进不了库：卡留着，换一个选择 */
+export const resolutionFailedText = (problem: string) => t("skills.change.resolution.failed", { problem });
+
+// @i18n-ignore-start model：工具结果（给秘书）
+export const proposedText = (payload: SkillChangeCardPayload) =>
+  `已提交“skill 变更”卡：${changeText(payload.action, payload.name)}。用户确认之前 skill 库一个字节都不变；确认后运行时才写进去、自检，配进你用的 skill，下一轮起能用；拒绝也会通知你。${payload.sameName ? `库里已经有同名的（${payload.sameName.owner}）：卡上让用户选${payload.sameName.overwritable ? "覆盖、" : ""}改名或放弃，不用你再提。` : ""}`;
 // @i18n-ignore-end
 
 /** 找不到提交的人（项目、任务被删了？） */
@@ -82,9 +115,16 @@ export function userText(user: SkillChangeUser): string {
   return user.kind === "project" ? t("skills.change.user.project", { title: user.title ?? "" }) : t("skills.change.user.task", { title: user.title ?? "" });
 }
 
-/** 卡的纯文本里的明细：文件和脚本、不带的东西、依赖目录、在用它的工具包 */
+/** 同名检查的一句话：没撞上的（秘书提交的卡上）写没有同名的；撞上的写是谁、能不能覆盖 */
+export function sameNameText(sameName: SkillChangeCardPayload["sameName"]): string {
+  if (!sameName) return t("skills.change.sameName.none");
+  return sameName.overwritable ? t("skills.change.sameName.overwritable", { owner: sameName.owner }) : t("skills.change.sameName.fixed", { owner: sameName.owner, problem: sameName.problem ?? "" });
+}
+
+/** 卡的纯文本里的明细：文件和脚本、不带的东西、依赖目录（秘书提交的只有一份 SKILL.md，不列，写同名检查）、在用它的工具包 */
 function bodyLines(payload: SkillChangeCardPayload): string[] {
   const { source, usedBy } = payload;
+  if (payload.submitter.kind === "secretary") return [sameNameText(payload.sameName), ...(usedBy && usedBy.length > 0 ? [t("skills.change.body.usedBy", { list: listOf(usedBy.map(userText)) })] : [])];
   return [
     ...(source
       ? [
@@ -113,19 +153,42 @@ export function appliedNote(payload: Pick<SkillChangeCardPayload, "action" | "na
 /** 批准了、但没改成（来源变了、重名了）时卡的处理结果 */
 export const notAppliedNote = (name: string, problem: string) => t("skills.change.notAppliedNote", { name, problem });
 
+/** 配没配进提交人的工具包（秘书提交的：配进它用的 skill）；都没有时是空串 */
+export function toolkitText(payload: Pick<SkillChangeCardPayload, "submitter" | "addedToToolkit" | "toolkitProblem">): string {
+  const secretary = payload.submitter.kind === "secretary";
+  if (payload.addedToToolkit === true) return secretary ? t("skills.change.toolkit.addedSecretary", { assistant: ASSISTANT_NAME_MARK }) : t("skills.change.toolkit.added");
+  if (payload.toolkitProblem === undefined) return "";
+  return secretary ? t("skills.change.toolkit.failedSecretary", { assistant: ASSISTANT_NAME_MARK, problem: payload.toolkitProblem }) : t("skills.change.toolkit.failed", { problem: payload.toolkitProblem });
+}
+
+/** 和库里同名时用户选了什么（覆盖了同名的、改名为 y）；没选的是空串 */
+export function resolutionText(payload: Pick<SkillChangeCardPayload, "resolution" | "renamedTo">): string {
+  if (payload.resolution === "overwrite") return t("skills.change.resolution.overwritten");
+  if (payload.resolution === "rename") return t("skills.change.resolution.renamed", { name: payload.renamedTo ?? "" });
+  return "";
+}
+
 /** "skill 变更"卡的纯文本降级 */
 export function cardText(payload: SkillChangeCardPayload): string {
-  const toolkitLine = payload.addedToToolkit === true ? t("skills.change.toolkit.added") : payload.toolkitProblem === undefined ? "" : t("skills.change.toolkit.failed", { problem: payload.toolkitProblem });
-  const result = [payload.problem !== undefined ? t("skills.change.notAppliedNote", { name: payload.name, problem: payload.problem }) : payload.check ? checkText(payload.action, payload.check) : "", toolkitLine].filter(Boolean).join("\n");
+  const toolkitLine = toolkitText(payload);
+  const result = [resolutionText(payload), payload.problem !== undefined ? t("skills.change.notAppliedNote", { name: payload.name, problem: payload.problem }) : payload.check ? checkText(payload.action, payload.check) : "", toolkitLine].filter(Boolean).join("\n");
   const head = t("skills.change.cardText", { who: whoText(payload.submitter), change: changeText(payload.action, payload.name) });
   return [payload.why ? t("skills.change.cardTextWhy", { head, why: payload.why }) : head, payload.description, ...bodyLines(payload), ...(result ? [result] : [])].join("\n");
 }
 
 // ───────────────────────── 时间线、审批决定 ─────────────────────────
 
+/** 一次决定改了什么（"加 skill y"）；和库里同名时选了覆盖、改名的带上（"改 skill x（覆盖了库里同名的）"、"加 skill y（改名自 x）"） */
+function decidedChangeText(p: Pick<SkillDecidedPayload, "action" | "name" | "resolution" | "renamedFrom">): string {
+  const change = changeText(p.action, p.name);
+  if (p.resolution === "overwrite") return t("skills.decision.overwrite", { change });
+  if (p.resolution === "rename") return t("skills.decision.renamed", { change, from: p.renamedFrom ?? "" });
+  return change;
+}
+
 /** 时间线上的一句话：批准了什么、自检结果；拒绝的写拒绝；批准了但没改成的写原因 */
-export const timelineSummary = (p: Pick<SkillDecidedPayload, "decision" | "action" | "name" | "submitter" | "check" | "problem">) => {
-  const head = t("skills.change.timeline", { who: whoText(p.submitter), change: changeText(p.action, p.name), decision: p.decision === "approved" ? t("skills.change.timeline.approved") : t("skills.change.timeline.denied") });
+export const timelineSummary = (p: Pick<SkillDecidedPayload, "decision" | "action" | "name" | "submitter" | "check" | "problem" | "resolution" | "renamedFrom">) => {
+  const head = t("skills.change.timeline", { who: whoText(p.submitter), change: decidedChangeText(p), decision: p.decision === "approved" ? t("skills.change.timeline.approved") : t("skills.change.timeline.denied") });
   if (p.problem !== undefined) return t("skills.change.timeline.notApplied", { head, problem: p.problem });
   return p.check ? t("skills.change.timeline.checked", { head, check: checkText(p.action, p.check) }) : head;
 };
@@ -138,7 +201,7 @@ export function timelineDetail(p: SkillDecidedPayload, payload: SkillChangeCardP
 /** 审批决定说成一句话（素材） */
 export function decisionText(p: SkillDecidedPayload): string {
   const whose = whoText(p.submitter);
-  const change = changeText(p.action, p.name);
+  const change = decidedChangeText(p);
   if (p.decision === "denied") return t("skills.decision.denied", { who: whose, change });
   const result = p.problem !== undefined ? t("skills.change.notAppliedShort", { problem: p.problem }) : p.check ? checkText(p.action, p.check) : "";
   return t("skills.decision.approved", { who: whose, change, result });
@@ -162,4 +225,15 @@ export const deniedNotice = (p: SkillDecidedPayload) => `用户拒绝了你提�
 export const notAppliedNotice = (p: SkillDecidedPayload) => `用户批准了你的 skill 变更（${changeText(p.action, p.name)}），但没改成：${p.problem ?? ""}。skill 库不变；弄好之后用 request_skill_change 重新提交一张卡。`;
 /** skill 库变了、会话要按新的装配重新拉起时告诉负责人的那句 */
 export const reassembledNotice = (name: string) => `skill 库变了（${name}）：运行时按新的 skill 库重新装配了你的会话，接着原来的对话干。`;
+
+/** 交给秘书的：用户批准了它提交的 skill */
+export const secretaryApprovedNotice = (p: SkillDecidedPayload, toolkit: { added: boolean; problem?: string | undefined }) => {
+  const said = p.note ? `用户说：${p.note}。` : "";
+  const check = p.check ? `，${checkText(p.action, p.check)}` : "";
+  const how = p.resolution === "overwrite" ? "（覆盖了库里同名的，旧版运行时留了一份）" : p.resolution === "rename" ? `（库里有同名的，用户改名为 ${p.name} 进库，原来叫 ${p.renamedFrom ?? ""}）` : "";
+  const placed = toolkit.added ? `已经配进你用的 skill，下一轮起就能用${p.resolution === "rename" ? `（名字是 ${p.name}）` : ""}；没配进任何项目的工具包，项目要用自己配。` : `没配进你用的 skill（${toolkit.problem ?? "原因不明"}）：用户可以在设置的 skill 库页勾上。`;
+  return `用户批准了你提交的 skill：${changeText(p.action, p.name)}${how}${check}。${said}${placed}跟用户说一声就行。`;
+};
+export const secretaryDeniedNotice = (p: SkillDecidedPayload) => `用户没要你提交的 skill（${changeText(p.action, p.name)}）${p.note ? `：${p.note}` : ""}。skill 库不变。`;
+export const secretaryNotAppliedNotice = (p: SkillDecidedPayload) => `用户批准了你提交的 skill（${changeText(p.action, p.name)}），但没进库：${p.problem ?? ""}。skill 库不变；要的话改好之后用 propose_skill 重新提交。`;
 // @i18n-ignore-end

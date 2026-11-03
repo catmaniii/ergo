@@ -36,6 +36,8 @@
 // - **改、删**：只能动单个的、不是框架自带的（用户自己导入的、负责人提交的），集合成员不行。动之前旧版整个挪进 skill 区的 .history/
 //   （<目录名>@<时间>，每个 skill 留最近几份；隐藏目录不算 skill），换的时候先挪旧版、再改名就位，第二步失败就把旧版挪回去。
 // 负责人提交的在 skill 目录里记一份 .ergo-submission.json（谁提的、什么时候）：skill 库页上标"负责人提交的"。只由运行时写，来源里带的不复制。
+// 秘书也能提交（只能加）：来源是运行时把卡上的 SKILL.md 落到秘书草稿区里的一格（skills/change.ts），走的还是这同一段校验和写入；
+// 和库里重名时不当场拒绝（previewSubmission 交回同名检查），用户在卡上选覆盖（就是"改"）、改名（同导入并改名）或放弃。
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -49,6 +51,7 @@ import {
   schemaChecker,
   SKILL_CHANGE_FILES_SHOWN,
   type SkillChangeSource,
+  type SkillSameName,
   type SkillCollectionEntry,
   type SkillEntry,
   type Static,
@@ -158,11 +161,15 @@ export interface SkillLibraryOptions {
   log: (line: string) => void;
 }
 
-/** 负责人提交的一个来源：source 是目录的绝对路径，roots 是提交人自己的工作目录和项目档案；改的时候 replacing 是要换掉的 skill 名 */
+/**
+ * 负责人、秘书提交的一个来源：source 是目录的绝对路径，roots 是提交人自己能放来源的地方（负责人的工作目录和项目档案）；
+ * 改的时候 replacing 是要换掉的 skill 名；加的时候给了 rename 就改名进库（只改目录名和 SKILL.md 里的 name 一行，同导入并改名）
+ */
 export interface SkillSubmission {
   source: string;
   roots: readonly string[];
   replacing?: string;
+  rename?: string;
 }
 
 /** 校验过的提交：名字、说明，卡上要的来源详情（读卡时算的内容指纹在里面） */
@@ -170,6 +177,11 @@ export interface SkillSubmissionReport {
   name: string;
   description: string;
   source: SkillChangeSource;
+}
+
+/** 校验过的提交，库里已有同名的时带着同名检查（秘书提交的卡上让用户选覆盖、改名、放弃） */
+export interface SkillSubmissionPreview extends SkillSubmissionReport {
+  sameName?: SkillSameName;
 }
 
 /** skill 目录里记的谁提的 */
@@ -210,8 +222,13 @@ export interface SkillLibrary {
    */
   checkSubmission(request: SkillSubmission): SkillSubmissionReport;
   /**
+   * 秘书提交时用：和 checkSubmission 同一段校验，但和库里重名（名字、目录名撞上）时不抛，交回同名检查：撞上的是谁、
+   * 能不能覆盖（能覆盖的，来源详情按"改"那条算，目录名是现在那个的）。别的不合规矩照样抛
+   */
+  previewSubmission(request: Omit<SkillSubmission, "replacing" | "rename">): SkillSubmissionPreview;
+  /**
    * 用户确认之后真的写 skill 区：重新校验、核对内容指纹（对不上抛 RequestRejected conflict），复制、就位；
-   * 改的时候旧版挪进 .history/，换失败了旧版原样挪回去。
+   * 改的时候旧版挪进 .history/，换失败了旧版原样挪回去；改名进库的在核完指纹之后改 SKILL.md 里的 name。
    */
   applySubmission(request: SkillSubmission & { fingerprint: string; submittedBy: Omit<SubmittedBy, "at"> }): { dir: string; backup?: string };
   /** 能改、能删的 skill（单个的、不是框架自带的）；不能的抛 RequestRejected，说清为什么 */
@@ -474,10 +491,34 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
     return { read, existing, dirName: path.basename(existing.dir) };
   };
 
-  /** 进库之前的全部校验（加、改），算好卡上要的来源详情 */
-  const checkPlan = (plan: SourcePlan, replacing: string | undefined) => {
-    const checked = replacing === undefined ? checkSingle(plan, undefined) : checkReplacing(plan, replacing);
-    return { checked, report: { name: checked.read.name, description: checked.read.description, source: sourceReport(plan, checked.dirName) } satisfies SkillSubmissionReport };
+  /** 进库之前的全部校验（加、改；加的可以改名），算好卡上要的来源详情 */
+  const checkPlan = (plan: SourcePlan, replacing: string | undefined, rename?: string) => {
+    if (rename !== undefined && !IMPORT_NAME.test(rename)) throw new RequestRejected("bad_params", t("skills.import.badName", { name: rename }));
+    const checked = replacing === undefined ? checkSingle(plan, rename) : checkReplacing(plan, replacing);
+    const name = "name" in checked ? checked.name : checked.read.name;
+    return { checked, report: { name, description: checked.read.description, source: sourceReport(plan, checked.dirName) } satisfies SkillSubmissionReport };
+  };
+
+  /**
+   * 和库里重名时的同名检查：撞上的是谁；同名的是能改的单个 skill 就能覆盖（来源详情按"改"那条算），
+   * 别的（框架自带的、集合成员、集合名、只是目录名撞上）只能改名或放弃
+   */
+  const sameNameOf = (plan: SourcePlan): SkillSubmissionPreview => {
+    const read = readSkill(plan.root);
+    if ("problem" in read) throw new RequestRejected("bad_params", read.problem);
+    checkSize(plan);
+    const s = scan();
+    const dirName = normalizeSkillDirName(path.basename(plan.root));
+    const owner = ownerOf(s, read.name) ?? dirOwner(s, dirName) ?? t("skills.owner.dir", { dir: dirName });
+    if (!s.skills.some((f) => f.entry.name === read.name)) {
+      return { name: read.name, description: read.description, source: sourceReport(plan, dirName), sameName: { owner, overwritable: false, problem: t("skills.change.sameNameNotSkill") } };
+    }
+    try {
+      return { ...checkPlan(plan, read.name).report, sameName: { owner, overwritable: true } };
+    } catch (err) {
+      if (!(err instanceof RequestRejected) || err.code === "internal") throw err;
+      return { name: read.name, description: read.description, source: sourceReport(plan, dirName), sameName: { owner, overwritable: false, problem: err.message } };
+    }
   };
 
   /** 旧版放哪：.history/<目录名>@<时间>，时间到毫秒的数字，同一毫秒里再来一次加序号 */
@@ -535,17 +576,27 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
       return found.map((f) => f.dir);
     },
     checkSubmission(request) {
-      return checkPlan(planSource(submissionRoot(request.source, request.roots), ""), request.replacing).report;
+      return checkPlan(planSource(submissionRoot(request.source, request.roots), ""), request.replacing, request.rename).report;
+    },
+    previewSubmission(request) {
+      const plan = planSource(submissionRoot(request.source, request.roots), "");
+      try {
+        return checkPlan(plan, undefined).report;
+      } catch (err) {
+        if (!(err instanceof RequestRejected) || err.code !== "conflict") throw err;
+        return sameNameOf(plan);
+      }
     },
     applySubmission(request) {
       const plan = planSource(submissionRoot(request.source, request.roots), "");
-      const { checked, report } = checkPlan(plan, request.replacing);
+      const { checked, report } = checkPlan(plan, request.replacing, request.rename);
       const changedText = t("skills.change.sourceChanged", { dir: plan.root });
       if (report.source.fingerprint !== request.fingerprint) throw new RequestRejected("conflict", changedText);
       const submittedBy: SubmittedBy = { ...request.submittedBy, at: now() };
-      // 就位之前再核一次：真要进库的是复制到临时目录的这一份（复制的那一刻来源又变了也挡得住）；记谁提的放在核完之后，不算进指纹
+      // 就位之前再核一次：真要进库的是复制到临时目录的这一份（复制的那一刻来源又变了也挡得住）；改名、记谁提的放在核完之后，不算进指纹
       const seal = (staging: string) => {
         if (stagingPrint(staging) !== request.fingerprint) throw new RequestRejected("conflict", changedText);
+        if (request.rename !== undefined) renameInSkillFile(path.join(staging, "SKILL.md"), request.rename);
         fs.writeFileSync(path.join(staging, SUBMISSION_FILE), `${JSON.stringify({ format: 1, ...submittedBy }, null, 2)}\n`);
       };
       const { dirName } = checked;
@@ -571,7 +622,7 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
         dir = checked.target;
         copyInto(plan, checked.target, dirName, seal);
       }
-      options.log(`${request.replacing === undefined ? "收进了" : "换掉了"}负责人提交的 skill ${report.name}（来自 ${plan.root}）`);
+      options.log(`${request.replacing === undefined ? "收进了" : "换掉了"}${request.submittedBy.kind === "secretary" ? "秘书" : "负责人"}提交的 skill ${report.name}（来自 ${plan.root}）`);
       return { dir, ...(backup === undefined ? {} : { backup }) };
     },
     changeable,
@@ -953,7 +1004,9 @@ function readSubmission(dir: string): SubmittedBy | undefined {
   if (!fs.existsSync(file)) return undefined;
   try {
     const { kind, title, at } = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<SubmittedBy>;
-    return (kind === "project" || kind === "task") && typeof title === "string" && typeof at === "string" ? { kind, title, at } : undefined;
+    if (typeof at !== "string") return undefined;
+    if (kind === "secretary") return { kind, at };
+    return (kind === "project" || kind === "task") && typeof title === "string" ? { kind, title, at } : undefined;
   } catch {
     return undefined;
   }

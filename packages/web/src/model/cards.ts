@@ -95,6 +95,8 @@ export const CARD_ACTION_LABEL: Readonly<Record<CardAction, string>> = tTable({
   start: "model.cards.action.start",
   later: "model.cards.action.later",
   decline: "model.cards.action.decline",
+  overwrite: "model.cards.action.overwrite",
+  rename: "model.cards.action.rename",
 });
 
 /** 卡片的处理结果写成一句话："已确认：勾掉 1 项授权"；系统让它作废的写作废的说明（重做之后"已经重做过，这张卡作废了"） */

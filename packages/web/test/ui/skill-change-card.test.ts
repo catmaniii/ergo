@@ -114,6 +114,55 @@ describe("skill 变更卡", () => {
     expect(refused).toContain("没配进提交人的工具包：项目已归档");
   });
 
+  test("个人助理提交的：标题写它的名字（不写秘书）；它会改变什么行为、SKILL.md 全文摊开、同名检查；不列文件和来源；确认、拒绝", () => {
+    const md = "---\nname: notes-style\ndescription: >-\n  写笔记的规矩\n---\n\n照着做。\n";
+    const html = render(adding({ skillMd: md, files: [{ path: "SKILL.md", bytes: 60 }], fileCount: 1, totalBytes: 60 }, { submitter: { kind: "secretary" }, why: "用户让记成 skill" }));
+    expect(html).toContain("二狗</span>提交的");
+    expect(html).not.toContain("秘书");
+    expect(html).toContain("它会改变什么行为");
+    expect(html).toContain("写笔记的规矩");
+    expect(html).toMatch(/<details class="skill-change-more" open=""><summary>SKILL.md 全文<\/summary><pre class="skill-change-md">---\nname: notes-style/);
+    expect(html).toContain("同名检查：库里没有同名的 skill");
+    expect(html).not.toContain("来源：");
+    expect(html).not.toContain("没有脚本");
+    expect(html).toContain(">确认</button>");
+    expect(html).toContain(">拒绝</button>");
+    expect(html).not.toContain(">覆盖</button>");
+    expect(html).toContain("附一句话给");
+  });
+
+  test("和库里同名：写明撞上的是谁；能覆盖的有覆盖、改名、放弃，不能覆盖的写原因、没有覆盖；没有确认", () => {
+    const secretary = { submitter: { kind: "secretary" } } as const;
+    const taken = render(adding({}, { ...secretary, sameName: { owner: "你导入的 notes-style", overwritable: true }, usedBy: [{ kind: "project", title: "相册库" }, { kind: "assistant" }] }));
+    expect(taken).toContain("同名检查：库里已经有你导入的 notes-style");
+    expect(taken).toContain("旧版留一份");
+    expect(taken).toContain("现在在用它的：项目「相册库」、<span class=\"assistant-name\">二狗</span>");
+    expect(taken).toContain(">覆盖</button>");
+    expect(taken).toContain(">改名…</button>");
+    expect(taken).toContain(">放弃</button>");
+    expect(taken).not.toContain(">确认</button>");
+    const fixed = render(adding({}, { ...secretary, sameName: { owner: "框架自带的 notes-style", overwritable: false, problem: "notes-style 是框架自带的 skill，不能改、不能删" } }));
+    expect(fixed).toContain("不能覆盖：notes-style 是框架自带的 skill，不能改、不能删");
+    expect(fixed).not.toContain(">覆盖</button>");
+    expect(fixed).toContain(">改名…</button>");
+    expect(fixed).not.toContain("秘书");
+  });
+
+  test("个人助理提交的处理完了：覆盖了、改名进库了；配进它用的 skill；同名时放弃的写已放弃", () => {
+    const secretary = { submitter: { kind: "secretary" } } as const;
+    const renamed = render(adding({}, { ...secretary, sameName: { owner: "你导入的 notes-style", overwritable: true }, applied: true, resolution: "rename", renamedTo: "notes-mine", addedToToolkit: true, check: { ok: true, time: "t" } }), "handled", { action: "rename", note: "skill notes-mine 进库了", at: "t" } as never);
+    expect(renamed).toContain("改名为 notes-mine 进库");
+    expect(renamed).toContain("已配进<span class=\"assistant-name\">二狗</span>用的 skill，下一轮起能用");
+    expect(renamed).not.toContain("提交人的工具包");
+    expect(renamed).not.toContain("<input");
+    const overwritten = render(adding({}, { ...secretary, applied: true, resolution: "overwrite", addedToToolkit: false, toolkitProblem: "设置文件不对", check: { ok: true, time: "t" } }), "handled");
+    expect(overwritten).toContain("覆盖了库里同名的，旧版留着");
+    expect(overwritten).toContain("用的 skill：设置文件不对");
+    const dropped = render(adding({}, { ...secretary, sameName: { owner: "你导入的 notes-style", overwritable: true } }), "handled", { action: "deny", at: "t" } as never);
+    expect(dropped).toContain("已放弃");
+    expect(dropped).not.toContain("秘书");
+  });
+
   test("任务的负责人：标题写任务；项目内部的任务带上项目", () => {
     const task = render(adding({}, { submitter: { kind: "task", taskId: "t-1", taskTitle: "整理发票", maintainerId: "tm-1" } }));
     expect(task).toContain("任务「整理发票」的负责人提交的");

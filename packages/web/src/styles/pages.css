@@ -1832,6 +1832,13 @@ a.att-icon:hover {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* 和库里同名时的改名：新名字输入框和两个按钮占满一行 */
+.skill-change-rename {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 100%;
+}
 .ops-steps summary {
   cursor: pointer;
   font-size: var(--fs-s);

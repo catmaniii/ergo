@@ -647,4 +647,9 @@ export const EN_CONVERSATIONS: Phrases = {
   "可以，真跑吧": "OK, run it for real",
   "挪了 412 张": "Moved 412 photos",
   "跑完了：412 张都归好了。": "All done: 412 photos filed.",
+  "你说「整理这周的笔记」时用: 按日期归并，标出待办，最后列 3 条要点": "Use when you say “tidy up this week's notes”: merge by date, mark the to-dos, and end with 3 key points",
+  "你说以后每周五都这样整理，记成 skill 下次照做": "You said to tidy them up like this every Friday, so I saved it as a skill to follow next time",
+  "---\nname: weekly-notes\ndescription: >-\n  {}\n---\n\n# 整理一周的笔记\n\n1. 读这周的笔记，按日期归并。\n2. 带 TODO 的标成待办，单列一节。\n3. 最后写 3 条这周的要点。\n":
+    "---\nname: weekly-notes\ndescription: >-\n  {}\n---\n\n# Tidy up a week of notes\n\n1. Read this week's notes and merge them by date.\n2. Mark the ones with TODO as to-dos, in a section of their own.\n3. End with 3 key points for the week.\n",
+  "你导入的 weekly-notes": "weekly-notes, which you imported",
 };

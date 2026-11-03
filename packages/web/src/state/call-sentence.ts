@@ -114,6 +114,7 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = labelTable(
     request_mcp_change: "state.callSentence.tool.request_mcp_change",
     // 提交 skill
     request_skill_change: "state.callSentence.tool.request_skill_change",
+    propose_skill: "state.callSentence.tool.propose_skill",
   },
   // 给秘书发消息（写名字占位，界面上显示用户起的名字）；协议包的常量，现取
   { tell_secretary: () => TELL_SECRETARY_CAPABILITY },

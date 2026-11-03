@@ -2,16 +2,42 @@
 // 负责人用 request_skill_change 提"把一个 skill 加进 skill 库、改、删"，运行时只校验、出一张"skill 变更"卡进待办；
 // 用户确认之后才由运行时复制进数据目录的 skill 区（skills/library.ts）、自检、配进提交人的工具包，拒绝则一个字节都不动。
 // 卡上给用户看：名字、说明、谁提的、哪个项目或任务、文件清单和大小、有没有脚本、SKILL.md 全文；改、删的还有哪些工具包在用它。
+// 秘书用 propose_skill 提交（只能加）：内容直接给，运行时拼成 SKILL.md 放在卡上；库里已有同名的照样出卡，带着同名检查，
+// 用户在卡上选覆盖（走"改"那条）、改名或放弃。进库后配进秘书用的 skill，不配进任何工具包。
 import { type Static, Type } from "typebox";
 import { McpChangeSubmitter } from "./mcp-schema.ts";
+import { IMPORT_NAME_PATTERN } from "./toolkit-schema.ts";
 
 /** 三种动作：加一个、改一个（内容整个换掉，名字不变）、删一个，都要用户确认 */
 export const SKILL_CHANGE_ACTIONS = ["add", "update", "remove"] as const;
 export type SkillChangeAction = (typeof SKILL_CHANGE_ACTIONS)[number];
 
-/** 是谁提的：和 MCP 登记变更同一个形状（项目的负责人，或者任务的负责人；项目内部任务带上所属的项目） */
-export const SkillChangeSubmitter = McpChangeSubmitter;
-export type SkillChangeSubmitter = McpChangeSubmitter;
+/**
+ * 是谁提的：项目的负责人，或者任务的负责人（和 MCP 登记变更同一个形状；项目内部任务带上所属的项目）；
+ * 或者秘书（界面上写用户给它起的名字）
+ */
+export const SkillChangeSubmitter = Type.Union([...McpChangeSubmitter.anyOf, Type.Object({ kind: Type.Literal("secretary") }, { additionalProperties: false })]);
+export type SkillChangeSubmitter = Static<typeof SkillChangeSubmitter>;
+
+/**
+ * 同名检查（秘书提交的卡上才有）：库里已经有同名的 skill（或者目录名、也就是斜杠命令撞上了）。
+ * overwritable：能不能覆盖——只有同名的单个 skill、不是框架自带的、不是集合成员才能；不能的原因在 problem
+ */
+export const SkillSameName = Type.Object({
+  /** 撞上的是谁（"你导入的 notes-style"、"框架自带的 x"、"集合 c 里的 x"） */
+  owner: Type.String(),
+  overwritable: Type.Boolean(),
+  problem: Type.Optional(Type.String()),
+});
+export type SkillSameName = Static<typeof SkillSameName>;
+
+/** 和库里同名时用户在卡上选的：覆盖同名的（走"改"那条，旧版进 .history/）、改名后进库 */
+export const SKILL_SAME_NAME_RESOLUTIONS = ["overwrite", "rename"] as const;
+export type SkillSameNameResolution = (typeof SKILL_SAME_NAME_RESOLUTIONS)[number];
+
+/** 卡上"改名"带的新名字：小写字母、数字和短横线（也是 skill 区里的目录名、斜杠命令） */
+export const SkillRenameInput = Type.Object({ name: Type.String({ pattern: IMPORT_NAME_PATTERN }) }, { additionalProperties: false });
+export type SkillRenameInput = Static<typeof SkillRenameInput>;
 
 /** 卡上的文件清单最多列多少行（脚本排在前面）；数字（fileCount、scriptCount）是全部的 */
 export const SKILL_CHANGE_FILES_SHOWN = 200;
@@ -67,8 +93,8 @@ export const SkillChangeCheck = Type.Object({
 export type SkillChangeCheck = Static<typeof SkillChangeCheck>;
 
 /**
- * "skill 变更"卡（skill_change）：负责人提的把一个 skill 加进 skill 库、改、删。批准（approve）后运行时写 skill 区并自检，
- * 拒绝（deny）则不变。批准、拒绝都是"审批决定"素材
+ * "skill 变更"卡（skill_change）：负责人提的把一个 skill 加进 skill 库、改、删，秘书提的加一个。批准（approve）后运行时写 skill 区并自检，
+ * 拒绝（deny）则不变；秘书提交的和库里同名时还能覆盖（overwrite）、改名（rename，带新名字）。批准、拒绝都是"审批决定"素材
  */
 export const SkillChangeCardPayload = Type.Object({
   action: Type.Enum(SKILL_CHANGE_ACTIONS),
@@ -81,14 +107,19 @@ export const SkillChangeCardPayload = Type.Object({
   /** 现在在用它的（改、删的时候列） */
   usedBy: Type.Optional(Type.Array(SkillChangeUser)),
   submitter: SkillChangeSubmitter,
-  /** 负责人为什么要这么改（卡上显示） */
+  /** 为什么要这么改（卡上显示） */
   why: Type.Optional(Type.String()),
+  /** 同名检查：秘书提交时库里已经有同名的（卡上让用户选覆盖、改名、放弃）；没撞上的没有 */
+  sameName: Type.Optional(SkillSameName),
   /** 批准之后由运行时补上：已经改好 skill 库了；批准了但没改成（来源变了、重名了）时是 false，原因在 problem */
   applied: Type.Optional(Type.Boolean()),
   /** 批准了但没改成的原因 */
   problem: Type.Optional(Type.String()),
   check: Type.Optional(SkillChangeCheck),
-  /** 批准之后由运行时补上：配进了提交人的工具包 */
+  /** 和库里同名时用户选的（覆盖、改名）；改名的新名字在 renamedTo */
+  resolution: Type.Optional(Type.Enum(SKILL_SAME_NAME_RESOLUTIONS)),
+  renamedTo: Type.Optional(Type.String()),
+  /** 批准之后由运行时补上：配进了提交人的工具包（秘书提交的：配进秘书用的 skill） */
   addedToToolkit: Type.Optional(Type.Boolean()),
   /** 进库了、但没配进工具包的原因（项目归档了、任务结束了） */
   toolkitProblem: Type.Optional(Type.String()),
@@ -114,6 +145,9 @@ export const SkillDecidedPayload = Type.Object({
   check: Type.Optional(SkillChangeCheck),
   /** 这一版的内容指纹（加、改） */
   fingerprint: Type.Optional(Type.String()),
+  /** 和库里同名时用户选的：覆盖（action 记成 update）、改名（name 是新名字，原来的在 renamedFrom） */
+  resolution: Type.Optional(Type.Enum(SKILL_SAME_NAME_RESOLUTIONS)),
+  renamedFrom: Type.Optional(Type.String()),
   time: Type.String(),
 });
 export type SkillDecidedPayload = Static<typeof SkillDecidedPayload>;
