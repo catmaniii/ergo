@@ -4,7 +4,7 @@
 //   任何提醒"删除提醒"（先确认，标红）；后面"多选"（和任务卡一样进多选并勾上这一张）。
 //   事件发生时提醒的没有时间表，不能改时间（提醒卡上同样不能改：要按时间提醒就取消了另建）。
 // - 多选时提醒能一起做的：取消（待触发的）、归档（已经结束、没归档的）、删除（都能删）（canBatchReminder）；和任务混选的规则在 board-batch.ts。
-// - 改时间的对话框（ui/reschedule-dialog.tsx 的 ReminderRescheduleDialog）：用提醒卡上同一个时间表编辑（一次性 / 每天、每周几、每月几号、
+// - 改时间的对话框（ui/reschedule-dialog.tsx 的 ReminderRescheduleDialog）：用提醒卡上同一个时间表编辑（一次性 / 每天、每 N 天、每周几、每月几号、
 //   按我的工作日），没改的、一次性的时间已过的不能存（reminderRescheduleBlocked）；存了提示改成了什么（reminderRescheduledToast）。
 import { describeSchedule, describeTime, type ReminderSchedule, t, type TaskBatchAction, tTable } from "./protocol.ts";
 

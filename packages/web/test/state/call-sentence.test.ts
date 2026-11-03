@@ -81,6 +81,9 @@ describe("每个模板（动词加对象，不带“了”）", () => {
     ["create_reminder", 'text=交周报 time=17:00 repeat={"kind":"weekly","weekdays":[5]}', "建提醒「交周报」：每周五 17:00"],
     // 每年某月某日
     ["create_reminder", 'text=妈妈生日 time=09:00 repeat={"kind":"yearly","month":3,"day":2}', "建提醒「妈妈生日」：每年 3 月 2 日 09:00"],
+    // 每 N 天：没给起算日的不写从哪天起（起算日是调用那天）
+    ["create_reminder", 'text=吃降脂药 time=20:00 repeat={"kind":"everyNDays","interval":2}', "建提醒「吃降脂药」：每 2 天 20:00"],
+    ["create_reminder", 'text=吃降脂药 time=20:00 repeat={"kind":"everyNDays","interval":2,"anchor":"2026-11-03"}', "建提醒「吃降脂药」：每 2 天 20:00，从 11 月 3 日起"],
     ["create_reminder", "text=开会 at=2026-10-12 15:00", "建提醒「开会」：2026-10-12 15:00"],
     ["create_reminder", "text=喝水 inMinutes=30", "建提醒「喝水」：30 分钟后"],
     ["create_reminder", "text=下班 weekday=5 time=18:00", "建提醒「下班」：周五 18:00"],

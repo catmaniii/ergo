@@ -474,6 +474,14 @@ export const FAKE_CARDS: Card[] = [
     status: "pending",
     nextAt: "2027-03-02T09:00:00+08:00",
   } satisfies ReminderCardPayload),
+  // 每 N 天：隔一天一次，从明天起
+  card("c-rem-3", "reminder", {
+    reminderId: "r-pill",
+    text: "吃降脂药",
+    schedule: { kind: "everyNDays", time: "20:00", interval: 2, anchor: "2026-10-07" },
+    status: "pending",
+    nextAt: at("10-07", "20:00"),
+  } satisfies ReminderCardPayload),
   card(
     "c-qa-1",
     "quick_action",
@@ -1085,6 +1093,8 @@ const SECRETARY: MessageEnvelope[] = [
   msg(S, "agent", at("10-06", "20:30"), text("建好了，重复规则可以在卡片上改。"), cardRef("c-rem-1")),
   msg(S, "user", at("10-06", "20:31"), text("妈妈生日是 3 月 2 号，每年那天早上提醒我订蛋糕")),
   msg(S, "agent", at("10-06", "20:31"), text("好，每年 3 月 2 日早上 9 点提醒你，今年的已经过了，下一次是明年 3 月 2 日。"), cardRef("c-rem-2")),
+  msg(S, "user", at("10-06", "20:33"), text("从明天起，隔一天晚上 8 点提醒我吃降脂药")),
+  msg(S, "agent", at("10-06", "20:33"), text("好，从 10 月 7 日起每 2 天晚上 8 点提醒你，第一次是明晚。"), cardRef("c-rem-3")),
   KNEE_SAID,
   msg(S, "agent", at("10-06", "21:40"), text("记下了。")),
   msg(

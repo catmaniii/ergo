@@ -1,5 +1,5 @@
 // 内核登记的运营手段（登记表见 means.ts）：
-// - schedule 定时触发的任务：重复的时间表（每天、每周几、每月几号、按我的工作日），或者某个时间做一次；
+// - schedule 定时触发的任务：重复的时间表（每天、每 N 天、每周几、每月几号、每年某月某日、按我的工作日），或者某个时间做一次；
 // - event 事件触发的任务：事件来源、事件、过滤（二狗内部事件、本机文件夹变化、项目的服务报的事件……）；
 //   这两种的做法都可以是普通任务或流程（流程带它的固定计划，确认方案时一起授权）。生效时建成这个项目的内部任务，执行者是项目的
 //   负责人（规矩不变）：定时、事件触发的进运营中，触发底座登记它的触发，到点或来事件时派一张运行工单给负责人；
@@ -8,7 +8,7 @@
 //   写明要用户手动做哪几步，卡上标"需要你手动"，确认时不假装生效。
 // 项目自己的服务（service，登记到 LSM 上线）二狗能做了，在 project-services/means.ts；由运营层自己经登记口登记
 // （project-ops/layer.ts），组装函数在事件触发和公网入口之间装运营层。
-import { describeEventTrigger, describeSchedule, isRepeating, type OperationItem, type OperationItemDraft, type ReminderSchedule, SERVICE_EVENT_NAME_FILTER, SERVICE_EVENT_SOURCE, SERVICE_REPORTED_EVENT, t, type TaskTrigger } from "@ergo/protocol";
+import { describeEventTrigger, describeSchedule, forModel, isRepeating, repeatScheduleError, type OperationItem, type OperationItemDraft, type ReminderSchedule, SERVICE_EVENT_NAME_FILTER, SERVICE_EVENT_SOURCE, SERVICE_REPORTED_EVENT, t, type TaskTrigger } from "@ergo/protocol";
 import type { ScheduledJobs } from "../scheduled-jobs/index.ts";
 import type { TaskService } from "../tasks/tasks.ts";
 import type { OperationApplyContext, OperationMeans } from "./means.ts";
@@ -49,12 +49,16 @@ function scheduleMeans(deps: BuiltinMeansDeps): OperationMeans {
     get label() {
       return t("operations.means.schedule");
     },
-    hint: "按时间表反复做（schedule 写重复的时间表：每天、每周几、每月几号、按我的工作日），或者将来某个时间做一次（schedule 写 once 和时间）", // @i18n-ignore model：工具说明
+    hint: "按时间表反复做（schedule 写重复的时间表：每天、每 N 天（everyNDays：interval 隔几天、anchor 从哪天起）、每周几、每月几号、每年某月某日、按我的工作日），或者将来某个时间做一次（schedule 写 once 和时间）", // @i18n-ignore model：工具说明
     automatic: true,
     check(item, ctx) {
       if (!item.schedule) return [meansText.needSchedule];
       const problems = item.event ? [meansText.scheduleNotEvent] : [];
       if (item.schedule.kind === "once" && !(Date.parse(item.schedule.at) > Date.parse(ctx.now))) problems.push(meansText.oncePassed(item.schedule.at));
+      // 重复的规则拼不出来的（每年 2 月 30 日、每 N 天的起算日不存在）
+      const schedule = item.schedule;
+      const ruleError = forModel(() => repeatScheduleError(schedule) ?? "");
+      if (ruleError) problems.push(ruleError);
       return problems;
     },
     describe: (item) => (item.schedule ? describeSchedule(item.schedule) : t("operations.means.scheduleTrigger")),

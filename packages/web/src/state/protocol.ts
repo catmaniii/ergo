@@ -231,9 +231,13 @@ export {
   URGENCY_LABEL,
   WS_CLOSE_UNPAIRED,
   // 简单提醒的时间规则（按规则种类分支的逻辑只在共享协议包的 reminder-schedule.ts 里）
+  describeRepeatRule,
   describeSchedule,
   describeTime,
   isRepeating,
+  // 每 N 天的编辑框（每几天最少、最多是几）
+  EVERY_N_DAYS_MAX,
+  EVERY_N_DAYS_MIN,
   // 每年某月某日的编辑框（几月、最多几日）
   maxDayOfMonth,
   monthName,

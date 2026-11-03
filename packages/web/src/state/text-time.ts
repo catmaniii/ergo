@@ -1,18 +1,18 @@
 // 从写的话里认出时间（纯函数，此刻由调用方给）：发起任务时"要做什么"那段话里说了几点（"明天早上8点调研一下……"
-// "每天早上8点出一份早报"），定时就按那个时间定。认出的是一次（具体哪天几点，或者只有钟点）还是反复（每天、每周几、
+// "每天早上8点出一份早报"），定时就按那个时间定。认出的是一次（具体哪天几点，或者只有钟点）还是反复（每天、每 N 天、每周几、
 // 工作日、每月几号），连同认出的原话片段（对话框里写"按你写的「明天早上8点」定在……"）。
 //
 // 认的是一个钟点（8点、8点半、8点一刻、8点15分、8:30、两点、十点半、二十点……），连同紧挨在它前面的时段（早上、下午、晚上……）
-// 和哪天或者反复（明天、下周一、10月20号、15号、每天、每周一三五、工作日、每月15号……；和时段、钟点之间可以有空格、"的"）。
+// 和哪天或者反复（明天、下周一、10月20号、15号、每天、每两天、每周一三五、工作日、每月15号……；和时段、钟点之间可以有空格、"的"）。
 // 只写了哪天没写钟点的不认；说的是过去的时间（昨晚8点、今天早上8点而现在已经晚上了）不认——那是在说之前的事，
 // 接着往后找下一个钟点。光一个"3点"前后像是在数条目的（总结成3点、3点建议、第2点、快一点）不认。
 // @i18n-ignore-file data：整个文件是认中文写的时间的解析器（用户写的话），里面的中文都是认字用的正则和字表，没有给用户看的字
-import { nextClockTime, nowIso, pad2, type ReminderSchedule } from "./protocol.ts";
+import { EVERY_N_DAYS_MAX, EVERY_N_DAYS_MIN, localDate, nextClockTime, nowIso, pad2, type ReminderSchedule } from "./protocol.ts";
 import type { TimedMode } from "./triggers.ts";
 
 /** 从写的话里认出的时间 */
 export interface TextTime {
-  /** 一次的是具体时刻（once）；反复的是每天、每周几、每月几号、按我的工作日 */
+  /** 一次的是具体时刻（once）；反复的是每天、每 N 天、每周几、每月几号、按我的工作日 */
   schedule: ReminderSchedule;
   /** 某个时间做一次（at）还是按时间表反复做（repeat） */
   mode: TimedMode;
@@ -180,8 +180,11 @@ function hourIn(hour: number, period: PeriodKind | undefined): { hour: number; n
 
 /** 哪天：某一天；从今天起最近的周几（今天就是、钟点还没过就是今天）；过去的 */
 type Day = { kind: "date"; date: Date } | { kind: "nearest"; weekday: number } | { kind: "past" };
-/** 反复：时间表的样子（钟点后填） */
-type Repeat = { kind: "daily" } | { kind: "weekly"; weekdays: number[] } | { kind: "monthly"; days: number[] } | { kind: "workdays" };
+/** 反复：时间表的样子（钟点后填；每 N 天的从今天起算） */
+type Repeat = { kind: "daily" } | { kind: "everyNDays"; interval: number } | { kind: "weekly"; weekdays: number[] } | { kind: "monthly"; days: number[] } | { kind: "workdays" };
+
+/** 每几天的数：阿拉伯数字或中文（两、三、十五） */
+const COUNT_NUM = "\\d{1,3}|[一二两三四五六七八九十]{1,3}";
 
 const WEEK = "(?:周|星期|礼拜)";
 const WD = "[一二三四五六日天]";
@@ -196,7 +199,16 @@ const REPEAT_FORMS: ReadonlyArray<[RegExp, (m: RegExpExecArray) => Repeat | unde
   [new RegExp(`(?:每个?)?工作日${GAP}`), () => ({ kind: "workdays" })],
   [new RegExp(`每个?月((?:${DAY_NUM})\\s*[号日]?(?:\\s*[、，,和及与跟]\\s*(?:${DAY_NUM})\\s*[号日]?)*)${GAP}`), (m) => monthDaysIn(m[1]!)],
   [new RegExp(`(?:每天|每日|天天|每一天)${GAP}`), () => ({ kind: "daily" })],
+  // 每 N 天：每两天、每 3 天、每隔一天（隔一天就是每两天）。光写"隔天"常是"第二天"、"每隔两天"说不清是每两天还是每三天，都不认
+  [new RegExp(`每隔[一1]天${GAP}`), () => ({ kind: "everyNDays", interval: 2 })],
+  [new RegExp(`每\\s*(${COUNT_NUM})\\s*天${GAP}`), (m) => everyNDaysIn(m[1]!)],
 ];
+
+/** 每 N 天的 N：2–365 才认（每一天是每天，前面那条认过了） */
+function everyNDaysIn(s: string): Repeat | undefined {
+  const interval = numberOf(s);
+  return interval >= EVERY_N_DAYS_MIN && interval <= EVERY_N_DAYS_MAX ? { kind: "everyNDays", interval } : undefined;
+}
 
 /** "一三五""一、三、五""一和周四""一到五"里的周几（到、至连起来是一段） */
 function weekdaysIn(s: string): Repeat {
@@ -323,7 +335,7 @@ function withContext(text: string, clock: Clock, now: Date): TextTime | undefine
   const { hour, nextDay } = hourIn(clock.hour, period?.kind);
   const time = `${pad2(hour)}:${pad2(clock.minute)}`;
   const quote = text.slice(quoteStart, clock.end).trim();
-  if (repeat) return { schedule: repeatAt(repeat, time, nextDay), mode: "repeat", quote };
+  if (repeat) return { schedule: repeatAt(repeat, time, nextDay, now), mode: "repeat", quote };
 
   const at = day === undefined ? nextClockTime(time, now) : day.kind === "nearest" ? nearestWeekday(day.weekday, hour, clock.minute, nextDay, now) : atOn(day.date, nextDay, hour, clock.minute);
   // 说的是过去的时间（今天早上8点而现在已经晚上了）：那是在说之前的事
@@ -353,12 +365,14 @@ function nearestWeekday(weekday: number, hour: number, minute: number, nextDay: 
   return atOn(dayStart(now, 7), nextDay, hour, minute);
 }
 
-/** 反复的时间表；晚上 12 点这种过了这一天的，每周几、每月几号往后挪一天 */
-function repeatAt(repeat: Repeat, time: string, nextDay: boolean): ReminderSchedule {
+/** 反复的时间表；晚上 12 点这种过了这一天的，每周几、每月几号、每 N 天的起算日往后挪一天（每 N 天从今天起算） */
+function repeatAt(repeat: Repeat, time: string, nextDay: boolean, now: Date): ReminderSchedule {
   const shift = (values: number[], next: (v: number) => number) => (nextDay ? [...new Set(values.map(next))].toSorted((a, b) => a - b) : values);
   switch (repeat.kind) {
     case "daily":
       return { kind: "daily", time };
+    case "everyNDays":
+      return { kind: "everyNDays", time, interval: repeat.interval, anchor: localDate(dayStart(now, nextDay ? 1 : 0)) };
     case "workdays":
       return { kind: "workdays", time };
     case "weekly":

@@ -121,6 +121,8 @@ export const FAKE_BOARD: BoardEntry[] = (
     { kind: "reminder", id: "r-run", title: "跑步", status: "pending", nextAt: at("10-07", "19:00"), schedule: { kind: "weekly", time: "19:00", weekdays: [1, 3, 5] } },
     // 每年某月某日：今年的已经过了，下一次在明年（卡上、看板上带年份）
     { kind: "reminder", id: "r-mom-birthday", title: "妈妈生日，订蛋糕", status: "pending", nextAt: "2027-03-02T09:00:00+08:00", schedule: { kind: "yearly", time: "09:00", month: 3, day: 2 } },
+    // 每 N 天：隔一天吃一次药，从今天起
+    { kind: "reminder", id: "r-pill", title: "吃降脂药", status: "pending", nextAt: at("10-07", "20:00"), schedule: { kind: "everyNDays", time: "20:00", interval: 2, anchor: "2026-10-07" } },
     // 定时触发的任务是假连接里的真任务（fake-conversations.ts 的 FAKE_TIMED_TASK、FAKE_TIMED_WORKFLOW），不在这里
     // 最近结束
     { kind: "task", id: "t-resume", title: "简历更新", status: "done", stage: { current: 2, total: 2 }, activity: "sleeping", tokens: 88_000, projects: [], updatedAt: at("10-05", "11:00") },

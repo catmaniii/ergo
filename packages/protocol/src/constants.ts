@@ -632,6 +632,7 @@ export function isCardType(value: string): value is CardType {
  * questions 2：项目负责人为工单提问时，卡上记着是谁在问（askedBy），回答交回它。
  * plan 5、plan_change 2：计划里不再有定时作业（scheduledJobs）。
  * reminder 4、workflow_plan 3：时间表多了"每年某月某日"（yearly）。
+ * reminder 5、workflow_plan 4：时间表多了"每 N 天"（everyNDays）。
  */
 export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   /**
@@ -651,8 +652,8 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
    */
   suggest_task: 4,
   suggest_project: 1,
-  /** 3：提醒能归档（archived）、删除（状态多了 deleted）；4：时间表多了每年某月某日 */
-  reminder: 4,
+  /** 3：提醒能归档（archived）、删除（状态多了 deleted）；4：时间表多了每年某月某日；5：时间表多了每 N 天 */
+  reminder: 5,
   charter: 1,
   work_order: 1,
   /** 2：卡上的整份计划里不再有定时作业 */
@@ -664,8 +665,8 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   /** 项目负责人不在任务里时要开 bash、加 MCP、开联网 */
   toolkit_change: 1,
   archive_list: 1,
-  /** 2：定时触发的流程带着时间表（schedule），卡上写明授权一直有效，直到暂停或取消；3：时间表多了每年某月某日 */
-  workflow_plan: 3,
+  /** 2：定时触发的流程带着时间表（schedule），卡上写明授权一直有效，直到暂停或取消；3：时间表多了每年某月某日；4：时间表多了每 N 天 */
+  workflow_plan: 4,
   /**
    * 2：卡上带着负责人建设期间交的运营方案（operations），选了以后记着每一条的结局；
    * 3：方案里的一条可以是服务（service：命令、工作目录、端口、开机自启、网页……）；

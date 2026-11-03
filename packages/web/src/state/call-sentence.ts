@@ -18,7 +18,7 @@
 // 摘要被截断、彻底删除过）就退回。工具的中文名照守护进程登记的 title 抄一份在这里；
 // MCP 工具（mcp__<MCP 名>__<工具名>）前端不知道中文名，写原名。纯函数。
 // 句子和工具名按当前语言（state.callSentence.*；英文的说法同样是动词加对象）。
-import { describeWorkdayChange, MEMORY_COMMAND_LABEL, type MessagePart, PURGED_TEXT, type RepeatRule, describeSchedule, repeatSchedule, t, TELL_SECRETARY_CAPABILITY, tTable, type WorkdayChange } from "./protocol.ts";
+import { describeWorkdayChange, MEMORY_COMMAND_LABEL, type MessagePart, PURGED_TEXT, type RepeatRule, describeRepeatRule, t, TELL_SECRETARY_CAPABILITY, tTable, type WorkdayChange } from "./protocol.ts";
 import { bashSentence } from "./shell-sentence.ts";
 import { cutTo, FALLBACK_MAX, joinList, pathsText, shortPath, shortUrl } from "./sentence-parts.ts";
 import { awaitingApproval } from "./timeline.ts";
@@ -309,8 +309,8 @@ function reminderWhen(a: Record<string, string>): string | undefined {
   if (a.inMinutes) return t("state.callSentence.inMinutes", { count: Number(a.inMinutes), n: a.inMinutes });
   if (a.repeat) {
     const rule = objectOf(a.repeat) as RepeatRule | undefined;
-    const made = rule && time ? repeatSchedule(rule, time) : undefined;
-    return made && "schedule" in made ? describeSchedule(made.schedule) : time ? t("state.callSentence.repeatAt", { time }) : t("state.callSentence.repeat");
+    const described = rule && time ? describeRepeatRule(rule, time) : undefined;
+    return described ?? (time ? t("state.callSentence.repeatAt", { time }) : t("state.callSentence.repeat"));
   }
   const day =
     a.inDays !== undefined

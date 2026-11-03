@@ -2,7 +2,8 @@
 // 删除不是工具：走快速动作 delete_reminder（delete-action.ts），总要用户在卡上确认。
 // 秘书在同一轮里自己选用，不另加分类器。
 // 时间的写法：具体的本地日期时间（at），哪天几点（date），最近的周几几点（weekday），几天后几点（inDays），几分钟后（inMinutes），
-// 或者几点加重复规则（repeat，取自共享协议包的 RepeatRule：每天、每周几、每月几号、每年某月某日（公历）、按我的工作日）。
+// 或者几点加重复规则（repeat，取自共享协议包的 RepeatRule：每天、每 N 天（从起算日起，不给是今天）、每周几、每月几号、
+// 每年某月某日（公历）、按我的工作日）。
 // 工具结果里写明落到了哪天、星期几、几点，让秘书复述给用户。
 // 由提醒插件经 agent 贡献缝给秘书（reminders/plugin.ts），插件停用时秘书没有这三个工具。调用时现取提醒的服务：
 // 插件运行中停了、秘书还没按新的贡献重新装配的那一会儿取不到，回"提醒插件没启用"（isError），不崩、不产生提醒和卡片。
@@ -73,7 +74,7 @@ export function reminderTools(service: () => ReminderService | undefined, clock:
   /** 落到了哪天、星期几、几点（重复的再写下一次） */
   const when = (r: Reminder): string => {
     if (!r.schedule) return jobTriggerText(r);
-    return isRepeating(r.schedule) ? `${describeSchedule(r.schedule)}，下一次是 ${r.nextAt ? describeTime(new Date(r.nextAt), now()) : "（无）"}` : describeSchedule(r.schedule, now());
+    return isRepeating(r.schedule) ? `${describeSchedule(r.schedule, now())}，下一次是 ${r.nextAt ? describeTime(new Date(r.nextAt), now()) : "（无）"}` : describeSchedule(r.schedule, now());
   };
 
   return [
@@ -81,7 +82,7 @@ export function reminderTools(service: () => ReminderService | undefined, clock:
       name: REMINDER_TOOL.create,
       title: t("reminders.tool.create"),
       description:
-        "建一条简单提醒：到点给用户发一条通知（不需要别人干活）。一次性的给具体日期时间（at），或者哪天 / 周几 / 几天后加几点，或者几分钟后；重复的给几点和 repeat（每天、每周几、每月几号、每年某月某日（公历，生日、纪念日这种；2 月 29 日在平年的 2 月 28 日响）、按我的工作日：用户个人工作日历上的上班日，含调休补班、不含休息日）。建好后聊天里会出现一张提醒卡，用户可以在卡上改或取消。",
+        "建一条简单提醒：到点给用户发一条通知（不需要别人干活）。一次性的给具体日期时间（at），或者哪天 / 周几 / 几天后加几点，或者几分钟后；重复的给几点和 repeat（每天；每 N 天：\"隔一天\"\"每两天\"interval 是 2、\"每三天\"是 3，anchor 写从哪天起（YYYY-MM-DD，那天响第一次），不给就是今天，今天这个钟点已经过了第一次就是 N 天后——不要拆成多条一次性的提醒；每周几、每月几号、每年某月某日（公历，生日、纪念日这种；2 月 29 日在平年的 2 月 28 日响）、按我的工作日：用户个人工作日历上的上班日，含调休补班、不含休息日）。建好后聊天里会出现一张提醒卡，用户可以在卡上改或取消。",
       parameters: CreateParams,
       // 每调用一次多一条提醒
       readOnlyOrIdempotent: false,
@@ -94,7 +95,8 @@ export function reminderTools(service: () => ReminderService | undefined, clock:
     defineHostTool({
       name: REMINDER_TOOL.update,
       title: t("reminders.tool.update"),
-      description: "改一条还没响的简单提醒：改时间、重复规则或内容。只给要改的；只给几点时，日期和重复规则不变；\"改到周五\"给 weekday（钟点不变）。",
+      description:
+        "改一条还没响的简单提醒：改时间、重复规则或内容。只给要改的；只给几点时，日期和重复规则不变；\"改到周五\"给 weekday（钟点不变）；每 N 天的换起算日（整体往前或往后挪）给 repeat，带上 interval 和新的 anchor。",
       parameters: UpdateParams,
       // 改原有的提醒
       nature: "modify",

@@ -1013,6 +1013,8 @@
   "ui.cards.schedule.time": "几点",
   "ui.cards.schedule.days": "几号",
   "ui.cards.schedule.daysPlaceholder": "比如 1, 15",
+  "ui.cards.schedule.interval": "每几天",
+  "ui.cards.schedule.anchor": "从哪天起",
   "ui.cards.schedule.yearDay": "哪天",
   "ui.cards.schedule.month": "几月",
   "ui.cards.schedule.day": "几日",

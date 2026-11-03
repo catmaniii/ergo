@@ -24,6 +24,7 @@ const FAKE_REMINDERS: { id: string; text: string; schedule: ReminderSchedule }[]
   { id: "r-weekly", text: "准备周会材料", schedule: { kind: "weekly", time: "17:30", weekdays: [1, 2, 3, 4, 5] } },
   { id: "r-run", text: "跑步", schedule: { kind: "weekly", time: "19:00", weekdays: [1, 3, 5] } },
   { id: "r-mom-birthday", text: "妈妈生日，订蛋糕", schedule: { kind: "yearly", time: "09:00", month: 3, day: 2 } },
+  { id: "r-pill", text: "吃降脂药", schedule: { kind: "everyNDays", time: "20:00", interval: 2, anchor: "2026-10-07" } },
 ];
 
 /** 定时触发的任务的每一次（带着任务的点开去任务详情；fake-conversations.ts 里的「每天早上出早报」）和还没迁移的旧作业 */

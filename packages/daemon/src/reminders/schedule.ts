@@ -10,8 +10,8 @@ import {
   parseClockTime,
   type ReminderSchedule,
   type RepeatRule,
-  repeatRuleOf,
   repeatSchedule,
+  repeatScheduleError,
   type ScheduleContext,
   scheduleClockTime,
   withClockTime,
@@ -51,7 +51,8 @@ export function resolveReminderTime(spec: ReminderTimeSpec, now: Date): Reminder
   const daySpecs = [spec.at, spec.date, spec.weekday, spec.inDays, spec.inMinutes].filter((v) => v !== undefined).length;
   if (spec.repeat !== undefined) {
     if (daySpecs > 0) throw new ReminderInputError(t("reminders.schedule.repeatNoDay"));
-    const result = repeatSchedule(spec.repeat, clock(spec.time, t("reminders.schedule.repeatNeedTime")));
+    // 每 N 天没给起算日的从今天（守护进程的时钟）起算
+    const result = repeatSchedule(spec.repeat, clock(spec.time, t("reminders.schedule.repeatNeedTime")), now);
     if ("error" in result) throw new ReminderInputError(result.error);
     return result.schedule;
   }
@@ -138,12 +139,12 @@ function resolveDate(value: string, hh: number, mm: number, now: Date): Date {
 
 /**
  * 规则下一次响的时间（"按我的工作日"按 context 里的工作日历算）；没有下一次（一次性的时刻已经过了，或者写法不对）就说明错在哪。
- * 从网页来的时间表（提醒卡上改的、发起对话框里建的）只过了 schema：重复规则拼不出来的（每年 2 月 30 日）在这里拦下
+ * 从网页来的时间表（提醒卡上改的、发起对话框里建的）只过了 schema：重复规则拼不出来的（每年 2 月 30 日、每 N 天的起算日
+ * 2026-02-30）在这里拦下
  */
 export function nextAtOf(schedule: ReminderSchedule, now: Date, context: ScheduleContext): string {
-  const rule = repeatRuleOf(schedule);
-  const made = rule && repeatSchedule(rule, scheduleClockTime(schedule));
-  if (made && "error" in made) throw new ReminderInputError(made.error);
+  const error = repeatScheduleError(schedule);
+  if (error !== undefined) throw new ReminderInputError(error);
   const next = nextOccurrence(schedule, now, context);
   if (!next) throw new ReminderInputError(t("reminders.schedule.passedSchedule", { schedule: describeSchedule(schedule, now), now: describeTime(now) }));
   return nowIso(next);

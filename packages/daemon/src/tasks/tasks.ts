@@ -49,6 +49,7 @@ import {
   onceAt,
   LONG_RUNNING_TRIGGER_REFUSAL,
   type ReminderSchedule,
+  repeatScheduleError,
   type StartTaskParams,
   ASSISTANT_NAME_MARK,
   canSetVoiceAnnounce,
@@ -132,6 +133,9 @@ function checkedTrigger(kind: TaskKind, trigger: TaskTrigger | undefined, now: s
   }
   const at = onceAt({ trigger });
   if (at !== undefined && !(Date.parse(at) > Date.parse(now))) throw new RequestRejected("bad_params", ONCE_AT_PASSED(at));
+  // 重复的时间表只过了 schema：规则拼不出来的（每年 2 月 30 日、每 N 天的起算日不存在）拦下
+  const ruleError = repeatScheduleError(trigger.schedule);
+  if (ruleError !== undefined) throw new RequestRejected("bad_params", ruleError);
   return trigger;
 }
 

@@ -17,6 +17,7 @@ export const EN_DATA: Phrases = {
   "家庭网盘去重": "Family drive dedupe",
   "等项目「家庭网盘」": "Waiting on project “Family drive”",
   "看牙（洗牙）": "Dentist (cleaning)",
+  "吃降脂药": "Take cholesterol pill",
   "简历更新": "Update my resume",
   "搭一个记账本": "Build a ledger",
   "已转为项目": "Now a project",

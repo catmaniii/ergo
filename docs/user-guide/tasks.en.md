@@ -476,7 +476,7 @@ When an owner makes small changes to the plan without widening its grants, it do
 2. Write it in **What to do**. The dialog only understands times written in Chinese. If your text has one, such as 每周一早上 9 点 (every Monday at 9 am), **On a schedule** is selected below, the time is filled in, and a line says **Set to Every Monday at 09:00, as you wrote “每周一早上 9 点”**. English phrases like "every Monday" aren't understood, so check what's filled in.
 3. If it doesn't fill in, pick it yourself: under **When**, click **On a schedule**.
 4. Pick one:
-   - **Repeat on a schedule:** Under **Repeat**, pick **Daily**, **Weekly**, **Monthly**, **Yearly** or **On my workdays**, then fill in **Time**.
+   - **Repeat on a schedule:** Under **Repeat**, pick **Daily**, **Every N days**, **Weekly**, **Monthly**, **Yearly** or **On my workdays**, then fill in **Time**. For **Every N days**, also fill in **Every (days)** and **Starting**, the day of the first run. Chinese phrases like 每两天 (every two days) or 每隔一天 (every other day) are filled in automatically too.
    - **Once at a set time:** Pick a date and time. It runs once at that time and then counts as done.
 5. Click the button, for example **Create scheduled plain task**.
 

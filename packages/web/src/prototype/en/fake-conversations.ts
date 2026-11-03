@@ -283,6 +283,8 @@ export const EN_CONVERSATIONS: Phrases = {
   "建好了，重复规则可以在卡片上改。": "Done. You can change how it repeats on the card.",
   "妈妈生日是 3 月 2 号，每年那天早上提醒我订蛋糕": "Mom's birthday is March 2. Remind me that morning every year to order a cake.",
   "好，每年 3 月 2 日早上 9 点提醒你，今年的已经过了，下一次是明年 3 月 2 日。": "OK, every year on March 2 at 9 a.m. This year's has passed, so the next one is March 2 next year.",
+  "从明天起，隔一天晚上 8 点提醒我吃降脂药": "Starting tomorrow, remind me every other day at 8 p.m. to take my cholesterol pill",
+  "好，从 10 月 7 日起每 2 天晚上 8 点提醒你，第一次是明晚。": "OK, every 2 days at 8 p.m. starting Oct 7. The first one is tomorrow evening.",
   "记下了。": "Noted.",
   "用户这周三次在晚上 10 点后手动导出账单（周一、周三、周四），每次十几分钟。这是重复劳动，适合做成定时任务，但用户没要求，只能给建议卡。": "The user exported statements by hand three times this week after 10 p.m. (Mon, Wed, Thu), over ten minutes each. It's repetitive and fits a scheduled task, but they didn't ask, so offer a suggestion card only.",
   "顺便说一句：这周你手动导出了三次账单。要不要交给一个任务每周自动做？": "By the way, you exported statements by hand three times this week. Want a task to do it automatically every week?",

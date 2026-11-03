@@ -8,7 +8,7 @@
 // - run_now 立即跑一次（触发一次运行）：走触发底座的立即运行一次（同一个排队和名额，不改时间表）；
 // - pause_resume 暂停恢复（有副作用的动作）：暂停、恢复这个项目的定时 / 事件触发的任务（不写 job 是全部）；服务的启停是另一回事
 //   （switch_project_services）；
-// - reschedule 改时间（有副作用的动作）：只改钟点（每天 / 每周几 / 每月几号照旧），走触发底座的改时间表；
+// - reschedule 改时间（有副作用的动作）：只改钟点（每天 / 每 N 天 / 每周几 / 每月几号照旧），走触发底座的改时间表；
 // - tell_maintainer 跟负责人说一句（有副作用的动作）：插进项目负责人的会话（和秘书转达 tell_project 同一条路）。
 // job 参数：运营方案那一条的 key、任务编号、触发登记编号、任务的名字都认；describe 时按项目现在有的几条列成枚举（值和中文名）。
 // 验收的测试调用（test）：只读的照常查，别的只看做不做得了、说"会怎样"，不真做。
@@ -155,7 +155,7 @@ const DEFS: Record<BuiltinName, Omit<ProjectOp, "name" | "kindFrom" | "impl">> =
   reschedule: {
     title: "改时间",
     kind: "action",
-    description: "改一条定时任务几点跑：只改钟点，每天 / 每周几 / 每月几号照旧。",
+    description: "改一条定时任务几点跑：只改钟点，每天 / 每 N 天 / 每周几 / 每月几号照旧。",
     userSays: ["日报改成每天 7 点", "简报站改到晚上 9 点跑"],
     inputSchema: {
       type: "object",

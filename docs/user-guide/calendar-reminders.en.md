@@ -126,6 +126,7 @@ The secretary works out the actual date and shows a quick action card. Check the
 - "Remind me to pay the rent at 9 a.m. on the 8th of every month"
 - "On my workdays, remind me to write my daily report at 17:30 every day"
 - "Remind me to order a cake on March 2 every year"
+- "Starting tomorrow, remind me every other day at 8 p.m. to take my cholesterol pill" (every N days: every other day is every 2 days)
 
 ### Creating one in the dialog
 
@@ -136,7 +137,7 @@ The secretary works out the actual date and shows a quick action card. Check the
 1. Tap **New task**.
 2. Under **When**, tap **Just remind me**. The form changes to suit a reminder.
 3. Write the content under **What to remind you about**, such as "Pay the rent".
-4. Pick **At a set time**: under **Repeat**, pick Once, Daily, Weekly, Monthly, Yearly or On my workdays, then fill in the time. The line below says when it will remind you.
+4. Pick **At a set time**: under **Repeat**, pick Once, Daily, Every N days, Weekly, Monthly, Yearly or On my workdays, then fill in the time. For Every N days, also fill in **Every (days)** (2–365) and **Starting**, the day of the first reminder. The line below says when it will remind you, such as "Every 2 days at 20:00, starting Nov 3".
 5. Tap **Create reminder**.
 
 ![The New task dialog with "Just remind me" selected: what to remind you about, at a set time or when something happens, repeat and time](images/calendar-reminders/06-start-remind.png)
@@ -219,6 +220,7 @@ A one-time reminder that has gone off says **Fired** and the time, with **Archiv
 - ergo has to be running to remind you on time. If you miss one because the computer was off or asleep: up to 60 minutes late, it's still sent after startup and says how late it is. Any later, no notice pops up, and a **Missed reminder** goes in the Inbox instead. A repeating reminder that was missed several times counts only the latest one.
 - **On my workdays** reminders work out the next time from the workday calendar each time. Mark tomorrow as a day off and it skips automatically, with no change to the reminder.
 - A monthly reminder whose day doesn't exist in a given month goes off at the end of that month. A yearly February 29 reminder goes off on February 28 in non-leap years.
+- An Every N days reminder counts calendar days from its **Starting** day, so it doesn't drift across months, years or leap days. Change **Starting** and every later reminder moves with it. If you don't tell the secretary which day to start, it starts today: if today's time has already passed, the first one is N days later.
 - After the system kills the app you won't get notifications; see [On your phone](mobile.en.md#system-notifications).
 - The calendar and reminders are both plugins, and can be turned off in **Settings · Capabilities · Plugins**. Turn off Reminders, and reminders on the board and calendar and the secretary's ability to create them all go away; the data stays.
 

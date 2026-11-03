@@ -1,6 +1,6 @@
 // "定时"的时间表编辑（发起任务对话框里的那一段，抽出来和任务操作菜单里的"改时间"共用）：
 // 按时间表反复做 / 某个时间做一次两种（state/triggers.ts 的 TIMED_MODES），下面一行是选中那种的说明；反复的用 ScheduleEditor 的
-// repeatOnly（每天、每周几、每月几号、按我的工作日），某个时间做一次用 onceOnly（日期和时间）；那个时间已经过了时写一句。
+// repeatOnly（每天、每 N 天、每周几、每月几号、每年、按我的工作日），某个时间做一次用 onceOnly（日期和时间）；那个时间已经过了时写一句。
 // 受控：选哪种、两种各自的时间表都由用的地方存着（切来切去不丢；发起对话框按写的话自动填也是改这几样）。渲染时不取时钟，过没过由用的地方算好给。
 import { type ReminderSchedule, t, TIMED_MODE_HINT, TIMED_MODE_LABEL, TIMED_MODES, type TimedMode } from "../state/index.ts";
 import { ScheduleEditor } from "./cards/cards.tsx";

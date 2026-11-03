@@ -62,7 +62,15 @@ describe("秘书给的时间落成时间表", () => {
     expect(resolveReminderTime({ time: "08:00", repeat: { kind: "yearly", month: 2, day: 29 } }, NOW)).toEqual({ kind: "yearly", time: "08:00", month: 2, day: 29 });
   });
 
+  test("每 N 天：几点加 repeat 的 interval、anchor；没给 anchor 从今天（守护进程的时钟）起算，今天的钟点过了也是今天", () => {
+    expect(resolveReminderTime({ time: "20:00", repeat: { kind: "everyNDays", interval: 2, anchor: "2026-11-03" } }, NOW)).toEqual({ kind: "everyNDays", time: "20:00", interval: 2, anchor: "2026-11-03" });
+    expect(resolveReminderTime({ time: "8:00", repeat: { kind: "everyNDays", interval: 3 } }, NOW)).toEqual({ kind: "everyNDays", time: "08:00", interval: 3, anchor: "2026-10-07" });
+  });
+
   test.each<[string, ReminderTimeSpec, RegExp]>([
+    ["每 N 天没给每几天", { time: "20:00", repeat: { kind: "everyNDays" } }, /每几天/],
+    ["每 N 天的每几天是 1", { time: "20:00", repeat: { kind: "everyNDays", interval: 1 } }, /每几天/],
+    ["每 N 天的起算日不存在", { time: "20:00", repeat: { kind: "everyNDays", interval: 2, anchor: "2026-02-30" } }, /起算日/],
     ["已经过去的时刻", { at: "2026-10-01 09:00" }, /已经过去/],
     ["日期不存在", { date: "2026-02-30", time: "09:00" }, /日期/],
     ["at 写法不对", { at: "下周一 9 点" }, /at 的写法/],
@@ -107,6 +115,13 @@ describe("改提醒时新的时间表", () => {
     expect(editedSchedule(tomorrowNine, { repeat: { kind: "yearly", month: 3, day: 2 } }, NOW)).toEqual({ kind: "yearly", time: "09:00", month: 3, day: 2 });
     expect(editedSchedule({ kind: "yearly", time: "09:00", month: 3, day: 2 }, { time: "07:00" }, NOW)).toEqual({ kind: "yearly", time: "07:00", month: 3, day: 2 });
   });
+
+  test("每 N 天：只改钟点起算日不变；换起算日就整体平移；改成每 N 天没给起算日的从今天起", () => {
+    const everyOther = { kind: "everyNDays" as const, time: "20:00", interval: 2, anchor: "2026-10-05" };
+    expect(editedSchedule(everyOther, { time: "21:00" }, NOW)).toEqual({ ...everyOther, time: "21:00" });
+    expect(editedSchedule(everyOther, { repeat: { kind: "everyNDays", interval: 2, anchor: "2026-10-08" } }, NOW)).toEqual({ ...everyOther, anchor: "2026-10-08" });
+    expect(editedSchedule(tomorrowNine, { repeat: { kind: "everyNDays", interval: 2 } }, NOW)).toEqual({ kind: "everyNDays", time: "09:00", interval: 2, anchor: "2026-10-07" });
+  });
 });
 
 describe("下一次响的时间（建、改提醒时）", () => {
@@ -119,5 +134,12 @@ describe("下一次响的时间（建、改提醒时）", () => {
   test("从网页来的时间表只过了 schema：每年 2 月 30 日这种拼不出来的拦下，说明错在哪", () => {
     expect(() => nextAtOf({ kind: "yearly", time: "09:00", month: 2, day: 30 }, NOW, CTX)).toThrow(ReminderInputError);
     expect(() => nextAtOf({ kind: "yearly", time: "09:00", month: 4, day: 31 }, NOW, CTX)).toThrow(/几月几日/);
+    expect(() => nextAtOf({ kind: "everyNDays", time: "20:00", interval: 2, anchor: "2026-02-30" }, NOW, CTX)).toThrow(/起算日/);
+  });
+
+  test("每 N 天：起算日那天这个钟点过了就是 N 天后；换起算日下一次跟着平移", () => {
+    const everyOther = { kind: "everyNDays" as const, time: "20:00", interval: 2, anchor: "2026-10-07" };
+    expect(nextAtOf(everyOther, NOW, CTX)).toBe(nowIso(at(10, 9, 20)));
+    expect(nextAtOf({ ...everyOther, anchor: "2026-10-08" }, NOW, CTX)).toBe(nowIso(at(10, 8, 20)));
   });
 });

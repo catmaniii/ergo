@@ -1044,6 +1044,8 @@
   "ui.cards.schedule.time": "Time",
   "ui.cards.schedule.days": "Days of month",
   "ui.cards.schedule.daysPlaceholder": "e.g. 1, 15",
+  "ui.cards.schedule.interval": "Every (days)",
+  "ui.cards.schedule.anchor": "Starting",
   "ui.cards.schedule.yearDay": "Date",
   "ui.cards.schedule.month": "Month",
   "ui.cards.schedule.day": "Day",

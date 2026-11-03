@@ -203,8 +203,8 @@ function refusedOnly(payload: WorkflowPlanCardPayload, only?: NonNullable<Workfl
 export function workflowPlanCardType(tasks: TaskService, execution: () => Pick<TaskExecution, "prepareAct">) {
   return defineCardType({
     type: "workflow_plan",
-    // 2：定时触发的流程带着时间表；3：时间表多了每年某月某日
-    version: 3,
+    // 2：定时触发的流程带着时间表；3：时间表多了每年某月某日；4：时间表多了每 N 天
+    version: 4,
     payload: WorkflowPlanCardPayload,
     actions: {
       confirm: { input: WorkflowConfirmInput, run: ({ payload, input, idempotencyKey }) => tasks.confirmWorkflowFromCard(payload, input, idempotencyKey) },

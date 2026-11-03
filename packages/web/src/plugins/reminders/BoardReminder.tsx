@@ -9,7 +9,19 @@ import { createContext, type ReactNode, useContext, useRef, useState } from "rea
 import { useStore } from "../../app/store.tsx";
 import type { ReminderSummary } from "../../model/types.ts";
 import { useProto } from "../../app/proto-context.ts";
-import { describeSchedule, isRepeating, nextClockTime, nowIso, REMINDER_STATUS_LABEL, type ReminderAction, type ReminderMenuItem, reminderMenu, scheduleClockTime, t } from "../../state/index.ts";
+import {
+  describeSchedule,
+  EMPTY_WORKDAY_SETTINGS,
+  isRepeating,
+  nextOccurrence,
+  nowIso,
+  REMINDER_STATUS_LABEL,
+  type ReminderAction,
+  type ReminderMenuItem,
+  reminderMenu,
+  t,
+  workdayCalendar,
+} from "../../state/index.ts";
 import { nextTimeLabel, timeLabel } from "../../util/time.ts";
 import { useLongPress } from "../../ui/long-press.ts";
 import { CardCheck } from "../../ui/select-mode.tsx";
@@ -63,7 +75,7 @@ export function ReminderBoardEntry({ entry, selecting, checked, onToggle, onSele
 /**
  * 要动手的那条简单提醒（看板卡的菜单、多选共用）：真提醒的改时间、取消落在它的提醒卡上（改时间是卡片动作 save 带新的时间表，
  * 取消是 cancel_reminder；被拒的原因由页面底部的提示说），归档、删除交 reminder_action（没成的原因提示一句）；
- * 原型的假提醒在页面上演（取消了挪进最近结束，归档了挪进已归档，删了从看板上拿掉，改时间换掉时间表、下一次按新的钟点粗算），做完提示一句
+ * 原型的假提醒在页面上演（取消了挪进最近结束，归档了挪进已归档，删了从看板上拿掉，改时间换掉时间表、下一次按新的规则算），做完提示一句
  */
 function useReminderTarget(): (r: ReminderSummary) => ReminderActsTarget {
   const { ui, cardAction, reminderAction } = useStore();
@@ -97,7 +109,8 @@ function useReminderTarget(): (r: ReminderSummary) => ReminderActsTarget {
       subject,
       toast: true,
       cancel: () => patch({ status: "cancelled" }),
-      reschedule: (schedule) => patch({ schedule, nextAt: schedule.kind === "once" ? schedule.at : nowIso(nextClockTime(scheduleClockTime(schedule), new Date())) }),
+      // 原型里没有工作日历：按我的工作日的先按周一到周五算
+      reschedule: (schedule) => patch({ schedule, nextAt: nowIso(nextOccurrence(schedule, new Date(), { calendar: workdayCalendar([], EMPTY_WORKDAY_SETTINGS) }) ?? new Date()) }),
       archive: () => patch({ archived: true }),
       remove: () => update((s) => ({ ...s, board: s.board.filter((e) => !(e.kind === "reminder" && e.id === r.id)) })),
     };

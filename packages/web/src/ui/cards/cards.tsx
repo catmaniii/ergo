@@ -22,6 +22,9 @@ import {
   automatedAccessHint,
   ACCEPTANCE_VERDICT_LABEL,
   describeSchedule,
+  EVERY_N_DAYS_MAX,
+  EVERY_N_DAYS_MIN,
+  localDate,
   nextClockTime,
   BUILD_DONE_CHOICE_LABEL,
   buildDoneTitle,
@@ -496,6 +499,7 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 /**
  * 改提醒的时间：一次性（哪天几点），或者几点加重复规则（种类和名字取自 REPEAT_KINDS；
+ * "每 N 天"：填每几天（2–365）、从哪天起（日期，改了整体平移）；
  * "每年"：选几月、几日，几日跟着月份最多到月底，2 月能选 29 日）。
  * repeatOnly：发起对话框里"定时"的时间表只能是重复的（一次性的提醒用"只提醒我"），没有"一次性"这一项；
  * label 换掉最后那行的前缀（默认"改成："）
@@ -532,7 +536,7 @@ export function ScheduleEditor({
             onChange={(e) => {
               const kind = e.target.value as RepeatKind | "once";
               if (kind === "once") onChange(onceAt(time));
-              else setRepeat({ kind, weekdays: rule?.weekdays ?? [1], days: rule?.days ?? [1], ...yearDayFrom(value, rule) }, time);
+              else setRepeat({ kind, weekdays: rule?.weekdays ?? [1], days: rule?.days ?? [1], ...yearDayFrom(value, rule), ...everyNDaysFrom(value, rule) }, time);
             }}
           >
             {!repeatOnly && <option value="once">{t("ui.cards.schedule.once")}</option>}
@@ -604,6 +608,9 @@ export function ScheduleEditor({
           />
         </label>
       )}
+      {rule?.kind === "everyNDays" && rule.interval !== undefined && rule.anchor !== undefined && (
+        <EveryNDaysPick interval={rule.interval} anchor={rule.anchor} onChange={(next) => setRepeat({ kind: "everyNDays", ...next }, time)} />
+      )}
       {rule?.kind === "yearly" && rule.month !== undefined && rule.day !== undefined && <YearDayPick month={rule.month} day={rule.day} onChange={(next) => setRepeat({ kind: "yearly", ...next }, time)} />}
       <div className="muted">
         {label}
@@ -618,6 +625,48 @@ function yearDayFrom(value: ReminderSchedule, rule: RepeatRule | undefined): { m
   if (rule?.month !== undefined && rule.day !== undefined) return { month: rule.month, day: rule.day };
   const day = value.kind === "once" ? new Date(value.at) : new Date();
   return { month: day.getMonth() + 1, day: day.getDate() };
+}
+
+/** 换成每 N 天时的每几天、从哪天起：原来是每 N 天的照旧；一次性的从那一天起；别的从今天起，每 2 天 */
+function everyNDaysFrom(value: ReminderSchedule, rule: RepeatRule | undefined): { interval: number; anchor: string } {
+  if (rule?.interval !== undefined && rule.anchor !== undefined) return { interval: rule.interval, anchor: rule.anchor };
+  return { interval: EVERY_N_DAYS_MIN, anchor: localDate(value.kind === "once" ? new Date(value.at) : new Date()) };
+}
+
+/**
+ * 每 N 天的每几天（2–365 的整数，没填好时不换）和从哪天起（日期：改了整体平移）。
+ * 每几天的输入框留着正在填的字（清空了、只填了 1 时照样显示，下面那行还是上一次填好的）；
+ * 外面换了每几天（发起对话框按写的话重新填）时跟着换
+ */
+function EveryNDaysPick({ interval, anchor, onChange }: { interval: number; anchor: string; onChange(next: { interval: number; anchor: string }): void }) {
+  // 正在填的字，和它对应的每几天（填好的是它自己；没填好的是当时的）：外面的每几天变了就不再显示它
+  const [draft, setDraft] = useState({ text: String(interval), of: interval });
+  return (
+    <>
+      <label className="repeat-row">
+        <span>{t("ui.cards.schedule.interval")}</span>
+        <input
+          className="input"
+          type="number"
+          inputMode="numeric"
+          min={EVERY_N_DAYS_MIN}
+          max={EVERY_N_DAYS_MAX}
+          step={1}
+          value={draft.of === interval ? draft.text : String(interval)}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            const valid = e.target.value.trim() !== "" && Number.isInteger(n) && n >= EVERY_N_DAYS_MIN && n <= EVERY_N_DAYS_MAX;
+            setDraft({ text: e.target.value, of: valid ? n : interval });
+            if (valid) onChange({ interval: n, anchor });
+          }}
+        />
+      </label>
+      <label className="repeat-row">
+        <span>{t("ui.cards.schedule.anchor")}</span>
+        <input className="input" type="date" value={anchor} onChange={(e) => e.target.value && onChange({ interval, anchor: e.target.value })} />
+      </label>
+    </>
+  );
 }
 
 /** 每年的几月几日：两个下拉，换月份时几日超过那个月的月底就落到月底（2 月最多 29 日，平年在 28 日响） */

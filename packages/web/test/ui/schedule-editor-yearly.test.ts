@@ -16,7 +16,7 @@ const optionsOf = (html: string, label: string): string[] => {
 describe("时间表编辑里的每年", () => {
   test("重复规则的下拉里有每年（排在每月几号后面）", () => {
     const html = render({ kind: "once", at: "2026-10-08T09:00:00.000+08:00" });
-    expect([...html.matchAll(/<option value="(\w+)"/g)].map((m) => m[1])).toEqual(["once", "daily", "weekly", "monthly", "yearly", "workdays"]);
+    expect([...html.matchAll(/<option value="(\w+)"/g)].map((m) => m[1])).toEqual(["once", "daily", "everyNDays", "weekly", "monthly", "yearly", "workdays"]);
     expect(html).toContain(">每年</option>");
     expect(html).not.toContain('aria-label="几月"');
   });

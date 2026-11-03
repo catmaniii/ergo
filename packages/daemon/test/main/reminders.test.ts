@@ -255,7 +255,7 @@ describe("到点", () => {
     expect(seen).toContain("[toolResult] create_reminder: 已建好提醒 r-1「给妈妈打电话祝寿」：每年 10 月 8 日 09:00，下一次是 10 月 8 日（周四）09:00");
     expect(lastCard(frontend)).toMatchObject({
       type: "reminder",
-      typeVersion: 4,
+      typeVersion: 5,
       payload: { schedule: { kind: "yearly", time: "09:00", month: 10, day: 8 }, nextAt: nowIso(at(10, 8, 9)) },
       text: "简单提醒：给妈妈打电话祝寿 · 每年 10 月 8 日 09:00（下一次 10 月 8 日（周四）09:00）",
     });
@@ -276,6 +276,32 @@ describe("到点", () => {
       [nowIso(at(10, 8, 9)), undefined],
       [nowIso(new Date(2027, 9, 8, 9, 0)), undefined],
     ]);
+  });
+
+  it("每 N 天：隔一天 20:00、从 10 月 20 日起 → 连跑 10 次都落在对的那天（跨月）；卡上写规则和下一次；在卡上改起算日，下一次整体平移", async () => {
+    const { frontend, clock, daemon } = await setup([createCall({ text: "吃降脂药", time: "20:00", repeat: { kind: "everyNDays", interval: 2, anchor: "2026-10-20" } }), { kind: "echo_context" }]);
+    await tell(frontend, "从 10 月 20 号起，隔一天晚上 8 点提醒我吃降脂药");
+    const seen = (frontend.events({ channel: SECRETARY, type: EVENT_TYPES.message }).at(-1)!.payload as MessageEventPayload).message.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
+    expect(seen).toContain("[toolResult] create_reminder: 已建好提醒 r-1「吃降脂药」：每 2 天 20:00，从 10 月 20 日起，下一次是 10 月 20 日（周二）20:00");
+    expect(lastCard(frontend)).toMatchObject({
+      type: "reminder",
+      typeVersion: 5,
+      payload: { schedule: { kind: "everyNDays", time: "20:00", interval: 2, anchor: "2026-10-20" }, nextAt: nowIso(at(10, 20, 20)) },
+      text: "简单提醒：吃降脂药 · 每 2 天 20:00，从 10 月 20 日起（下一次 10 月 20 日（周二）20:00）",
+    });
+
+    await expectFiresAt(frontend, clock, [at(10, 20, 20), at(10, 22, 20), at(10, 24, 20), at(10, 26, 20), at(10, 28, 20), at(10, 30, 20), at(11, 1, 20), at(11, 3, 20), at(11, 5, 20), at(11, 7, 20)]);
+    expect(reminderService(daemon).get("r-1")).toMatchObject({ status: "pending", lastFiredAt: nowIso(at(11, 7, 20)), nextAt: nowIso(at(11, 9, 20)) });
+    expect(lastCard(frontend).payload).toMatchObject({ status: "pending", nextAt: nowIso(at(11, 9, 20)) });
+
+    // 起算日往后挪一天：这一串整体晚一天，下一次是明天
+    const card = lastCard(frontend);
+    const shifted = { kind: "everyNDays" as const, time: "20:00", interval: 2, anchor: "2026-10-21" };
+    expect(await frontend.cardAction({ cardId: card.id, action: "save", expectedVersion: card.version, input: { schedule: shifted } })).toMatchObject({ ok: true });
+    expect(reminderService(daemon).get("r-1")).toMatchObject({ schedule: shifted, nextAt: nowIso(at(11, 8, 20)) });
+    // 日子不存在的起算日拦下
+    const bad = await frontend.cardAction({ cardId: card.id, action: "save", expectedVersion: card.version + 1, input: { schedule: { ...shifted, anchor: "2026-02-30" } } });
+    expect(bad).toMatchObject({ ok: false, error: { code: "bad_params", message: expect.stringContaining("起算日") } });
   });
 
   it("重复提醒：新的一次到点时，上一次还没处理的置顶事项取消置顶并归档；同一个提醒最多一条置顶", async () => {

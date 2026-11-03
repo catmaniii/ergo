@@ -155,6 +155,35 @@ describe("定时的普通任务", () => {
     expect(td.daemon.ledger.entries({ kind: "task", id: "t-1" }).length).toBeGreaterThanOrEqual(2);
     expect(td.daemon.ledger.entries({ kind: "scheduled_job", id: "j-1" })).toEqual([]);
   });
+
+  it("每 N 天：从对话框建每 3 天 09:00、从今天起 → 今天到点运行，下一次是 3 天后，中间两天不运行；改时间表换起算日，下一次整体平移；起算日不存在的被拒", async () => {
+    const { td, clock, frontend } = await setup({ maintainer: [say("浇好了")] });
+    const every3 = { kind: "everyNDays" as const, time: "09:00", interval: 3, anchor: "2026-10-08" };
+    const bad = await frontend.startTask("浇花", "k-bad-anchor", [], "plain", { kind: "schedule", schedule: { ...every3, anchor: "2026-02-30" } });
+    expect(refusalOf(bad)).toMatch(/^bad_params .*起算日/);
+
+    ok(await frontend.startTask("给阳台的花浇水", "k-every3", [], "plain", { kind: "schedule", schedule: every3 }));
+    const registered = await jobWhere(frontend, (e) => e.change === "registered", "登记的触发");
+    expect(registered.job).toMatchObject({ schedule: every3, nextAt: expect.stringMatching(/^2026-10-08T09:00:00/) });
+    expect(boardToolText(td.daemon.store, td.daemon.boardKinds)).toMatch(/任务 t-1「给阳台的花浇水」：运营中；定时触发：每 3 天 09:00，从 10 月 8 日起；下一次 /);
+
+    clock.advanceTo(at(10, 8, 9, 0));
+    await runEnded(frontend, "j-1-r1");
+    expect(noticesIn(frontend, TM1)[0]).toContain("（j-1-r1；时间表：每 3 天 09:00，从 10 月 8 日起）");
+    expect(td.daemon.scheduledJobs.get("j-1")).toMatchObject({ runCount: 1, nextAt: expect.stringMatching(/^2026-10-11T09:00:00/) });
+    await settled(td, "tm-1");
+    // 中间两天不运行
+    clock.advanceTo(at(10, 10, 9, 30));
+    expect(td.daemon.scheduledJobs.get("j-1")!.runCount).toBe(1);
+
+    // 起算日往前挪一天：这一串整体早一天，下一次是 10 月 10 日（已经过了点）往后 3 天的 13 日
+    const shifted = { ...every3, anchor: "2026-10-07" };
+    expect(ok(await frontend.rescheduleJob({ jobId: "j-1", schedule: shifted }, "k-shift"))).toMatchObject({ schedule: shifted, nextAt: expect.stringMatching(/^2026-10-13T09:00:00/) });
+    expect(refusalOf(await frontend.rescheduleJob({ jobId: "j-1", schedule: { ...every3, anchor: "2026-02-30" } }, "k-shift-bad"))).toMatch(/^bad_params .*起算日/);
+    clock.advanceTo(at(10, 13, 9, 0));
+    await runEnded(frontend, "j-1-r2");
+    expect(td.daemon.scheduledJobs.get("j-1")).toMatchObject({ runCount: 2, nextAt: expect.stringMatching(/^2026-10-16T09:00:00/) });
+  });
 });
 
 describe("排队合并", () => {

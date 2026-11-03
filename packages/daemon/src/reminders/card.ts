@@ -33,8 +33,8 @@ export function reminderCardText(p: ReminderCardPayload): string {
 export function reminderCardType(reminders: () => Pick<ReminderService, "editFromCard" | "cancelFromCard">) {
   return defineCardType({
     type: "reminder",
-    // 2：时间表多了"按我的工作日"；3：能归档（archived）、删除（状态 deleted），4：时间表多了每年某月某日
-    version: 4,
+    // 2：时间表多了"按我的工作日"；3：能归档（archived）、删除（状态 deleted），4：时间表多了每年某月某日，5：时间表多了每 N 天
+    version: 5,
     payload: ReminderCardPayload,
     actions: {
       save: { input: ReminderEditInput, run: ({ payload, input }) => reminders().editFromCard(payload.reminderId, input) },

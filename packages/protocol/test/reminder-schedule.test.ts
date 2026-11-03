@@ -5,6 +5,7 @@ import {
   activeLocaleFrom,
   DEFAULT_LANGUAGE,
   dependsOnWorkdayCalendar,
+  describeRepeatRule,
   describeSchedule,
   describeTime,
   type InboxItem,
@@ -21,6 +22,7 @@ import {
   REPEAT_KIND_LABEL,
   REPEAT_KINDS,
   repeatSchedule,
+  repeatScheduleError,
   scheduleClockTime,
   type WorkdayCalendar,
   withClockTime,
@@ -190,6 +192,168 @@ describe("每年某月某日（公历）", () => {
     expect(monthDayBefore({ month: 2, day: 29 }, 3)).toEqual({ month: 2, day: 26 });
     expect(monthDayBefore({ month: 2, day: 29 }, 0)).toEqual({ month: 2, day: 29 });
     expect(monthDayBefore({ month: 3, day: 1 }, 1)).toEqual({ month: 2, day: 28 });
+  });
+});
+
+/** 每 2 天 20:00，从 11 月 3 日起 */
+const EVERY_OTHER = { kind: "everyNDays" as const, time: "20:00", interval: 2, anchor: "2026-11-03" };
+/** 一个时刻的本地年月日时分 */
+const local = (d: Date) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+/** 建好以后模拟连跑 n 次：每次到点响过，再按响的那一刻算下一次（守护进程就是这么排的） */
+const runs = (schedule: typeof EVERY_OTHER, createdAt: Date, n = 10): string[] => {
+  const out: string[] = [];
+  let due = nextOccurrence(schedule, createdAt, CTX);
+  while (due && out.length < n) {
+    out.push(local(due));
+    due = nextOccurrence(schedule, due, CTX);
+  }
+  return out;
+};
+/** 在某个时区里跑（Node 改 TZ 立即生效）；跑完换回原来的时区 */
+const inTimeZone = (zone: string, run: () => void) => {
+  const before = process.env.TZ ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  process.env.TZ = zone;
+  try {
+    run();
+  } finally {
+    process.env.TZ = before;
+  }
+};
+
+describe("每 N 天：从起算日起每隔 N 个本地日历日", () => {
+  const everyOther = EVERY_OTHER;
+
+  test("起算日那天的钟点还没到就是那天；过了就是 N 天后；起算日之前不响", () => {
+    expect(nextOccurrence(everyOther, at(11, 3, 19), CTX)).toEqual(at(11, 3, 20));
+    expect(nextOccurrence(everyOther, at(11, 3, 20), CTX)).toEqual(at(11, 5, 20));
+    expect(nextOccurrence(everyOther, at(11, 4, 23, 59), CTX)).toEqual(at(11, 5, 20));
+    expect(nextOccurrence(everyOther, at(10, 20, 8), CTX)).toEqual(at(11, 3, 20));
+    // 起算日很久以前：还是从起算日数（隔了 365 天，今年的 11 月 3 日不在这一串里，4 日在），不按建的那天
+    expect(nextOccurrence({ ...everyOther, anchor: "2025-11-03" }, at(11, 3, 9), CTX)).toEqual(at(11, 4, 20));
+  });
+
+  test("连跑 10 次落点日期都对：跨月（10 月 31 日 → 11 月 2 日）", () => {
+    expect(runs({ ...everyOther, anchor: "2026-10-25" }, at(10, 25, 8))).toEqual([
+      "2026-10-25 20:00",
+      "2026-10-27 20:00",
+      "2026-10-29 20:00",
+      "2026-10-31 20:00",
+      "2026-11-2 20:00",
+      "2026-11-4 20:00",
+      "2026-11-6 20:00",
+      "2026-11-8 20:00",
+      "2026-11-10 20:00",
+      "2026-11-12 20:00",
+    ]);
+  });
+
+  test("连跑 10 次落点日期都对：闰年的 2 月 29 日照算一天、平年的 2 月没有这天；跨年", () => {
+    expect(runs({ ...everyOther, anchor: "2028-02-21" }, new Date(2028, 1, 21, 8))).toEqual([
+      "2028-2-21 20:00",
+      "2028-2-23 20:00",
+      "2028-2-25 20:00",
+      "2028-2-27 20:00",
+      "2028-2-29 20:00",
+      "2028-3-2 20:00",
+      "2028-3-4 20:00",
+      "2028-3-6 20:00",
+      "2028-3-8 20:00",
+      "2028-3-10 20:00",
+    ]);
+    expect(runs({ ...everyOther, anchor: "2027-02-21" }, new Date(2027, 1, 21, 8), 5)).toEqual(["2027-2-21 20:00", "2027-2-23 20:00", "2027-2-25 20:00", "2027-2-27 20:00", "2027-3-1 20:00"]);
+    expect(runs({ ...everyOther, interval: 3, anchor: "2026-12-26" }, at(12, 26, 8), 4)).toEqual(["2026-12-26 20:00", "2026-12-29 20:00", "2027-1-1 20:00", "2027-1-4 20:00"]);
+  });
+
+  test("夏令时切换日照样在本地那个钟点、那一天（纽约 3 月 8 日拨快、11 月 1 日拨慢；伦敦 3 月 29 日、10 月 25 日）", () => {
+    inTimeZone("America/New_York", () => {
+      // 确实换到了有夏令时的时区：切换前后两天和 UTC 差的不一样
+      expect(new Date(2026, 2, 7, 12).getTimezoneOffset()).not.toBe(new Date(2026, 2, 9, 12).getTimezoneOffset());
+      const spring = { ...everyOther, time: "08:30", anchor: "2026-03-02" };
+      expect(runs(spring, new Date(2026, 2, 1, 12))).toEqual([
+        "2026-3-2 8:30",
+        "2026-3-4 8:30",
+        "2026-3-6 8:30",
+        "2026-3-8 8:30",
+        "2026-3-10 8:30",
+        "2026-3-12 8:30",
+        "2026-3-14 8:30",
+        "2026-3-16 8:30",
+        "2026-3-18 8:30",
+        "2026-3-20 8:30",
+      ]);
+      // 按毫秒加 2×24 小时会在切换后差一个钟头；按日历日数不会
+      const fall = { ...everyOther, anchor: "2026-10-26" };
+      expect(runs(fall, new Date(2026, 9, 26, 12), 5)).toEqual(["2026-10-26 20:00", "2026-10-28 20:00", "2026-10-30 20:00", "2026-11-1 20:00", "2026-11-3 20:00"]);
+      // 切换那天凌晨刚过：下一次还是当天晚上
+      expect(local(nextOccurrence(fall, new Date(2026, 10, 1, 3), CTX)!)).toBe("2026-11-1 20:00");
+    });
+    inTimeZone("Europe/London", () => {
+      expect(runs({ ...everyOther, interval: 7, time: "09:00", anchor: "2026-03-22" }, new Date(2026, 2, 22, 8), 3)).toEqual(["2026-3-22 9:00", "2026-3-29 9:00", "2026-4-5 9:00"]);
+      expect(runs({ ...everyOther, interval: 5, time: "09:00", anchor: "2026-10-20" }, new Date(2026, 9, 20, 8), 3)).toEqual(["2026-10-20 9:00", "2026-10-25 9:00", "2026-10-30 9:00"]);
+    });
+    // 换回来了
+    expect(nextOccurrence(everyOther, at(11, 3, 19), CTX)).toEqual(at(11, 3, 20));
+  });
+
+  test("改起算日就整体平移：往后挪一天，每一次都晚一天；挪 N 天的整数倍还是同一串", () => {
+    const shifted = { ...everyOther, anchor: "2026-11-04" };
+    expect(runs(everyOther, at(11, 3, 8), 3)).toEqual(["2026-11-3 20:00", "2026-11-5 20:00", "2026-11-7 20:00"]);
+    expect(runs(shifted, at(11, 3, 8), 3)).toEqual(["2026-11-4 20:00", "2026-11-6 20:00", "2026-11-8 20:00"]);
+    expect(nextOccurrence({ ...everyOther, anchor: "2026-11-01" }, at(11, 3, 21), CTX)).toEqual(nextOccurrence(everyOther, at(11, 3, 21), CTX));
+  });
+
+  test("日历上展开、停机期间错过：和别的规则一样按下一次一个个数", () => {
+    const every3 = { ...everyOther, interval: 3 };
+    expect(occurrencesBetween(every3, at(11, 1, 0), at(11, 13, 0), CTX)).toEqual([at(11, 3, 20), at(11, 6, 20), at(11, 9, 20), at(11, 12, 20)]);
+    expect(latestOccurrence(every3, at(11, 3, 20), at(11, 20, 9), CTX)).toEqual({ due: at(11, 18, 20), count: 6 });
+  });
+
+  test("拼时间表：给每几天和起算日；没给起算日是今天（今天这个钟点过了，第一次就是 N 天后）", () => {
+    expect(repeatSchedule({ kind: "everyNDays", interval: 2, anchor: "2026-11-03" }, "20:00")).toEqual({ schedule: everyOther });
+    const lateEvening = at(11, 3, 21);
+    const made = repeatSchedule({ kind: "everyNDays", interval: 2 }, "08:00", lateEvening);
+    expect(made).toEqual({ schedule: { kind: "everyNDays", time: "08:00", interval: 2, anchor: "2026-11-03" } });
+    expect(nextOccurrence((made as { schedule: typeof everyOther }).schedule, lateEvening, CTX)).toEqual(at(11, 5, 8));
+  });
+
+  test("每几天要是 2–365 的整数，起算日要是日历上有的日子：不对就说明缺什么", () => {
+    for (const interval of [undefined, 1, 366, 2.5]) {
+      expect(repeatSchedule({ kind: "everyNDays", ...(interval === undefined ? {} : { interval }), anchor: "2026-11-03" }, "20:00")).toEqual({ error: expect.stringContaining("每几天") });
+    }
+    expect(repeatSchedule({ kind: "everyNDays", interval: 365, anchor: "2026-11-03" }, "20:00")).toHaveProperty("schedule");
+    expect(repeatSchedule({ kind: "everyNDays", interval: 2, anchor: "2026-02-30" }, "20:00")).toEqual({ error: expect.stringContaining("2026-02-30") });
+    expect(repeatScheduleError({ ...everyOther, anchor: "2026-02-30" })).toContain("起算日");
+    expect(repeatScheduleError(everyOther)).toBeUndefined();
+    expect(repeatScheduleError({ kind: "yearly", time: "09:00", month: 2, day: 30 })).toContain("几月几日");
+    expect(repeatScheduleError({ kind: "once", at: nowIso(NOW) })).toBeUndefined();
+  });
+
+  test("是重复的一种：规则、钟点、只改钟点（起算日不变）、不跟着工作日历变", () => {
+    expect(REPEAT_KINDS).toContain("everyNDays");
+    expect(REPEAT_KIND_LABEL.everyNDays).toBe("每 N 天");
+    expect(repeatRuleOf(everyOther)).toEqual({ kind: "everyNDays", interval: 2, anchor: "2026-11-03" });
+    expect(isRepeating(everyOther)).toBe(true);
+    expect(dependsOnWorkdayCalendar(everyOther)).toBe(false);
+    expect(scheduleClockTime(everyOther)).toBe("20:00");
+    expect(withClockTime(everyOther, "21:30")).toEqual({ ...everyOther, time: "21:30" });
+  });
+
+  test("中文写法：每 2 天 20:00，从 11 月 3 日起；起算日不在今年时带年份；英文也有写法", () => {
+    expect(describeSchedule(everyOther)).toBe("每 2 天 20:00，从 11 月 3 日起");
+    expect(describeSchedule(everyOther, NOW)).toBe("每 2 天 20:00，从 11 月 3 日起");
+    expect(describeSchedule({ ...everyOther, anchor: "2025-12-30" }, NOW)).toBe("每 2 天 20:00，从 2025 年 12 月 30 日起");
+    // 看秘书调了什么工具：没给起算日的不写从哪天起（起算日是调用那天）
+    expect(describeRepeatRule({ kind: "everyNDays", interval: 3 }, "08:00")).toBe("每 3 天 08:00");
+    expect(describeRepeatRule({ kind: "everyNDays", interval: 2, anchor: "2026-11-03" }, "20:00")).toBe("每 2 天 20:00，从 11 月 3 日起");
+    expect(describeRepeatRule({ kind: "everyNDays", interval: 1 }, "08:00")).toBeUndefined();
+    setActiveLocale(activeLocaleFrom(TEST_LOCALES, "en"));
+    try {
+      expect(describeSchedule(everyOther)).toBe("Every 2 days at 20:00, starting Nov 3");
+      expect(describeSchedule({ ...everyOther, anchor: "2025-12-30" }, NOW)).toBe("Every 2 days at 20:00, starting Dec 30, 2025");
+      expect(REPEAT_KIND_LABEL.everyNDays).toBe("Every N days");
+    } finally {
+      setActiveLocale(activeLocaleFrom(TEST_LOCALES, DEFAULT_LANGUAGE));
+    }
   });
 });
 
