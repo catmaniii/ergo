@@ -138,7 +138,12 @@ function skeleton(inputs: readonly RecordedInput[]): string[] {
       case "read_seen":
       case "alert":
       case "secretary_turn_seen":
+      // 打开时先用的本机快照（模拟前端没有快照，不产生）
+      case "restore":
         return [input.kind];
+      // 补发攒着一次交的（模拟前端逐帧记，不产生）：万一有，按里面的一样样记
+      case "batch":
+        return skeleton(input.inputs);
       // 经 HTTP 取回的一个月的日历：哪个月、每天有几条提醒、几次作业（每次取都一样的部分；序号、时间每次不一样）
       case "calendar_month":
         return [`calendar_month ${input.view.month} ${input.view.days.map((d) => `${d.reminders.length}/${d.jobs.length}`).join(" ")}`];

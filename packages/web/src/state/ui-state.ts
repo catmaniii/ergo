@@ -47,6 +47,8 @@
 // 服务端现在提供的网页是哪一版（webVersion：订阅的响应、活动状态频道上推来的临时事件 web_version、切回前台时问到的，
 // 都是 web_version 输入；连同"等会儿"update_later，切到后台 page_hidden、切回前台 page_foreground、切回前台后问完了服务端 page_settled），
 // 和页面自己的对不上就提示刷新、在后台时来的回到前台直接刷新，见 page-update.ts。
+// 补发推完之前到的帧由连接攒着、一次交（batch：按先后归并，界面只画最后的样子，不一帧帧画中间状态）；打开时先用这台设备上存的
+// 快照（restore，存哪些见 open-snapshot.ts），订阅时带它的游标，守护进程只补增量。
 import {
   type ActivityDetail,
   activityDetailText,
@@ -146,6 +148,7 @@ import {
 import { agentVoiceAudible, agentVoiceHoldsReplies, replyCoverage } from "./agent-voice.ts";
 import { type CalendarState, initialCalendarState } from "./calendar.ts";
 import { newerVoiceModels } from "./voice-models.ts";
+import { type OpenSnapshot, withSnapshot } from "./open-snapshot.ts";
 import {
   initialWebVersionState,
   type WebVersionState,
@@ -453,6 +456,13 @@ export type UiInput =
   | { kind: "resync"; channel: string }
   /** 补发推完了：打开、重连上之后，这次订阅的频道补发的帧都到了 */
   | { kind: "synced" }
+  /**
+   * 攒着一次交的几样输入（按先后归并，界面只画最后的样子）：打开、重连上、多订阅频道之后补发推完之前到的帧（连同要重新同步的频道），
+   * 连接攒着、补发推完时一次交（主订阅的最后是 synced）
+   */
+  | { kind: "batch"; inputs: readonly UiInput[] }
+  /** 打开时先用这台设备上存的快照（open-snapshot.ts）：还没收到任何事件时才用 */
+  | { kind: "restore"; snapshot: OpenSnapshot }
   /** 这台设备上看到了会话的哪一条：已经报给守护进程，先记上（守护进程的 read_mark 随后推来） */
   | { kind: "read_seen"; conversation: ConversationId; seq: number }
   /** 界面自己出的一条顶上的通知（秘书新消息）；同一个 id 的不重复出 */
@@ -1105,6 +1115,10 @@ export function reduce(state: UiState, input: UiInput): UiState {
     }
     case "synced":
       return state.caughtUp ? state : { ...state, caughtUp: true };
+    case "batch":
+      return input.inputs.reduce(reduce, state);
+    case "restore":
+      return withSnapshot(state, input.snapshot);
     case "read_seen":
       return withReadMark(state, input.conversation, input.seq);
     case "alert":

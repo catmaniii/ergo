@@ -491,12 +491,15 @@ export class FakeConnection implements Connection {
     return { drops, reconnects: drops, lastDrop };
   }
 
-  /** 断开重连：原型里报一下断开、0.6 秒后又连上 */
+  /** 断开重连：原型里报一下断开、0.6 秒后又连上（没什么要补的，马上补完） */
   reconnect(): void {
     this.manualDrops += 1;
     this.lastManualDrop = { at: nowIso(), reason: "在 Debug 工具集里点了断开重连" };
     this.deliver?.({ kind: "connection", status: "offline" });
-    later(600, () => this.deliver?.({ kind: "connection", status: "online" }));
+    later(600, () => {
+      this.deliver?.({ kind: "connection", status: "online" });
+      this.deliver?.({ kind: "synced" });
+    });
   }
 
   /**

@@ -408,7 +408,7 @@ function ConversationView({
             {inbox && <InboxBar place={inbox} items={items} onReveal={(id) => ref.current?.reveal(id)} />}
             {/* 不在时念的语音：和"等你处理"栏上下排着，各占一行 */}
             {aboveComposer}
-            <ConnectionNote status={ui.connection} />
+            <ConnectionNote status={ui.connection} caughtUp={ui.caughtUp} />
             <ComposerSlot
               readOnly={readOnly}
               readOnlyNote={readOnlyNote}
@@ -433,10 +433,27 @@ function ConversationView({
   );
 }
 
-/** 连接断了或页面过旧时，在输入框上方提示一行 */
-function ConnectionNote({ status }: { status: ConnectionStatus }) {
+/** 打开、重连上之后补了这么久还没补完，才提示"正在同步"（很快补完的不闪一下） */
+const SYNCING_NOTE_DELAY_MS = 800;
+
+/**
+ * 连接断了或页面过旧时，在输入框上方提示一行；打开、重连上之后还在补（补完之前界面照上一次的样子，不画中间状态），
+ * 补了一会儿还没补完时轻轻提示一行"正在同步"
+ */
+function ConnectionNote({ status, caughtUp }: { status: ConnectionStatus; caughtUp: boolean }) {
+  const syncing = (status === "connecting" || status === "online") && !caughtUp;
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!syncing) return;
+    const timer = setTimeout(() => setSlow(true), SYNCING_NOTE_DELAY_MS);
+    return () => {
+      clearTimeout(timer);
+      setSlow(false);
+    };
+  }, [syncing]);
   if (status === "offline") return <div className="conn-note">{t("ui.conversation.offline")}</div>;
   if (status === "outdated") return <div className="conn-note conn-outdated">{t("ui.conversation.outdated")}</div>;
+  if (syncing && slow) return <div className="conn-note conn-syncing">{t("ui.conversation.syncing")}</div>;
   return null;
 }
 

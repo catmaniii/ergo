@@ -833,6 +833,7 @@
   "ui.conversation.loadOlder": "Load earlier messages",
   "ui.conversation.offline": "Disconnected, reconnecting… (messages you send go out once reconnected)",
   "ui.conversation.outdated": "This page is out of date. Please refresh it.",
+  "ui.conversation.syncing": "Syncing the latest…",
   "ui.conversation.zoomOut": "Zoom out to overview",
   "ui.conversation.zoomIn": "Back to conversation",
   "ui.chatItemView.sending": "Sending…",

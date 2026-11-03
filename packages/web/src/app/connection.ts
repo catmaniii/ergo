@@ -1,5 +1,5 @@
 // 前端和守护进程之间的连接。界面只通过它收发：
-// - 收：事件帧，连同失败的请求，一律变成状态层的输入（UiInput）交给 deliver；
+// - 收：事件帧，连同失败的请求，一律变成状态层的输入（UiInput）交给 deliver（补发推完之前到的攒着一次交，batch）；
 // - 发：带幂等键的请求（发消息、对卡片做动作、对待我处理事项做动作、发起任务、控制任务、改关注类别设置；还有
 //   新建项目、任务转为项目、项目页上的动作）；多数只管发，结果随后在频道上推来、被拒的变成 request_failed。要等结果的（一次处理
 //   多个任务，逐条回报；已配对设备的延期、吊销、删除，逐台回报）返回 Promise，被拒时同样变成 request_failed，Promise 也随之拒绝；
@@ -356,4 +356,9 @@ export interface ConnectionStats {
   readonly reconnects: number;
   /** 最近一次断线：什么时候（协议时间）、为什么（关闭码说的，或者"在 Debug 工具集里点了断开重连"） */
   readonly lastDrop?: { readonly at: string; readonly reason: string };
+  /**
+   * 最近一次打开、重连上之后的补发（推完了的）：什么时候推完的、收了几帧、多少字节（UTF-8）、从发订阅到推完花了多少毫秒。
+   * 原型的假连接、还没推完过时没有
+   */
+  readonly catchUp?: { readonly at: string; readonly frames: number; readonly bytes: number; readonly ms: number };
 }

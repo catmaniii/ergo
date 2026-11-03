@@ -10,6 +10,11 @@
 //   发一个空订阅（cursors 为空，服务端什么也不补、什么也不改）当回执。服务端按顺序处理同一条连接上的请求，补发在处理订阅时
 //   一口气推完，所以回执的响应一定排在补发的帧后面：它到之前，这次订阅的频道上来的帧都标成补发的（catchUp）。多订阅频道时同样。
 //   连上时那次订阅的回执到了，告诉状态层补发推完了（synced：这时才报已读位置、看一眼有没有没看过的秘书消息）。
+// - 补发的帧攒着一次交（388）：有回执还没到时，收到的帧（补发的，连同夹在中间的实时帧，保持先后）、要重新同步的频道、被拒的请求
+//   都先攒着，回执到了一次交给状态层（batch；主订阅的最后接着 synced），界面只画补发完的样子，不一帧帧画中间状态（卡片出现又消失、
+//   待办冒出来又被处理掉）。断了也先把攒着的交掉（游标已经推过去了）再报断开。连接状态、网页的版本照旧马上交。
+//   攒了 10 秒回执还没到（网很慢、补得很多）：先把攒着的交一次，接着攒（不至于一直空着）。
+//   主订阅那次补发收了多少帧、多少字节、花了多久记在 stats().catchUp（Debug 工具集）。
 // - 要等结果的请求（一次处理多个任务）按请求帧的 id 记着，响应到了交回去（重连后重发的是同一帧，id 不变）；被拒的照常
 //   变成 request_failed，等着的也随之拒绝。
 // - 订阅的响应里带着守护进程现在提供的网页是哪一版，连上、重连时报 web_version（页面和自己的对不上就提示刷新）；
@@ -80,6 +85,9 @@ export interface WebSocketConnectionOptions {
 
 const DEFAULT_RETRY_DELAYS_MS = [500, 1000, 2000, 5000, 10_000];
 
+/** 补发攒着最多多久就先交一次（回执还没到也交） */
+const HOLD_MAX_MS = 10_000;
+
 /** 只读的查询（daemon_info）最多等多久 */
 const QUERY_TIMEOUT_MS = 10_000;
 
@@ -114,6 +122,14 @@ export class WebSocketConnection implements Connection {
   private readonly catchUps = new Map<string, readonly string[]>();
   /** 这条连接上主订阅（连上时那一次）的回执：它到了就是打开、重连上之后的补发推完了（报 synced） */
   private mainReceipt: string | undefined;
+  /** 有回执还没到时攒着的输入（按到的先后）：回执到了、断了时一次交 */
+  private held: UiInput[] = [];
+  /** 攒着的最多等到什么时候先交一次 */
+  private heldTimer: ReturnType<typeof setTimeout> | undefined;
+  /** 主订阅这次补发：什么时候发的订阅、收了几帧、多少字节 */
+  private catchUpCount: { startedAt: number; frames: number; bytes: number } | undefined;
+  /** 最近一次主订阅的补发（推完了的） */
+  private lastCatchUp: ConnectionStats["catchUp"];
   /** 等结果的只读查询（daemon_info）：按请求帧的 id；不重发，断了就拒绝 */
   private readonly queries = new Map<string, { resolve(result: unknown): void; reject(err: Error): void }>();
   /** 这次打开以来断线、重连各几次，最近一次断线 */
@@ -144,6 +160,9 @@ export class WebSocketConnection implements Connection {
       this.stopped = true;
       this.deliver = undefined;
       if (this.retryTimer !== undefined) clearTimeout(this.retryTimer);
+      if (this.heldTimer !== undefined) clearTimeout(this.heldTimer);
+      this.heldTimer = undefined;
+      this.held = [];
       const socket = this.socket;
       this.socket = undefined;
       this.online = false;
@@ -378,7 +397,7 @@ export class WebSocketConnection implements Connection {
   }
 
   stats(): ConnectionStats {
-    return { drops: this.drops, reconnects: this.reconnects, ...(this.lastDrop ? { lastDrop: this.lastDrop } : {}) };
+    return { drops: this.drops, reconnects: this.reconnects, ...(this.lastDrop ? { lastDrop: this.lastDrop } : {}), ...(this.lastCatchUp ? { catchUp: this.lastCatchUp } : {}) };
   }
 
   reconnect(): void {
@@ -458,6 +477,7 @@ export class WebSocketConnection implements Connection {
       this.subscribeId = this.nextId();
       socket.send(JSON.stringify({ id: this.subscribeId, method: METHODS.subscribe, params } satisfies RequestFrame));
       this.mainReceipt = this.awaitCatchUp(Object.keys(cursors));
+      this.catchUpCount = { startedAt: Date.now(), frames: 0, bytes: 0 };
     });
     socket.addEventListener("message", (ev) => {
       if (socket === this.socket) this.onFrame(String(ev.data));
@@ -470,8 +490,11 @@ export class WebSocketConnection implements Connection {
       this.manualDrop = false;
       this.socket = undefined;
       this.online = false;
-      // 回执是这条连接上的；重连后重新订阅、重新等
+      // 攒着的先交掉（游标已经推过去了，不交就丢了）；回执是这条连接上的，重连后重新订阅、重新等
+      this.release(false);
       this.catchUps.clear();
+      this.mainReceipt = undefined;
+      this.catchUpCount = undefined;
       // 只读的查询不重发
       for (const query of this.queries.values()) query.reject(new Error(t("app.ws.dropped")));
       this.queries.clear();
@@ -532,16 +555,24 @@ export class WebSocketConnection implements Connection {
       }
       if (!isEphemeralEventType(frame.type)) this.cursors[frame.channel] = Math.max(this.cursors[frame.channel] ?? 0, frame.seq);
       const catchUp = [...this.catchUps.values()].some((channels) => channels.includes(frame.channel));
-      this.deliver?.(catchUp ? { kind: "frame", frame, catchUp } : { kind: "frame", frame });
+      if (this.catchUpCount && this.mainReceipt !== undefined) {
+        this.catchUpCount.frames += 1;
+        this.catchUpCount.bytes += utf8Length(text);
+      }
+      this.pass(catchUp ? { kind: "frame", frame, catchUp } : { kind: "frame", frame });
       return;
     }
     if (frame.id !== null && frame.id === this.subscribeId) return this.onSubscribed(frame);
-    // 回执到了：这次订阅的补发推完了（回执本身不会失败；万一失败了也照样算推完了）。主订阅的告诉状态层
+    // 回执到了：这次订阅的补发推完了（回执本身不会失败；万一失败了也照样算推完了）。攒着的一次交；主订阅的最后告诉状态层推完了
     if (frame.id !== null && this.catchUps.delete(frame.id)) {
-      if (frame.id === this.mainReceipt) {
+      const main = frame.id === this.mainReceipt;
+      if (main) {
         this.mainReceipt = undefined;
-        this.deliver?.({ kind: "synced" });
+        const count = this.catchUpCount;
+        this.catchUpCount = undefined;
+        if (count) this.lastCatchUp = { at: nowIso(), frames: count.frames, bytes: count.bytes, ms: Date.now() - count.startedAt };
       }
+      this.release(main);
       return;
     }
     if (frame.id !== null && this.watchRequests.delete(frame.id)) {
@@ -561,8 +592,28 @@ export class WebSocketConnection implements Connection {
     const waiter = this.waiting.get(request.id);
     this.waiting.delete(request.id);
     if (frame.ok) return waiter?.resolve(frame.result);
-    if (request.idempotencyKey !== undefined) this.deliver?.({ kind: "request_failed", idempotencyKey: request.idempotencyKey, error: frame.error.message });
+    if (request.idempotencyKey !== undefined) this.pass({ kind: "request_failed", idempotencyKey: request.idempotencyKey, error: frame.error.message });
     waiter?.reject(new Error(frame.error.message));
+  }
+
+  /** 交给状态层：有回执还没到（还在补发）时先攒着，保持先后 */
+  private pass(input: UiInput): void {
+    if (this.catchUps.size === 0) return this.deliver?.(input);
+    this.held.push(input);
+    this.heldTimer ??= setTimeout(() => {
+      this.heldTimer = undefined;
+      this.release(false);
+    }, HOLD_MAX_MS);
+  }
+
+  /** 攒着的一次交掉（只有一样的照原样交）；主订阅的补发推完了时最后接着 synced */
+  private release(synced: boolean): void {
+    if (this.heldTimer !== undefined) clearTimeout(this.heldTimer);
+    this.heldTimer = undefined;
+    const inputs: UiInput[] = synced ? [...this.held, { kind: "synced" }] : this.held;
+    this.held = [];
+    if (inputs.length === 0) return;
+    this.deliver?.(inputs.length === 1 ? inputs[0]! : { kind: "batch", inputs });
   }
 
   private onSubscribed(frame: ResponseFrame): void {
@@ -608,7 +659,24 @@ export class WebSocketConnection implements Connection {
     if (!frame.ok) return;
     for (const channel of (frame.result as Partial<SubscribeResult> | undefined)?.resync ?? []) {
       this.cursors[channel] = 0;
-      this.deliver?.({ kind: "resync", channel });
+      // 和接着从头补发的帧一起攒着交：界面不先画一遍清空了的样子
+      this.pass({ kind: "resync", channel });
     }
   }
+}
+
+/** 一帧的文字按 UTF-8 有多少字节（只在主订阅补发时数，Debug 工具集看补了多少） */
+function utf8Length(text: string): number {
+  let bytes = 0;
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code < 0x80) bytes += 1;
+    else if (code < 0x800) bytes += 2;
+    else if (code >= 0xd800 && code <= 0xdbff) {
+      // 代理对：一个字符四个字节
+      bytes += 4;
+      i += 1;
+    } else bytes += 3;
+  }
+  return bytes;
 }

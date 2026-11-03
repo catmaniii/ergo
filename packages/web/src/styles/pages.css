@@ -1164,6 +1164,11 @@ a.att-icon:hover {
   color: var(--high-fg);
   background: var(--high-bg);
 }
+/* 打开、重连上之后补了一会儿还没补完：轻轻一行，不当警告 */
+.conn-note.conn-syncing {
+  color: var(--muted);
+  background: transparent;
+}
 /* 正在生成的回复 */
 .msg-streaming .msg-meta {
   color: var(--c-thinking);

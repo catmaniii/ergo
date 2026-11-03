@@ -533,6 +533,14 @@ Gmail 可以连几个账号（`google/gmail-accounts.ts`）。密钥区 `secrets
 - **图标**：导航、选项、按钮上的图标用 `src/ui/icons.tsx` 的 `<Icon name="…" />`（自己画的线条 SVG，颜色 `currentColor`），不用表情符号。
 - **加一套风格**：建 `src/visual-styles/<id>/style.ts`（`{ id, name, blurb, tokens, fonts? }`）和 `style.css`，在 `src/visual-styles/index.ts` 登记一行；要字体的 `npm install -D --save-exact <fontsource 包>@<版本> -w @ergo/web`；跑 `npx vitest run packages/web/test/visual-styles packages/web/test/app/theme.test.ts packages/web/test/build.test.ts`（对比度、字体、规则的前缀自动查），再 `npm run build:web` 打开看浅色深色。设置里的风格预览自动就有。
 
+### 打开页面：补发攒着一次放、本机快照只补增量
+
+页面一打开订阅十几个频道，守护进程按游标补发（会话频道游标为 0 时只补最近一页，别的从头）。用久了是一万多条、十来 MB，所以（[ADR-0048](adr/0048-open-snapshot-on-device-batch-catch-up.md)）：
+
+- **补发攒着一次交**（`app/ws-connection.ts`）：订阅之后到回执（`synced`）之前收到的帧、要重新同步的频道、被拒的请求先攒着，回执到了作为一个 `batch` 输入一次交给状态层，界面只画补完的样子，不一帧帧画中间状态。断了先把攒着的交掉再报断开；攒了 10 秒回执还没到就先交一次。实时帧照旧逐帧交。补了几帧、多少字节、多久在 Debug 工具集的"连接"里。
+- **本机快照**（`state/open-snapshot.ts` 定存哪些，`app/open-snapshot.ts` 定什么时候存、什么时候作废，存在 IndexedDB，`app/open-snapshot-idb.ts`）：状态层里由事件折出来的那部分连同各频道的游标（不含发送中的、弹窗、正在生成的回复这些临时的；会话只留最近一页），补完、连着时闲下来写一份。下次打开先用它把界面画出来，订阅带它的游标，守护进程只补增量。网页版本（构建产物的哈希）、协议版本、快照格式有一样对不上就不用、删掉；订阅回 `resync` 的频道照旧清掉从头补；回到配对页（还没配对、被吊销、过期）时删掉。读写都不抛错，存不了、读不了照从头补。原型、开发服务器的页面不用快照。
+- 页面测试 `packages/web/test/open-snapshot-page.test.ts`（集成车道）：构建安装版，由假守护进程补一份照真实用量编的事件日志（一万一千多帧、10 MB），在真 Chrome 里量 React 提交了几次、补了几帧。改之前冷打开要画五六十到近百遍（每收一批帧画一遍），现在补发在路上时不画，补完画一次；热打开只补关掉之后的增量。
+
 ### 会话的缩放和滚到底
 
 秘书、任务、项目三种会话都是同一个组件 `ZoomHistory`（viewport > sizer > content），三档缩放按比例缩 sizer。伸到内容外面的东西（右侧标注、箭头）一律由 `.zh-sizer` 的 `overflow-y: clip` 裁掉，滚动范围就是 sizer 的高度；缩小后看得见、伸到最后一条下面的标注算进"只在缩小时出现的尾部区域"（`state/scroll-end.ts` 的 `zoomedOutTail`）。右下角"回到最新"的 ↓ 的规矩也在 `scroll-end.ts`。jsdom 不排版，真排版的核对办法：无头 Chrome 打开构建产物，用滚轮滚到底，量 `.zh-viewport` 的 `scrollHeight` 是否等于 `.zh-sizer` 的 `offsetHeight`，三档各量一次。

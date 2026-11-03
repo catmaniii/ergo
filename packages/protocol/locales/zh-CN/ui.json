@@ -802,6 +802,7 @@
   "ui.conversation.loadOlder": "加载更早的消息",
   "ui.conversation.offline": "连接断开，正在重连…（发出的消息连上后会自动补发）",
   "ui.conversation.outdated": "页面版本过旧，请刷新页面",
+  "ui.conversation.syncing": "正在同步最新的内容…",
   "ui.conversation.zoomOut": "缩到全局",
   "ui.conversation.zoomIn": "回到对话",
   "ui.chatItemView.sending": "发送中…",

@@ -100,6 +100,9 @@ function openAndSubscribe(): FakeSocket {
 
 const event = (channel: string, seq: number, type = "message") => ({ channel, seq, type, payload: {} });
 
+/** 攒着一次交的（batch）摊开，按先后 */
+const flat = (xs: readonly UiInput[]): UiInput[] => xs.flatMap((x) => (x.kind === "batch" ? flat(x.inputs) : [x]));
+
 beforeEach(() => {
   vi.useFakeTimers();
   sockets = [];
@@ -210,14 +213,18 @@ describe("WebSocket 连接", () => {
     second.open();
     expect(second.subscription().params).toMatchObject({ cursors: { secretary: 2 } });
     second.reply(second.subscription().id, { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync: ["secretary"] });
-    expect(inputs.slice(-2)).toEqual([
-      { kind: "connection", status: "online" },
-      { kind: "resync", channel: "secretary" },
-    ]);
+    // 要重新同步的频道和接着从头补发的帧攒在一起，补发推完时一次交（界面不先画一遍清空了的样子）
+    expect(inputs.at(-1)).toEqual({ kind: "connection", status: "online" });
+    second.push(event("secretary", 1));
+    second.reply(second.receipt().id);
+    expect(inputs.at(-1)).toEqual({
+      kind: "batch",
+      inputs: [{ kind: "resync", channel: "secretary" }, { kind: "frame", frame: event("secretary", 1), catchUp: true }, { kind: "synced" }],
+    });
     second.drop();
     vi.advanceTimersByTime(500);
     sockets[2]!.open();
-    expect(sockets[2]!.subscription().params).toMatchObject({ cursors: { secretary: 0 } });
+    expect(sockets[2]!.subscription().params).toMatchObject({ cursors: { secretary: 1 } });
   });
 
   test("协议版本不一致：报页面过旧，不再重连", () => {
@@ -331,6 +338,7 @@ describe("WebSocket 连接", () => {
     connection.watchChannels(["maintainer:pm-1"]);
     expect(socket.subscribes()).toHaveLength(4);
     socket.reply(watch.id, { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync: ["maintainer:pm-1"] });
+    socket.reply(socket.receipt().id);
     expect(inputs.at(-1)).toEqual({ kind: "resync", channel: "maintainer:pm-1" });
     // 项目页上的动作照常（没有因为多出来的订阅响应被重发）
     expect(socket.sent.filter((f) => f.method === "project_action")).toHaveLength(1);
@@ -359,7 +367,7 @@ describe("WebSocket 连接", () => {
     expect(socket.subscription().params).toMatchObject({ cursors: { secretary: 0, cards: 0, "maintainer:pm-1": 0 } });
   });
 
-  test("补发：订阅发出去就紧跟着发一个空订阅当回执（不等订阅的响应）；回执的响应到之前收到的帧标成补发的（catchUp），之后的是实时推来的", () => {
+  test("补发：订阅发出去就紧跟着发一个空订阅当回执（不等订阅的响应）；回执的响应到之前收到的帧标成补发的（catchUp）、攒着，回执到了一次交；之后的是实时推来的，逐帧交", () => {
     connect({ secretary: 1 });
     const socket = sockets[0]!;
     socket.open();
@@ -372,11 +380,13 @@ describe("WebSocket 连接", () => {
     socket.reply(socket.subscription().id);
     socket.push(event("secretary", 2, "agent_voice"));
     socket.push(event("cards", 1));
-    expect(inputs.slice(-2)).toEqual([
-      { kind: "frame", frame: event("secretary", 2, "agent_voice"), catchUp: true },
-      { kind: "frame", frame: event("cards", 1), catchUp: true },
-    ]);
+    // 补发推完之前一帧都不交（界面不一帧帧画中间状态）
+    expect(inputs).toEqual([{ kind: "connection", status: "online" }]);
     socket.reply(receipt.id, { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync: [] });
+    expect(inputs.at(-1)).toEqual({
+      kind: "batch",
+      inputs: [{ kind: "frame", frame: event("secretary", 2, "agent_voice"), catchUp: true }, { kind: "frame", frame: event("cards", 1), catchUp: true }, { kind: "synced" }],
+    });
     socket.push(event("secretary", 3, "agent_voice"));
     expect(inputs.at(-1)).toEqual({ kind: "frame", frame: event("secretary", 3, "agent_voice") });
     // 回执的响应不是别的请求的响应，也不再报一次在线
@@ -394,8 +404,9 @@ describe("WebSocket 连接", () => {
     second.open();
     second.reply(second.subscription().id);
     second.push(event("secretary", 2));
-    expect(inputs.at(-1)).toEqual({ kind: "frame", frame: event("secretary", 2), catchUp: true });
+    expect(inputs.at(-1)).toEqual({ kind: "connection", status: "online" });
     second.reply(second.receipt().id);
+    expect(inputs.at(-1)).toEqual({ kind: "batch", inputs: [{ kind: "frame", frame: event("secretary", 2), catchUp: true }, { kind: "synced" }] });
     second.push(event("secretary", 3));
     expect(inputs.at(-1)).toEqual({ kind: "frame", frame: event("secretary", 3) });
   });
@@ -414,10 +425,12 @@ describe("WebSocket 连接", () => {
     // 旧连接的回执 id 在新连接上不算数：还在补发
     second.reply(staleReceipt.id);
     second.push(event("secretary", 1));
-    expect(inputs.at(-1)).toEqual({ kind: "frame", frame: event("secretary", 1), catchUp: true });
+    expect(inputs.at(-1)).toEqual({ kind: "connection", status: "online" });
+    second.reply(second.receipt().id);
+    expect(inputs.at(-1)).toEqual({ kind: "batch", inputs: [{ kind: "frame", frame: event("secretary", 1), catchUp: true }, { kind: "synced" }] });
   });
 
-  test("多订阅一个频道（打开负责人会话）：它的补发标成补发的，别的频道照常是实时的；它的回执到了就都是实时的", () => {
+  test("多订阅一个频道（打开负责人会话）：它的补发标成补发的，别的频道照常是实时的（中间到的一起攒着、保持先后）；它的回执到了一次交，之后逐帧交", () => {
     const { connection } = connect();
     const socket = openAndSubscribe();
     connection.watchChannels(["maintainer:pm-1"]);
@@ -430,11 +443,15 @@ describe("WebSocket 连接", () => {
     socket.reply(socket.subscription().id);
     socket.push(event("maintainer:pm-1", 1, "agent_voice"));
     socket.push(event("secretary", 1, "agent_voice"));
-    expect(inputs.slice(-2)).toEqual([
-      { kind: "frame", frame: event("maintainer:pm-1", 1, "agent_voice"), catchUp: true },
-      { kind: "frame", frame: event("secretary", 1, "agent_voice") },
-    ]);
     socket.reply(receipt.id);
+    // 不是主订阅：后面不接 synced
+    expect(inputs.at(-1)).toEqual({
+      kind: "batch",
+      inputs: [
+        { kind: "frame", frame: event("maintainer:pm-1", 1, "agent_voice"), catchUp: true },
+        { kind: "frame", frame: event("secretary", 1, "agent_voice") },
+      ],
+    });
     socket.push(event("maintainer:pm-1", 2, "agent_voice"));
     expect(inputs.at(-1)).toEqual({ kind: "frame", frame: event("maintainer:pm-1", 2, "agent_voice") });
   });
@@ -445,17 +462,91 @@ describe("WebSocket 连接", () => {
     first.open();
     first.reply(first.subscription().id);
     first.push(event("secretary", 1));
-    expect(inputs.filter((i) => i.kind === "synced")).toEqual([]);
+    expect(flat(inputs).filter((i) => i.kind === "synced")).toEqual([]);
     first.reply(first.receipt().id);
-    expect(inputs.slice(-2)).toEqual([{ kind: "frame", frame: event("secretary", 1), catchUp: true }, { kind: "synced" }]);
+    expect(flat(inputs).slice(-2)).toEqual([{ kind: "frame", frame: event("secretary", 1), catchUp: true }, { kind: "synced" }]);
     connection.watchChannels(["maintainer:pm-1"]);
     first.reply(first.subscription().id);
     first.reply(first.receipt().id);
-    expect(inputs.filter((i) => i.kind === "synced")).toHaveLength(1);
+    expect(flat(inputs).filter((i) => i.kind === "synced")).toHaveLength(1);
     first.drop();
     vi.advanceTimersByTime(500);
     openAndSubscribe();
-    expect(inputs.filter((i) => i.kind === "synced")).toHaveLength(2);
+    expect(flat(inputs).filter((i) => i.kind === "synced")).toHaveLength(2);
+  });
+
+  test("补发到一半断了：攒着的先交掉（游标已经推过去了），再报断开；重连订阅带上推过去的游标", () => {
+    connect();
+    const first = sockets[0]!;
+    first.open();
+    first.reply(first.subscription().id);
+    first.push(event("secretary", 1));
+    first.push(event("cards", 4));
+    first.drop();
+    expect(inputs.slice(-2)).toEqual([
+      { kind: "batch", inputs: [{ kind: "frame", frame: event("secretary", 1), catchUp: true }, { kind: "frame", frame: event("cards", 4), catchUp: true }] },
+      { kind: "connection", status: "offline" },
+    ]);
+    expect(flat(inputs).filter((i) => i.kind === "synced")).toEqual([]);
+    vi.advanceTimersByTime(500);
+    sockets[1]!.open();
+    expect(sockets[1]!.subscription().params).toMatchObject({ cursors: { secretary: 1, cards: 4 } });
+  });
+
+  test("攒了 10 秒回执还没到（网很慢）：先把攒着的交一次（不报补完），接着攒，回执到了再交剩下的", () => {
+    connect();
+    const socket = sockets[0]!;
+    socket.open();
+    socket.reply(socket.subscription().id);
+    socket.push(event("secretary", 1));
+    vi.advanceTimersByTime(9999);
+    expect(inputs).toEqual([{ kind: "connection", status: "online" }]);
+    vi.advanceTimersByTime(1);
+    expect(inputs.at(-1)).toEqual({ kind: "frame", frame: event("secretary", 1), catchUp: true });
+    socket.push(event("secretary", 2));
+    socket.push(event("cards", 1));
+    socket.reply(socket.receipt().id);
+    expect(inputs.at(-1)).toEqual({
+      kind: "batch",
+      inputs: [{ kind: "frame", frame: event("secretary", 2), catchUp: true }, { kind: "frame", frame: event("cards", 1), catchUp: true }, { kind: "synced" }],
+    });
+    // 补完之后不再有攒着的定时器
+    vi.advanceTimersByTime(60_000);
+    expect(flat(inputs).filter((i) => i.kind === "synced")).toHaveLength(1);
+  });
+
+  test("补发推完之前被拒的请求：和攒着的帧一起按先后交", () => {
+    const { connection } = connect();
+    const socket = sockets[0]!;
+    socket.open();
+    socket.reply(socket.subscription().id);
+    connection.sendMessage({ conversation: "secretary", idempotencyKey: "k1", parts: [{ type: "text", text: "在吗" }] });
+    socket.push(event("secretary", 1));
+    socket.fail(socket.last("send_message").id, "bad_params", "消息是空的");
+    socket.reply(socket.receipt().id);
+    expect(inputs.at(-1)).toEqual({
+      kind: "batch",
+      inputs: [{ kind: "frame", frame: event("secretary", 1), catchUp: true }, { kind: "request_failed", idempotencyKey: "k1", error: "消息是空的" }, { kind: "synced" }],
+    });
+  });
+
+  test("补发收了多少：主订阅这次补发的帧数、字节数（UTF-8）、花了多久，推完了记在 stats 里；多订阅频道的不算", () => {
+    const { connection } = connect();
+    const socket = sockets[0]!;
+    socket.open();
+    expect(connection.stats().catchUp).toBeUndefined();
+    socket.reply(socket.subscription().id);
+    const frames = [event("secretary", 1), { channel: "cards", seq: 1, type: "card", payload: { title: "中文𠀀" } }];
+    for (const f of frames) socket.push(f);
+    vi.advanceTimersByTime(250);
+    socket.reply(socket.receipt().id);
+    const bytes = frames.reduce((n, f) => n + Buffer.byteLength(JSON.stringify(f), "utf8"), 0);
+    expect(connection.stats().catchUp).toMatchObject({ frames: 2, bytes, ms: 250 });
+    connection.watchChannels(["maintainer:pm-1"]);
+    socket.reply(socket.subscription().id);
+    socket.push(event("maintainer:pm-1", 1));
+    socket.reply(socket.receipt().id);
+    expect(connection.stats().catchUp).toMatchObject({ frames: 2, bytes });
   });
 
   test("网页是哪一版：订阅的响应里带着就告诉状态层（连上、重连各一次）；没带（旧版守护进程、页面没有版本号）不报", () => {

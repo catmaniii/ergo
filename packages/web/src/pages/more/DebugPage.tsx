@@ -26,6 +26,7 @@ import {
   NOTIFY_VIA_LABEL,
   nowIso,
   pageLogText,
+  sizeLabel,
   t,
   tTable,
   uptimeText,
@@ -348,7 +349,7 @@ const CONNECTION_LABEL: Readonly<Record<ConnectionStatus, string>> = tTable({
 function ConnectionCard() {
   const { ui, daemonInfo, connectionStats, reconnect, notePageUpdate } = useStore();
   const toast = useToast();
-  const [stats, setStats] = useState<ConnectionStats>(connectionStats);
+  const [stats, setStats] = useState<ConnectionStats & { readonly fromSnapshot?: boolean }>(connectionStats);
   const [pings, setPings] = useState<string[]>([]);
   useEffect(() => {
     const timer = setInterval(() => setStats(connectionStats()), 1000);
@@ -371,6 +372,7 @@ function ConnectionCard() {
       <DebugRow label="WebSocket">{PROTOTYPE ? t("pages.debug.connection.prototype") : CONNECTION_LABEL[ui.connection]}</DebugRow>
       <DebugRow label={t("pages.debug.connection.sinceOpened")}>{t("pages.debug.connection.drops", { drops: stats.drops, reconnects: stats.reconnects })}</DebugRow>
       <DebugRow label={t("pages.debug.connection.lastDrop")}>{stats.lastDrop ? `${clock(stats.lastDrop.at)} · ${stats.lastDrop.reason}` : t("pages.debug.connection.neverDropped")}</DebugRow>
+      {!PROTOTYPE && <CatchUpRow stats={stats} />}
       <div className="debug-actions">
         <button type="button" className="btn ghost small" onClick={() => void ping()}>
           {t("pages.debug.connection.measure")}
@@ -406,6 +408,19 @@ function ConnectionCard() {
       <div className="hint">{t("pages.debug.connection.hint")}</div>
     </DebugCard>
   );
+}
+
+/**
+ * 打开、重连上之后最近一次补发收了几帧、多少字节、多久补完；打开时先用了本机快照没有（388：量打开时把历史过一遍的那一下，
+ * 手机上看得到）
+ */
+function CatchUpRow({ stats }: { stats: ConnectionStats & { readonly fromSnapshot?: boolean } }) {
+  const { catchUp, fromSnapshot } = stats;
+  const value = catchUp
+    ? t("pages.debug.connection.catchUpValue", { frames: catchUp.frames, size: sizeLabel(catchUp.bytes), seconds: (catchUp.ms / 1000).toFixed(1) })
+    : t("pages.debug.connection.catchUpNone");
+  const from = fromSnapshot === undefined ? undefined : t(fromSnapshot ? "pages.debug.connection.fromSnapshot" : "pages.debug.connection.fromScratch");
+  return <DebugRow label={t("pages.debug.connection.catchUp")}>{from === undefined ? value : `${value} · ${from}`}</DebugRow>;
 }
 
 // ───────────────────────── 日志与本机存储 ─────────────────────────

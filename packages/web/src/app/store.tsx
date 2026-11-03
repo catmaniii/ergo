@@ -34,6 +34,8 @@ import {
   type ScheduledJobAction,
   resumeCursors,
   selectCard,
+  snapshotChanged,
+  snapshotOf,
   type TaskAction,
   type TaskActOptions,
   type TaskBatchAction,
@@ -57,6 +59,7 @@ import { nowIso } from "../util/time.ts";
 import type { Connection, ConnectionStats } from "./connection.ts";
 import type { DaemonHttp } from "./daemon-http.ts";
 import { useLocale } from "./locale.ts";
+import type { PageSnapshots } from "./open-snapshot.ts";
 
 interface Store {
   ui: UiState;
@@ -181,8 +184,11 @@ interface Store {
   http: DaemonHttp;
   /** 守护进程是哪一版、什么时候起来的、它此刻的时间（关于页、Debug 工具集）；没连上、太旧的守护进程拒绝 */
   daemonInfo(): Promise<DaemonInfo>;
-  /** 这次打开以来断线、重连各几次，最近一次断线（Debug 工具集） */
-  connectionStats(): ConnectionStats;
+  /**
+   * 这次打开以来断线、重连各几次，最近一次断线，最近一次补发收了多少（Debug 工具集）；fromSnapshot：打开时先用了本机快照没有
+   * （没有本机快照这回事的——原型、开发服务器——不带）
+   */
+  connectionStats(): ConnectionStats & { readonly fromSnapshot?: boolean };
   /** Debug 工具集的"断开重连" */
   reconnect(): void;
 }
@@ -197,7 +203,37 @@ function newKey(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-export function StoreProvider({ connection, http, children }: { connection: Connection; http: DaemonHttp; children: ReactNode }) {
+/**
+ * 把状态里要存的那部分存进本机快照：补发推完了、连着时，要存的那几样变了就交给 snapshots 攒着（闲下来再写，写的时候取最新的）；
+ * 切到后台、关页面时马上写
+ */
+function useSnapshotSaving(snapshots: PageSnapshots | undefined, state: UiState, uiRef: { readonly current: UiState }): void {
+  const scheduled = useRef<UiState | undefined>(undefined);
+  useEffect(() => {
+    if (!snapshots || !state.caughtUp || state.connection !== "online") return;
+    if (!snapshotChanged(scheduled.current, state)) return;
+    scheduled.current = state;
+    snapshots.save(() => snapshotOf(uiRef.current));
+  }, [snapshots, state, uiRef]);
+  useEffect(() => {
+    if (!snapshots || typeof document === "undefined") return;
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") snapshots.flush();
+    };
+    const onLeave = () => snapshots.flush();
+    document.addEventListener("visibilitychange", onHidden);
+    window.addEventListener("pagehide", onLeave);
+    return () => {
+      document.removeEventListener("visibilitychange", onHidden);
+      window.removeEventListener("pagehide", onLeave);
+    };
+  }, [snapshots]);
+}
+
+/**
+ * snapshots：本机快照（安装版由守护进程提供的页面才有，app/open-snapshot.ts）；没有时照旧从头补（原型、开发服务器、测试）
+ */
+export function StoreProvider({ connection, http, snapshots, children }: { connection: Connection; http: DaemonHttp; snapshots?: PageSnapshots; children: ReactNode }) {
   const [state, dispatch] = useReducer(reduce, initialUiState);
   // 装上了新的词典（换了语言、守护进程的词典到了）时给一份新的 ui（浅拷贝，内容不变）：各处 useMemo(() => …(ui), [ui])
   // 里拼出来的字（会话的条目、阶段框、日期分隔……）跟着重算，不停在旧语言（由守护进程提供的页面先按中文打开、词典随后才到）
@@ -210,8 +246,25 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
     uiRef.current = ui;
   }, [ui]);
 
-  // 连上就收事件；断开重连时带上每个频道最后收到的序号，重复补发的事件由状态层丢掉
-  useEffect(() => connection.connect(resumeCursors(uiRef.current), dispatch), [connection]);
+  // 连上就收事件；断开重连时带上每个频道最后收到的序号，重复补发的事件由状态层丢掉。
+  // 有本机快照（snapshots，app/open-snapshot.ts）时先读它：读到能用的就先用它把界面画出来，订阅时带它的游标，守护进程只补增量
+  const fromSnapshot = useRef<boolean | undefined>(undefined);
+  useEffect(() => {
+    if (!snapshots) return connection.connect(resumeCursors(uiRef.current), dispatch);
+    let gone = false;
+    let stop: (() => void) | undefined;
+    void snapshots.load().then((snapshot) => {
+      if (gone) return;
+      fromSnapshot.current = snapshot !== undefined;
+      if (snapshot) dispatch({ kind: "restore", snapshot });
+      stop = connection.connect(snapshot ? { ...snapshot.cursors } : resumeCursors(uiRef.current), dispatch);
+    });
+    return () => {
+      gone = true;
+      stop?.();
+    };
+  }, [connection, snapshots]);
+  useSnapshotSaving(snapshots, state, uiRef);
 
   const sendMessage = useCallback(
     (conversation: ConversationId, parts: MessagePart[], taskId?: string, browsing?: BrowsingContext) => {
@@ -429,7 +482,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   );
 
   const daemonInfo = useCallback(() => connection.daemonInfo(), [connection]);
-  const connectionStats = useCallback(() => connection.stats(), [connection]);
+  const connectionStats = useCallback(() => ({ ...connection.stats(), ...(fromSnapshot.current === undefined ? {} : { fromSnapshot: fromSnapshot.current }) }), [connection]);
   const reconnect = useCallback(() => connection.reconnect(), [connection]);
 
   const store = useMemo(

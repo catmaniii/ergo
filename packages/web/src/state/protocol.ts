@@ -188,6 +188,8 @@ export {
   durationText,
   EVENT_TYPES,
   FRONTEND_PROTOCOL_VERSION,
+  // 会话频道第一次补发、往上翻的一页多少条（本机快照里的会话也只留这么多）
+  HISTORY_PAGE_SIZE,
   HTTP_PATHS,
   HTTP_QUERY,
   INBOX_ACTIONS,
