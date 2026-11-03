@@ -215,6 +215,7 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 - **想用二狗：** 看[用户指南](docs/user-guide/README.md)。二狗是什么、怎么装、每个功能怎么用，都在这里。
 - **手机 App：** [安卓 APK](https://github.com/catmaniii/ergo/raw/main/downloads/ergo-android-debug.apk)（[教程](docs/user-guide/mobile.md#安卓-app)），[鸿蒙 HAP](https://github.com/catmaniii/ergo/raw/main/downloads/ergo-harmony-unsigned.hap)（要自己签名，[教程](docs/user-guide/mobile.md#鸿蒙-app)）。
 - **想知道它怎么做的：** 看[系统架构](docs/architecture/README.md)。架构、记忆系统、部署和设计记录，都在这里。
+- **谁能做什么：** 看[角色与权限](docs/roles-and-permissions.md)。秘书、负责人、子 agent、评审、记忆管理员各能用哪些工具、碰哪些地方、什么时候能发语音，以代码为准。
 
 给开发者：[开发](docs/architecture/development.md)、[插件开发手册](docs/architecture/plugin-development.md)、[CHANGELOG.md](CHANGELOG.md)、[SECURITY.md](SECURITY.md)。
 

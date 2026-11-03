@@ -185,7 +185,7 @@ describe("发起任务的三条路", () => {
       "[tool] remember_memory",
       // 存外部信息（用户要把读到的邮件、网页……存进素材时）
       "[tool] ingest_material",
-      // 带参调一个登记过的 MCP 工具（只读直接跑、会改东西先出卡、底线只递入口）
+      // 带参调一个登记过的 MCP 工具（登记过就调、不出卡，守卫照常判这次调用）
       "[tool] mcp_call",
       "[tool] propose_quick_action",
       // 按人、按字段读个人档案（写档案是快速动作 personal_file）

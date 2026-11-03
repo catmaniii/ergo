@@ -11,6 +11,7 @@ For people who want to read or change the code, or write plugins: this layer cov
 | This page | System overview: how a request flows, where it runs, repository and modules, each part of the architecture, config and the data directory, plugin host, web UI, internationalization |
 | [Development](development.en.md) | Setting up, running from source, common commands, building and debugging the phone apps, coding conventions, testing, upgrading pi, submitting changes |
 | [Plugin guide](plugin-development.md) | From a minimal "notes" plugin to going live (in Chinese) |
+| [Roles and permissions](../roles-and-permissions.en.md) | What each kind of agent can do and why: capability tables, the tools each agent gets, when it can send voice, checked against the code |
 | [Memory system overview](memory-system.md) | Modules, interfaces and workflows, checked by tests (in Chinese) |
 | [Memory engine architecture](memory-architecture.md) | The engine's data model and algorithms (in Chinese) |
 | [Memory vocabulary](memory-vocabulary.md) | Names across the reasoning graph template, the reasoning DB and the code (in Chinese) |

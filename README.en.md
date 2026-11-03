@@ -215,6 +215,7 @@ Large models still live elsewhere today, so we're handing back everything except
 - **To use ergo:** see the [user guide](docs/user-guide/README.en.md). What ergo is, how to install it and how to use each feature.
 - **Phone apps:** [Android APK](https://github.com/catmaniii/ergo/raw/main/downloads/ergo-android-debug.apk) ([guide](docs/user-guide/mobile.en.md#android-app)), [HarmonyOS HAP](https://github.com/catmaniii/ergo/raw/main/downloads/ergo-harmony-unsigned.hap) (you sign it yourself; [guide](docs/user-guide/mobile.en.md#harmonyos-app)).
 - **To see how it's built:** see [System architecture](docs/architecture/README.en.md). Architecture, the memory system, deployment and decision records.
+- **Who can do what:** see [Roles and permissions](docs/roles-and-permissions.en.md). Which tools the secretary, owners, sub-agents, reviewers and the memory keeper each get, where they can reach, and when they can send voice, checked against the code.
 
 For developers: [Development](docs/architecture/development.en.md), the [plugin guide](docs/architecture/plugin-development.md) (in Chinese), [CHANGELOG.md](CHANGELOG.md), [SECURITY.md](SECURITY.md).
 
