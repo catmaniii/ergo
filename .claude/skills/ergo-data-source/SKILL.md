@@ -65,6 +65,7 @@ contracts(ctx) {
 
 - `usages.import`：`default` 默认开不开；`schedule` 是 `{ kind: "daily", time }` 或 `{ kind: "every", minutes }`；`syncOnConnect` 填好就同步一次；导入的不进素材时写 `destination`，走 `t()`。
 - `sync(ctx)` 交回 `{ added, summary? }`。`ctx.signal` 在断开、停用、守护进程停时置位，要停下。
+- 记忆每晚整理、手动整理一次之前，内核会替连着、导入开着、10 分钟内没成功同步过的数据源多叫一次 `sync`（`ctx.trigger` 是 `scheduled`），最多等 3 分钟、不等也接着跑完。`sync` 要经得起随时多叫一次：只拉新的。
 - 文件导入：`files` 里写 `extensions`、`sniff`、`import`。内核看导入文件夹 `imports/`，导完挪进 `imports/imported/`。这个文件夹不进备份，别把只存在文件里的东西当成留得住。
 - 设备交来：`push: { body, receive }`，`body` 是 TypeBox schema，经 `POST /api/data-sources/<id>/push`。
 - 只写变了的；同一条写过几版时给 `count`。

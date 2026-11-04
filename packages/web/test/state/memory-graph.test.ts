@@ -19,6 +19,7 @@ import {
   memoryInferenceRow,
   memoryGuessLines,
   memoryLastNightLine,
+  memoryNightSyncLine,
   memoryLinkRow,
   memoryPremiseRows,
   memoryQuestionRow,
@@ -386,5 +387,29 @@ describe("概览和最近一次整理", () => {
       "最近一次整理是 2026-10-10（整理过了）：新出 3 条、变了 1 条、待复核 1 条",
     );
     expect(memoryLastNightLine({ night: "2026-10-10", at: "2026-10-10T03:20:00.000+08:00", state: "rebuild_needed", newClaims: 0, changedClaims: 0, needsReview: 0 })).toContain("要重建推理库");
+  });
+
+  test("整理之前同步了数据源：各新增几条、刚同步过的、没同步上的和为什么；以前的记录、没有要同步的不写", () => {
+    expect(memoryNightSyncLine(undefined)).toBeUndefined();
+    expect(memoryNightSyncLine({})).toBeUndefined();
+    expect(memoryNightSyncLine({ sourceSync: { waitMinutes: 3, sources: [] } })).toBeUndefined();
+    expect(
+      memoryNightSyncLine({
+        sourceSync: {
+          waitMinutes: 3,
+          sources: [
+            { id: "looki", title: "Looki", state: "synced", added: 5 },
+            { id: "google-calendar", title: "Google · 日历", state: "fresh" },
+            { id: "camera", title: "示例相机", state: "timeout" },
+            { id: "bills", title: "示例账单", state: "failed", reason: "那边忙" },
+            { id: "gmail", title: "Google · Gmail", state: "broken", reason: "登录没通过" },
+            { id: "other", title: "别的", state: "broken" },
+          ],
+        },
+      }),
+    ).toBe(
+      "整理之前同步了数据源：Looki 新增 5 条、Google · 日历 刚同步过、示例相机 没同步上（等了 3 分钟还没完，导进来的下次整理读）、示例账单 没同步上：那边忙、" +
+        "Google · Gmail 连接出错，没同步：登录没通过（每小时自动再试）、别的 连接出错，没同步（每小时自动再试）",
+    );
   });
 });

@@ -1357,6 +1357,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 数据源（ADR-0027 的"数据源"贡献点）：登记表在插件装配之前建好（插件在数据契约里登记它们的数据源）；
     // 服务（设置 · 数据源、定期导入、按需查的工具、导入文件夹）在插件起来之后建，插件的状况变了跟着变
     const dataSourceRegistry = createDataSourceRegistry();
+    // 数据源的服务起来了（定期导入挂上、开机补的同步已经开始）：记忆整理之前同步一遍要等它（开机补跑的那一夜在它之前就开始了）
+    let dataSourcesStarted!: (sources: DataSources) => void;
+    const dataSourcesReady = new Promise<DataSources>((resolve) => (dataSourcesStarted = resolve));
     // 记忆整理从 KERNEL.env 里读 DEEPSEEK_API_KEY，给记忆插件的是守护进程环境的这一份副本（现取的就是副本里的，
     // 网页上填了 key 之后组合根换掉它，下一次整理就用新的）；别处还是用 options.env，不受影响
     const memoryEnv: Record<string, string | undefined> = { ...options.env };
@@ -1431,6 +1434,14 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         bindService(KERNEL.webSearch, { appBrowserNote: () => appBrowserTurnNote(webSettings.view().effective) }),
         // 日历插件要的：外部日历（数据源交来的日程）。数据源的服务建在插件之后：现转给它
         bindService(KERNEL.externalCalendars, { events: (from, to) => wiring.dataSources?.calendarEvents(from, to) ?? [], version: () => wiring.dataSources?.calendarVersion() ?? 0 }),
+        // 记忆插件要的：整理之前把能由电脑拉的数据源各同步一次。数据源的服务建在插件之后：等它起来再转给它（中止了就不再同步）
+        bindService(KERNEL.dataSourceSync, {
+          syncPullable: async ({ freshMs, signal }) => {
+            const stopped = new Promise<undefined>((resolve) => signal.addEventListener("abort", () => resolve(undefined), { once: true }));
+            const sources = signal.aborted ? undefined : await Promise.race([dataSourcesReady, stopped]);
+            return sources === undefined || signal.aborted ? [] : sources.syncPullable({ freshMs });
+          },
+        }),
         // 记忆插件要的：记忆插件槽——用户说"帮我记一句"时把原话交给在跑的那个记忆插件，每条消息的简报问它要。
         // 宿主建在插件之后：现转给它
         bindService(KERNEL.memorySlot, { remember: (input) => wired("memorySlot").remember(input), brief: (input) => wired("memorySlot").brief(input) }),
@@ -1510,6 +1521,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     teardown.push(dataSources.onCalendarChange(() => notifications.publish(externalCalendarFrame())));
     dataSources.start();
     teardown.push(() => dataSources.stop());
+    dataSourcesStarted(dataSources);
     // 设置 · 组件：清单随程序发布；下载在守护进程里一份（排队一次下一个），下了一半的留在组件区的 .staging/，
     // 守护进程停下时中止正在下的（下次是"暂停了"，点继续接着下）
     // 语音合成、语音识别的程序和模型装好后接到服务管家：接入层在后面才建（attachLsm），已有用户自己配的不覆盖；

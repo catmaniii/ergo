@@ -5,6 +5,7 @@
 // - 派生视图 `memory_nightly`（ergo.db，一夜一条，后来的覆盖先前的）：网页展示和看板从这里读；
 // - 完整的 `NightlyReport`（含每条结论、问题的原文）在 rg.db 的 `nightly_runs` 表里，由 @ergo/memory 写；这里只记摘要和给
 //   人看的一段文字，不重复存结论原文。素材的原文不进这里。
+import type { MemoryNightlySourceSync } from "@ergo/protocol";
 import type { DerivedView, EventStore } from "../events/event-store.ts";
 import type { JobTrigger } from "../scheduler/internal-jobs.ts";
 import { INTERNAL_CHANNEL } from "../scheduler/internal-jobs.ts";
@@ -180,6 +181,11 @@ export interface MemoryNightlyRecord {
   people?: MemoryNightlyPeople;
   /** 整理之前判素材"回的是什么"（只在 ran、判了的时候有；问的模型次数也算进了 modelCalls） */
   replyContext?: MemoryNightlyReplyContext;
+  /**
+   * 整理之前同步了哪几个数据源（nightly-sync.ts：能由电脑拉的、开着导入、连着的各同步一次，等导完再读）——各新增几条、
+   * 刚同步过没再同步的、没同步上的和原因。同步之后记的记录都带（跑成、推后、出错）；以前的记录、没接数据源的（离线建库）没有
+   */
+  sourceSync?: MemoryNightlySourceSync;
   /**
    * 记忆管理员这一夜自己额外调了几次模型（叙述、判断用；引擎那 maxModelCalls 是另一份预算）。
    * 管理员没起来、这一夜没有日记时没有这个字段

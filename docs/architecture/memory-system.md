@@ -261,6 +261,7 @@ flowchart TB
 **每晚整理**（`packages/daemon/src/memory/nightly-job.ts`）：
 
 - 记忆插件登记的内部作业 `memory-nightly`，每天 03:00。到点不自己整理，先唤醒记忆管理员，由它调 `run_memory_consolidation` 跑同一份作业；它这一夜没跑成，作业自己补跑一次。开机补跑错过的那次（`catch_up`）赶在管理员挂上之前，走老路径。
+- **整理之前同步一遍**（`packages/daemon/src/memory/nightly-sync.ts`，内核那一半是数据源服务的 `syncPullable`，经 `KERNEL.dataSourceSync`）：打开推理库之后、判"回的是什么"和读新素材之前，能由电脑拉的（数据源有 `sync`）、插件在运行、导入开着、连着的数据源各同步一次，触发方式记成定期的那种（`scheduled`）；正在同步的等同一次；10 分钟内（`NIGHTLY_SYNC_FRESH_MS`）成功同步过的不再同步；连接出错的不在这里试（数据源每小时再试那一套管）；手机这类设备交来的、只靠导入文件夹的、没连的不在里面。一起开始，每个最多等 3 分钟（`NIGHTLY_SYNC_WAIT_MS`，按时钟算），超了不等、照常整理，那一次在后台接着同步完、导进来的下一次整理读；同步出错只记原因。结果进整理记录的 `sourceSync`（各新增几条、刚同步过的、没同步上的和为什么），记忆页"最近一次整理"下面一行写它，管理员的整理日记照实说。排在判"回的是什么"前面：同步只等网络、不花模型的钱，先做完，判完紧接着读素材。手动整理一次同样先同步；推后再试的那几轮不再同步。开机补跑的那一夜在数据源服务起来之前就开始了，组合根等它起来再转过去。
 - 跑一次：把素材库里的新素材读成证据（只读，按素材 id 跳过进过库的；数据源的素材同一个数据源、同一种、同一天超过 3 条合成一条证据，当天的等这一天过完再读，一夜最多读进 12 条数据源的证据——见第 6 节）→ 补算向量 → @ergo/memory 的 `runNightly`（推后、最晚 05:00、判回答、编策略、出问题，见 4.4）→ 整理记录写进事件日志和 `memory_nightly` 视图，失败进待我处理。
 - 模型：推理 `LlmReasoner`、抽事实默认 `LlmFactExtractor`（`memory.extractor` 写 `rule` 换回规则版 `RelationalFactExtractor`），模型是 `DeepSeekChat`，key 只从环境变量 `DEEPSEEK_API_KEY` 读，没配就跳过这一夜。预算 `memory.maxModelCalls`（默认 200，抽事实、整理、判预测共用；是一夜的总数，判完回答再整理的那一次只用剩下的），墙钟上限 `memory.nightlyTimeoutMinutes`（默认 60 分钟）。
 - **预算按道花**（@ergo/memory 的 `rg/nightly-lanes.ts`，见 4.3）：新证据排第一、用前 3/4——抽事实（按时间先后）、给新的观察出假设、新组出追问、判证据先问没问过的和检索结果里有新证据的；剩下的才重跑标着复核、到期复评那几组的旧追问，别的旧追问检索结果里没新东西不重判；往上抽留 1/4。整理完一条新证据记一条，没轮到的下一夜按时间先后接着做。整理记录多了 `spend`（每一道花了几次，加上对抗复核那份），`processedEvidence`、`pendingEvidence` 是整理完几条、还积压几条，整理报告和管理员的整理日记照实写。起因：10-22 到 10-25 连着四夜"新证据 0 条"、积压 87 条——每夜全部旧追问按建组先后重判，前段用光，新组的追问轮不到，记整理过又是全有或全无。
@@ -649,6 +650,8 @@ flowchart LR
 | ✅ | `MemoryNightlyRecord.processedEvidence`、`MemoryNightlyRecord.pendingEvidence` | `packages/daemon/src/memory/nightly-record.ts` | 这一夜整理完几条证据、跑完还剩几条（首次建库看几夜做完；整理完一条算一条，积压的按时间先后接着做） | 数 |
 | ✅ | `MemoryNightlyRecord.spend` | `packages/daemon/src/memory/nightly-record.ts` | 这一夜的调用按道分：新证据、重跑旧追问、往上抽、判预测、编策略、对抗复核，加上限；以前的记录没有 | `MemoryNightlySpend` |
 | ✅ | `MemoryNightlyRecord.curatorModelCalls` | `packages/daemon/src/memory/nightly-record.ts` | 记忆管理员这一夜额外调了几次模型 | 数 |
+| ✅ | `MemoryNightlyRecord.sourceSync` | `packages/daemon/src/memory/nightly-record.ts` | 整理之前同步了哪几个数据源：每个的结局（同步完和新增几条、刚同步过、等到上限没完、这次出错、连接出错没同步）和原因、等的上限几分钟；同步之后记的记录都带，以前的记录没有 | `MemoryNightlySourceSync`（协议包） |
+| ✅ | `syncBeforeNightly`、`NIGHTLY_SYNC_WAIT_MS`、`NIGHTLY_SYNC_FRESH_MS` | `packages/daemon/src/memory/nightly-sync.ts` | 内核的整理前同步（`KERNEL.dataSourceSync`）、时钟、中止信号；一起开始、每个最多等 3 分钟，10 分钟内成功同步过的不再同步 | 各数据源的结局；中止抛 `AbortError`，内核那一半出错交回 undefined |
 | ✅ | `MemoryNightlyRecord.people` | `packages/daemon/src/memory/nightly-record.ts` | 认人物信息问了几次模型、看了几条话、认出几个人、攒了几条候选、候选核对卡、旧值到期的事实几条；没接档案的记录没有 | `MemoryNightlyPeople` |
 | ✅ | `linkNightly` | `packages/daemon/src/memory/personal-files-link.ts` | 引擎、档案的服务、模型、配置、预算剩下几次、哪一夜；整理跑完以后调：档案里换过的值对一遍（旧值事实到期）、新来的本人的话里认人物信息、攒候选、合成候选核对卡 | `NightlyPeopleRecord` |
 | ✅ | `PEOPLE_MAX_CALLS` | `packages/daemon/src/memory/personal-files-link.ts` | 每晚认人物信息最多问几次模型（5，一次 20 条话），从这一夜的预算里剩下的出 | 常量 |
@@ -786,6 +789,7 @@ flowchart LR
 | ✅ | `MemorySummaryView` | `packages/protocol/src/memory.ts` | `ready`、`reason`、`total`、`tiers`、`statuses`、`openQuestions`、`lastNight` | 协议的形状 |
 | ✅ | `MemoryClaimDetailView` | `packages/protocol/src/memory.ts` | 结论、组、支持、反证、背景、竞争解释、推断、前提链、原话、修订 | 协议的形状 |
 | ✅ | `MemoryLastNight.curatorModelCalls` | `packages/protocol/src/memory.ts` | 最近一次整理里管理员额外调了几次模型 | 数 |
+| ✅ | `MemoryLastNight.sourceSync`、`MemoryNightlySourceSync`、`MemoryNightlySourceSyncItem` | `packages/protocol/src/memory.ts` | 最近一次整理之前同步了哪几个数据源：等的上限几分钟，每个的 id、名字、结局（`synced`、`fresh`、`timeout`、`failed`、`broken`）、新增几条、原因 | 协议的形状 |
 | ✅ | `MEMORY_CLAIM_TIERS`、`MEMORY_CLAIM_STATUSES`、`MEMORY_NIGHTLY_STATES` | `packages/protocol/src/memory.ts` | 层、结论状态、整理记录状态的取值表（网页按它查当前语言的说法） | 常量 |
 | ✅ | `MEMORY_CLAIMS_MAX` | `packages/protocol/src/memory.ts` | 结论列表一页最多 200 条 | 常量 |
 | ✅ | `MemoryRevisionView.by` | `packages/protocol/src/memory.ts` | 这条修订是哪一次写留下的：谁写的、哪种写操作、经谁转达（唯一写入口的留痕）；写入口以前的老修订没有 | `{ actor, op, via? }` |
@@ -807,6 +811,7 @@ flowchart LR
 | ✅ | `memoryClaimGroups`、`memoryClaimRow` | `packages/web/src/state/memory-graph.ts` | 结论列表 | 按层分组、列表里一行 |
 | ✅ | `memoryPremiseRows`、`memoryQuestionRow` | `packages/web/src/state/memory-graph.ts` | 前提链、一个问题 | 摊平的证据链、问题箱里一行（另有跳过几次、你的回答、判的结果、经过） |
 | ✅ | `memoryLastNightLine`、`memoryCuratorNightLine` | `packages/web/src/state/memory-graph.ts` | 最近一次整理 | 结论页顶上、管理员页顶上那一行 |
+| ✅ | `memoryNightSyncLine` | `packages/web/src/state/memory-graph.ts` | 最近一次整理的 `sourceSync`；以前的记录、没有要同步的是 undefined | 结论页"最近一次整理"下面那一行 |
 | ✅ | `HttpDaemonClient.memorySummary`、`HttpDaemonClient.memoryClaims` | `packages/web/src/app/daemon-http.ts` | 每次现取，不缓存 | 概览、结论列表 |
 | ✅ | `HttpDaemonClient.memoryClaim`、`HttpDaemonClient.memoryQuestions` | `packages/web/src/app/daemon-http.ts` | 结论编号；`limit` | 一条结论（404 是 undefined）、问题箱 |
 | ✅ | `HttpDaemonClient.memorySettings`、`HttpDaemonClient.saveMemorySettings` | `packages/web/src/app/daemon-http.ts` | 无；`wovenQuestions` | `MemorySettingsView` |

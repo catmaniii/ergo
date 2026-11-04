@@ -38,6 +38,9 @@
 // - 起来时叫数据源的 migrate（密钥区的老样子转成新样子；插件没启用也叫），转不成记一条日志、照常起来，下次再试；
 // - 断开动作带 item 是只断开它下面的一样（数据源的 disconnectItem）：只删这一样的密钥，选了连已导入的一起删只删归它的记录；"上次同步"照旧；
 // - 已获取的里写明素材是哪个账号的（还连着的写完整邮箱，只给页面）；现查的结果带 groups（一个账号一组）。
+// 记忆每晚整理之前同步一遍（syncPullable，经 KERNEL.dataSourceSync 给记忆插件）：能由电脑拉的（有 sync）、插件在运行、导入开着、
+// 连着的各同步一次，触发方式记成定期的那种；正在同步的交回那一次；刚同步过的（freshMs 以内成功过）不再同步；连接出错的不在这里试
+// （每小时再试那一套管），交回原因；没连的、手机这类设备交来的、只靠导入文件夹的不在里面。等多久、怎么记由记忆插件定。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -127,6 +130,16 @@ export interface DataSourcesOptions {
   settleMs?: number;
 }
 
+/**
+ * 整理前同步一遍时一个数据源的那一次（syncPullable 交回）：started 是开始了（或者本来就在同步，交回同一次），done 是同步的结果
+ * （出错的是 error；不能同步了的抛 RequestRejected）；fresh 是刚同步过、没再同步（at 是上次成功同步的时间）；
+ * broken 是连接出错、没同步（problem 是原因，密钥已换成 ***；内核每小时替它再试）
+ */
+export type PullableSync =
+  | { readonly id: string; readonly title: string; readonly state: "started"; readonly done: Promise<{ added?: number; error?: string }> }
+  | { readonly id: string; readonly title: string; readonly state: "fresh"; readonly at: string }
+  | { readonly id: string; readonly title: string; readonly state: "broken"; readonly problem?: string };
+
 export interface DataSources {
   /** 设置 · 数据源整页 */
   view(): DataSourcesView;
@@ -136,6 +149,11 @@ export interface DataSources {
   folder(body: ImportFolderActionBody): Promise<ImportFolderActionResult>;
   /** 同步一次（正在同步的等同一次）：交回新进来几条或者出错的原因；不能同步的抛 RequestRejected */
   sync(id: string, trigger: "manual" | "scheduled"): Promise<{ added?: number; error?: string }>;
+  /**
+   * 记忆整理之前：能由电脑拉的、插件在运行、导入开着、连着的数据源各同步一次（触发方式是 scheduled），交回每一个的那一次（见 PullableSync）。
+   * freshMs 以内成功同步过的不再同步；正在同步的交回那一次；连接出错的不试。没连的、设备交来的、只靠导入文件夹的不在结果里
+   */
+  syncPullable(options: { freshMs: number }): PullableSync[];
   /** 设备交来的：不认得的数据源抛 not_found，插件没在运行、不收、导入关着、data 不对抛 RequestRejected */
   push(id: string, body: DataSourcePushBody): Promise<DataSourcePushResult>;
   /** 已获取的一页：不认得的数据源抛 not_found，没有这回事的抛 RequestRejected；列不出来的写在 problem */
@@ -449,6 +467,27 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     return promise;
   };
   const sync = (id: string, trigger: "manual" | "scheduled") => startSync(id, trigger);
+
+  /** 记忆整理之前同步一遍（见 DataSources.syncPullable） */
+  const syncPullable = ({ freshMs }: { freshMs: number }): PullableSync[] => {
+    const at = Date.parse(options.now());
+    return registry.list().flatMap((entry): PullableSync[] => {
+      const { source } = entry;
+      // 不能由电脑拉的（设备交来的、只靠导入文件夹的）、插件没在运行、导入关着的不算
+      if (!source.sync || !source.usages.import || !entry.owner.running() || !usageOn(entry, "import")) return [];
+      const base = { id: source.id, title: source.title };
+      // 正在同步（定期导入刚好到点、用户点了"立即同步"）：等同一次
+      const now = running.get(source.id);
+      if (now) return [{ ...base, state: "started", done: now.promise }];
+      const status = statusOf(entry);
+      if (status !== "manual" && status.connection === "not_connected") return [];
+      // 连接出错的不在这里试：每小时再试那一套管
+      if (status !== "manual" && status.connection === "error") return [{ ...base, state: "broken", ...(status.problem === undefined ? {} : { problem: status.problem }) }];
+      const last = lastSyncAt(source.id);
+      if (last !== undefined && at - Date.parse(last) < freshMs) return [{ ...base, state: "fresh", at: last }];
+      return [{ ...base, state: "started", done: startSync(source.id, "scheduled") }];
+    });
+  };
 
   /** 定期导入挂上、摘下：插件在运行、导入开着、连着、登记了时间的挂着 */
   const armJobs = () => {
@@ -946,6 +985,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
       return () => void calendarListeners.delete(listener);
     },
     sync,
+    syncPullable,
     scan,
     refresh,
     start(startOptions = {}) {

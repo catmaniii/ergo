@@ -3,7 +3,8 @@
 // 一次整理做什么：
 // 1. 没配 DEEPSEEK_API_KEY 就跳过（记下原因，不建库、不调模型、不打扰用户），下一夜照常；
 // 2. 打开推理库 rg.db（每次整理打开、跑完关掉；manifest 的版本对不上就不打开，记一条"要重建推理库"的提示）；
-// 3. 把素材库里的新素材读成证据（只读；已经进过库的按 sourceRef 跳过，不重复吃钱）；
+// 3. 让能由电脑拉的数据源各同步一次、等导完（见下面"整理之前同步一遍"），再把素材库里的新素材读成证据
+//    （只读；已经进过库的按 sourceRef 跳过，不重复吃钱）；
 // 4. 调 runNightly（@ergo/memory 已有：到点前不跑、同一夜只跑一次、用户在用往后推 30 分钟、最多推到 05:00、
 //    错过了补跑）。用户在用就由这里按 nextAt 睡到下一轮再试，到 05:00 runNightly 自己会照跑；
 // 5. 把整理报告写进事件日志和整理记录视图（见 nightly-record.ts）；失败时进"待我处理"一条事项。
@@ -42,6 +43,12 @@
 // 号码类、住址的值换成占位（号码类字段不进任何发给模型的整理提示）；整理跑完以后先把档案里换过的值对一遍（旧值的事实到期），
 // 再从这一夜新来的话里认人物信息（同一个模型、这一夜剩下的预算，最多 5 次），攒成档案的候选、合成第二天的候选核对卡。
 // 认人物信息的调用算进这一夜的 modelCalls，整理记录多一项 people。
+//
+// 整理之前同步一遍（nightly-sync.ts）：打开推理库之后、判"回的是什么"和读新素材之前，让能由电脑拉的、开着导入、连着的数据源各同步一次
+// （定期的那种；刚同步过的不再同步，连接出错的不试），每个最多等 NIGHTLY_SYNC_WAIT_MS，超了照常整理；结果进整理记录的 sourceSync。
+// 排在判"回的是什么"前面：同步是等网络、不花模型的钱，先做完，判完紧接着读素材（压着哪几条按判完那一刻算，中间不隔着几分钟的等）；
+// 以后数据源的素材也要判"回的是什么"时，刚导进来的同一夜就判得到。手动整理一次同样先同步（同一份作业）；推后再试的那几轮不再同步
+// （定期导入照常在跑，读素材时照样读到）。没给 sourceSync（离线建库、测试）就不同步。
 //
 // 素材的"回的是什么"（reply-context.ts）：整理之前先判会话里本人还没判过的话——接着对方的话说的挂上前文意思的总结、新话题不挂。
 // 同一个模型（包了档案那一层和中止）、算进这一夜的 modelCalls、从整理的预算里先扣（不超过 maxModelCalls）；每晚上限
@@ -82,18 +89,20 @@ import {
   runNightly,
   toMs,
 } from "@ergo/memory";
-import { type NoticeType, t } from "@ergo/protocol";
+import { type MemoryNightlySourceSync, type NoticeType, t } from "@ergo/protocol";
 import type { MemoryConfig } from "../config/config.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { InboxService, NewInboxItem } from "../inbox/inbox.ts";
 import type { Materials } from "../materials/materials.ts";
 import type { Material } from "../materials/types.ts";
 import type { PersonalFilesForMemory } from "../personal-files/index.ts";
+import type { DataSourcePreSync } from "../plugins/kernel.ts";
 import { clockIso, type Clock } from "../scheduler/clock.ts";
 import type { InternalJob, JobTrigger } from "../scheduler/internal-jobs.ts";
 import { DATA_SOURCE_EVIDENCE_PER_NIGHT, ingestedMaterialIds } from "./data-source-evidence.ts";
 import { MaterialsEvidenceSource } from "./evidence-source.ts";
 import { appendNightlyRecord, type MemoryNightlyRecord, type MemoryNightlyReview, type MemoryNightlyState } from "./nightly-record.ts";
+import { syncBeforeNightly } from "./nightly-sync.ts";
 import { guardNightlyChat, linkNightly } from "./personal-files-link.ts";
 import { lockedSensitiveTags } from "./privacy.ts";
 import { conversationFollowUps } from "./reply-follow-ups.ts";
@@ -159,6 +168,15 @@ export interface MemoryNightlyJobOptions {
     store: ReplyContextStore;
     judged: () => ReadonlySet<string>;
     cardText?: (cardId: string) => string | undefined;
+  };
+  /**
+   * 整理之前同步一遍（nightly-sync.ts）：sync 现取内核的整理前同步（KERNEL.dataSourceSync，没有就不同步）；
+   * waitMs、freshMs 不给用 nightly-sync.ts 的默认。不给（离线建库、测试）就不同步
+   */
+  sourceSync?: {
+    sync: () => DataSourcePreSync | undefined;
+    waitMs?: number;
+    freshMs?: number;
   };
 }
 
@@ -558,6 +576,12 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
     const files = options.personalFiles?.();
     const chat = guardNightlyChat(abortableChat(options.chat === undefined ? deepseekChat(env, model, signal) : options.chat(), signal), files);
     let engine: MemoryEngine | undefined;
+    // 整理之前同步了哪几个数据源：同步之后记的记录都带上（跑成、推后、出错）
+    let sourceSync: MemoryNightlySourceSync | undefined;
+    const withSync = (record: MemoryNightlyRecord): MemoryNightlyRecord => {
+      if (sourceSync !== undefined) record.sourceSync = sourceSync;
+      return record;
+    };
     try {
       const opened = openNightlyEngine(chat);
       if (!opened.ok) {
@@ -570,6 +594,20 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
       }
       engine = opened.engine;
       if (opened.created) log(`记忆整理建好了推理库 ${options.file}`);
+
+      // 整理之前先让能由电脑拉的数据源各同步一次、等导完再读（每个最多等一会儿，超了照常整理；中止照旧往上抛）
+      const presync = options.sourceSync?.sync();
+      if (presync !== undefined) {
+        sourceSync = await syncBeforeNightly({
+          sync: presync,
+          clock: options.clock,
+          signal,
+          ...(options.sourceSync?.waitMs === undefined ? {} : { waitMs: options.sourceSync.waitMs }),
+          ...(options.sourceSync?.freshMs === undefined ? {} : { freshMs: options.sourceSync.freshMs }),
+          log,
+        });
+        throwIfAborted(signal);
+      }
 
       // 整理之前先判素材"回的是什么"（判完的带着前文读成证据）；出错不让整夜失败
       let replyRun: ReplyContextRun | undefined;
@@ -618,7 +656,7 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
       let result = await runNightly(engine, nightlyOptions);
       // 用户在用：按 nextAt 睡过去再试，最多到 runNightly 的 latest（05:00）——到点它自己会 late 照跑
       while (!result.ran && result.reason === "user_active") {
-        append(recordOfDeferral(result, trigger, clockIso(options.clock)));
+        append(withSync(recordOfDeferral(result, trigger, clockIso(options.clock))));
         await sleepUntil(options.clock, toMs(result.nextAt), signal);
         throwIfAborted(signal);
         ingestNewEvidence(engine, options.materials, options.clock, options.config, held);
@@ -628,8 +666,8 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
         result = await runNightly(engine, nightlyOptions);
       }
       const atNow = clockIso(options.clock);
-      if (!result.ran) return append(recordOfDeferral(result, trigger, atNow));
-      const record = recordOfReport(result.report, trigger, atNow, pendingEvidenceOf(engine));
+      if (!result.ran) return append(withSync(recordOfDeferral(result, trigger, atNow)));
+      const record = withSync(recordOfReport(result.report, trigger, atNow, pendingEvidenceOf(engine)));
       if (replies !== undefined && replies.calls + replies.first + replies.pending > 0) {
         record.replyContext = { ...replies };
         record.modelCalls += replies.calls;
@@ -651,7 +689,7 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
       // 内部作业不会把它当"没跑过"再补一次）
       if (timedOut) {
         const reason = timeoutReason();
-        const record = blankRecord(night, at, "failed", trigger);
+        const record = withSync(blankRecord(night, at, "failed", trigger));
         record.reason = reason;
         append(record);
         addFailedNotice(options.inbox, night, reason);
@@ -660,7 +698,7 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
       }
       if (isAbort(err) || signal.aborted) throw abortError(isAbort(err) ? undefined : err);
       const reason = messageOf(err);
-      const record = blankRecord(night, at, "failed", trigger);
+      const record = withSync(blankRecord(night, at, "failed", trigger));
       record.reason = reason;
       append(record);
       addFailedNotice(options.inbox, night, reason);

@@ -120,6 +120,8 @@ function lastNightOf(record: MemoryNightlyRecord): MemoryLastNight {
     ...(record.reason === undefined ? {} : { reason: record.reason }),
     // 管理员这一夜额外调了几次模型
     ...(record.curatorModelCalls === undefined ? {} : { curatorModelCalls: record.curatorModelCalls }),
+    // 整理之前同步了哪几个数据源
+    ...(record.sourceSync === undefined ? {} : { sourceSync: record.sourceSync }),
   };
 }
 

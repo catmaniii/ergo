@@ -222,7 +222,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 - **素材**：内核的素材库从事件日志采用户的原话（和语音转写、回避信号……），存原文副本、建关键词和向量索引（`db/materials.db`）。agent 的语音不算：秘书转述负责人进展的那条语音（`AgentVoiceRecord.parts`）只在语音对象上，负责人那段算它说的，不进素材，也不是秘书的结论。
 - **回的是什么**（`memory/reply-context.ts`）：会话里本人接着对方的话说的一句，每晚整理之前由记忆管理员批量判（整理同一个模型，每晚最多 240 句），接着回的挂上前文意思的总结、新话题不挂；结果是素材频道上的 `material_replies` 事件，素材库照它标在素材上（同"别推断"，不进原文副本，`materials.db` 重建照样回来）；读成证据时原文后面接一行"［前文，不是用户说的］…"，只用来读懂这句（[ADR-0050](adr/0050-material-reply-context.md)）。
-- **记忆插件**（`memory/plugin.ts`）：每天 03:00 的内部作业叫醒**记忆管理员**（一个按需拉起的 agent），它用 `@ergo/memory` 的引擎把新素材读成证据、整理进推理库 `memory/subtext/rg.db`（结论、证据链、竞争解释、预测、问题箱），一次整理最多调 `memory.maxModelCalls` 次模型；所有写入都经唯一写入口（[ADR-0030](adr/0030-memory-keeper-maintains-reasoning-graph-through-write-gate.md)）。
+- **记忆插件**（`memory/plugin.ts`）：每天 03:00 的内部作业叫醒**记忆管理员**（一个按需拉起的 agent），它用 `@ergo/memory` 的引擎把新素材读成证据（读之前先让开着导入、能由电脑拉的数据源各同步一次、等导完，每个最多等 3 分钟：`memory/nightly-sync.ts`）、整理进推理库 `memory/subtext/rg.db`（结论、证据链、竞争解释、预测、问题箱），一次整理最多调 `memory.maxModelCalls` 次模型；所有写入都经唯一写入口（[ADR-0030](adr/0030-memory-keeper-maintains-reasoning-graph-through-write-gate.md)）。
 - 秘书每轮醒来带一份简报，用户的话有相关记忆时自动带一份记忆简报，再按需"问记忆"；深聊和改动转给记忆管理员。
 - 配置里 `memory.*` 的几项开关（比如按场景标签的情绪、财务、关系、位置）现在有的只是占位：写进来不改变行为，默认值只在 `config/config.ts`。
 - 详细设计：[记忆系统总览](memory-system.md)、[记忆引擎架构](memory-architecture.md)、[词汇对照](memory-vocabulary.md)、[ADR-0032](adr/0032-memory-reasoning-rules.md)。

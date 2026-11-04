@@ -50,6 +50,29 @@ const messageOf = (err: unknown) => (err instanceof Error ? err.message : String
 /** 工具交回的一段文字（长的截断） */
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max)}…` : text);
 
+/** 整理之前同步了哪几个数据源（有的时候告诉管理员，写进日记；没同步上的照实说） */
+function sourcesText(record: MemoryNightlyRecord): string {
+  const sources = record.sourceSync?.sources ?? [];
+  if (sources.length === 0) return "";
+  const synced = sources.filter((s) => s.state === "synced").map((s) => `${s.title} 新增 ${s.added ?? 0} 条`);
+  const fresh = sources.filter((s) => s.state === "fresh").map((s) => s.title);
+  const missed = sources
+    .filter((s) => s.state === "timeout" || s.state === "failed" || s.state === "broken")
+    .map((s) =>
+      s.state === "timeout"
+        ? `${s.title}（等了 ${record.sourceSync!.waitMinutes} 分钟没同步完，导进来的下一次整理读）`
+        : s.state === "broken"
+          ? `${s.title}（连接出错${s.reason === undefined ? "" : `：${s.reason}`}，每小时自动再试）`
+          : `${s.title}（同步出错${s.reason === undefined ? "" : `：${s.reason}`}）`,
+    );
+  const parts = [
+    synced.length > 0 ? `同步了 ${synced.join("、")}` : "",
+    fresh.length > 0 ? `${fresh.join("、")} 刚同步过` : "",
+    missed.length > 0 ? `没同步上：${missed.join("、")}` : "",
+  ].filter((p) => p !== "");
+  return `整理之前先同步了数据源：${parts.join("；")}。`;
+}
+
 /** 一条整理记录 → 给管理员的一段结果（和 nightly-action.ts 的卡片说法同源，措辞给模型看） */
 export function consolidationText(record: MemoryNightlyRecord | undefined): string {
   if (record === undefined) return "这一夜没有留下整理记录（作业没跑）。素材一条没少，下一夜照常整理。";
@@ -92,7 +115,7 @@ export function consolidationText(record: MemoryNightlyRecord | undefined): stri
     const up = h === undefined || h.upgraded.length === 0 ? "" : `${h.upgraded.length} 条冲突解决了，升回结论（${h.upgraded.join("、")}）`;
     const hypotheses = down === "" && up === "" ? "" : `${[down, up].filter((s) => s !== "").join("；")}。`;
     const refused = record.refused !== undefined && record.refused > 0 ? `写入口拒了 ${record.refused} 处不合规矩的写（这一夜没写进去，整理报告里有原因）。` : "";
-    return `${head}${lanes}${replies}${review}${predictions}${validation}${hypotheses}${refused}\n接下来把这一夜写成一段整理日记，追加在你的回复里（不要另开话题）：干了什么、新出/变化几条、还拿不准什么、想问用户什么。`;
+    return `${head}${sourcesText(record)}${lanes}${replies}${review}${predictions}${validation}${hypotheses}${refused}\n接下来把这一夜写成一段整理日记，追加在你的回复里（不要另开话题）：干了什么、新出/变化几条、还拿不准什么、想问用户什么。`;
   }
   if (record.state === "failed" || record.state === "rebuild_needed") {
     return `这一夜没整理成：${record.reason ?? "原因不明"}。照实告诉用户（素材一条没少，下一夜照常整理），不要编造整理结果。`;

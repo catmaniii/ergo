@@ -312,6 +312,30 @@ export interface MemoryStrategiesView extends MemoryGraphStatus {
   items: MemoryStrategyView[];
 }
 
+/**
+ * 整理之前同步一个数据源的结局：synced 同步完了（added 新进来几条）；fresh 刚同步过、这次没再同步；
+ * timeout 等到上限还没同步完（不等了，导进来的下一次整理读）；failed 这次同步出错（reason）；broken 连接出错、没同步（reason，每小时自动再试）
+ */
+export type MemoryNightlySourceSyncState = "synced" | "fresh" | "timeout" | "failed" | "broken";
+
+/** 整理之前同步的一个数据源：id、给人看的名字（记下时的语言）、结局 */
+export interface MemoryNightlySourceSyncItem {
+  id: string;
+  title: string;
+  state: MemoryNightlySourceSyncState;
+  /** 新进来几条（synced 才有） */
+  added?: number;
+  /** 没同步上的原因（failed、broken；密钥已换成 ***） */
+  reason?: string;
+}
+
+/** 整理之前同步了哪几个数据源（能由电脑拉的、开着导入、连着的；手机这类设备交来的不在里面） */
+export interface MemoryNightlySourceSync {
+  /** 每个数据源最多等几分钟 */
+  waitMinutes: number;
+  sources: MemoryNightlySourceSyncItem[];
+}
+
 /** 最近一次整理（网页上一行：哪天、跑了没、新增几条） */
 export interface MemoryLastNight {
   /** 哪一夜（YYYY-MM-DD） */
@@ -331,6 +355,8 @@ export interface MemoryLastNight {
   reason?: string;
   /** 记忆管理员这一夜自己额外花了几次模型调用（叙述、判断用；没见过的是没有） */
   curatorModelCalls?: number;
+  /** 整理之前同步了哪几个数据源（以前的记录、没接数据源的没有） */
+  sourceSync?: MemoryNightlySourceSync;
 }
 
 /**

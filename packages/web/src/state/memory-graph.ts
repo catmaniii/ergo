@@ -23,6 +23,7 @@ import {
   type MemoryInferenceView,
   type MemoryLastNight,
   type MemoryLinkWeight,
+  type MemoryNightlySourceSyncItem,
   type MemoryNightlyState,
   type MemoryPremiseNode,
   type MemoryAnswerVerdict,
@@ -527,6 +528,34 @@ export function memoryLastNightLine(lastNight: MemoryLastNight | undefined): str
     changedClaims: lastNight.changedClaims,
     needsReview: lastNight.needsReview,
   });
+}
+
+/** 整理之前同步的一个数据源怎样了（一小段） */
+function sourceSyncPart(item: MemoryNightlySourceSyncItem, waitMinutes: number): string {
+  const title = item.title;
+  switch (item.state) {
+    case "synced":
+      return t("state.memoryGraph.nightly.sync.synced", { title, added: item.added ?? 0 });
+    case "fresh":
+      return t("state.memoryGraph.nightly.sync.fresh", { title });
+    case "timeout":
+      return t("state.memoryGraph.nightly.sync.timeout", { title, minutes: waitMinutes });
+    case "failed":
+      return t("state.memoryGraph.nightly.sync.failed", { title, reason: item.reason ?? "" });
+    case "broken":
+      return item.reason === undefined ? t("state.memoryGraph.nightly.sync.broken", { title }) : t("state.memoryGraph.nightly.sync.brokenReason", { title, reason: item.reason });
+  }
+}
+
+/**
+ * "最近一次整理"下面那一行：整理之前同步了哪几个数据源、各新增几条，刚同步过的、没同步上的和为什么。
+ * 以前的记录、没有要同步的数据源时是 undefined（不画）
+ */
+export function memoryNightSyncLine(lastNight: Pick<MemoryLastNight, "sourceSync"> | undefined): string | undefined {
+  const sync = lastNight?.sourceSync;
+  if (sync === undefined || sync.sources.length === 0) return undefined;
+  const parts = sync.sources.map((item) => sourceSyncPart(item, sync.waitMinutes)).join(t("state.memoryGraph.listSep"));
+  return t("state.memoryGraph.nightly.sync.line", { parts });
 }
 
 /** 一条结论详情顶上的一行（层级 · 状态 · 把握 · 来源 · 推法） */

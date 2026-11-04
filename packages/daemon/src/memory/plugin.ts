@@ -121,7 +121,7 @@ export const memoryPlugin: PluginDefinition = {
     KERNEL.layout,
     KERNEL.env,
   ],
-  wants: [KERNEL.memoryModel, KERNEL.memorySettings, KERNEL.usage, KERNEL.personalFiles, KERNEL.memorySlot, KERNEL.elementFiles],
+  wants: [KERNEL.memoryModel, KERNEL.memorySettings, KERNEL.usage, KERNEL.personalFiles, KERNEL.memorySlot, KERNEL.elementFiles, KERNEL.dataSourceSync],
   provides: [MEMORY, MEMORY_NIGHTLY, MEMORY_INTERVIEWS],
   views: [memoryNightlyView],
   prompts: memoryPrompts,
@@ -343,6 +343,8 @@ export const memoryPlugin: PluginDefinition = {
           personalFiles: () => ctx.optional(KERNEL.personalFiles),
           // 整理之前判素材"回的是什么"：找前文、记结果、前文是卡片时取卡片的纯文本降级
           replyContext: { store, judged: () => materials.replyJudged(), cardText: (cardId) => ctx.use(KERNEL.cards).get(cardId)?.text },
+          // 整理之前让能由电脑拉的数据源各同步一次、等导完再读（内核的数据源服务；没有就不同步）
+          sourceSync: { sync: () => ctx.optional(KERNEL.dataSourceSync) },
           log,
         });
         nightly = job;

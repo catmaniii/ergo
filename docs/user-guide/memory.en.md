@@ -196,7 +196,7 @@ Each one asks which method to use:
 
 **Step by step:**
 
-1. Look at the two lines at the top: the total count, and what the latest consolidation did.
+1. Look at the two lines at the top: the total count, and what the latest consolidation did. If data sources were synced before consolidating, one more line below says which ones, how many new items each brought in, which had just synced, and which didn't sync and why.
 2. To see only one status, use the filter: All, Verified, Guess, Withdrawn, Replaced.
 3. Conclusions are ordered by layer: Recent state, Preferences, Needs, Values.
 4. Click one to open **Evidence and reasoning**.
@@ -361,6 +361,7 @@ You can say these to the secretary too. It passes them on and relays the answer 
 - **Two cases it can't change:** a conclusion you stated yourself can't be withdrawn; it will ask whether you want to forget that message or not infer from it. One withdrawn because its basis is gone can't go back to Verified.
 - **It only handles memory:** for changing settings, deleting projects and so on, it says "I don't do that" and tells you where to go.
 - **The first reply may be slow:** it isn't normally running. It starts when you send a message and exits after sitting idle for a while. Viewing history isn't affected.
+- **Data sources sync first:** before each nightly consolidation (including the catch-up run after the computer slept through it) and before "Consolidate now" starts reading materials, every data source with import on (Google Calendar, mail you sent from Gmail, Looki) syncs once, and consolidation waits for it, so what just came in is read the same night. A source that synced in the last 10 minutes isn't synced again. Each one gets up to 3 minutes; if it isn't done, consolidation goes ahead and what it brings in is read next time. A source with an error isn't retried here (the data source retries by itself every hour). Phone data comes from the app, so it isn't synced here. The result is shown at the top of Memory · Conclusions.
 
 ## Delete completely
 

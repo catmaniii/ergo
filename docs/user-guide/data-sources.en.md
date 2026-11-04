@@ -38,7 +38,7 @@ Tap a card to open its own page, which has three parts:
 **Two ways of using a source, each with its own switch:**
 
 - **On-demand lookup**: ergo looks it up when asked, and doesn't store it.
-- **Import**: syncs regularly and stores it in ergo. Some is organized into materials and some shows in the calendar; the page says where it goes.
+- **Import**: syncs regularly and stores it in ergo. Some is organized into materials and some shows in the calendar; the page says where it goes. Before the nightly memory consolidation, every connected source with import on also syncs once (unless it synced in the last 10 minutes), so what just came in is consolidated that same night, and **Last sync** shows that run. Phone sources aren't synced then. See [Memory curator](memory.en.md#memory-curator).
 
 ## All of them in one table
 

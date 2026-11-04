@@ -1237,6 +1237,8 @@ export type {
   MemoryInferenceView,
   MemoryLastNight,
   MemoryLinkWeight,
+  MemoryNightlySourceSync,
+  MemoryNightlySourceSyncItem,
   MemoryNightlyState,
   MemoryPremiseNode,
   MemoryQuestionItem,

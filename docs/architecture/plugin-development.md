@@ -586,7 +586,7 @@ export function createClaudeCodePlugin(
 | `files` | 认导入文件夹里哪种文件（`DataSourceFileType`）：扩展名、文件名、内容特征（开头 4 KB）写了的都对上才认；`import(file, ctx)` 读文件、写记录，交回新进来几条 |
 | `status(ctx)` | 连接状态（没连 / 连着 / 出错及原因 / 账号），要快；不给是"手动导入"的数据源（只靠导入文件夹）。要用户去授权、重新填的（手机上的授权被拒、被撤回，登录没过、Key 不认）带 `needsAuth: true`，卡片上写"要授权"。可以带一句提示 `note`（不算出错："日历插件没启用"）和它下面的几样 `items`（几个日历，插件画的设置那一块列出）；还能带插件画的那一块要的数据 `panel`（内核原样交给网页、不看里面：Looki 的"存一份到本地"）和断开的确认框里要说的一句 `disconnectNote`（"存到本地的文件不删"）。连接状态还决定按需查的工具给不给秘书：内核只用插件报的**最近一次已知的**状态（装配时不等网络），所以插件在同步、按需查时碰到 Key 失效、地址失效要记在内存里、下一次 `status` 报 `error`（Looki 的 Key 不认、Gmail 登录没过、Google 日历每个地址都失效），一时的（限速、超时、连不上）照样报连着、原因写在 `problem`。报出错以后内核每小时替它再试一次（见下面 `recheck`），页面上写明"每小时自动再试一次，也可以重新填" |
 | `configure(values, ctx)` | 填设置、测试连接：网页插件在 `dataSources` 插槽里画那一块，值经 POST 交来，插件存进 `ctx.secrets` |
-| `sync(ctx)` | 同步一次（"立即同步"、定期导入到点了）：`ctx.trigger`、`ctx.lastSyncAt`、`ctx.signal`（断开、插件停用、守护进程停时置位） |
+| `sync(ctx)` | 同步一次（"立即同步"、定期导入到点了，还有记忆每晚整理、手动整理一次之前内核替它同步的那一次）：`ctx.trigger`、`ctx.lastSyncAt`、`ctx.signal`（断开、插件停用、守护进程停时置位）。整理之前那一次记成 `scheduled`，连着、导入开着、10 分钟内没成功同步过的才叫，最多等 3 分钟、不等也接着跑完；设备交来的（`push`）、只靠导入文件夹的不叫 |
 | `recheck(ctx)` | 出错后再试：`status()` 报出错时内核每小时叫一次，插件用存着的设置再测一次连接（不写记录、不用用户重填），更新自己记着的状态，好了下一次 `status()` 就报连着、按需查的工具跟着回来。Key 失效、密码错也照样叫（用户可能在别处修好了）。不给的、导入开着的内核照同步那样同步一次；能填设置而密钥区里什么都没有的不试。Looki 拿存着的 Key 调 `/me`，Gmail 用存着的地址密码登录一次，Google 日历每个地址拉一遍 |
 | `disconnect(ctx)` | 断开时插件自己的清理（`ctx.purge` 为真时删它自己存储里的原始数据）；密钥区那一格、`records` 由内核删 |
 | `disconnectItem(item, ctx)` | 单独断开它下面的一样（Gmail 的一个账号）：插件只删这一样的密钥、清掉它记着的状态，交回 `{ owns(event) }` 说哪些记录归它；选了"连已导入的一起删"时内核只删 `records` 里归它的（素材跟着记录走），同步记录、别的几样不动，"上次同步"也照旧。没有这一样抛错（原因给人看）。网页上是断开动作带 `item`，确认框是核心页面那一个（插件那一块经 `onDisconnectItem` 说断开哪一样）；`DataSourceItem` 带 `removable`、`count`（确认框里说这一样导入了几条）、`off`（这一样关着） |
@@ -910,6 +910,8 @@ export const remindersPlugin: PluginDefinition = {
 | `DataSourceSlot` | `packages/web/src/plugins/slots.ts` | 网页的数据源设置插槽 |
 | `DataSourcePush`、`DataSourcePushOutcome`、`DataSourceCalendarEvent` | `packages/daemon/src/data-sources/api.ts` | 设备交来的、交回的、交给日历插件的一条日程 |
 | `KERNEL.externalCalendars` | `packages/daemon/src/plugins/kernel.ts` | 数据源交给日历插件的外部日历（内核服务） |
+| `KERNEL.dataSourceSync`、`DataSourcePreSync` | `packages/daemon/src/plugins/kernel.ts` | 记忆整理之前把能由电脑拉的数据源各同步一次（内核服务，数据源服务起来之前叫的等它起来） |
+| `PullableSync` | `packages/daemon/src/data-sources/service.ts` | 整理之前同步时一个数据源的那一次：开始了（同步的结果）、刚同步过、连接出错没同步 |
 | `fakeDataSourcePlugin` | `packages/daemon/test/helpers/fake-data-source.ts` | 测试用的假数据源插件 |
 | `DataSourceSchedule`、`DataSourceItem` | `packages/daemon/src/data-sources/api.ts` | 定期导入的时间（提醒那一套或每隔几分钟）、数据源下面的一样 |
 | `IntervalSchedule`、`JobSchedule` | `packages/daemon/src/scheduler/internal-jobs.ts` | 内部作业的"每隔几分钟"、内部作业的时间表 |

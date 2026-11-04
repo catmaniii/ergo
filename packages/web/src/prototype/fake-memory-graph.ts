@@ -254,6 +254,16 @@ const LAST_NIGHT: MemoryLastNight = {
   newClaims: 2,
   changedClaims: 1,
   needsReview: 1,
+  // 整理之前同步了数据源：两个同步完了、一个刚同步过、一个等到上限还没完
+  sourceSync: {
+    waitMinutes: 3,
+    sources: [
+      { id: "looki", title: "Looki", state: "synced", added: 5 },
+      { id: "google-gmail", title: "Google · Gmail", state: "synced", added: 2 },
+      { id: "google-calendar", title: "Google · 日历", state: "fresh" },
+      { id: "demo-camera", title: "示例相机", state: "timeout" },
+    ],
+  },
 };
 
 /** 地址里带了 ?demo-memory-empty / ?demo-memory-off：看空数据、看降级的样子 */

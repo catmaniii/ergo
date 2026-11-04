@@ -7,6 +7,7 @@
 // 为记忆插件加了个人档案给记忆的那几样（档案在内核，记忆插件只经它取）；为日历插件加了外部日历（数据源交来的日程），
 // "手机"插件也用个人档案的收候选。为 Claude Code 插件加了一次性子进程（列本机会话、读前情、分叉）。
 // 为记忆插件加了记忆插件槽（按原话记一条、每条消息的简报，转给在跑的那个记忆插件）。
+// 为记忆插件加了整理前同步一遍（数据源的服务把能由电脑拉的各同步一次）。
 import type { ChatModel } from "@ergo/memory";
 import type { CalendarExternalEntry, MemoryBriefInput, MemoryBriefResult, MemoryItem, MemoryRememberInput } from "@ergo/protocol";
 import type { HostToolCall } from "../agent-manager/host-tools.ts";
@@ -15,6 +16,7 @@ import type { ElementToRemember } from "../browsing/api.ts";
 import type { CardService } from "../cards/cards.ts";
 import type { DataDirLayout } from "../config/data-dir.ts";
 import type { ErgoConfig } from "../config/config.ts";
+import type { PullableSync } from "../data-sources/index.ts";
 import type { EphemeralBus } from "../events/ephemeral.ts";
 import type { EventTriggers } from "../event-sources/index.ts";
 import type { EventStore } from "../events/event-store.ts";
@@ -94,6 +96,15 @@ export interface ExternalCalendars {
    * 带着它，工作日历频道上的临时事件 external_calendar 推新的版本，网页比一比就知道手里那份旧了
    */
   version(): number;
+}
+
+/**
+ * 记忆整理之前同步一遍（data-sources/service.ts 的 syncPullable）：能由电脑拉的、插件在运行、导入开着、连着的数据源各同步一次
+ * （触发方式是定期的那种），交回每一个的那一次；freshMs 以内成功同步过的不再同步，连接出错的不试。
+ * 数据源的服务建在插件装配之后，组合根现转给它：开机补跑的那一夜可能在它起来之前就开始了，就等它起来（signal 置位时不再等、交回空的）
+ */
+export interface DataSourcePreSync {
+  syncPullable(options: { freshMs: number; signal: AbortSignal }): Promise<readonly PullableSync[]>;
 }
 
 /**
@@ -197,6 +208,8 @@ export const KERNEL = {
   memorySlot: serviceKey<MemorySlot>("memorySlot"),
   /** 用户说"这张图记下来"时能带上的文件（见 ElementFiles） */
   elementFiles: serviceKey<ElementFiles>("elementFiles"),
+  /** 记忆整理之前把能由电脑拉的数据源各同步一次（见 DataSourcePreSync）。数据源的服务建在插件装配之后，组合根现转给它 */
+  dataSourceSync: serviceKey<DataSourcePreSync>("dataSourceSync"),
 } as const;
 
 /** 内核提供的全部服务（建插件宿主时交给它，排依赖用） */

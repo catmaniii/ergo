@@ -2,6 +2,7 @@
 // 顶上按状态筛（全凭概览给的条数），点一条去"证据与推理"看它的证据链和竞争解释。
 // - 一行：陈述；下面编号 · 层级 · 状态 · 把握 · 来源，更新时间，支持/反证/竞争解释的条数小签；
 // - 顶上：结论一共几条、各层各几条；最近一次整理是那一夜、跑成什么样、新出几条；问题箱开着几个在首页上写；
+//   整理之前同步了数据源的，下面再一行：同步了哪几个、各新增几条，刚同步过的、没同步上的和为什么；
 // - 推理库还没建、正被每晚整理占着：写原因和空数据（不报错、不是空白的页）；
 // - 一页最多 MEMORY_CLAIMS_MAX 条（接口的上限），超过时写明只显示前几条。
 // -每条结论一行上先是醒目的"已验证 / 猜测"小签（标着复核的再加"复核中"）；最下面一节"做法"（交互策略）：
@@ -23,6 +24,7 @@ import {
   memoryClaimRow,
   memoryClaimStatusChoices,
   memoryLastNightLine,
+  memoryNightSyncLine,
   memorySummaryLine,
   type MemorySummaryView,
   t,
@@ -155,11 +157,17 @@ export function ClaimsBrowse({ onOpen }: { onOpen(id: string): void }) {
   const statusChoices: MemoryClaimStatusChoice[] = memoryClaimStatusChoices(summary?.statuses);
   const groups = page === undefined ? [] : memoryClaimGroups(page.items);
   const ready = page?.ready ?? true;
+  const syncLine = summary?.ready === true ? memoryNightSyncLine(summary.lastNight) : undefined;
 
   return (
     <div className="mem-page">
       {summary !== undefined && summary.ready && <div className="mem-note mem-head">{memorySummaryLine(summary)}</div>}
       {summary !== undefined && summary.ready && <div className="mem-note mem-head">{memoryLastNightLine(summary.lastNight)}</div>}
+      {syncLine !== undefined && (
+        <div className="mem-note mem-head" data-note="source-sync">
+          {syncLine}
+        </div>
+      )}
       <div className="mem-filters" role="group" aria-label={t("pages.memoryGraph.filters")}>
         {statusChoices.map((choice) => {
           const on = choice.value === status;
