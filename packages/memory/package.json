@@ -1,6 +1,6 @@
 {
   "name": "@ergo/memory",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "private": true,
   "type": "module",
   "description": "二狗的记忆系统：证据、知识图谱、推理图谱、混合检索、每晚整理、唯一写入口和图谱自检（守护进程的记忆插件用它）",

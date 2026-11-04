@@ -1,6 +1,6 @@
 {
   "name": "@ergo/supervisor",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "private": true,
   "type": "module",
   "description": "二狗的服务管家（Local Service Manager，LSM）：单独的小进程，在一台 Windows 机器上统一托管、探活、监控各项目的常驻服务（含二狗自己），带实时 WebUI。",
