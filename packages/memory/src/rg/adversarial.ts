@@ -14,6 +14,7 @@
 //
 // 放在 reflect 末尾：评测建库走 MemoryEngine.reflect()，这样评测里也跑得到；规则版不调模型（引擎没给复核模型）。
 import type { Claim, ClaimReview } from "../domain/types.ts";
+import { REPLY_CONTEXT_RULE } from "../evidence/reply-context.ts";
 import { canSupportUserClaims } from "../evidence/boundary.ts";
 import { unparsedReason, type ChatModel, type ChatRequest } from "../llm/chat.ts";
 import { parseModelJson } from "../llm/json.ts";
@@ -29,6 +30,7 @@ export const REVIEW_MAX_TOKENS = 800;
 
 export const REVIEW_SYSTEM = `你是记忆系统的独立复核员。你看不到系统原来得出了什么结论，只能根据下面这些观察原话自己判断。规则：
 - 只根据给你的观察原话，不编造；别人转述的、系统记的不能当依据；
+- ${REPLY_CONTEXT_RULE}；
 - 第一步：先写下从这些观察能推出关于这个人的一条结论（写在 inference），不要猜系统想让你说什么；
 - 第二步：再看候选结论，判断这些观察支不支持它：support 写 yes（支持）、no（不支持）、unclear（看不出来）；
 - why 一句话说理由；

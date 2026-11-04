@@ -25,6 +25,7 @@
 import { USER_ENTITY_ID } from "../domain/ids.ts";
 import { addDays, localDate, sameLocalDay, toMs } from "../domain/time.ts";
 import type { Claim, Confidence, Fact, LinkWeight } from "../domain/types.ts";
+import { userWordsOf } from "../evidence/reply-context.ts";
 import { CONTEXT_DIMENSIONS, contextsCompatible } from "../kg/context.ts";
 import { changeSignals, correctionSignals } from "../kg/signals.ts";
 import { factPhrase } from "../kg/statement.ts";
@@ -327,7 +328,7 @@ class Generator {
     this.recentEvidence = rg.store
       .listEvidence({ status: "active", sourceLevel: "self" })
       .filter((e) => toMs(e.observedAt) > from && toMs(e.observedAt) <= toMs(at))
-      .map((e) => ({ domains: new Set<string>([...domainsOfTags(e.context), ...domainsOfText(e.text)]) }));
+      .map((e) => ({ domains: new Set<string>([...domainsOfTags(e.context), ...domainsOfText(userWordsOf(e.text))]) }));
   }
 
   private get store() {
@@ -935,7 +936,7 @@ class Generator {
       if (toMs(flip.observedAt) <= from || toMs(flip.observedAt) > toMs(this.at)) continue;
       // 说了"现在、开始、不再"或者是纠正的，是有交代的变化，不算反常
       const texts = flip.evidenceIds.map((id) => this.store.getEvidence(id)).filter((e) => e !== undefined);
-      if (texts.some((e) => e.kind === "correction" || changeSignals(e.text).length > 0 || correctionSignals(e.text).length > 0)) continue;
+      if (texts.some((e) => e.kind === "correction" || changeSignals(userWordsOf(e.text)).length > 0 || correctionSignals(userWordsOf(e.text)).length > 0)) continue;
       const claimId = this.rg.registry.explicitClaimOf(flip.id);
       const claim = claimId ? this.store.getClaim(claimId) : undefined;
       if (!claim || gone(claim)) continue;

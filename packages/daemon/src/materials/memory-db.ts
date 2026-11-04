@@ -11,6 +11,9 @@
 //   不参与推断的素材 id。按素材 id 记，和素材本身在不在无关（只在原文副本里的素材补回来时照样带上标记）。
 // materials 多一列 origin（数据源素材的出处：哪个数据源、场景、敏感类别，JSON；别的素材是 NULL），
 //   场景里的地点、和谁也进索引文字（检索"望京的公司"找得到那天在那儿的素材）。
+// - material_replies：会话里本人的话"回的是什么"（素材频道上 material_replies 事件派生）：判过的素材 id、哪种、前文意思的总结、
+//   前文是哪条消息。同 material_marks 按素材 id 记（只在原文副本里的素材补回来时照样带上）；被忘掉的素材连这一行一起删。
+//   总结不进索引文字（不是用户说的话）。
 import path from "node:path";
 import { type Database, openDatabase } from "../storage/sqlite.ts";
 import type { Material, MaterialKind, OriginalCopy } from "./types.ts";
@@ -21,6 +24,7 @@ export const MATERIALS_DB_FILE = "materials.db";
  * 库的版本（PRAGMA user_version）：以后改表时据此迁移。
  * 2：加 material_marks。表都是 IF NOT EXISTS 建的，版本 1 的库打开时自动补上
  * 3：materials 加 origin 列。旧库打开时补上这一列（ALTER TABLE，已有的素材是 NULL）
+ * material_replies 不升版本：IF NOT EXISTS 建，旧库打开时补上；退回旧版的守护进程不认这张表也不碍事（只是不挂前文）
  */
 const SCHEMA_VERSION = 3;
 
@@ -61,6 +65,12 @@ CREATE TABLE IF NOT EXISTS material_marks (
   forgotten INTEGER NOT NULL DEFAULT 0,
   no_infer INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS material_replies (
+  material_id TEXT PRIMARY KEY,
+  verdict TEXT NOT NULL,
+  summary TEXT,
+  from_message TEXT
+);
 `;
 
 export function openMaterialsDb(dbDir: string): Database {
@@ -91,11 +101,15 @@ interface MaterialRow {
   original: string | null;
   origin: string | null;
   no_infer: number | null;
+  reply_summary: string | null;
+  reply_from: string | null;
 }
 
 /** 读素材时取的列（m 是 materials 表）；带上标记 */
 const SELECT_MATERIAL = `SELECT m.id, m.kind, m.mode, m.time, m.conversation, m.task, m.project, m.source, m.ref, m.context, m.segments, m.original, m.origin,
-  (SELECT k.no_infer FROM material_marks k WHERE k.material_id = m.id) AS no_infer`;
+  (SELECT k.no_infer FROM material_marks k WHERE k.material_id = m.id) AS no_infer,
+  (SELECT r.summary FROM material_replies r WHERE r.material_id = m.id AND r.verdict = 'reply') AS reply_summary,
+  (SELECT r.from_message FROM material_replies r WHERE r.material_id = m.id AND r.verdict = 'reply') AS reply_from`;
 
 function toMaterial(row: MaterialRow): Material {
   return {
@@ -113,6 +127,7 @@ function toMaterial(row: MaterialRow): Material {
     original: row.original === null ? null : (JSON.parse(row.original) as Material["original"]),
     ...(row.origin === null ? {} : { origin: JSON.parse(row.origin) as NonNullable<Material["origin"]> }),
     noInfer: row.no_infer === 1,
+    ...(row.reply_summary === null ? {} : { reply: { summary: row.reply_summary, ...(row.reply_from === null ? {} : { fromMessageId: row.reply_from }) } }),
   };
 }
 
@@ -299,6 +314,8 @@ export function forgetMaterials(db: Database, ids: readonly string[]): OriginalC
     db.run("DELETE FROM materials WHERE id = ?", id);
     db.run("DELETE FROM material_fts WHERE material_id = ?", id);
     db.run("DELETE FROM material_vectors WHERE material_id = ?", id);
+    // 挂的前文跟着素材一起走（忘掉、彻底删除）
+    db.run("DELETE FROM material_replies WHERE material_id = ?", id);
     db.run("INSERT INTO material_marks (material_id, forgotten) VALUES (?, 1) ON CONFLICT (material_id) DO UPDATE SET forgotten = 1", id);
   }
   return originals;
@@ -314,4 +331,42 @@ export function markNoInfer(db: Database, ids: readonly string[]): void {
   for (const id of ids) {
     db.run("INSERT INTO material_marks (material_id, no_infer) VALUES (?, 1) ON CONFLICT (material_id) DO UPDATE SET no_infer = 1", id);
   }
+}
+
+/** 一条素材"回的是什么"的判定（material_replies 事件里的一项，素材库已经去掉了删除标记、认过了种类） */
+export interface ReplyRecord {
+  materialId: string;
+  verdict: string;
+  summary?: string;
+  fromMessageId?: string;
+}
+
+/**
+ * 记下一批"回的是什么"（同一条素材后来的覆盖先前的）；被忘掉过的素材不记。在调用方的事务里。
+ * 只有 reply 带总结；别的（新话题、会话第一句、前文的会话删了）只记判过了
+ */
+export function recordReplies(db: Database, records: readonly ReplyRecord[]): void {
+  for (const r of records) {
+    if (isForgotten(db, r.materialId)) continue;
+    const reply = r.verdict === "reply" && r.summary !== undefined;
+    db.run(
+      "INSERT INTO material_replies (material_id, verdict, summary, from_message) VALUES (?, ?, ?, ?) ON CONFLICT (material_id) DO UPDATE SET verdict = excluded.verdict, summary = excluded.summary, from_message = excluded.from_message",
+      r.materialId,
+      reply ? "reply" : r.verdict,
+      reply ? r.summary! : null,
+      r.fromMessageId ?? null,
+    );
+  }
+}
+
+/** 判过"回的是什么"的素材 id（不论判成哪种） */
+export function replyJudgedIds(db: Database): Set<string> {
+  return new Set(db.all<{ material_id: string }>("SELECT material_id FROM material_replies").map((r) => r.material_id));
+}
+
+/** 一条素材挂的前文（只在原文副本里、还没进库的素材读的时候带上）；没有是 undefined */
+export function replyOf(db: Database, id: string): { summary: string; fromMessageId?: string } | undefined {
+  const row = db.get<{ summary: string | null; from_message: string | null }>("SELECT summary, from_message FROM material_replies WHERE material_id = ? AND verdict = 'reply'", id);
+  if (!row || row.summary === null) return undefined;
+  return { summary: row.summary, ...(row.from_message === null ? {} : { fromMessageId: row.from_message }) };
 }

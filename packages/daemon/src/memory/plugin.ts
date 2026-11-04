@@ -5,7 +5,7 @@
 //   - 它拥有的事件怎么变成素材：显式记忆命令（memory_command 里的"记住"和用户下的删除命令）、建议卡和提问卡长期没处理（card_stale，
 //     回避信号计时追加的）、秘书存下的外部信息（material_ingested，materials/ingested.ts）——声明进内核的素材库，停用时照样声明
 //     （素材库按它给本人的话留原话副本，重建 materials.db 时照样采得出来）；
-//   - 这三类事件的改写函数（彻底删除照常）；
+//   - 这三类事件的改写函数（彻底删除照常），和素材"回的是什么"的判定（material_replies，每晚整理之前判的，素材库照它标）的改写函数；
 //   - 记忆删除卡（卡上的动作现取 MEMORY，没启用时回"记忆插件没启用"）。
 // - 装配：
 //   - 开始采成素材（素材库的 collect：写进 materials.db 和关键词索引、从原文副本补回、向量补算和语义检索、回避信号计时），停用时停掉，
@@ -58,6 +58,7 @@ import {
   type Material,
   materialIngestedPurge,
   materialIngestedSource,
+  materialRepliesPurge,
   memoryCommandSource,
   rememberCommandPurge,
 } from "../materials/index.ts";
@@ -130,8 +131,9 @@ export const memoryPlugin: PluginDefinition = {
     ctx.materialSources.register(cardStaleSource);
     // 秘书按用户的要求存下的外部信息：来源外部（不可信），正文只进检索
     ctx.materialSources.register(materialIngestedSource);
-    // 彻底删除："记住"的命令只换掉内容；长期没处理的卡只换掉卡片的纯文本降级；存下的外部信息换掉标题、正文、出处
-    ctx.purge.register(rememberCommandPurge, cardStalePurge, materialIngestedPurge);
+    // 彻底删除："记住"的命令只换掉内容；长期没处理的卡只换掉卡片的纯文本降级；存下的外部信息换掉标题、正文、出处；
+    // 素材"回的是什么"的判定只换掉被删素材那几项的前文总结
+    ctx.purge.register(rememberCommandPurge, cardStalePurge, materialIngestedPurge, materialRepliesPurge);
     ctx.cardTypes.register(memoryDeleteCardType(() => ctx.active(MEMORY)));
     // 约访卡（动作现取访谈的服务，插件没启用时回"记忆插件没启用"）
     ctx.cardTypes.register(interviewCardType(() => ctx.active(MEMORY_INTERVIEWS)));
@@ -339,6 +341,8 @@ export const memoryPlugin: PluginDefinition = {
           conversations: store,
           // 个人档案（内核的）——档案摘要当情境、号码不进提示、认人物信息攒候选
           personalFiles: () => ctx.optional(KERNEL.personalFiles),
+          // 整理之前判素材"回的是什么"：找前文、记结果、前文是卡片时取卡片的纯文本降级
+          replyContext: { store, judged: () => materials.replyJudged(), cardText: (cardId) => ctx.use(KERNEL.cards).get(cardId)?.text },
           log,
         });
         nightly = job;

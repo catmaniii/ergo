@@ -21,6 +21,7 @@
 import { USER_ENTITY_ID } from "../domain/ids.ts";
 import { addDays, localDate, toMs } from "../domain/time.ts";
 import type { Claim, Fact, LinkWeight } from "../domain/types.ts";
+import { userWordsOf } from "../evidence/reply-context.ts";
 import { contextsCompatible } from "../kg/context.ts";
 import { RELATION_PREDICATES, RELATION_SCENES, type RelationPredicate } from "../kg/relations.ts";
 import { changeSignals } from "../kg/signals.ts";
@@ -397,7 +398,7 @@ export function assessRoots(c: ConflictRecord, ctx: RootContext): RootAssessment
         const t = toMs(e.eventTime ?? e.observedAt);
         if (t < from || t > to) continue;
         const busy = store.factsByEvidence(e.id).some((x) => x.predicate === "said_about" && !x.negated && x.subjectId === USER_ENTITY_ID);
-        if (busy || hasConstraint(e.text)) constraintEvidenceIds.push(e.id);
+        if (busy || hasConstraint(userWordsOf(e.text))) constraintEvidenceIds.push(e.id);
       }
     }
     for (const id of constraintEvidenceIds) add("say_do_gap", id, "supports", "strong", `做不到的那段时间有现实约束：${text(id)}`);

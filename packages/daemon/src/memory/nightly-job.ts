@@ -43,6 +43,11 @@
 // 再从这一夜新来的话里认人物信息（同一个模型、这一夜剩下的预算，最多 5 次），攒成档案的候选、合成第二天的候选核对卡。
 // 认人物信息的调用算进这一夜的 modelCalls，整理记录多一项 people。
 //
+// 素材的"回的是什么"（reply-context.ts）：整理之前先判会话里本人还没判过的话——接着对方的话说的挂上前文意思的总结、新话题不挂。
+// 同一个模型（包了档案那一层和中止）、算进这一夜的 modelCalls、从整理的预算里先扣（不超过 maxModelCalls）；每晚上限
+// REPLY_CONTEXT_PER_NIGHT 句，超了留到下一夜。判完再读新证据：还没判的新近几条先压着（replyHeldBack），判过的带着前文读成证据。
+// 出错不让整夜失败（中止照旧往上抛）；整理记录多一项 replyContext。没给 replyContext（离线建库、测试）就不判。
+//
 // 墙钟上限（config.memory.nightlyTimeoutMinutes，默认 60 分钟）：每一夜到点就 abort（抛 AbortError），
 // 记一条 failed（原因写"整理超时"）+ 待我处理一条，下一夜照常；whenIdle() 照样会返回。
 // 注意能停下来的只有能回到事件循环的点（等模型、等 IO、等推后的 sleepUntil）：卡在本地同步死循环里时 abort
@@ -82,6 +87,7 @@ import type { MemoryConfig } from "../config/config.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { InboxService, NewInboxItem } from "../inbox/inbox.ts";
 import type { Materials } from "../materials/materials.ts";
+import type { Material } from "../materials/types.ts";
 import type { PersonalFilesForMemory } from "../personal-files/index.ts";
 import { clockIso, type Clock } from "../scheduler/clock.ts";
 import type { InternalJob, JobTrigger } from "../scheduler/internal-jobs.ts";
@@ -91,6 +97,7 @@ import { appendNightlyRecord, type MemoryNightlyRecord, type MemoryNightlyReview
 import { guardNightlyChat, linkNightly } from "./personal-files-link.ts";
 import { lockedSensitiveTags } from "./privacy.ts";
 import { conversationFollowUps } from "./reply-follow-ups.ts";
+import { judgeMaterialReplies, REPLY_CONTEXT_PER_NIGHT, type ReplyContextRun, type ReplyContextStore, replyHeldBack } from "./reply-context.ts";
 import { openReasoningDb, type ReasoningDbIssue } from "./rg-db.ts";
 
 /** 作业名（配置、日志、测试里用它） */
@@ -144,6 +151,15 @@ export interface MemoryNightlyJobOptions {
   conversations?: Pick<EventStore, "reader">;
   /** 个人档案（内核的，档案摘要、不进提示的值、候选）；不给（离线建库）就没有联动 */
   personalFiles?: () => PersonalFilesForMemory | undefined;
+  /**
+   * 整理之前判素材"回的是什么"要的：事件日志（找前文、记结果）、判过的素材、卡片的纯文本降级（前文是卡片时）；
+   * 不给（离线建库）就不判，新证据也不压着
+   */
+  replyContext?: {
+    store: ReplyContextStore;
+    judged: () => ReadonlySet<string>;
+    cardText?: (cardId: string) => string | undefined;
+  };
 }
 
 /** 作业句柄：作业本身、直接跑一次（测试用）、手动整理一次（用户点了"立即整理一次"）、停用/移除时中止、等正在跑的那一次停下 */
@@ -459,13 +475,15 @@ function deepseekChat(env: Readonly<Record<string, string | undefined>>, model: 
  * 数据源的素材同一个数据源、同一种、同一天多的合成一条，当天的等这一天过完，一夜最多 DATA_SOURCE_EVIDENCE_PER_NIGHT 条——
  * 用户说的话照旧全读进来，不被数据源挤掉
  */
-function ingestNewEvidence(engine: MemoryEngine, materials: Pick<Materials, "list">, clock: Clock, config: MemoryConfig): number {
+function ingestNewEvidence(engine: MemoryEngine, materials: Pick<Materials, "list">, clock: Clock, config: MemoryConfig, held?: () => (material: Material) => boolean): number {
   const source = new MaterialsEvidenceSource({
     materials,
     clock,
     inferableSensitiveCategories: config.sensitiveCategories,
     skip: ingestedMaterialIds(engine.store.listEvidence()),
     dataSourceLimit: DATA_SOURCE_EVIDENCE_PER_NIGHT,
+    // 还没判"回的是什么"的新近几条先不读（判完带着前文读）
+    ...(held === undefined ? {} : { holdBack: held() }),
   });
   const fresh = source.read();
   if (fresh.length > 0) engine.ingestFrom({ name: source.name, now: source.now, read: () => fresh });
@@ -553,7 +571,34 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
       engine = opened.engine;
       if (opened.created) log(`记忆整理建好了推理库 ${options.file}`);
 
-      ingestNewEvidence(engine, options.materials, options.clock, options.config);
+      // 整理之前先判素材"回的是什么"（判完的带着前文读成证据）；出错不让整夜失败
+      let replyRun: ReplyContextRun | undefined;
+      const replyContext = options.replyContext;
+      if (replyContext !== undefined) {
+        try {
+          replyRun = await judgeMaterialReplies({
+            store: replyContext.store,
+            materials: { list: (filter) => options.materials.list(filter), replyJudged: replyContext.judged },
+            chat,
+            clock: options.clock,
+            ...(replyContext.cardText === undefined ? {} : { cardText: replyContext.cardText }),
+            limit: REPLY_CONTEXT_PER_NIGHT,
+            maxCalls: options.config.maxModelCalls,
+            signal,
+            log,
+          });
+        } catch (err) {
+          if (isAbort(err) || signal.aborted) throw err;
+          log(`记忆整理 ${night}：判素材回的是什么出错（整理照常）：${messageOf(err)}`);
+        }
+      }
+      const replies = replyRun?.report;
+      const replyCalls = replies?.calls ?? 0;
+      // 判成了（没整个出错）才压着还没判到的新近几条；交给了模型、没判出来的不压着
+      const held =
+        replyContext === undefined || replyRun === undefined ? undefined : () => replyHeldBack(replyContext.judged(), clockIso(options.clock), replyRun.tried);
+
+      ingestNewEvidence(engine, options.materials, options.clock, options.config, held);
       throwIfAborted(signal);
       await engine.indexVectors();
       throwIfAborted(signal);
@@ -561,7 +606,8 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
       const nightly = options.nightly === undefined ? {} : { config: options.nightly };
       // 手动整理：同一份 runNightly，只是 manual 让它不看 03:00、不看用户在不在用；预算照旧
       const nightlyOptions = {
-        maxModelCalls: options.config.maxModelCalls,
+        // 判"回的是什么"花掉的先扣（一夜合起来不超过 maxModelCalls）
+        maxModelCalls: Math.max(0, options.config.maxModelCalls - replyCalls),
         ...nightly,
         ...(manual ? { manual: true } : {}),
         ...(options.validator === undefined ? {} : { validator: options.validator }),
@@ -575,7 +621,7 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
         append(recordOfDeferral(result, trigger, clockIso(options.clock)));
         await sleepUntil(options.clock, toMs(result.nextAt), signal);
         throwIfAborted(signal);
-        ingestNewEvidence(engine, options.materials, options.clock, options.config);
+        ingestNewEvidence(engine, options.materials, options.clock, options.config, held);
         throwIfAborted(signal);
         await engine.indexVectors();
         throwIfAborted(signal);
@@ -584,6 +630,10 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
       const atNow = clockIso(options.clock);
       if (!result.ran) return append(recordOfDeferral(result, trigger, atNow));
       const record = recordOfReport(result.report, trigger, atNow, pendingEvidenceOf(engine));
+      if (replies !== undefined && replies.calls + replies.first + replies.pending > 0) {
+        record.replyContext = { ...replies };
+        record.modelCalls += replies.calls;
+      }
       if (files !== undefined) {
         // 283：个人档案的联动（出错不让整夜失败：整理已经跑成了）
         try {

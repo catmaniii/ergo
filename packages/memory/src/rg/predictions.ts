@@ -17,6 +17,7 @@
 // - 两步都在 reflect() 末尾跑（ReflectReport.predictions），所以评测建库也跑得到；nightly 只负责在报告里展示。
 // - 模型判用 PredictionJudge（真模型是 LlmPredictionJudge，测试用假模型）。提示词只让模型判"应验没有"、说是凭哪条证据，不喂别的东西。
 import { addDays, toMs } from "../domain/time.ts";
+import { REPLY_CONTEXT_RULE } from "../evidence/reply-context.ts";
 import type { Claim, Derivation, PredictionBlame, PredictionRecord, PredictionStatus, RevisionCause } from "../domain/types.ts";
 import { canSupportUserClaims, isVerdictEvidence } from "../evidence/boundary.ts";
 import type { ChatModel, ChatRequest } from "../llm/chat.ts";
@@ -300,6 +301,7 @@ export function predictionsFollowSources(store: MemoryStore, writer: RgWriter, c
 
 export const PREDICTION_SYSTEM = `你是记忆系统的推理器，判断一条早先写下的预测后来应验了没有。规则：
 - 只看给你的证据（evidence_id、时间、原话），不编造；
+- ${REPLY_CONTEXT_RULE}；
 - 预测到期了：证据里明明发生了预测说的事 → hit；明明没发生、或者发生了相反的事 → miss；证据不够、说不清 → unclear；
 - why 一句话说明依据，不超过 40 个字；evidence_id 写你凭的是哪一条（只能用给你的 evidence_id；unclear 可以不写）；
 只输出 JSON：{"outcome": "hit | miss | unclear", "why": "...", "evidence_id": "..."}`;

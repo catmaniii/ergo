@@ -14,6 +14,7 @@
 // 给了问过的账（ctx.asked，reflect 建）时，出假设的新观察、往上抽没被用上的下层断言问过一次、没变化的不再当这一批问
 // （照样作为别的事实、别的下层断言给摘要），问到了的交回账上；不给账（估费用、别的调用方）照旧全问。
 import { addDays, compareTime } from "../domain/time.ts";
+import { REPLY_CONTEXT_RULE } from "../evidence/reply-context.ts";
 import { CLAIM_TIERS, LINK_WEIGHTS, type ClaimTier, type Fact, type LinkWeight, type Probe } from "../domain/types.ts";
 import { unparsedReason, type ChatModel, type ChatRequest } from "../llm/chat.ts";
 import { isStringArray, parseModelJson } from "../llm/json.ts";
@@ -43,6 +44,7 @@ export const PROPOSE_SYSTEM = `你是记忆系统的推理器，给一个人的�
 - 每条解释：tier 是 state（近期状态，要写 valid_to）、preference（偏好和目标）、need（稳定需求）、value（长期价值取向）之一；
   context 是它适用的场景标签；supports、refutes 列出支持它、反驳它的事实，每条写 target（fact_id）、weight（weak | strong | decisive，decisive 只给用户自己明说的）、rationale；
 - 不要把一个场景的偏好推广到别的场景；先后不等于原因；
+- ${REPLY_CONTEXT_RULE}；
 - 观察分批给你：只为"这一批的观察"出组，每组至少有一条观察是这一批的；"别的事实"只有摘要，可以当支持、反驳，也可以并进组的 observation_ids；"已经有的组"不要重复；
 - 输出要紧凑：最多 ${PROPOSE_MAX_GROUPS} 组；每组 2 到 4 条解释；每条的 supports、refutes 各最多 4 条、只列最有力的；description、statement 各不超过 40 个字，rationale 不超过 20 个字；不要缩进换行。
 只输出 JSON：{"groups": [{"observation_ids": [fact_id...], "description": "观察到了什么", "hypotheses": [{"tier", "statement", "context": [], "valid_to": ISO 或 null, "supports": [], "refutes": []}]}]}`;
@@ -56,7 +58,8 @@ export const PROBES_SYSTEM = `你是记忆系统的推理器，给一组竞争�
 export const JUDGE_SYSTEM = `你是记忆系统的推理器，判断检索到的证据对几条竞争解释意味着什么。规则：
 - 只用给你的证据（evidence_id）和解释（claim_id），不编造 id；usable 为 false 的（别人转述）不能当依据；
 - 每条有用的证据写一条关联：claim_id、evidence_id、polarity（supports | refutes）、weight（weak | strong | decisive，decisive 只给用户自己明说的）、rationale；
-- 什么都没找到就 found_evidence_ids 为空（搜不到不等于反驳）。
+- 什么都没找到就 found_evidence_ids 为空（搜不到不等于反驳）；
+- ${REPLY_CONTEXT_RULE}。
 只输出 JSON：{"found_evidence_ids": [], "if_found": claim_id 或 null, "links": [{"claim_id", "evidence_id", "polarity", "weight", "rationale"}]}`;
 
 const STATE_DAYS = 14;

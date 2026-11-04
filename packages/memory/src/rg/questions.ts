@@ -21,6 +21,7 @@ import { addDays, localDate, sameLocalDay, toMs } from "../domain/time.ts";
 import type { Claim, ClaimStatus, Confidence, Evidence, EvidenceDraft, LinkWeight, RevisionCause } from "../domain/types.ts";
 import type { MemoryEngine } from "../engine.ts";
 import { canSupportUserClaims } from "../evidence/boundary.ts";
+import { userWordsOf } from "../evidence/reply-context.ts";
 import { contextsCompatible } from "../kg/context.ts";
 import { HELD_STATUSES, rgSession, rgWriter, type RgWriter } from "../store/store.ts";
 import type { WriteActor, WriteIntent } from "../domain/types.ts";
@@ -1025,11 +1026,12 @@ export class QuestionBook implements QuestionSink {
       const e = this.resolveEvidence(evidence);
       if (!canSupportUserClaims(e)) throw new Error(`只认本人有效的回答（${e.id} 的来源是 ${e.sourceLevel}、状态是 ${e.status}）`);
       // 每晚整理时记忆管理员判出来的回答交来它读出的是 / 不是（隐含的回答规则读不出来）；没交就照规则读
-      const { verdict, clear } = options.reading ?? classifyAnswer(e.text);
+      // 只读用户自己的话（前文那一行不是用户说的）
+      const { verdict, clear } = options.reading ?? classifyAnswer(userWordsOf(e.text));
       const answered: Question = { ...q, status: "answered", answerEvidenceId: e.id, verdict, clear, answeredAt: at, before: this.snapshot(q) };
       this.save(answered);
       const later = options.reading === undefined ? "下一夜按判法判" : "按判法判";
-      this.log(q.id, "answered", `${options.note === undefined ? "" : `${options.note}；`}回答"${e.text}"：读成"${VERDICT_LABEL[verdict]}"${verdict === "unclear" ? "" : clear ? "，说得很明确，马上判" : `，不算明确，${later}`}`, at, e.id);
+      this.log(q.id, "answered", `${options.note === undefined ? "" : `${options.note}；`}回答"${userWordsOf(e.text)}"：读成"${VERDICT_LABEL[verdict]}"${verdict === "unclear" ? "" : clear ? "，说得很明确，马上判" : `，不算明确，${later}`}`, at, e.id);
       if (verdict === "unclear" || !clear) {
         return { question: this.view(answered), evidenceId: e.id, verdict, clear, applied: verdict === "unclear" ? "none" : "nightly" };
       }

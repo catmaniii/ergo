@@ -282,6 +282,7 @@ This page is view-only. To answer, just reply when the secretary asks; to bring 
 
 - Items in the list can have tags: **From an interview**, **Excluded from inference**, **On an abandoned branch**, **Due for cleanup** (saved outside info past its suggested cleanup date).
 - The kind also tells you where it came from: What you said, Approval decision, Answer to a clarifying question, Task outcome, Something you did (observed)…
+- When something you said was a reply to the other side (say your assistant asked "Should I wake you as usual on weekend mornings too?" and you answered "No, not on weekends"), the details show a small line above the content, **Replying to: …**, with the gist of what was said just before. The memory curator adds it before the nightly consolidation. It isn't your words and is only used to understand your reply; a new topic you start, or the first thing you say in a conversation, has none. Older materials get it in batches, night by night. It's deleted together with the material.
 - Finding materials by meaning needs the [embedding model](#troubleshooting). Search on this page uses keywords and doesn't need it.
 
 ## Get-to-know interview

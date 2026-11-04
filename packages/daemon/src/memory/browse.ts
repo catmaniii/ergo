@@ -18,8 +18,12 @@
 //   建议几天后清理在原始事件里（materials/ingested.ts 的 ingestedOf），事件还在、没被彻底删除时补上：正文进那一段的 quoted，
 //   别的进详情的 ingested（建议清理的时间、到了没有按现在算）；到了建议清理的时间在列表、详情的标记里标出来（cleanupDue），不自动删。
 //   搜的时候这类也按正文、出处比对。
+// - 回的是什么（接着对方的话说的，素材上挂的前文意思的总结，memory/reply-context.ts）：详情多给一块 reply。总结是模型写的，
+//   说到秘书写的是"秘书"，换成名字占位（页面上显示用户起的名字）。
 // 这是内核的（同设置里的批量删除 bulk.ts）：记忆插件停用时照样能看、能删已有的素材。只读。
 import {
+  ASSISTANT_DOMAIN_TERM,
+  ASSISTANT_NAME_MARK,
   attachmentPartFrom,
   INTERVIEW_CONTEXT,
   type MaterialDetailView,
@@ -170,6 +174,8 @@ export function createMaterialBrowser(options: MaterialBrowserOptions): Material
         ...(recordId === undefined ? {} : { recordId }),
         ...(m.original ? { original: m.original.path } : {}),
         marks: marksOf(m, abandoned),
+        // 回的是什么：总结里的"秘书"换成名字占位
+        ...(m.reply === undefined ? {} : { reply: { summary: m.reply.summary.replaceAll(ASSISTANT_DOMAIN_TERM, ASSISTANT_NAME_MARK) } }),
         ...(ingested
           ? {
               ingested: {

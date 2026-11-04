@@ -104,6 +104,8 @@
 //   素材上"来自访谈"的情境标签；约访卡的负载、GET / POST /api/memory/interview 的形状。
 // - ingested-materials.ts / ingested-materials-schema.ts：存下的外部信息——秘书按用户的要求存进素材的邮件、网页、日程、Looki 时刻、
 //   别的外部文字：有哪几种、上限、建议清理的时间；素材频道上 material_ingested 事件的负载、设置里点开时多给的一块。
+// - material-replies.ts / material-replies-schema.ts：素材的"回的是什么"——接着对方的话说的一句挂上前文意思的总结：
+//   判的几种结果、总结的上限；素材频道上 material_replies 事件的负载、设置里点开时多给的一块。
 //
 // 包的 package.json 声明了 sideEffects: false：Web 只用常量和类型，打包时 schema 和 TypeBox 会被摇掉。
 //
@@ -224,5 +226,7 @@ export * from "./memory-interview.ts";
 export * from "./memory-interview-schema.ts";
 export * from "./ingested-materials.ts";
 export * from "./ingested-materials-schema.ts";
+export * from "./material-replies.ts";
+export * from "./material-replies-schema.ts";
 export * from "./i18n/index.ts";
 export * from "./i18n-schema.ts";

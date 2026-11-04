@@ -728,6 +728,8 @@
   "pages.materialDetail.jump": "跳到这条消息 ›",
   "pages.materialDetail.content": "内容",
   "pages.materialDetail.noContent": "（没有内容）",
+  "pages.materialDetail.replyLabel": "回的是：",
+  "pages.materialDetail.replyHint": "前文的意思（对方前面说的），不是你说的",
   "pages.materialDetail.source": "来源",
   "pages.materialDetail.deleteSection": "删除这一条",
   "pages.materialDetail.deleteNote": "删法同成批删除：忘掉只从素材库删，聊天记录里仍看得到；彻底删除连会话原文一起删；这两种都连记下来的图和文件一起删；别推断留着但不参与推断。",

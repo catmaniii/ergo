@@ -13,6 +13,8 @@
 // - 记忆命令（commands.ts）：memory_command 事件既产生"显式记忆命令"素材，也删除（忘掉、彻底删除）、
 //   标记（别推断）素材；被忘掉的留下墓碑，重建、从原文副本补回时都跳过，原文副本随之删掉。
 //   彻底删除之后 materials.db 做一次 WAL 检查点（TRUNCATE；连接开着 secure_delete），删掉的内容不留在 WAL 和空闲页里。
+// - 回的是什么（replies.ts）：素材频道上的 material_replies 事件（记忆插件每晚判的）同记忆命令一样跟着事件日志照做——
+//   按素材 id 标上前文意思的总结（同"别推断"：不进原文副本，重建、从原文副本补回时照样标上），忘掉、彻底删除时跟着删。
 // 不在这里：materials.db 和素材区的备份。
 //
 // （ADR-0027，"素材与记忆"做成插件）起分两层：
@@ -50,14 +52,18 @@ import {
   readCursor,
   readKeptCursor,
   readSearchTextVersion,
+  recordReplies,
   referencesMedia,
   replaceSearchText,
+  replyJudgedIds,
+  replyOf,
   searchTextOf,
   writeCursor,
   writeKeptCursor,
   writeSearchTextVersion,
 } from "./memory-db.ts";
 import { deleteOriginal, listOriginals, needsOriginal, readOriginal, writeOriginal } from "./originals.ts";
+import { replyRecordsOf } from "./replies.ts";
 import { BUILTIN_SOURCES } from "./sources.ts";
 import type { CapturedMaterial, Material, OriginalCopy } from "./types.ts";
 import { createVectorIndex, type MaterialHit, type VectorIndex, type VectorStatus } from "./vectors.ts";
@@ -115,6 +121,8 @@ export interface Materials {
   collecting(): boolean;
   /** 还有没有素材引用这个媒体（彻底删除后决定能不能删媒体文件） */
   referencesMedia(mediaId: string): boolean;
+  /** 判过"回的是什么"的素材 id（不论判成哪种；记忆插件每晚挑还没判的） */
+  replyJudged(): ReadonlySet<string>;
 }
 
 /** 记忆命令对已有素材的作用（不是记忆命令、或者已被彻底删除改写过的，没有） */
@@ -254,7 +262,9 @@ export function openMaterials(options: MaterialsOptions): Materials {
     const relevant = events.filter((e) => e.globalSeq > from);
     if (relevant.length === 0) return 0;
     const last = relevant.at(-1)!.globalSeq;
-    const work = relevant.map((event) => ({ event, captured: draftsOf(event), effect: effectOf(event) })).filter((w) => w.captured.length > 0 || w.effect);
+    const work = relevant
+      .map((event) => ({ event, captured: draftsOf(event), effect: effectOf(event), replies: replyRecordsOf(event) }))
+      .filter((w) => w.captured.length > 0 || w.effect || w.replies);
     if (work.length === 0) {
       advance(last);
       return 0;
@@ -266,6 +276,7 @@ export function openMaterials(options: MaterialsOptions): Materials {
       let n = 0;
       for (const w of work) {
         n += write(w.event, w.captured);
+        if (w.replies) recordReplies(db, w.replies);
         if (!w.effect) continue;
         doomed.push(...forgetMaterials(db, w.effect.forget).map((c) => c.path));
         forgotten.push(...w.effect.forget);
@@ -383,8 +394,11 @@ export function openMaterials(options: MaterialsOptions): Materials {
     }
   };
 
-  /** pending 里的一条，作为素材（"不参与推断"的标记按素材 id 记，照样带上） */
-  const pendingMaterial = (p: PendingMaterial): Material => ({ ...p.material, noInfer: isNoInfer(db, p.material.id) });
+  /** pending 里的一条，作为素材（"不参与推断"的标记、挂的前文按素材 id 记，照样带上） */
+  const pendingMaterial = (p: PendingMaterial): Material => {
+    const reply = replyOf(db, p.material.id);
+    return { ...p.material, noInfer: isNoInfer(db, p.material.id), ...(reply === undefined ? {} : { reply }) };
+  };
 
   /**
    * 开始采成素材的那一段（启动时，或者运行中又开始采集）：从采集位置补采、从原文副本补回（只保管时记着的那些进库）、
@@ -477,5 +491,6 @@ export function openMaterials(options: MaterialsOptions): Materials {
     vectorStatus: () => collector?.vectors.status() ?? VECTORS_OFF,
     collecting: () => collector !== undefined,
     referencesMedia: (mediaId) => referencesMedia(db, mediaId) || [...pending.values()].some((p) => JSON.stringify(p.material.segments).includes(mediaId)),
+    replyJudged: () => replyJudgedIds(db),
   };
 }

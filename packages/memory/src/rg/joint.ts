@@ -12,6 +12,7 @@
 import { USER_ENTITY_ID } from "../domain/ids.ts";
 import { addDays, localDate, toMs } from "../domain/time.ts";
 import type { Claim, ClaimTier, Fact, LinkWeight, Probe } from "../domain/types.ts";
+import { userWordsOf } from "../evidence/reply-context.ts";
 import type { MemoryEngine } from "../engine.ts";
 import { excludes } from "../kg/change.ts";
 import { contextsCompatible } from "../kg/context.ts";
@@ -526,7 +527,7 @@ export class JointReasoner {
       } else if (template === "check_constraint") {
         const t = toMs(evidence.eventTime ?? evidence.observedAt);
         const near = behaviorTimes.some((b) => t >= b - 14 * 86_400_000 && t <= b + 3 * 86_400_000);
-        if (near && hasConstraint(evidence.text)) push("say_do_gap", evidence.id, "strong", `那段时间的约束：${evidence.text.slice(0, 30)}`);
+        if (near && hasConstraint(userWordsOf(evidence.text))) push("say_do_gap", evidence.id, "strong", `那段时间的约束：${userWordsOf(evidence.text).slice(0, 30)}`);
       }
     }
     return { outcome: found.length > 0 ? "found" : "not_found", foundEvidenceIds: found.filter((id) => this.store.getEvidence(id) !== undefined), ifFound: probe.ifFound, links };

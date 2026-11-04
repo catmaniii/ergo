@@ -22,6 +22,7 @@
 //   passedLoose），不卡门槛。门槛的数和提示词不改。
 // -再收窄成只看"方面（domain）"维度（方面标签集合不同才算两种；只差日型、出行不算），老严格判定照旧只做统计。
 import { addDays, localDate, toMs } from "../domain/time.ts";
+import { REPLY_CONTEXT_RULE } from "../evidence/reply-context.ts";
 import { CLAIM_TIERS, LINK_WEIGHTS, type Claim, type ClaimTier, type Fact, type LinkWeight } from "../domain/types.ts";
 import type { ChatRequest } from "../llm/chat.ts";
 import { chunkEvenly } from "../llm/robust.ts";
@@ -41,6 +42,7 @@ export const LIFT_SYSTEM_NEED = `你是记忆系统的推理器，从一个人�
 - 每条解释写：statement；predicts（一条两周内可以被这件事验证的预测：什么场合、预期看到什么；不超过 30 个字，写不出就留空）；derivation（预测是不是必然推得出：只有 statement 本身说的是"每次、从不、一定"这种全称、predicts 是其中具体的一次时写 deductive，倾向、大概会的一律写 defeasible，拿不准写 defeasible）；expects（supports：看到什么算支持；refutes：看到什么算反证）；supports、refutes 列出支持、反驳它的事实（target 是 fact_id，weight 是 weak | strong | decisive，decisive 只给用户自己明说的）；
   domains（适用领域，只能从 ${DOMAIN_LIST} 里选）；probe（一个能把它和另一条区分开的追问：against 是另一条在 hypotheses 里的序号，从 0 起；ask 问具体发生的事，不问动机；queries 是去记忆里检索用的 2 到 6 个短语）；
 - 不编造 id；先后不等于原因；凑不出就少给，不要硬凑；
+- ${REPLY_CONTEXT_RULE}；
 - 输出要紧凑：每组 2 到 3 条解释；supports、refutes 各最多 4 条、只列最有力的；statement、expects 各不超过 40 个字，predicts 不超过 30 个字，rationale 不超过 20 个字；不要缩进换行。
 只输出 JSON：{"groups": [{"theme": "...", "premise_ids": [claim_id...], "description": "...", "hypotheses": [{"tier": "need", "statement": "...", "predicts": "...", "derivation": "defeasible", "expects": {"supports": "...", "refutes": "..."}, "supports": [{"target": fact_id, "weight": "strong", "rationale": "..."}], "refutes": [], "domains": [], "probe": {"against": 1, "ask": "...", "queries": ["..."]}}]}]}`;
 
@@ -52,6 +54,7 @@ export const LIFT_SYSTEM_VALUE = `你是记忆系统的推理器，从一个人�
 - 每条解释写：statement；predicts（一条两周内可以被这件事验证的预测：什么场合、预期看到什么；不超过 30 个字，写不出就留空）；derivation（只有 statement 本身是"每次、从不、一定"这种全称、predicts 是其中具体的一次时写 deductive，别的一律 defeasible）；expects（supports、refutes：看到什么算支持、反证）；supports、refutes 列出支持、反驳它的事实（target 是 fact_id，weight 是 weak | strong | decisive，decisive 只给用户自己明说的）；
   domains（只能从 ${DOMAIN_LIST} 里选）；probe（against 是另一条在 hypotheses 里的序号，从 0 起；ask 问具体发生的事；queries 是 2 到 6 个检索短语）；
 - 不编造 id；凑不出就少给；
+- ${REPLY_CONTEXT_RULE}；
 - 输出要紧凑：supports、refutes 各最多 4 条、只列最有力的；statement、expects 各不超过 40 个字，predicts 不超过 30 个字，rationale 不超过 20 个字；不要缩进换行。
 只输出 JSON：{"groups": [{"theme": "...", "premise_ids": [claim_id...], "description": "...", "hypotheses": [{"tier": "value", "statement": "...", "predicts": "...", "derivation": "defeasible", "expects": {"supports": "...", "refutes": "..."}, "supports": [], "refutes": [], "domains": [], "probe": {"against": 1, "ask": "...", "queries": []}}]}]}`;
 

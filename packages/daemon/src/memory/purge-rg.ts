@@ -21,11 +21,15 @@
 // （evidence-source.ts 的 dataSourceDraftOf），读不出来了（出处里写的敏感类别没打开）或者原文会变样（位置关了、地点要去掉；
 // 位置开了、要带上地点）的撤掉，下一夜照新的设置重新读进来。
 //
+// 素材"回的是什么"的前文所在的会话整个删了（删任务、删项目时连会话一起删，素材频道上的 material_replies 记 cleared）：
+// 这几条素材读成的证据原文里带着前文那一行（总结的是被删的对方的话）——证据原文不能改，撤掉（照彻底删除，删任务、删项目是用户发起的），
+// 下一夜照素材现在的样子（不挂前文了）重新读进来。启动时同样对一遍（幂等：重读进来的不带前文，不会再撤）。
+//
 // 推理库这边一律经唯一写入口写（@ergo/memory 的 engine.gate），记成"用户发起"（忘掉、彻底删除、别推断只由用户发起），
 // 经谁转达写进留痕（记忆删除卡、设置页、记忆管理员、删项目 / 删任务时连带、敏感类别设置）。
 import { existsSync } from "node:fs";
-import { DEEPSEEK_DEFAULT_MODEL, type Embedder, type MemoryEngine, type PurgeReport, purgeEvidence, type UserActionOptions } from "@ergo/memory";
-import { EVENT_TYPES, isDeletedEventPayload, type MemoryCommandEventPayload } from "@ergo/protocol";
+import { DEEPSEEK_DEFAULT_MODEL, type Embedder, type MemoryEngine, type PurgeReport, purgeEvidence, replyContextOf, type UserActionOptions } from "@ergo/memory";
+import { EVENT_TYPES, isDeletedEventPayload, type MaterialRepliesEventPayload, type MemoryCommandEventPayload } from "@ergo/protocol";
 import type { MemoryConfig } from "../config/config.ts";
 import type { EventStore } from "../events/event-store.ts";
 import { commandEffect, MATERIALS_CHANNEL } from "../materials/commands.ts";
@@ -104,6 +108,16 @@ export function commandOrigin(payload: MemoryCommandEventPayload): UserActionOpt
     default:
       return { actor: "user", via: "经记忆删除卡" };
   }
+}
+
+/** 前文所在的会话删了撤掉的：删任务、删项目是用户发起的 */
+const REPLY_CLEARED_ORIGIN: UserActionOptions = { actor: "user", via: "删任务、删项目时连带" };
+
+/** 一条 material_replies 里前文跟着会话删了的素材（cleared） */
+function clearedOf(payload: unknown): string[] {
+  if (isDeletedEventPayload(payload)) return [];
+  const items = (payload as Partial<MaterialRepliesEventPayload>).items;
+  return Array.isArray(items) ? items.filter((item) => item?.verdict === "cleared" && typeof item.materialId === "string").map((item) => item.materialId) : [];
 }
 
 /** 敏感类别的设置撤掉的（默认不用于推断）：用户的设置，算用户发起 */
@@ -189,6 +203,17 @@ export function createReasoningPurge(options: ReasoningPurgeOptions): ReasoningP
     });
   };
 
+  /** 前文跟着会话删了的素材：原文里还带着前文那一行的证据撤掉（下一夜不带前文重读） */
+  const dropReplyEvidence = (engine: MemoryEngine, materialIds: readonly string[], reason: string): PurgeReport | undefined => {
+    const evidenceIds = evidenceOf(engine, materialIds)
+      .filter((evidence) => evidence.status !== "forgotten" && replyContextOf(evidence.text) !== undefined)
+      .map((evidence) => evidence.id);
+    if (evidenceIds.length === 0) return undefined;
+    const report = purgeEvidence(engine, evidenceIds, { reason, materialIds: [...materialIds], at: clockIso(options.clock), op: "purge", ...REPLY_CLEARED_ORIGIN });
+    log(`记忆删除：前文所在的会话删了——带着前文的证据撤掉 ${report.evidenceIds.length} 条（下一夜不带前文重读），结论标了复核 ${report.claimIds.length} 条`);
+    return report;
+  };
+
   /** 一条记忆命令按它的作用处理（记住没有删除作用，跳过） */
   const handle = (payload: MemoryCommandEventPayload): void => {
     const effect = commandEffect(payload);
@@ -201,6 +226,11 @@ export function createReasoningPurge(options: ReasoningPurgeOptions): ReasoningP
   return {
     start() {
       return options.store.onAppend((event) => {
+        if (event.type === EVENT_TYPES.materialReplies) {
+          const cleared = clearedOf(event.payload);
+          if (cleared.length > 0) withEngine(`撤掉带着前文的证据 ${cleared.join("、")}`, (engine) => dropReplyEvidence(engine, cleared, "前文所在的会话删了，前文跟着删"));
+          return;
+        }
         if (event.type !== EVENT_TYPES.memoryCommand || isDeletedEventPayload(event.payload)) return;
         try {
           handle(event.payload as MemoryCommandEventPayload);
@@ -251,6 +281,9 @@ export function createReasoningPurge(options: ReasoningPurgeOptions): ReasoningP
           });
           log(`记忆删除：敏感类别（${[...categories].map(sensitiveCategoryLabel).join("、")}）默认不用于推断——从推理库撤掉证据 ${report.evidenceIds.length} 条`);
         }
+        // 前文所在的会话删了的素材：还带着前文的证据撤掉（插件停着时删的任务、项目）
+        const cleared = options.store.read(MATERIALS_CHANNEL, 0, EVENT_TYPES.materialReplies).flatMap((event) => clearedOf(event.payload));
+        if (cleared.length > 0) dropReplyEvidence(engine, [...new Set(cleared)], "前文所在的会话删了，前文跟着删（补做）");
         // 303：数据源素材的证据照现在的敏感类别重读一遍，读不出来、原文变样的撤掉（下一夜照新设置重读）
         const materials = options.materials;
         if (materials !== undefined) {

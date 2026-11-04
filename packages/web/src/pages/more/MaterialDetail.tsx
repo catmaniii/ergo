@@ -5,6 +5,7 @@
 // - 内容：一段一块，标明来源和形态。本人的话全文（太长的在框里滚动）；引用块写原文；附件、语音照会话里的样子画（图片点开放大、
 //   文件卡片能预览下载、语音条点一下播放、下面是识别出的文字）；只记了引用的写引用的说明；你存的网页写标题、网址（点了在
 //   "浏览"或新窗口里打开）和存下的正文（外部数据，太长的在框里滚动），截断了写明；
+// - 回的是什么：接着对方的话说的，内容上面一行小字"回的是：……"（前文意思的总结，不是用户说的；总结里说到的秘书显示成起的名字）；
 // - 来源：时间、会话、任务、项目、出处的消息现在怎样、卡片、记录、原文副本、原始事件、情境；
 // - 删除：忘掉、彻底删除、别推断，确认框和口径同成批删除（同一个接口，范围是"这一条"）；忘掉、彻底删除之后回到列表，
 //   别推断之后留在这里、标记跟着变。
@@ -134,6 +135,12 @@ export function MaterialDetail({ id, navigate, onDeleted, onChanged }: { id: str
         </div>
       )}
       <Section title={t("pages.materialDetail.content")}>
+        {view.reply && (
+          <div className="muted dt-note mat-reply" title={t("pages.materialDetail.replyHint")}>
+            {t("pages.materialDetail.replyLabel")}
+            <NamedText text={view.reply.summary} />
+          </div>
+        )}
         {view.segments.length === 0 ? (
           <div className="muted">{t("pages.materialDetail.noContent")}</div>
         ) : (

@@ -111,6 +111,11 @@ export const EVENT_TYPES = {
    * 来源外部（不可信）；正文只在这条事件里，只进检索的索引
    */
   materialIngested: "material_ingested",
+  /**
+   * 素材频道（守护进程内部，前端不订阅）：一批会话里本人的话"回的是什么"——接着对方的话说的挂上前文意思的总结，
+   * 新话题、会话第一句不挂（负载见 material-replies-schema.ts）。每晚整理之前由记忆管理员判；素材库照它在素材上标
+   */
+  materialReplies: "material_replies",
   /** 任务看板频道：一个任务的最新状态，以及这次的变化和谁改的 */
   task: "task",
   /** 活动状态频道：某个 agent 的活动状态变了（休眠、干活中、等你、排队；有"排队"） */

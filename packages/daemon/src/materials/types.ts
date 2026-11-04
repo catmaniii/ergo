@@ -233,7 +233,19 @@ export interface Material {
    * 不进原文副本，由记忆命令事件派生（materials.db 重建时照样标上）
    */
   noInfer: boolean;
+  /**
+   * 回的是什么：用户接着对方的话说的这句，前文意思的一两句总结（谁说的、问了 / 提议了 / 汇报了什么；不是用户说的）。
+   * 同 noInfer 是素材上的标记：不进原文副本，由素材频道上的 material_replies 事件派生（materials.db 重建时照样标上）；
+   * 自己开的新话题、会话第一句、还没判的没有（materials/replies.ts）
+   */
+  reply?: MaterialReply;
+}
+
+/** 素材上挂的前文：意思的总结、前文是会话里的哪条消息 */
+export interface MaterialReply {
+  summary: string;
+  fromMessageId?: string;
 }
 
 /** 采集出来的素材：信封去掉原文副本的引用和标记（原文副本文件里存的就是它） */
-export type CapturedMaterial = Omit<Material, "original" | "noInfer">;
+export type CapturedMaterial = Omit<Material, "original" | "noInfer" | "reply">;

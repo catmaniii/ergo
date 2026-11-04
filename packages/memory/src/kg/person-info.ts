@@ -10,6 +10,7 @@
 // 两个认法：模型版 LlmPersonInfoExtractor（线上默认，和整理同一个模型、同一份预算）、规则版 RulePersonInfoExtractor（不调模型，
 // 配置 memory.extractor 写 rule 时用；只认几种常见说法）。
 import type { Evidence } from "../domain/types.ts";
+import { userWordsOf } from "../evidence/reply-context.ts";
 import type { ChatModel, ChatRequest } from "../llm/chat.ts";
 import { isStringArray, parseModelJson } from "../llm/json.ts";
 import type { ModelBudget } from "../rg/types.ts";
@@ -76,7 +77,7 @@ const inText = (text: string, piece: string) => piece.length > 0 && squash(text)
 const SELF_NAMES = new Set(["我", "我自己", "用户", "本人", "user", "me"]);
 
 /** 能当依据的：本人说的、还有效、有原文 */
-export const canMentionPeople = (e: Evidence): boolean => e.sourceLevel === "self" && e.mode === "say" && e.status === "active" && e.text.trim().length > 0;
+export const canMentionPeople = (e: Evidence): boolean => e.sourceLevel === "self" && e.mode === "say" && e.status === "active" && userWordsOf(e.text).trim().length > 0;
 
 /**
  * 还没看过的证据（本人说的、有效的），按知道的时间先后。since 给了只看那以后知道的（第一次跑时不把几个月前的话全翻一遍）
@@ -136,7 +137,8 @@ export class LlmPersonInfoExtractor implements PersonInfoExtractor {
   /** 一批的请求 */
   requestFor(batch: readonly Evidence[], known: readonly KnownPerson[]): ChatRequest {
     const people = known.map((k) => JSON.stringify({ name: k.self ? SELF_MENTION : k.name, aliases: k.aliases, ...(k.relation === undefined ? {} : { relation: k.relation }) }));
-    const lines = batch.map((e) => JSON.stringify({ evidence_id: e.id, observed_at: e.observedAt, text: [...e.text].slice(0, TEXT_MAX).join("") }));
+    // 只给用户自己的话：前文那一行是对方说的，里面的人和事不能当成用户说的档案信息
+    const lines = batch.map((e) => JSON.stringify({ evidence_id: e.id, observed_at: e.observedAt, text: [...userWordsOf(e.text)].slice(0, TEXT_MAX).join("") }));
     return {
       purpose: "people",
       system: PEOPLE_SYSTEM,
@@ -209,7 +211,7 @@ export function validatePeople(parsed: Record<string, unknown>, batch: readonly 
         continue;
       }
       if (self && (field === "relation" || field === "aliases")) continue;
-      if (!evidence || !inText(evidence.text, value)) {
+      if (!evidence || !inText(userWordsOf(evidence.text), value)) {
         dropped.push({ reason: `「${value}」原文里没有`, item: f });
         continue;
       }
@@ -248,7 +250,7 @@ export class RulePersonInfoExtractor implements PersonInfoExtractor {
   }
 
   private read(e: Evidence, known: readonly KnownPerson[]): PersonMention[] {
-    const text = e.text;
+    const text = userWordsOf(e.text);
     const found: PersonMention[] = [];
     const add = (name: string, relation?: string): PersonMention => {
       let m = found.find((x) => x.name === name);

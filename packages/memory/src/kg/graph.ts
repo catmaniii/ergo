@@ -4,6 +4,7 @@
 import { USER_ENTITY_ID } from "../domain/ids.ts";
 import { compareFrom, compareTime, earlierFrom, localDate, offsetMinutes, toMs } from "../domain/time.ts";
 import { EPISODIC_PREDICATES, type Assertion, type Entity, type Evidence, type Fact, type FactObject, type FactStatus, type Predicate } from "../domain/types.ts";
+import { userWordsOf } from "../evidence/reply-context.ts";
 import { HELD_STATUSES, type MemoryStore, type NewFact, rgWriter, type RgWriter } from "../store/store.ts";
 import { classifyChange, excludes, sameObject, type ChangeKind, type ComparableFact } from "./change.ts";
 import { contextsCompatible, CONTEXT_LABELS, sameContext } from "./context.ts";
@@ -205,7 +206,8 @@ export class KnowledgeGraph {
 
       // 2. 变化判定
       // 334：变化信号只认这句话自己明说了变化的（"现在、最近"、模型说有变化都不算数，拿不准就当矛盾）
-      const changeWords = explicitChangeSignals(draft.span, evidence.text);
+      // 前文那一行不是用户说的：只在用户自己的话里认变化的说法
+      const changeWords = explicitChangeSignals(draft.span, userWordsOf(evidence.text));
       const signals = { change: changeWords.length > 0, correction: draft.signals.correction.length > 0 };
       const usedSignals = [...changeWords, ...draft.signals.correction];
       let candidates: Fact[] = [];
@@ -282,7 +284,7 @@ export class KnowledgeGraph {
   private saidChange(f: Fact): boolean {
     return f.evidenceIds.some((id) => {
       const e = this.store.getEvidence(id);
-      return e !== undefined && e.status === "active" && explicitChangeSignals(e.text).length > 0;
+      return e !== undefined && e.status === "active" && explicitChangeSignals(userWordsOf(e.text)).length > 0;
     });
   }
 

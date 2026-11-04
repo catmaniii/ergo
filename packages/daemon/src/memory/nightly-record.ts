@@ -82,6 +82,19 @@ export interface MemoryNightlySpend {
   review: number;
 }
 
+/**
+ * 整理之前判会话里本人的话"回的是什么"（memory/reply-context.ts）：问了几次模型、挂上前文的几条、新话题几条、
+ * 会话第一句（不问模型）几条、模型没判出来的几条、还没轮到的几条（每晚上限，下一夜接着判）
+ */
+export interface MemoryNightlyReplyContext {
+  calls: number;
+  attached: number;
+  newTopic: number;
+  first: number;
+  failed: number;
+  pending: number;
+}
+
 /** 记忆管理员这一夜判顺口问的回答：问了几次模型、答了几个、没答（算跳过）几个、拿不准几个、没轮到几个 */
 export interface MemoryNightlyReplies {
   calls: number;
@@ -165,6 +178,8 @@ export interface MemoryNightlyRecord {
   hypotheses?: MemoryNightlyHypotheses;
   /** 个人档案的联动（只在 ran、档案在的时候有；认人物信息问的模型次数也算进了 modelCalls） */
   people?: MemoryNightlyPeople;
+  /** 整理之前判素材"回的是什么"（只在 ran、判了的时候有；问的模型次数也算进了 modelCalls） */
+  replyContext?: MemoryNightlyReplyContext;
   /**
    * 记忆管理员这一夜自己额外调了几次模型（叙述、判断用；引擎那 maxModelCalls 是另一份预算）。
    * 管理员没起来、这一夜没有日记时没有这个字段

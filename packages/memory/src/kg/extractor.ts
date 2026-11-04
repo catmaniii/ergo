@@ -16,6 +16,7 @@
 // - 否定不能丢：说自己的状态时，紧挨在前面的"不、没、谈不上……"加上中间的"算、太、怎么、那么、觉得……"都算否定
 //   （"不算忙""不怎么累""没那么忙""一点都不累"是说自己不忙、不累），"没想到这么累"不算。
 import { EPISODIC_PREDICATES, type Assertion, type Entity, type EntityType, type Evidence, type Predicate } from "../domain/types.ts";
+import { withUserWordsOnly } from "../evidence/reply-context.ts";
 import { clauseContext } from "./context.ts";
 import { DEFAULT_LEXICON, lexiconIndex, type Lexicon } from "./lexicon.ts";
 import { changeSignals, correctionSignals, hasAlwaysMarker, hasPastMarker, resolveValidity } from "./signals.ts";
@@ -345,7 +346,9 @@ export class RuleFactExtractor implements FactExtractor {
     this.terms = lexiconIndex(lexicon);
   }
 
-  extract(evidence: Evidence, known: KgView): FactDraft[] {
+  extract(input: Evidence, known: KgView): FactDraft[] {
+    // 只看用户自己的话：原文后面的前文那一行不是用户说的（evidence/reply-context.ts）
+    const evidence = withUserWordsOnly(input);
     if (evidence.status !== "active" || evidence.text.trim().length === 0) return [];
     const correction = correctionSignals(evidence.text);
     if (evidence.kind === "correction") correction.unshift("kind:correction");

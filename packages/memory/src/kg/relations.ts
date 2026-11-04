@@ -12,6 +12,7 @@
 // 都是通用的说法表，不对着哪条数据写；认不出就不认。id 是 rule:4（修问句和否定以后 rule:4.1）。
 import { EPISODIC_PREDICATES, type EntityType, type Evidence, type Predicate } from "../domain/types.ts";
 import { localDate, offsetMinutes } from "../domain/time.ts";
+import { userWordsOf, withUserWordsOnly } from "../evidence/reply-context.ts";
 import type { AliasAware, AliasDraft } from "./align.ts";
 import { clauseContext } from "./context.ts";
 import { clauseMoods, inQuestionClause, RuleFactExtractor, USER_REF, type DraftObject, type EntityRef, type FactDraft, type FactExtractor, type KgView } from "./extractor.ts";
@@ -329,7 +330,8 @@ function earliestCity(s: string, places: readonly string[]): string | undefined 
  */
 export function detectInvitation(evidence: Evidence, known?: KgView, places: readonly string[] = DEFAULT_LEXICON.places): EventFrame | undefined {
   if (evidence.sourceLevel !== "self") return undefined;
-  const text = evidence.text;
+  // 只看用户自己的话（前文那一行不是用户说的）
+  const text = userWordsOf(evidence.text);
   const persons = detectPersons(text, known);
   const aliasSpans = detectAliases(text, known).map((a) => {
     const i = text.indexOf(a.span);
@@ -412,10 +414,12 @@ export class RelationalFactExtractor implements FactExtractor, AliasAware {
 
   aliasesOf(evidence: Evidence, known: KgView): AliasDraft[] {
     if (evidence.status !== "active" || evidence.sourceLevel !== "self") return [];
-    return detectAliases(evidence.text, known);
+    return detectAliases(userWordsOf(evidence.text), known);
   }
 
-  extract(evidence: Evidence, known: KgView): FactDraft[] {
+  extract(input: Evidence, known: KgView): FactDraft[] {
+    // 只看用户自己的话：原文后面的前文那一行不是用户说的（evidence/reply-context.ts）
+    const evidence = withUserWordsOnly(input);
     const base = this.base.extract(evidence, known);
     if (evidence.status !== "active" || evidence.text.trim().length === 0) return base;
     const text = evidence.text;

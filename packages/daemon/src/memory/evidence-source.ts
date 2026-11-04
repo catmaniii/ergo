@@ -24,9 +24,14 @@
 // 本人做的、别人写给你的 → 别人转述的、本人写的 → 本人说的），原文后面接一行场景（时间段、地点、和谁），场景标签按日子和插件给的标签；
 // 出处里写的敏感类别有一类没打开就不读，位置没打开时不带地点；同一个数据源、同一种、同一天多的合成一条，当天的先不读，每晚有上限。
 //
+// 会话里本人的话挂着前文的（接着对方的话说的，素材的 reply，memory/reply-context.ts）：原文后面接一行"［前文，不是用户说的］…"
+// （@ergo/memory 的 withReplyContext）——只用来读懂用户这句在回什么，不是用户说的：规则版的解析只看用户自己的话，场景也只从用户的话推；
+// 别推断、忘掉、彻底删除对这条素材生效时前文跟着走（整条不读、证据清空或删掉）。还没判"回的是什么"、新近的那几条先压着不读
+// （holdBack：判完带着前文读，证据原文之后不改），判过的、更早的照常读。
+//
 // 存下的外部信息（秘书按用户的要求存的邮件、网页……）来源外部（不可信）：照来源等级读成 untrusted 的证据（别人转述的），
 // 推理图谱里出处是别人转述（third_party_reported）、不能当已验证的前提、不能确认或否认结论；原文只有标题（引用的说明），正文不读。
-import { clauseContext, type EvidenceDraft, type EvidenceSource, isKnownContextTag, localDate, type SourceLevel } from "@ergo/memory";
+import { clauseContext, type EvidenceDraft, type EvidenceSource, isKnownContextTag, localDate, type SourceLevel, withReplyContext } from "@ergo/memory";
 import type { SensitiveCategory } from "../config/config.ts";
 import type { Materials } from "../materials/materials.ts";
 import type { Material, MaterialKind } from "../materials/types.ts";
@@ -71,6 +76,8 @@ export interface MaterialsEvidenceSourceOptions {
   skip?: ReadonlySet<string>;
   /** 这一次最多读进几条数据源的证据（合成的算一条），多的按时间先后留到下次；不给不限（运维脚本） */
   dataSourceLimit?: number;
+  /** 这一次先不读的（还没判"回的是什么"的新近几条，memory/reply-context.ts 的 replyHeldBack）；不给都读 */
+  holdBack?: (material: Material) => boolean;
 }
 
 /**
@@ -85,6 +92,7 @@ export class MaterialsEvidenceSource implements EvidenceSource {
   private readonly inferableSensitive: readonly SensitiveCategory[];
   private readonly skip: ReadonlySet<string>;
   private readonly dataSourceLimit: number | undefined;
+  private readonly holdBack: ((material: Material) => boolean) | undefined;
 
   constructor(options: MaterialsEvidenceSourceOptions) {
     this.materials = options.materials;
@@ -92,13 +100,14 @@ export class MaterialsEvidenceSource implements EvidenceSource {
     this.inferableSensitive = options.inferableSensitiveCategories ?? [];
     this.skip = options.skip ?? new Set();
     this.dataSourceLimit = options.dataSourceLimit;
+    this.holdBack = options.holdBack;
   }
 
   read(): EvidenceDraft[] {
     const drafts: EvidenceDraft[] = [];
     const fromSources: Material[] = [];
     for (const material of this.materials.list()) {
-      if (this.skip.has(material.id)) continue;
+      if (this.skip.has(material.id) || this.holdBack?.(material) === true) continue;
       if (material.origin !== undefined) {
         if (inferableDataSourceMaterial(material, this.inferableSensitive)) fromSources.push(material);
         continue;
@@ -122,15 +131,17 @@ export class MaterialsEvidenceSource implements EvidenceSource {
 export function evidenceDraftOf(material: Material, inferableSensitive: readonly SensitiveCategory[] = []): EvidenceDraft | undefined {
   if (material.noInfer) return undefined;
   if (material.origin !== undefined) return dataSourceDraftOf([material], inferableSensitive);
-  const text = textOf(material);
-  if (text.length === 0) return undefined;
-  const context = sceneOf(material.context, text);
+  const own = textOf(material);
+  if (own.length === 0) return undefined;
+  // 场景只从用户自己的话推（前文不是用户说的）
+  const context = sceneOf(material.context, own);
   if (!inferableBySensitivity(context, inferableSensitive)) return undefined;
   return {
     sourceLevel: SOURCE_LEVEL_OF[material.source],
     mode: material.mode,
     kind: EVIDENCE_KIND_OF[material.kind],
-    text,
+    // 接着对方的话说的：原文后面接前文那一行（不是用户说的）
+    text: material.reply === undefined ? own : withReplyContext(own, material.reply.summary),
     context,
     eventTime: material.time,
     observedAt: material.time,

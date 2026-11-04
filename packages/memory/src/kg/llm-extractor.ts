@@ -10,7 +10,10 @@
 // -模型常把"有点想回去读博了"这种说现在的话的 valid_from 给成 null（= 一直），写事实时由 kg/graph.ts 兜住：
 //   原话没说从什么时候起的，开始按说话那天算；change 只是参考，变化判定看原话里有没有明说变化的说法（kg/signals.ts 的
 //   explicitChangeSignals），模型说有变化不算数。
+// - 证据原文后面带着前文那一行的（用户接着对方的话说的，evidence/reply-context.ts）：提示词讲明前文不是用户说的、span 只写用户这句；
+//   硬关：原文片段只出自前文的事实、关系丢掉（算到用户头上的前文），别名的两个叫法要在用户自己的话里。
 import { compareTime, isZonedIso, localDate } from "../domain/time.ts";
+import { REPLY_CONTEXT_RULE, spanOnlyInReplyContext, userWordsOf } from "../evidence/reply-context.ts";
 import { ENTITY_TYPES, EPISODIC_PREDICATES, PREDICATES, type EntityType, type Evidence, type Predicate } from "../domain/types.ts";
 import { unparsedReason, type ChatModel, type ChatRequest } from "../llm/chat.ts";
 import { isStringArray, parseModelJson } from "../llm/json.ts";
@@ -38,6 +41,7 @@ export function isPreparableExtractor(x: FactExtractor): x is PreparableExtracto
 }
 
 export const EXTRACT_SYSTEM = `你是记忆系统的事实抽取器。从用户的原话或行为记录里抽出关于"用户"的事实，只抽原文里有的，不推断动机。
+${REPLY_CONTEXT_RULE}；这种证据的 span 只能写用户这句话里的原文。
 只输出一个 JSON 对象：{"facts": [ ... ]}，每条事实：
 {"evidence_id": 原样抄输入里的证据 id,
  "predicate": "participated_in" | "declined" | "initiated" | "said_about" | "prefers" | "dislikes" | "works_on" | "occurred_at" | "associated_with",
@@ -199,6 +203,10 @@ export class LlmFactExtractor implements PreparableExtractor, AliasAware {
         drop("有效期截止早于开始");
         continue;
       }
+      if (typeof r.span === "string" && spanOnlyInReplyContext(evidence.text, r.span)) {
+        drop("原文片段出自前文（不是用户说的），不算用户的事实");
+        continue;
+      }
       const draft: FactDraft = {
         subject: USER_REF,
         predicate,
@@ -272,6 +280,10 @@ export class LlmFactExtractor implements PreparableExtractor, AliasAware {
         drop(`提前多久不在说法表里：${JSON.stringify(object)}`);
         continue;
       }
+      if (typeof r.span === "string" && spanOnlyInReplyContext(evidence.text, r.span)) {
+        drop("关系的原文片段出自前文（不是用户说的）");
+        continue;
+      }
       const userSubject = subject === USER_REF;
       out.set(evidence.id, [
         ...(out.get(evidence.id) ?? []),
@@ -282,7 +294,7 @@ export class LlmFactExtractor implements PreparableExtractor, AliasAware {
           negated: false,
           context: userSubject ? [...evidence.context] : [],
           signals: { change: [], correction: [] },
-          span: typeof r.span === "string" && r.span.length > 0 ? r.span : evidence.text.slice(0, 40),
+          span: typeof r.span === "string" && r.span.length > 0 ? r.span : userWordsOf(evidence.text).slice(0, 40),
         },
       ]);
     }
@@ -302,7 +314,8 @@ export class LlmFactExtractor implements PreparableExtractor, AliasAware {
       }
       const name = typeof r.name === "string" ? r.name.trim() : "";
       const alias = typeof r.alias === "string" ? r.alias.trim() : "";
-      if (name.length === 0 || alias.length === 0 || name === alias || !evidence.text.includes(name) || !evidence.text.includes(alias)) {
+      const own = userWordsOf(evidence.text);
+      if (name.length === 0 || alias.length === 0 || name === alias || !own.includes(name) || !own.includes(alias)) {
         dropped.push({ stage: "extract", reason: "别名的两个叫法原文里没有（或者一样）", item: raw });
         continue;
       }

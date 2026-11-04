@@ -9,7 +9,9 @@
 // 数据源详情的"已获取的"：另编几条数据源导入的（fake-data-source-materials：示例相机、手机的位置和照片、编的账单），按 filter.dataSource 筛。
 // "这张图记下来"：另编两条记下来的图：一张原图、一张截图，连同描述、来源网页和地址。
 // 存下的外部信息：另编两条（一个网页、一封到了建议清理时间的邮件）。
+// 回的是什么：另编一条接着秘书的问题回的（"不用，周末别叫"，挂着前文的意思）。
 import {
+  ASSISTANT_NAME_MARK,
   type Card,
   CHANNELS,
   EVENT_TYPES,
@@ -231,7 +233,7 @@ function recent(
   kind: string,
   mode: "say" | "do",
   segments: MaterialSegmentView[],
-  extra: { conversation?: string; context?: string[]; source?: MaterialDetailView["source"]; cardId?: string; recordId?: string } = {},
+  extra: { conversation?: string; context?: string[]; source?: MaterialDetailView["source"]; cardId?: string; recordId?: string; reply?: string } = {},
 ): FakeMaterial {
   const id = `mat-fake-recent-${n}`;
   const source = extra.source ?? "self";
@@ -251,6 +253,8 @@ function recent(
       ...(extra.recordId ? { recordId: extra.recordId } : {}),
       ...(source === "self" ? { original: `originals/2026-10/${id}.json` } : {}),
       marks: {},
+      // 接着对方的话说的：回的是什么（前文意思的总结；名字占位在页面上换成起的名字）
+      ...(extra.reply ? { reply: { summary: extra.reply } } : {}),
     },
   };
 }
@@ -354,6 +358,8 @@ function recentMaterials(): FakeMaterial[] {
       capturedAt: ago(5, "08:55"),
       ttlDays: 3,
     }),
+    // 接着秘书的问题回的一句：挂着前文的意思
+    recent(21, ago(1, "21:48"), "用户发言", "say", [said("不用，周末别叫")], { conversation: CHANNELS.secretary, reply: `${ASSISTANT_NAME_MARK}问周末早上要不要也照常七点半叫你起床` }),
     recent(5, ago(1, "20:15"), "用户发言", "say", [said("外卖单独算一类，别和餐饮混在一起")], { conversation: LEDGER }),
     recent(6, ago(1, "19:02"), "审批决定", "do", [chose("批准：把 10 月账单导出到草稿区")], { conversation: LEDGER, context: ["decision:approve", "maintainer"], recordId: "ap-fake-recent-6" }),
     recent(7, ago(2, "22:10"), "用户发言", "say", [fileSeg("保修卡-冰箱.pdf", "application/pdf", 182_000), said("冰箱的保修卡，到期前一个月提醒我")], {

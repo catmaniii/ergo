@@ -3,6 +3,8 @@ import type { Phrases } from "./phrases.ts";
 
 export const EN_MATERIALS: Phrases = {
   "这个别记": "Don't save this",
+  "不用，周末别叫": "No, don't wake me on weekends",
+  "{}问周末早上要不要也照常七点半叫你起床": "{} asked whether to also wake you at 7:30 on weekend mornings",
   "记忆管理员问：{}": "The memory curator asked: {}",
   "用户主动投喂的材料": "Material the user gave me",
   "记账本最近老失败": "Ledger keeps failing lately",

@@ -6177,6 +6177,10 @@ button.ds-item {
   flex-wrap: wrap;
   gap: 8px;
 }
+/* 回的是什么（前文意思的一行小字）：和下面的内容隔开一点 */
+.mat-reply {
+  margin-bottom: 10px;
+}
 .mat-blocks {
   display: flex;
   flex-direction: column;

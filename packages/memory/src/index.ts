@@ -18,6 +18,8 @@
 // 加了个人档案和记忆的联动：认人物信息攒成档案的候选（kg/person-info）、档案里的人对到人物实体和新值作废旧事实（kg/profile）、
 // 发给模型之前加档案摘要当背景和藏起号码（llm/guarded-chat）。
 // 加了图谱自检（rg/graph-check）：每晚校验整张推理图谱查一遍，规矩和唯一写入口共用一份（rg/graph-rules）。
+// 加了证据原文里的"前文"一行（evidence/reply-context）：接着对方的话说的一句带上前文的意思，规则版只看用户自己的话，
+// 模型版的提示词讲明前文不是用户说的、抽事实丢掉原文片段只出自前文的；判前文的模型请求在 llm/reply-context。
 export * from "./domain/types.ts";
 export * from "./domain/ids.ts";
 export * from "./domain/time.ts";
@@ -26,6 +28,7 @@ export * from "./store/store.ts";
 export * from "./evidence/source.ts";
 export * from "./evidence/synthetic.ts";
 export * from "./evidence/boundary.ts";
+export * from "./evidence/reply-context.ts";
 export * from "./kg/lexicon.ts";
 export * from "./kg/context.ts";
 export * from "./kg/signals.ts";
@@ -102,6 +105,7 @@ export * from "./llm/answerer.ts";
 export * from "./llm/robust.ts";
 export * from "./llm/guarded-chat.ts";
 export * from "./llm/metered.ts";
+export * from "./llm/reply-context.ts";
 export * from "./rg/build-stats.ts";
 export * from "./rg/adversarial.ts";
 export * from "./rg/write-gate.ts";

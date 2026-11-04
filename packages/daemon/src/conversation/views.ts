@@ -339,6 +339,12 @@ export function agentRepliesAround(db: ReadonlyDatabase, conversation: Conversat
     .map(toMessage);
 }
 
+/** 某条消息的事件在事件日志里的全局序号（不存在是 undefined；素材找前文时按它找到语音素材那条消息） */
+export function messageGlobalSeq(db: ReadonlyDatabase, messageId: string): number | undefined {
+  const row = db.get<{ global_seq: number }>("SELECT global_seq FROM conversation_messages WHERE message_id = ?", messageId);
+  return row === undefined ? undefined : Number(row.global_seq);
+}
+
 /** 某条消息（不存在是 undefined） */
 export function getMessage(db: ReadonlyDatabase, messageId: string): MessageEnvelope | undefined {
   const row = db.get<MessageRow>(`SELECT ${MESSAGE_COLUMNS} FROM conversation_messages WHERE message_id = ?`, messageId);

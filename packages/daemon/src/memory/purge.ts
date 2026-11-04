@@ -19,6 +19,7 @@
 // - 改写的工具调用对应的执行记录（有副作用的调用开始、结束、被中断时记的调用摘要和结果摘要），连同同一段
 //   调用摘要出现的别处：被中断时的"中断不确定"事项（标题、正文）、任务等我的说明（waitNote）、负责人会话里的说明和通知；
 // - 列出过这些素材的卡片（记忆删除卡的摘录）；
+// - 这些素材"回的是什么"的判定（素材频道上的 material_replies）：这几项的总结（前文的意思）换成删除标记，别的项不动；
 // - 改写函数声明了连带改写的（PurgeRewriter.related）：语音素材的原始事件是识别完成的 voice 事件，
 //   连带这条语音的消息（整条换成"已删除"，音频随之删掉）、它的别的 voice 事件、重新识别后交给 agent 的通知；
 //   登记过引用的（PurgeQuotes）：引着用户在负责人会话里的话、审批卡上的批准的范围记录，连带它的时间线记录和越界通知；
@@ -346,6 +347,8 @@ export function purgePlan(
       if (detail.conversation !== null) rewriteInSession(detail.conversation, detail.callId);
     }
     for (const effect of store.mentioning(GUARD_EVENTS.effectRecorded, material.id)) if (effect.channel === GUARD_CHANNEL) target(effect);
+    // 挂的前文：判它的那条事件里这一项的总结一起删（改写函数只换这次删的素材那几项）
+    for (const event of store.mentioning(EVENT_TYPES.materialReplies, material.id)) if (!isDeletedEventPayload(event.payload)) target(event);
     for (const event of store.mentioning(EVENT_TYPES.card, material.id)) {
       const card = (event.payload as CardEventPayload).card;
       if (cards.registry.get(card.type)?.definition.purge === undefined) continue;

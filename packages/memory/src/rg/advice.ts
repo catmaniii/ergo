@@ -10,6 +10,7 @@
 import { validAt, toMs } from "../domain/time.ts";
 import type { Claim, ClaimTier, Fact } from "../domain/types.ts";
 import { canSupportUserClaims } from "../evidence/boundary.ts";
+import { userWordsOf } from "../evidence/reply-context.ts";
 import { contextsCompatible } from "../kg/context.ts";
 import type { ClaimIndex } from "./claim-index.ts";
 import { cite, isArrangement } from "./concepts.ts";
@@ -148,7 +149,7 @@ export function hardConstraintClaims(rg: ReasoningGraph, at: string, context: re
     if (!f || !negativeFact(f)) continue;
     const hard = f.evidenceIds.some((id) => {
       const e = rg.store.getEvidence(id);
-      return e !== undefined && canSupportUserClaims(e) && HARD_MARKERS.test(e.text);
+      return e !== undefined && canSupportUserClaims(e) && HARD_MARKERS.test(userWordsOf(e.text));
     });
     if (hard) out.push(claim);
   }

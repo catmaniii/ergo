@@ -22,6 +22,7 @@
 import { sameLocalDay, toMs } from "../domain/time.ts";
 import type { Evidence } from "../domain/types.ts";
 import { canSupportUserClaims, isVerdictEvidence } from "../evidence/boundary.ts";
+import { userWordsOf } from "../evidence/reply-context.ts";
 import type { ChatModel, ChatRequest } from "../llm/chat.ts";
 import { parseModelJson } from "../llm/json.ts";
 import type { MemoryStore } from "../store/store.ts";
@@ -154,7 +155,7 @@ export function planReplies(book: QuestionBook, store: MemoryStore, source: Repl
   for (const e of active) if (e.sourceRef !== null && !byRef.has(e.sourceRef)) byRef.set(e.sourceRef, e);
   const usable = (f: ReplyFollowUp): Evidence | undefined => {
     const e = f.evidenceId !== undefined ? store.getEvidence(f.evidenceId) : f.sourceRef !== undefined ? byRef.get(f.sourceRef) : undefined;
-    return e !== undefined && canSupportUserClaims(e) && !isVerdictEvidence(e) && e.text.trim().length > 0 ? e : undefined;
+    return e !== undefined && canSupportUserClaims(e) && !isVerdictEvidence(e) && userWordsOf(e.text).trim().length > 0 ? e : undefined;
   };
   for (const question of asked) {
     const askedAt = question.lastAskedAt;
@@ -171,7 +172,8 @@ export function planReplies(book: QuestionBook, store: MemoryStore, source: Repl
       const e = usable(f);
       if (e === undefined || seen.has(e.id)) continue;
       seen.add(e.id);
-      followUps.push({ id: `s${followUps.length + 1}`, evidenceId: e.id, text: clip(e.text.trim(), FOLLOW_UP_CHARS), at: f.at });
+      // 用户自己的话（前文那一行不给：问题已经单独给了，前文不是用户说的）
+      followUps.push({ id: `s${followUps.length + 1}`, evidenceId: e.id, text: clip(userWordsOf(e.text).trim(), FOLLOW_UP_CHARS), at: f.at });
       if (followUps.length >= REPLY_FOLLOW_UPS) break;
     }
     const state = book.unsureState(question.id);

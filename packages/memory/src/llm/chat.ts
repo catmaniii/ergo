@@ -5,8 +5,9 @@ import { estimateTokens } from "./estimate.ts";
 /** 加了 lift（往上抽）、strategies（编交互策略）；加了 answer（大模型回答器，llm/answerer.ts）；
  * 加了 prediction（判断结论当时写的预测后来应验没有，rg/predictions.ts）；加了 review（对抗复核）；
  * 加了 reply（每晚整理时判顺口问以后用户有没有在答，rg/reply-judge.ts）；加了 people（每晚整理时从用户的话里
- * 认出别人的固定信息、攒成个人档案的候选，kg/person-info.ts） */
-export type ChatPurpose = "extract" | "propose" | "probes" | "judge" | "lift" | "strategies" | "answer" | "prediction" | "review" | "reply" | "people";
+ * 认出别人的固定信息、攒成个人档案的候选，kg/person-info.ts）；加了 reply_context（每晚整理之前判会话里本人的话是不是接着
+ * 对方的话说的、前文是什么意思，llm/reply-context.ts） */
+export type ChatPurpose = "extract" | "propose" | "probes" | "judge" | "lift" | "strategies" | "answer" | "prediction" | "review" | "reply" | "people" | "reply_context";
 
 export interface ChatRequest {
   purpose: ChatPurpose;

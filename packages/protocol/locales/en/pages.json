@@ -741,6 +741,8 @@
   "pages.materialDetail.jump": "Go to this message ›",
   "pages.materialDetail.content": "Content",
   "pages.materialDetail.noContent": "(no content)",
+  "pages.materialDetail.replyLabel": "Replying to: ",
+  "pages.materialDetail.replyHint": "What was said just before (the gist), not your words",
   "pages.materialDetail.source": "Source",
   "pages.materialDetail.deleteSection": "Delete this item",
   "pages.materialDetail.deleteNote": "Same options as bulk delete: Forget removes it from the material store only, so it still shows in chat history; Delete completely also deletes the original conversation text; both also delete any image or file you saved with it; Don't infer keeps it but leaves it out of inference.",

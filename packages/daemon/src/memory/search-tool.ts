@@ -33,6 +33,7 @@ import {
   t,
   Type,
 } from "@ergo/protocol";
+import { REPLY_CONTEXT_PREFIX } from "@ergo/memory";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import type { SavedPage } from "../browsing/api.ts";
 import { PAGE_TEXT_BEGIN, PAGE_TEXT_END } from "../browsing/api.ts";
@@ -262,6 +263,8 @@ export function readMaterialTool(materials: Materials, options: MaterialToolOpti
       });
       // 数据源的素材另给一行场景（检索、读素材不受敏感类别的推断开关管，地点照给）
       if (m.origin !== undefined) body.push(`${SCENE_LINE_PREFIX}${sceneParts(m, true).join(" · ")}`);
+      // 接着对方的话说的：前文意思的那一行（不是用户说的，同读成证据时的那一行）
+      if (m.reply !== undefined) body.push(`${REPLY_CONTEXT_PREFIX}${m.reply.summary}`);
       // 结构化的部分：读到的那一条
       return { text: [`素材 ${headOf(m, saved, options.abandoned?.(m) ?? false, ingested)}`, ...body].join("\n"), recall: { source: "read", hits: [hitOf(m)] } };
     },

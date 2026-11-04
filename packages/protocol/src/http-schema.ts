@@ -16,6 +16,7 @@ import {
 } from "./constants.ts";
 import { HTTP_ERROR_CODES, MEDIA_ID_PATTERN, TOOL_CALL_CLEAR_REASONS } from "./http.ts";
 import { IngestedInfoView } from "./ingested-materials-schema.ts";
+import { MaterialReplyView } from "./material-replies-schema.ts";
 import {
   ConversationId,
   DeletedEventPayload,
@@ -383,6 +384,8 @@ export const MaterialDetailView = Type.Object({
   marks: MaterialMarks,
   /** 存下的外部信息：哪种、标题、出处、信息本身的时间、建议清理的时间（原始事件还在、没被彻底删除时从事件里取） */
   ingested: Type.Optional(IngestedInfoView),
+  /** 接着对方的话说的：回的是什么（前文意思的总结，不是用户说的；自己开的新话题、会话第一句没有） */
+  reply: Type.Optional(MaterialReplyView),
 });
 export type MaterialDetailView = Static<typeof MaterialDetailView>;
 
