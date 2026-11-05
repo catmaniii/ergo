@@ -132,7 +132,7 @@ const LEDGER = MAINTAINERS.ledger;
 const ledgerMessage = (id: string, speaker: MessageEnvelope["speaker"], time: string, ...parts: MessagePart[]): MessageEnvelope => ({ id, conversation: LEDGER, speaker, time, parts });
 
 /** 一次调用，结局随意（被拦下、等你批准、正在执行……） */
-function call(callId: string, name: string, argsSummary: string, o: { outcome: "done" | "blocked" | "running"; categories?: string[]; disposition?: "do" | "ask_first" | "never"; generic?: boolean; result?: string }): MessagePart {
+function call(callId: string, name: string, argsSummary: string, o: { outcome: "done" | "blocked" | "running"; categories?: string[]; disposition?: "do" | "do_then_tell" | "ask_first" | "never"; generic?: boolean; result?: string }): MessagePart {
   const categories = o.categories ?? [];
   const part = {
     type: "tool_call" as const,
@@ -162,21 +162,35 @@ const LEDGER_SUMMARY = [
   "风险点：规则文件停在重排后的样子，下次汇总前要核一遍。",
 ].join("\n");
 
-/** 新分支：接着导信用卡账单——用登记好的 MCP 搜邮件、取附件，删项目外的临时文件被拦下，写账本库等你批准，导入脚本还在跑 */
+/**
+ * 新分支：接着导信用卡账单——用登记好的 MCP 搜邮件、取附件（读邮箱按你的设置做完告诉你，缩小后两块合成一条"…等 2 次"），
+ * 删项目外的临时文件被拦下，写账本库等你批准，导入脚本还在跑；写账本库之前没先备份，自动纠偏记了一条偏离
+ */
 const LEDGER_AFTER: MessageEnvelope[] = [
   ledgerMessage("msg-rbl-redo", "user", at("10-07", "07:54"), text("分类先别动，接着把信用卡账单导进来")),
   ledgerMessage(
     "msg-rbl-import",
     "agent",
     at("10-07", "07:55"),
-    call("call-rbl-2", "mcp__demo-mail__search_messages", "query=信用卡 月结单 after=2026-10-01", { outcome: "done", result: "找到 2 封" }),
-    call("call-rbl-3", "mcp__demo-mail__get_attachment", "message=demo-1 name=信用卡-10.pdf", { outcome: "done", result: "取到 1 个附件" }),
+    call("call-rbl-2", "mcp__demo-mail__search_messages", "query=信用卡 月结单 after=2026-10-01", { outcome: "done", disposition: "do_then_tell", result: "找到 2 封" }),
+    call("call-rbl-3", "mcp__demo-mail__get_attachment", "message=demo-1 name=信用卡-10.pdf", { outcome: "done", disposition: "do_then_tell", result: "取到 1 个附件" }),
     call("call-rbl-4", "delete", "示例目录/下载/信用卡-10.pdf", { outcome: "blocked", categories: [DELETE], disposition: "never", result: "被拦下：项目外的目录不能删" }),
     call("call-rbl-5", "write", "ledger.db", { outcome: "blocked", categories: [DELETE], disposition: "ask_first", result: "等你批准" }),
     call("call-rbl-6", "bash", "python import.py --source mail --month 2026-10", { outcome: "running", generic: true }),
   ),
   ledgerMessage("msg-rbl-approval", "agent", at("10-07", "07:55"), { type: "card_ref", cardId: "c-appr-ledger" }),
 ];
+
+/** 写账本库之前没先备份（时序规则），自动纠偏记的一条偏离：排在审批卡那条前面 */
+const LEDGER_DEVIATION: TimelineRecordEventPayload = {
+  record: {
+    id: "rec-rbl-deviation",
+    kind: "deviation",
+    summary: "自动纠偏：写 ledger.db 之前没先备份，先让负责人备份当天的账本库，再回来写",
+    detail: "违反时序规则「先备份再改账目」：写 ledger.db 之前先有当天的备份",
+    time: at("10-07", "07:55"),
+  },
+};
 
 /** 原型开头就有的那几次回退：被放弃的一段、session_branch、分支摘要、新分支上的一轮（秘书主线一次，记账本的负责人一次） */
 export function appendRollbackDemo(log: FakeBranchLog): void {
@@ -187,7 +201,10 @@ export function appendRollbackDemo(log: FakeBranchLog): void {
   for (const m of LEDGER_ABANDONED) log.append(LEDGER, EVENT_TYPES.message, { message: m } satisfies MessageEventPayload);
   const ledgerCut = log.frames(LEDGER).find((f) => f.type === EVENT_TYPES.message && (f.payload as MessageEventPayload).message.id === "msg-rbl-ask")!.seq;
   commitRollback(log, LEDGER, fakeBranchTree(log, LEDGER), { messageId: "msg-rbl-ask" }, ledgerCut, "b1", LEDGER_SUMMARY, at("10-07", "07:53"));
-  for (const m of LEDGER_AFTER) log.append(LEDGER, EVENT_TYPES.message, { message: m } satisfies MessageEventPayload);
+  for (const m of LEDGER_AFTER) {
+    if (m.id === "msg-rbl-approval") log.append(LEDGER, EVENT_TYPES.timelineRecord, LEDGER_DEVIATION);
+    log.append(LEDGER, EVENT_TYPES.message, { message: m } satisfies MessageEventPayload);
+  }
 }
 
 /** 这个会话现在的会话树（最新一条 session_branch 带的；没回退过是只有一条分支的） */

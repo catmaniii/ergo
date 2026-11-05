@@ -109,6 +109,7 @@ import {
   atLatest,
   jumpBadge,
   maxSeq,
+  type MarkChipText,
   t,
 } from "../../state/index.ts";
 import { NamedText } from "../assistant-name.tsx";
@@ -224,6 +225,8 @@ interface ZView {
 /** 一块矩形条外的东西：右侧标注的 ×N（0 是并进了前面那一块）、左边的卡、重开之前的（已废弃）、回退点和分叉点 */
 interface ZSide {
   repeat: number | undefined;
+  /** 右侧标注写的字（要点的 key → 字；合成一条的带着"等 N 次"）；没有装饰数据时标注按要点现说 */
+  chips: ReadonlyMap<string, MarkChipText> | undefined;
   left: ZoomLeftCard | undefined;
   stale: boolean;
   onOpenCard(card: ZoomLeftCard): void;
@@ -279,8 +282,8 @@ function ZItemView({
 }) {
   const layer = `bg-${view.content}${view.nature ? ` n-${view.nature}` : ""}${view.error ? " zi-err" : ""}`;
   const { group } = view;
-  const { repeat, left, stale, rollbacks, forks } = side;
-  // 连着一样的标注：第一块标出、写 ×N，后面的不标（repeat === 0 时 risks 为空；小圆点照旧）
+  const { repeat, chips, left, stale, rollbacks, forks } = side;
+  // 连着一样的标注：第一块标出、写 ×N 或"等 N 次"，后面的不标（repeat === 0 时 risks 为空；小圆点照旧）
   const risks = repeat === 0 || bare ? [] : view.marks;
   return (
     <>
@@ -310,7 +313,7 @@ function ZItemView({
         {(risks.length > 0 || (!bare && (repeat ?? 0) > 1)) && (
           <div className="zd-right">
             {risks.map((m) => (
-              <MarkChip key={m.key} mark={m} />
+              <MarkChip key={m.key} mark={m} chip={chips?.get(m.key)} />
             ))}
             {(repeat ?? 0) > 1 && <span className="zd-repeat">×{repeat}</span>}
           </div>
@@ -419,6 +422,7 @@ const ZItem = memo(function ZItem({
   const onBox = (id: string) => grp !== undefined && (!grp.open || (grp.first === item.id && (id === item.id || id === blocks[0]?.id)));
   const sideOf = (id: string, withLeft: boolean): ZSide => ({
     repeat: decor?.repeats.get(id),
+    chips: decor?.chips,
     left: withLeft ? left : undefined,
     stale: decor?.stale.has(id) ?? false,
     onOpenCard,

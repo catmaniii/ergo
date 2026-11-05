@@ -2,7 +2,7 @@
 // 工具名、说明和参数说明，交给秘书的结果和出错说明（MCP 没登记、工具没登记、服务进程没起来），时间线上的一句话和明细。
 // 给用户看的（工具名、时间线、结果）走 t()；给秘书的（工具说明、工具结果）照旧中文。
 // 不搞"读 / 写 / 底线"分级、也不出审批卡——MCP call 让秘书能调 MCP 的所有功能，参数原样发过去。
-import { type McpCallOutcome, type McpCallResultView, t } from "@ergo/protocol";
+import { mcpCallSummary, type McpCallOutcome, type McpCallResultView, t } from "@ergo/protocol";
 import { oneLine } from "../util/text.ts";
 
 /** 几个名字之间（和别处同一个说法） */
@@ -62,10 +62,12 @@ export const argsText = (args: Readonly<Record<string, unknown>>) => (Object.key
 /** 服务进程的结果写成一句（时间线、一句话摘要都用它） */
 export const resultText = (result: McpCallResultView) => result.text.trim() || t("mcp.call.resultEmpty");
 
-/** 时间线上的一句话：调到了 / 没调成，带着结果 */
+/**
+ * 时间线上的一句话："「MCP」工具：结果"，没调成的写明（协议包的 mcpCallSummary，网页改写以前的记录用同一句）。
+ * 记录的种类已经写着"MCP 调用"，不再说谁用 MCP 调了
+ */
 export function timelineSummary(outcome: McpCallOutcome, serverTitle: string, tool: string, result: McpCallResultView): string {
-  const params = { server: serverTitle, tool, result: oneLine(resultText(result), 60) };
-  return t(outcome === "done" ? "mcp.call.timeline.done" : "mcp.call.timeline.failed", params);
+  return mcpCallSummary({ ok: outcome === "done", server: serverTitle, tool, result: oneLine(resultText(result), 60) });
 }
 
 /** 时间线上的明细：参数、为什么、结果（没调成的写成"没做成：…"） */

@@ -1,6 +1,6 @@
 // 秘书调使用中的项目的操作（补齐）的说法：编排在 tool.ts、check-tool.ts，只给结构化的数据，文字都在这里。
 // 给秘书、负责人的（工具说明、参数说明、工具结果）照旧中文；给用户看的（工具名、时间线、转运营检查清单那一项）走 t()。
-import { forModel, PROJECT_STATE_LABEL, type Project, type ProjectServiceView, serviceLine, t } from "@ergo/protocol";
+import { forModel, PROJECT_STATE_LABEL, type Project, projectOpSummary, type ProjectServiceView, serviceLine, t } from "@ergo/protocol";
 import { SWITCH_SERVICES_TOOL } from "../project-services/tool-names.ts";
 import { oneLine } from "../util/text.ts";
 import type { OpsCheck, OpsChecklistView } from "./registry.ts";
@@ -242,11 +242,12 @@ const argsText = (args: Readonly<Record<string, unknown>>) => (Object.keys(args)
 
 const resultText = (text: string) => text.trim() || t("projectOps.resultEmpty");
 
-/** 时间线上的一句话：调到了 / 没做成，带着能念的那句；who 是秘书之外的调用者 */
+/**
+ * 时间线上的一句话："「项目」操作：能念的那句"，没做成的写明；who 是秘书之外的调用者（协议包的 projectOpSummary，
+ * 网页改写以前的记录用同一句）。记录的种类已经写着"项目接口"，秘书调的不再说是秘书调的
+ */
 export const timelineSummary = (ok: boolean, projectName: string, op: string, say: string, who?: string) =>
-  who === undefined
-    ? t(ok ? "projectOps.timeline.done" : "projectOps.timeline.failed", { project: projectName, op, result: oneLine(resultText(say), 60) })
-    : t(ok ? "projectOps.timeline.agentDone" : "projectOps.timeline.agentFailed", { who, project: projectName, op, result: oneLine(resultText(say), 60) });
+  projectOpSummary({ ok, project: projectName, op, result: oneLine(resultText(say), 60), who });
 
 /** 项目自动转的 MCP 自检的结果（负责人的时间线） */
 export const opsMcpCheckSummary = (name: string, version: number, probed: { ok: boolean; tools: readonly string[]; problem?: string }) =>

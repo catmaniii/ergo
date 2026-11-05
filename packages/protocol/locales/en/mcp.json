@@ -53,8 +53,6 @@
   "mcp.call.toolTitle": "Call an MCP tool",
   "mcp.call.noArgs": "(no arguments)",
   "mcp.call.resultEmpty": "(the server returned nothing)",
-  "mcp.call.timeline.done": "The assistant called {tool} on MCP \"{server}\" ({result})",
-  "mcp.call.timeline.failed": "The assistant's call to {tool} on MCP \"{server}\" didn't work ({result})",
   "mcp.call.timeline.detail.args": "Arguments: {args}",
   "mcp.call.timeline.detail.why": "Why: {why}",
   "mcp.call.timeline.detail.result": "Result: {result}",

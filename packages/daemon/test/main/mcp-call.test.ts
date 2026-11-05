@@ -93,7 +93,8 @@ describe("秘书带参调 MCP", () => {
       .map((r) => r.record)
       .filter((r) => r.kind === "mcp_call");
     expect(records).toHaveLength(1);
-    expect(records[0]!.summary).toContain("调了 person.rename");
+    // 一句"「MCP」工具：结果"（种类已经写着"MCP 调用"，不再说是秘书用 MCP 调的）
+    expect(records[0]!.summary).toBe("「旅行相册」person.rename：已把 p2 改名成 爸爸");
     expect(records[0]!.detail).toContain('"id":"p2"');
     expect(records[0]!.detail).toContain("用户说第二个人叫爸爸");
     expect(calledEvents(td)).toMatchObject([{ outcome: "done", server: "album", serverTitle: "旅行相册", tool: "person.rename", args: { id: "p2", name: "爸爸" }, why: "用户说第二个人叫爸爸", result: { ok: true, text: "已把 p2 改名成 爸爸" } }]);
@@ -144,7 +145,7 @@ describe("秘书带参调 MCP", () => {
       .map((r) => r.record)
       .filter((r) => r.kind === "mcp_call");
     expect(records).toHaveLength(1);
-    expect(records[0]!.summary).toContain("没做成");
+    expect(records[0]!.summary).toMatch(/^「旅行相册」person\.rename 没做成：/);
     expect(calledEvents(td)).toMatchObject([{ outcome: "failed", tool: "person.rename" }]);
     expect(cardsOf(frontend)).toEqual([]);
     await frontend.close();

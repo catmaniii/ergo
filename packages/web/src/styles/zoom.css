@@ -422,6 +422,92 @@
   white-space: normal;
   line-height: 1.3;
 }
+/*
+ * 标注的字（ui/zoom/marks.tsx）：前一段（种类或样式、结果、⚠类别）和一句具体的。一行放得下就接着写，放不下最多两行。
+ * 按标注那一列（.zd-right，宽度按这一档算好的）的宽窄分，不按窗口：宽屏分栏、展开了项目档案时列一样会窄——
+ * - 宽（14 个字宽以上）：前一段 · 那句话照常折行、截到两行；"等 N 次"、批了没有钉在右下角（.zd-chip-pin），不截；
+ * - 窄（手机）：前一段一行（批了没有接在这一行）、那句话一行（"等 N 次"接在这一行），各自截掉放不下的。
+ * 只有一段的（验收结论）都是照常折行截两行
+ */
+.zd-right {
+  container: zd-marks / inline-size;
+}
+.zd-chip {
+  display: flex;
+  align-items: flex-end;
+}
+.zd-chip-body {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  /* 长路径、长英文词放不下时从中间断开，不撑出列 */
+  overflow-wrap: anywhere;
+}
+.zd-chip-said::before {
+  content: " · ";
+}
+.zd-chip-pin {
+  flex: none;
+  margin-left: 0.3em;
+  white-space: nowrap;
+}
+.zd-chip-pin .zd-chip-more + .zd-chip-tail {
+  margin-left: 0.3em;
+}
+.zd-chip-pin .zd-chip-tail::before {
+  content: "· ";
+}
+.zd-chip .zd-n {
+  display: none;
+}
+@container zd-marks (max-width: 14em) {
+  .zd-chip .zd-w {
+    display: none;
+  }
+  .zd-chip .zd-n {
+    display: inline;
+  }
+  .zd-chip:not(.zd-chip-solo) .zd-chip-body {
+    display: flex;
+    flex-direction: column;
+  }
+  .zd-chip:not(.zd-chip-solo) .zd-chip-head,
+  .zd-chip-said {
+    display: flex;
+    min-width: 0;
+    white-space: nowrap;
+  }
+  .zd-chip-said::before {
+    content: none;
+  }
+  .zd-chip:not(.zd-chip-solo) .zd-chip-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /*
+   * 前一段放不下时只截打头那一项后面的（" · ⚠类别"这些，开头的空格留着），打头的种类或样式不缩
+   * （按比例缩会让它也少零点几个像素、平白多出省略号）；它自己就比一行长时截到一行宽
+   */
+  .zd-chip:not(.zd-chip-solo) .zd-chip-lead {
+    flex-shrink: 0;
+    max-width: 100%;
+  }
+  .zd-chip-rest {
+    white-space: pre;
+  }
+  .zd-chip-head .zd-chip-tail,
+  .zd-chip-said .zd-chip-more {
+    flex: none;
+    margin-left: 0.3em;
+  }
+  .zd-chip-head .zd-chip-tail::before {
+    content: "· ";
+  }
+}
 /* 连着几块的标注一样：只在第一块标，后面跟 ×N */
 .zd-repeat {
   margin-left: calc(4px / var(--ds));

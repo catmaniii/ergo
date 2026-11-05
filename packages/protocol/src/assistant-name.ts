@@ -89,6 +89,11 @@ export const LEGACY_WORDING: ReadonlyArray<{ old: string; now: string; whole?: t
   // 待我处理在界面上叫"待办"：负责人会话里只给人看的两句说明
   { old: "等你验收：已放进待我处理。", now: "等你验收：已放进待办。" },
   { old: '转给你拍板（待我处理里的"卡住求助"）。', now: '转给你拍板（待办里的"卡住求助"）。' },
+  // MCP 调用、项目接口记录以前的那一句（现在写成 mcpCallSummary、projectOpSummary 那样，不再说是谁调的；
+  // 缩小后的标注再把它改写成现在的写法，web 的 state/mark-chip.ts）
+  { old: "秘书用 MCP「", now: `${ASSISTANT_NAME_MARK}用 MCP「` },
+  { old: "秘书调了项目「", now: `${ASSISTANT_NAME_MARK}调了项目「` },
+  { old: "秘书调项目「", now: `${ASSISTANT_NAME_MARK}调项目「` },
 ];
 // @i18n-ignore-end
 

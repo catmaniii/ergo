@@ -53,8 +53,6 @@
   "mcp.call.toolTitle": "调用 MCP 工具",
   "mcp.call.noArgs": "（没有参数）",
   "mcp.call.resultEmpty": "（服务进程没有返回内容）",
-  "mcp.call.timeline.done": "秘书用 MCP「{server}」调了 {tool}（{result}）",
-  "mcp.call.timeline.failed": "秘书用 MCP「{server}」调 {tool} 没做成（{result}）",
   "mcp.call.timeline.detail.args": "参数：{args}",
   "mcp.call.timeline.detail.why": "为什么：{why}",
   "mcp.call.timeline.detail.result": "结果：{result}",

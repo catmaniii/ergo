@@ -1,7 +1,8 @@
 // 缩小后条外的装饰：右侧标注、底色带、书脊、左侧的卡、回退点，
 // 画法照搬（界面在 ui/zoom/ZoomHistory.tsx），数据换成二狗的会话条目（chat-items.ts）。纯函数，界面只管画和摆。
-// - 右侧标注的 ×N（repeatCounts）：缩小后的一块块矩形按先后看（条目；工具调用组缩小后拆成组里每一块），
-//   连着几块的标注一模一样时只在第一块标出、写 ×N；思考不打断，别的没有标注的块打断。
+// - 右侧标注写的字和合并（rightMarks；字由 mark-chip.ts 的 markChip 给）：缩小后的一块块矩形按先后看（条目；工具调用组缩小后
+//   拆成组里每一块），连着几块的标注前一段（种类、样式、类别、结果，审批还有批没批）一样的只在第一块标出：整句一字不差的写 ×N，
+//   那句话不一样的写第一块的那句话加"等 N 次"；思考不打断，别的没有标注的块打断。
 // - 底色带（zoomBands）："一个计划从提出到执行完"铺一整块浅黄底，相邻两块深浅错开，左缘竖排"任务 N · 是什么事"。
 //   二狗按会话分（全局层的分组 timelineGrouping）：
 //   - 任务的负责人会话：每个任务一整块，起止照 planSpans——从这个任务的第一条到最后一条按计划执行的（带阶段的）或者计划卡，
@@ -54,34 +55,15 @@ import {
   tTable,
 } from "./protocol.ts";
 import { type ChatItem, type ContentKind, isCallGroup, zoomBlocks } from "./chat-items.ts";
-import { genericBashLabel, MARK_KIND_LABEL, OP_REASON, type TimelineMark, timelineGrouping } from "./timeline.ts";
+import { markChip, type MarkChipText, markChipText } from "./mark-chip.ts";
+import { type TimelineMark, timelineGrouping } from "./timeline.ts";
 import { taskStageCodes } from "./stage-codes.ts";
 import { pathMessages, pathStageStarts, segmentOpen, type UiState } from "./ui-state.ts";
 import { workOrderView } from "./work-orders.ts";
 import { workflowPlanCategoryCount } from "./workflow-card.ts";
 import { workflowProgress } from "./workflow-view.ts";
 
-// ───────────────────────── 右侧标注的字和 ×N ─────────────────────────
-
-/**
- * 一条标注上写的字（定的写法；审批批了没有由界面接在后面）：
- * - 操作（工具调用、操作记录）：样式的说法、命中的关注类别（⚠）、通用 bash、结果；
- * - 审批：要批的事；验收：结论；时间线记录（偏离、范围变更、越界……）：种类
- */
-export function markChipText(mark: TimelineMark): string {
-  const style = mark.reason ? OP_REASON[mark.reason].label : undefined;
-  const cats = mark.categories.map((c) => `⚠${c}`);
-  const bash = mark.genericBash ? [genericBashLabel()] : [];
-  const parts =
-    mark.kind === "tool"
-      ? [style, ...cats, ...bash, mark.outcome]
-      : mark.kind === "operation"
-        ? [t("state.zoomDecor.operationChip", { label: MARK_KIND_LABEL.operation, short: mark.short }), style, ...cats]
-        : mark.kind === "acceptance"
-          ? [mark.title]
-          : [MARK_KIND_LABEL[mark.kind], ...cats];
-  return parts.filter((x): x is string => !!x).join(" · ");
-}
+// ───────────────────────── 右侧标注的字和合并 ─────────────────────────
 
 /**
  * 缩小后条右侧标出的要点（和条右上角的小圆点）：验收通过的不标（"验收通过不在右边标：左边书脊那一段变绿
@@ -107,33 +89,64 @@ export function zoomRects(items: readonly ChatItem[]): ZoomRect[] {
   });
 }
 
-/** 两条标注算不算一样：写的字一样；审批还要批没批、怎么批的一样（不然一批一拒会被并成 ×2） */
-function markRepeatKey(state: UiState, mark: TimelineMark): string {
-  const card = mark.cardId ? state.cards[mark.cardId]?.card : undefined;
-  return card ? `${markChipText(mark)}#${card.status}:${card.outcome?.action ?? ""}` : markChipText(mark);
+/** 右侧标注：每条写什么（要点的 key → 字，合成一条的第一块带着"等 N 次"），和 ×N（矩形 id → N，后面并掉的是 0） */
+export interface RightMarks {
+  readonly chips: ReadonlyMap<string, MarkChipText>;
+  readonly repeats: ReadonlyMap<string, number>;
 }
 
 /**
- * 连续几块的标注完全一样时，只在第一块显示并标 ×N：第一块记 N（≥2），后面几块记 0（不显示标注）。
+ * 两条标注算不算一样。whole：整句一字不差（批没批也一样；审批批了没有写在 tail 里，一批一拒不会并成 ×2）。
+ * head：前一段（种类、样式、类别、结果）和批没批一样——只有一条标注、那句话不是空的块才按它合并，别的按整句
+ */
+function repeatKeys(rect: ZoomRect, chips: ReadonlyMap<string, MarkChipText>): { whole: string; head: string } {
+  const texts = rect.marks.map((m) => `${m.kind}|${markChipText(chips.get(m.key)!)}`);
+  const whole = texts.join("\n");
+  const only = rect.marks.length === 1 ? chips.get(rect.marks[0]!.key)! : undefined;
+  return { whole, head: only && only.said !== "" ? `${rect.marks[0]!.kind}|${only.head}|${only.tail ?? ""}` : whole };
+}
+
+/**
+ * 右侧标注写什么，连着几块的合成一条：前一段一样的连着几块只在第一块标出，后面几块记 0（不显示标注）——
+ * 整句都一样的第一块记 ×N（≥2）；那句话不一样的，第一块写它那句话加"等 N 次"（N 是一共几块）。
  * 只有思考不打断连续；别的没有标注的块说明已经不相邻了
  */
-export function repeatCounts(state: UiState, items: readonly ChatItem[]): Map<string, number> {
+export function rightMarks(state: UiState, items: readonly ChatItem[]): RightMarks {
   const rects = zoomRects(items);
-  const keys = new Map(rects.map((r) => [r.id, r.marks.map((m) => markRepeatKey(state, m)).join("|")]));
-  const counts = new Map<string, number>();
-  let head: string | undefined;
+  const chips = new Map<string, MarkChipText>();
+  for (const r of rects) for (const m of r.marks) chips.set(m.key, markChip(state, m));
+  const repeats = new Map<string, number>();
+  let run: { first: ZoomRect; keys: { whole: string; head: string }; n: number; same: boolean } | undefined;
+  const close = () => {
+    if (run === undefined || run.n < 2) return;
+    if (run.same) {
+      repeats.set(run.first.id, run.n);
+      return;
+    }
+    // "等 N 次"界面钉在那句话末尾，那句话再长也不会把它截掉
+    const key = run.first.marks[0]!.key;
+    chips.set(key, { ...chips.get(key)!, more: t("state.markChip.more", { count: run.n }) });
+  };
   for (const r of rects) {
-    const k = keys.get(r.id)!;
-    if (!k) {
-      if (r.content !== "thinking") head = undefined;
+    if (r.marks.length === 0) {
+      if (r.content !== "thinking") {
+        close();
+        run = undefined;
+      }
       continue;
     }
-    if (head !== undefined && k === keys.get(head)) {
-      counts.set(head, (counts.get(head) ?? 1) + 1);
-      counts.set(r.id, 0);
-    } else head = r.id;
+    const keys = repeatKeys(r, chips);
+    if (run !== undefined && keys.head === run.keys.head) {
+      run.n += 1;
+      run.same &&= keys.whole === run.keys.whole;
+      repeats.set(r.id, 0);
+      continue;
+    }
+    close();
+    run = { first: r, keys, n: 1, same: true };
   }
-  return counts;
+  close();
+  return { chips, repeats };
 }
 
 // ───────────────────────── 底色带 ─────────────────────────
@@ -691,7 +704,9 @@ export function zoomForks(state: UiState, conversation: ConversationId, items: r
 export interface ZoomDecor {
   readonly bands: readonly ZoomBand[];
   readonly spines: readonly ZoomSpine[];
-  /** 右侧标注的 ×N（repeatCounts：矩形 id → N，后面并掉的是 0） */
+  /** 右侧标注写的字（rightMarks：要点的 key → 字，合成一条的第一块带着"等 N 次"） */
+  readonly chips: ReadonlyMap<string, MarkChipText>;
+  /** 右侧标注的 ×N（rightMarks：矩形 id → N，后面并掉的是 0） */
   readonly repeats: ReadonlyMap<string, number>;
   /** 条左边的卡（条目 id → 卡） */
   readonly left: ReadonlyMap<string, ZoomLeftCard>;
@@ -704,10 +719,12 @@ export interface ZoomDecor {
 }
 
 export function zoomDecor(state: UiState, conversation: ConversationId, items: readonly ChatItem[]): ZoomDecor {
+  const { chips, repeats } = rightMarks(state, items);
   return {
     bands: zoomBands(state, conversation, items),
     spines: zoomSpines(state, conversation, items),
-    repeats: repeatCounts(state, items),
+    chips,
+    repeats,
     left: zoomLeftCards(state, conversation, items),
     stale: zoomStaleItems(state, conversation, items),
     rollbacks: zoomRollbacks(state, conversation, items),

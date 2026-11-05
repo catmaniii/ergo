@@ -20,6 +20,7 @@ import {
   type ConversationId,
   type EventFrame,
   globalView,
+  markChipText,
   type MessageEnvelope,
   type MessagePart,
   type ProgressCardPayload,
@@ -149,7 +150,7 @@ describe("回放：项目负责人的会话", () => {
     });
   });
 
-  test("multi-project：书脊只画在执行任务的负责人的会话里（验收结论在那里）；两个项目负责人那边只有工单段的底色和工单卡；连着两条一样的工单记录标 ×2", () => {
+  test("multi-project：书脊只画在执行任务的负责人的会话里（验收结论在那里）；两个项目负责人那边只有工单段的底色和工单卡；连着两条工单记录合成一条“…等 2 次”", () => {
     const state = replay(load("multi-project"));
     expect(spinesOf(state, "maintainer:tm-1")).toEqual(["t-1/s1 ok 3-3", "t-1/s2 ok 4-4", "t-1/s1 ok 5-12", "t-1/s2 ok 13-24"]);
     expect(spinesOf(state, "maintainer:pm-1")).toEqual([]);
@@ -158,10 +159,9 @@ describe("回放：项目负责人的会话", () => {
     const items = chatItems(state, "maintainer:tm-1");
     const decor = zoomDecor(state, "maintainer:tm-1", items);
     expect(keyLines(items, 3, 4)).toEqual(["工单：建出工单 wo-1", "工单：建出工单 wo-2"]);
-    expect([...decor.repeats]).toEqual([
-      [items[3]!.id, 2],
-      [items[4]!.id, 0],
-    ]);
+    // 种类一样、摘要不一样：只在第一条标，写它的摘要加"等 2 次"（不是 ×2：两句不一样），第二条不标
+    expect([...decor.repeats]).toEqual([[items[4]!.id, 0]]);
+    expect(markChipText(decor.chips.get(items[3]!.marks[0]!.key)!)).toBe("工单 · 建出工单 wo-1 → 项目「记账本」（阶段 s1，阶段开始时派出） 等 2 次");
   });
 });
 

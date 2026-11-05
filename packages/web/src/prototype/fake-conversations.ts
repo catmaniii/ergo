@@ -2003,6 +2003,45 @@ const SECRETARY_ATTACHMENT_FIRST: MessageEnvelope[] = [
     ],
   },
 ];
+/**
+ * 秘书带参调登记过的 MCP（mcp_call）：给相册里一个人改名、再只看他。每调一次记一条"MCP 调用"（排在回复前面），
+ * 缩小后连着的两条合成一条"…等 2 次"。id、调用 id 写死，不经 msg()、tool() 编号，后面消息和调用的编号不变
+ */
+const SECRETARY_MCP: MessageEnvelope[] = [
+  { id: "msg-mcp-ask", conversation: S, speaker: "user", time: at("10-07", "21:55"), parts: [text("相册里第二个人改名叫爸爸，再只看他的照片")] },
+  {
+    id: "msg-mcp-reply",
+    conversation: S,
+    speaker: "agent",
+    time: at("10-07", "21:56"),
+    parts: [
+      toolAs("call-mcp-rename", "mcp_call", 'tool=album/person.rename args={"id":"p2","name":"爸爸"} why=用户说第二个人叫爸爸', { result: "已把 p2 改名成 爸爸" }),
+      toolAs("call-mcp-filter", "mcp_call", 'tool=album/filter.set args={"personId":"p2"} why=用户要只看他的照片', { result: "只显示 p2 的 128 张照片" }),
+      text("改好了：第二个人叫爸爸，相册现在只显示他的 128 张照片。"),
+    ],
+  },
+];
+RECORDS_BEFORE.set("msg-mcp-reply", [
+  {
+    record: {
+      id: "rec-mcp-rename",
+      kind: "mcp_call",
+      summary: "「旅行相册」person.rename：已把 p2 改名成 爸爸",
+      detail: '参数：{"id":"p2","name":"爸爸"}\n为什么：用户说第二个人叫爸爸\n结果：已把 p2 改名成 爸爸',
+      time: at("10-07", "21:56"),
+    },
+  },
+  {
+    record: {
+      id: "rec-mcp-filter",
+      kind: "mcp_call",
+      summary: "「旅行相册」filter.set：只显示 p2 的 128 张照片",
+      detail: '参数：{"personId":"p2"}\n为什么：用户要只看他的照片\n结果：只显示 p2 的 128 张照片',
+      time: at("10-07", "21:56"),
+    },
+  },
+]);
+
 const BRIEF_EVENTS: { channel: string; type: string; payload: unknown }[] = [
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_TIMED_TASK, change: "created", from: null, by: "user" } satisfies TaskEventPayload },
   { channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob, payload: { job: briefJob(0, undefined), change: "registered", by: "user" } satisfies ScheduledJobEventPayload },
@@ -2514,7 +2553,7 @@ for (const m of REMOTE) SCOPES.set(m.id, { taskId: FAKE_REMOTE_TASK.id });
 
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
-  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...SECRETARY_VOICE_RETRY, ...SECRETARY_RELAY, ...SECRETARY_ATTACHMENTS, ...SECRETARY_ATTACHMENT_FIRST, ...PHOTOS, ...BILLS, ...LEDGER_EARLIER, ...LEDGER, ...LEDGER_LATEST, ...LEDGER_LINES, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX, ...CURATOR_MESSAGES, ...TAX_QUESTION, ...TAKEOVER, ...REMOTE].flatMap((m) => [
+  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...SECRETARY_VOICE_RETRY, ...SECRETARY_RELAY, ...SECRETARY_ATTACHMENTS, ...SECRETARY_ATTACHMENT_FIRST, ...SECRETARY_MCP, ...PHOTOS, ...BILLS, ...LEDGER_EARLIER, ...LEDGER, ...LEDGER_LATEST, ...LEDGER_LINES, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX, ...CURATOR_MESSAGES, ...TAX_QUESTION, ...TAKEOVER, ...REMOTE].flatMap((m) => [
     ...(RECORDS_BEFORE.get(m.id) ?? []).map((payload) => ({ channel: m.conversation, type: EVENT_TYPES.timelineRecord, payload })),
     { channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id), ...(AGENT_INPUTS.has(m.id) ? { agentInput: true } : {}) } },
   ]),

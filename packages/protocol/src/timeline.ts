@@ -251,3 +251,22 @@ export type TimelineRecordEventPayload = Static<typeof TimelineRecordEventPayloa
 export function isTimelineRecordKind(kind: string): kind is TimelineRecordKind {
   return Object.hasOwn(TIMELINE_RECORD_KIND_INFO, kind);
 }
+
+/**
+ * MCP 调用（mcp_call）记录的那一句："「MCP」工具：结果"，没做成的写明。种类已经写着"MCP 调用"，不再说谁用 MCP 调了。
+ * 守护进程记新记录、网页把以前的写法改写过来，用的是同一句（result 由调用方截好）
+ */
+export function mcpCallSummary(input: { readonly ok: boolean; readonly server: string; readonly tool: string; readonly result: string }): string {
+  const { ok, ...params } = input;
+  return t(ok ? "protocol.timeline.summary.mcpCallDone" : "protocol.timeline.summary.mcpCallFailed", params);
+}
+
+/**
+ * 项目接口（project_op）记录的那一句："「项目」操作：结果"；别的 agent 调的前面写是谁（秘书调的不写）。
+ * 同 mcpCallSummary，守护进程和网页共用
+ */
+export function projectOpSummary(input: { readonly ok: boolean; readonly project: string; readonly op: string; readonly result: string; readonly who?: string | undefined }): string {
+  const { ok, who, ...params } = input;
+  if (who === undefined) return t(ok ? "protocol.timeline.summary.projectOpDone" : "protocol.timeline.summary.projectOpFailed", params);
+  return t(ok ? "protocol.timeline.summary.projectOpAgentDone" : "protocol.timeline.summary.projectOpAgentFailed", { ...params, who });
+}

@@ -628,7 +628,7 @@ describe("call", () => {
       { op: "add_expense", version: 1, builtin: false, kind: "action", readOnly: false, risk: "direct", impl: "http", say: "记好了：午饭 32 元", sayFilled: false, outcome: "done", why: "用户说记一笔午饭 32 块", app: "p-1-ledger" },
     ]);
     expect(JSON.stringify(s.called())).not.toContain("tok-abcdefgh12345678");
-    expect(s.timeline()).toMatchObject([{ kind: "project_op", summary: "秘书调了项目「记账本」的操作 add_expense（记好了：午饭 32 元）" }]);
+    expect(s.timeline()).toMatchObject([{ kind: "project_op", summary: "「记账本」add_expense：记好了：午饭 32 元" }]);
     expect(s.timeline()[0]!.detail).toContain("运营接口清单第 1 版");
     expect(s.timeline()[0]!.detail).toContain("能念的一句：记好了：午饭 32 元");
     expect(JSON.stringify(s.timeline())).not.toContain("tok-abcdefgh12345678");

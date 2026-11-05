@@ -296,7 +296,7 @@ describe("秘书的 project_ops：照草稿补齐", () => {
       .map((r) => r.record)
       .filter((r) => r.kind === "project_op");
     expect(records).toHaveLength(5);
-    expect(records[0]!.summary).toBe("秘书调了项目「记账本」的操作 add_expense（记好了：午饭 32 元）");
+    expect(records[0]!.summary).toBe("「记账本」add_expense：记好了：午饭 32 元");
     expect(records[0]!.detail).toContain("运营接口清单第 1 版");
     expect(records[0]!.detail).toContain("用户说记一笔午饭 32 块");
     const calls = toolCallsOf(frontend, SECRETARY).filter((c) => c.tool === "project_ops");
