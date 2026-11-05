@@ -89,7 +89,7 @@ describe("每种要点：种类或样式 + 一句具体的", () => {
     expect(text(mark, replay([approvalFrame(1, "a1", "ledger.db", "pending", undefined, [DELETE_FULL])]))).toBe("审批 · ⚠删除或覆盖 · 写 ledger.db · 待你处理");
     expect(text(mark, replay([approvalFrame(1, "a1", "ledger.db", "handled", APPROVED, [DELETE_FULL])]))).toBe("审批 · ⚠删除或覆盖 · 写 ledger.db · 已批准");
     // 拆开：批了没有单独放（界面两行放不下时截的是那句话，不是它）
-    expect(markChip(replay([approvalFrame(1, "a1", "ledger.db", "pending")]), mark)).toMatchObject({ head: "审批 · ⚠删除或覆盖", lead: "审批", said: "写 ledger.db", tail: "待你处理" });
+    expect(markChip(replay([approvalFrame(1, "a1", "ledger.db", "pending")]), mark)).toMatchObject({ head: "审批 · ⚠删除或覆盖", said: "写 ledger.db", tail: "待你处理" });
     // 没有模板的工具、没收到卡：写要点那一句（工具中文名「参数」），不写批没批
     expect(text({ ...mark, cardId: "a3", title: "发邮件「to=你 subject=月报」" })).toBe("审批 · ⚠删除或覆盖 · 发邮件「to=你 subject=月报」");
   });

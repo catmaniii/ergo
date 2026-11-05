@@ -1331,11 +1331,12 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(errors).toEqual([]);
   }, 60_000);
 
-  // 面板原来和主线一样宽，从主线右边接着画，要点层哪个宽度都伸出视口右边（900 宽超出 145px，字被裁）
+  // 面板原来和主线一样宽，从主线右边接着画，要点层哪个宽度都伸出视口右边（900 宽超出 145px，字被裁）。
+  // 手机上缩小后条往左挪、要点层收窄（zoom.ts 的 shiftAt、NARROW_GIST_SCALE），旁边也放得下了，不再盖住主线
   for (const [name, viewport, besideMain] of [
     ["小屏 900×562（收窄，放在主线旁边）", { width: 900, height: 562 }, true],
     ["795×562（收窄，放在主线旁边）", { width: 795, height: 562 }, true],
-    ["手机 360×780（旁边太窄，往左挪）", { width: 360, height: 780 }, false],
+    ["手机 360×780（条往左挪了，放在主线旁边）", { width: 360, height: 780 }, true],
   ] as const) {
     test(`${name}：缩小后点开的分支整块留在视口里，字不被裁`, async () => {
       const { page, errors } = await open(viewport);

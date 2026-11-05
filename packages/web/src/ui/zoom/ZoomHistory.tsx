@@ -637,7 +637,12 @@ function layoutAnnotations(content: HTMLElement, ctl: ZoomController | null, vie
   const k = DS / s;
   // 展开的分支面板先摆：标注被它压住的要收窄、藏起来，要在排标注之前。
   // 面板的宽度按这一档算（对话层看不见，按要点层算，往外捏时不用再折一次行）
-  if (viewport) layoutPanels(content, viewport, DS, PRESETS[Math.max(1, Math.min(level, 2))]!);
+  if (viewport) {
+    const lvl = Math.max(1, Math.min(level, 2)) as ZoomLevel;
+    const sl = ctl ? ctl.presetOf(lvl) : PRESETS[lvl];
+    // 窄屏缩小后内容往左挪了（ZoomController.shiftAt）：面板从挪过的位置算
+    layoutPanels(content, viewport, DS, sl, ctl?.shiftAt(sl) ?? 0);
+  }
   const contentTop = content.getBoundingClientRect().top;
   const cy = (clientY: number) => (clientY - contentTop) / s;
   // 风险标注：默认与"这条风险在原文里的那一行"水平对齐，箭头就是一条横线；
@@ -714,14 +719,14 @@ const PANEL_MIN = 180;
  * 同一分叉点的几条平分；几条连整个视口都挤不下时才比下限窄。
  * 按这一档（sl）算、不按捏合中的实时比例，捏合过程中不重新折行（同 .zd-right 的 --sl）。收窄的面板里字多的条会多折一行，比主线的高一点
  */
-function fitPanelWidths(content: HTMLElement, fork: HTMLElement, own: readonly HTMLElement[], minX: number, maxX: number, left: number, sl: number) {
+function fitPanelWidths(content: HTMLElement, fork: HTMLElement, own: readonly HTMLElement[], minX: number, maxX: number, left: number, sl: number, shift: number) {
   const item = fork.parentElement!;
   // 不收窄时的宽度：和主线的条等宽，再加底板左右各 8px 的衬边（zoom.css 的 .zd-abandoned）
   const natural = (item.offsetWidth + 16) * sl;
   // 同一分叉点上面板以外的：没展开的 ⑂、间距
   const others = fork.getBoundingClientRect().width - own.reduce((sum, panel) => sum + panel.getBoundingClientRect().width, 0);
   // 分叉点在这一档的屏幕位置：内容居中（zoom.ts 的 apply），分叉点在条右边 4px（zoom.css 的 .zd-fork）
-  const start = left + (content.clientWidth * (1 - sl)) / 2 + (item.offsetLeft + item.offsetWidth) * sl + 4;
+  const start = left + (content.clientWidth * (1 - sl)) / 2 - shift + (item.offsetLeft + item.offsetWidth) * sl + 4;
   const width = Math.max((maxX - start - others) / own.length, Math.min(PANEL_MIN, natural, (maxX - minX - others) / own.length));
   for (const panel of own) {
     // 取整：量出来的数每帧有零头，写一样的值才不用每帧重新折行
@@ -736,7 +741,7 @@ function fitPanelWidths(content: HTMLElement, fork: HTMLElement, own: readonly H
  * （分支名 + 切换按钮，绝对定位、不在面板的盒子里）一起算；压住面板的标注不一定在同一条上，纵向有交叠的都要躲开。
  * 标注的位置先全量完再一起写（逐个面板边量边写量到的位置也一样，只是慢）；没有展开的面板时只把上次留下的收窄、隐藏清掉
  */
-function layoutPanels(content: HTMLElement, viewport: HTMLElement, DS: number, sl: number) {
+function layoutPanels(content: HTMLElement, viewport: HTMLElement, DS: number, sl: number, shift: number) {
   const rights = [...content.querySelectorAll<HTMLElement>(".zd-right")];
   // 先按不受限的宽度量一遍，才能知道标注列实际有多宽
   for (const el of rights) el.style.removeProperty("--risk-max");
@@ -754,7 +759,7 @@ function layoutPanels(content: HTMLElement, viewport: HTMLElement, DS: number, s
   // 同一分叉点的几条（和还没展开的 ⑂）横着排，一起算、一起挪
   const forks = new Map<HTMLElement, HTMLElement[]>();
   for (const panel of panels) forks.set(panel.parentElement!, [...(forks.get(panel.parentElement!) ?? []), panel]);
-  for (const [fork, own] of forks) fitPanelWidths(content, fork, own, minX, maxX, vp.left, sl);
+  for (const [fork, own] of forks) fitPanelWidths(content, fork, own, minX, maxX, vp.left, sl, shift);
   const offsets = [...forks].map(([fork, own]) => {
     const spans = own.map(spanOf);
     const row = fork.getBoundingClientRect();
@@ -810,6 +815,32 @@ function panelsBottom(content: HTMLElement, ctl: ZoomController | null): number 
 /** 书脊的宽度和离条的缝（zoom.css 的 .zh-spine 同一组数） */
 const SPINE_W = 3;
 const SPINE_GAP = 3;
+
+/**
+ * 窄屏缩小后条的左缘离视口左缘至少留多少（屏幕像素；ZoomController.setLeftRoom），原型里 390 宽量过：
+ * - 日期竖排那一列右缘在 21，两道错开的回退点最左的图标左缘离条 45：留 70，图标不压着竖排的字；
+ * - 有左侧卡（任务卡、工单卡，挂在同一列、比回退点宽）的留 110，卡和原来居中时一样宽（72 像素左右，两行）；
+ * - 有书脊的再加书脊那一列（zoom.css 的 --spine-px，40）。
+ * 居中时本来就没留到这么多的（书脊加左侧卡的长程任务，390 宽的要点层）不挪
+ */
+function narrowLeftRoom(content: HTMLElement, cards: boolean): number {
+  return (cards ? 110 : 70) + (content.dataset.spine ? 40 : 0);
+}
+
+/**
+ * 右侧标注的"等 N 次"、批了没有（marks.tsx）：先接在那句话后面，接上之后两行放不下（被截了）才钉到第二行右边（data-pin），
+ * 这时第二行是满的、它跟在省略号后面，不会右对齐空出一截。
+ * 先都放回接在后面再量、再一起写；缩放的每一帧不做（宽度只在换档、换窗口时变，停稳了再做）
+ */
+function fitChipPins(content: HTMLElement) {
+  const chips = [...content.querySelectorAll<HTMLElement>(".zd-right .zd-chip[data-suffix]")].filter(shown);
+  for (const chip of chips) chip.removeAttribute("data-pin");
+  const over = chips.filter((chip) => {
+    const body = chip.querySelector<HTMLElement>(".zd-chip-body");
+    return body !== null && body.scrollHeight > body.clientHeight + 1;
+  });
+  for (const chip of over) chip.dataset.pin = "1";
+}
 
 /**
  * 撤回图标贴着条，用一条直线指到它撤回的那条分界线；挨太近时只向左让位，线随之变长。
@@ -1310,6 +1341,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     ctl.onSettle = () => {
       zoomingRef.current = false;
       placeBands(content);
+      fitChipPins(content);
       layoutSides();
       checkJump();
       if (ctl.level > 0 && viewport.scrollTop < LOAD_OLDER_WITHIN_PX) loadOlder();
@@ -1336,7 +1368,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     if (start > 0) {
       fitHeight();
       programmaticRef.current = true;
-      ctl.set(PRESETS[start], viewport.clientHeight, content.offsetHeight);
+      ctl.set(ctl.presetOf(start), viewport.clientHeight, content.offsetHeight);
     }
     // 内容高度变化（新消息、流式输出）→ 更新滚动范围；对话层且在底部时跟随到底
     const ro = new ResizeObserver(() => {
@@ -1356,7 +1388,10 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       const following = followRef.current && !touchingRef.current;
       ctl.relayout();
       // 窗口变了（阔折叠展开、合上）：展开的分支面板按新的宽度重新放；对话层没有条外的东西要摆
-      if (ctl.level !== 0) layoutSides();
+      if (ctl.level !== 0) {
+        fitChipPins(content);
+        layoutSides();
+      }
       if (following && ctl.level === 0) {
         programmaticRef.current = true;
         viewport.scrollTop = viewport.scrollHeight;
@@ -1377,7 +1412,10 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     const content = contentRef.current;
     if (!content) return;
     markLong(content);
+    // 窄屏缩小后条往左挪多少：按会话里有没有左侧卡、书脊（data-spine 在上面这次渲染里已经写好）
+    ctlRef.current?.setLeftRoom(narrowLeftRoom(content, (decor?.left.size ?? 0) > 0));
     placeBands(content);
+    fitChipPins(content);
     layoutSides();
   });
 
@@ -1404,7 +1442,10 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
   // ⑂ 点开要的：预览按主线同一套 ZItem 画（去掉条外的装饰）；展开收起之后底色带、两侧标注重新摆
   const relayout = useCallback(() => {
     const content = contentRef.current;
-    if (content) placeBands(content);
+    if (content) {
+      placeBands(content);
+      fitChipPins(content);
+    }
     layoutSides();
   }, [layoutSides]);
   const noCard = useCallback(() => undefined, []);
@@ -1472,7 +1513,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       // 换档不算还在往底部滑
       jumpingRef.current = false;
       const focalY = viewportRef.current!.clientHeight / 2;
-      ctl.animateTo(PRESETS[l], ctl.contentYAt(focalY), focalY);
+      ctl.animateTo(ctl.presetOf(l), ctl.contentYAt(focalY), focalY);
     },
     reveal(chatId) {
       // 存的 id 可能是组原来的 id、组里某一步的 id：一律经 locateChatItem 找到现在的那一条

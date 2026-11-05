@@ -2,8 +2,8 @@
 // 底色带、书脊和图例，见 ZoomHistory.tsx、state/zoom-decor.ts）。
 // 一个要点（state/timeline.ts 的 TimelineMark）一条标注，写的字由状态层给（state/mark-chip.ts 的 markChip；
 // 连着几块的合成一条、写 ×N 或"等 N 次"在 zoom-decor.ts 的 rightMarks）：前一段是种类或样式、结果、⚠类别，后面是一句具体的，
-// 审批最后接批了没有。一行放得下就接着写，放不下最多两行（zoom.css 的 .zd-chip：宽的折行截两行，窄的前一段一行、那句话一行，
-// "等 N 次"和批了没有钉在末尾不截）；完整的在悬停文字里。
+// 审批最后接批了没有。一行放得下就接着写，放不下最多两行（zoom.css 的 .zd-chip：前一段最多一行，那句话接着折行截到两行；
+// "等 N 次"和批了没有跟在字后面，两行放不下时也不截掉）；完整的在悬停文字里。
 // 颜色：被拦下或问过、严重的记录是 high；做完告诉我、命中类别的、一般的记录是 op；
 // 授权内是 fix（绿）；只是通用 bash、说明性的记录是 data。
 import { markChip, type MarkChipText, type TimelineMark } from "../../state/index.ts";
@@ -31,38 +31,31 @@ export function MarkChip({ mark, chip = markChip(undefined, mark) }: { mark: Tim
         <path />
       </svg>
       {/*
-       * 秘书转达的要点写名字占位：按名字标签画。"等 N 次"、批了没有各画两份，zoom.css 按标注那一列的宽窄只显示一份：
-       * 宽的（zd-w）钉在整条的右下角；窄的（zd-n）批了没有接在前一段那一行、"等 N 次"接在那句话那一行
+       * 秘书转达的要点写名字占位：按名字标签画。前一段最多占一行（放不下截掉后面的类别），那句话接在它后面折行，一共最多两行。
+       * "等 N 次"、批了没有接在那句话后面；接上之后两行放不下（ZoomHistory 的 fitChipPins 量了标 data-pin）才换成
+       * 浮在第二行右边的那一份（zd-chip-pin，排在最前面才浮得到第二行），那句话在它前面截掉
        */}
-      <span className={`zd-chip${chip.said ? "" : " zd-chip-solo"}`}>
+      <span className={`zd-chip${chip.said ? "" : " zd-chip-solo"}`} data-suffix={chip.more || chip.tail ? "1" : undefined}>
         <span className="zd-chip-body">
-          {/* 前一段：打头那一项（种类或样式）和后面的分开放，窄的时候先截后面的 */}
-          <span className="zd-chip-head">
-            <span className="zd-chip-text zd-chip-lead">
-              <NamedText text={chip.lead} />
-            </span>
-            {chip.head.length > chip.lead.length && (
-              <span className="zd-chip-text zd-chip-rest">
-                <NamedText text={chip.head.slice(chip.lead.length)} />
+          <span className="zd-chip-flow">
+            {(chip.more || chip.tail) && (
+              <span className="zd-chip-pin">
+                {chip.more && <span className="zd-chip-more">{chip.more}</span>}
+                {chip.tail && <span className="zd-chip-tail">{chip.tail}</span>}
               </span>
             )}
-            {chip.tail && <span className="zd-chip-tail zd-n">{chip.tail}</span>}
-          </span>
-          {chip.said && (
-            <span className="zd-chip-said">
-              <span className="zd-chip-text">
-                <NamedText text={chip.said} />
-              </span>
-              {chip.more && <span className="zd-chip-more zd-n">{chip.more}</span>}
+            <span className="zd-chip-head">
+              <NamedText text={chip.head} />
             </span>
-          )}
-        </span>
-        {(chip.more || chip.tail) && (
-          <span className="zd-chip-pin zd-w">
-            {chip.more && <span className="zd-chip-more">{chip.more}</span>}
-            {chip.tail && <span className="zd-chip-tail">{chip.tail}</span>}
+            {chip.said && (
+              <span className="zd-chip-said">
+                <NamedText text={chip.said} />
+                {chip.more && <span className="zd-chip-more">{chip.more}</span>}
+                {chip.tail && <span className="zd-chip-tail">{chip.tail}</span>}
+              </span>
+            )}
           </span>
-        )}
+        </span>
       </span>
     </span>
   );

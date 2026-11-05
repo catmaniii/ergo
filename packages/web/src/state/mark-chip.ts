@@ -31,8 +31,6 @@ import type { UiState } from "./ui-state.ts";
 export interface MarkChipText {
   /** 前面一段：种类或样式、结果、⚠类别的短名、通用 bash，用" · "隔开（连着几块的这一段一样才合成一条） */
   readonly head: string;
-  /** 前面一段里打头的那一项（种类或样式）：手机上那一行放不下时先截它后面的，它留到最后 */
-  readonly lead: string;
   /** 后面那一句具体的；没有是空的 */
   readonly said: string;
   /** 连着几块合成一条时接在那句话后面的"等 N 次"（zoom-decor.ts 填） */
@@ -153,7 +151,6 @@ export function markChip(state: UiState | undefined, mark: TimelineMark): MarkCh
     const parts = uniqueParts(head);
     return {
       head: parts.join(SEP),
-      lead: parts[0] ?? "",
       said: cutTo(said.replace(/\s+/g, " ").trim(), MARK_SAID_MAX),
       ...(extra.tail ? { tail: extra.tail } : {}),
       hover: extra.hover ?? hover,
