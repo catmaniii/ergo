@@ -80,6 +80,7 @@ import {
   HTTP_QUERY,
   framePreviewOf,
   type FramePreview,
+  mediaPreviewOf,
   HTML_PREVIEW_SANDBOX,
   MEDIA_FRAME_MAX_BYTES,
   ImportReferenceVoiceBody,
@@ -151,7 +152,8 @@ import type { ToolCallDetailRetention } from "../guard-runtime/detail-retention.
 import type { BackupService } from "../backup/backup.ts";
 import { findToolCallDetail } from "../guard-runtime/tool-call-details.ts";
 import type { TokenLedger } from "../ledger/index.ts";
-import { decodeUtf8, sizeLabel } from "../media/file-types.ts";
+import { type AudioInfo, videoTypeOf } from "../media/audio.ts";
+import { decodePreviewText, decodeUtf8, sizeLabel } from "../media/file-types.ts";
 import { sniffImage } from "../media/image.ts";
 import { MediaError, type MediaStore } from "../media/media-store.ts";
 import type { PromptLibrary } from "../prompts/index.ts";
@@ -1682,9 +1684,9 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
     const info = isMediaId(mediaId) ? media.info(mediaId) : undefined;
     if (!info) throw new HttpError("not_found", t("gateway.http.noMedia", { mediaId }));
     const name = url.searchParams.get(HTTP_QUERY.name) ?? mediaId;
-    // 只有认得的图片在页面里直接显示、认得的音频直接播放（语音消息），类型是按内容认出的；
+    // 只有认得的图片在页面里直接显示、认得的音视频直接播放（语音消息、报告页的播放器），是不是图片、音视频按内容认；
     // 其他一律作为附件下载，不按前端声明的类型发出（免得 HTML、SVG 在本机源下跑脚本）
-    const inlineType = info.image?.mime ?? info.audio?.mime;
+    const inlineType = info.image?.mime ?? (info.audio && playableType(mediaId, info.audio));
     const inline = inlineType !== undefined && url.searchParams.get(HTTP_QUERY.download) !== "1";
     serveFile(req, res, {
       file: media.filePath(mediaId),
@@ -1701,9 +1703,20 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
   };
 
   /**
+   * 按内容认出是音视频容器的媒体当什么类型发：最近一次引用它的文件 part 按扩展名是视频的（协议包的 mediaPreviewOf：mp4、mov、
+   * mkv、webm……）按视频类型发（videoTypeOf），别的（语音消息、作为附件发的音频、没有消息引用它的）照旧是认出的音频类型。
+   * part 只决定音频还是视频，能不能内联只看内容：内容不是音视频容器的，part 上写什么都走不到这里
+   */
+  const playableType = (mediaId: string, audio: AudioInfo): string => {
+    const attachment = latestAttachment(store.reader, mediaId);
+    return attachment?.kind === "file" && mediaPreviewOf(attachment) === "video" ? videoTypeOf(audio) : audio.mime;
+  };
+
+  /**
    * 文本类附件的内容：只按媒体 id 取（内容寻址，不接受路径）；名字、类型以消息里最近一次引用它的 part 为准，
-   * 能预览的（协议包的 textPreviewOf：Markdown、纯文本）才给。超过上限的只读开头那么多（截在字符边上）；
-   * 只按 UTF-8 解，解不出来如实报错，不猜编码、不吐乱码
+   * 能预览的（协议包的 textPreviewOf：Markdown、纯文本、JSON、CSV / TSV、代码和配置）才给。超过上限的只读开头那么多（截在字符边上）；
+   * 先按 UTF-8，不是合法的 UTF-8 再按 GB18030（GBK 的超集）解，只猜这两种；都解不出来如实报错，不吐乱码。
+   * 音频、视频（协议包的 mediaPreviewOf）不给内容，告诉报告页用哪种播放器（播放器直接放媒体接口的地址）
    */
   const mediaText = (mediaId: string): MediaTextView => {
     const { attachment, info } = previewable(mediaId);
@@ -1714,11 +1727,14 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
       checkFrameSize(name, info.size);
       return { mediaId, name, mime, text: "", bytes: info.size, truncated: false, sentAt: attachment.time, frame };
     }
+    // 音频、视频：放得了放不了由报告页的播放器说（编码浏览器不支持时提示下载）
+    const playable = attachment.kind === "file" ? mediaPreviewOf(attachment) : undefined;
+    if (playable) return { mediaId, name, mime, text: "", bytes: info.size, truncated: false, sentAt: attachment.time, media: playable };
     if (attachment.kind !== "file" || !textPreviewOf(attachment)) throw new HttpError("unsupported_type", t("gateway.http.noPreview", { name, mime }));
     const truncated = info.size > MEDIA_TEXT_MAX_BYTES;
-    const text = decodeUtf8(media.readHead(mediaId, MEDIA_TEXT_MAX_BYTES), { cut: truncated });
-    if (text === undefined) throw new HttpError("undecodable", t("gateway.http.notUtf8", { name }));
-    return { mediaId, name, mime, text, bytes: info.size, truncated, sentAt: attachment.time };
+    const decoded = decodePreviewText(media.readHead(mediaId, MEDIA_TEXT_MAX_BYTES), { cut: truncated });
+    if (decoded === undefined) throw new HttpError("undecodable", t("gateway.http.undecodable", { name }));
+    return { mediaId, name, mime, text: decoded.text, bytes: info.size, truncated, sentAt: attachment.time, ...(decoded.encoding === "gb18030" ? { encoding: "gb18030" as const } : {}) };
   };
 
   /** 预览的附件：只按媒体 id 取（内容寻址，不接受路径），名字、类型以消息里最近一次引用它的 part 为准；没有消息引用它、文件不在了都是 404 */

@@ -154,7 +154,7 @@ import type {
   InterviewStatusView,
   MemorySummaryView,
 } from "../state/index.ts";
-import { copyWebSettings, nowIso, CUSTOM_PROVIDER_ID, DEFAULT_MEMORY_SETTINGS, MEMORY_CURATOR_CONVERSATION, DEFAULT_SECRETARY_SKILLS, DEFAULT_WEB_SETTINGS, effectiveModelChoice, effectiveWebQueue, framePreviewOf, IMPORT_NAME_PATTERN, MEDIA_FRAME_MAX_BYTES, MEDIA_TEXT_MAX_BYTES, MODEL_AGENTS, modelKeyOf, reopenScope, t, textPreviewOf, webSettingsProblem } from "../state/index.ts";
+import { copyWebSettings, nowIso, CUSTOM_PROVIDER_ID, DEFAULT_MEMORY_SETTINGS, MEMORY_CURATOR_CONVERSATION, DEFAULT_SECRETARY_SKILLS, DEFAULT_WEB_SETTINGS, effectiveModelChoice, effectiveWebQueue, framePreviewOf, IMPORT_NAME_PATTERN, MEDIA_FRAME_MAX_BYTES, MEDIA_TEXT_MAX_BYTES, mediaPreviewOf, MODEL_AGENTS, modelKeyOf, reopenScope, t, textPreviewOf, webSettingsProblem } from "../state/index.ts";
 import { demoParam, FAKE_SAFETY_START, fakeServerWebVersion } from "./fake-connection.ts";
 import { fakeMemoryClaim, fakeMemoryClaims, fakeMemoryQuestions, fakeMemoryStrategies, fakeMemorySummary } from "./fake-memory-graph.ts";
 import { FakeDataSources } from "./fake-data-sources.ts";
@@ -166,13 +166,32 @@ import { FakeAgentSettings } from "./fake-agent-settings.ts";
 import { FAKE_CLAUDE_CODE, FAKE_CLAUDE_COMMANDS, FAKE_CLAUDE_MAINTAINERS, FAKE_CLAUDE_SKILLS, FAKE_CODEX, fakeCodexSessions, fakeRuntimes, setFakeDefaultFolder } from "./fake-runtimes.ts";
 import { fakeTakeoverSessions } from "./fake-takeover.ts";
 import { fakeAppFileText } from "./fake-app-files.ts";
-import { fakeMedia } from "./fake-media.ts";
+import { fakeMedia, fakeSoundUrl } from "./fake-media.ts";
 import { FAKE_MATERIAL_IMAGES, fakeMaterialConversations, fakeMaterialDetail, fakeMaterialsIn, fakeSaveWebPage } from "./fake-materials.ts";
 import { fakeServiceThumbnail } from "./fake-operations.ts";
 import { fakeProjectStandard } from "./fake-standard.ts";
 import { FakeSystemPrompts } from "./fake-system-prompts.ts";
 
 const DISPLAYABLE = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+
+/**
+ * 原型里刚上传的文本附件照守护进程的规矩解：先按 UTF-8，不合法再按 GB18030；只读了开头的（truncated）末尾可能是半个字，
+ * 最多去掉三个字节再试。含 NUL、两种都不合法的是 undefined
+ */
+function decodeHead(bytes: Uint8Array, truncated: boolean): { text: string; encoding?: "gb18030" } | undefined {
+  for (const encoding of ["utf-8", "gb18030"] as const) {
+    for (let drop = 0; drop <= (truncated ? 3 : 0); drop++) {
+      try {
+        const text = new TextDecoder(encoding, { fatal: true }).decode(bytes.subarray(0, bytes.length - drop));
+        if (text.includes("\u0000")) return undefined;
+        return encoding === "gb18030" ? { text, encoding } : { text };
+      } catch {
+        // 去掉一个字节再试，或者换下一种编码
+      }
+    }
+  }
+  return undefined;
+}
 
 /** 原型里自定义（OpenAI 兼容）服务商"拉取列表"拉到的几个模型：编的 id，和谁家的都不对应（演示页不联网） */
 const FAKE_CUSTOM_MODELS: readonly ModelCustomModel[] = [
@@ -349,9 +368,9 @@ export class FakeDaemonHttp implements DaemonHttp {
         }
         options.onProgress({ state: "done", sent: total, total });
         const image = DISPLAYABLE.has(file.type);
-        // 图片在本地显示，录的语音在本地播放
+        // 图片在本地显示，录的语音、作为附件发的音频在本地播放（音频也记下文件：报告页要名字、大小）
         if (image || file.type.startsWith("audio/")) this.urls.set(mediaId, URL.createObjectURL(file));
-        else this.uploads.set(mediaId, file);
+        if (!image) this.uploads.set(mediaId, file);
         resolve({ mediaId, kind: image ? "image" : "file", name: file.name, mime: file.type || "application/octet-stream", size: total });
       };
       options.onProgress({ state: "uploading", sent: 0, total });
@@ -364,7 +383,7 @@ export class FakeDaemonHttp implements DaemonHttp {
   }
 
   mediaUrl(mediaId: string): string | undefined {
-    const url = this.urls.get(mediaId) ?? FAKE_MATERIAL_IMAGES.get(mediaId);
+    const url = this.urls.get(mediaId) ?? FAKE_MATERIAL_IMAGES.get(mediaId) ?? (fakeMedia(mediaId)?.sound ? fakeSoundUrl() : undefined);
     if (url) return url;
     // 假会话里的附件、刚上传的文件：下载给一段说明文字（原型没有原文件）
     const name = fakeMedia(mediaId)?.part.name ?? this.uploads.get(mediaId)?.name;
@@ -372,8 +391,8 @@ export class FakeDaemonHttp implements DaemonHttp {
   }
 
   /**
-   * 照守护进程的内容接口：能预览的给文字（超过上限的截在字符边上）；HTML、SVG只给名字、大小和 frame，
-   * 超过上限的回太大；别的回不能预览，没有的回不在了
+   * 照守护进程的内容接口：能预览的给文字（超过上限的截在字符边上；先按 UTF-8，不合法再按 GB18030 解，假附件按它记的编码）；
+   * HTML、SVG 只给名字、大小和 frame，超过上限的回太大；音频、视频只给名字、大小和 media；别的回不能预览，没有的回不在了
    */
   async mediaText(mediaId: string): Promise<MediaTextResult> {
     const fake = fakeMedia(mediaId);
@@ -385,12 +404,36 @@ export class FakeDaemonHttp implements DaemonHttp {
       if (part.size > MEDIA_FRAME_MAX_BYTES) return { ok: false, code: "too_large", message: `附件「${part.name}」超过预览的上限，只能下载` };
       return { ok: true, view: { mediaId, name: part.name, mime: part.mime, text: "", bytes: part.size, truncated: false, sentAt: "2026-10-07T08:05:00.000+08:00", frame } };
     }
+    const media = mediaPreviewOf(part);
+    if (media) return { ok: true, view: { mediaId, name: part.name, mime: part.mime, text: "", bytes: part.size, truncated: false, sentAt: fake?.sentAt ?? "2026-10-07T21:30:00.000+08:00", media } };
     if (!textPreviewOf(part)) return { ok: false, code: "unsupported_type", message: `附件「${part.name}」是 ${part.mime}，不能预览，只能下载` };
-    const bytes = new TextEncoder().encode(fake?.text ?? (await uploaded!.text()));
-    const truncated = bytes.length > MEDIA_TEXT_MAX_BYTES;
-    // 截断处半个字解出来是替换符，去掉
-    const text = new TextDecoder().decode(truncated ? bytes.subarray(0, MEDIA_TEXT_MAX_BYTES) : bytes).replace(/\uFFFD+$/, "");
-    return { ok: true, view: { mediaId, name: part.name, mime: part.mime, text, bytes: bytes.length, truncated, sentAt: fake?.sentAt ?? "2026-10-07T21:30:00.000+08:00" } };
+    const sentAt = fake?.sentAt ?? "2026-10-07T21:30:00.000+08:00";
+    if (fake?.text !== undefined) {
+      const bytes = new TextEncoder().encode(fake.text);
+      const truncated = bytes.length > MEDIA_TEXT_MAX_BYTES;
+      // 截断处半个字解出来是替换符，去掉
+      const text = new TextDecoder().decode(truncated ? bytes.subarray(0, MEDIA_TEXT_MAX_BYTES) : bytes).replace(/\uFFFD+$/, "");
+      return { ok: true, view: { mediaId, name: part.name, mime: part.mime, text, bytes: fake.encoding ? part.size : bytes.length, truncated, sentAt, ...(fake.encoding ? { encoding: fake.encoding } : {}) } };
+    }
+    if (!uploaded) return { ok: false, code: "not_found", message: `原型里没有附件「${part.name}」的内容` };
+    const truncated = uploaded.size > MEDIA_TEXT_MAX_BYTES;
+    const decoded = decodeHead(new Uint8Array(await uploaded.slice(0, MEDIA_TEXT_MAX_BYTES).arrayBuffer()), truncated);
+    if (!decoded) return { ok: false, code: "undecodable", message: `附件「${part.name}」不是 UTF-8 或 GBK 编码的文本，预览不了` };
+    return { ok: true, view: { mediaId, name: part.name, mime: part.mime, text: decoded.text, bytes: uploaded.size, truncated, sentAt, ...(decoded.encoding ? { encoding: decoded.encoding } : {}) } };
+  }
+
+  /** 原型：音频、视频在报告页播放器里放的地址——刚上传的用本地的 blob: 地址，假录音是合成的提示音，别的假附件（录像）没有内容 */
+  mediaPlayUrl(mediaId: string): string | undefined {
+    const url = this.urls.get(mediaId);
+    if (url) return url;
+    const uploaded = this.uploads.get(mediaId);
+    if (uploaded) {
+      // 记下来：报告页每次重画都拿同一个地址，播放器不会重新加载
+      const made = URL.createObjectURL(uploaded);
+      this.urls.set(mediaId, made);
+      return made;
+    }
+    return fakeMedia(mediaId)?.sound ? fakeSoundUrl() : undefined;
   }
 
   /**

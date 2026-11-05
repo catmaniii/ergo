@@ -1,6 +1,7 @@
 /**
  * 内置浏览器里的文件渲染层：markdown 这类能渲染的文件不显示原始文本、不下载，用二狗的渲染看——页的画法，
- * 用报告页同一套组件和样式（Markdown 是 ReportPage 的 MarkdownBody，表格、纯文本是 .report-* 的样子），不另起一套。
+ * 用报告页同一套组件和样式（正文是 ReportPage 的 FileBodyView：Markdown、表格、代码、纯文本，.report-* 的样子），不另起一套；
+ * 聊天附件的报告页也用它，同一个文件在两边看起来一样。
  * 网页的内置浏览器（ui/in-app-browser.tsx）、鸿蒙 App 的"浏览"页签（pages/BrowsePage.tsx）都用它。
  * - 上面一行：文件名、类型、大小；右边"看原文"（渲染出来和原文不一样时：Markdown、格式化过的 JSON、表格）、"下载"、"在新窗口打开"
  *   （App 里是"用系统浏览器打开"）、拦下的下载多一个"关闭"；
@@ -12,8 +13,8 @@
  */
 import { type CSSProperties, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { Components } from "react-markdown";
-import { MarkdownBody } from "../pages/ReportPage.tsx";
-import { type FileBody, fileRenderOf, type FileRenderKind, type FileTextResult, fileViewOf, t } from "../state/index.ts";
+import { FileBodyView } from "../pages/ReportPage.tsx";
+import { fileRenderOf, type FileRenderKind, type FileTextResult, fileViewOf, t } from "../state/index.ts";
 import { T } from "./i18n.tsx";
 
 /** 下载：同源的地址（<a download>），或交给别人做（App 里经原生浏览器） */
@@ -97,43 +98,6 @@ function fileMarkdown(base: string): Components {
   };
 }
 
-/** 正文 */
-function Body({ body, components }: { body: FileBody; components: Components }) {
-  switch (body.kind) {
-    case "markdown":
-      return <MarkdownBody text={body.text} components={components} />;
-    case "plain":
-      return <pre className="report-body report-plain">{body.text}</pre>;
-    case "code":
-      return <pre className="report-body file-code">{body.text}</pre>;
-    case "table":
-      return (
-        <div className="report-body">
-          <div className="report-table file-table">
-            <table>
-              <thead>
-                <tr>
-                  {body.head.map((cell, i) => (
-                    <th key={i}>{cell}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {body.rows.map((row, r) => (
-                  <tr key={r}>
-                    {row.map((cell, i) => (
-                      <td key={i}>{cell}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      );
-  }
-}
-
 export function FileView({ url, name, kind, load, onPage, onLink, download, outside, onClose, style }: FileViewProps) {
   const [result, setResult] = useState<FileTextResult>();
   const [raw, setRaw] = useState(false);
@@ -214,7 +178,7 @@ export function FileView({ url, name, kind, load, onPage, onLink, download, outs
             {view.notice}
           </div>
         )}
-        {view && (raw ? <pre className="report-body report-plain file-raw">{view.raw}</pre> : <Body body={view.body} components={components} />)}
+        {view && (raw ? <pre className="report-body report-plain file-raw">{view.raw}</pre> : <FileBodyView body={view.body} components={components} />)}
       </article>
     </div>
   );

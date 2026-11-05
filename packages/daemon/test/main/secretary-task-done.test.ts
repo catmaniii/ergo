@@ -599,7 +599,7 @@ const attachmentMessages = (frontend: TestFrontend) =>
 const WEEKLY = "# 第 41 周周报\n\n- 九月账单核对完了\n- 训练记录：三次\n\n| 事项 | 进度 |\n|---|---|\n| 家庭账本 | 完成 |\n";
 
 describe("会话里折成一行、交付的文件作为附件", () => {
-  it("交付的文件里能预览的（Markdown、纯文本）由运行时作为附件放进秘书会话，紧跟在通知后面、点得开预览；不能预览的、超过附件上限的只在全文里写路径；模型看到的照旧是全文", async () => {
+  it("交付的文件里 Markdown、纯文本由运行时作为附件放进秘书会话，紧跟在通知后面、点得开预览；别的（附件预览后来认得的 CSV、JSON、代码也不放）、超过附件上限的只在全文里写路径；模型看到的照旧是全文", async () => {
     const big = `# 很大的报告\n${"这一行凑字数。".repeat(40)}\n`;
     const { url, frontend } = await setup({
       // 附件的上限调小：big.md 超过它
@@ -611,6 +611,10 @@ describe("会话里折成一行、交付的文件作为附件", () => {
         call(TOOL.write, { path: "big.md", content: big }),
         call(TOOL.write, { path: "song.mp3", content: "假的音频" }),
         call(TOOL.write, { path: "page.html", content: "<h1>预览</h1>" }),
+        // 附件预览能看这几种了，任务交付放进秘书会话的范围照旧不变
+        call(TOOL.write, { path: "data.csv", content: "日期,金额\n" }),
+        call(TOOL.write, { path: "stats.json", content: '{"a":1}' }),
+        call(TOOL.write, { path: "calc.py", content: "print(1)\n" }),
         say("周报写好了：weekly.md"),
       ],
     });
@@ -619,8 +623,8 @@ describe("会话里折成一行、交付的文件作为附件", () => {
     await secretaryTurns(frontend, 1);
 
     const [notice] = doneNotices(frontend);
-    expect(notice!.message.summary).toBe("t-1「出一份周报」做完了，交了 5 个文件");
-    expect(textOf(notice!)).toContain("交付的文件（在任务的产出区里）：big.md、notes/todo.txt、page.html、song.mp3、weekly.md");
+    expect(notice!.message.summary).toBe("t-1「出一份周报」做完了，交了 8 个文件");
+    expect(textOf(notice!)).toContain("交付的文件（在任务的产出区里）：big.md、calc.py、data.csv、notes/todo.txt、page.html、song.mp3、stats.json、weekly.md");
     // 紧跟在通知后面的一条：只有能预览、没超上限的两个附件（和通知同一事务追加）；不进秘书的输入队列
     const all = messagesOf(frontend, SECRETARY);
     expect(all.map((m) => [m.message.speaker, m.agentInput === true])).toEqual([

@@ -1,6 +1,6 @@
 // HTTP 接口的路径：怎么拼（HTTP_PATHS）和怎么拆（parseHttpPath）只写在协议包里，两边对得上。
 import { describe, expect, it } from "vitest";
-import { attachmentPartFrom, framePreviewOf, HTTP_PATHS, HTTP_QUERY, imagePartFrom, parseHttpPath, SERVICE_THUMBNAIL_REFRESH_MS, serviceThumbnailSeen, textPreviewOf } from "../src/index.ts";
+import { attachmentPartFrom, framePreviewOf, HTTP_PATHS, HTTP_QUERY, imagePartFrom, mediaPreviewOf, parseHttpPath, SERVICE_THUMBNAIL_REFRESH_MS, serviceThumbnailSeen, textPreviewOf } from "../src/index.ts";
 
 const pathOf = (url: string) => new URL(url, "http://127.0.0.1:8810").pathname;
 const queryOf = (url: string) => Object.fromEntries(new URL(url, "http://127.0.0.1:8810").searchParams);
@@ -151,14 +151,40 @@ describe("拼附件 part", () => {
 });
 
 describe("能预览的文本类附件", () => {
-  it("只看 part 上的类型：Markdown、纯文本能预览（按哪种渲染），别的类型只能下载", () => {
-    expect(textPreviewOf({ name: "10 月 13 日日报.md", mime: "text/markdown" })).toBe("text/markdown");
-    expect(textPreviewOf({ name: "运行日志.log", mime: "text/plain" })).toBe("text/plain");
-    // 类型带参数、大小写不同也认
-    expect(textPreviewOf({ name: "说明.txt", mime: "Text/Plain; charset=utf-8" })).toBe("text/plain");
-    for (const mime of ["text/csv", "application/json", "application/pdf", "application/zip", "video/mp4", "image/png", "application/octet-stream", ""]) {
+  it("扩展名在清单里的按扩展名画：Markdown、纯文本、JSON、CSV / TSV 表格、代码和配置；part 上写的什么类型都一样", () => {
+    for (const [name, mime, kind] of [
+      ["10 月 13 日日报.md", "text/markdown", "markdown"],
+      ["运行日志.log", "text/plain", "plain"],
+      ["报销明细.csv", "text/csv", "csv"],
+      // Windows 上浏览器常把 .csv 报成 Excel 的类型
+      ["报销明细.CSV", "application/vnd.ms-excel", "csv"],
+      ["导出.tsv", "text/tab-separated-values", "tsv"],
+      ["配置.json", "application/json", "json"],
+      ["日志.jsonl", "application/x-ndjson", "code"],
+      ["脚本.py", "text/x-python", "code"],
+      ["论文.tex", "application/x-tex", "code"],
+      ["部署.yaml", "application/yaml", "code"],
+      ["设置.ini", "text/plain", "code"],
+      ["组件.vue", "application/octet-stream", "code"],
+    ] as const) {
+      expect({ name, kind: textPreviewOf({ name, mime }) }).toEqual({ name, kind });
+    }
+  });
+
+  it("没有扩展名、扩展名不认得的看 part 上的类型（带参数、大小写不同也认）；不是文本的只能下载", () => {
+    expect(textPreviewOf({ name: "说明", mime: "Text/Plain; charset=utf-8" })).toBe("plain");
+    expect(textPreviewOf({ name: "附件", mime: "text/markdown" })).toBe("markdown");
+    expect(textPreviewOf({ name: "附件", mime: "text/csv" })).toBe("csv");
+    expect(textPreviewOf({ name: "附件", mime: "application/json" })).toBe("json");
+    expect(textPreviewOf({ name: "备份.dat", mime: "text/plain" })).toBe("plain");
+    for (const mime of ["application/pdf", "application/zip", "video/mp4", "audio/mpeg", "image/png", "application/octet-stream", ""]) {
       expect({ mime, preview: textPreviewOf({ name: "附件", mime }) }).toEqual({ mime, preview: undefined });
     }
+    for (const name of ["合同.docx", "预算.xlsx", "资料.zip", "周会.mp4", "发票.pdf"]) {
+      expect({ name, preview: textPreviewOf({ name, mime: "application/octet-stream" }) }).toEqual({ name, preview: undefined });
+    }
+    // 对象自带的名字不算清单里的扩展名
+    expect(textPreviewOf({ name: "奇怪.constructor", mime: "application/octet-stream" })).toBeUndefined();
   });
 
   it("HTML、SVG 这类浏览器会当页面跑的：不论 part 上写的什么类型都不预览", () => {
@@ -166,6 +192,35 @@ describe("能预览的文本类附件", () => {
     expect(textPreviewOf({ name: "活动页.HTM", mime: "text/plain" })).toBeUndefined();
     expect(textPreviewOf({ name: "图标.svg", mime: "text/plain" })).toBeUndefined();
     expect(textPreviewOf({ name: "图标.svg", mime: "image/svg+xml" })).toBeUndefined();
+    for (const name of ["页面.xhtml", "数据.xml", "订阅.rss", "存档.mht"]) {
+      expect({ name, preview: textPreviewOf({ name, mime: "text/plain" }) }).toEqual({ name, preview: undefined });
+    }
+  });
+});
+
+describe("能在报告页播放的音频、视频附件", () => {
+  it("有扩展名的看扩展名：mp3、m4a、aac、wav、flac、ogg、opus 是音频，mp4、m4v、mov、mkv 是视频（大小写不论）", () => {
+    for (const name of ["录音.mp3", "语音备忘.M4A", "片段.aac", "采样.wav", "无损.flac", "播客.ogg", "语音.opus"]) {
+      expect({ name, media: mediaPreviewOf({ name, mime: "application/octet-stream" }) }).toEqual({ name, media: "audio" });
+    }
+    for (const name of ["周会.mp4", "片头.m4v", "手机拍的.MOV", "电影.mkv"]) {
+      expect({ name, media: mediaPreviewOf({ name, mime: "application/octet-stream" }) }).toEqual({ name, media: "video" });
+    }
+  });
+
+  it(".webm 看 part 上的类型：audio/* 是音频，别的是视频", () => {
+    expect(mediaPreviewOf({ name: "录音.webm", mime: "audio/webm" })).toBe("audio");
+    expect(mediaPreviewOf({ name: "录屏.webm", mime: "video/webm" })).toBe("video");
+    expect(mediaPreviewOf({ name: "录屏.webm", mime: "" })).toBe("video");
+  });
+
+  it("浏览器放不了的（avi、wmv）、别的扩展名只能下载，part 上写成音视频也一样；没有扩展名的看 part 上的类型", () => {
+    for (const name of ["老录像.avi", "旧视频.wmv", "伪装.txt", "资料.zip"]) {
+      expect({ name, media: mediaPreviewOf({ name, mime: "video/mp4" }) }).toEqual({ name, media: undefined });
+    }
+    expect(mediaPreviewOf({ name: "录音", mime: "audio/webm" })).toBe("audio");
+    expect(mediaPreviewOf({ name: "录像", mime: "Video/MP4" })).toBe("video");
+    expect(mediaPreviewOf({ name: "附件", mime: "text/plain" })).toBeUndefined();
   });
 });
 

@@ -2,6 +2,12 @@
 
 二狗每个版本有什么，新的在上面。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 未发布
+
+### 对话
+
+- **聊天附件能预览更多格式**：表格（CSV、TSV）画成表格、JSON 排好缩进、代码和配置文件等宽显示，样子和内置浏览器里打开文件一样，Markdown、表格、JSON 能「看原文」；Excel 存的 GBK 编码中文 CSV 不再「预览不了」，类型旁边写明「GBK 编码」。音频（mp3、m4a、wav、flac……）、视频（mp4、mov、mkv、webm）点「预览」就在页面里放，能拖进度；浏览器放不了的编码提示下载后用播放器看。手机 App 里点「预览」也是同一页。任务做完自动放进对话的附件照旧只放 Markdown 和纯文本。见[手册](docs/user-guide/chat.md#附件)。
+
 ## [0.4.3] - 2026-11-04
 
 ### 对话

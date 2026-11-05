@@ -10,7 +10,8 @@
 // - local-date.ts：本地日期和星期的小工具（YYYY-MM-DD、周几的中文名），时间规则和工作日历共用；
 // - inbox.ts：待我处理事项算不算处理过、事项的先后（守护进程、Web 状态层、原型的假连接共用）；
 // - http.ts / http-schema.ts：走 HTTP 的部分（媒体上传下载、历史分页；还有设备配对）的路径、常量和请求响应体；
-// - parts.ts：拼附件 part 的小工具、文件附件能不能预览；
+// - parts.ts：拼附件 part 的小工具、文件附件能不能预览、按什么预览；
+// - file-render.ts：文本类文件怎么画（扩展名清单、按类型细分），聊天附件和网页内置浏览器共用；
 // - agent-letters.ts：agent 之间的来信（任务做完、负责人来信、秘书转达……）怎么认、一句话总结从哪来，守护进程和 Web 共用；
 // - deleted-event.ts：认彻底删除改写后的事件（"已删除"标记）；
 // - pairing.ts：设备配对和外网端口的常量、默认设备名，已配对设备多选管理的规则（守护进程和 Web 共用）；
@@ -124,6 +125,7 @@ export * from "./inbox.ts";
 export * from "./http.ts";
 export * from "./http-schema.ts";
 export * from "./parts.ts";
+export * from "./file-render.ts";
 export * from "./agent-letters.ts";
 export * from "./deleted-event.ts";
 export * from "./pairing.ts";

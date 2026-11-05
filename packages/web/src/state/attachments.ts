@@ -1,21 +1,27 @@
 // 聊天里的文件附件画成卡片：类型图标（方块里写类型，按类别上色）、标题、"预览""下载"两个按钮；一条消息里连着的几个附件
-// 排成一横排，装不下换行（partRuns 把它们合成一组）。能不能预览只看 part 上的类型（协议包的 textPreviewOf：Markdown、纯文本），
+// 排成一横排，装不下换行（partRuns 把它们合成一组）。能不能预览只看 part 上的名字和类型（协议包的判断，守护进程的内容接口也按它），
 // 所以以前发过的附件也自动有预览入口。点图标：能预览的去报告页（#/report/<媒体 id>），不能预览的直接下载，图标上标明"仅下载"。
-// HTML、SVG（协议包的 framePreviewOf，1 MB 以内）也能预览——报告页里 HTML 在沙箱框里打开，SVG 用 <img> 显示。
-// 报告页（pages/ReportPage.tsx）显示什么也在这里推：取到的内容按 Markdown 还是纯文本画（HTML、SVG 在框里看）、截断的提示、取不到时说什么。
+// 能预览的：
+// - 文本类（textPreviewOf）：Markdown、纯文本、JSON、CSV / TSV、代码和配置，画法和内置浏览器打开文件同一套（file-view.ts 的 fileBodyOf）；
+// - HTML、SVG（framePreviewOf，1 MB 以内）：报告页里 HTML 在沙箱框里打开，SVG 用 <img> 显示；
+// - 音频、视频（mediaPreviewOf）：报告页里用页面自带的播放器放，编码浏览器放不了的由播放器报错时提示下载（卡片上不事先判断）。
+// 报告页（pages/ReportPage.tsx）显示什么也在这里推：取到的内容怎么画（HTML、SVG 在框里看，音视频给播放器）、截断的提示、取不到时说什么。
 import { sizeLabel } from "./detail-content.ts";
+import { FILE_RENDER_LABEL, type FileBody, fileBodyOf } from "./file-view.ts";
 import {
   type FilePartValue,
+  type FileRenderKind,
   type FramePreview,
   framePreviewOf,
   type HttpErrorCode,
   MEDIA_FRAME_MAX_BYTES,
   MEDIA_TEXT_MAX_BYTES,
+  type MediaPreview,
+  mediaPreviewOf,
   type MediaTextView,
   type MessagePart,
   t,
   textPreviewOf,
-  type TextPreviewMime,
   tTable,
 } from "./protocol.ts";
 
@@ -57,19 +63,24 @@ export function attachmentCategory(name: string, mime: string): AttachmentCatego
   if (SHEET_EXTENSIONS.has(ext) || type === "text/csv" || type === "text/tab-separated-values" || type.includes("spreadsheet")) return "sheet";
   if (IMAGE_EXTENSIONS.has(ext) || type.startsWith("image/")) return "image";
   if (MEDIA_EXTENSIONS.has(ext) || type.startsWith("audio/") || type.startsWith("video/")) return "media";
-  if (DOC_EXTENSIONS.has(ext) || textPreviewOf({ name, mime }) || type === "application/pdf") return "doc";
+  // JSON、代码虽然也能预览，颜色照旧：文档色只给 Markdown、纯文本这类给人读的（part 上写成纯文本的配置文件照旧算文档）
+  const text = textPreviewOf({ name, mime });
+  const readable = text === "markdown" || text === "plain" || (text !== undefined && /^text\/(plain|markdown)\b/.test(type));
+  if (DOC_EXTENSIONS.has(ext) || readable || type === "application/pdf") return "doc";
   return "other";
 }
 
-/** 能怎么预览：按 Markdown、纯文本画，或者在框里看 HTML、SVG */
-export type AttachmentPreview = TextPreviewMime | FramePreview;
+/** 能怎么预览：按哪种文本画（Markdown、纯文本、JSON、表格、代码），在框里看 HTML、SVG，或者用播放器放音频、视频 */
+export type AttachmentPreview = FileRenderKind | FramePreview | MediaPreview;
 
-/** 一个文件附件能怎么预览：文本类看类型；HTML、SVG 看扩展名，超过 MEDIA_FRAME_MAX_BYTES 的不预览（没法截一半看）；不能预览是 undefined */
+/**
+ * 一个文件附件能怎么预览：HTML、SVG 看扩展名，超过 MEDIA_FRAME_MAX_BYTES 的不预览（没法截一半看）；音频、视频看扩展名，
+ * 多大都能放（播放器按需取一段段）；文本类按 textPreviewOf，超过 1 MB 的报告页只显示开头。不能预览是 undefined
+ */
 export function attachmentPreviewOf(part: Pick<FilePartValue, "name" | "mime" | "size">): AttachmentPreview | undefined {
-  const text = textPreviewOf(part);
-  if (text) return text;
   const frame = framePreviewOf(part);
-  return frame && part.size <= MEDIA_FRAME_MAX_BYTES ? frame : undefined;
+  if (frame) return part.size <= MEDIA_FRAME_MAX_BYTES ? frame : undefined;
+  return mediaPreviewOf(part) ?? textPreviewOf(part);
 }
 
 /** 卡片上的一个附件 */
@@ -82,11 +93,11 @@ export interface FileCard {
   readonly title: string;
   /** 一次发了多个同类文件时的序号（01-3：三个里的第一个）；只有一个的没有 */
   readonly seq: string | undefined;
-  /** 能预览就是怎么看（按哪种文本画，或者在框里看 HTML、SVG），不能预览是 undefined */
+  /** 能预览就是怎么看（按哪种文本画，在框里看 HTML、SVG，用播放器放音视频），不能预览是 undefined */
   readonly preview: AttachmentPreview | undefined;
   /** 点图标做什么：能预览的去报告页，不能预览的直接下载 */
   readonly iconAction: "preview" | "download";
-  /** 图标的悬停文字（不能预览的写明"仅下载"） */
+  /** 图标的悬停文字（音视频写"播放"，不能预览的写明"仅下载"） */
   readonly iconHint: string;
   /** 卡片的悬停文字：全名、类型、大小 */
   readonly tooltip: string;
@@ -157,7 +168,9 @@ export function fileCards(files: readonly FilePartValue[]): FileCard[] {
       preview,
       iconAction: preview ? "preview" : "download",
       iconHint: preview
-        ? t("state.attachments.hint.preview", { name: part.name })
+        ? preview === "audio" || preview === "video"
+          ? t("state.attachments.hint.play", { name: part.name })
+          : t("state.attachments.hint.preview", { name: part.name })
         : tooLarge
           ? t("state.attachments.hint.tooLarge", { type: label, limit: sizeLabel(MEDIA_FRAME_MAX_BYTES) })
           : t("state.attachments.hint.downloadOnly", { type: label }),
@@ -188,18 +201,24 @@ export type MediaTextResult = { ok: true; view: MediaTextView } | { ok: false; c
 /** 报告页显示什么 */
 export type ReportPageView =
   | { kind: "loading" }
-  /** facts：类型、大小、什么时候发的；notice：顶上的提示条（截断了） */
-  | { kind: "ready"; name: string; facts: string; render: "markdown" | "plain"; text: string; notice: string | undefined }
+  /**
+   * 文本类：facts 是类型（按 GBK 解的写明编码）、大小、什么时候发的；body 是怎么画（和内置浏览器同一套）；notice 是顶上的提示条
+   * （截断了、表格太长只画了前面、JSON 认不出）；canRaw 时能"看原文"（raw 是原文）
+   */
+  | { kind: "ready"; name: string; facts: string; body: FileBody; canRaw: boolean; raw: string; notice: string | undefined }
   /** HTML、SVG：内容不经 JSON 给，在框里看——HTML 用 <iframe sandbox>，SVG 用 <img>；notice 说明沙箱拦着什么 */
   | { kind: "frame"; name: string; facts: string; frame: FramePreview; notice: string | undefined }
+  /** 音频、视频：用页面自带的播放器放媒体接口的地址（能拖进度）；放不了时报告页提示下载 */
+  | { kind: "media"; name: string; facts: string; media: MediaPreview }
   /** title、detail 说清楚怎么了、怎么办；note 是守护进程说的原因 */
   | { kind: "error"; title: string; detail: string; note: string };
 
-const RENDER_LABEL: Readonly<Record<AttachmentPreview, string>> = tTable({
-  "text/markdown": "state.attachments.render.markdown",
-  "text/plain": "state.attachments.render.plain",
+/** 报告页"类型"那一栏：文本类和内置浏览器同一套说法（file-view.ts 的 FILE_RENDER_LABEL），HTML、SVG、音频、视频另说 */
+const OTHER_LABEL: Readonly<Record<FramePreview | MediaPreview, string>> = tTable({
   html: "state.attachments.render.html",
   svg: "state.attachments.render.svg",
+  audio: "state.attachments.render.audio",
+  video: "state.attachments.render.video",
 });
 
 /** HTML 预览顶上的说明：页面在沙箱里，拦着什么、放着什么（按当前语言现取） */
@@ -270,18 +289,23 @@ export function reportPageView(result: MediaTextResult | undefined): ReportPageV
     return {
       kind: "frame",
       name: view.name,
-      facts: [RENDER_LABEL[view.frame], sizeLabel(view.bytes), sent].filter(Boolean).join(" · "),
+      facts: [OTHER_LABEL[view.frame], sizeLabel(view.bytes), sent].filter(Boolean).join(" · "),
       frame: view.frame,
       notice: view.frame === "html" ? htmlFrameNotice() : undefined,
     };
   }
-  const render = textPreviewOf(view) ?? "text/plain";
+  if (view.media) return { kind: "media", name: view.name, facts: [OTHER_LABEL[view.media], sizeLabel(view.bytes), sent].filter(Boolean).join(" · "), media: view.media };
+  const kind = textPreviewOf(view) ?? "plain";
+  const { body, notices, canRaw } = fileBodyOf(kind, view.text, view.truncated);
+  if (view.truncated) notices.unshift(t("state.attachments.truncated", { size: sizeLabel(view.bytes), limit: sizeLabel(MEDIA_TEXT_MAX_BYTES) }));
+  const encoding = view.encoding === "gb18030" ? t("state.attachments.encodingGbk") : undefined;
   return {
     kind: "ready",
     name: view.name,
-    facts: [RENDER_LABEL[render], sizeLabel(view.bytes), sent].filter(Boolean).join(" · "),
-    render: render === "text/markdown" ? "markdown" : "plain",
-    text: view.text,
-    notice: view.truncated ? t("state.attachments.truncated", { size: sizeLabel(view.bytes), limit: sizeLabel(MEDIA_TEXT_MAX_BYTES) }) : undefined,
+    facts: [FILE_RENDER_LABEL[kind], encoding, sizeLabel(view.bytes), sent].filter(Boolean).join(" · "),
+    body,
+    canRaw,
+    raw: view.text,
+    notice: notices.length > 0 ? notices.join(t("state.fileView.noticeSep")) : undefined,
   };
 }

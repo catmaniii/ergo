@@ -28,6 +28,8 @@ export const EN_HTTP: Phrases = {
   "没有这个附件：{}": "No such attachment: {}",
   "附件「{}」超过预览的上限，只能下载": "Attachment “{}” is over the preview limit, so it can only be downloaded",
   "附件「{}」是 {}，不能预览，只能下载": "Attachment “{}” is {}. It can't be previewed, only downloaded",
+  "原型里没有附件「{}」的内容": "The demo has no content for attachment “{}”",
+  "附件「{}」不是 UTF-8 或 GBK 编码的文本，预览不了": "Attachment “{}” isn't UTF-8 or GBK text and can't be previewed",
   "名字 {} 不合规矩：只能用小写字母、数字和短横线": "Name {} breaks the rules: only lowercase letters, numbers and hyphens",
   "skill 库里已经有叫 {} 的了": "The skill library already has one called {}",
   "刚导入的 skill（原型）": "Just-imported skill (demo)",

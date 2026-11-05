@@ -73,7 +73,7 @@ describe("回放：定时任务跑完自动播报，通知后面跟着日报附�
     expect(attached.letter).toBeUndefined();
     expect(chatLook(attached)).toEqual({ form: "note", open: "whole" });
     const files = attached.parts.flatMap((p) => (p.type === "file" ? [p] : []));
-    expect(fileCards(files)).toMatchObject([{ label: "MD", category: "doc", title: "ai-news.md", preview: "text/markdown", iconAction: "preview" }]);
+    expect(fileCards(files)).toMatchObject([{ label: "MD", category: "doc", title: "ai-news.md", preview: "markdown", iconAction: "preview" }]);
   });
 
   test("点详情：全文就是交给秘书的那段（照 Markdown 画），种类写“任务做完”，上面一行是总结", () => {

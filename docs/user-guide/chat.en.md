@@ -100,7 +100,11 @@ Hold to talk works the same way: pick the attachments first, and it says **Hold 
 **Viewing attachments in the chat:**
 
 - **Images:** Click to enlarge. To close: click ×, click outside the image, press Esc or Back. The enlarged view has **Download** at the bottom.
-- **File cards:** The type is at the top, with **Preview** and **Download** below. You can preview Markdown, plain text, and HTML or SVG up to 1 MB. Anything else says **Download only**, and clicking the icon downloads it.
+- **File cards:** The type is at the top, with **Preview** and **Download** below. **Preview** shows the file the same way the built-in browser does:
+  - Text: Markdown, plain text, tables (CSV and TSV, drawn as a table; long ones show the first 500 rows), JSON (neatly indented), and code or config files (monospaced). Markdown, tables and indented JSON have **View source** at the top right. For files over 1 MB only the beginning is shown, with a note at the top to download the full file. Text that isn't UTF-8 is read as GBK, so Chinese CSVs saved from Excel show correctly, with **GBK encoding** next to the type. If it's neither, it says it can't be previewed; download it and open it with an app on your device.
+  - HTML and SVG up to 1 MB.
+  - Audio (mp3, m4a, aac, wav, flac, ogg, opus) and video (mp4, m4v, mov, mkv, webm): they play right there, and you can drag to any point. If your browser can't play a file's format (some mov files, for example), it says so and suggests downloading it to watch in a media player. **Download** is still there.
+  - Anything else (PDF, Word, archives, avi…) says **Download only**, and clicking the icon downloads it.
 
 **Things you can just say:**
 

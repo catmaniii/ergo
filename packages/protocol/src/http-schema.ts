@@ -58,10 +58,12 @@ export type HttpErrorBody = Static<typeof HttpErrorBody>;
 
 /**
  * 文本类附件的内容（报告页用，GET /api/media/<媒体 id>/text）。名字、类型取消息里最近一次引用它的文件 part；
- * text 是按 UTF-8 解好的文字，文件超过 MEDIA_TEXT_MAX_BYTES 时只有开头那么多（截在字符边上，truncated 为真）；
- * bytes 是整个文件的字节数；sentAt 是引用它的那条消息发出的时间。
+ * text 是解好的文字（先按 UTF-8，不是合法的 UTF-8 再按 GB18030，也就是 GBK 的超集；按 GB18030 解的 encoding 写明），
+ * 文件超过 MEDIA_TEXT_MAX_BYTES 时只有开头那么多（截在字符边上，truncated 为真）；
+ * bytes 是整个文件的字节数；sentAt 是引用它的那条消息发出的时间。报告页按 parts.ts 的 textPreviewOf 定怎么画。
  * HTML、SVG 附件的内容不经这里给（text 是空的、truncated 为假），frame 写明在框里看哪一种——报告页用 HTTP_PATHS 的
- * mediaHtml（<iframe sandbox>）或 mediaSvg（<img>）显示
+ * mediaHtml（<iframe sandbox>）或 mediaSvg（<img>）显示。
+ * 音频、视频附件也不经这里给内容，media 写明用哪种播放器——报告页的播放器直接放媒体接口的地址（支持 Range，能拖进度）
  */
 export const MediaTextView = Type.Object({
   mediaId: Type.String({ pattern: MEDIA_ID_PATTERN.source }),
@@ -72,6 +74,8 @@ export const MediaTextView = Type.Object({
   truncated: Type.Boolean(),
   sentAt: Type.Optional(Type.String()),
   frame: Type.Optional(Type.Union([Type.Literal("html"), Type.Literal("svg")])),
+  encoding: Type.Optional(Type.Literal("gb18030")),
+  media: Type.Optional(Type.Union([Type.Literal("audio"), Type.Literal("video")])),
 });
 export type MediaTextView = Static<typeof MediaTextView>;
 

@@ -39,6 +39,11 @@ export interface DaemonHttp {
    */
   mediaFrameUrl(mediaId: string, frame: FramePreview): string | undefined;
   /**
+   * 音频、视频附件在报告页的播放器里放的地址：媒体接口本身（支持 Range，能拖进度），守护进程按内容认出是音视频容器才内联发出
+   * （按最近一次引用它的文件 part 的扩展名当音频或视频发）。没有真文件（原型的假附件）时为 undefined
+   */
+  mediaPlayUrl(mediaId: string, name: string): string | undefined;
+  /**
    * 内置浏览器里渲染文件时取内容：守护进程转发的服务里的文件（/apps/…，同源，带着凭证），只读开头 1 MB；
    * 不是能渲染的文本（网页）回 page，取不到回 error（不抛错）。原型里是几份编的样例（prototype/fake-app-files.ts）
    */
@@ -359,6 +364,10 @@ export class HttpDaemonClient implements DaemonHttp {
 
   mediaFrameUrl(mediaId: string, frame: FramePreview): string {
     return `${this.baseUrl}${frame === "html" ? HTTP_PATHS.mediaHtml(mediaId) : HTTP_PATHS.mediaSvg(mediaId)}`;
+  }
+
+  mediaPlayUrl(mediaId: string, name: string): string {
+    return this.mediaUrl(mediaId, name);
   }
 
   appFileText(url: string, signal?: AbortSignal): Promise<FileTextResult> {

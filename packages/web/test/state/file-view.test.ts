@@ -189,7 +189,7 @@ describe("渲染层显示什么", () => {
   });
 });
 
-test("鸿蒙 App 拦下载时粗筛用的扩展名清单（FileDocs.ets 的 RENDER_EXTENSIONS）和这里的一致", () => {
+test("鸿蒙 App 拦下载时粗筛用的扩展名清单（FileDocs.ets 的 RENDER_EXTENSIONS）和协议包的 EXTENSION_KIND 一致（聊天附件能不能预览也按它）", () => {
   const source = fs.readFileSync(new URL("../../../../frontend/harmony/entry/src/main/ets/browser/FileDocs.ets", import.meta.url), "utf8");
   const list = /RENDER_EXTENSIONS: string\[\] = \(([^)]*)\)\.split/s.exec(source)?.[1];
   expect(list).toBeDefined();

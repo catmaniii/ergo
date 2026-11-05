@@ -1,5 +1,6 @@
 // 原型里的假附件：聊天里的附件卡片、报告页用。文本类的带内容（报告页照真接口的规矩回：能预览的给文字，超过 1 MB 的截断；
-// HTML、SVG 也带内容，报告页在沙箱框、<img> 里看），
+// Markdown、CSV 表格、JSON、代码，还有一份当作 Excel 导出、GBK 编码的流水；HTML、SVG 也带内容，报告页在沙箱框、<img> 里看），
+// 录音带一段现场合成的提示音（报告页的播放器真能放、能拖），视频没有内容（报告页说"原型里没有这个文件的内容"），
 // 别的只有名字、类型、大小。原型没有守护进程：下载给的是一段说明文字（data: 地址）。名字和内容都是明显虚构的。
 import type { FilePartValue } from "../state/index.ts";
 import { fakeFormat, fakeMoney, fakeText } from "./fake-content.ts";
@@ -8,6 +9,10 @@ import { fakeFormat, fakeMoney, fakeText } from "./fake-content.ts";
 export interface FakeMedia {
   readonly part: FilePartValue;
   readonly text?: string;
+  /** 当作 GBK（GB18030）编码存的（报告页那一行写明编码）；内容照样是这里的字 */
+  readonly encoding?: "gb18030";
+  /** 录音：内容是现场合成的一段提示音（fakeSoundUrl） */
+  readonly sound?: boolean;
   /** 引用它的那条消息什么时候发的（报告页"……发出"那一行）；不写是 10 月 7 日 21:30 */
   readonly sentAt?: string;
 }
@@ -225,6 +230,92 @@ const TREND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 200"
 </svg>
 `;
 
+/** 发票报销明细（CSV，报告页画成表格）：和会话里算出来的合计、可报金额对得上 */
+const EXPENSES_CSV = `日期,类别,明细,金额,按 85% 可报
+09-21,交通,高铁 G87 北京南—上海虹桥,¥553.00,¥470.05
+09-21,住宿,酒店两晚,¥416.00,¥353.60
+09-22,餐饮,工作午餐,¥86.00,¥73.10
+09-23,交通,出租车,¥48.00,¥40.80
+09-23,餐饮,客户咖啡,¥32.00,¥27.20
+09-24,办公,打印装订,¥145.00,¥123.25
+合计,,,¥1280.00,¥1088.00
+`;
+
+/** 银行导出的九月流水（当作 Excel 存的 GBK 编码，报告页那一行写明编码） */
+const STATEMENT_CSV = `交易日期,摘要,收入,支出,余额
+2026-09-01,工资,¥8500.00,,¥12850.30
+2026-09-03,超市,,¥286.40,¥12563.90
+2026-09-10,房租,,¥3200.00,¥9363.90
+2026-09-15,水电燃气,,¥215.60,¥9148.30
+2026-09-21,高铁票,,¥553.00,¥8595.30
+2026-09-28,理财赎回,¥2000.00,,¥10595.30
+`;
+
+/** 本周训练记录（JSON，挤在一行：报告页格式化成缩进两格，"看原文"看回一行） */
+const WORKOUT_JSON = `{"week":"2026-W41","sessions":[{"date":"2026-10-05","focus":"腿","exercises":[{"name":"深蹲","sets":5,"reps":5,"kg":60},{"name":"硬拉","sets":3,"reps":5,"kg":80}]},{"date":"2026-10-07","focus":"胸背","exercises":[{"name":"卧推","sets":5,"reps":5,"kg":45},{"name":"引体向上","sets":4,"reps":8,"kg":0}]}],"note":"深蹲加到 60 kg，下周试 62.5"}
+`;
+
+/** 算报销的脚本（代码，报告页等宽显示） */
+const REIMBURSE_PY = `"""按比例算能报销多少：读发票识别出来的 JSON，打印合计和可报金额。"""
+import json
+import sys
+
+
+def reimbursable(items, rate):
+    """合计和按比例能报的金额（保留两位小数）"""
+    total = sum(item["amount"] for item in items)
+    return total, round(total * rate, 2)
+
+
+if __name__ == "__main__":
+    # 用法：python calc_reimburse.py 发票.json --rate 0.85
+    path, rate = sys.argv[1], float(sys.argv[3])
+    with open(path, encoding="utf-8") as f:
+        items = json.load(f)["items"]
+    total, ok = reimbursable(items, rate)
+    print(f"合计 ¥{total:,.2f} × {rate:.0%} = ¥{ok:,.2f}")
+`;
+
+/** 合成的提示音：8000 Hz、8 位、单声道，4 秒，三个音一个接一个（报告页的播放器能放、能拖进度） */
+const SOUND_RATE = 8000;
+const SOUND_SECONDS = 4;
+const SOUND_BYTES = 44 + SOUND_RATE * SOUND_SECONDS;
+
+/** 现场合成一段 WAV（只在报告页、下载要用时合成一次） */
+function chimeWav(): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(SOUND_BYTES);
+  const view = new DataView(bytes.buffer);
+  const ascii = (at: number, s: string) => [...s].forEach((c, i) => view.setUint8(at + i, c.charCodeAt(0)));
+  ascii(0, "RIFF");
+  view.setUint32(4, SOUND_BYTES - 8, true);
+  ascii(8, "WAVEfmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, SOUND_RATE, true);
+  view.setUint32(28, SOUND_RATE, true);
+  view.setUint16(32, 1, true);
+  view.setUint16(34, 8, true);
+  ascii(36, "data");
+  view.setUint32(40, SOUND_RATE * SOUND_SECONDS, true);
+  const notes = [523.25, 659.25, 783.99];
+  for (let i = 0; i < SOUND_RATE * SOUND_SECONDS; i++) {
+    const t = i / SOUND_RATE;
+    const k = Math.min(notes.length - 1, Math.floor(t / (SOUND_SECONDS / notes.length)));
+    const since = t - k * (SOUND_SECONDS / notes.length);
+    const sample = Math.sin(2 * Math.PI * notes[k]! * since) * Math.exp(-3 * since) * 0.6;
+    bytes[44 + i] = Math.round(128 + sample * 127);
+  }
+  return bytes;
+}
+
+let soundUrl: string | undefined;
+
+/** 合成的提示音的地址（blob:，合成一次反复用）：报告页的播放器、下载都给它 */
+export function fakeSoundUrl(): string {
+  return (soundUrl ??= URL.createObjectURL(new Blob([chimeWav()], { type: "audio/wav" })));
+}
+
 const file = (mediaId: string, name: string, mime: string, size: number): FilePartValue => ({ type: "file", mediaId, name, mime, size });
 const utf8Bytes = (text: string) => new TextEncoder().encode(text).length;
 const textFile = (mediaId: string, name: string, mime: string, text: string): FakeMedia => ({ part: file(mediaId, name, mime, utf8Bytes(text)), text });
@@ -236,7 +327,7 @@ const LEDGER_SIZE = 1_240_921;
 
 export const FAKE_DAILY = textFile("sha256:fake-daily-1007", "10 月 7 日日报.md", "text/markdown", DAILY);
 export const FAKE_BRIEF: FakeMedia = { ...textFile("sha256:fake-brief-1007", "brief.md", "text/markdown", BRIEF), sentAt: "2026-10-07T08:06:00.000+08:00" };
-export const FAKE_VIDEOS = [1, 2, 3].map((n) => ({ part: file(`sha256:fake-video-${n}`, `周会录像-第${n}段.mp4`, "video/mp4", 180_000_000 + n * 3_100_000) }));
+export const FAKE_VIDEOS = [1, 2, 3].map((n) => ({ part: file(`sha256:fake-video-${n}`, `周会录像-第${n}段.mp4`, "video/mp4", 180_000_000 + n * 3_100_000), sentAt: "2026-10-07T11:02:00.000+08:00" }));
 export const FAKE_ZIP: FakeMedia = { part: file("sha256:fake-zip", "活动页源码.zip", "application/zip", 2_516_582) };
 export const FAKE_HTML: FakeMedia = textFile("sha256:fake-html", "活动页预览.html", "text/html", EVENT_PAGE);
 /** 负责人发的网页版早报、走势图（在沙箱里预览） */
@@ -244,13 +335,31 @@ export const FAKE_BRIEF_HTML = textFile("sha256:fake-brief-html-1007", "10 月 7
 export const FAKE_TREND_SVG = textFile("sha256:fake-trend-41", "本周 star 走势.svg", "image/svg+xml", TREND_SVG);
 /** 消息里的全年账单流水（大小就是生成出来的字节数，不在打开页面时就生成一遍） */
 export const FAKE_LEDGER_PART = file(LEDGER_ID, "2026 年账单流水.md", "text/markdown", LEDGER_SIZE);
+/** 报销明细（CSV 表格） */
+export const FAKE_EXPENSES_CSV: FakeMedia = { ...textFile("sha256:fake-csv", "报销明细-0927.csv", "text/csv", EXPENSES_CSV), sentAt: "2026-10-06T22:41:00.000+08:00" };
+/** 银行导出的流水：当作 GBK 编码存的（大小按 GB18030 算：ASCII 一个字节，¥ 四个，汉字两个） */
+export const FAKE_STATEMENT_CSV: FakeMedia = {
+  part: file("sha256:fake-statement-gbk", "招行流水-9月.csv", "text/csv", [...STATEMENT_CSV].reduce((n, c) => n + (c.charCodeAt(0) < 0x80 ? 1 : c === "¥" ? 4 : 2), 0)),
+  text: STATEMENT_CSV,
+  encoding: "gb18030",
+  sentAt: "2026-10-07T16:05:00.000+08:00",
+};
+/** 训练记录（JSON）、算报销的脚本（代码） */
+export const FAKE_WORKOUT_JSON: FakeMedia = { ...textFile("sha256:fake-workout-json", "本周训练记录.json", "application/json", WORKOUT_JSON), sentAt: "2026-10-07T16:07:00.000+08:00" };
+export const FAKE_REIMBURSE_PY: FakeMedia = { ...textFile("sha256:fake-reimburse-py", "calc_reimburse.py", "text/x-python", REIMBURSE_PY), sentAt: "2026-10-07T16:07:00.000+08:00" };
+/** 周会的录音（报告页里放合成的提示音） */
+export const FAKE_MEETING_AUDIO: FakeMedia = { part: file("sha256:fake-meeting-audio", "周会要点录音.wav", "audio/wav", SOUND_BYTES), sound: true, sentAt: "2026-10-07T16:05:00.000+08:00" };
 
 const FAKE_MEDIA: Readonly<Record<string, FakeMedia>> = Object.fromEntries(
   [
     FAKE_DAILY,
     FAKE_BRIEF,
     textFile("sha256:fake-notes", "读书笔记-置身事内.md", "text/markdown", NOTES),
-    { part: file("sha256:fake-csv", "报销明细-0927.csv", "text/csv", 1_284) },
+    FAKE_EXPENSES_CSV,
+    FAKE_STATEMENT_CSV,
+    FAKE_WORKOUT_JSON,
+    FAKE_REIMBURSE_PY,
+    FAKE_MEETING_AUDIO,
     ...FAKE_VIDEOS,
     FAKE_ZIP,
     FAKE_HTML,
