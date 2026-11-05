@@ -9,7 +9,7 @@
 // 日历也是插件：停用日历插件（?demo-plugins-off=calendar）后导航、"更多"、工作日规则、待办里都没有去日历的入口，#/calendar 写没启用。
 // 语音也是插件：停用语音插件（?demo-plugins-off=voice）后输入框没有话筒、设置里没有语音，#/more/voice 写没启用，每一页照样打得开。
 // 加了停用浏览插件的（"浏览"、侧边栏模式写没启用）。
-// 每套风格量聊天里工具调用、来信、回忆记忆的横条（和"在想什么"同一列、右边留空、窄窗口下箭头露全点得到），
+// 每套风格量聊天里收成一行的那几种（一样宽、和对话气泡最宽处一样宽、左边对齐、行尾 › 在同一条竖线上、窄窗口下露全点得到），
 // 侧边栏模式收到交来的外观马上换风格。
 // 小屏和手机上，会话缩小后点开的分支整块留在视口里。
 // 标题上的"等你……"手机、电脑都看得到、点得到，点了跳到要处理的那张卡、闪一下，再点一次再闪；卡在别的页的跳过去；答完就不再等你。
@@ -92,7 +92,7 @@ const PAGES = [
  * 英文下已经迁好的地方：在这一页上，这个元素里（去掉 except 挑出来的还没迁的部分、用户的内容）不能有中文。
  * 迁完一块就往这里加一行
  */
-const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boolean }[] = [
+const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boolean; open?: string }[] = [
   // 外壳——导航（竖栏、横栏连同量长度的样本）、设置列表的各项（外观与风格的副标题是状态层的 appearanceSummary 加风格名）、"更多"、设置 · 语言（本地名"中文"、用户起的名字除外）
   { hash: "#/secretary", selector: "nav" },
   { hash: "#/more/settings", selector: ".topbar .title" },
@@ -105,18 +105,20 @@ const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boo
   // 界面组件（ui/、model/）——卡片的种类签、日期分隔、附件按钮、"详情"这类小链接、输入框（秘书的名字标签除外）、
   // 任务详情的阶段栏和待你处理的条、卡片上处理过的结果、立项要求变更的前后对照、提醒的浏览器通知开关。
   // 卡片的标题、正文、阶段名是二狗存下的内容（假数据的内容下面单独查），状态名、处置名是状态层和协议包的，不在这里查
-  { hash: "#/secretary", selector: ".xcard-tag" },
+  { hash: "#/secretary", selector: ".chat-line .line-title, .xcard-tag" },
   { hash: "#/secretary", selector: ".day-sep" },
   { hash: "#/secretary", selector: ".att-btns" },
-  { hash: "#/secretary", selector: ".thinking-more, .tool-more, .card-more, .bubble-more" },
+  { hash: "#/secretary", selector: ".tool-more, .bubble-more" },
   { hash: "#/secretary", selector: ".composer", except: ".assistant-name" },
   { hash: "#/tasks/t-photos", selector: ".composer" },
   { hash: "#/tasks/t-photos", selector: ".ibar-n" },
   { hash: "#/tasks/t-photos", selector: ".stage-prog" },
   // 标题栏上的入口、背后的 agent 的说法（手机上入口只有图标和个数，全称在说明里）
   { hash: "#/tasks/t-newpc", selector: ".bg-entry-text", wideOnly: true },
-  { hash: "#/projects/p-ledger/chat", selector: ".xcard-tag" },
-  { hash: "#/projects/p-ledger/chat", selector: ".auth-result, .charter-diff-k" },
+  { hash: "#/projects/p-ledger/chat", selector: ".chat-line .line-title, .xcard-tag" },
+  // 卡片在对话里收成一行，卡上处理过的结果、立项要求变更的前后对照在详情里：先点开那一行（open）
+  { hash: "#/projects/p-ledger/chat", selector: ".charter-diff-k", open: '.chat-line[data-card-type="charter_change"]' },
+  { hash: "#/projects/p-ledger/chat", selector: ".auth-result", open: '.chat-line[data-card-type="mcp_change"]' },
   { hash: "#/inbox", selector: ".notify-permission" },
   // 待办通知的动作按钮：存的是中文原字（按字认），显示时换成当前语言（协议包的 inboxActionText）
   { hash: "#/inbox/i-sjob", selector: ".auth-actions" },
@@ -206,7 +208,8 @@ const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boo
   // 个人档案——列表的说明和分节标题、一份档案里的字段名、分节标题、按钮（值、称呼、记下的事是内容，不在这里查）
   { hash: "#/more/files", selector: ".pf-intro, .pf-page .sec-head", except: ".assistant-name" },
   { hash: "#/more/files/p-fake-mom", selector: ".pf-label, .pf-page .sec-head, .pf-actions", except: ".assistant-name" },
-  { hash: "#/secretary", selector: ".xcard-personal_file .auth-actions" },
+  // 记进档案的卡（对话里收成一行，按钮在详情里）
+  { hash: "#/secretary", selector: ".xcard-personal_file .auth-actions", open: '.chat-line[data-card-type="personal_file"]' },
 ];
 
 /**
@@ -390,7 +393,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     };
     await at("#/secretary");
     expect(await page.locator('nav .nav-list [data-nav="memory"]').count()).toBe(0);
-    expect(await page.locator(".recall-line, .xcard-reminder, .xcard-memory_delete").count()).toBe(0);
+    expect(await page.locator('.recall-line, .xcard-reminder, .xcard-memory_delete, [data-card-type="reminder"], [data-card-type="memory_delete"]').count()).toBe(0);
     expect(await page.locator(".msg-unavailable").count()).toBeGreaterThan(0);
     await at("#/more/memory");
     expect(await bodyText(page)).toContain("记忆插件没启用，这一页暂时看不到");
@@ -715,7 +718,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
   test.each([
     ["手机", { width: 390, height: 844 }],
     ["电脑", { width: 1280, height: 800 }],
-  ])("%s宽：标题上的等你回答提问看得到、能点，点了定位到提问卡；相册库的等你批准跳到任务里那张卡；答完不再等你", async (_what, viewport) => {
+  ])("%s宽：标题上的等你回答提问看得到、能点，点了定位到提问卡那一行；相册库的等你批准跳到任务里那张卡；点那一行在详情里答，答完不再等你、那一行写已回答", async (_what, viewport) => {
     const { page, errors } = await open(viewport);
     const go = (hash: string) => page.evaluate(`window.location.hash = ${JSON.stringify(hash)}`);
     const hash = () => page.evaluate("window.location.hash");
@@ -738,12 +741,13 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await jump.click();
       expect(await hash()).toBe("#/secretary/at/c-q-1");
       await flashed.waitFor({ timeout: 5000 });
-      // 确认按钮就在眼前
-      const answer = page.locator('.xcard:has-text("去几天") button:has-text("全按推荐")').first();
+      // 提问卡在对话里收成一行（"等你回答"），定位到它、就在眼前
+      const row = page.locator('.chat-line[data-card-type="questions"]:has-text("去几天")').first();
+      expect(await row.locator(".tool-sum-tag").textContent()).toContain("等你回答");
       const composerTop = (await page.locator(".composer").first().boundingBox())!.y;
       await expect.poll(async () => {
-        const btn = (await answer.boundingBox())!;
-        return btn.y >= 0 && btn.y + btn.height <= composerTop;
+        const rowBox = (await row.boundingBox())!;
+        return rowBox.y >= 0 && rowBox.y + rowBox.height <= composerTop;
       }, { timeout: 5000 }).toBe(true);
 
       // 闪完了再点一次：地址没变，照样再闪一下
@@ -766,12 +770,17 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       // 项目内部任务没有单独的页面，换到项目的对话框、定位到这个任务和那张卡
       expect(await hash()).toBe("#/projects/p-photos/tasks/t-photos/at/c-appr-1");
 
-      // 答完：标题不再说等你，不再是链接
+      // 点那一行：详情（宽屏右边、手机上滑进来的一页）里是整张卡，按钮在那里；答完：标题不再说等你，不再是链接，那一行写已回答
       await go("#/secretary");
       await jump.waitFor();
+      await row.click();
+      const answer = page.locator('.pane-detail button:has-text("全按推荐"), .dp-page.at-detail button:has-text("全按推荐")').first();
+      await answer.waitFor({ timeout: 5000 });
       await answer.click();
       await jump.waitFor({ state: "detached", timeout: 5000 });
       expect(await page.locator(".topbar .act").first().getAttribute("class")).toContain("act-sleeping");
+      await expect.poll(async () => row.locator(".tool-sum-tag").textContent(), { timeout: 5000 }).toContain("已回答");
+      expect(await row.getAttribute("class")).not.toContain("tool-sum-you");
       expect(errors).toEqual([]);
     } finally {
       await page.close();
@@ -1447,10 +1456,15 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       }
       expect([...names]).toEqual(["ergo"]);
       const leaks: string[] = [];
-      for (const { hash, selector, except, wideOnly } of EN_DONE) {
+      for (const { hash, selector, except, wideOnly, open: row } of EN_DONE) {
         if (wideOnly && viewport.width < 900) continue;
         await page.evaluate(`window.location.hash = ${JSON.stringify(hash)}`);
         await page.waitForTimeout(200);
+        // 手机上前一项开着的详情页盖在对话上面：直接给那一行的按钮发 click（不按坐标点），等详情里的东西出来
+        if (row) {
+          await page.locator(row).last().dispatchEvent("click");
+          await page.waitForSelector(selector, { state: "attached", timeout: 5000 }).catch(() => undefined);
+        }
         // 每个匹配的元素去掉 except 挑出来的部分之后的字（:not(*) 什么都不挑）
         const texts = (await page.evaluate(
           `Array.from(document.querySelectorAll(${JSON.stringify(selector)}), (el) => { const copy = el.cloneNode(true); for (const x of copy.querySelectorAll(${JSON.stringify(except ?? ":not(*)")})) x.remove(); return copy.textContent ?? ""; })`,
@@ -1594,11 +1608,11 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(sideText).toContain("内置浏览器插件没启用，这一页暂时看不到");
   }, 60_000);
 
-  // 工具调用、来信（负责人来信……）、回忆了 N 条记忆这几种横条照"在想什么"那条——和它在同一列
-  // （左边对齐，糖果、纸张的头像位也让出来），宽度跟着内容走、最宽到对话气泡那么宽（右边留空），窄窗口下右边不超出、
-  // 行尾的箭头（›、详情 ›）整个露在横条里、紧跟着字、点得到。每套风格量：秘书页、负责人会话页（窄 340）、秘书页（电脑宽）、侧边栏模式（320）
+  // 对话里收成一行的那几种（思考、工具调用、调用记忆、来信、卡片、记录、说明、回退）：每行一样宽、都和对话气泡最宽处一样宽
+  // （糖果、纸张的头像位也让出来，左边对齐），行尾的 › 在最右端、几行的 › 在同一条竖线上，整个露在行里、点得到，窄窗口下右边不超出，
+  // 里面的字放不下省略（不挤出去）。每套风格量：秘书页、负责人会话页（窄 340）、秘书页（电脑宽）、侧边栏模式（320）
   for (const style of VISUAL_STYLES.map((s) => s.id)) {
-    test(`${style}：工具调用、来信、回忆记忆的横条和"在想什么"同一列、右边不超出，箭头露全、点得到`, async () => {
+    test(`${style}：对话里收成一行的几种一样宽（对话气泡最宽处）、左边对齐，行尾 › 在同一条竖线上、露全、点得到，右边不超出`, async () => {
       const { page, errors } = await open({ width: 340, height: 800 });
       await page.evaluate(`localStorage.setItem("ergo-style", ${JSON.stringify(style)})`);
       const problems: string[] = [];
@@ -1606,21 +1620,20 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
         await page.waitForSelector(".msg .tool-sum", { timeout: 10_000 });
         await page.waitForTimeout(200);
         const found = (await page.evaluate(MEASURE_ROWS)) as RowMeasure;
-        if (found.thinkingLeft === undefined) problems.push(`${where}：没找到"在想什么"那一行`);
-        for (const kind of kinds) if (!found.rows.some((r) => r.kind === kind)) problems.push(`${where}：没找到 ${kind} 横条`);
-        for (const r of found.rows) problems.push(...rowProblems(`${where} ${r.kind}「${r.text}」`, r, found.thinkingLeft));
+        for (const kind of kinds) if (!found.rows.some((r) => r.kind === kind)) problems.push(`${where}：没找到 ${kind} 那一行`);
+        problems.push(...rowProblems(where, found));
       };
       await page.reload();
       await page.evaluate(`window.location.hash = "#/secretary"`);
-      await check("秘书页 340", ["tool", "letter", "recall"]);
+      await check("秘书页 340", ["thinking", "tool", "letter", "recall", "card", "note", "branch"]);
       await page.evaluate(`window.location.hash = "#/projects/p-ledger/chat"`);
-      await check("负责人会话页 340", ["tool"]);
+      await check("负责人会话页 340", ["thinking", "tool", "letter", "recall", "card", "record", "note", "branch"]);
       await page.setViewportSize({ width: 1280, height: 800 });
       await page.evaluate(`window.location.hash = "#/secretary"`);
-      await check("秘书页 1280", ["tool", "letter", "recall"]);
+      await check("秘书页 1280", ["thinking", "tool", "letter", "recall", "card", "note", "branch"]);
       await page.setViewportSize({ width: 320, height: 800 });
       await page.goto(`${pageUrl}?ergo=side`);
-      await check("侧边栏模式 320", ["tool", "letter"]);
+      await check("侧边栏模式 320", ["tool", "letter", "card"]);
       await page.close();
       expect(errors).toEqual([]);
       expect(problems).toEqual([]);
@@ -1819,77 +1832,74 @@ interface Span {
   right: number;
 }
 
-/** 一条横条量出来的（CSS 像素，相对视口）：横条、它那一列（内容框）、行尾箭头、箭头前面那个、会话视口的右边 */
+/** 收成一行的一条量出来的（CSS 像素，相对视口）：这一行、它那一格的最宽（max-width）、行尾的 ›、会话视口的右边 */
 interface RowBox {
-  kind: "tool" | "letter" | "recall";
+  /** 哪一种（line-<种类>）：thinking、tool、recall、letter、card、record、note、branch */
+  kind: string;
   text: string;
   left: number;
   right: number;
-  colLeft: number;
-  colRight: number;
+  /** 这一行那一格（.part-line）的最宽，和对话气泡（.part-text）的最宽比 */
+  maxWidth: string;
   viewportRight: number;
-  /** 行尾的箭头（›、详情 ›）；点不开的行没有 */
-  arrow?: { left: number; right: number; width: number; hit: boolean; gap: number | undefined };
+  /** 行尾的 ›；点不开的行没有 */
+  arrow?: { left: number; right: number; width: number; hit: boolean };
   overflow: number;
 }
 
 interface RowMeasure {
-  thinkingLeft: number | undefined;
+  /** 对话气泡（回复的 .part-text）的最宽；页面上没有回复是 undefined */
+  bubbleMax: string | undefined;
   rows: RowBox[];
 }
 
 /**
- * 在页面里量会话里看得见的每一条横条（.tool-sum：工具调用、来信、回忆记忆）和第一条"在想什么"（.thinking）的左边。
- * 横条先滚到视口中间再量箭头点不点得到（elementFromPoint 落在这条横条里）；gap 是箭头和它前面那个之间的空（同一行时）
+ * 在页面里量会话里看得见的每一行（.msg .tool-sum）和对话气泡的最宽。
+ * 每行先滚到视口中间再量 › 点不点得到（elementFromPoint 落在这一行里）
  */
 const MEASURE_ROWS = `(() => {
   const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-  const thinking = Array.from(document.querySelectorAll(".msg .thinking")).find(vis);
+  const bubble = Array.from(document.querySelectorAll(".msg.assistant .part-text")).find(vis);
   const rows = [];
   for (const row of document.querySelectorAll(".msg .tool-sum")) {
     if (!vis(row)) continue;
     row.scrollIntoView({ block: "center" });
     const r = row.getBoundingClientRect();
-    const col = row.parentElement;
-    const cs = getComputedStyle(col);
-    const cr = col.getBoundingClientRect();
-    const colLeft = cr.left + parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft);
-    const colRight = cr.right - parseFloat(cs.borderRightWidth) - parseFloat(cs.paddingRight);
     const viewport = row.closest(".zh-viewport") ?? document.documentElement;
-    const kind = row.classList.contains("letter-line") ? "letter" : row.classList.contains("recall-line") ? "recall" : "tool";
-    const box = { kind, text: row.textContent.trim().slice(0, 24), left: r.left, right: r.right, colLeft, colRight, viewportRight: viewport.getBoundingClientRect().right, overflow: row.scrollWidth - row.clientWidth };
-    const arrow = row.querySelector(".tool-more, .letter-more");
+    const kind = (Array.from(row.classList).find((c) => c.startsWith("line-")) ?? "line-?").slice(5);
+    const box = { kind, text: row.textContent.trim().slice(0, 24), left: r.left, right: r.right, maxWidth: getComputedStyle(row.parentElement).maxWidth, viewportRight: viewport.getBoundingClientRect().right, overflow: row.scrollWidth - row.clientWidth };
+    const arrow = row.querySelector(".tool-more");
     if (arrow) {
       const a = arrow.getBoundingClientRect();
       const hitEl = document.elementFromPoint(a.left + a.width / 2, a.top + a.height / 2);
-      const prev = arrow.previousElementSibling ? arrow.previousElementSibling.getBoundingClientRect() : undefined;
-      const sameLine = prev && Math.abs(prev.top + prev.height / 2 - (a.top + a.height / 2)) < a.height / 2;
-      box.arrow = { left: a.left, right: a.right, width: a.width, hit: !!hitEl && hitEl.closest(".tool-sum") === row, gap: sameLine ? a.left - prev.right : undefined };
+      box.arrow = { left: a.left, right: a.right, width: a.width, hit: !!hitEl && hitEl.closest(".tool-sum") === row };
     }
     rows.push(box);
   }
-  return { thinkingLeft: thinking ? thinking.getBoundingClientRect().left : undefined, rows };
+  return { bubbleMax: bubble ? getComputedStyle(bubble).maxWidth : undefined, rows };
 })()`;
-
-/** 对话气泡最宽占那一列的几成（styles/pages.css 的 .msg.assistant .part-text） */
-const BUBBLE_SHARE = 0.92;
 
 /** 两个位置差不到 1 像素（亚像素取整） */
 const near = (a: number, b: number) => Math.abs(a - b) <= 1;
 
-/** 一条横条哪里不对 */
-function rowProblems(name: string, r: RowBox, thinkingLeft: number | undefined): string[] {
+/** 一页上收成一行的那几条哪里不对：每条各自的，加上几条之间（左边、右边、› 不在同一条竖线上） */
+function rowProblems(where: string, found: RowMeasure): string[] {
   const out: string[] = [];
-  if (thinkingLeft !== undefined && !near(r.left, thinkingLeft)) out.push(`${name}：左边 ${r.left.toFixed(1)}，"在想什么"那条是 ${thinkingLeft.toFixed(1)}，不在同一列`);
-  const bubbleRight = r.colLeft + (r.colRight - r.colLeft) * BUBBLE_SHARE;
-  if (r.right > bubbleRight + 1) out.push(`${name}：右边 ${r.right.toFixed(1)} 超过了对话气泡最宽处 ${bubbleRight.toFixed(1)}（右边没留空）`);
-  if (r.right > r.viewportRight) out.push(`${name}：右边 ${r.right.toFixed(1)} 超出了会话视口 ${r.viewportRight.toFixed(1)}`);
-  if (r.overflow > 1) out.push(`${name}：里面的东西比横条宽 ${r.overflow} 像素（被挤出去了）`);
-  const a = r.arrow;
-  if (a) {
-    if (a.width <= 0 || a.left < r.left - 0.5 || a.right > r.right + 0.5) out.push(`${name}：箭头 ${a.left.toFixed(1)}..${a.right.toFixed(1)} 没整个露在横条 ${r.left.toFixed(1)}..${r.right.toFixed(1)} 里`);
-    if (!a.hit) out.push(`${name}：箭头点不到（被别的东西盖住了）`);
-    if (a.gap !== undefined && a.gap > 16) out.push(`${name}：箭头离前面的字 ${a.gap.toFixed(1)} 像素，没紧跟着字`);
+  const [first] = found.rows;
+  const firstArrow = found.rows.find((r) => r.arrow)?.arrow;
+  for (const r of found.rows) {
+    const name = `${where} ${r.kind}「${r.text}」`;
+    if (found.bubbleMax !== undefined && r.maxWidth !== found.bubbleMax) out.push(`${name}：最宽 ${r.maxWidth}，对话气泡最宽 ${found.bubbleMax}，不一样宽`);
+    if (first && !near(r.left, first.left)) out.push(`${name}：左边 ${r.left.toFixed(1)}，第一行是 ${first.left.toFixed(1)}，不在同一列`);
+    if (first && !near(r.right, first.right)) out.push(`${name}：右边 ${r.right.toFixed(1)}，第一行是 ${first.right.toFixed(1)}，不一样宽`);
+    if (r.right > r.viewportRight) out.push(`${name}：右边 ${r.right.toFixed(1)} 超出了会话视口 ${r.viewportRight.toFixed(1)}`);
+    if (r.overflow > 1) out.push(`${name}：里面的东西比这一行宽 ${r.overflow} 像素（被挤出去了）`);
+    const a = r.arrow;
+    if (a) {
+      if (a.width <= 0 || a.left < r.left - 0.5 || a.right > r.right + 0.5) out.push(`${name}：› ${a.left.toFixed(1)}..${a.right.toFixed(1)} 没整个露在这一行 ${r.left.toFixed(1)}..${r.right.toFixed(1)} 里`);
+      if (!a.hit) out.push(`${name}：› 点不到（被别的东西盖住了）`);
+      if (firstArrow && !near(a.right, firstArrow.right)) out.push(`${name}：› 的右边 ${a.right.toFixed(1)}，别的行是 ${firstArrow.right.toFixed(1)}，不在同一条竖线上`);
+    }
   }
   return out;
 }

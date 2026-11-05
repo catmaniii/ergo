@@ -111,6 +111,15 @@
   gap: 8px;
   margin-bottom: 8px;
 }
+/* 卡片详情头上的"引用"（会话里卡片收成了一行，引用挪到这里）：靠右；流程计划卡的详情另起一条，也靠右 */
+.detail-body .dt-quote {
+  margin-left: auto;
+}
+.detail-body .dt-quote-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
 /* 详情里区分历史种类的标签（.tag、.tag-plan 在 base.css） */
 .tag-user {
   background: color-mix(in srgb, var(--c-user) 18%, transparent);
@@ -1888,35 +1897,4 @@
 }
 .rule-lv.lv-pull {
   color: var(--pull-fg);
-}
-
-/* 会话里的重做记录（mevent / me-reopen：⟲ 加说法，左边一道上下文色） */
-.mevent {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  padding: 6px 10px;
-  border-radius: var(--radius-m);
-  background: var(--surface);
-  border-left: 3px solid var(--c-plan);
-  font-size: var(--fs-m);
-  line-height: 1.45;
-  cursor: pointer;
-}
-.me-icon {
-  flex: none;
-  width: 16px;
-  text-align: center;
-  font-weight: 700;
-  color: var(--c-plan);
-}
-.me-body {
-  flex: 1;
-  min-width: 0;
-}
-.me-reopen {
-  border-left-color: var(--c-context);
-}
-.me-reopen .me-icon {
-  color: var(--c-context);
 }

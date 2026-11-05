@@ -1,19 +1,19 @@
-// 消息按 part 渲染：文本、推理（一行，点开看）、图片、文件、语音（VoiceBubble.tsx）、agent 的语音（同一个气泡）、
+// 消息按 part 渲染：文本、推理（一行"思考"加第一句）、图片、文件、语音（VoiceBubble.tsx）、agent 的语音（同一个气泡）、
 // 卡片引用、工单分隔；视频只预留。
-// 有详情的都能点开（onDetail：这一部分所属的那一条的详情，由会话组件按条目 id 绑好）：思考旁边"详情 ›"，
-// 卡片旁边"详情 ›"，语音在长按菜单里。会话里的思考、回复、工具调用组按聊天区精简画（rows.tsx：
-// 回复是 Markdown 的 AssistantBubble，工具调用组是一行"调用了 N 个工具 ›"），每次工具调用不再单独画一行，在详情页里看。
+// 有详情的都能点开（onDetail：这一部分所属的那一条的详情，由会话组件按条目 id 绑好）：用户消息里引用的卡片、还没收到的卡片
+// 下面"引用 · 详情 ›"，语音在长按菜单里。会话里的思考、回复、工具调用组、卡片按聊天区精简画（rows.tsx：
+// 回复是 Markdown 的 AssistantBubble，别的收成一行 ChatLineView），每次工具调用不再单独画一行，在详情页里看。
 // 文件附件画成卡片（FileCards：类型图标、标题、"预览""下载"，一组排成一横排），能预览的点图标去报告页。
 import { type MouseEvent, useState } from "react";
 import { pushHash } from "../../app/history-nav.ts";
 import { toHash } from "../../app/route-hash.ts";
 import { useStore } from "../../app/store.tsx";
-import { clearedDividerText, type FileCard, fileCards, type FilePartValue, type MessagePart, t, thinkingLabel } from "../../state/index.ts";
+import { clearedDividerText, type FileCard, fileCards, type FilePartValue, type MessagePart, t, thinkingLine } from "../../state/index.ts";
 import { useAssistantName } from "../assistant-name.tsx";
 import { CardPanel } from "../cards/CardPanel.tsx";
 import { T } from "../i18n.tsx";
 import { ImageViewer } from "../image-viewer.tsx";
-import { ThinkingRow } from "./rows.tsx";
+import { ChatLineView } from "./rows.tsx";
 import { AgentVoiceBubble, VoiceBubble } from "./VoiceBubble.tsx";
 
 export function PartView({ part, onDetail, onQuote }: { part: MessagePart; onDetail?: (() => void) | undefined; onQuote?: ((cardId: string) => void) | undefined }) {
@@ -21,7 +21,7 @@ export function PartView({ part, onDetail, onQuote }: { part: MessagePart; onDet
     case "text":
       return <div className="bubble">{part.text}</div>;
     case "reasoning":
-      return <ThinkingRow text={part.text} label={thinkingLabel()} live={false} onDetail={onDetail} />;
+      return <ChatLineView look={thinkingLine(part.text, false, onDetail ? "row" : undefined)} onOpen={onDetail} />;
     case "image":
       return <ImageView part={part} />;
     case "file":
@@ -90,7 +90,10 @@ export function ClearedDivider({ time }: { time: string | undefined }) {
   );
 }
 
-/** 聊天里的卡片，加一个"引用"（把卡片引用到输入框）和"详情 ›" */
+/**
+ * 整张画的卡片（用户消息里引用的、还没收到的），加一个"引用"（把卡片引用到输入框）和"详情 ›"。
+ * 二狗那边收到了的卡片在对话里收成一行，不走这里（引用在卡片详情里）
+ */
 function CardRef({ cardId, onQuote, onDetail }: { cardId: string; onQuote?: ((cardId: string) => void) | undefined; onDetail?: (() => void) | undefined }) {
   const name = useAssistantName();
   return (

@@ -44,6 +44,7 @@
 //   locateChatItem 按组原来的 id、组里任何一步（调用、思考）的 id 都找得到它。
 import {
   type BranchFilesRewind,
+  type Card,
   type MessageEnvelope,
   type MessagePart,
   type MessageScope,
@@ -325,7 +326,12 @@ export type ChatItem = ChatItemBase &
         /** 用到了几条记忆（去重后的素材条数）、算不算得出 */
         readonly recall: RecallSummary;
       }
-    | { readonly kind: "card"; readonly cardId: string }
+    | {
+        readonly kind: "card";
+        readonly cardId: string;
+        /** 卡片现在的样子（对话里那一行写种类、标题那一句、状态）；还没收到这张卡的没有 */
+        readonly card?: Card;
+      }
     | {
         readonly kind: "system";
         readonly text: string;
@@ -555,8 +561,10 @@ function piecesOf(state: UiState, it: TimelineItem, voiceCalls: ReadonlyMap<stri
       } else if (part.type === "memory_brief") {
         // 自动带上的记忆简报当成一次调用记忆，和检索素材、问记忆一起进"回忆了 N 条记忆"
         out.push({ kind: "call", call: { ...toolCall(state, id, briefCallPart(part, id), at, marks, undefined), brief: part } });
-      } else if (part.type === "card_ref")
-        out.push(itemPiece({ kind: "card", id, ...at, content: "plan", keyLine: cardLine(state, part.cardId), marks, detail: state.cards[part.cardId] ? "card" : undefined, cardId: part.cardId }));
+      } else if (part.type === "card_ref") {
+        const card = state.cards[part.cardId]?.card;
+        out.push(itemPiece({ kind: "card", id, ...at, content: "plan", keyLine: cardLine(state, part.cardId), marks, detail: card ? "card" : undefined, cardId: part.cardId, ...(card ? { card } : {}) }));
+      }
       else if (part.type === "work_order_divider" || part.type === "run_divider" || part.type === "conversation_cleared")
         out.push(itemPiece({ kind: "divider", id, ...at, content: "context", keyLine: dividerLine(part, at.time), marks, divider: part }));
     }

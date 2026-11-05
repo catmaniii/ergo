@@ -230,7 +230,9 @@ describe("对话里的\"回忆了 N 条记忆\"", () => {
     const masked = maskUnavailable(items, (it) => host.unavailable("chatItems", it.kind));
     expect(masked).toBe(items);
     const html = render(host, recallOf(masked));
-    expect(html).toContain('class="tool-sum recall-line');
+    // 收成一行：标题"记忆"、记忆的图标、"回忆了 N 条记忆"（不在页面里取不到第一条的标题）
+    expect(html).toContain('class="tool-sum chat-line line-recall recall-line');
+    expect(html).toContain('<span class="line-title">记忆</span>');
     expect(html).toContain("回忆了 1 条记忆");
   });
 

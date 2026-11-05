@@ -29,7 +29,7 @@ import { useToast } from "../../ui/toast.tsx";
  * `useConversationPane` + `DetailLayout` 接上：点一行照常开右边的详情（回收了的记忆、调用的参数和完整返回都在里面）。
  */
 export function MemoryCuratorPage({ wide, onBack }: { wide: boolean; onBack: (() => void) | undefined }) {
-  const { http, ui, watchChannels } = useStore();
+  const { http, ui, watchChannels, quoteCard } = useStore();
   const [conversationRef, detail] = useConversationPane(wide, MEMORY_CURATOR_CONVERSATION);
   // 这个会话的频道（和真实的前端一样订阅；历史由连接按频道补发）
   useEffect(() => watchChannels([MEMORY_CURATOR_CONVERSATION]), [watchChannels]);
@@ -45,7 +45,7 @@ export function MemoryCuratorPage({ wide, onBack }: { wide: boolean; onBack: (()
   }, [http]);
   const note = summary?.ready === true ? memoryCuratorNightLine(summary.lastNight) : undefined;
   return (
-    <DetailLayout wide={wide} detail={detail} conversation={MEMORY_CURATOR_CONVERSATION}>
+    <DetailLayout wide={wide} detail={detail} conversation={MEMORY_CURATOR_CONVERSATION} onQuote={(cardId) => quoteCard(MEMORY_CURATOR_CONVERSATION, cardId)}>
       <div className="chat-col">
         <TopBar title={t("pages.memory.curator")} onBack={onBack} sub={wide ? note : undefined}>
           <AgentSettingsButton agentId={MEMORY_CURATOR_AGENT_ID} wide={wide} />

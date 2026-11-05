@@ -570,7 +570,8 @@
 :root[data-style="glass"] .app.wide .msg.assistant .msg-part {
   max-width: min(100%, 560px);
 }
-:root[data-style="glass"] .app.wide .msg.assistant .part-text {
+:root[data-style="glass"] .app.wide .msg.assistant .part-text,
+:root[data-style="glass"] .app.wide .msg.assistant .part-line {
   max-width: min(100%, 520px);
 }
 :root[data-style="glass"] .app.wide .msg.user .msg-part {
@@ -592,6 +593,19 @@
 }
 :root[data-style="glass"] .tool-sum.tool-sum-you {
   border-left-color: var(--you);
+}
+/* 收成一行的别的种类：左边那道照经典按种类给（思考色、卡片色、说明和记录的颜色），出了状况的照上面 */
+:root[data-style="glass"] .tool-sum.line-thinking {
+  border-left-color: var(--c-thinking);
+}
+:root[data-style="glass"] .tool-sum.line-card:not(.tool-sum-you) {
+  border-left-color: var(--c-plan);
+}
+:root[data-style="glass"] .tool-sum.line-letter:not(.tool-sum-stopped):not(.tool-sum-you),
+:root[data-style="glass"] .tool-sum.line-record:not(.tool-sum-stopped):not(.tool-sum-you),
+:root[data-style="glass"] .tool-sum.line-note:not(.tool-sum-stopped):not(.tool-sum-you),
+:root[data-style="glass"] .tool-sum.line-branch:not(.tool-sum-stopped):not(.tool-sum-you) {
+  border-left-color: var(--c-context);
 }
 :root[data-style="glass"] .thinking {
   border-left-width: 2px;

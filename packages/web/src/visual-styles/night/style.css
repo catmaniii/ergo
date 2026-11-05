@@ -376,7 +376,8 @@
 :root[data-style="night"] .msg.assistant .msg-part {
   max-width: min(100%, 560px);
 }
-:root[data-style="night"] .msg.assistant .part-text {
+:root[data-style="night"] .msg.assistant .part-text,
+:root[data-style="night"] .msg.assistant .part-line {
   max-width: min(92%, 520px);
 }
 /* 你发的消息：青绿淡底、青绿细线框，右下角是尖角 */

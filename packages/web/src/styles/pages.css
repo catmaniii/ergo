@@ -404,7 +404,9 @@ fieldset {
 }
 .msg.assistant .part-text,
 .msg.assistant .part-files,
-.msg.assistant .part-image {
+.msg.assistant .part-image,
+/* 收成一行的过程条目那一格：和对话气泡最宽的那个宽度一样（下面 .tool-sum），› 在这个宽度的最右端 */
+.msg.assistant .part-line {
   max-width: 92%;
 }
 .msg-meta {
@@ -503,7 +505,7 @@ fieldset {
 .msg-system .sys-note {
   color: var(--text);
 }
-/* 分支摘要：会话回退之后新分支开头那一条，🧭 加摘要，点整条看详情 */
+/* 分支摘要单独画的时候（会话里收成一行"回退"，这个只在别处单独画分支摘要的 part 时用）：🧭 加摘要 */
 .context-note {
   font-size: var(--fs-s);
   color: var(--muted);
@@ -512,12 +514,6 @@ fieldset {
   background: var(--surface);
   border-radius: var(--radius-m);
   white-space: pre-wrap;
-}
-/* 运行时撤回时恢复了哪些文件（Claude Code 的文件检查点），摘要下面一行、更淡 */
-.context-note .branch-files {
-  margin-top: 4px;
-  font-size: var(--fs-xs);
-  opacity: 0.85;
 }
 .part-image {
   margin: 0;
@@ -995,20 +991,24 @@ a.att-icon:hover {
   background: color-mix(in srgb, var(--c-plan) 12%, var(--surface));
 }
 /*
- * 工具调用组（用户要的汇总行）：一行小字"调用了 N 个工具 · 小签 ›"，不是气泡。
- * 左边一道工具色、字号和思考那一行一样，圆点和行尾的 › 借它的工具行（.tool-dot、.tool-more）；
- * 出了状况的整行醒目：左边那道、圆点换成被拦下的颜色（只有等你批准、问过你的换成跟你有关的颜色），字也深一档。
- * 这一横条一直顶到最右边，窄窗口时看不到、点不到行尾的箭头；照"在想什么"那条改：横条放在个人助理
- * 那一列的一格里（.msg-part.part-line，和"在想什么"同一列，糖果、纸张让出的头像位也一样），宽度跟着内容走，最宽到对话气泡那么宽
- * （.msg.assistant .part-text 的 92%），右边留空；› 紧跟着字（不再被 margin-left: auto 推到最右边）。来信、回忆记忆那两行借它，一样
+ * 对话里收成一行的过程条目（ui/conversation/rows.tsx 的 ChatLineView）：思考、工具调用组、调用记忆、来信、卡片、时间线记录、
+ * 系统说明、分支摘要。一行小字，不是气泡：左边一道（颜色按种类）、图标、标题、一句话、句子后面的"等 N 步"、小签和时间、行尾 ›。
+ * - 每行一样宽：放在个人助理那一列的一格里（.msg-part.part-line），这一格和对话气泡最宽的那个宽度一样（上面 .msg.assistant .part-text
+ *   那一组，11 套风格改气泡最宽多少时连这一格一起改），横条铺满这一格；› 被推到这个宽度的最右端（margin-left: auto），
+ *   所有种类的 › 在同一条竖线上。以前"宽度跟着内容、› 紧跟字后"是因为横条顶到屏幕边上、窄窗口看不到箭头——现在最宽就是气泡那么宽，
+ *   不会出屏幕；
+ * - 不换行：标题有最小宽度（常见的短标题后面的句子对齐，长的照常往后推），一句话放不下省略号截掉；后面的"等 N 步"、小签、时间
+ *   （.line-tail）留着，句子先省略、缩到两三个字它才省略；
+ * - 出了状况的醒目：左边那道、圆点换成被拦下的颜色（被拦下、你拒绝了、出错、越界、没做成的操作），跟你有关的颜色（等你批准、问过你、
+ *   没处理的卡片），字也深一档；还有调用在执行时圆点一闪一闪（.tool-running），正在想的思考字轻轻明暗（.think-live）。
+ * 11 套风格里跟着各自的 .tool-sum 走（胶囊、浮起的小面板、像素框……）
  */
 .tool-sum {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   column-gap: 6px;
-  width: fit-content;
-  max-width: 92%;
+  width: 100%;
   min-width: 0;
   padding: 2px 10px;
   border: none;
@@ -1029,6 +1029,51 @@ a.att-icon:hover {
 .tool-sum .tool-dot {
   width: 6px;
   height: 6px;
+}
+/* 左边的图标占一样宽的一格（圆点、记忆的图标、来信的图标），后面的标题对齐 */
+.line-icon {
+  flex: none;
+  width: 1.15em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.line-title {
+  flex: none;
+  min-width: 4.5em;
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+/*
+ * 一句话和后面的"等 N 步"、小签、时间放在一格里（.line-body，占掉标题和 › 之间剩下的宽度）。放不下时句子先省略（缩得比后面那一段快得多：
+ * flex-shrink 按基础宽度加权），缩到只剩两三个字（min-width）就不再缩，这时后面那一段才省略——句子不会整个没了
+ */
+.line-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  column-gap: 6px;
+  overflow: hidden;
+}
+.tool-sum-text {
+  flex: 0 100000 auto;
+  min-width: 2.5em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.line-tail {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.line-time {
+  font-family: var(--font-num);
+  font-size: max(10.5px * var(--fs-k), 10.5px);
 }
 .tool-sum-tag {
   white-space: nowrap;
@@ -1061,65 +1106,38 @@ a.att-icon:hover {
 .tool-sum-you .tool-dot {
   background: var(--you);
 }
+/* 行尾的 ›：推到这一格的最右端 */
 .tool-sum .tool-more {
-  margin-left: 0;
+  margin-left: auto;
   padding-left: 6px;
 }
-/*
- * agent 之间的来信：一行"图标 种类 总结 时间 详情 ›"，借工具调用那一行（.tool-sum）的样子——左边一道、小字、
- * 整行可点，11 套风格里跟着各自的 .tool-sum 走；左边那道换成说明和记录的颜色（要点层、全局层的底色也是它）。
- * 一行写不下的省略总结，不换行（宽度跟着内容、最宽到对话气泡那么宽，再长就省略总结，"详情 ›"总露在横条里）
- */
-.letter-line {
-  flex-wrap: nowrap;
+/* 各种的左边那道和圆点：思考是思考色，卡片是卡片色（要点层、全局层的底色也是它），来信、记录、说明、分支摘要是说明和记录的颜色 */
+.line-thinking {
+  border-left-color: var(--c-thinking);
+}
+.line-thinking .tool-dot {
+  background: var(--c-thinking);
+}
+.line-card:not(.tool-sum-you) {
+  border-left-color: var(--c-plan);
+}
+.line-card:not(.tool-sum-you) .tool-dot {
+  background: var(--c-plan);
+}
+:is(.line-letter, .line-record, .line-note, .line-branch):not(.tool-sum-stopped, .tool-sum-you) {
   border-left-color: var(--c-context);
 }
-.letter-icon,
-.letter-kind,
-.letter-time,
-.letter-more {
-  flex: none;
-  white-space: nowrap;
+:is(.line-record, .line-note):not(.tool-sum-stopped, .tool-sum-you) .tool-dot {
+  background: var(--c-context);
 }
-.letter-kind {
-  color: var(--text);
-  font-weight: 600;
+.line-branch .line-icon {
+  color: var(--c-context);
 }
-.letter-sum {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.letter-time {
-  font-family: var(--font-num);
-  font-size: max(10.5px * var(--fs-k), 10.5px);
-}
-.letter-more {
-  padding-left: 2px;
-}
-/*
- * 调用记忆：一行"回忆了 N 条记忆 ›"，借工具调用那一行（.tool-sum）的样子——左边一道、小字、整行可点，
- * 11 套风格里跟着各自的 .tool-sum 走；圆点换成记忆的图标（和导航里"记忆"同一个，工具色）。没找到的、认不出条数的淡一点
- */
-.recall-line {
-  flex-wrap: nowrap;
-}
-.recall-line .recall-icon {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
+/* 调用记忆：图标（和导航里"记忆"同一个）是工具色；没找到的、认不出条数的淡一点 */
+.recall-line .line-icon {
   color: var(--c-tool);
-  font-size: 1.15em;
 }
-.recall-line .tool-sum-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.recall-none .recall-icon {
+.recall-none .line-icon {
   opacity: 0.6;
 }
 .chip-generic {
@@ -6584,10 +6602,7 @@ button.ds-item {
   max-width: 520px;
 }
 
-/* ---------- 会话里消息之外的记录（RecordRow）：偏离、范围变更、越界、快速动作的操作记录 ---------- */
-.tl-record b {
-  font-weight: 600;
-}
+/* ---------- 卡片里的提示（.sys-note 加严重度：一般、留意、警示），skill 变更卡上的警示用它 ---------- */
 :root .sys-note.sev-info {
   background: color-mix(in srgb, var(--data-bg) 70%, var(--surface));
   border-left-color: var(--data-fg);
@@ -6596,8 +6611,7 @@ button.ds-item {
   background: color-mix(in srgb, var(--op-bg) 70%, var(--surface));
   border-left-color: var(--op-fg);
 }
-:root .sys-note.sev-alert,
-:root .sys-note.rec-failed {
+:root .sys-note.sev-alert {
   background: color-mix(in srgb, var(--high-bg) 70%, var(--surface));
   border-left-color: var(--high-fg);
 }

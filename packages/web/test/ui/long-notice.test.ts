@@ -1,4 +1,5 @@
-// 运行时交给 agent 的长通知在对话层画成一行（ChatItemView 的来信那一行），详情里全文照 Markdown 画：换行、列表都对。
+// 运行时交给 agent 的长通知在对话层画成一行（ChatItemView 的来信那一行，标题“通知”），别的说明也是一行（标题“说明”），
+// 详情里全文照 Markdown 画：换行、列表都对。
 // 用 React 在 Node 里渲染出来查；哪些折、总结从哪来在 test/state/agent-letters.test.ts。
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -44,24 +45,28 @@ function rendered(text: string, agentInput: boolean): string {
 }
 
 describe("对话层", () => {
-  test("截图那一段画成一行：图标、是哪一步、时间、详情；不写种类，全文不出现在会话里", () => {
+  test("截图那一段画成一行：图标、标题“通知”、是哪一步、时间、行尾 ›；全文不出现在会话里", () => {
     const html = rendered(STAGE_NOTICE, true);
     expect(html).toContain("letter-line");
-    expect(html).toContain('<span class="letter-sum">接着做第 3 阶段：第一波实现</span>');
-    expect(html).toContain("详情 ›");
-    expect(html).not.toContain("letter-kind");
+    expect(html).toContain('<span class="line-title">通知</span>');
+    expect(html).toContain('<span class="tool-sum-text">接着做第 3 阶段：第一波实现</span>');
+    expect(html).toContain('<span class="line-time">· 21:40</span>');
+    expect(html).toContain('<span class="tool-more">›</span>');
+    expect(html).not.toContain("详情");
     expect(html).not.toContain("系统说明");
     expect(html).not.toContain("交付件");
-    expect(html).not.toContain("sys-note");
   });
 
-  test("短的通知、没交给 agent 的说明照旧整段画", () => {
+  test("短的通知、没交给 agent 的说明也收成一行：标题“说明”，写第一行，整段在详情里", () => {
     const short = rendered("用户让任务继续了。接着做。", true);
-    expect(short).toContain("sys-note");
-    expect(short).toContain("用户让任务继续了。接着做。");
+    expect(short).toContain("line-note");
+    expect(short).toContain('<span class="line-title">说明</span>');
+    expect(short).toContain('<span class="tool-sum-text">用户让任务继续了。接着做。</span>');
     expect(short).not.toContain("letter-line");
     const note = rendered(STAGE_NOTICE, false);
-    expect(note).toContain("交付件");
+    expect(note).toContain("line-note");
+    expect(note).toContain("用户让阶段 s3「第一波实现」接着做");
+    expect(note).not.toContain("交付件");
     expect(note).not.toContain("letter-line");
   });
 });

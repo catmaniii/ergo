@@ -1,32 +1,31 @@
 // 对话层里的一条：会话条目层（ChatItem）的一条怎么画完整内容。
-// 照聊天区精简画（长什么样由状态层的 chatLook 给出，state/chat-look.ts）：思考一行"💭 Agent 的想法（点开看）"、
-// 回复按 Markdown 画（有后文时"收起 ▴ / 展开细节 ▾"和"详情 ›"），ThinkingRow、AssistantBubble 在 rows.tsx；
-// 工具调用组一行小字"调用了 N 个工具 ›"（二狗加的汇总行），组里的每一步不在对话层画，点整行在详情页里看。
-// 调用记忆（检索素材、读素材）不算进那一行，单独一行"回忆了 N 条记忆 ›"，点整行看"这次用到的记忆"。
-// 这一行由记忆插件画（网页插件的对话条目插槽，plugins/memory/RecallLine.tsx）；插件拥有的条目在插件停用时已经换成
-// 占位（state/chat-items.ts 的 maskUnavailable，kind 是 unavailable），画成一行"（X插件没启用，这条内容暂时看不到）"，样子同"已删除"。
+// 照聊天区精简画（长什么样由状态层的 chatLook 给出，state/chat-look.ts）：回复按 Markdown 画（有后文时"收起 ▴ / 展开细节 ▾"
+// 和"详情 ›"，AssistantBubble 在 rows.tsx）；用户的消息、排队的消息、语音、附件、分隔线、已删除照旧。
+// 过程条目收成一行（rows.tsx 的 ChatLineView：图标、标题、一句话、小签、行尾 ›，整行点开详情）：思考、工具调用组、agent 之间的来信、
+// 卡片、时间线记录、系统说明、分支摘要；调用记忆那一行由记忆插件画（网页插件的对话条目插槽，plugins/memory/RecallLine.tsx）。
+// 每一行放在个人助理那一列的一格里（.msg.assistant > .msg-part.part-line），这一格和对话气泡最宽的那个宽度一样（pages.css），
+// 行尾的 › 在这一格的最右端：几种的 › 在同一条竖线上，窄窗口也不出屏幕。系统说明、记录、分支摘要也放进这一列（和别的行对齐）。
+// 工具调用组里的每一步不在对话层画，点整行在详情页里看。
+// 卡片收成一行之后按钮不在对话里：点进卡片详情处理（卡片详情画整张卡，"引用"也在那里，ui/detail/DetailPane.tsx）；
+// 还没收到这张卡、打不开详情的照旧整张画（卡片下面"引用"）。
+// 插件拥有的条目在插件停用时已经换成占位（state/chat-items.ts 的 maskUnavailable，kind 是 unavailable），
+// 画成一行"（X插件没启用，这条内容暂时看不到）"，样子同"已删除"。
 // 顺利执行的二狗内部工具不显示（会话里有卡片、记录代表它）；发出了语音气泡的"发语音"调用也不显示（气泡代表它，
 // 气泡长按菜单的"详情 ›"里看这次调用）。
 // data-mark 标在每张卡、每条记录上：缩小后右侧标注的箭头指到这一行（ZoomHistory 的 layoutAnnotations）。工具调用组只存在于
 // 对话层：缩小后组里每次调用、每段思考各画一块（ZoomBlockView 是那一块的对话层内容），标注挂在那一块上。
-// 详情入口（onDetail 给的是条目层的 id）：用户气泡点整条，思考、多段的回复点"详情 ›"，工具调用组点整行（行尾 ›），
-// 卡片点"详情 ›"，系统说明和记录点整条，语音在长按菜单里。条目自己的 id 标在外面的矩形上（ZoomHistory 的 .zi 的 data-item）；
-// "在对话中定位"到组里某一步时，那一步不在对话层，闪的是整组。
-// 一条消息里连着的文件附件合成一组（state 的 partRuns），画成一横排卡片（parts.tsx 的 FileCards）。
-// agent 之间的来信（任务做完、负责人来信、秘书转达、计划检查）只画一行（rows.tsx 的 LetterLine），整行点开看全文；
+// 详情入口（onDetail 给的是条目层的 id）：用户气泡点整条，多段的回复点"详情 ›"，收成一行的点整行（行尾 ›），语音在长按菜单里。
+// 条目自己的 id 标在外面的矩形上（ZoomHistory 的 .zi 的 data-item）；"在对话中定位"到组里某一步时，那一步不在对话层，闪的是整组。
+// 一条消息里连着的文件附件合成一组（state 的 partRuns），画成一横排卡片（parts.tsx 的 FileCards）；
 // 运行时跟在任务做完的通知后面放的附件（只有文件的系统消息）画成一排附件卡片。
-// 运行时交给 agent 的长通知没有标记也折成这一行。
-// 工具调用、负责人来信那一横条一直顶到最右边，窄窗口看不到、点不到行尾的箭头：工具调用、来信、
-// 回忆记忆这几行照"在想什么"那条，放在个人助理那一列的一格里（.msg-part.part-line），宽度跟着内容、最宽到对话气泡那么宽（pages.css 的 .tool-sum）。
 // 排队的消息（二狗回复时发的）是虚线的用户气泡、标"排队中"，右上角一个叉，长按（电脑上按住）拖动改顺序（queue-drag.tsx）；
 // 交出去之后同一个条目 id（发送请求的幂等键）换成正常气泡，原地不动。说到一半被停下的回复标"已停止"。
 import type { MouseEvent, ReactNode } from "react";
 import {
-  type AgentLetter,
-  branchFilesLine,
   browsingLabel,
   type ChatItem,
   chatItemIdOf,
+  type ChatLine,
   chatLook,
   type FilePartValue,
   type MessagePart,
@@ -40,8 +39,7 @@ import { clockLabel } from "../../util/time.ts";
 import { NamedText } from "../assistant-name.tsx";
 import { ClearedDivider, FileCards, PartView } from "./parts.tsx";
 import { useQueuedBubble } from "./queue-drag.tsx";
-import { RecordRow } from "./RecordRow.tsx";
-import { AssistantBubble, LetterLine, ThinkingRow, ToolGroupLine } from "./rows.tsx";
+import { AssistantBubble, ChatLineView } from "./rows.tsx";
 import { usePlugins } from "../../plugins/api.ts";
 
 export interface ChatItemActions {
@@ -85,14 +83,14 @@ function Meta({ children }: { children: ReactNode }) {
 }
 
 /**
- * 一封来信：一行，不是气泡；整行点开看全文。
- * 和工具调用那一行一样放在个人助理那一列的一格里（.msg.assistant > .msg-part.part-line，和"在想什么"那条同一列）
+ * 收成一行的一条：不是气泡，放在个人助理那一列的一格里（.msg.assistant > .msg-part.part-line，和对话气泡同一列、
+ * 同样的最宽宽度）；整行点开详情。mark：缩小后右侧标注的箭头指到这一行（卡片、记录）
  */
-function Letter({ letter, time, onOpen }: { letter: AgentLetter; time: string | undefined; onOpen: (() => void) | undefined }) {
+export function LineItem({ look, onOpen, mark, kind }: { look: ChatLine; onOpen: (() => void) | undefined; mark?: string | undefined; kind?: string | undefined }) {
   return (
-    <div className="msg assistant msg-letter">
+    <div className={`msg assistant msg-line msg-line-${kind ?? look.kind}`} data-mark={mark}>
       <div className="msg-part part-line">
-        <LetterLine letter={letter} time={time ? clockLabel(time) : undefined} onOpen={onOpen} />
+        <ChatLineView look={look} onOpen={onOpen} />
       </div>
     </div>
   );
@@ -105,9 +103,11 @@ export function ChatItemView({ item, actions }: { item: ChatItem; actions: ChatI
   const Plugged = plugins.get("chatItems", item.kind)?.Item;
   if (Plugged) return <Plugged item={item} actions={actions} />;
   const open = onDetail && ((id: string) => () => onDetail(id));
+  const look = chatLook(item);
+  /** 这一行点开（整行，行尾 ›）：有详情、会话接了详情才有 */
+  const openLine = look.open ? open?.(item.id) : undefined;
   // agent 之间的来信（秘书转达的用户消息、运行时的系统通知）：一行
-  const shape = chatLook(item);
-  if (shape.form === "letter") return <Letter letter={shape.letter} time={item.time} onOpen={shape.open ? open?.(item.id) : undefined} />;
+  if (look.form === "line" && look.kind === "letter") return <LineItem look={look} onOpen={openLine} kind="letter" />;
   switch (item.kind) {
     case "user":
     case "voice": {
@@ -126,7 +126,7 @@ export function ChatItemView({ item, actions }: { item: ChatItem; actions: ChatI
           : undefined;
       return (
         <div className={`msg ${agent ? "assistant" : "user"}${pending ? ` msg-pending msg-${pending.status}` : ""}${onUserClick ? " has-detail" : ""}`} onClick={onUserClick}>
-          {/* 秘书转达的话折成一行"<名字>转达"（上面的 Letter），不走到这里 */}
+          {/* 秘书转达的话折成一行"<名字>转达"（上面的来信那一行），不走到这里 */}
           {partRuns(parts).map((run) =>
             run.kind === "files" ? (
               <Files key={run.index} files={run.files} />
@@ -151,19 +151,9 @@ export function ChatItemView({ item, actions }: { item: ChatItem; actions: ChatI
         </div>
       );
     }
-    case "thinking": {
-      const look = chatLook(item);
-      if (look.form !== "thinking") return null;
-      return (
-        <div className={`msg assistant${item.streaming ? " msg-streaming" : ""}`}>
-          <div className="msg-part part-reasoning">
-            <ThinkingRow text={item.text} label={look.label} live={look.live} onDetail={look.open ? open?.(item.id) : undefined} />
-          </div>
-        </div>
-      );
-    }
+    case "thinking":
+      return look.form === "line" ? <LineItem look={look} onOpen={openLine} /> : null;
     case "reply": {
-      const look = chatLook(item);
       if (look.form !== "reply") return null;
       // 文字合成一个气泡，放在第一段文字的位置；附件（图片、文件）照原来的先后排
       const firstText = item.parts.findIndex((p) => p.type === "text");
@@ -200,65 +190,49 @@ export function ChatItemView({ item, actions }: { item: ChatItem; actions: ChatI
         </div>
       );
     }
-    case "tool_group": {
-      const look = chatLook(item);
-      if (look.form !== "tool_line") return null;
-      // 一行小字，不是气泡（用户要的汇总行）：点整行看组的详情。和"在想什么"那条一样放在一格里（同一列、同样的宽度上限）
-      return (
-        <div className="msg assistant msg-tools">
-          <div className="msg-part part-line">
-            <ToolGroupLine look={look} onOpen={look.open ? open?.(item.id) : undefined} />
-          </div>
-        </div>
-      );
-    }
+    case "tool_group":
+      // 点整行看组的详情
+      return look.form === "line" ? <LineItem look={look} onOpen={openLine} kind="tools" /> : null;
     case "recall": {
       // 调用记忆由网页插件画（上面）；拥有它的插件没在用时占位（会话里一般已经换成了 unavailable，这里兜底）
       const plugin = plugins.unavailable("chatItems", item.kind);
       return plugin === undefined ? null : <UnavailableLine text={t("state.chatItems.unavailable", { plugin })} />;
     }
     case "card":
+      // 收到了这张卡的收成一行，点进详情处理；还没收到、打不开详情的照旧整张画
+      if (look.form === "line") return <LineItem look={look} onOpen={openLine} mark={item.id} />;
       return (
         <div className="msg assistant">
-          <Part part={{ type: "card_ref", cardId: item.cardId }} mark={item.id} onDetail={item.detail ? open?.(item.id) : undefined} onQuote={onQuote} />
+          <Part part={{ type: "card_ref", cardId: item.cardId }} mark={item.id} onQuote={onQuote} />
         </div>
       );
-    case "system":
-      // 分支摘要（会话回退之后新分支开头那一条）：context-note 的样子，🧭 加摘要，点整条看详情；
-      // 运行时把文件恢复到撤回点的（Claude Code），下面一行写恢复了哪些（Bash 改的追不到）
-      if (item.branch)
-        return (
-          <div className={`msg msg-system msg-branch${onDetail ? " has-detail" : ""}`}>
-            <div className="context-note" onClick={open?.(item.id)}>
-              🧭 {item.branch.summary}
-              {item.branch.files && <div className="branch-files">{branchFilesLine(item.branch.files)}</div>}
-            </div>
-          </div>
-        );
+    case "system": {
+      if (look.form !== "line") return null;
+      // 分支摘要（会话回退之后新分支开头那一条）："回退"加摘要的第一句；恢复了哪些文件在详情里
+      if (item.branch) return <LineItem look={look} onOpen={openLine} />;
+      // 系统说明："说明"加第一行，点整行看全文；运行时放的附件（任务做完时交付的 md）照旧一排卡片，点"预览"去报告页
+      const firstText = item.parts.findIndex((p) => p.type === "text");
       return (
-        <div className={`msg msg-system${onDetail ? " has-detail" : ""}`}>
+        <div className="msg assistant msg-line msg-line-note">
           {partRuns(item.parts).map((run) =>
-            // 运行时放的附件（任务做完时交付的 md）：一排卡片，点"预览"去报告页
             run.kind === "files" ? (
               <Files key={run.index} files={run.files} />
             ) : run.part.type === "text" ? (
-              // 系统说明点整条看详情
-              <div key={run.index} className="sys-note" onClick={open?.(item.id)}>
-                {/* 守护进程写的说明：里面的名字占位按现在的名字显示 */}
-                <NamedText text={run.part.text} />
-              </div>
+              run.index === firstText && look.text !== "" ? (
+                <div key={run.index} className="msg-part part-line">
+                  <ChatLineView look={look} onOpen={openLine} />
+                </div>
+              ) : null
             ) : (
               <PartView key={run.index} part={run.part} onDetail={open?.(item.id)} />
             ),
           )}
         </div>
       );
+    }
     case "record":
-      return (
-        <div data-mark={item.marks[0]?.key}>
-          <RecordRow record={item.record} time={item.time} itemId={item.id} onDetail={onDetail} />
-        </div>
-      );
+      // 时间线记录：种类、摘要、时间，点整行看详细说明
+      return look.form === "line" ? <LineItem look={look} onOpen={openLine} mark={item.marks[0]?.key} /> : null;
     case "divider":
       return (
         <div className="msg msg-system">
@@ -328,7 +302,7 @@ const CALL_CLASS = { done: "", running: "tool-running", error: "tool-error", blo
 /**
  * 缩小后组里的一块在对话层那一层的内容：组只在对话层是一行，缩小后每次调用、每段思考各画一块，这一块的对话层内容
  * 只在跨档淡入淡出的那一下看得见，撑出这一块的高度。调用画工具行（ToolRow）的第一行：圆点、说人话的那一句
- * （有模板的是 .tool-said-text，没有的是"中文名 · 参数值"）、›；思考照 ThinkingRow 收着的那一行。
+ * （有模板的是 .tool-said-text，没有的是"中文名 · 参数值"）、›；思考是一行"💭 Agent 的想法（点开看）"（缩小后的样子照旧）。
  * 只是图，不接点击（缩小着点它由会话历史处理）
  */
 export function ZoomBlockView({ block }: { block: ZoomBlock }) {

@@ -907,8 +907,6 @@
   "ui.stageDetail.addDeliverable": "＋ 加一件交付件",
   "ui.stageDetail.editedNote": "改过了：你改的就是你的确认，不出卡；点重做时换成新一版计划，时间线上记一笔改前改后，评审按改过的标准验收。",
   "ui.stageDetail.uneditedNote": "不改就按原来的标准重做。改了不出卡，点重做就生效。",
-  "ui.recordRow.operation": "{title}：{summary}",
-  "ui.recordRow.record": "记录",
   "ui.slashMenu.label": "斜杠命令",
   "ui.slashMenu.group.command": "{name}的命令",
   "ui.slashMenu.group.skill": "{name}工具包里的 skill",

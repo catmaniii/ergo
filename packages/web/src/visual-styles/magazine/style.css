@@ -598,7 +598,8 @@
   border-left-width: 2px;
 }
 /* 宽屏下一行不拉太长：个人助理的话最宽 520、卡片最宽 560（设计稿宽屏的取值） */
-:root[data-style="magazine"] .msg.assistant .part-text {
+:root[data-style="magazine"] .msg.assistant .part-text,
+:root[data-style="magazine"] .msg.assistant .part-line {
   max-width: min(92%, 520px);
 }
 :root[data-style="magazine"] .msg.assistant .msg-part {

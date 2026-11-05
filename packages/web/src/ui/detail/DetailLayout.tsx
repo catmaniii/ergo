@@ -110,7 +110,8 @@ export function useDetail(wide: boolean, conversation: ConversationId | undefine
  * 主栏 + 详情：宽屏在右栏，窄屏整页滑入。
  * stages：长程任务的阶段（阶段详情要的交付件、验收、授权、预算这些计划里写的，和能不能从这里重做），任务详情页给；
  * panel：任务详情"⋯"里的计划、工单、工具包、消耗、运行（原来的页签）画成什么，任务详情页给（没有会话的原型假任务也能开）；
- * archive：档案（手机上从右边滑进来的那一页；宽屏在会话左边，由对话框自己放）
+ * archive：档案（手机上从右边滑进来的那一页；宽屏在会话左边，由对话框自己放）；
+ * onQuote：卡片详情里的"引用"（把卡片引用到这个会话的输入框；只读的会话不给）。窄屏上引用完滑回会话、定位到那张卡，看得到输入框上多出的引用
  */
 export function DetailLayout({
   wide,
@@ -119,6 +120,7 @@ export function DetailLayout({
   stages,
   panel,
   archive,
+  onQuote,
   children,
 }: {
   wide: boolean;
@@ -127,14 +129,32 @@ export function DetailLayout({
   stages?: StageDetailSource | undefined;
   panel?: ((panel: TaskPanel) => ReactNode) | undefined;
   archive?: ReactNode;
+  onQuote?: ((cardId: string) => void) | undefined;
   children: ReactNode;
 }) {
   const frameWidth = useContext(FrameWidth);
   const host = useContext(DetailHost);
   const [width, setWidth] = useState(DETAIL_WIDTH_INITIAL);
+  const quote =
+    onQuote &&
+    ((cardId: string) => {
+      onQuote(cardId);
+      if (!wide) detail.reveal();
+    });
   const pane =
     conversation || panel ? (
-      <DetailPane detail={detail.nav.detail} conversation={conversation} onClose={detail.close} onReveal={detail.reveal} onOpen={detail.drill} onGo={detail.go} stages={stages} panel={panel} archive={archive} />
+      <DetailPane
+        detail={detail.nav.detail}
+        conversation={conversation}
+        onClose={detail.close}
+        onReveal={detail.reveal}
+        onOpen={detail.drill}
+        onGo={detail.go}
+        stages={stages}
+        panel={panel}
+        archive={archive}
+        onQuote={quote}
+      />
     ) : null;
   if (wide) {
     return (

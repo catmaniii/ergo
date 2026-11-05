@@ -477,7 +477,8 @@
   border: var(--card-border);
   text-wrap: pretty;
 }
-:root[data-style="blueprint"] .msg.assistant .part-text {
+:root[data-style="blueprint"] .msg.assistant .part-text,
+:root[data-style="blueprint"] .msg.assistant .part-line {
   max-width: min(87%, 520px);
 }
 /* 宽屏下一行不拉太长：卡片最宽 560（设计稿宽屏的取值） */

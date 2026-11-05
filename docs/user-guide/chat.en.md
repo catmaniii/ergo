@@ -158,18 +158,28 @@ To back out, press Esc or click elsewhere. On a phone, tapping a row selects it;
 | What you see | What it is | What clicking does |
 |---|---|---|
 | Bubble | ergo's reply | Longer ones have **Show less ▴**, **Show details ▾** and **Details ›** below |
-| 💭 **Agent's thoughts (tap to view)** | What it was thinking. While it's thinking it says **Agent is thinking…** | Expands in place, click again to collapse. **Details ›** is beside it |
-| **Called 3 tools ›** | What it did | See [Tool call details](#tool-call-details) |
-| **Recalled 3 memories ›** | It checked its memory | See [How ergo uses memory when it replies](memory.en.md#how-ergo-uses-memory-when-it-replies) |
-| A card | Something for you to click, or a finished result | See [Cards in replies](#cards-in-replies) below |
-| ✉️ a line of text | A letter from another agent | See [Long notices folded to one line](#long-notices-folded-to-one-line) |
+| **Thinking**　The bills are in the Ledger project › | What it was thinking: the first sentence. While it's thinking it says **Thinking…** | The details hold the full text |
+| **Tool calls**　Run sum_by_category.py (2 steps) › | What it did | See [Tool call details](#tool-call-details) |
+| **Memory**　Recalled 3: Bank A's September statement › | It checked its memory, with the title of the first memory | See [How ergo uses memory when it replies](memory.en.md#how-ergo-uses-memory-when-it-replies) |
+| **Approval**　Write files “ledger.db” · Needs approval › | A card for you to click, or a finished result | See [Cards in replies](#cards-in-replies) below |
+| **Out of scope**　Wrote a temp file outside the project · 07:42 › | A record on the timeline: deviation, scope change, out of scope, operation record… | The details hold the full text |
+| **Note**　Plan confirmed, starting › | A system note: its first line | The details hold the full text |
+| **Rollback**　The user asked to regroup the categories… › | After you roll back, a summary of the abandoned part | The details hold the full text and which files were restored |
+| 📨 **Relayed by ergo**　one sentence · 07:30 › | A letter from another agent | See [Long notices folded to one line](#long-notices-folded-to-one-line) |
 | Voice bubble | It answers you by voice | See [Voice](voice.en.md#ergo-answering-by-voice) |
+
+**The steps in between take one line each.** Apart from what you said, replies, voice, images and files, everything is one line: a title, one sentence, and › at the end.
+
+- Every line is as wide as the widest chat bubble. The › are all at the right edge, lined up.
+- A sentence that doesn't fit is cut off with an ellipsis. Tags and the time stay after it.
+- Lines that concern you stand out: **Needs approval**, **Needs an answer** and the like go after the sentence. Lines where something went wrong (blocked, error) stand out too.
+- While a tool call is running, the dot in front blinks. While it's thinking, the text gently fades in and out.
 
 **Every item has details.** On a computer they're in the details pane on the right; on a phone they slide in as a full page.
 
 - What you said: click the bubble.
-- Replies, thoughts, cards: click **Details ›**.
-- Tool calls, notes and letters: click the whole line.
+- Replies: click **Details ›**.
+- One-line items: click the whole line.
 - Voice: press and hold the bubble, then choose **Details ›**.
 
 **Show in conversation** at the top right of the details pane scrolls back to this item in the session and flashes it.
@@ -178,9 +188,19 @@ To back out, press Esc or click elsewhere. On a phone, tapping a row selects it;
 
 ## Cards in replies
 
-**What it is:** When something needs your decision, ergo doesn't just say so: it shows a card, with buttons right on it.
+**What it is:** When something needs your decision, ergo doesn't just say so: it shows a card. In the session it takes one line; the buttons are in the card's details.
 
-![Two cards, a quick action and a suggested task, with Quote and Details › below each](images/chat/03-cards.png)
+![Two cards, a quick action and a suggested task, with Quote and Details › below each (this picture still shows the look before cards became one line)](images/chat/03-cards.png)
+
+**The line in the session:** the kind of card, one sentence, and its status.
+
+| Status | When |
+|---|---|
+| **Needs your OK**, **Needs approval**, **Needs an answer**, **Needs a decision**, **Needs checking**, **Needs a pick**, **For your review** | Not handled yet. The line stands out |
+| **Approved**, **Answered**, **Done**… | Handled; shows the result. The line is calm |
+| **Closed**, **Expired** | Closed, or made void |
+
+Reminders and service entries don't need your decision, so they show no status.
 
 | The card says | When it appears | Buttons |
 |---|---|---|
@@ -197,19 +217,20 @@ To back out, press Esc or click elsewhere. On a phone, tapping a row selects it;
 
 **Step by step:**
 
-1. Read the card and click a button.
-2. The button first says **Working…**.
-3. When done, the card shows the result, for example **✓ Done**. The buttons can no longer be clicked.
+1. Click the line in the session. On a computer it opens on the right; on a phone it slides in as a full page.
+2. Read the card and click a button. The button first says **Working…**.
+3. When done, the card shows the result, for example **✓ Done**. The buttons can no longer be clicked. The line in the session changes with it.
 
 **Quoting a card:** When you want to say something about this card.
 
-1. Click **Quote** below the card. A line **Quoting:** plus the card's name appears above the input box.
+1. Open the card and click **Quote** at the top right. A line **Quoting:** plus the card's name appears above the input box.
 2. Type and send. The card and your words go to ergo together.
 3. To remove the quote, click the × on that line.
 
 **Good to know:**
 
-- Every card that needs handling also has an item in the Inbox. Click on either side; both change together.
+- Every card that needs handling also has an item in the Inbox, where it's still a full card. Click on either side; both change together.
+- The "waiting for you" link in the title and the Inbox's link to the conversation go to the line in the session and flash it. Click the line to handle it.
 - If it didn't work, it says **Didn't go through:** plus the reason.
 - An expired card says **Expired**. If you rolled back the session, unhandled cards say **The session was rolled back, so this card is void**.
 
@@ -331,13 +352,22 @@ When you let go, it snaps to the nearest layer.
 
 **What it is:** Everything ergo does is recorded. To find out what exactly it did and why it was allowed, open it up.
 
-**Where to open it:** A small line above the reply: **Called 3 tools ›**. It may be followed by small tags, such as **· Blocked ×1** or **· Tell you when done ×2**. The line stands out more when something went wrong.
+**Where to open it:** The **Tool calls** line above the reply. Calls in a row share one line, and its sentence describes one step:
+
+- If something went wrong with a step (blocked, denied, waiting for approval, error, asked you), that step.
+- Otherwise, if a step is still running, the running step.
+- If all are done, the last step.
+- With more than one step, **(3 steps)** follows.
+
+It may be followed by small tags, such as **· Blocked ×1** or **· Tell you when done ×2**. The line stands out more when something went wrong.
+
+An MCP tool is a **Tool calls** line too; the sentence names the MCP and the tool, such as **MCP demo-mail: search_messages · statement**.
 
 ![Tool call details: what it wants to do, how the Guard ruled, arguments and result](images/chat/07-tool-detail.png)
 
 **Step by step:**
 
-1. Click **Called 3 tools ›**. The details list **Every step (in order)**.
+1. Click the **Tool calls** line. The details list **Every step (in order)**.
 2. Click the › on a step to see that call.
 3. Click **3 calls in this group ›** to go back to the list.
 
@@ -372,13 +402,13 @@ For what watch categories and dispositions are and how to change them, see [Watc
 | ✉️ **From the owner** | An owner asks the secretary to pass something on to you | Secretary |
 | 📨 **Relayed by ergo** | The secretary passes your words to an owner | An owner's chat |
 | 📋 **Plan check** | The result of the runtime checking the plan | An owner's chat |
-| 📝 A one-line summary | A long note with no kind, such as **Continue with stage 3: First wave of implementation** | An owner's chat |
+| 📝 **Notice** | A long note with no kind; the sentence is a summary, such as **Continue with stage 3: First wave of implementation** | An owner's chat |
 
-**Step by step:** Click the line, or **Details ›** at the end of it. The details hold the full text.
+**Step by step:** Click the line. The details hold the full text.
 
 **Good to know:**
 
-- Notes with no kind, like 📝, fold only when longer than 120 characters or 2 lines. Short ones show as usual, and ones with attachments don't fold.
+- Notes with no kind, like 📝, count as a notice only when longer than 120 characters or 2 lines. Short ones are one line too, titled **Note**, with their first line. Attachments show as usual.
 - The agent still receives the full text; folding only keeps it off your screen.
 
 ## "Waiting for you…" in the title

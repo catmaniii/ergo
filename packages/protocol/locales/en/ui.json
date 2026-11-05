@@ -937,8 +937,6 @@
   "ui.stageDetail.removeDeliverable": "Remove this deliverable",
   "ui.stageDetail.editedNote": "Changed: your edits count as your confirmation, so no card is raised. Redoing switches to a new plan version, the Timeline records before and after, and the review accepts against the new criteria.",
   "ui.stageDetail.uneditedNote": "Leave it as is to redo against the original criteria. Edits raise no card and take effect when you redo.",
-  "ui.recordRow.operation": "{title}: {summary}",
-  "ui.recordRow.record": "Record",
   "ui.slashMenu.label": "Slash commands",
   "ui.slashMenu.group.command": "{name} commands",
   "ui.slashMenu.group.skill": "Skills in {name}'s toolkit",
