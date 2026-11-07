@@ -94,6 +94,53 @@ export interface GuardPlaces {
    * 发往本机这两个端口的请求不算"发往本机、不算对外"的例外；用浏览器工具打开这两个端口的页面也算"以我的名义对外发送或发布"
    */
   ownPorts: readonly number[];
+  /**
+   * 服务管家（托管二狗自己的那一个）：守卫防 agent 用 bash 停掉二狗、杀掉服务管家（419）。不给就不认服务管家的数据目录和端口
+   * （跑它的命令行、ergo 的停止重启升级、杀进程照样认）
+   */
+  supervisor?: GuardSupervisor;
+}
+
+/** 服务管家在守卫眼里：数据目录（受保护）和管理器端口 */
+export interface GuardSupervisor {
+  /**
+   * 服务管家的数据目录（真实路径）：注册表（registry/）、运行状态（state.json、tailnet-routes.json）写入一律永不，
+   * .secrets/ 是它的密钥区（连读都拒绝）；日志等别的照常
+   */
+  dataDir: string;
+  /**
+   * 管理器端口：现取的（EnvironmentFacts.supervisorPorts）没给时用它——守护进程起来时读的 manager.yaml 的 port（没有是 7420），
+   * 加上拉起守护进程的那个管理器的（LSM_URL 里的端口；数据目录没告诉二狗、读错了地方时靠它）
+   */
+  ports: readonly number[];
+}
+
+/**
+ * 受保护的进程（杀进程时判定用）：调用方判定前现取（lsm/guard-facts.ts）——守护进程自己、服务管家（state.json 记的 manager.pid）、
+ * 命脉服务（二狗自己的登记、它的公网隧道 exposure.via、tailnet 网关；state.json 记的 pid）
+ */
+export interface ProtectedProcess {
+  pid: number;
+  /** 可执行文件名（node.exe、ssh.exe）；取不到不写 */
+  exe?: string;
+  /** daemon：守护进程；manager：服务管家；service：命脉服务（service 是它的 id） */
+  role: "daemon" | "manager" | "service";
+  service?: string;
+}
+
+/** 杀进程时判定要的事实（EnvironmentFacts.processes） */
+export interface ProcessFacts {
+  protected: readonly ProtectedProcess[];
+  /**
+   * 受保护的进程都取到了：服务管家的 state.json 在但读不了、没记管理器的进程号时是 false——这时按进程号、按名字杀的，
+   * 不在已知名单里的也判不准，按"接近底线"先问
+   */
+  complete: boolean;
+  /**
+   * 受保护的进程的上级进程（父进程、父进程的父进程……，创建时间早于下级的才算，免得认到复用了进程号的别的进程）：
+   * 连同子进程一起杀（taskkill /T）杀到它就连带杀到受保护的进程；不带 /T 的杀它看不准，先问
+   */
+  ancestors?: ReadonlyArray<{ pid: number; exe?: string; of: number }>;
 }
 
 /** 授权项：操作种类 + 对象范围 + 次数 + 所属阶段 + 有效期 */
@@ -302,6 +349,10 @@ export interface EnvironmentFacts {
    * 键是带通配符的绝对路径（大小写、分隔符不敏感）；展不开的是通配符之前那段目录。没给的，判定时按通配符之前那段目录算
    */
   wildcards?: Record<string, readonly string[]>;
+  /** 服务管家此刻的端口（manager.yaml 现读，加上 LSM_URL 里的）；不给按 GuardPlaces.supervisor.ports */
+  supervisorPorts?: readonly number[];
+  /** 受保护的进程（有杀进程的调用时现取）；不给是取不到：按进程号、按名字杀的都判不准，按"接近底线"先问 */
+  processes?: ProcessFacts;
   /**
    * 别的环境事实（比如 MCP 工具的领域事实：通讯录、文档列表），原样放进时序规则的 $facts（不会盖掉 files、git、scripts）。
    * 规则要用它们，校验时要在 RuleValidationOptions.facts 里声明。
@@ -501,17 +552,20 @@ export interface JudgedCall {
  * - no_bash：工具包没开 bash（含带类型的 bash 工具）；
  * - not_in_toolkit：工具包没给这个工具；
  * - sub_agent_records：子 agent 写项目档案（文件工具和 bash 都算）；
- * - secret_file：碰目录授权的登记目录里名字像密钥的文件（读、写、删都算，ADR-0049）。
+ * - secret_file：碰目录授权的登记目录里名字像密钥的文件（读、写、删都算，ADR-0049）；
+ * - supervisor：绕过服务管家工具碰服务管家——往它的端口发不是查询的请求、跑它的命令行（lsm、packages/supervisor/bin 里的脚本）、
+ *   ergo 的停止、重启、升级、回退、卸载和 svc（419）。
  */
-export type HardRefusalId = "fence" | "secrets_area" | "network_off" | "no_bash" | "not_in_toolkit" | "sub_agent_records" | "secret_file";
+export type HardRefusalId = "fence" | "secrets_area" | "network_off" | "no_bash" | "not_in_toolkit" | "sub_agent_records" | "secret_file" | "supervisor";
 
 /** 一条处置依据 */
 export interface DispositionFinding {
   /**
    * protected_area：写受保护区域（永不）；notify：工具带"做完告诉我"标记；
-   * never_object：对外动作的对象在这个任务里被判过"永不"（先问）
+   * never_object：对外动作的对象在这个任务里被判过"永不"（先问）；
+   * process：杀进程（419）——杀到二狗自己、服务管家、命脉服务的永不（id protected_process），别的先问（id kill_process）
    */
-  kind: "category" | "bottom_line" | "protected_area" | "notify" | "temporal_rule" | "never_object";
+  kind: "category" | "bottom_line" | "protected_area" | "notify" | "temporal_rule" | "never_object" | "process";
   /** 关注类别 id、底线 id、受保护区域、工具名或规则 id */
   id: string;
   /** 这条依据带来的处置（"计划里列了才做"已按授权项落成放行或先问） */
@@ -541,7 +595,9 @@ export interface DispositionFinding {
   ruleUnknown?: true;
   /**
    * 可能碰到硬底线：守卫看不准、原来靠"先问"兜着的写法——带通配符的路径可能落在受保护区域里、看不透的命令里
-   * 写着数据目录或受保护区域的路径、确实读过 .env 或密钥文件之后看不透可能往外送的调用。对话审批关着时秘书和任务的 agent 都照旧先问
+   * 写着数据目录或受保护区域的路径、确实读过 .env 或密钥文件之后看不透可能往外送的调用；可能停掉二狗、杀掉服务管家的（419）：
+   * 要杀的进程看不准、看不透的命令里写着杀进程、服务管家的端口或命令行、用浏览器打开服务管家的页面、动它的计划任务。
+   * 对话审批关着时秘书和任务的 agent 都照旧先问
    */
   nearBottomLine?: true;
   /** "以我的名义对外发送或发布"这一条只因为发往本机（127.0.0.1、localhost、::1）的请求命中：秘书的特别敏感不算它 */

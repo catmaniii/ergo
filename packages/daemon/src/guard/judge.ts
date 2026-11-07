@@ -5,8 +5,9 @@
 // 2. 对每一条按规则逐项找依据（CALL_RULES）：工具包、路径（围栏、受保护区域、密钥区、越出项目目录——读授权的文件夹不算越出，
 //    这个 agent 的目录授权里登记了的那种操作也不算、登记目录里名字像密钥的文件硬拒绝（ADR-0049），
 //    删除或覆盖——任务、项目自己的临时文件除外，own-temp.ts）、脚本里写着的受保护区域路径、
-//    注册表的类别标签、HTTP 方法（发往二狗自己的端口的不算发往本机）、用浏览器打开二狗自己的页面、联网开关、
-//    两条底线、自定义类别、"做完告诉我"；
+//    注册表的类别标签、HTTP 方法（发往二狗自己的端口的不算发往本机）、用浏览器打开二狗自己的页面、
+//    服务管家（它的命令行、ergo 的停止重启升级、发往它端口的不是查询的请求硬拒绝，419）、杀进程（杀到二狗自己、服务管家的永不）、
+//    联网开关、两条底线、自定义类别、"做完告诉我"；
 // 3. "计划里列了才做"：对话里等同"先问我"；任务里每个类别各自看有没有授权项覆盖它（授权只在所属阶段内有效：
 //    当前阶段没有、别的阶段有一条覆盖得了的，拉回当前阶段）；
 // 4. 时序规则（temporal-rules.ts：v1 模板、当前阶段和阶段组的规则；任务、项目自己的临时文件规则里看得到）；
@@ -34,7 +35,7 @@ import {
   type ResolvedPath,
   type ShellEnv,
 } from "./paths.ts";
-import { dataDirMentions, globCanReach, isLocalUrl, ownApiNote, ownPortsOf, related, sendsInText, urlsInText, wildcardPrefix } from "./bottom-line-risk.ts";
+import { dataDirMentions, globCanReach, isLocalUrl, isSupervisorUrl, ownApiNote, ownPortsOf, related, sendsInText, urlsInText, wildcardPrefix } from "./bottom-line-risk.ts";
 import { isSecretFile, isSecretLikeFile } from "./secret-files.ts";
 import { outboundTextOf, readSecretTitle, secretsIn } from "./secrets.ts";
 import { READ_ONLY_COMMANDS } from "./shell/programs.ts";
@@ -72,6 +73,7 @@ import {
   type HardRefusalFinding,
   type HardRefusalId,
   type JudgedCall,
+  type ProtectedProcess,
   type PullBackFinding,
   SCRIPT_NOT_CHECKED,
   type ScriptFact,
@@ -433,10 +435,11 @@ export interface ProtectedArea {
 }
 
 /**
- * 受保护区域（写入一律永不，密钥区连读都拒绝）：数据目录的配置区、密钥区、数据库区、skill 区和二狗程序目录。守卫判定、
- * 本机文件夹变化不许监视的地方（event-sources/folder.ts 另加整个数据目录）都用这一份
+ * 受保护区域（写入一律永不，密钥区连读都拒绝）：数据目录的配置区、密钥区、数据库区、skill 区和二狗程序目录，
+ * 给了服务管家时再加它的注册表、运行状态和密钥区（419）。守卫判定、本机文件夹变化不许监视的地方（event-sources/folder.ts
+ * 另加整个数据目录）都用这一份
  */
-export function protectedAreasOf(places: Pick<GuardPlaces, "dataDir" | "programDir">): ProtectedArea[] {
+export function protectedAreasOf(places: Pick<GuardPlaces, "dataDir" | "programDir" | "supervisor">): ProtectedArea[] {
   const d = places.dataDir;
   return [
     { dir: d.config, title: t("guard.judge.areas.config"), secrets: false },
@@ -444,7 +447,28 @@ export function protectedAreasOf(places: Pick<GuardPlaces, "dataDir" | "programD
     { dir: d.db, title: t("guard.judge.areas.db"), secrets: false },
     ...(d.skills === undefined ? [] : [{ dir: d.skills, title: t("guard.judge.areas.skills"), secrets: false }]),
     { dir: places.programDir, title: t("guard.judge.areas.program"), secrets: false },
+    ...(places.supervisor === undefined ? [] : supervisorAreas(places.supervisor.dataDir)),
   ];
+}
+
+/**
+ * 服务管家数据目录里受保护的（419）：注册表（服务清单、manager.yaml、开机自启的名单）、运行状态（state.json 记着每个服务该不该在跑、
+ * tailnet 网关的路由表）——改了等于绕过服务管家工具停服务、改端口；.secrets/ 是它的密钥区（网页口令、证书、云账号的钥匙）。
+ * 日志、VPS 脚本这些照常
+ */
+function supervisorAreas(dir: string): ProtectedArea[] {
+  const state = t("guard.judge.areas.supervisorState");
+  return [
+    { dir: win32.join(dir, "registry"), title: t("guard.judge.areas.supervisorRegistry"), secrets: false },
+    { dir: win32.join(dir, "state.json"), title: state, secrets: false },
+    { dir: win32.join(dir, "tailnet-routes.json"), title: state, secrets: false },
+    { dir: win32.join(dir, ".secrets"), title: t("guard.judge.areas.supervisorSecrets"), secrets: true },
+  ];
+}
+
+/** 这个路径落在哪个密钥区里（数据目录的、服务管家的） */
+function secretsAreaOf(ctx: JudgeContext, path: string): ProtectedArea | undefined {
+  return ctx.protectedAreas.find((a) => a.secrets && isWithin(path, a.dir));
 }
 
 /** 写受保护区域：永不，用户批准也不行（how 写明是怎么碰到的） */
@@ -496,6 +520,8 @@ const CALL_RULES: readonly CallRule[] = [
   categoryTagRule,
   httpMethodRule,
   ownPageRule,
+  supervisorRule,
+  killProcessRule,
   networkRule,
   bottomLineRule,
   customCategoryRule,
@@ -597,8 +623,9 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
         const how = t("guard.judge.touches", { what, verb: t("guard.judge.verb.delete"), target });
         out.push({ ...protectedAreaFinding(how, history), message: t("guard.judge.historyInside", { how, area: history.title, dir: history.dir }) });
       }
-      if (isWithin(target, ctx.input.places.dataDir.secrets)) {
-        out.refuse("secrets_area", t("guard.judge.secretsArea", { what, verb, target }));
+      const secrets = secretsAreaOf(ctx, target);
+      if (secrets) {
+        out.refuse("secrets_area", t("guard.judge.secretsArea", { what, verb, target, area: secrets.title }));
         continue;
       }
       const records = ctx.readOnlyRecords;
@@ -934,9 +961,10 @@ function wildcardUnexpanded(ctx: JudgeContext, kc: KnownCall, p: PathArg, prefix
   const how = t("guard.judge.wildcard", { what: kc.what, path: p.raw, prefix });
   const areas = ctx.protectedAreas.filter((a) => (writes || a.secrets) && related(prefix, a.dir));
   if (areas.length === 0) return false;
-  const secrets = ctx.input.places.dataDir.secrets;
-  if (!writes && globCanReach(p.resolved.path, secrets)) {
-    out.refuse("secrets_area", t("guard.judge.wildcardSecrets", { how }));
+  const resolved = p.resolved.path;
+  const secrets = ctx.protectedAreas.find((a) => a.secrets && globCanReach(resolved, a.dir));
+  if (!writes && secrets) {
+    out.refuse("secrets_area", t("guard.judge.wildcardSecrets", { how, area: secrets.title }));
     return true;
   }
   const verb = t(writes ? "guard.judge.wildcardWrite" : "guard.judge.wildcardRead");
@@ -991,6 +1019,199 @@ function ownPageRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): v
   if (kc.call.tool !== TOOL.browse) return;
   const own = ownPortsOf(argValues(kc, "url"), ctx.input.places.ownPorts);
   if (own.length > 0) out.category("external_send", t("guard.judge.ownPage", { what: kc.what }) + sep() + ownApiNote(own));
+}
+
+// ───────────────────────── 服务管家和二狗自己（419） ─────────────────────────
+
+/** 拒绝、先问时补的一句：服务管家的事走服务管家工具 */
+const supervisorToolsNote = () => t("guard.judge.supervisor.useTools");
+
+/** 管理器端口：现取的，没有就是守护进程起来时读的；没给服务管家是空的 */
+function supervisorPorts(ctx: JudgeContext): readonly number[] {
+  return ctx.input.facts.supervisorPorts ?? ctx.input.places.supervisor?.ports ?? [];
+}
+
+/** 一段文字里写着这个端口（作为单独的数） */
+const mentionsPort = (text: string, port: number) => new RegExp(`\\b${port}\\b`).test(text);
+
+/** 这次调用的命令原文（bash 拆出来的那段；发 HTTP 请求这类伪工具的 command 参数） */
+function callText(kc: KnownCall): string {
+  if (kc.call.text !== undefined) return kc.call.text;
+  return typeof kc.call.args.command === "string" ? kc.call.args.command : "";
+}
+
+/** 写着本机地址和端口的（`127.0.0.1:7420`、`localhost:7420`，不带协议的也认） */
+const LOCAL_ADDRESS = /(?<![\w.-])(?:localhost|127(?:\.\d{1,3}){3}|\[::1?\]|0\.0\.0\.0):\d{1,5}\b[^\s'"\x60<>|]*/gi;
+
+/** 一次请求可能发往的网址：url 参数、命令原文里写着的网址和本机地址（curl 一次能请求好几个网址，程序表只记了第一个） */
+function requestUrls(kc: KnownCall): string[] {
+  const text = callText(kc);
+  const urls = argValues(kc, "url").filter((u): u is string => typeof u === "string");
+  return [...urls, ...urlsInText(text), ...(text.match(LOCAL_ADDRESS) ?? [])];
+}
+
+/** 一段文字里写着管理器端口（作为单独的数）和本机地址 */
+function mentionsLocalPort(text: string, port: number): boolean {
+  return mentionsPort(text, port) && /\b(?:localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0)\b|\[::1?\]/i.test(text);
+}
+
+/** 拆不开的文字里的杀进程写法（taskkill、Stop-Process、kill 进程号、wmic process … delete、process.kill(…)……） */
+const KILL_IN_TEXT =
+  /\b(?:taskkill|tskill|pskill|pkill|killall|stop-process|spps)\b|\bkill\s+(?:-\S+\s+)*(?:[%$]|-?\d)|\bkill\s+-(?:name|id|processname|inputobject)\b|\bwmic\b[^\n]*\bprocess\b[^\n]*\b(?:delete|terminate)\b|\.kill\s*\(|\bTerminateProcess\b|\bInvoke-CimMethod\b[^\n]*\bTerminate\b/i;
+/** 拆不开的文字里服务管家的命令行：lsm、lsm.mjs、tailnet-gateway、packages/supervisor/bin、守护进程的停止脚本 */
+const SUPERVISOR_CLI_IN_TEXT = /\blsm(?:\.mjs|\.cmd)?\b|\btailnet-gateway\b|supervisor[\\/]+bin\b|daemon[\\/]+src[\\/]+stop\.[cm]?[jt]s\b/i;
+/** 拆不开的文字里 ergo 的停止、重启、升级、回退、卸载和 svc */
+const ERGO_OPS_IN_TEXT =
+  /\bergo(?:\.cmd|\.exe|\.bat)?['"]?\s+(?:stop|restart|svc|update|rollback|uninstall)\b|\brun\s+ergo\b[^\n]*\b(?:stop|restart|svc|update|rollback|uninstall)\b|cli[\\/]+main\.[cm]?[jt]s['"]?\s+(?:stop|restart|svc|update|rollback|uninstall)\b/i;
+/** 服务管家的计划任务（开机拉起它的那个） */
+const SUPERVISOR_TASK = /\bLocalServiceManager\b/i;
+/** 只查计划任务的 */
+const TASK_QUERY = /\bschtasks(?:\.exe)?\b[^|;&\n]*[/-]query\b|\bget-scheduledtask(?:info)?\b/i;
+
+/**
+ * 服务管家（419）：绕过服务管家工具停二狗、杀服务管家的路——
+ * - 服务管家的命令（lsm、ergo 的停止、重启、升级……，shell/programs.ts 拆出来的）、跑程序目录里 packages/supervisor/bin 下的脚本：硬拒绝；
+ * - 发往管理器端口的不是查询的请求（不是 GET、HEAD、OPTIONS，看不出方法的也算）、连到本机管理器端口的远端命令（nc、ssh -L）：硬拒绝。
+ *   查询照旧；管理器默认不验身份，所以写死不准；
+ * - 用浏览器打开管理器的页面（上面能点停止、重启）：接近底线先问；
+ * - 动服务管家的计划任务（停、删、改 LocalServiceManager；查的照旧）：接近底线先问；
+ * - 拆不开的命令（powershell -Command、cmd /c、python -c……）里写着杀进程、管理器端口、服务管家的命令行、ergo 的停止重启升级、
+ *   它的计划任务的：接近底线先问（对话审批关着也问）。
+ * 服务管家的数据目录在受保护区域里（protectedAreasOf），杀进程见 killProcessRule
+ */
+function supervisorRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
+  const { call, what } = kc;
+  const text = callText(kc);
+  if (call.tool === TOOL.supervisor_command) out.refuse("supervisor", t("guard.judge.supervisor.command", { what }) + sep() + supervisorToolsNote());
+  if (call.tool === TOOL.run_script) {
+    const bin = win32.join(ctx.input.places.programDir, "packages", "supervisor", "bin");
+    if (pathArgs(ctx, kc).some((p) => p.resolved.kind === "absolute" && isWithin(p.resolved.path, bin))) {
+      out.refuse("supervisor", t("guard.judge.supervisor.command", { what }) + sep() + supervisorToolsNote());
+    }
+  }
+  const ports = supervisorPorts(ctx);
+  for (const port of ports) {
+    const hits = (urls: readonly string[]) => urls.some((u) => isSupervisorUrl(u, port));
+    if (call.tool === TOOL.http_request && hits(requestUrls(kc)) && !isReadOnlyMethod(call.args.method)) {
+      const method = typeof call.args.method === "string" && call.args.method !== "" ? call.args.method.toUpperCase() : t("guard.judge.unknownMethod");
+      out.refuse("supervisor", t("guard.judge.supervisor.port", { what, method, port }) + sep() + supervisorToolsNote());
+    }
+    if (call.tool === TOOL.network_command && mentionsLocalPort(text, port)) out.refuse("supervisor", t("guard.judge.supervisor.connect", { what, port }) + sep() + supervisorToolsNote());
+    if (call.tool === TOOL.browse && hits(requestUrls(kc))) {
+      out.category("unknown_write", t("guard.judge.supervisor.page", { what, port }) + sep() + supervisorToolsNote(), [], { keepAsking: true, nearBottomLine: true });
+    }
+  }
+  if (call.tool === TOOL.opaque_shell) {
+    const mentioned = ports.filter((port) => mentionsPort(text, port));
+    const reasons = [
+      ...(KILL_IN_TEXT.test(text) ? [t("guard.judge.supervisor.reason.kill")] : []),
+      ...(mentioned.length > 0 ? [t("guard.judge.supervisor.reason.port", { port: mentioned.join(t("pages.common.listSep")) })] : []),
+      ...(SUPERVISOR_CLI_IN_TEXT.test(text) ? [t("guard.judge.supervisor.reason.cli")] : []),
+      ...(ERGO_OPS_IN_TEXT.test(text) ? [t("guard.judge.supervisor.reason.ergo")] : []),
+      ...(SUPERVISOR_TASK.test(text) && !TASK_QUERY.test(text) ? [t("guard.judge.supervisor.reason.task")] : []),
+    ];
+    if (reasons.length > 0) {
+      const message = t("guard.judge.supervisor.opaque", { what, reasons: reasons.join(t("pages.common.listSep")) }) + sep() + supervisorToolsNote();
+      out.category("unknown_write", message, [], { keepAsking: true, nearBottomLine: true });
+    }
+  } else if (managesTasks(call) && SUPERVISOR_TASK.test(text) && !TASK_QUERY.test(text)) {
+    out.category("unknown_write", t("guard.judge.supervisor.task", { what }) + sep() + supervisorToolsNote(), [], { keepAsking: true, nearBottomLine: true });
+  }
+}
+
+/** 能动计划任务的：schtasks 这类系统设置命令（账户与安全），和不是只看的"其他命令"（Stop-ScheduledTask、Unregister-ScheduledTask……）；grep、cat 不算 */
+function managesTasks(call: JudgedCall): boolean {
+  if (call.origin !== "shell") return false;
+  if (call.tool === TOOL.account_command) return true;
+  return call.tool === TOOL.shell_command && !READ_ONLY_COMMANDS.includes(String(call.args.program));
+}
+
+/** 要杀的是谁：守护进程、服务管家、命脉服务 */
+function processTitle(p: ProtectedProcess): string {
+  if (p.role === "daemon") return t("guard.judge.kill.who.daemon", { pid: p.pid });
+  if (p.role === "manager") return t("guard.judge.kill.who.manager", { pid: p.pid });
+  return t("guard.judge.kill.who.service", { pid: p.pid, service: p.service ?? "?" });
+}
+
+/** 程序名比的时候去掉 .exe、不分大小写 */
+const bareName = (name: string) => name.toLowerCase().replace(/\.exe$/, "");
+
+/**
+ * 按名字杀会不会杀到这个可执行文件：exact 整个名字（.exe 写不写都算），glob 带 * ? 的通配符（taskkill /IM、Stop-Process -Name），
+ * regex 名字里的一段（pkill）。正则写坏了的是 undefined（看不出）
+ */
+function nameHits(name: string, exe: string, match: unknown): boolean | undefined {
+  const candidates = [exe.toLowerCase(), bareName(exe)];
+  if (match === "regex") {
+    try {
+      const re = new RegExp(name, "i");
+      return candidates.some((c) => re.test(c));
+    } catch {
+      return undefined;
+    }
+  }
+  if (match === "glob" && /[*?]/.test(name)) {
+    const re = new RegExp(`^${name.replace(/[.+^${}()|[\]\\]/g, "\\$&").replaceAll("*", ".*").replaceAll("?", ".")}$`, "i");
+    return candidates.some((c) => re.test(c));
+  }
+  return bareName(name) === bareName(exe);
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
+/**
+ * 杀进程（419，shell/programs.ts 拆出来的 kill_process）：拿调用方现取的受保护的进程（EnvironmentFacts.processes）比——
+ * - 杀到二狗的守护进程、服务管家、命脉服务的：按进程号命中、按名字杀到同名的（taskkill /IM node.exe）、连同子进程杀它们的上级进程、
+ *   杀所有进程（kill -1）——永不（被杀了服务管家会把二狗拉回来，但停掉、杀掉服务管家就没人拉了）；
+ * - 看不准的：受保护的进程没取到（取不全）、要杀的看不出是哪些（变量、管道传来的、按命令行匹配、别的筛选条件）、不带 /T 杀它们的上级进程——
+ *   接近底线先问（对话审批关着也问）；
+ * - 别的（写明的、不受保护的进程，自己起的作业）：先问（和别的"先问我"一样跟着对话审批的开关）
+ */
+function killProcessRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
+  if (kc.call.tool !== TOOL.kill_process) return;
+  const args = kc.call.args;
+  const facts = ctx.input.facts.processes;
+  const known = facts?.protected ?? [];
+  const ancestors = facts?.ancestors ?? [];
+  const complete = facts?.complete === true;
+  const tree = args.tree === true;
+  const hits: string[] = [];
+  const unsure: string[] = [];
+  if (args.all === true) hits.push(t("guard.judge.kill.all"));
+  const pids = Array.isArray(args.pids) ? args.pids.filter((p): p is number => typeof p === "number") : [];
+  for (const pid of pids) {
+    const p = known.find((x) => x.pid === pid);
+    const above = ancestors.find((x) => x.pid === pid);
+    const below = above && known.find((x) => x.pid === above.of);
+    if (p) hits.push(processTitle(p));
+    else if (above) (tree ? hits : unsure).push(t("guard.judge.kill.ancestor", { pid, who: below ? processTitle(below) : String(above.of) }));
+    else if (!complete) unsure.push(t("guard.judge.kill.pidUnchecked", { pid }));
+  }
+  for (const name of stringList(args.names)) {
+    const same = known.filter((x) => x.exe !== undefined && nameHits(name, x.exe, args.match) === true);
+    const bad = known.some((x) => x.exe !== undefined && nameHits(name, x.exe, args.match) === undefined);
+    const aboveSame = ancestors.filter((x) => x.exe !== undefined && nameHits(name, x.exe, args.match) === true);
+    if (same.length > 0) hits.push(t("guard.judge.kill.byName", { name, who: same.map(processTitle).join(t("pages.common.listSep")) }));
+    else if (aboveSame.length > 0) unsure.push(t("guard.judge.kill.ancestorName", { name }));
+    else if (!complete || bad || !known.every((x) => x.exe !== undefined)) unsure.push(t("guard.judge.kill.nameUnchecked", { name }));
+  }
+  for (const target of stringList(args.unknown)) unsure.push(t("guard.judge.kill.unknownTarget", { target }));
+  if (hits.length > 0) {
+    out.push({ kind: "process", id: "protected_process", disposition: "never", message: t("guard.judge.kill.protected", { what: kc.what, hits: hits.join(t("pages.common.listSep")) }) + sep() + supervisorToolsNote() });
+  } else if (unsure.length > 0) {
+    out.push({
+      kind: "process",
+      id: "kill_process",
+      disposition: "ask_first",
+      keepAsking: true,
+      nearBottomLine: true,
+      message: t("guard.judge.kill.unsure", { what: kc.what, unsure: unsure.join(t("pages.common.listSep")) }),
+    });
+  } else {
+    out.push({ kind: "process", id: "kill_process", disposition: "ask_first", message: t("guard.judge.kill.other", { what: kc.what }) });
+  }
 }
 
 /**

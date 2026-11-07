@@ -201,8 +201,8 @@ export function runProgram(ctx: ProgramContext, argv: readonly ShellWord[], extr
     handler(inv, args, program);
     readLeftoverPaths(inv, args, Object.hasOwn(READ_ONLY_PROGRAMS, program));
   } else if (looksLikePath(name.value)) {
-    // ./build.sh、tools/x.py 这类直接执行的脚本
-    emitScript(inv, name, "");
+    // ./build.sh、tools/x.py 这类直接执行的脚本（lsm.mjs 带着 #!/usr/bin/env node，直接跑也行）
+    emitScript(inv, name, "", args);
     readLeftoverPaths(inv, args, false);
   } else if (PS_WRITE_VERB.test(program)) {
     psUnlistedWriter(inv, program, args);
@@ -664,6 +664,12 @@ const npmLike: Handler = (inv, args, program) => {
   const global = has(parsed, "-g", "--global", "--location=global");
   if (prefix && !global && !NPM_INSTALL.has(sub?.value ?? "")) inv.emit(TOOL.make_dir, { path: inv.path(prefix) });
   const s = sub?.value ?? (program === "yarn" ? "install" : "");
+  // 仓库里的 ergo 命令（npm run ergo -- stop、pnpm ergo stop）：和装好的 ergo 一样看子命令
+  const script = s === "run" || s === "run-script" ? 0 : program !== "npm" ? -1 : undefined;
+  if (script !== undefined && (script < 0 ? sub : operands[script])?.value === "ergo") {
+    ergoCli(inv, operands.slice(script + 1), `${program} ${script < 0 ? "" : `${s} `}ergo`);
+    return;
+  }
   if (program === "yarn" && s === "global") {
     installCall(inv, true, program, operands.slice(1));
     inv.skip(operands[0]);
@@ -693,7 +699,9 @@ function runPackage(inv: Invocation, args: readonly ShellWord[], program: string
   const pkg = parsed.operands[0];
   inv.skip(pkg, ...parsed.options.map((o) => o.value));
   const name = pkg?.value ? programName(pkg.value.replace(/@[^/@]*$/, "")) : "";
-  if (TEST_RUNNERS.has(name)) inv.emit(TOOL.run_tests, { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
+  // 工作区里服务管家的命令行（npx lsm stop ergo-daemon）
+  if (name === "lsm") inv.emit(TOOL.supervisor_command, { program: `${program} lsm`, command: inv.ctx.text });
+  else if (TEST_RUNNERS.has(name)) inv.emit(TOOL.run_tests, { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
   else if (BUILD_TOOLS.has(name)) inv.emit(TOOL.start_build, { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
   else inv.emit(TOOL.run_package, { program, package: pkg?.value ?? null, command: inv.ctx.text });
 }
@@ -990,11 +998,12 @@ function interpreter(inline: string[], values: string[] = []): Handler {
       inv.ctx.opaque(t(inv.ctx.stdin ? "guard.shell.stdinScriptFed" : "guard.shell.stdinScript", { program }));
       return;
     }
-    emitScript(inv, script, program);
+    emitScript(inv, script, program, parsed.operands.slice(1));
   };
 }
 
-function emitScript(inv: Invocation, script: ShellWord, interpreterName: string): void {
+/** 跑脚本；rest 是脚本后面的参数（看 ergo 命令行的子命令用） */
+function emitScript(inv: Invocation, script: ShellWord, interpreterName: string, rest: readonly ShellWord[] = []): void {
   inv.leftoverAccess = "unknown";
   const v = script.value ?? "";
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(v)) {
@@ -1002,6 +1011,7 @@ function emitScript(inv: Invocation, script: ShellWord, interpreterName: string)
     inv.ctx.opaque(t("guard.shell.remoteScript", { program: interpreterName, url: String(v) }));
     return;
   }
+  opsScript(inv, script, rest, interpreterName);
   inv.emit(TOOL.run_script, { interpreter: interpreterName, path: inv.path(script) });
 }
 
@@ -1019,7 +1029,7 @@ const powershell: Handler = (inv, args, program) => {
   const file = args.findIndex((w) => /^-f(ile)?$/i.test(w.value ?? ""));
   if (file >= 0 && args[file + 1]) {
     inv.skip(args[file]);
-    emitScript(inv, args[file + 1]!, program);
+    emitScript(inv, args[file + 1]!, program, args.slice(file + 2));
     return;
   }
   inv.ctx.opaque(t("guard.shell.encodedCommand", { program }));
@@ -1034,7 +1044,7 @@ const alwaysOpaque =
 const source: Handler = (inv, args, program) => {
   const script = args[0];
   if (!script) return;
-  emitScript(inv, script, program);
+  emitScript(inv, script, program, args.slice(1));
 };
 
 const deno: Handler = (inv, args) => {
@@ -1045,7 +1055,7 @@ const deno: Handler = (inv, args) => {
   else if (s === "test") inv.emit(TOOL.run_tests, { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
   else if (s === "run") {
     const parsed = parseArgs(rest, [], true);
-    if (parsed.operands[0]) emitScript(inv, parsed.operands[0], "deno");
+    if (parsed.operands[0]) emitScript(inv, parsed.operands[0], "deno", parsed.operands.slice(1));
     else inv.ctx.opaque(t("guard.shell.denoRunNoScript"));
   } else inv.emit(TOOL.shell_command, { program: `deno ${s}`.trim(), paths: [] });
 };
@@ -1059,7 +1069,7 @@ const bun: Handler = (inv, args, program) => {
   const first = parsed.operands[0];
   const s = first?.value ?? "";
   if (s !== "" && looksLikePath(s) && !["install", "add", "i", "test", "run", "x", "publish", "remove", "rm", "update"].includes(s)) {
-    emitScript(inv, first!, program);
+    emitScript(inv, first!, program, parsed.operands.slice(1));
     return;
   }
   if (s === "x") {
@@ -1296,6 +1306,317 @@ const net: Handler = (inv, args, program) => {
     return;
   }
   inv.emit(TOOL.shell_command, { program: `${program} ${s}`.trim(), paths: [] });
+};
+
+// ───────────────────────── 服务管家和二狗自己的运维命令（419） ─────────────────────────
+//
+// 停二狗、杀服务管家的路要走服务管家工具（418），不走命令行：lsm（服务管家的命令行，含 packages/supervisor/bin 里的脚本、
+// 别处拷的 lsm.mjs）、ergo 的停止、重启、升级、回退、卸载和 svc（原样转给 lsm）、守护进程的停止脚本 stop.ts，都拆成
+// "服务管家的命令"，判定函数一律硬拒绝。程序目录里 packages/supervisor/bin 下的别的脚本由判定函数按路径认。
+
+/** ergo 命令里会停掉、换掉二狗，或者原样转给服务管家的子命令 */
+const ERGO_OPS = new Set(["stop", "restart", "svc", "update", "rollback", "uninstall"]);
+
+/** lsm：服务管家的命令行，不分子命令（查状态也走服务管家工具） */
+const lsmCommand: Handler = (inv, args, program) => {
+  inv.skip(...args);
+  inv.emit(TOOL.supervisor_command, { program, command: inv.ctx.text });
+};
+
+/** ergo 命令（装好的 ergo.exe / ergo.cmd、仓库里的 npm run ergo、cli/main.ts）：危险的子命令、看不出是哪个的算服务管家的命令，别的照"其他命令" */
+function ergoCli(inv: Invocation, args: readonly ShellWord[], program: string): void {
+  const sub = args.find((w) => w.value === null || !w.value.startsWith("-"));
+  if (sub !== undefined && (sub.value === null || ERGO_OPS.has(sub.value.toLowerCase()))) {
+    inv.skip(...args);
+    inv.emit(TOOL.supervisor_command, { program, command: inv.ctx.text });
+    return;
+  }
+  genericCommand(inv, program, args);
+}
+
+const ergoCommand: Handler = (inv, args, program) => ergoCli(inv, args, program);
+
+/** 服务管家的脚本：lsm.mjs、tailnet-gateway.mjs（别处拷的也算），packages/supervisor/bin 下的，守护进程的停止脚本 */
+const SUPERVISOR_SCRIPT = /(?:^|\/)(?:lsm(?:\.mjs|\.js|\.cmd)?|tailnet-gateway\.mjs)$|(?:^|\/)packages\/supervisor\/bin\/|(?:^|\/)packages\/daemon\/src\/stop\.[cm]?[jt]s$/;
+/** ergo 命令的入口：装好的启动器、cli/main.ts */
+const ERGO_SCRIPT = /(?:^|\/)ergo(?:\.cmd|\.bat|\.exe)?$|(?:^|\/)packages\/daemon\/src\/cli\/main\.[cm]?[jt]s$/;
+
+/**
+ * 跑的脚本是服务管家或二狗的运维入口时另拆一条"服务管家的命令"（脚本本身照旧拆成跑脚本）：按写的和解析出的路径认
+ * （cd 之后的相对路径、Git Bash 写法都认）；ergo 的入口看后面的子命令
+ */
+function opsScript(inv: Invocation, script: ShellWord, rest: readonly ShellWord[], program: string): void {
+  const written = script.value ?? script.text;
+  const paths = [written, ...toList(script.value === null ? undefined : inv.ctx.path(script))].map((p) => p.replaceAll("\\", "/").replace(/["']/g, "").toLowerCase());
+  const label = program === "" ? written : `${program} ${written}`;
+  if (paths.some((p) => SUPERVISOR_SCRIPT.test(p))) inv.emit(TOOL.supervisor_command, { program: label, command: inv.ctx.text });
+  else if (paths.some((p) => ERGO_SCRIPT.test(p))) {
+    const sub = rest.find((w) => w.value === null || !w.value.startsWith("-"));
+    if (sub !== undefined && (sub.value === null || ERGO_OPS.has(sub.value.toLowerCase()))) inv.emit(TOOL.supervisor_command, { program: label, command: inv.ctx.text });
+  }
+}
+
+// ───────────────────────── 杀进程（419） ─────────────────────────
+//
+// taskkill、tskill、pskill、kill、pkill、killall、Stop-Process（spps；PowerShell 里 kill 也是它）、wmic process … delete / call terminate
+// 拆成"杀进程"：写明的进程号、按名字（各程序的比法不同）、连同子进程（/T）、所有进程、自己起的（作业号、$!）、看不出是哪些的
+// （变量、管道传来的、按命令行匹配、别的筛选条件）分开记，判定函数拿受保护的进程比。kill -0、kill -l 不杀进程，是"其他命令"
+
+/** 拆出来的要杀的进程 */
+interface KillTargets {
+  pids: number[];
+  names: string[];
+  match: "exact" | "glob" | "regex";
+  tree: boolean;
+  all: boolean;
+  own: string[];
+  unknown: string[];
+  remote?: string;
+}
+
+const killTargets = (match: KillTargets["match"]): KillTargets => ({ pids: [], names: [], match, tree: false, all: false, own: [], unknown: [] });
+
+/** 自己起的进程：作业号（%1、%%、%+、%名字）、$!（上一个放到后台的） */
+function ownJob(word: ShellWord): boolean {
+  if (word.value !== null) return word.value.startsWith("%");
+  return /^"?\$(?:!|\{!\})"?$/.test(word.text);
+}
+
+/** 一个按进程号的目标：数字是进程号，-1 是所有进程，作业号、$! 是自己起的，别的看不出 */
+function addPid(k: KillTargets, word: ShellWord): void {
+  const v = word.value;
+  if (v !== null && /^\d+$/.test(v)) k.pids.push(Number(v));
+  else if (v === "-1") k.all = true;
+  else if (ownJob(word)) k.own.push(word.text);
+  else k.unknown.push(word.text);
+}
+
+/** 一个按名字的目标：没法确定的看不出 */
+function addName(k: KillTargets, word: ShellWord): void {
+  if (word.value === null || word.value === "") k.unknown.push(word.text);
+  else k.names.push(word.value);
+}
+
+/** 进程号或名字（tskill、pskill、killall 的操作数）：数字是进程号 */
+function addPidOrName(k: KillTargets, word: ShellWord): void {
+  if (word.value !== null && /^\d+$/.test(word.value)) addPid(k, word);
+  else if (ownJob(word)) k.own.push(word.text);
+  else addName(k, word);
+}
+
+function emitKill(inv: Invocation, program: string, k: KillTargets): void {
+  if (inv.extraOperands) k.unknown.push(XARGS_WORD.text);
+  // 什么都没写：从管道来的（Stop-Process），或者程序自己报错不杀——看不出是哪些
+  if (k.pids.length === 0 && k.names.length === 0 && k.own.length === 0 && k.unknown.length === 0 && !k.all) k.unknown.push(inv.ctx.stdin ? PIPED_WORD.text : program);
+  inv.emit(TOOL.kill_process, {
+    program,
+    ...(k.pids.length > 0 ? { pids: k.pids } : {}),
+    ...(k.names.length > 0 ? { names: k.names, match: k.match } : {}),
+    ...(k.tree ? { tree: true } : {}),
+    ...(k.all ? { all: true } : {}),
+    ...(k.own.length > 0 ? { own: k.own } : {}),
+    ...(k.unknown.length > 0 ? { unknown: k.unknown } : {}),
+    ...(k.remote !== undefined ? { remote: k.remote } : {}),
+    command: inv.ctx.text,
+  });
+}
+
+/** Windows 命令的开关：/X、//X（Git Bash 里免得被当成路径）、-X，可以写成 /X:值；名字小写 */
+function winSwitch(word: ShellWord): { name: string; value?: ShellWord } | undefined {
+  const m = word.value === null ? null : /^(?:\/\/?|-)([A-Za-z?]+)(?::(.*))?$/s.exec(word.value);
+  if (!m) return undefined;
+  return { name: m[1]!.toLowerCase(), ...(m[2] !== undefined ? { value: { value: m[2], text: m[2] } } : {}) };
+}
+
+/** taskkill 的一条筛选（/FI "IMAGENAME eq node.exe"）：按名字、进程号的记下；别的条件（用户名、状态、内存……）看不出杀到谁，返回 false */
+function taskkillFilter(k: KillTargets, word: ShellWord): boolean {
+  const m = word.value === null ? null : /^\s*(\w+)\s+eq\s+(.+?)\s*$/i.exec(word.value);
+  if (!m) return false;
+  const field = m[1]!.toLowerCase();
+  if (field === "imagename") k.names.push(m[2]!);
+  else if (field === "pid" && /^\d+$/.test(m[2]!)) k.pids.push(Number(m[2]));
+  else return false;
+  return true;
+}
+
+/** taskkill [/S 机器] [/F] [/T] [/FI 筛选] [/PID 进程号 | /IM 程序名]：/IM 能带通配符 */
+const taskkill: Handler = (inv, args, program) => {
+  inv.skip(...args);
+  const k = killTargets("glob");
+  const filters: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const sw = winSwitch(args[i]!);
+    if (!sw) continue;
+    const takesValue = ["pid", "im", "fi", "s", "u", "p"].includes(sw.name);
+    const value = sw.value ?? (takesValue ? args[++i] : undefined);
+    if (sw.name === "t") k.tree = true;
+    else if (sw.name === "pid" && value) addPid(k, value);
+    else if (sw.name === "im" && value) addName(k, value);
+    else if (sw.name === "fi" && value && !taskkillFilter(k, value)) filters.push(value.value ?? value.text);
+    else if (sw.name === "s" && value) k.remote = value.value ?? value.text;
+  }
+  // 别的筛选条件只在没写进程号、名字时才决定杀谁（和写了的是"并且"）
+  if (k.pids.length === 0 && k.names.length === 0) k.unknown.push(...filters);
+  emitKill(inv, program, k);
+};
+
+/** tskill 进程号|程序名 [/server:机器] [/id:会话] [/a]；pskill [-t] [\\机器] 进程号|程序名：名字整个比 */
+const tskill: Handler = (inv, args, program) => {
+  inv.skip(...args);
+  const k = killTargets("exact");
+  for (let i = 0; i < args.length; i++) {
+    const w = args[i]!;
+    if (w.value?.startsWith("\\\\")) {
+      k.remote = w.value;
+      continue;
+    }
+    const sw = program === "pskill" && w.value !== null && /^-(?:t|nobanner|u|p)$/i.test(w.value) ? winSwitch(w) : program === "tskill" ? winSwitch(w) : undefined;
+    if (sw) {
+      if (sw.name === "t") k.tree = true;
+      else if (sw.name === "server" && sw.value) k.remote = sw.value.value ?? sw.value.text;
+      else if ((sw.name === "u" || sw.name === "p") && !sw.value) i++;
+      continue;
+    }
+    addPidOrName(k, w);
+  }
+  emitKill(inv, program, k);
+};
+
+/**
+ * kill [-s 信号 | -n 信号 | -信号] 进程号|%作业 …：信号是 0（只看在不在）、-l 列信号的不杀进程。`--` 之后的负数是进程组（-1 是所有进程）。
+ * PowerShell 里 kill 是 Stop-Process：写了 -Name、-Id 这类参数的按它拆
+ */
+const kill: Handler = (inv, args, program) => {
+  if (args.some((w) => w.value !== null && /^-(?:name|id|processname|inputobject)(?::|$)/i.test(w.value))) {
+    stopProcess(inv, args, program);
+    return;
+  }
+  inv.skip(...args);
+  const k = killTargets("exact");
+  let i = 0;
+  let signal: string | undefined;
+  for (; i < args.length; i++) {
+    const v = args[i]!.value;
+    if (v === null || !v.startsWith("-") || v === "-") break;
+    if (v === "--") {
+      i++;
+      break;
+    }
+    if (["-l", "-L", "--list", "--table"].includes(v)) {
+      inv.emit(TOOL.shell_command, { program, paths: [] });
+      return;
+    }
+    if (["-s", "-n", "--signal"].includes(v)) signal = args[++i]?.value ?? "?";
+    else signal = v.slice(1);
+  }
+  const operands = args.slice(i);
+  // 没写目标、也不是 xargs 补上的：kill 报错，不杀进程
+  if (signal === "0" || (operands.length === 0 && !inv.extraOperands)) {
+    inv.emit(TOOL.shell_command, { program, paths: [] });
+    return;
+  }
+  for (const w of operands) {
+    if (w.value !== null && /^-\d+$/.test(w.value) && w.value !== "-1") k.unknown.push(w.text);
+    else addPid(k, w);
+  }
+  emitKill(inv, program, k);
+};
+
+/** pkill [选项] 模式：模式是名字里的一段正则（-x 整个名字），-f 比的是整条命令行（看不出）；只写了 -u、-P 这类条件的看不出 */
+const pkill: Handler = (inv, args, program) => {
+  const parsed = parseArgs(args, ["-u", "-U", "-g", "-G", "-P", "-s", "-t", "-F", "--signal", "--euid", "--uid", "--pgroup", "--group", "--parent", "--session", "--terminal", "--pidfile"]);
+  inv.skip(...args);
+  const k = killTargets(has(parsed, "-x", "--exact") ? "exact" : "regex");
+  const pattern = parsed.operands[0];
+  if (has(parsed, "-f", "--full", "-F", "--pidfile") || !pattern) k.unknown.push(pattern?.text ?? program);
+  else addName(k, pattern);
+  emitKill(inv, program, k);
+};
+
+/** killall [选项] 名字…：名字整个比，-r 是正则 */
+const killall: Handler = (inv, args, program) => {
+  const parsed = parseArgs(args, ["-u", "--user", "-s", "--signal", "-o", "--older-than", "-y", "--younger-than", "-n", "--ns", "-Z", "--context"]);
+  inv.skip(...args);
+  const k = killTargets(has(parsed, "-r", "--regexp") ? "regex" : "exact");
+  for (const w of parsed.operands) addName(k, w);
+  emitKill(inv, program, k);
+};
+
+/** Stop-Process 的参数（可以只写开头几个字母）：-Id（位置参数）、-Name / -ProcessName（能带通配符）、-InputObject（看不出）；-WhatIf 不真杀 */
+const STOP_PROCESS_PARAMS = ["id", "name", "processname", "inputobject", "force", "passthru", "whatif", "confirm"];
+/** PowerShell 的通用参数里带值的（-ErrorAction SilentlyContinue 这类）：值不是要杀的进程 */
+const PS_COMMON_VALUE_PARAMS = /^(?:erroraction|ea|warningaction|wa|informationaction|infa|errorvariable|ev|warningvariable|wv|informationvariable|iv|outvariable|ov|outbuffer|ob|pipelinevariable|pv)$/i;
+
+function stopProcessParam(written: string): string | undefined {
+  const name = written.toLowerCase();
+  const hits = STOP_PROCESS_PARAMS.filter((p) => p.startsWith(name));
+  return hits.includes(name) ? name : hits.length === 1 ? hits[0] : undefined;
+}
+
+/** Stop-Process（spps、PowerShell 的 kill）：-Id 1,2、-Name node,ssh；什么都没写的从管道来，看不出 */
+const stopProcess: Handler = (inv, args, program) => {
+  inv.skip(...args);
+  const k = killTargets("glob");
+  for (let i = 0; i < args.length; i++) {
+    const w = args[i]!;
+    const m = w.value === null ? null : /^-([A-Za-z]+)(?::(.*))?$/s.exec(w.value);
+    const param = m ? stopProcessParam(m[1]!) : "id";
+    if (param === "whatif") {
+      inv.emit(TOOL.shell_command, { program, paths: [] });
+      return;
+    }
+    if (m && param === undefined && PS_COMMON_VALUE_PARAMS.test(m[1]!) && m[2] === undefined) i++;
+    if (m && param !== "id" && param !== "name" && param !== "processname" && param !== "inputobject") continue;
+    const value = m ? (m[2] !== undefined ? { value: m[2], text: m[2] } : args[++i]) : w;
+    if (!value) continue;
+    if (param === "inputobject") k.unknown.push(value.text);
+    else for (const part of psList(value)) (param === "id" ? addPid : addName)(k, part);
+  }
+  emitKill(inv, program, k);
+};
+
+/** PowerShell 的数组写法 a,b：拆成几个词（没法确定的整个留着） */
+function psList(word: ShellWord): ShellWord[] {
+  if (word.value === null) return [word];
+  return word.value
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s !== "")
+    .map((s) => ({ value: s, text: s }));
+}
+
+/**
+ * wmic：process … delete / call terminate 是杀进程（where 里按 name、processid、handle 认，别的条件看不出，不带 where 是所有进程）；
+ * 别的照旧算账户与安全
+ */
+const wmic: Handler = (inv, args, program) => {
+  const words = args.map((w) => w.value ?? w.text);
+  const lower = words.map((w) => w.toLowerCase());
+  const at = lower.indexOf("process");
+  const verb = lower.findIndex((w, i) => i > at && (w === "delete" || w === "terminate"));
+  if (at < 0 || verb < 0) {
+    accountCommand(inv, args, program);
+    return;
+  }
+  inv.skip(...args);
+  const k = killTargets("exact");
+  const where = lower.indexOf("where");
+  if (where < 0 || where > verb) {
+    const key = args.slice(at + 1, verb).find((w) => w.value !== null && /^\d+$/.test(w.value));
+    if (key) addPid(k, key);
+    else k.all = true;
+  } else {
+    const end = lower.findIndex((w, i) => i > where && (w === "delete" || w === "call"));
+    const clause = words.slice(where + 1, end < 0 ? verb : end).join(" ");
+    const known = [...clause.matchAll(/\bname\s*=\s*['"]?([^'"\s)]+)/gi)].map((m) => m[1]!);
+    const ids = [...clause.matchAll(/\b(?:processid|handle)\s*=\s*['"]?(\d+)/gi)].map((m) => Number(m[1]));
+    if (/\b(?:or|like|not)\b|<|>/i.test(clause) || known.length + ids.length === 0) k.unknown.push(clause);
+    else {
+      k.names.push(...known);
+      k.pids.push(...ids);
+    }
+  }
+  emitKill(inv, program, k);
 };
 
 // ───────────────────────── PowerShell 的文件命令 ─────────────────────────
@@ -1814,6 +2135,10 @@ const PROGRAMS: Readonly<Record<string, Handler>> = {
   icacls: accountCommand, cacls: accountCommand, takeown: accountCommand, setfacl: accountCommand,
   // 计划任务、服务、开机项、防火墙这类系统设置（能让命令以后自己跑起来）
   schtasks: accountCommand, sc: scCommand, crontab: accountCommand, at: accountCommand, launchctl: accountCommand,
-  systemctl: accountCommand, service: accountCommand, bcdedit: accountCommand, netsh: accountCommand, wmic: accountCommand,
+  systemctl: accountCommand, service: accountCommand, bcdedit: accountCommand, netsh: accountCommand, wmic,
   msiexec,
+  // 杀进程（419）
+  taskkill, tskill, pskill: tskill, kill, pkill, killall, "stop-process": stopProcess, spps: stopProcess,
+  // 服务管家和二狗自己的运维命令（419）：装好的 ergo.exe 查表时是 ergo
+  lsm: lsmCommand, "lsm.cmd": lsmCommand, ergo: ergoCommand, "ergo.cmd": ergoCommand, "ergo.bat": ergoCommand,
 };

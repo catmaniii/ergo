@@ -151,7 +151,7 @@ Read it from top to bottom:
 **Good to know:**
 
 - Unticked operations aren't authorized. With **Ask me before risky things** on, it asks you when it gets to that step. With it off (as on a new install), even what's beyond the grants just runs and is logged as usual. The sentence under the grants follows the current switch setting. With it off, unticked items, narrowed items and **Ask me first** items don't count as stops, and the line for an **Ask me first** item is marked **runs without asking for now**; only **Hand it to me** items still stop. For the switch, see [Budget and notifications](#budget-and-notifications).
-- On or off, it can't write to protected areas, read the secrets area or send secrets out.
+- On or off, it can't write to protected areas, read the secrets area or send secrets out; it also can't stop ergo or kill the service manager with commands (stopping services and restarting ergo go through the service manager tools), and a kill whose target it can't pin down still asks you first.
 - Watch categories added when confirming apply only to this task. Under **Details**, click **+ Add a watch category for this task (only applies to this task)**. You can add but not remove.
 - Grants are valid for 7 days by default. Shortly before they expire, a **Grant renewal** item comes to the Inbox; click **Renew** or **Don't renew**. Once one you didn't renew expires, it no longer counts as a grant: with the switch on, it asks you at that step; with it off, it goes ahead and logs it. For scheduled and event-triggered tasks, grants stay valid until you pause or cancel.
 

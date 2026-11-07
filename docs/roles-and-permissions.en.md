@@ -43,7 +43,8 @@ Only you can change where an agent may reach and what it may use. At most an age
 - Folder grants are written only by the runtime; agents have no tool for them. You add them in Settings · Folder grants, in each agent's ⚙, or with **Always allow** on an approval card. Code: `folders/folder-grants.ts` `openFolderGrants`; [ADR-0049](architecture/adr/0049-per-agent-folder-grants.md) (in Chinese).
 - Built-in watch categories can only be made stricter. Code: `guard/watch-categories.ts` `builtinDisposition`, `editWatchCategorySettings`.
 - Operations plans, going live, scheduled tasks, putting a skill into the library and registering an MCP all only make a card (see the tables below).
-- Protected areas (config, secrets, database, skills, ergo's program folder) can't be written by anyone, and the secrets area can't even be read. Code: `guard/judge.ts` `protectedAreasOf`, `pathRule`.
+- Protected areas (config, secrets, database, skills, ergo's program folder, the service manager's registry and run state) can't be written by anyone, and the secrets areas (including the service manager's `.secrets`) can't even be read. Code: `guard/judge.ts` `protectedAreasOf`, `pathRule`.
+- Stopping ergo or killing the service manager only goes through the service manager tools, and no one can go around them: running the service manager's command line (`lsm`), ergo stop/restart/update/rollback/uninstall and `svc`, and non-query requests to the service manager's port are hard refusals; killing ergo's own processes, the service manager or a lifeline service (ergo's public tunnel, the tailnet gateway) is Never, killing other processes asks first, and kills whose targets the guard can't pin down (variables, piped input, kill commands inside commands it can't split) ask even with chat approvals off. Code: `guard/judge.ts` `supervisorRule`, `killProcessRule`; `guard/shell/programs.ts` `opsScript`; `lsm/guard-facts.ts` `supervisorGuardFacts`.
 
 ### 3. Isolation buys freedom
 
@@ -69,6 +70,7 @@ Only the "Ask me first" level is relaxed. Hard refusals, "Never", "Hand it to me
 | Authorized folders | Reads without asking | Reads without asking | Reads without asking | Reads without asking | Reads without asking | — | `guard-runtime/guard-runtime.ts` `authorizedNow`; `guard/judge.ts` `pathRule`; [ADR-0041](architecture/adr/0041-authorized-folders-read-only-in-guard.md) (in Chinese) |
 | Folder grants list | One | One per project, shared by all segments | One per task | None | None | None | `guard-runtime/guard-runtime.ts` `folderGrantsNow`; `daemon.ts` `folderGrantHolders` |
 | Protected areas | Never written; the secrets area isn't even read | Same | Same | Same | Same | Same | `guard/judge.ts` `protectedAreasOf`, `pathRule` |
+| Stopping ergo, killing the service manager | Only through the service manager tools: its command line and non-query requests to its port are hard refusals, killing their processes is Never | Same | Same | Same | Same | Same | `guard/judge.ts` `supervisorRule`, `killProcessRule` |
 | Files with secret-like names in a registered folder | Reading, writing and deleting are all refused | Same | Same | No list | No list | No list | `guard/judge.ts` `grantVerdict`, `folderGrantOutside` |
 
 - A sub-agent's working directory can be a git worktree its owner made for it. Writing project records is always refused; a working directory that sits inside the project records can be written as usual. Code: `guard/judge.ts` `pathRule`; `sub-agents/tools.ts` `proposeParallelTool`.

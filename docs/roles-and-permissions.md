@@ -43,7 +43,8 @@ agent 能碰哪里、能用什么，只有用户改得了。agent 最多提出�
 - 目录授权表只由运行时写，agent 没有改它的工具；用户在设置 · 目录授权、各 agent 的 ⚙、审批卡的"以后都允许"里加。依据：`folders/folder-grants.ts` 的 `openFolderGrants`；[ADR-0049](architecture/adr/0049-per-agent-folder-grants.md)。
 - 关注类别的内置类别只能往严里调。依据：`guard/watch-categories.ts` 的 `builtinDisposition`、`editWatchCategorySettings`。
 - 运营方案、转入使用、定时任务、skill 进库、MCP 登记，都只出卡（见下面的能力表）。
-- 受保护区域（配置区、密钥区、数据库区、skill 区、二狗程序目录）谁都写不了，密钥区连读都拒。依据：`guard/judge.ts` 的 `protectedAreasOf`、`pathRule`。
+- 受保护区域（配置区、密钥区、数据库区、skill 区、二狗程序目录，服务管家的注册表和运行状态）谁都写不了，密钥区（服务管家的 `.secrets` 也算）连读都拒。依据：`guard/judge.ts` 的 `protectedAreasOf`、`pathRule`。
+- 停二狗、杀服务管家只能走服务管家工具，谁都绕不过去：跑服务管家的命令行（`lsm`）、ergo 的停止、重启、升级、回退、卸载和 `svc`，往服务管家端口发不是查询的请求，一律硬拒绝；杀二狗自己、服务管家、命脉服务（二狗的公网隧道、tailnet 网关）的进程永不，杀别的进程先问，看不准杀到谁的（变量、管道传来的、看不透的命令里写着杀进程）对话审批关着也问。依据：`guard/judge.ts` 的 `supervisorRule`、`killProcessRule`；`guard/shell/programs.ts` 的 `opsScript`；`lsm/guard-facts.ts` 的 `supervisorGuardFacts`。
 
 ### 3. 隔离换自由
 
@@ -69,6 +70,7 @@ agent 能碰哪里、能用什么，只有用户改得了。agent 最多提出�
 | 授权的文件夹 | 读不用问 | 读不用问 | 读不用问 | 读不用问 | 读不用问 | — | `guard-runtime/guard-runtime.ts` 的 `authorizedNow`；`guard/judge.ts` 的 `pathRule`；[ADR-0041](architecture/adr/0041-authorized-folders-read-only-in-guard.md) |
 | 目录授权表 | 一份 | 每个项目一份，各段共用 | 每个任务一份 | 没有 | 没有 | 没有 | `guard-runtime/guard-runtime.ts` 的 `folderGrantsNow`；`daemon.ts` 的 `folderGrantHolders` |
 | 受保护区域 | 写入永不，密钥区连读都拒 | 同左 | 同左 | 同左 | 同左 | 同左 | `guard/judge.ts` 的 `protectedAreasOf`、`pathRule` |
+| 停二狗、杀服务管家 | 只能用服务管家工具：命令行、端口的非查询请求硬拒绝，杀它们的进程永不 | 同左 | 同左 | 同左 | 同左 | 同左 | `guard/judge.ts` 的 `supervisorRule`、`killProcessRule` |
 | 登记目录里名字像密钥的文件 | 读、写、删都硬拒绝 | 同左 | 同左 | 没有表 | 没有表 | 没有表 | `guard/judge.ts` 的 `grantVerdict`、`folderGrantOutside` |
 
 - 子 agent 的工作目录可以是负责人给它建的 git worktree；写项目档案一律硬拒绝，工作目录在项目档案里面的照常能写。依据：`guard/judge.ts` 的 `pathRule`；`sub-agents/tools.ts` 的 `proposeParallelTool`。
