@@ -353,7 +353,7 @@ describe("整理前导入数据源", () => {
         }),
       ]),
     );
-    expect(bad).toMatchObject({ level: "warn", fact: { key: "memory.doctor.presync.bad", params: { bad: 2 } }, fix: { key: "memory.doctor.fix.presync" }, since: at, action: { kind: "open", route: "#/more/data-sources" } });
+    expect(bad).toMatchObject({ level: "warn", fact: { key: "memory.doctor.presync.bad", params: { count: 2 } }, fix: { key: "memory.doctor.fix.presync" }, since: at, action: { kind: "open", route: "#/more/data-sources" } });
     const text = expectRendered(bad).fact;
     expect(text).toContain("Looki（连接出错：Key 不对）");
     expect(text).toContain("Google · Gmail（等了 10 分钟");
@@ -386,6 +386,8 @@ describe("英文", () => {
       const texts = findings.map(expectRendered);
       expect(texts.map((x) => x.fact).join("\n")).not.toMatch(/[一-鿿]/);
       expect(keyOf(findings[5]!.fact)).toBe("memory.doctor.presync.bad");
+      // 单复数：一个数据源没导成用单数那句
+      expect(texts[5]!.fact).toContain("1 data source wasn't imported: Looki (connection error: bad key)");
       expect(texts[1]!.fix).toContain("rebuild");
       expect(texts[2]!.fact).toContain("Subtext");
     }

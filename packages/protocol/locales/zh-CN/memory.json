@@ -176,7 +176,7 @@
   "memory.doctor.presync.title": "整理前导入数据源",
   "memory.doctor.presync.none": "整理之前还没导过数据源（没有开着导入、能由电脑拉的数据源，或者还没整理过）",
   "memory.doctor.presync.noSources": "整理之前没有要先导入的数据源",
-  "memory.doctor.presync.bad": "{time} 整理之前有 {bad} 个数据源没导成：{list}",
+  "memory.doctor.presync.bad": "{time} 整理之前有 {count} 个数据源没导成：{list}",
   "memory.doctor.presync.ok": "{time} 整理之前都导好了：{list}",
   "memory.doctor.presync.item.synced": "{name}（新进来 {added} 条）",
   "memory.doctor.presync.item.fresh": "{name}（刚同步过）",

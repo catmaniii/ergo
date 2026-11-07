@@ -7,9 +7,9 @@ export const EN_DOCTOR: Phrases = {
   "推理库": "Reasoning DB",
   "能用，问记忆和记忆简报在用（12.4 MB）": "Usable; asking memory and memory briefs are using it (12.4 MB)",
   "记忆系统": "Memory system",
-  "会意在跑：523 条有效证据，上次整理完是 {}，占 12.4 MB": "Subtext is running: 523 active pieces of evidence, last consolidated on {}, 12.4 MB on disk",
+  "会意在跑：523 条有效证据，上次整理完是 {}，占 12.4 MB": "Subtext is running: active evidence: 523, last consolidated on {}, 12.4 MB on disk",
   "记忆简报": "Memory brief",
-  "{} 以来问了 30 次，超时 12 次、出错 0 次（占 40%）；最近一次用了 3 秒": "Since {}: asked 30 times, 12 timed out, 0 failed (40%); the last one took 3 s",
+  "{} 以来问了 30 次，超时 12 次、出错 0 次（占 40%）；最近一次用了 3 秒": "Since {}: 30 asked, 12 timed out, 0 failed (40%); the last one took 3 s",
   "超过 3 秒的那一轮就不带记忆了。多半是向量模型算得慢、推理库太大：重启二狗后再看；一直这样就把这句反馈给我们":
     "A turn that takes longer than 3 s goes without memory. Usually the vector model is slow or the reasoning DB is large: restart ergo and check again, and report this to us if it keeps happening",
   "每晚整理": "Nightly consolidation",

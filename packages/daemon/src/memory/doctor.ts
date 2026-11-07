@@ -296,7 +296,7 @@ export function presyncFinding(facts: NightlyFacts): DoctorFinding {
   const sep = t("memory.doctor.listSep");
   if (bad.length > 0) {
     const list = bad.map((s) => syncItemText(s, waitMinutes)).join(sep);
-    return { level: "warn", fact: { key: "memory.doctor.presync.bad", params: { time, bad: bad.length, list } }, fix: { key: "memory.doctor.fix.presync" }, since: record.at, action: open(DATA_SOURCES_ROUTE) };
+    return { level: "warn", fact: { key: "memory.doctor.presync.bad", params: { time, count: bad.length, list } }, fix: { key: "memory.doctor.fix.presync" }, since: record.at, action: open(DATA_SOURCES_ROUTE) };
   }
   return { level: "ok", fact: { key: "memory.doctor.presync.ok", params: { time, list: sources.map((s) => syncItemText(s, waitMinutes)).join(sep) } } };
 }
