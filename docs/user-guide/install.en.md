@@ -303,7 +303,7 @@ cd packages\supervisor
 node bin\lsm.mjs restart ergo-daemon --when-idle   # restart once the task at hand is done
 ```
 
-If only the web pages changed, the daemon doesn't need a restart.
+It has restarted when the command prints "✓ ergo-daemon 已重启（新进程 PID …）" (restarted, new process PID …). If Ergo is busy it prints "⏸ … 等它空闲后重启" (will restart once idle): it exits by itself when the task is done and the service manager starts it again (check with `ergo status`); if it is still busy after an hour the restart is withdrawn and it keeps running. If only the web pages changed, the daemon doesn't need a restart.
 
 ## After installing
 

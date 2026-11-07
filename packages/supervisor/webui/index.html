@@ -765,7 +765,9 @@ async function act(action, id, extra = {}) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, id, ...extra }),
     });
-    toast(r.ok ? `${what || ACT_LABEL[action] || action} 完成` : (r.why || '失败'), r.ok ? 'ok' : 'bad');
+    // 排上了（等空闲再停 / 再重启）就说排上了，不说「完成」；重启成功说「已重启」（438）
+    const done = r.pending ? `${what}：${r.why}` : `${what || ACT_LABEL[action] || action} ${action === 'restart' ? '已重启' : '完成'}`;
+    toast(r.ok ? done : (r.why || '失败'), r.ok ? 'ok' : 'bad');
   } catch (e) { toast(e.message, 'bad'); }
 }
 
@@ -1033,7 +1035,7 @@ function miniHTML(s) {
     badges.push(`<a class="mpub ${v.cls === '' ? 'ok' : v.cls === 'down' ? 'bad' : 'unk'}" href="${esc(s.tailnet.url)}" target="_blank" rel="noopener" title="${esc(v.label + ' · ' + s.tailnet.url)}">${ic('mesh')}</a>`);
   }
   if (s.autostart) badges.push(`<span class="mboot" title="开机自启">${ic('power')}</span>`);
-  const note = s.orphanWhy ? `孤儿：${s.orphanWhy}` : (s.lastError || (s.pendingStop ? '待停机：等它空闲后会自己停' : '') || (s.busy ? `正在跑任务：${s.busyReason || '未说明'}` : ''));
+  const note = s.orphanWhy ? `孤儿：${s.orphanWhy}` : (s.lastError || (s.pendingStop ? '待停机：等它空闲后会自己停' : '') || (s.pendingRestart ? '待重启：等它空闲后重启' : '') || (s.busy ? `正在跑任务：${s.busyReason || '未说明'}` : ''));
   if (note) badges.push(`<span class="mnote ${s.orphanWhy || s.lastError ? 'err' : 'warn'}" title="${esc(note)}">${ic('alert')}</span>`);
 
   const ib = (a, icon, cls, title, disabled) =>
@@ -1273,6 +1275,7 @@ function cardHTML(s, svcs) {
     s.busy && `<div class="alert warn">${ic('alert')}<span>正在跑任务：${esc(s.busyReason || '未说明')}——重启会中断它</span></div>`,
     s.pendingStop && `<div class="alert warn">${ic('pause')}<span>待停机：等它空闲后会自己停（管理器不会自己强杀它；等不了就点「强制停止」）</span>
       <button class="btn sm ab" data-a="cancel-stop" ${idA}>取消停机</button></div>`,
+    s.pendingRestart && `<div class="alert warn">${ic('pause')}<span>待重启：等它空闲了自己退出，管理器再把它拉起来（不会强杀它）</span></div>`,
     s.degradedObservation && `<div class="alert info">${ic('info')}<span>接入层已断，观测精度下降到 ${esc(s.tier)}</span></div>`,
     s.lastError && `<div class="alert err">${ic('x')}<span>${esc(s.lastError)}</span></div>`,
     s.orphanWhy && `<div class="alert err">${ic('alert')}<span>孤儿：${esc(s.orphanWhy)}</span></div>`,

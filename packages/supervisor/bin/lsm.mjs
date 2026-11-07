@@ -129,13 +129,16 @@ function printVps(v) {
   if ((v.alerts || []).length) console.log(`${C.dim}          续费 / 充值：${v.links.billing}（续费管理 → 手动续费）${C.reset}`);
 }
 
-function report(r, id) {
+function report(r, id, done = r?.already ? '本来就在跑' : '完成') {
   if (!r) { console.log(`${C.red}✗${C.reset} 没有响应`); return 1; }
   if (r.pending) console.log(`${C.yellow}⏸${C.reset} ${id}：${r.why}`);
-  else if (r.ok) console.log(`${C.green}✓${C.reset} ${id}${r.already ? ' 本来就在跑' : ' 完成'}`);
+  else if (r.ok) console.log(`${C.green}✓${C.reset} ${id} ${done}`);
   else console.log(`${C.red}✗${C.reset} ${id}：${r.why || '失败'}`);
   return r.ok ? 0 : 1;
 }
+
+/** 重启照实说：已重启（新进程 PID）/ 等它空闲后重启 / 失败原因。重启不是启动，绝不说「本来就在跑」（438）。 */
+const restartedText = (r) => `已重启${r?.pid ? `（新进程 PID ${r.pid}）` : ''}${r?.note ? `：${r.note}` : ''}`;
 
 const stateOf = (snap, id) => (snap?.services || []).find((s) => s.id === id)?.state ?? null;
 
@@ -283,9 +286,10 @@ async function main() {
       force: args.includes('--force'),
       mode: args.includes('--when-idle') ? 'when-idle' : 'now',
     }), args[0]);
-    case 'restart': return report(await sup.restart(args[0], {
-      mode: args.includes('--when-idle') ? 'when-idle' : 'now',
-    }), args[0]);
+    case 'restart': {
+      const r = await sup.restart(args[0], { mode: args.includes('--when-idle') ? 'when-idle' : 'now' });
+      return report(r, args[0], restartedText(r));
+    }
     case 'profile': {
       const r = await sup.startProfile(args[0]);
       if (r.results) r.results.forEach((x) => report(x, x.id));
