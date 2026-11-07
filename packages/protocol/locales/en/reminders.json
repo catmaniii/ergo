@@ -68,5 +68,5 @@
   "reminders.doctor.timezone.title": "Time zone",
   "reminders.doctor.timezone.ok": "Same as this computer ({zone})",
   "reminders.doctor.timezone.mismatch": "The config file says {configured}, this computer is on {local}: message times follow the first, reminders fire by the second, so reminder times will be off",
-  "reminders.doctor.timezone.fix": "If you don't need a separate time zone, remove timeZone from config/ergo.json in the data folder (or set it to match the computer) and restart Ergo; or change the computer's time zone instead"
+  "reminders.doctor.timezone.fix": "If you don't need a separate time zone, remove timeZone from config/ergo.json in the data folder (or set it to match the computer) and restart ergo; or change the computer's time zone instead"
 }

@@ -67,6 +67,6 @@
   "codex.doctor.program.gone": "Codex can't be found on this computer anymore (it was there at startup): tasks and projects using it won't start",
   "codex.doctor.program.noVersion": "Found Codex, but can't tell its version ({min} or newer needed)",
   "codex.doctor.program.tooOld": "Codex on this computer is now {version}, too old: {min} or newer is needed, and tasks and projects using it won't run",
-  "codex.doctor.program.fixInstall": "Reinstall it with npm i -g @openai/codex (codex has to be on PATH), sign in with codex login, then restart Ergo",
-  "codex.doctor.program.fixUpdate": "Update it with npm i -g @openai/codex, then restart Ergo"
+  "codex.doctor.program.fixInstall": "Reinstall it with npm i -g @openai/codex (codex has to be on PATH), sign in with codex login, then restart ergo",
+  "codex.doctor.program.fixUpdate": "Update it with npm i -g @openai/codex, then restart ergo"
 }

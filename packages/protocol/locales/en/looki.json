@@ -80,6 +80,6 @@
   "looki.doctor.archive.problem": "Ran into a problem: {problem}",
   "looki.doctor.archive.failed_one": "{count} moment couldn't be saved after several tries",
   "looki.doctor.archive.failed_other": "{count} moments couldn't be saved after several tries",
-  "looki.doctor.archive.fixProblem": "Open the \"Keep a local copy\" panel in Settings · Data sources · Looki to see why: fix folder, disk or permission problems as it says; if Looki answered something unexpected (say, it changed its API), wait for an Ergo update — photos and journals keep saving",
+  "looki.doctor.archive.fixProblem": "Open the \"Keep a local copy\" panel in Settings · Data sources · Looki to see why: fix folder, disk or permission problems as it says; if Looki answered something unexpected (say, it changed its API), wait for an ergo update — photos and journals keep saving",
   "looki.doctor.archive.fixFailed": "Tap \"Continue now\" in the \"Keep a local copy\" panel in Settings · Data sources · Looki to try again"
 }

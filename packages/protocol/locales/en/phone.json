@@ -71,7 +71,7 @@
   "phone.doctor.app.ok": "Last sent something at {time}",
   "phone.doctor.app.quiet_one": "The phone app hasn't been opened for a while: it last sent something {count} day ago ({time})",
   "phone.doctor.app.quiet_other": "The phone app hasn't been opened for a while: it last sent something {count} days ago ({time})",
-  "phone.doctor.app.fixQuiet": "Open the Ergo app on your phone and leave it open for a bit: it only sends calendar, photos and location while it's open",
+  "phone.doctor.app.fixQuiet": "Open the ergo app on your phone and leave it open for a bit: it only sends calendar, photos and location while it's open",
   "phone.doctor.calendarEmpty.title": "Phone calendar sent 0 events",
   "phone.doctor.calendarEmpty.notLinked": "Phone calendar isn't connected, not checked",
   "phone.doctor.calendarEmpty.ok": "No sends with 0 events lately",
@@ -79,6 +79,6 @@
   "phone.doctor.calendarEmpty.kept_other": "Since {time} the phone has sent an empty calendar (times in a row: {times}), most likely it just couldn't read it; the {count} events already here are kept, not deleted",
   "phone.doctor.calendarEmpty.dropped_one": "Since {time} the phone has sent an empty calendar (times in a row: {times}), most likely it just couldn't read it; the {count} event already here was deleted with it",
   "phone.doctor.calendarEmpty.dropped_other": "Since {time} the phone has sent an empty calendar (times in a row: {times}), most likely it just couldn't read it; the {count} events already here were deleted with it",
-  "phone.doctor.calendarEmpty.fixKept": "Check the calendar on your phone: if the events are still there, close and reopen the Ergo app and the next send will be fine; if you really cleared it, answer \"Yes, delete them\" in the Inbox",
-  "phone.doctor.calendarEmpty.fixDropped": "Check the calendar on your phone: if the events are still there, close and reopen the Ergo app and they'll come back with the next send"
+  "phone.doctor.calendarEmpty.fixKept": "Check the calendar on your phone: if the events are still there, close and reopen the ergo app and the next send will be fine; if you really cleared it, answer \"Yes, delete them\" in the Inbox",
+  "phone.doctor.calendarEmpty.fixDropped": "Check the calendar on your phone: if the events are still there, close and reopen the ergo app and they'll come back with the next send"
 }
