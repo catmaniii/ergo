@@ -2,6 +2,7 @@
 // 适配子进程是真的，app-server 是按 faux 剧本走的假的；会话来源是假本机（FakeCodexSessions：编的会话、编的状况、编的前情，不起 codex、不读 ~/.codex）；
 // "装没装"不看这台机器。主切面经 startTestDaemon 交给守护进程：同名的换掉插件清单里的那个（daemon.ts 的 withExtraPlugins），走同一条装配路径。
 import { fileURLToPath } from "node:url";
+import { CODEX_MIN_VERSION } from "../../src/codex/install.ts";
 import { createCodexPlugin } from "../../src/codex/plugin.ts";
 import type { CodexSessionSource } from "../../src/codex/sessions.ts";
 import type { CodexSessionInfo } from "../../src/codex/sessions-protocol.ts";
@@ -45,9 +46,12 @@ export class FakeCodexSessions implements CodexSessionSource {
   }
 }
 
-/** 子进程接假 app-server、会话来源是这一份假本机的 Codex 插件（同名，换掉清单里的那个）；不给 sessions 是空的本机 */
+/**
+ * 子进程接假 app-server、会话来源是这一份假本机的 Codex 插件（同名，换掉清单里的那个）；不给 sessions 是空的本机。
+ * 体检的"程序和版本"也是假的（414：不找这台机器的 codex、绝不跑 codex --version）
+ */
 export function fakeCodexPluginWith(sessions: CodexSessionSource = new FakeCodexSessions()): PluginDefinition {
-  return createCodexPlugin({ entry: FAKE_CODEX_CHILD, sessions, missing: () => undefined });
+  return createCodexPlugin({ entry: FAKE_CODEX_CHILD, sessions, missing: () => undefined, program: () => Promise.resolve({ found: true, version: CODEX_MIN_VERSION }) });
 }
 
 /** 子进程接假 app-server 的 Codex 插件 */
