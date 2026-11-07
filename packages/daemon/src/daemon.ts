@@ -610,7 +610,7 @@ export interface Daemon {
   readonly doctorChecks: DoctorCheckRegistry;
   /** 深度体检（415，GET / POST /api/doctor/deep）：点了才跑，结果留在内存里；秘书的 check_health 只读上一次的 */
   readonly doctorDeep: DeepDoctorService;
-  /** 体检后台盯着（416）：几项连着不正常就放进待办；体检页上的"不再提醒"、"恢复提醒" */
+  /** 体检后台盯着（416）：几项连着不正常就放进待办；用户静音的几项（doctor-watch.json 的 muted）、体检页上取消静音 */
   readonly doctorWatch: DoctorWatch;
   /** 设置 · 组件：模型、语音这些大件按需下载——装、删、更新、暂停、继续、取消、离线导入 */
   readonly components: Components;
@@ -3030,7 +3030,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 首次设置向导：哪几步做完了（GET /api/setup），标"以后再说"/"看过了"（POST /api/setup）
         setup,
         autostart,
-        // 体检：八项检查现在的样子（GET /api/doctor）；后台盯着的"不再提醒"那几项、体检页上"恢复提醒"（POST /api/doctor/unmute，416）
+        // 体检：八项检查现在的样子（GET /api/doctor）；后台盯着静音的那几项、体检页上取消静音（POST /api/doctor/unmute，416）
         doctor,
         // 深度体检（415）：GET 取上一次的，POST 开测（GET / POST /api/doctor/deep）
         doctorDeep,
