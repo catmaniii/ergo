@@ -121,12 +121,8 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
       // 聊天里的地图卡片（431）：查地点、算路线查到的那一份按编号取；秘书的"画在地图上"
       const lookups = () => options.lookups?.();
       ctx.provide(MAP_DRAWING, createMapDrawings(lookups));
-      // 插件停了、秘书还没按新的贡献重新装配的那一会儿再调：回"地图插件没启用"，不出卡
-      let running = true;
-      ctx.effect(() => () => {
-        running = false;
-      });
-      const tool = showOnMapTool({ running: () => running, day, lookups, cards: ctx.use(KERNEL.cards) });
+      // 插件停了、秘书还没按新的贡献重新装配的那一会儿再调：插件宿主替它回"地图插件没启用"，不出卡
+      const tool = showOnMapTool({ day, lookups, cards: ctx.use(KERNEL.cards) });
       ctx.agent.tools.register({ to: { agents: ["secretary"] }, tools: () => [tool] });
       // 停用时：排队等着取的瓦片不取了
       ctx.lifecycle({ stop: () => service.stop() });

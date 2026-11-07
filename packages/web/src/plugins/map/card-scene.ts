@@ -40,7 +40,7 @@ export type MapCardData =
 function namesLine(names: readonly string[]): string | undefined {
   if (names.length === 0) return undefined;
   const shown = names.slice(0, NAMES_MAX).join(t("pages.common.listSep"));
-  return names.length > NAMES_MAX ? t("ui.plugins.map.card.more", { names: shown, count: names.length }) : shown;
+  return names.length > NAMES_MAX ? t("ui.plugins.map.card.more", { names: shown, total: names.length }) : shown;
 }
 
 /** 某一天的足迹：整理一天（footprints.ts）那一份，下面写概况和按先后去过的几处 */

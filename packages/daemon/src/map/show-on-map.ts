@@ -23,8 +23,6 @@ export interface MapLookups {
 }
 
 export interface ShowOnMapDeps {
-  /** 地图插件还在运行（停了、秘书还没按新的贡献重新装配的那一会儿再调：回"地图插件没启用"，不出卡） */
-  running(): boolean;
   /** 某一天的足迹（MAP_DAY：经手机插件现算，不联网）；日期不对、手机插件没启用抛 RequestRejected */
   day(date: string): MapDayView;
   /** 查地点、算路线留在内存里的那几份（现取）；没有查地点、算路线（432 还没合进来，或者地图插件停着）是 undefined */
@@ -112,7 +110,6 @@ export function showOnMapTool(deps: ShowOnMapDeps): HostTool {
     // 只看：不改任何东西、不往外送
     nature: "look",
     run(args) {
-      if (!deps.running()) return { text: t("plugins.notEnabled", { title: t("map.plugin.title") }), isError: true };
       const given = [args.date, args.points, args.route, args.lookup].filter((x) => x !== undefined).length;
       if (given !== 1) return { text: "date、points、route、lookup 四样里给一样（一次画一样；要画几样就调几次）。", isError: true };
 
