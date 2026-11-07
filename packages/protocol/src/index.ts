@@ -40,7 +40,8 @@
 // - calendar.ts / calendar-schema.ts：日历（按月看的每一天：工作日判定、当天的提醒和定时作业）的名字、纯函数（不引用 TypeBox）
 //   和 schema。
 // - geo.ts：地图的坐标（WGS-84 和高德的 GCJ-02 互转、在不在中国大陆、两点距离），纯函数；map.ts / map-schema.ts：地图插件的瓦片转发、
-//   高德安全密钥代理的地址，地图页要的设置（GET /api/map/config）的 schema。
+//   高德安全密钥代理的地址，地图页要的设置（GET /api/map/config）的 schema；map-lookup.ts：查地点、算路线（432）查到的能画的那一份、
+//   设置里高德那一块的用量。
 // - assistant-name.ts / assistant-name-schema.ts：个人助理的名字（起名的规则、守护进程生成的话里的名字占位，不引用 TypeBox）
 //   和名字事件、配置文件、设置接口的 schema。
 // - personal-files.ts / personal-files-schema.ts：个人档案——本人和重要的人各一份；有哪些字段、叫什么、哪些算号码
@@ -168,6 +169,7 @@ export * from "./calendar-schema.ts";
 export * from "./geo.ts";
 export * from "./map.ts";
 export * from "./map-schema.ts";
+export * from "./map-lookup.ts";
 export * from "./assistant-name.ts";
 export * from "./assistant-name-schema.ts";
 export * from "./user-name.ts";

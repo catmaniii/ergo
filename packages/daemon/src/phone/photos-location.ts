@@ -80,6 +80,29 @@ export interface PhoneMediaService {
   clearLocationRaw(dates: readonly string[]): number;
   /** 常去的地方：起名、改名、删、手动加一处（values.places 是哪一样，见协议包 phone.ts）；交回"手机 · 位置"不算出错的状态 */
   configurePlaces(values: Readonly<Record<string, string>>): DataSourceStatus;
+  /** 起了名的常去的地方（按加的先后；中心是 WGS-84）：地图插件查"从家到公司"时取（432，只在用户问的时候才把起点终点发给高德） */
+  namedPlaces(): PhoneNamedPlace[];
+  /** 手机最近交来的一个位置点（WGS-84）：地图插件查"附近"时取（432）；还没交来过是 undefined。只给这一个点，不给轨迹 */
+  latestPoint(): PhoneLatestPoint | undefined;
+}
+
+/** 起了名的一处（给别的插件看的样子：名字、中心、范围、起名时知道的系统地名） */
+export interface PhoneNamedPlace {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  /** 范围（半径，米） */
+  radius: number;
+  address?: string;
+}
+
+/** 最近的一个位置点：坐标、什么时候记的（协议时间）、精度（米） */
+export interface PhoneLatestPoint {
+  lat: number;
+  lon: number;
+  at: string;
+  acc?: number;
 }
 
 /** 一种（照片、位置）的那几样 */
@@ -394,6 +417,13 @@ export function createPhoneMediaService(options: PhoneMediaServiceOptions): Phon
     clearLocationRaw: (dates) => {
       placesCache = undefined;
       return location.raw.clear(dates, options.nowMs());
+    },
+    namedPlaces: () => places.list().map(({ id, name, lat, lon, radius, address }) => ({ id, name, lat, lon, radius, ...(address === undefined ? {} : { address }) })),
+    latestPoint() {
+      // 最新的那一天里时间最晚的一个点（一天里按时间先后存）
+      const [newest] = location.raw.days();
+      const point = newest === undefined ? undefined : location.raw.itemsOf(newest.date).at(-1);
+      return point === undefined ? undefined : { lat: point.lat, lon: point.lon, at: point.at, ...(point.acc === undefined ? {} : { acc: point.acc }) };
     },
     configurePlaces(values) {
       placesRefused = applyPlaces(values);

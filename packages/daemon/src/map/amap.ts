@@ -83,6 +83,11 @@ export interface Amap {
   mapProblem(): string | undefined;
   /** 安全密钥代理 */
   proxy(path: string, search: string, signal: AbortSignal, userAgent?: string): Promise<MapReply>;
+  /**
+   * 查地点、算路线（432，amap-lookup.ts）时高德的回应：说 Web 服务 Key 不对就记下（连接状态报出错、要重新填，每小时再测），
+   * 说用量到上限记成一时的问题（照样连着、写原因），查成了清掉；别的错（参数不对、找不到路）不记
+   */
+  serviceReply(body: unknown, httpStatus: number): void;
 }
 
 /** 一次测试的结果：过了、Key 不对（要重新填）、一时不能用（Key 是认的）、别的出错 */
@@ -239,6 +244,14 @@ export function createAmap(options: AmapOptions): Amap {
     reset() {
       delete problems.js;
       delete problems.service;
+    },
+
+    serviceReply(body, httpStatus) {
+      const result = judge(body, "service", httpStatus);
+      if (!result.ok && result.failure === "other") return;
+      const before = problems.service?.kind;
+      note("service", result);
+      if (!result.ok && before !== "key") options.log(`高德地图：查地点、路线时高德说 Web 服务 Key 不对（${result.failure}）`); // @i18n-ignore log
     },
 
     mapKey() {
