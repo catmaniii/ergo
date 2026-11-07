@@ -581,7 +581,7 @@ export function createClaudeCodePlugin(
 |---|---|
 | `id` / `title` / `summary` | 小写英文、数字和连字符，定了别改（用法开关、密钥区、同步记录按它记）；名字和一句话写成取值函数走 `t()` |
 | `sensitive` | 用到的敏感类别（健康、财务、位置、关系……，`SensitiveCategory`）：对上记忆的敏感类别开关，页面上写明默认只记录、不用于推断。`dataSourceMaterial` 写的素材不写 `sensitive` 就带上这里的全部（保守）；某条记录不涉及的写窄（见下面"把记录写成素材"） |
-| `usages` | 提供哪两种用法、默认开没开：`query`（按需查：给秘书 `tools`，现查不存）、`import`（导入：`sync` 和 `files`，`schedule` 是定期导入的时间——提醒那一套，或者 每隔几分钟 `{ kind: "every", minutes }`；`destination` 写导入的东西去哪，不写是"整理成素材"；`syncOnConnect` 填好设置连上以后马上同步一次）。用户在数据源页上开关，存在配置区的 `data-sources.json` |
+| `usages` | 提供哪两种用法、默认开没开：`query`（按需查：给秘书 `tools`，现查不存；写 `ownTools: true` 的工具由插件自己经 `ctx.agent.tools.register` 给、内核不替它给，插件调用时经 `KERNEL.dataSourceUsage` 看开关——几家共用一套工具时用，见下面地图插件）、`import`（导入：`sync` 和 `files`，`schedule` 是定期导入的时间——提醒那一套，或者 每隔几分钟 `{ kind: "every", minutes }`；`destination` 写导入的东西去哪，不写是"整理成素材"；`syncOnConnect` 填好设置连上以后马上同步一次）。用户在数据源页上开关，存在配置区的 `data-sources.json` |
 | `records` | 它导入的记录（事件的频道、类型）：页面上的"共几条"按它数；断开时选了"连已导入的一起删"，这些整条换成"已删除"标记，由它们采成的素材彻底删除 |
 | `files` | 认导入文件夹里哪种文件（`DataSourceFileType`）：扩展名、文件名、内容特征（开头 4 KB）写了的都对上才认；`import(file, ctx)` 读文件、写记录，交回新进来几条 |
 | `status(ctx)` | 连接状态（没连 / 连着 / 出错及原因 / 账号），要快；不给是"手动导入"的数据源（只靠导入文件夹）。要用户去授权、重新填的（手机上的授权被拒、被撤回，登录没过、Key 不认）带 `needsAuth: true`，卡片上写"要授权"。可以带一句提示 `note`（不算出错："日历插件没启用"）和它下面的几样 `items`（几个日历，插件画的设置那一块列出）；还能带插件画的那一块要的数据 `panel`（内核原样交给网页、不看里面：Looki 的"存一份到本地"）和断开的确认框里要说的一句 `disconnectNote`（"存到本地的文件不删"）。连接状态还决定按需查的工具给不给秘书：内核只用插件报的**最近一次已知的**状态（装配时不等网络），所以插件在同步、按需查时碰到 Key 失效、地址失效要记在内存里、下一次 `status` 报 `error`（Looki 的 Key 不认、Gmail 登录没过、Google 日历每个地址都失效），一时的（限速、超时、连不上）照样报连着、原因写在 `problem`。报出错以后内核每小时替它再试一次（见下面 `recheck`），页面上写明"每小时自动再试一次，也可以重新填" |
@@ -770,12 +770,14 @@ export function createClaudeCodePlugin(
 - **外部协议自己写、不加依赖**：只读的 IMAP 客户端（`imap.ts`：命令口只放行只读的几条，写操作在客户端就拒绝）、邮件解析（`mime.ts`，Node 自带的 `tls` 和 `TextDecoder`）。
 - **测**：本机起假 IMAP 服务（`packages/daemon/test/helpers/fake-imap.ts` 的 `startFakeImapServer`：TLS 测试自签证书、照 Gmail 的样子回应、写操作和会标已读的取信都记下来），`createGooglePlugin({ imap: server.endpoint })` 接上；假内核 `packages/daemon/test/google/gmail.test.ts`，主切面 `packages/daemon/test/main/google-gmail.test.ts`（经 `extraPlugins` 换掉清单里的 Google 插件）。
 
-**按需查、要联网、结果不许存**的数据源照地图插件的"高德地图"（432，`packages/daemon/src/map/`）写：
+**按需查、要联网、结果不许存**的数据源照地图插件的"高德地图"（432、433，`packages/daemon/src/map/`）写：
 
 - **工具登记联网**：`defineHostTool` 写 `network: true`（联网开关关着时守卫直接拒绝），只为取回东西的再写 `pullOnly: true`；带出去的查询词登记成 `content` 参数（`args`），守卫照样查里面有没有密钥。
 - **工具只认一个统一外形**（`map/lookup.ts` 的 `LookupProvider`），接哪家服务是另一个文件；以后换一家、按地区挑一家，工具不用改。
 - **查到的不落盘、不写事件**：要给别的功能接着用的（画在地图上）只在内存里留一会儿，编号写进工具结果；用户自己的坐标不写进给模型的结果。用量这种只记次数的放插件自己的存储（`KERNEL.layout` 的数据目录下 `map/`），移除时列进 `files`。
 - **查的时候 Key 失效**：每个回应交给记着连接状态的那一层（`amap.ts` 的 `serviceReply`），下一次 `status` 报出错；"试查一下"做成 `live`。
+- **几家共用一套工具、有的不用 Key**（433：国外的 OpenStreetMap 不用 Key，高德没连也要能查）：工具不放在数据源的 `tools()`，插件在 `setup` 里自己 `ctx.agent.tools.register`；那个数据源写 `usages.query: { default: true, ownTools: true }`，开关照样在页面上，插件 `wants: [KERNEL.dataSourceUsage]`、调用时 `on(id, "query")` 现看。各家的说法（署名、出错怎么说、某处的数据全不全）由各家给，工具不写死哪一家。
+- **免费的公共服务要守它的规矩**（`map/osm-client.ts`）：一家一队、一次一个、两次之间留够间隔，带能认出二狗的 User-Agent，成功的结果在内存里缓存（政策要求缓存，不落盘），不做输入联想；测试接本机假服务（`packages/daemon/test/helpers/fake-osm-lookup.ts`），间隔做成选项（`createMapPlugin({ osmIntervalMs: 0 })`），排队的等待能换成假的。
 
 **真的例子：Google · 联系人**（同一个插件的第三个数据源）：只靠导入文件夹、导入的东西进个人档案候选（不进素材）的数据源照它写：
 
@@ -919,6 +921,7 @@ export const remindersPlugin: PluginDefinition = {
 | `KERNEL.externalCalendars` | `packages/daemon/src/plugins/kernel.ts` | 数据源交给日历插件的外部日历（内核服务） |
 | `KERNEL.dataSourceSync`、`DataSourcePreSync` | `packages/daemon/src/plugins/kernel.ts` | 记忆整理之前把能由电脑拉的数据源各同步一次（内核服务，数据源服务起来之前叫的等它起来） |
 | `KERNEL.dataSourceSecrets` | `packages/daemon/src/plugins/kernel.ts` | 插件在数据源的函数之外现取自己那个数据源的密钥区那一格（地图插件转发高德请求时拼安全密钥；内核服务） |
+| `KERNEL.dataSourceUsage`、`DataSourceUsageSwitch` | `packages/daemon/src/plugins/kernel.ts` | 数据源的按需查、导入现在开没开（工具由插件自己给的数据源调用时看开关：地图插件的高德；内核服务） |
 | `PullableSync` | `packages/daemon/src/data-sources/service.ts` | 整理之前同步时一个数据源的那一次：开始了（同步的结果）、刚同步过、连接出错没同步 |
 | `fakeDataSourcePlugin` | `packages/daemon/test/helpers/fake-data-source.ts` | 测试用的假数据源插件 |
 | `DataSourceSchedule`、`DataSourceItem` | `packages/daemon/src/data-sources/api.ts` | 定期导入的时间（提醒那一套或每隔几分钟）、数据源下面的一样 |

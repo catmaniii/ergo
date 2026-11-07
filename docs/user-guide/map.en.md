@@ -1,6 +1,6 @@
 # Maps
 
-ergo has a map: AMap inside mainland China, OpenStreetMap abroad (say, in Singapore), switching automatically as you look around. You can also just ask ergo "how long from home to the office?" or "any coffee shops nearby?" and it looks it up on AMap for you. Later, the places you've been, places mentioned in chats, and routes you looked up will be drawn on this map.
+ergo has a map: AMap inside mainland China, OpenStreetMap abroad (say, in Singapore), switching automatically as you look around. You can also just ask ergo "how long from home to the office?" or "any coffee shops nearby?" and it looks it up for you: AMap inside China, the free OpenStreetMap services abroad. Later, the places you've been, places mentioned in chats, and routes you looked up will be drawn on this map.
 
 After this chapter you'll know where the map page is, how to get a clearer map inside China (enter an AMap key), how to have ergo look up places and routes, and what map services can see.
 
@@ -32,15 +32,29 @@ The keys and security code stay on this computer. The security code is never sen
 
 To stop using it: tap **Disconnect** under **AMap**; the keys are deleted from this computer and the map uses OpenStreetMap inside China.
 
+**A few rules for AMap keys** (from the AMap Open Platform [terms of service](https://lbs.amap.com/home/terms/), version of 2025-12-03):
+
+- Apply for the key yourself on the AMap Open Platform (with personal developer verification). ergo doesn't ship a key and doesn't share one. Don't let others use your key either: clause 4.5 says it must not be transferred, rented out or lent.
+- A personal developer key is for your own, non-commercial use (clause 3.1 says "personal research and study"). To deploy ergo in a company or organization, or to use ergo to provide a service to others, use enterprise verification and buy a commercial license from AMap (clause 3.2).
+- AMap doesn't allow storing or caching its results (clause 3.5), so ergo uses them on the spot and doesn't keep them. AMap results are shown on the AMap map and credited to AMap (clauses 4.12.4, 7.7): the map page inside China is AMap's own map, and answers say "data from AMap".
+
 ## Have ergo look up places and routes
 
-Once the **Web service key** is in, just ask ergo:
+Just ask ergo:
 
-- "How long from home to the office?": how long by car (AMap's estimate) and which roads are jammed, how long by bus or subway, where to change and the fare;
-- "Any coffee shops nearby?", "What's to eat near the office?": names, addresses and distances, nearest first;
+- "How long from home to the office?": how long by car and which roads are jammed, how long by bus or subway, where to change and the fare;
+- "Any coffee shops nearby?", "What's to eat near the office?", "Hawker centres nearby?": names, addresses and distances, nearest first;
 - "Where's Xixi Wetland?", "How do I get to Xixi Wetland?", "Where am I now?"
 
-ergo says "data from AMap" in its answers. Results are looked up on the spot and used right away: not saved, not added to memory.
+**Who looks it up:** ergo picks by place; you don't have to.
+
+- **Inside mainland China**: with the **Web service key** in, AMap — driving with live traffic, plus bus and subway transfers and fares.
+- **Abroad** (places like Singapore, and Hong Kong, Macau and Taiwan): OpenStreetMap's free services, no key needed. **No transit and no live traffic**: driving times are estimated from road speed limits, and ergo gives driving and walking; for nearby places say what you're looking for ("coffee shop", "hawker centre") — it can't list everything nearby.
+- **Without an AMap key, lookups inside China use OpenStreetMap too**, and ergo mentions that "places in China are looked up on OpenStreetMap, which may miss some shops and small roads". The same happens when **On-demand lookup** under **AMap** is off or AMap says the key is wrong.
+
+ergo says where the data came from in its answers ("data from AMap" or "data from OpenStreetMap (© OpenStreetMap contributors)"). Results are looked up on the spot and used right away: not saved, not added to memory.
+
+**OpenStreetMap's free services have their own rules**: places come from Nominatim and routes from the OSRM demo server, both public services run by volunteers, with no guarantee they're always up, at most one request per second, and meant for light personal use. ergo follows the rules: one request at a time, a little over a second apart, with ergo's own name on them; the same query within a day reuses the copy kept in the computer's memory (gone after a restart, never written to disk); and no suggestions while you type. When they're unavailable, ergo says "OpenStreetMap's free service is temporarily unavailable" — just ask again a bit later.
 
 **Where "home" and "the office" are:** the names you gave under **Frequent places** in Settings · Data sources · Phone · Location. If you haven't named them yet, ergo tells you where to do it, or you can just give an address.
 
@@ -48,17 +62,15 @@ ergo says "data from AMap" in its answers. Results are looked up on the spot and
 
 **Test lookup:** with the Web service key saved under **AMap**, tap **Run a test lookup**: ergo searches "Tiananmen" in Beijing once (a fixed word, not your location) and lists what it found, so you can see whether it works. Below it shows how many lookups you've made this month.
 
-**Usage:** AMap's free quota for verified individual developers is roughly 5,000 place searches and 150,000 address and route lookups a month, free for one year; the AMap console has the real numbers. ergo counts lookups per month (only the counts, not what was looked up) and Settings · Checkup warns you when you're getting close. When AMap says the limit is reached, lookups are too frequent, or the key is wrong, ergo tells you so; for a wrong key the **AMap** row says it needs authorization — enter the key again.
-
-For now it only looks up places and routes inside mainland China; lookups abroad will use the free OpenStreetMap services later.
+**Usage:** AMap's free quota for verified individual developers is roughly 5,000 place searches and 150,000 address and route lookups a month, free for one year; the AMap console has the real numbers. ergo counts lookups per month (only the counts, not what was looked up) and Settings · Checkup warns you when you're getting close. When AMap says the limit is reached, lookups are too frequent, or the key is wrong, ergo tells you so; for a wrong key the **AMap** row says it needs authorization — enter the key again (until then, lookups inside China use OpenStreetMap). OpenStreetMap needs no key and isn't counted.
 
 ## What map services can see
 
 - **OpenStreetMap**: your computer fetches the map images for the page, so OpenStreetMap sees the computer's network address and the area you're looking at, not your phone's. Fetched images are kept on the computer for a while and not fetched again.
 - **AMap**: for maps inside China, your browser fetches map data directly from AMap, so AMap sees this device's network address and the area you're looking at.
-- **When looking up places and routes**: only when you ask, the start, the destination or the "nearby" spot for that one lookup goes to AMap ("home" and "the office" send the center of the place you named; "nearby" sends the one latest location from your phone).
+- **When looking up places and routes**: only when you ask, the start, the destination or the "nearby" spot for that one lookup goes to whoever looks it up — AMap inside China, OpenStreetMap's public services abroad (and inside China without an AMap key) ("home" and "the office" send the center of the place you named; "nearby" sends the one latest location from your phone). When finding the other end of a route by name, the start goes along too, so the nearest match is picked.
 - **Where you went each day and where your photos were taken are never sent to any map service**: your footprints, when they're drawn later, are drawn only inside ergo.
 
 ## Turn the map off
 
-Settings · Plugins, disable **Map**. Removing it with **Delete its data** deletes the AMap keys you entered, the map images stored on the computer and the monthly lookup counts. To only stop ergo from looking things up, turn off **On-demand lookup** under **AMap**.
+Settings · Plugins, disable **Map**. Removing it with **Delete its data** deletes the AMap keys you entered, the map images stored on the computer and the monthly lookup counts. To only stop ergo from using AMap for lookups, turn off **On-demand lookup** under **AMap** (lookups inside China then use OpenStreetMap).
