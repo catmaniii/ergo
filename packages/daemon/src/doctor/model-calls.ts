@@ -37,15 +37,15 @@ export function modelErrorGist(record: Pick<TurnRecord, "outcome" | "error">): {
     message: { key: `doctor.modelCalls.gist.${kind}`, ...(params ? { params } : {}) },
   });
   if (record.outcome === "timeout") return of("timeout");
-  if (/\b(503|529)\b|overload|server is busy|too busy|unavailable|繁忙|太忙|capacity/i.test(text)) return of("busy");
-  if (/\b429\b|rate.?limit|too many requests|限流|频率/i.test(text)) return of("rate");
-  if (/\b402\b|insufficient.{0,20}(balance|quota|credit)|余额|欠费|quota exceeded|billing/i.test(text)) return of("balance");
+  if (/\b(503|529)\b|overload|server is busy|too busy|unavailable|繁忙|太忙|capacity/i.test(text)) return of("busy"); // @i18n-ignore data：认服务商出错原文里的中文说法
+  if (/\b429\b|rate.?limit|too many requests|限流|频率/i.test(text)) return of("rate"); // @i18n-ignore data：认服务商出错原文里的中文说法
+  if (/\b402\b|insufficient.{0,20}(balance|quota|credit)|余额|欠费|quota exceeded|billing/i.test(text)) return of("balance"); // @i18n-ignore data：认服务商出错原文里的中文说法
   if (/\b(401|403)\b|unauthori[sz]ed|forbidden|invalid.{0,20}(api.?key|token|key)|authentication|api key/i.test(text)) return of("auth");
-  if (/context.{0,20}(length|window|overflow)|maximum context|prompt is too long|too many tokens|上下文.{0,6}(超|太长)/i.test(text)) return of("overflow");
+  if (/context.{0,20}(length|window|overflow)|maximum context|prompt is too long|too many tokens|上下文.{0,6}(超|太长)/i.test(text)) return of("overflow"); // @i18n-ignore data：认服务商出错原文里的中文说法
   const code = /\b(5\d\d)\b/.exec(text)?.[1];
   if (code !== undefined) return of("server", { code });
   if (/internal server error|bad gateway|gateway time-?out|server error/i.test(text)) return of("server", { code: "5xx" });
-  if (/ECONNRESET|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|fetch failed|socket hang up|network|连不上|网络/i.test(text)) return of("network");
+  if (/ECONNRESET|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|fetch failed|socket hang up|network|连不上|网络/i.test(text)) return of("network"); // @i18n-ignore data：认服务商出错原文里的中文说法
   const short = text.length > OTHER_TEXT_MAX ? `${text.slice(0, OTHER_TEXT_MAX)}…` : text;
   return of("other", { text: short === "" ? "?" : short });
 }
