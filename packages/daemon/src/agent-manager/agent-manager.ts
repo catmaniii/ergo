@@ -209,6 +209,29 @@ export const DEFAULT_AGENT_LIMITS: Readonly<AgentLimits> = Object.freeze({
   browserIdleMs: 30 * 60_000,
 });
 
+/**
+ * 一个 agent 在这一轮里现在停在哪一步（411 体检看"卡住的 agent"）：等模型说话、或者在等某个工具调用结束。
+ * forMs 是这一步已经多久了（送了输入、模型说完一条、工具调用开始或结束时换下一步）；limitMs 是这一步多久算太久：
+ * 单次模型调用的超时加上工具调用的超时（在等的工具声明了自己的超时就用它的，没有就是默认的）；在等的工具不按单次超时算的
+ * （Claude Code 的子代理）是 null，不判。在等用户批准的不算（等你不是卡住）
+ */
+export interface AgentStep {
+  agentId: string;
+  forMs: number;
+  /** 在做什么：等模型（thinking）或者在调用哪个工具（calling_tool，工具的中文名） */
+  detail: ActivityDetail;
+  limitMs: number | null;
+}
+
+/** 体检读的子进程名额和各 agent 停在哪一步（411） */
+export interface AgentManagerDoctorFacts {
+  /** 活着的子进程几个、上限几个、排队等名额的几个 */
+  live: number;
+  maxLive: number;
+  queued: number;
+  steps: AgentStep[];
+}
+
 /** 一个 agent 在管家这里的状态：排队、拉起中（还没就绪）、在运行（闲着或在一轮里）、闲置退出中、已退出 */
 export type ManagedAgentState = "queued" | "starting" | "running" | "exiting" | "exited";
 
@@ -305,6 +328,8 @@ export interface AgentManager extends UserWaits {
    * （turn-log.ts）
    */
   recentTurns(): readonly TurnRecord[];
+  /** 体检读的（411）：子进程的名额用了多少、每个在一轮里的 agent 停在哪一步多久了（只读内存） */
+  doctorFacts(): AgentManagerDoctorFacts;
   /** 结束所有还活着的子进程（排队的取消），等它们退出 */
   shutdown(): Promise<void>;
 }
@@ -447,6 +472,10 @@ class Entry implements ManagedAgent {
   private retooled: { toolTimeouts: Readonly<Record<string, number>>; toolTitles: Readonly<Record<string, string>> } | undefined;
   /** 还没结束的工具调用和它们开始的时刻（孤儿回收不杀这之后起的进程） */
   private readonly toolStarts = new Map<string, number>();
+  /** 还没结束的工具调用各自的中文名和超时（毫秒；不按单次超时算的是 null）：体检说停在哪个工具、多久算太久（411） */
+  private readonly toolSteps = new Map<string, { title: string; limitMs: number | null }>();
+  /** 这一轮里现在这一步从什么时候起（毫秒）：送输入、模型说完一条、工具调用开始和结束时换（411 体检） */
+  private stepAt = Date.now();
   /** 最近一次工具调用开始或结束的时刻（agent-browser 闲置多久按它算）；拉起时算起 */
   private lastToolActivity = Date.now();
   private modelTimer: NodeJS.Timeout | undefined;
@@ -507,6 +536,7 @@ class Entry implements ManagedAgent {
   send(command: Exclude<HostCommand, { type: "start" }>): void {
     if (!this.proc || this.state !== "running") throw new Error(`agent ${this.agentId} 现在${STATE_LABEL[this.state]}，不能送 ${command.type}`); // @i18n-ignore log：编程错误
     if (command.type === "user_input") {
+      if (!this.turnOpen) this.stepAt = Date.now();
       this.turnOpen = true;
       this.clearIdle();
       this.clearHold();
@@ -631,6 +661,7 @@ class Entry implements ManagedAgent {
       }
       case "message_final":
         if (!this.turnOpen) break;
+        this.stepAt = Date.now();
         this.clearModel();
         // 要调用工具：等工具调用结束后才是下一次模型调用；一个工具都没列出的，下一次模型调用马上开始
         if (report.message.stopReason === "tool_calls" && !report.message.parts.some((p) => p.type === "tool_call")) this.armModel();
@@ -638,12 +669,16 @@ class Entry implements ManagedAgent {
       case "tool_call_start":
         this.toolStarts.set(report.toolCallId, Date.now());
         this.lastToolActivity = Date.now();
+        this.stepAt = Date.now();
+        this.toolSteps.set(report.toolCallId, { title: this.toolTitle(report.toolName), limitMs: this.toolTimeoutOf(report.toolName) });
         if (this.turnOpen) this.armTool(report.toolCallId, report.toolName);
         this.progress({ kind: "calling_tool", tool: this.toolTitle(report.toolName) });
         break;
       case "tool_call_end": {
         this.toolStarts.delete(report.toolCallId);
+        this.toolSteps.delete(report.toolCallId);
         this.lastToolActivity = Date.now();
+        this.stepAt = Date.now();
         const timer = this.toolTimers.get(report.toolCallId);
         if (timer) clearTimeout(timer);
         this.toolTimers.delete(report.toolCallId);
@@ -653,6 +688,7 @@ class Entry implements ManagedAgent {
       case "turn_end":
         this.turnOpen = false;
         this.toolStarts.clear();
+        this.toolSteps.clear();
         this.userWaits.clear();
         this.clearTurnTimers();
         this.noteTurn(report);
@@ -763,9 +799,7 @@ class Entry implements ManagedAgent {
    * 都没有按默认。不按单次超时算的照样记着"在等它结束"（期间不算在等下一次模型调用：子代理里的调用结束了也不开始计模型的时）
    */
   private armTool(toolCallId: string, toolName: string): void {
-    const own = (this.retooled?.toolTimeouts ?? this.request.toolTimeouts)?.[toolName];
-    const runtime = this.runtimeToolTimeouts && Object.hasOwn(this.runtimeToolTimeouts, toolName) ? this.runtimeToolTimeouts[toolName] : undefined;
-    const ms = own ?? (runtime === undefined ? this.manager.limits.toolCallMs : runtime);
+    const ms = this.toolTimeoutOf(toolName);
     if (ms === null) {
       this.toolTimers.set(toolCallId, undefined);
       return;
@@ -773,6 +807,28 @@ class Entry implements ManagedAgent {
     const timer = setTimeout(() => this.timeout(t("agentManager.toolTimeout", { tool: toolName, duration: duration(ms) }), "tool"), ms);
     timer.unref();
     this.toolTimers.set(toolCallId, timer);
+  }
+
+  /** 这个工具一次调用最多等多久（毫秒）：拉起时声明的、运行时自带的工具声明的，都没有按默认；不按单次超时算的是 null */
+  private toolTimeoutOf(toolName: string): number | null {
+    const own = (this.retooled?.toolTimeouts ?? this.request.toolTimeouts)?.[toolName];
+    const runtime = this.runtimeToolTimeouts && Object.hasOwn(this.runtimeToolTimeouts, toolName) ? this.runtimeToolTimeouts[toolName] : undefined;
+    return own ?? (runtime === undefined ? this.manager.limits.toolCallMs : runtime);
+  }
+
+  /**
+   * 这一轮现在停在哪一步（411 体检，见 AgentStep）：不在一轮里、在等用户批准的没有。在等工具时按最晚开始的那个说，
+   * 多久算太久按在等的工具里最长的超时（有一个不按超时算就不判）
+   */
+  currentStep(now: number): AgentStep | undefined {
+    if (!this.turnOpen || this.userWaits.size > 0 || this.state !== "running") return undefined;
+    const { modelCallMs, toolCallMs } = this.manager.limits;
+    const forMs = Math.max(0, now - this.stepAt);
+    const tools = [...this.toolSteps.values()];
+    if (tools.length === 0) return { agentId: this.agentId, forMs, detail: { kind: "thinking" }, limitMs: modelCallMs + toolCallMs };
+    const limits = tools.map((tool) => tool.limitMs);
+    const limitMs = limits.includes(null) ? null : modelCallMs + Math.max(...(limits as number[]));
+    return { agentId: this.agentId, forMs, detail: { kind: "calling_tool", tool: tools.at(-1)!.title }, limitMs };
   }
 
   private clearTurnTimers(): void {
@@ -834,6 +890,7 @@ class Entry implements ManagedAgent {
     this.exitReason = reason;
     this.turnOpen = false;
     this.toolStarts.clear();
+    this.toolSteps.clear();
     this.userWaits.clear();
     this.clearTurnTimers();
     this.clearCompact();
@@ -1064,6 +1121,10 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
     },
     live: () => [...live].flatMap((e) => (e.pid === undefined ? [] : [{ agentId: e.agentId, pid: e.pid }])),
     recentTurns: () => turns.recent(),
+    doctorFacts() {
+      const now = Date.now();
+      return { live: live.size, maxLive: limits.maxLive, queued: queue.length, steps: [...live].flatMap((e) => e.currentStep(now) ?? []) };
+    },
     rewriteSessions(agentId, request) {
       // @i18n-ignore-start log：编程错误
       if (!AGENT_ID.test(agentId)) return Promise.reject(new Error(`agent 标识不合法：${agentId}`));

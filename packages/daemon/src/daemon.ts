@@ -16,6 +16,7 @@ import {
   CHANNELS,
   clockLabel,
   COMPONENT_FEATURES,
+  DEFAULT_SECRETARY_SKILLS,
   fillAssistantName,
   type ConversationId,
   EVENT_TYPES,
@@ -45,7 +46,7 @@ import type { HostTool, HostToolCall } from "./agent-manager/host-tools.ts";
 import { bashTmpMount } from "./agent-manager/work-temp.ts";
 import { approvalCardType, type ApprovalService, createApprovalService } from "./approvals/approvals.ts";
 import { approvalDecisionPurge, approvalDecisionSource, approvalRequestPurge } from "./approvals/material-source.ts";
-import { approvalsView } from "./approvals/views.ts";
+import { approvalsView, listApprovals } from "./approvals/views.ts";
 import { type BackupService, createBackupService } from "./backup/backup.ts";
 import type { SnapshotFiles } from "./backup/files.ts";
 import { BoardKindRegistry, type BoardKinds } from "./board/kinds.ts";
@@ -69,6 +70,7 @@ import { createDoctorChecks, type DoctorCheckRegistry } from "./doctor/checks.ts
 import { registerCoreDoctorChecks } from "./doctor/core.ts";
 import { type DoctorService, createDoctor, diskProbe, externalProbe, missingDefaultFeatures, nodeProbe, piVersionProbe, portsProbe, supervisorProbe, supervisorStatus } from "./doctor/doctor.ts";
 import { localPortOf } from "./doctor/services.ts";
+import { type AgentLabel, housekeepingChecks } from "./doctor/housekeeping.ts";
 import { modelCredentials, tavilyKey } from "./config/secrets.ts";
 import { messagePurge, timelineRecordPurge } from "./conversation/purge.ts";
 import { createReadMarks } from "./conversation/read-marks.ts";
@@ -199,7 +201,7 @@ import { createWorkFolders } from "./work-folders/index.ts";
 import { type Clock, clockIso, systemClock } from "./scheduler/clock.ts";
 import { createInternalJobs, type InternalJobs, internalJobsView } from "./scheduler/internal-jobs.ts";
 import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
-import { createJobMaintainers, createScheduledJobs, getJob, isJobMaintainerId, registerJobDeletion, type ScheduledJobs, scheduledJobsView, scheduledRunEstimate } from "./scheduled-jobs/index.ts";
+import { createJobMaintainers, createScheduledJobs, getJob, isJobMaintainerId, listJobs, registerJobDeletion, runsIn, type ScheduledJobs, scheduledJobsView, scheduledRunEstimate } from "./scheduled-jobs/index.ts";
 import { relayActions } from "./secretary/relay.ts";
 import { type Secretary, SECRETARY_AGENT_ID, SECRETARY_TARGET, startSecretary } from "./secretary/secretary.ts";
 import { AUTHORIZED_FOLDERS_BLOCK_ID, authorizeFoldersAction, secretaryFoldersBlock } from "./folders/authorize-folders.ts";
@@ -3052,6 +3054,71 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         now: () => clock.now(),
       }),
     );
+    // 体检"二狗本身"的新检查（二）（411，doctor/housekeeping.ts；登记在 410 那几项后面，页面上排在它们之后）：备份、定时触发的任务、内部作业、卡住的 agent 和名额、日志大小、
+    // 配置文件、缺的 skill，加三项提示（待办、手机 App 版本、数据库的预写日志）。都只读这里现成的状态和本机文件，查的时候现取；
+    // 登记在负责人（maintainers）建好之后：缺的 skill 要读在跑的项目、没结束的任务的工具包
+    const agentLabel = (agentId: string): AgentLabel => {
+      if (agentId === SECRETARY_AGENT_ID) return { name: assistantName.current(), route: "#/secretary" };
+      const task = tasks.ofMaintainer(agentId);
+      if (task) return { name: t("doctor.stuckAgents.taskOwner", { title: task.title }), route: `#/tasks/${encodeURIComponent(task.id)}` };
+      const project = projectDirectory.maintainedBy(agentId);
+      if (project) return { name: t("doctor.stuckAgents.projectOwner", { name: project.name }), route: `#/projects/${encodeURIComponent(project.id)}/chat` };
+      const ownJob = isJobMaintainerId(agentId) ? listJobs(store.reader).find((each) => each.maintainerId === agentId) : undefined;
+      if (ownJob) return { name: t("doctor.stuckAgents.taskOwner", { title: ownJob.title }), route: `#/tasks/jobs/${encodeURIComponent(ownJob.id)}` };
+      return { name: agentId };
+    };
+    for (const check of housekeepingChecks({
+      now: () => clock.now(),
+      backup: () => backup.doctorFacts(),
+      triggers: () => ({
+        autoPaused: listJobs(store.reader, ["paused"]).filter((paused) => paused.pausedBy === "failures"),
+        open: runsIn(store.reader, ["queued", "running"]).map((run) => ({ run, job: getJob(store.reader, run.jobId) })),
+      }),
+      internalJobs: () => internalJobs.registeredStates(),
+      agents: () => agents.doctorFacts(),
+      agentLabel,
+      logDirs: () => [
+        { kind: "supervisor", dir: path.join(svcDataDir, "logs") },
+        { kind: "data", dir: layout.logs },
+      ],
+      config: () => {
+        const facts = mcp.doctorFacts();
+        const modelError = modelSettings.fileError();
+        return {
+          ...(facts.problem === undefined ? {} : { mcpProblem: facts.problem }),
+          ...(modelError === undefined ? {} : { modelSettings: { file: layout.modelSettingsFile, error: modelError } }),
+          missingEnv: facts.missingEnv,
+        };
+      },
+      skills: () => {
+        // 装配清单：在跑的项目、没结束的任务的工具包，给助手选的名单（默认的那两个可以先于导入留着，不算缺）
+        // 库只扫一遍（每扫一遍，认不出来的合集成员都会记一行日志）
+        const known = new Set(skills.list().map((skill) => skill.name));
+        const missing = (names: readonly string[]) => [...new Set(names.filter((name) => !known.has(name)))];
+        const lists: Array<{ where: string; names: readonly string[] }> = [];
+        for (const project of projectDirectory.list()) {
+          if (project.state === "archived") continue;
+          const names = projectSystem.skillsOf(project.maintainerId);
+          if (names) lists.push({ where: t("doctor.missingSkills.project", { name: project.name }), names: missing(names) });
+        }
+        for (const task of tasks.list()) {
+          if (!UNFINISHED_TASK_STATES.includes(task.state)) continue;
+          const names = maintainers.skillsOf(task.maintainerId);
+          if (names) lists.push({ where: t("doctor.missingSkills.task", { title: task.title }), names: missing(names) });
+        }
+        const chosen = secretarySkills.view().skills.filter((name) => !(DEFAULT_SECRETARY_SKILLS as readonly string[]).includes(name));
+        lists.push({ where: t("doctor.missingSkills.assistant", { name: assistantName.current() }), names: missing(chosen) });
+        return { collections: skills.brokenCollections(), lists };
+      },
+      pending: () => ({
+        open: inbox.list().filter((item) => !item.archived && !inbox.isProcessed(item)).length,
+        approvals: listApprovals(store.reader, "pending").length,
+      }),
+      devices: () => pairing.list(),
+      dbDir: () => layout.db,
+    })) {
+      doctorChecks.register(check);
+    }
     teardown.push(connectionAddresses.attach({ entries: lsm.entries, managerUrl: lsm.managerUrl, externalPort: gateway.externalPort }));
     // 项目的服务：接入层建好了，开始做（上线了的先登记转发、没做完的接着做、接 LSM 推来的状态）；之后按网关实际监听的端口
     projectSystem.startServices({ lsm: lsm.services, ports: { local: gateway.port, external: gateway.externalPort } });

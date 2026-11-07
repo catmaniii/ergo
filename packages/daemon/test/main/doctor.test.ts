@@ -104,6 +104,46 @@ describe("体检的接口（319b）", () => {
     expect(idOf((await doctorApi.view(td.url)).body.checks, "external")).toEqual({ id: "external", ok: true, data: { configured: true, kind: "tailscale" } });
   });
 
+  it("二狗本身的新检查（二）（411）：十项都接上了；今天的情形——合集缺两个 skill、服务管家的日志 265 MB——是注意，别的照这个临时环境的样子", { timeout: 90_000 }, async () => {
+    // 数据目录先放一个合集：清单里写了 handoff、to-questionnaire，skill 区里没有这两个目录
+    const dataDir = makeTempDir("ergo-doctor-411-data-");
+    const homeDir = makeTempDir("ergo-doctor-411-home-");
+    const collection = path.join(dataDir, "skills", "matt-pocock");
+    fs.mkdirSync(path.join(collection, "tdd"), { recursive: true });
+    fs.writeFileSync(path.join(collection, "tdd", "SKILL.md"), "---\nname: tdd\ndescription: 测试驱动\n---\n\n先写测试。\n");
+    const manifest = { format: 1, name: "matt-pocock", source: "假的", version: "1", description: "假的合集", members: ["tdd", "handoff", "to-questionnaire"], importedFrom: homeDir, importedAt: "2026-11-01T00:00:00.000+08:00" };
+    fs.writeFileSync(path.join(collection, "ergo-collection.json"), JSON.stringify(manifest));
+    // 服务管家的日志目录：一个 265 MB 的（稀疏文件，不真写这么多）
+    const svc = makeTempDir("ergo-doctor-411-svc-");
+    fs.mkdirSync(path.join(svc, "logs"), { recursive: true });
+    const log = path.join(svc, "logs", "ergo-daemon.out.log");
+    fs.writeFileSync(log, "");
+    fs.truncateSync(log, 265 * 1024 ** 2);
+
+    const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined, LSM_DATA_DIR: svc }, reuse: { dataDir, homeDir } });
+    const core = (await doctorApi.view(td.url)).body.groups.find((group) => group.kind === "core")!;
+    const item = (id: string) => core.items.find((i) => i.id === id)!;
+    const ids = ["backup", "triggers", "internal-jobs", "stuck-agents", "log-size", "config-files", "missing-skills", "pending", "app-version", "db-wal"];
+    expect(ids.filter((id) => item(id) === undefined)).toEqual([]);
+    // 八项在前，新的接在后面（不适用的挪到最后）
+    expect(core.items.slice(0, DOCTOR_CHECKS.length).map((i) => i.id)).toEqual([...DOCTOR_CHECKS].filter((id) => core.items.find((i) => i.id === id)!.level !== "na"));
+
+    expect(item("missing-skills")).toMatchObject({ level: "warn", action: { kind: "open", route: "#/more/skills" } });
+    expect(item("missing-skills").text.fact).toContain("handoff");
+    expect(item("missing-skills").text.fact).toContain("to-questionnaire");
+    expect(item("log-size")).toMatchObject({ level: "warn" });
+    expect(item("log-size").text.fact).toContain("265 MB");
+    // 刚起来的临时环境：还没到第一次备份、没有定时触发的任务、内部作业还没跑过、没卡住、配置都读得出来、没有配对的手机
+    expect(item("backup")).toMatchObject({ level: "ok", fact: { key: "doctor.backup.notYet" } });
+    expect(item("triggers")).toMatchObject({ level: "ok", fact: { key: "doctor.triggers.ok" } });
+    expect(item("internal-jobs")).toMatchObject({ level: "ok", fact: { key: "doctor.internalJobs.ok" } });
+    expect(item("stuck-agents")).toMatchObject({ level: "ok", fact: { key: "doctor.stuckAgents.ok" } });
+    expect(item("config-files")).toMatchObject({ level: "ok", fact: { key: "doctor.configFiles.ok" } });
+    expect(item("pending").level).toBe("ok");
+    expect(item("app-version")).toMatchObject({ level: "na", fact: { key: "doctor.appVersion.noDevices" } });
+    expect(item("db-wal").level).toBe("ok");
+  });
+
   it("只认 GET：POST /api/doctor 回 405；路径不对回 404", { timeout: 60_000 }, async () => {
     const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined } });
     const posted = await fetch(`${td.url}/api/doctor`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });

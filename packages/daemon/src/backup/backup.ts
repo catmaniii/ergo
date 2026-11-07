@@ -27,7 +27,7 @@
 // 设置 · 备份单独一页。运行中能换配置（changeConfig）：写进配置文件（只动 backup 这几个键），运行中的 BackupConfig 就地换新值，时刻、
 // 谁来定时变了内部作业跟着换（BACKUP_JOB、OVERDUE_JOB 撤一个加一个），不用重启。命令行脚本每次现读文件，两边一致。
 // **正在备份时改位置：这一份做完才生效。** runBackup 开始时（拿到锁之后）取一份配置，这一次一直写到原来的文件夹；排在后面的、下一次的用新的。不拒绝用户。
-// 手动校验（startVerify）和每周校验是同一件事，排同一条队列、拿同一把锁，结果记在 lastVerify（只记在这次运行里；没通过的同样放事项）。
+// 手动校验（startVerify）和每周校验是同一件事，排同一条队列、拿同一把锁，结果记在 lastVerify（411 起也写进本机备份区的 last-verify.json，重启后接着看得到；没通过的同样放事项）。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -38,6 +38,8 @@ import {
   type BackupPlace,
   type BackupResult,
   type BackupRunner,
+  type BackupRunRecord,
+  type BackupSchedule,
   type BackupSnapshotPlace,
   type BackupSnapshotsView,
   type BackupStatusView,
@@ -59,7 +61,7 @@ import { backupCommands, installLayoutOfDaemon } from "./commands.ts";
 import { describeWriteError, nodeSnapshotFiles, type SnapshotFiles } from "./files.ts";
 import { checkBackupFolder } from "./folder-check.ts";
 import { acquireBackupLock, BackupBusy, type BackupLockOwner, backupLockFile, liveLockOwner } from "./lock.ts";
-import { readBackupRecord, writeBackupRecord } from "./record.ts";
+import { readBackupRecord, readVerifyRecord, writeBackupRecord, writeVerifyRecord } from "./record.ts";
 import { isSunday, keepLocal, keepSync, LOCAL_KEEP, SYNC_DAILY_KEEP, SYNC_WEEKLY_KEEP } from "./retention.ts";
 import {
   collectPool,
@@ -307,7 +309,46 @@ export function lastBackupAt(layout: DataDirLayout): number | undefined {
   return valid.length > 0 ? Math.max(...valid) : undefined;
 }
 
+/**
+ * 最近一次备份成功的时刻（毫秒，411 的体检用）：记录里成功的那次（本机和另存的文件夹都没失败）的结束时间，和本机备份区最新快照的
+ * 生成时间（本机快照做成了就算备份成了一半；以前做的没有记录），取晚的。一次都没成过是 undefined
+ */
+export function lastBackupOkAt(layout: DataDirLayout): number | undefined {
+  const times: number[] = [];
+  const record = readBackupRecord(layout);
+  if (record && record.local !== "failed" && record.sync !== "failed") times.push(Date.parse(record.finishedAt));
+  const latest = listSnapshotDates(layout.backups).at(-1);
+  const snapshot = latest === undefined ? undefined : readSnapshot(path.join(layout.backups, latest));
+  if (snapshot) times.push(Date.parse(snapshot.manifest.createdAt));
+  const valid = times.filter(Number.isFinite);
+  return valid.length > 0 ? Math.max(...valid) : undefined;
+}
+
+/**
+ * 体检"备份"那一项读的（411，doctor/housekeeping.ts 判几级）：都是本机记着的，不备份、不校验。
+ * last 可能带着 422 加的 skipped（跳过了被占着的文件），体检按"有就提示"读
+ */
+export interface BackupDoctorFacts {
+  schedule: BackupSchedule;
+  /** 最近一次的记录（last-backup.json）；还没做过没有 */
+  last?: BackupRunRecord;
+  /** 最近一次成功的时刻（ISO，lastBackupOkAt）；一次都没成过没有 */
+  lastOkAt?: string;
+  /** 本机备份区最新快照的日期；没有快照没有 */
+  latestLocal?: string;
+  /** 最近一次校验（last-verify.json）；没校验过没有 */
+  lastVerify?: BackupVerifyRecord;
+  /** 从什么时候起在等备份：每晚备份（或外部定时器的提醒）这个内部作业第一次登记的时刻（ISO）；还没登记过没有 */
+  watchingSince?: string;
+  /** 守护进程下一次自己备份的时刻（ISO）；交给外部定时器的没有 */
+  next?: string;
+  /** 现在正在做一份 */
+  running: boolean;
+}
+
 export interface BackupService {
+  /** 体检读的（411）：最近一次的记录、成功的时刻、最近一次校验……都是现读本机的文件 */
+  doctorFacts(): BackupDoctorFacts;
   /** 立即备份（手动）：重做当天的快照（已有的换掉），再复制到同步目录；排在队列里、拿着备份锁做 */
   backupNow(): Promise<BackupResult>;
   /** 设置里的"立即备份"（POST /api/backup/run）：排一次手动备份（已经排着一次就不再排），不等做完，回现在的状况 */
@@ -417,8 +458,16 @@ export function createBackupService(options: BackupServiceOptions): BackupServic
       ...(options.lockPollMs === undefined ? {} : { lockPollMs: options.lockPollMs }),
     });
 
-  /** 最近一次校验（只记在这次运行里） */
-  let lastVerify: BackupVerifyRecord | undefined;
+  /** 最近一次校验（411 起记进本机备份区的 last-verify.json，重启后从那里接着；体检也读它） */
+  let lastVerify: BackupVerifyRecord | undefined = readVerifyRecord(layout);
+  const saveVerify = (record: BackupVerifyRecord) => {
+    lastVerify = record;
+    try {
+      writeVerifyRecord(layout, record);
+    } catch (err) {
+      log(`校验：结果没记下来（${err instanceof Error ? err.message : String(err)}），这次运行里照样看得到`);
+    }
+  };
   /** 排着、正在做的校验有几次（页面上的"校验最新快照"据此灰掉） */
   let pendingVerify = 0;
   /** 校验正拿着备份锁：这时锁的主人不是一份备份 */
@@ -453,7 +502,7 @@ export function createBackupService(options: BackupServiceOptions): BackupServic
         { location, date, problems },
       );
     }
-    lastVerify = { finishedAt: clockIso(clock), checks, ...(sync.kind === "unusable" ? { syncSkipped: sync.reason } : {}) };
+    saveVerify({ finishedAt: clockIso(clock), checks, ...(sync.kind === "unusable" ? { syncSkipped: sync.reason } : {}) });
     return checks;
   };
 
@@ -473,7 +522,7 @@ export function createBackupService(options: BackupServiceOptions): BackupServic
       if (!(err instanceof BackupBusy)) throw err;
       const busy = t("backup.busy", { owner: lockOwnerText(err.owner) });
       log(`校验：${busy}`);
-      lastVerify = { finishedAt: clockIso(clock), checks: [], busy };
+      saveVerify({ finishedAt: clockIso(clock), checks: [], busy });
       return [];
     }
     verifyHoldsLock = true;
@@ -626,7 +675,26 @@ export function createBackupService(options: BackupServiceOptions): BackupServic
     }
   };
 
+  const doctorFacts = (): BackupDoctorFacts => {
+    const last = readBackupRecord(layout);
+    const okAt = lastBackupOkAt(layout);
+    const latestLocal = listSnapshotDates(layout.backups).at(-1);
+    const watching = internalJobs.state(config.schedule === "internal" ? BACKUP_JOB : OVERDUE_JOB)?.since;
+    const next = config.schedule === "internal" ? internalJobs.nextRun(BACKUP_JOB) : undefined;
+    return {
+      schedule: config.schedule,
+      ...(last ? { last } : {}),
+      ...(okAt === undefined ? {} : { lastOkAt: nowIso(new Date(okAt)) }),
+      ...(latestLocal ? { latestLocal } : {}),
+      ...(lastVerify ? { lastVerify } : {}),
+      ...(watching ? { watchingSince: watching } : {}),
+      ...(next ? { next: nowIso(next) } : {}),
+      running: pendingManual > 0 || (!verifyHoldsLock && liveLockOwner(backupLockFile(layout)) !== undefined),
+    };
+  };
+
   return {
+    doctorFacts,
     backupNow,
     startNow() {
       if (pendingManual === 0 && !controller.signal.aborted) backupSoon();

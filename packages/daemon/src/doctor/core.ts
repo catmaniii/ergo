@@ -44,9 +44,9 @@ export interface CoreDoctorSources {
   now(): number;
 }
 
-/** 时长写成"40 秒""3 分钟" */
-function durationParams(ms: number): { key: string; params: { n: number } } {
-  return ms >= 60_000 ? { key: "doctor.duration.minutes", params: { n: Math.round(ms / 60_000) } } : { key: "doctor.duration.seconds", params: { n: Math.max(1, Math.round(ms / 1000)) } };
+/** 时长写成"40 秒""3 分钟"（分钟那句和 411 的体检项共用一个键，参数叫 count，英文分单复数） */
+function durationParams(ms: number): { key: string; params: Record<string, number> } {
+  return ms >= 60_000 ? { key: "doctor.duration.minutes", params: { count: Math.round(ms / 60_000) } } : { key: "doctor.duration.seconds", params: { n: Math.max(1, Math.round(ms / 1000)) } };
 }
 
 /** 主对话：秘书子进程在不在线 */

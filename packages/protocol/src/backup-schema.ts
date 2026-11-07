@@ -117,7 +117,7 @@ export const BackupVerifyCheck = Type.Object({
 });
 export type BackupVerifyCheck = Static<typeof BackupVerifyCheck>;
 
-/** 最近一次校验（手动的、每周的；只记在这次运行里）：查了哪几处；另存文件夹用不了没查的写原因；等备份等太久这次没查的写原因 */
+/** 最近一次校验（手动的、每周的；411 起记在本机备份区的 last-verify.json，重启后接着有）：查了哪几处；另存文件夹用不了没查的写原因；等备份等太久这次没查的写原因 */
 export const BackupVerifyRecord = Type.Object({
   finishedAt: Type.String(),
   checks: Type.Array(BackupVerifyCheck),
@@ -149,7 +149,7 @@ export const BackupStatusView = Type.Object({
   commands: BackupCommandsView,
   /** 排着或正在做一次校验（这时 running 只说备份，不算校验拿着的锁） */
   verifying: Type.Boolean(),
-  /** 最近一次校验；这次运行还没校验过不带 */
+  /** 最近一次校验；还没校验过不带 */
   lastVerify: Type.Optional(BackupVerifyRecord),
 });
 export type BackupStatusView = Static<typeof BackupStatusView>;

@@ -117,6 +117,8 @@ export interface ModelSettingsService {
   visionOf(model: ModelSpec): Promise<boolean>;
   /** 设置页要的全部（要查模型目录，所以是异步的） */
   view(): Promise<ModelSettingsView>;
+  /** 设置文件读不出来的原因（这时在用默认；设置页存一次覆盖它之后没有了）：体检读（411），不查模型目录 */
+  fileError(): string | undefined;
   /** 设置里选的服务商和它的 key 配没配：不查模型目录，会话页上"还没配模型"的提示用 */
   keyView(): ModelKeyView;
   /**
@@ -394,6 +396,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
 
   return {
     current: () => structuredClone(settings),
+    fileError: () => fileError,
     customProvider() {
       const custom = customOf();
       return custom === undefined ? undefined : { ...custom };
