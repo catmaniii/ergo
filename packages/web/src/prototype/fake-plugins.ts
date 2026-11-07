@@ -146,14 +146,15 @@ function about(name: string): Omit<PluginInfo, "state" | "needs" | "neededBy" | 
       },
     };
   }
-  // 地图插件（429）：地图页、设置 · 数据源里高德地图的 Key；拥有的只有密钥区那一格和瓦片缓存。432：查地点、算路线的五个工具，用量
+  // 地图插件（429）：地图页、设置 · 数据源里高德地图的 Key；拥有的只有密钥区那一格和瓦片缓存。432：查地点、算路线的五个工具，用量。
+  // 433：国外查地点、算路线用 OpenStreetMap 的免费服务（没填高德 Key 时国内也用它）
   if (name === "map") {
     return {
       name,
       title: say("地图", "Map"),
       summary: say(
-        "地图页：国内用高德地图（要在 设置 · 数据源 里填高德的 Key），国外和还没填 Key 时用 OpenStreetMap；OpenStreetMap 的瓦片经这台电脑转发，高德的安全密钥由这台电脑替网页拼上",
-        "The map page: AMap inside mainland China (enter an AMap key in Settings · Data sources), OpenStreetMap abroad and until a key is entered; OpenStreetMap tiles go through this computer, and this computer adds AMap's security code for the page",
+        "地图页：国内用高德地图（要在 设置 · 数据源 里填高德的 Key），国外和还没填 Key 时用 OpenStreetMap；OpenStreetMap 的瓦片经这台电脑转发，高德的安全密钥由这台电脑替网页拼上。查地点、算路线：国内用高德，国外用 OpenStreetMap 的免费服务（不用 Key，没有公交和实时路况），没填高德的 Key 时国内也用它",
+        "The map page: AMap inside mainland China (enter an AMap key in Settings · Data sources), OpenStreetMap abroad and until a key is entered; OpenStreetMap tiles go through this computer, and this computer adds AMap's security code for the page. Finding places and routes: AMap inside mainland China, OpenStreetMap's free services abroad (no key; no transit or live traffic), and also inside China until an AMap key is entered",
       ),
       brings: {
         tools: [say("查地点", "Find places"), say("查路线", "Find a route"), say("查地址在哪", "Locate an address"), say("查某处的地址", "Address of a spot"), say("看常去的地方", "View frequent places")],

@@ -3,8 +3,8 @@ import type { Phrases } from "./phrases.ts";
 
 export const EN_DATA_SOURCES: Phrases = {
   "高德地图": "AMap",
-  "填了 Key，地图页在国内用高德地图，查地点、算路线也用它（只在你问的时候把起点、终点、\"附近\"的那一处发给高德）。Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给高德":
-    "With a key, the map page uses AMap inside mainland China, and looking up places and routes uses it too (only when you ask, the start, the destination or the \"nearby\" spot goes to AMap). The key stays on this computer; where you went each day and where your photos were taken are never sent to AMap",
+  "填了 Key，地图页在国内用高德地图，查国内的地点、路线也用它（只在你问的时候把起点、终点、\"附近\"的那一处发给高德；没填时国内也用 OpenStreetMap 查，店名和小路可能不全）。Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给高德":
+    "With a key, the map page uses AMap inside mainland China, and looking up places and routes there uses it too (only when you ask, the start, the destination or the \"nearby\" spot goes to AMap; without a key, lookups in China also use OpenStreetMap, which may miss some shops and small roads). The key stays on this computer; where you went each day and where your photos were taken are never sent to AMap",
   "试查：在北京搜「天安门」（固定的词，不是你的位置）": "Test: search “Tiananmen” in Beijing (a fixed word, not your location)",
   "示例广场": "Sample Square",
   "北京市东城区 · 示例长安街 1 号 · 风景名胜": "Dongcheng, Beijing · 1 Sample Chang'an Ave · Scenic spot",

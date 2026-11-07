@@ -167,7 +167,7 @@ function initial(): DataSourcesView {
       {
         id: "amap",
         title: "高德地图",
-        summary: "填了 Key，地图页在国内用高德地图，查地点、算路线也用它（只在你问的时候把起点、终点、\"附近\"的那一处发给高德）。Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给高德",
+        summary: "填了 Key，地图页在国内用高德地图，查国内的地点、路线也用它（只在你问的时候把起点、终点、\"附近\"的那一处发给高德；没填时国内也用 OpenStreetMap 查，店名和小路可能不全）。Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给高德",
         plugin: "map",
         pluginTitle: "地图",
         available: true,
