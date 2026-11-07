@@ -10,10 +10,24 @@ import type { MapCardContent } from "./card-scene.ts";
 import type { MapEngine } from "./engine.ts";
 import { demoBasemapNoteText, osmTileUrl, useDark } from "./MapView.tsx";
 import { createOsmEngine } from "./osm-engine.ts";
-import { chooseBasemap, DEFAULT_VIEW, viewToFit } from "./scene.ts";
+import { chooseBasemap, DEFAULT_VIEW, type MapView, viewToFit } from "./scene.ts";
+import { pointAt, worldPoint } from "./tiles.ts";
 
 /** OpenStreetMap 的版权页（署名角标链过去） */
 const OSM_COPYRIGHT_URL = "https://www.openstreetmap.org/copyright";
+/** 看全时四周留的边（像素）：定位针往上伸 30 像素，上面多留一些；右上角是"看大地图"、下面是署名 */
+const PAD = { x: 24, top: 40, bottom: 28 };
+
+/** 看全这些点的视野：四周留出边，针尖朝下的定位针整枚都在框里 */
+export function thumbView(bounds: MapCardContent["bounds"], width: number, height: number): MapView {
+  const v = viewToFit(bounds, width - 2 * PAD.x, height - PAD.top - PAD.bottom);
+  if (!v) return DEFAULT_VIEW;
+  // 中心往上挪半个"上下边的差"：东西落在留了边以后剩下那一块的正中
+  const c = worldPoint(v, v.zoom);
+  const at = pointAt(c.x, c.y - (PAD.top - PAD.bottom) / 2, v.zoom);
+  return { lat: at.lat, lon: at.lon, zoom: v.zoom };
+}
+
 /** 一张透明的空瓦片（挑出来不是 OpenStreetMap 时不画底图，只画点和线） */
 const BLANK_TILE = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
@@ -30,7 +44,7 @@ export function MapThumb({ content }: { content: MapCardContent }) {
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const view = viewToFit(content.bounds, host.clientWidth || 320, host.clientHeight || 160) ?? DEFAULT_VIEW;
+    const view = thumbView(content.bounds, host.clientWidth || 320, host.clientHeight || 168);
     // 聊天页不加载高德的脚本：高德在这里不能用（挑出来是 OpenStreetMap）
     const basemap = chooseBasemap(view, false, content.footprints);
     host.dataset.basemap = basemap;

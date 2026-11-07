@@ -20,13 +20,14 @@
 .map-card-thumb .map-mark-label {
   display: none;
 }
-/* 整块都能点：点了去地图页；左下角一个"看大地图" */
+/* 整块都能点：点了去地图页；右上角一个"看大地图"（下面是署名） */
 .map-card-open {
   position: absolute;
   inset: 0;
   z-index: 210;
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
+  justify-content: flex-end;
   padding: 8px;
   color: inherit;
   text-decoration: none;
@@ -71,11 +72,19 @@
   color: var(--muted);
   font-size: var(--fs-s);
 }
+/* 高德查来的：没有缩略图，下面一个"在高德地图上看"（和缩略图上的"看大地图"一个样子） */
 .map-card-go {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-top: 8px;
+  margin-top: 10px;
+  padding: 4px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--primary);
+  font-size: var(--fs-s);
+  text-decoration: none;
 }
 
 /* ---- 地图页上看一张卡片时，标题栏下面那一条 ---- */

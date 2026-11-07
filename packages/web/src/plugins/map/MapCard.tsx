@@ -89,7 +89,7 @@ export function MapCardView({ cardId, payload, data }: { cardId: string; payload
           </div>
         ))}
         {amapOnly && content && (
-          <a className="btn small map-card-go" href={href}>
+          <a className="map-card-go" href={href}>
             <Icon name="map" />
             {t("ui.plugins.map.card.openAmap")}
           </a>

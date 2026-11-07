@@ -672,7 +672,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return Promise.resolve(demoMapDay(date));
   }
 
-  /** 地图卡片的那条路线：编的（OpenStreetMap 查的、从公司到西湖边，见 prototype/fake-map.ts） */
+  /** 地图卡片的那条路线：编的（高德查的、从公司到西湖边，见 prototype/fake-map.ts） */
   mapDrawing(lookup: string): Promise<MapDrawing> {
     return demoMapDrawing(lookup);
   }

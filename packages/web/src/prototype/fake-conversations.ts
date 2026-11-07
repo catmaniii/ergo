@@ -981,10 +981,10 @@ export const FAKE_CARDS: Card[] = [
     } satisfies PairingPayload,
     { urgency: "non_blocking", createdAt: at("10-07", "00:47") },
   ),
-  // 聊天里的地图卡片（431，出来就是已处理）：昨天的足迹（按日期现取 fake-footprints.ts 的那一天）、从公司到西湖边的路线（OpenStreetMap 查的，
-  // 按编号现取 fake-map.ts 的那一份）
+  // 聊天里的地图卡片（431，出来就是已处理）：昨天的足迹（按日期现取 fake-footprints.ts 的那一天，缩略图画在 OpenStreetMap 上）、
+  // 从公司到西湖边的路线（高德查的，按编号现取 fake-map.ts 的那一份；只能画在高德的地图上，卡上不画缩略图）
   card("c-map-day", "map", { show: { kind: "day", date: MAP_DAY_DATE } } satisfies MapCardPayload, { status: "handled", createdAt: at("10-07", "09:05") }),
-  card("c-map-route", "map", { title: "从公司到西湖边", show: { kind: "lookup", lookup: "osm-r1", what: "route", source: "osm" } } satisfies MapCardPayload, { status: "handled", createdAt: at("10-07", "09:10") }),
+  card("c-map-route", "map", { title: "从公司到西湖边", show: { kind: "lookup", lookup: "amap-r2", what: "route", source: "amap" } } satisfies MapCardPayload, { status: "handled", createdAt: at("10-07", "09:10") }),
   // 两个流程的计划卡（fake-workflow.ts）：退回的 v1、授权的 v2，定时流程的那一份
   ...WORKFLOW_CARDS,
   // 三个长程任务的计划卡、验收结论、计划变更卡（fake-long-tasks.ts）：并行的阶段、计划等你确认、计划调整中
@@ -1588,7 +1588,7 @@ const PLAIN: MessageEnvelope[] = [
 for (const m of PLAIN) SCOPES.set(m.id, { taskId: FAKE_PLAIN_TASK.id });
 /**
  * 画在地图上（431）：昨天去过哪（show_on_map 画足迹，先说结论再给卡片）、从公司走到西湖边多久（查路线，用编号画成路线卡片）。
- * 编号写死：不让后面那些调用的编号挪动。路线是编的、OpenStreetMap 查的（433 那一家；没有高德也能用）
+ * 编号写死：不让后面那些调用的编号挪动。路线是编的、高德查的（432；编号 amap-r2，不和 432 那段"从家到公司"的 amap-r1 撞）
  */
 const SECRETARY_MAP: MessageEnvelope[] = [
   { id: "msg-map-day-ask", conversation: S, speaker: "user", time: at("10-07", "09:04"), parts: [text("把我昨天去过的地方画在地图上")] },
@@ -1615,9 +1615,9 @@ const SECRETARY_MAP: MessageEnvelope[] = [
     parts: [
       toolAs("call-map-route", "map_route", "from=公司 to=西湖边 modes=walking,driving", {
         nature: "look",
-        result: "从「公司」（常去的地方）到「西湖边」：\n- 步行：约 25 分钟，1.9 公里\n- 开车：约 9 分钟，2.6 公里（没有实时路况）\n数据来自 OpenStreetMap，现查的，没存。编号 osm-r1（要画在地图上时用它）。",
+        result: "从「公司」（常去的地方）到「西湖边」：\n- 步行：约 25 分钟，1.9 公里\n- 开车：约 9 分钟（高德估的用时），2.6 公里\n数据来自高德，现查的，没存。编号 amap-r2（要画在地图上时用它）。",
       }),
-      toolAs("call-map-route-show", "show_on_map", "lookup=osm-r1", { nature: "look", result: "已在聊天里放了一张地图卡片「从公司到西湖边」（2 个点、2 条路线；卡上写着数据来自哪家）。" }),
+      toolAs("call-map-route-show", "show_on_map", "lookup=amap-r2", { nature: "look", result: "已在聊天里放了一张地图卡片「从公司到西湖边」（2 个点、2 条路线；卡上写着数据来自哪家）。" }),
       text("走过去约 **25 分钟**（1.9 公里）；开车约 9 分钟。"),
       cardRef("c-map-route"),
     ],

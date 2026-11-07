@@ -2,7 +2,7 @@
 // - 当作填好了高德的 Key（DEMO_AMAP_KEY，假的）：国内那一处用"高德"（演示页里的高德是假的，plugins/map/demo-amap.ts 拿占位底图画）；
 // - 两个地点：国内一处（杭州西湖）、新加坡一处（滨海湾），点了跳过去，底图跟着换；
 // - 占位底图（demoTileUrl）：编的街区格子，不是真的地图；两种底图颜色不同，一眼分得出是哪一种。
-// - 聊天里地图卡片的那条路线（431，demoMapDrawing）：OpenStreetMap 查的、从公司到西湖边，编的。
+// - 聊天里地图卡片的那条路线（431，demoMapDrawing）：高德查的、从公司到西湖边，编的。
 // 只在演示页里用（地图页 import.meta.env.MODE === "demo" 的分支、FakeDaemonHttp）。英文在 en/fake-map.ts。
 import type { MapDrawing } from "../state/index.ts";
 import { fakeText } from "./fake-content.ts";
@@ -81,12 +81,15 @@ export function demoTileUrl(style: "osm" | "amap", z: number, x: number, y: numb
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-/** 聊天里的地图卡片（431）：演示的那条路线（OpenStreetMap 查的，编的）从公司到西湖边，开车、步行各一条；坐标和 fake-footprints.ts 的公司、西湖边一样 */
+/**
+ * 聊天里的地图卡片（431）：演示的那条路线（"高德"查的，编的）从公司到西湖边，步行、开车各一条；坐标和 fake-footprints.ts 的公司、西湖边一样。
+ * 高德查来的只能画在高德的地图上：卡片上不画缩略图，点开的地图页用（演示页里假的）高德底图画
+ */
 const DEMO_DRAWINGS: Readonly<Record<string, MapDrawing>> = {
-  "osm-r1": {
-    id: "osm-r1",
+  "amap-r2": {
+    id: "amap-r2",
     kind: "route",
-    source: "osm",
+    source: "amap",
     title: "从公司到西湖边",
     at: "2026-10-07T09:10:00.000+08:00",
     marks: [
@@ -124,7 +127,7 @@ const DEMO_DRAWINGS: Readonly<Record<string, MapDrawing>> = {
   },
 };
 
-/** 查地点、算路线查到的那一份（FakeDaemonHttp.mapDrawing）：演示的只有 osm-r1，别的当作过期了 */
+/** 查地点、算路线查到的那一份（FakeDaemonHttp.mapDrawing）：演示的只有 amap-r2，别的当作过期了 */
 export function demoMapDrawing(lookup: string): Promise<MapDrawing> {
   const drawing = DEMO_DRAWINGS[lookup];
   return drawing ? Promise.resolve(drawing) : Promise.reject(new Error("这次查到的地点和路线已经过期了（只在这台电脑上留一会儿、不存）：再问一次就有"));

@@ -93,7 +93,7 @@ describe("卡片画什么", () => {
     const coffee = drawingContent(COFFEE);
     expect(coffee.lines).toEqual(["一号咖啡、二号咖啡、三号咖啡、四号咖啡 等 5 处", "数据来自高德地图"]);
     expect(coffee.scene.marks.filter((m) => m.kind === "search")).toHaveLength(5);
-    const osm = drawingContent(await demoMapDrawing("osm-r1"));
+    const osm = drawingContent({ ...(await demoMapDrawing("amap-r2")), id: "osm-r1", source: "osm" });
     expect(osm.amapOnly).toBe(false);
     expect(osm.lines).toEqual(["步行、开车", "数据来自 OpenStreetMap"]);
   });
@@ -145,7 +145,7 @@ describe("卡片画出来的样子", () => {
 });
 
 describe("原型里的两张地图卡", () => {
-  test("昨天的足迹（画得出原型的假足迹）、从公司到西湖边（OpenStreetMap 查的、取得到原型的假路线），都是已处理", async () => {
+  test("昨天的足迹（画得出原型的假足迹）、从公司到西湖边（高德查的、取得到原型的假路线），都是已处理", async () => {
     const cards = FAKE_CARDS.filter((c) => c.type === "map");
     expect(cards.map((c) => [c.id, c.status])).toEqual([
       ["c-map-day", "handled"],
@@ -155,7 +155,8 @@ describe("原型里的两张地图卡", () => {
     expect(dayContent(demoMapDay(yesterday)).state).toBe("ready");
     const route = cards[1]!.payload as MapCardPayload;
     if (route.show.kind !== "lookup") throw new Error("该是查到的路线");
-    expect((await demoMapDrawing(route.show.lookup)).source).toBe("osm");
+    expect(route.show).toEqual({ kind: "lookup", lookup: "amap-r2", what: "route", source: "amap" });
+    expect((await demoMapDrawing(route.show.lookup)).source).toBe("amap");
     await expect(demoMapDrawing("amap-r1")).rejects.toThrow("已经过期了");
   });
 });
