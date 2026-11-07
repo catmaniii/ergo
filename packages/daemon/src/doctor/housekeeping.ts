@@ -246,7 +246,7 @@ export function agentsFinding(facts: AgentManagerDoctorFacts, labelOf: (agentId:
   if (full) lines.push(facts.queued > 0 ? t("doctor.stuckAgents.fullQueued", { live: facts.live, max: facts.maxLive, queued: facts.queued }) : t("doctor.stuckAgents.full", { live: facts.live, max: facts.maxLive }));
   if (lines.length === 0) return { level: "ok", fact: msg("doctor.stuckAgents.ok", { live: facts.live, max: facts.maxLive }) };
   const fixes = [...(stuck > 0 ? [t("doctor.stuckAgents.fixStuck")] : []), ...(full ? [t("doctor.stuckAgents.fixFull")] : [])];
-  return { level: "warn", fact: msg("doctor.stuckAgents.bad", { items: joined(lines) }), fix: msg("doctor.fix.steps", { steps: fixes.join(" ") }), ...(route ? { action: open(route) } : {}) };
+  return { level: "warn", fact: msg("doctor.stuckAgents.bad", { items: joined(lines) }), fix: msg("doctor.fix.steps", { steps: joined(fixes) }), ...(route ? { action: open(route) } : {}) };
 }
 
 // ───────── 日志大小 ─────────
@@ -329,7 +329,7 @@ export function configFinding(facts: ConfigFacts): DoctorFinding {
     route ??= SKILLS_ROUTE;
   }
   if (lines.length === 0) return { level: "ok", fact: msg("doctor.configFiles.ok") };
-  return { level: "warn", fact: msg("doctor.configFiles.bad", { items: joined(lines) }), fix: msg("doctor.fix.steps", { steps: fixes.join(" ") }), ...(route ? { action: open(route) } : {}) };
+  return { level: "warn", fact: msg("doctor.configFiles.bad", { items: joined(lines) }), fix: msg("doctor.fix.steps", { steps: joined(fixes) }), ...(route ? { action: open(route) } : {}) };
 }
 
 // ───────── 缺的 skill ─────────
@@ -350,7 +350,7 @@ export function skillsFinding(facts: SkillFacts): DoctorFinding {
     ...(facts.collections.some((c) => c.members.length > 0) ? [t("doctor.missingSkills.fixCollection")] : []),
     ...(facts.lists.some((l) => l.names.length > 0) ? [t("doctor.missingSkills.fixList")] : []),
   ];
-  return { level: "warn", fact: msg("doctor.missingSkills.bad", { items: joined(lines) }), fix: msg("doctor.fix.steps", { steps: fixes.join(" ") }), action: open(SKILLS_ROUTE) };
+  return { level: "warn", fact: msg("doctor.missingSkills.bad", { items: joined(lines) }), fix: msg("doctor.fix.steps", { steps: joined(fixes) }), action: open(SKILLS_ROUTE) };
 }
 
 // ───────── 提示：待办、手机 App 版本、数据库的预写日志 ─────────

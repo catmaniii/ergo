@@ -114,47 +114,51 @@ function codexItems(): DoctorItemView[] {
 /** 大小写成"265 MB"（和守护进程一样按当前语言） */
 const mb = (n: number) => t("doctor.size.mb", { n: formatNumber(n) });
 
+/** 体检项名字的文案键（和守护进程的一样） */
+const checkTitle = (id: string): DoctorMessage => ({ key: `doctor.check.${id}.title` });
+/** "去看看"跳到某一页 */
+const openRoute = (route: string): DoctorAction => ({ kind: "open", route });
+
 /**
  * "二狗本身"的新检查（二）（411，守护进程 doctor/housekeeping.ts 的那十项），照今天的样子编：备份最近一次因为 EBUSY 没做成、
  * 服务管家的日志 265 MB、matt-pocock 合集缺两个 skill（都是注意）；别的正常；待办、旧手机、预写日志是提示（正常，带事实）
  */
+
 function housekeepingItems(): DoctorItemView[] {
-  const title = (id: string) => ({ key: `doctor.check.${id}.title` });
-  const open = (route: string): DoctorAction => ({ kind: "open", route });
   const cookie = "EBUSY: resource busy or locked, open 'C:\\Users\\demo\\.ergo\\outputs\\t-47\\.ergo-tmp\\sgac-profile\\Default\\Network\\Cookies'";
   const log = "C:\\Users\\demo\\AppData\\Local\\ergo\\supervisor\\logs\\ergo-daemon.out.log";
   return [
-    keyed("backup", "warn", title("backup"), { key: "doctor.backup.failedLatest", params: { time: time("2026-11-07T06:37:00+08:00"), error: cookie, date: "2026-11-06" } }, {
+    keyed("backup", "warn", checkTitle("backup"), { key: "doctor.backup.failedLatest", params: { time: time("2026-11-07T06:37:00+08:00"), error: cookie, date: "2026-11-06" } }, {
       fix: { key: "doctor.fix.backupFailed" },
-      action: open("#/more/backup"),
+      action: openRoute("#/more/backup"),
     }),
-    keyed("triggers", "ok", title("triggers"), { key: "doctor.triggers.ok" }),
-    keyed("internal-jobs", "ok", title("internalJobs"), { key: "doctor.internalJobs.ok", params: { count: 9 } }),
-    keyed("stuck-agents", "ok", title("stuckAgents"), { key: "doctor.stuckAgents.ok", params: { live: 3, max: 8 } }),
+    keyed("triggers", "ok", checkTitle("triggers"), { key: "doctor.triggers.ok" }),
+    keyed("internal-jobs", "ok", checkTitle("internalJobs"), { key: "doctor.internalJobs.ok", params: { count: 9 } }),
+    keyed("stuck-agents", "ok", checkTitle("stuckAgents"), { key: "doctor.stuckAgents.ok", params: { live: 3, max: 8 } }),
     keyed(
       "log-size",
       "warn",
-      title("logSize"),
+      checkTitle("logSize"),
       { key: "doctor.logSize.bad", params: { limit: mb(200), items: t("doctor.logSize.file", { file: log, where: t("doctor.logSize.supervisor"), size: mb(265) }) } },
       { fix: { key: "doctor.fix.logSize" } },
     ),
-    keyed("config-files", "ok", title("configFiles"), { key: "doctor.configFiles.ok" }),
+    keyed("config-files", "ok", checkTitle("configFiles"), { key: "doctor.configFiles.ok" }),
     keyed(
       "missing-skills",
       "warn",
-      title("missingSkills"),
+      checkTitle("missingSkills"),
       { key: "doctor.missingSkills.bad", params: { items: t("doctor.missingSkills.collection", { collection: "matt-pocock", names: formatList(["handoff", "to-questionnaire"]) }) } },
-      { fix: { key: "doctor.fix.steps", params: { steps: t("doctor.missingSkills.fixCollection") } }, action: open("#/more/skills") },
+      { fix: { key: "doctor.fix.steps", params: { steps: t("doctor.missingSkills.fixCollection") } }, action: openRoute("#/more/skills") },
     ),
-    keyed("pending", "ok", title("pending"), { key: "doctor.pending.withApprovals", params: { count: 6, approvals: 2 } }, { action: open("#/inbox") }),
+    keyed("pending", "ok", checkTitle("pending"), { key: "doctor.pending.withApprovals", params: { count: 6, approvals: 2 } }, { action: openRoute("#/inbox") }),
     keyed(
       "app-version",
       "ok",
-      title("appVersion"),
+      checkTitle("appVersion"),
       { key: "doctor.appVersion.old", params: { count: 1, min: "0.4.1", devices: t("doctor.appVersion.device", { name: fakeText("家里的平板"), version: "0.3.9" }) } },
-      { fix: { key: "doctor.fix.appVersion" }, action: open("#/more/devices") },
+      { fix: { key: "doctor.fix.appVersion" }, action: openRoute("#/more/devices") },
     ),
-    keyed("db-wal", "ok", title("dbWal"), { key: "doctor.dbWal.ok", params: { size: mb(18) } }),
+    keyed("db-wal", "ok", checkTitle("dbWal"), { key: "doctor.dbWal.ok", params: { size: mb(18) } }),
   ];
 }
 

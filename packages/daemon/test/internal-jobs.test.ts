@@ -63,20 +63,21 @@ describe("数据源定期导入的时间给人看的写法", () => {
 
 // 411：内部作业跑完记下这一次的结局——跑完了是 ok，run 抛错是 failed（出错的说明一行、跑完的时间）；以前出错只写一行日志、
 // 照样记"跑过了"。上一次开始跑的时间照旧记（错过补跑只看它，出错的不在下次开机时重跑）；登记着的作业的状态体检能列出来。
-describe("内部作业的结局（411）", () => {
-  function jobsAt(start: Date) {
-    const dir = makeTempDir("ergo-internal-jobs-");
-    const clock = new ManualClock(start);
-    const logs: string[] = [];
-    const log = (line: string) => logs.push(line);
-    const store = openEventStore({ file: path.join(dir, "ergo.db"), views: [internalJobsView], now: () => clockIso(clock), log });
-    onTestFinished(() => store.close());
-    const scheduler = createScheduler({ clock, log });
-    const jobs = createInternalJobs({ store, scheduler, clock, log, scheduleContext: () => CTX });
-    onTestFinished(() => jobs.stop());
-    return { clock, jobs, logs };
-  }
+/** 内部作业（真的事件存储、手动时钟，停在 start） */
+function jobsAt(start: Date) {
+  const dir = makeTempDir("ergo-internal-jobs-");
+  const clock = new ManualClock(start);
+  const logs: string[] = [];
+  const log = (line: string) => logs.push(line);
+  const store = openEventStore({ file: path.join(dir, "ergo.db"), views: [internalJobsView], now: () => clockIso(clock), log });
+  onTestFinished(() => store.close());
+  const scheduler = createScheduler({ clock, log });
+  const jobs = createInternalJobs({ store, scheduler, clock, log, scheduleContext: () => CTX });
+  onTestFinished(() => jobs.stop());
+  return { clock, jobs, logs };
+}
 
+describe("内部作业的结局（411）", () => {
   test("出错的记 failed 和出错原文，跑完的记 ok；上一次开始跑的时间照旧记；只列登记着的", async () => {
     const { clock, jobs, logs } = jobsAt(at(10, 7, 21));
     let fail = true;

@@ -2621,6 +2621,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       if (task) return { name: t("doctor.stuckAgents.taskOwner", { title: task.title }), route: `#/tasks/${encodeURIComponent(task.id)}` };
       const project = projectDirectory.maintainedBy(agentId);
       if (project) return { name: t("doctor.stuckAgents.projectOwner", { name: project.name }), route: `#/projects/${encodeURIComponent(project.id)}/chat` };
+      const ownJob = isJobMaintainerId(agentId) ? listJobs(store.reader).find((each) => each.maintainerId === agentId) : undefined;
+      if (ownJob) return { name: t("doctor.stuckAgents.taskOwner", { title: ownJob.title }), route: `#/tasks/jobs/${encodeURIComponent(ownJob.id)}` };
       return { name: agentId };
     };
     for (const check of housekeepingChecks({
