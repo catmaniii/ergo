@@ -67,10 +67,10 @@ describe("记忆插件", () => {
     // 没有记忆命令：秘书提了"记住"，运行时回没有这种动作，不出卡
     expect(seen).toContain("[toolResult] propose_quick_action: 没有登记这种快速动作：remember");
     expect(cardsOf(frontend)).toEqual([]);
-    // 秘书没有 search_materials、read_material、ask_memory、ask_curator、mark_woven_question（提醒的四个工具后面是内核的；Google 日历、Gmail、Looki 的按需查排在中间，没连上的不给），系统提示里不讲记忆命令，快速动作那一段照样通顺
+    // 秘书没有 search_materials、read_material、ask_memory、ask_curator、mark_woven_question（提醒的四个工具、地图插件的 show_on_map 后面是内核的；Google 日历、Gmail、Looki 的按需查排在中间，没连上的不给），系统提示里不讲记忆命令，快速动作那一段照样通顺
     const assembly = assemblyOf(seen);
     expect(assembly).not.toMatch(/search_materials|read_material|ask_memory|ask_curator|mark_woven_question|remember|forget|no_infer|ingest_material/);
-    expect(assembly).toContain("[tool] cancel_reminder\n[tool] archive_reminder\n[tool] mcp_call\n[tool] propose_quick_action");
+    expect(assembly).toContain("[tool] cancel_reminder\n[tool] archive_reminder\n[tool] show_on_map\n[tool] mcp_call\n[tool] propose_quick_action");
     expect(assembly).toContain("否则出卡请用户确认）。哪天不上班、要上班用 workday_calendar");
     expect(td.daemon.quickActions.registry.list().map((e) => e.type)).toEqual(expect.not.arrayContaining(["remember", "forget", "purge", "no_infer"]));
     const description = proposeQuickActionTool(td.daemon.quickActions, SECRETARY).spec.description;
@@ -184,9 +184,9 @@ describe("记忆插件", () => {
     await frontend.subscribe(ALL);
     await tell(frontend, "在吗");
     const seen = lastSecretaryText(frontend);
-    // 工具排在哪：记忆插件的七个工具按登记先后，之后是数据源的按需查（查 Google 日历；搜、读 Gmail 邮件；查 Looki——没连上的不给，这里都没连），再后面才是内核的 mcp_call、propose_quick_action
+    // 工具排在哪：记忆插件的七个工具按登记先后、地图插件的 show_on_map（431），之后是数据源的按需查（查 Google 日历；搜、读 Gmail 邮件；查 Looki——没连上的不给，这里都没连），再后面才是内核的 mcp_call、propose_quick_action
     expect(assemblyOf(seen)).toContain(
-      "[tool] read_material\n[tool] ask_memory\n[tool] ask_curator\n[tool] mark_woven_question\n[tool] remember_memory\n[tool] ingest_material\n[tool] mcp_call\n[tool] propose_quick_action",
+      "[tool] read_material\n[tool] ask_memory\n[tool] ask_curator\n[tool] mark_woven_question\n[tool] remember_memory\n[tool] ingest_material\n[tool] show_on_map\n[tool] mcp_call\n[tool] propose_quick_action",
     );
     expect(assemblyOf(seen)).not.toMatch(/query_google_calendar|search_gmail|read_gmail|query_looki/);
     // 推理库刚建好、还没整理出结论：简报是空串，不注入（模型看到的消息里没有那一块）；每条消息的记忆简报也没有

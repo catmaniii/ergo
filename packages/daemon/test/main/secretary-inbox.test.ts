@@ -76,6 +76,8 @@ const SECRETARY_TOOLS = [
   "search_materials",
   "send_attachment",
   "show_card",
+  // 画在地图上（地图插件，431：只建一张已处理的地图卡，不对已有的卡做动作）
+  "show_on_map",
   "start_workflow",
   "suggest_project",
   "suggest_task",
