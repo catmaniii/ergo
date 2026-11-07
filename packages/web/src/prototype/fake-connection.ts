@@ -143,6 +143,7 @@ import {
   type MessageEnvelope,
   type MessageEventPayload,
   type MessageQueueEventPayload,
+  type ModelRetryEventPayload,
   type QueueChange,
   type QueuedMessage,
   type TimelineRecordEventPayload,
@@ -659,8 +660,44 @@ export class FakeConnection implements Connection {
       later(500, () => this.runPlain(plain, "continued", "（原型）好，接着做。"));
       return;
     }
+    // ?demo-model-busy=retrying：模型服务忙、一直在自动重试（聊天末尾"正在重试"那一行）；=failed：重试 3 次还是没成，以出错结束
+    const busy = demoParam("demo-model-busy");
+    if (busy === "retrying" || busy === "failed") {
+      later(600, () => this.startBusyTurn(req.conversation, [messageId], busy));
+      return;
+    }
     // 一轮回复（一段一段流出来：说着的时候能停止、发的话排队）
     later(600, () => this.startTurn(req.conversation, [messageId], FAKE_REPLY));
+  }
+
+  /**
+   * 原型的一轮"模型服务忙"：turn_start 之后每隔一会儿一条 model_retry（服务商忙，第 1、2 次）。retrying 停在第 2 次一直等着
+   * （能停止、发的话排队）；failed 再重试第 3 次，然后会话里一条"这次没能回复"的说明、这一轮以出错结束
+   */
+  private startBusyTurn(conversation: string, inputs: readonly string[], mode: "retrying" | "failed"): void {
+    const [input, ...more] = inputs;
+    if (input === undefined) return;
+    this.emit(conversation, EVENT_TYPES.turnStart, { inputMessageId: input, ...(more.length > 0 ? { moreInputMessageIds: more } : {}) });
+    const turn: FakeTurn = { inputs, replyId: `a-${input}`, text: "", said: 0, timer: undefined };
+    let attempt = 0;
+    turn.timer = setInterval(() => {
+      if (attempt < (mode === "retrying" ? 2 : 3)) {
+        attempt += 1;
+        const retry: ModelRetryEventPayload = { inputMessageId: input, attempt, maxAttempts: 3, kind: "busy", delayMs: 2000 * 2 ** (attempt - 1), error: BUSY_ERROR };
+        return this.emit(conversation, EVENT_TYPES.modelRetry, retry);
+      }
+      if (mode === "retrying") return;
+      const note: MessageEnvelope = {
+        id: `s-busy-${input}`,
+        conversation: conversation as MessageEnvelope["conversation"],
+        speaker: "system",
+        time: nowIso(),
+        parts: [{ type: "text", text: fakeText(`${ASSISTANT_NAME_MARK}这次没能回复：模型服务商那边忙，自动重试了 3 次还是没成（503 Service Unavailable）。可以等一会儿再问，或者在设置 · 模型里换一个模型`) }],
+      };
+      this.emit(conversation, EVENT_TYPES.message, { message: note } satisfies MessageEventPayload);
+      this.endTurn(conversation, "error", BUSY_ERROR);
+    }, 900);
+    this.turns.set(conversation, turn);
   }
 
   /** 原型的一轮回复：turn_start，一段一段推流式增量，说完了定稿、turn_end，再把排着的一起交出去 */
@@ -682,7 +719,7 @@ export class FakeConnection implements Connection {
   }
 
   /** 这一轮结束：说出来的定稿（点了停止的标"已停止"、时间线记一笔），排着的一起交出去作为下一轮 */
-  private endTurn(conversation: string, outcome: "completed" | "aborted"): void {
+  private endTurn(conversation: string, outcome: "completed" | "aborted" | "error", error?: string): void {
     const turn = this.turns.get(conversation);
     if (!turn) return;
     clearInterval(turn.timer);
@@ -696,7 +733,7 @@ export class FakeConnection implements Connection {
       this.emit(conversation, EVENT_TYPES.timelineRecord, { record: { id: `r-stop-${turn.replyId}`, kind: "stopped", summary: "你停止了这一轮", time: nowIso() } } satisfies TimelineRecordEventPayload);
     }
     const [input, ...more] = turn.inputs;
-    this.emit(conversation, EVENT_TYPES.turnEnd, { inputMessageId: input, ...(more.length > 0 ? { moreInputMessageIds: more } : {}), outcome });
+    this.emit(conversation, EVENT_TYPES.turnEnd, { inputMessageId: input, ...(more.length > 0 ? { moreInputMessageIds: more } : {}), outcome, ...(error === undefined ? {} : { error }) });
     const queue = this.queues.get(conversation) ?? [];
     if (queue.length === 0) return;
     const delivery = `qd-${queue[0]!.message.id}`;
@@ -1822,6 +1859,9 @@ interface FakeTurn {
   said: number;
   timer: ReturnType<typeof setInterval> | undefined;
 }
+
+/** 原型里"模型服务忙"时服务商回的原文 */
+const BUSY_ERROR = "503 Service Unavailable";
 
 /** 原型的回复（一段一段流出来，说得够久，能在它说着的时候停止、排队） */
 const FAKE_REPLY =

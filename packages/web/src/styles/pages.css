@@ -1169,6 +1169,28 @@ a.att-icon:hover {
   color: var(--muted);
   background: transparent;
 }
+/* 模型出错、正在自动重试：会话末尾一行小字（接着回出字来、这一轮结束就收起），图标慢慢转 */
+.model-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-s);
+  padding: 2px 4px;
+  animation: v2-rise var(--fx-1) var(--ease) both;
+}
+.model-retry .icon {
+  animation: model-retry-spin 1.6s linear infinite;
+}
+@keyframes model-retry-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .model-retry .icon {
+    animation: none;
+  }
+}
 /* 正在生成的回复 */
 .msg-streaming .msg-meta {
   color: var(--c-thinking);

@@ -133,6 +133,7 @@ import {
   type ProjectServiceView,
   type MessageQueueEventPayload,
   type QueuedMessage,
+  type ModelRetryEventPayload,
   type TurnEndEventPayload,
   type TurnStartEventPayload,
   onBranchPath,
@@ -374,6 +375,11 @@ interface ConversationState {
   /** 往上翻已经翻到头了（服务端说更早没有了） */
   readonly olderExhausted: boolean;
   /**
+   * 这一轮里模型调用出错、正在自动重试（会话频道上最近一条 model_retry，421）：聊天末尾一行"正在重试（第 N 次）"。
+   * 接着回出字来（流式增量、agent 的消息）、这一轮结束就收起
+   */
+  readonly modelRetry?: ModelRetryLine;
+  /**
    * 会话树（会话回退之后会话频道上最新的 session_branch 带的整棵树）：会话视图、未读、缩小视图只看当前分支上的，
    * 废弃分支上的消息留在手里（预览用）。没回退过是 undefined
    */
@@ -398,6 +404,14 @@ interface ConversationState {
    * （补发、往上翻本来就沿当前分支），切过去之前已经取回过那一段的（自己点的切换）也不用
    */
   readonly branchGap?: { readonly branch: string; readonly against: string };
+}
+
+/** 聊天末尾"正在重试"那一行：是哪一轮的、第几次、出错的种类 */
+export interface ModelRetryLine {
+  readonly seq: number;
+  readonly inputMessageId: string;
+  readonly attempt: number;
+  readonly kind: ModelRetryEventPayload["kind"];
 }
 
 /** 取回的一条分支的样子里状态层留下的：和哪条比的、分支摘要、遗留效果 */
@@ -621,11 +635,17 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     }
     const payload = frame.payload as MessageEventPayload;
     const { message, idempotencyKey } = payload;
-    const next = updateConversation(state, frame.channel, (conv) => ({
-      ...conv,
-      messages: [...conv.messages, { seq: frame.seq, message, idempotencyKey, scope: pickMessageScope(payload), ...(payload.queueDelivery === undefined ? {} : { delivery: payload.queueDelivery }), ...(payload.agentInput === true ? { agentInput: true as const } : {}) }],
-      tail: idempotencyKey === undefined ? conv.tail : conv.tail.filter((p) => p.idempotencyKey !== idempotencyKey),
-    }));
+    const next = updateConversation(state, frame.channel, (conv) =>
+      withoutModelRetry(
+        {
+          ...conv,
+          messages: [...conv.messages, { seq: frame.seq, message, idempotencyKey, scope: pickMessageScope(payload), ...(payload.queueDelivery === undefined ? {} : { delivery: payload.queueDelivery }), ...(payload.agentInput === true ? { agentInput: true as const } : {}) }],
+          tail: idempotencyKey === undefined ? conv.tail : conv.tail.filter((p) => p.idempotencyKey !== idempotencyKey),
+        },
+        // 重试之后 agent 说出话来了：那一行收起
+        message.speaker === "agent",
+      ),
+    );
     // 正在生成的那条定稿了：换成这条权威消息
     return next.streams[frame.channel]?.messageId === message.id ? withoutStream(next, frame.channel) : next;
   },
@@ -683,10 +703,15 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     if (starts.length > 0 && starts.at(-1)! >= frame.seq) return opened;
     return { ...opened, turnStarts: { ...opened.turnStarts, [frame.channel]: [...starts, frame.seq].slice(-TURN_STARTS_KEPT) } };
   },
-  // 回合结束：不管有没有定稿消息（出错、中止），正在生成的都收起；这一轮的结束不再在回复
+  // 模型出错、正在自动重试：聊天末尾那一行换成最新的这一次
+  [EVENT_TYPES.modelRetry]: (state, frame) => {
+    const { inputMessageId, attempt, kind } = frame.payload as ModelRetryEventPayload;
+    return updateConversation(state, frame.channel, (conv) => ({ ...conv, modelRetry: { seq: frame.seq, inputMessageId, attempt, kind } }));
+  },
+  // 回合结束：不管有没有定稿消息（出错、中止），正在生成的都收起；这一轮的结束不再在回复；"正在重试"那一行也收起
   [EVENT_TYPES.turnEnd]: (state, frame) => {
     const { inputMessageId, moreInputMessageIds, outcome, error } = frame.payload as TurnEndEventPayload;
-    const stopped = withoutStream(state, frame.channel);
+    const stopped = updateConversation(withoutStream(state, frame.channel), frame.channel, (conv) => withoutModelRetry(conv, true));
     // 记下这一轮的结束（悬浮按钮发的那句处理完了没有）
     const ends = stopped.turnEnds[frame.channel] ?? [];
     const mark: TurnEndMark = { seq: frame.seq, inputIds: [inputMessageId, ...(moreInputMessageIds ?? [])], outcome, ...(error ? { error } : {}) };
@@ -999,7 +1024,16 @@ function reduceEphemeral(state: UiState, frame: EventFrame): UiState {
   const old = state.streams[frame.channel];
   let stream: StreamingMessage = old?.messageId === messageId ? old : { messageId, parts: [], broken: false };
   for (const d of deltas) stream = appendDelta(stream, d);
-  return { ...state, streams: { ...state.streams, [frame.channel]: stream } };
+  // 重试之后回出字来了："正在重试"那一行收起
+  const resumed = state.conversations[frame.channel]?.modelRetry ? updateConversation(state, frame.channel, (conv) => withoutModelRetry(conv, true)) : state;
+  return { ...resumed, streams: { ...resumed.streams, [frame.channel]: stream } };
+}
+
+/** 收起"正在重试"那一行（when 为假时原样） */
+function withoutModelRetry(conv: ConversationState, when: boolean): ConversationState {
+  if (!when || conv.modelRetry === undefined) return conv;
+  const { modelRetry: _done, ...rest } = conv;
+  return rest;
 }
 
 /** 接上一段增量；位置对不上（漏了中间的）就标成残缺，不再拼 */
@@ -1289,6 +1323,12 @@ export function queuedMessages(state: UiState, conversation: ConversationId): re
 /** 这个会话的 agent 正在回复：输入框上有"停止"，发送钮写"追加"（发的话排队，回完再给它） */
 export function replyingIn(state: UiState, conversation: ConversationId): boolean {
   return state.conversations[conversation]?.openTurn !== undefined;
+}
+
+/** 这个会话这一轮里模型出错、正在自动重试：聊天末尾那一行（没在回复、已经接上了的是 undefined） */
+export function modelRetryIn(state: UiState, conversation: ConversationId): ModelRetryLine | undefined {
+  const conv = state.conversations[conversation];
+  return conv?.openTurn === undefined ? undefined : conv.modelRetry;
 }
 
 /** 某个会话要显示的条目：权威消息在前，然后是正在生成的回复，乐观显示的尾巴在最后。 */

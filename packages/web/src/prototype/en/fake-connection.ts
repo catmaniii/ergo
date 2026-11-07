@@ -18,6 +18,8 @@ export const EN_CONNECTION: Phrases = {
   "任务「{}」": "Task “{}”",
   "（原型）好，接着做。": "(Demo) OK, carrying on.",
   "你停止了这一轮": "You stopped this turn",
+  "{}这次没能回复：模型服务商那边忙，自动重试了 3 次还是没成（503 Service Unavailable）。可以等一会儿再问，或者在设置 · 模型里换一个模型":
+    "{} couldn't reply this time: The model provider is busy; retried 3 times and it still failed (503 Service Unavailable). Wait a bit and ask again, or switch to another model in Settings · Models",
   "（原型）这 {} 条一起收到了，按顺序处理。{}": "(Demo) Got these {} together, handling them in order. {}",
   "（原型）这里显示识别出的文字，接上守护进程后是语音的真实转写。": "(Demo) The recognized text shows here. With the daemon connected, this is the real transcript.",
   "只有识别失败的语音能重新识别": "Only voice messages that failed recognition can be retried",
