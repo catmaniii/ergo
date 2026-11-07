@@ -99,7 +99,7 @@ Hold to talk works the same way: pick the attachments first, and it says **Hold 
 
 **Viewing attachments in the chat:**
 
-- **Images:** Click to enlarge. To close: click ×, click outside the image, press Esc or Back. The enlarged view has **Download** at the bottom.
+- **Images:** Click to enlarge. Pinch with two fingers (or use the scroll wheel on a computer) to zoom in and out, drag to look around once zoomed in, and double-click (double-tap) to zoom in or back out. To close: click ×, click outside the image, press Esc or Back. The enlarged view has **Download** at the bottom.
 - **File cards:** The type is at the top, with **Preview** and **Download** below. You can preview Markdown, plain text, and HTML or SVG up to 1 MB. Anything else says **Download only**, and clicking the icon downloads it.
 
 **Things you can just say:**
