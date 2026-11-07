@@ -1,4 +1,13 @@
 {
   "calendar.plugin.title": "Calendar",
-  "calendar.plugin.summary": "A monthly view of which days you work or rest, with that day's reminders, scheduled tasks and subscribed external calendars — it only puts them together and keeps no data of its own"
+  "calendar.plugin.summary": "A monthly view of which days you work or rest, with that day's reminders, scheduled tasks and subscribed external calendars — it only puts them together and keeps no data of its own",
+  "calendar.doctor.external.title": "Events from data sources",
+  "calendar.doctor.external.ok": "All coming through",
+  "calendar.doctor.external.recovered_one": "Couldn't get them {count} time since Ergo started, but they came through again",
+  "calendar.doctor.external.recovered_other": "Couldn't get them {count} times since Ergo started, but they came through again",
+  "calendar.doctor.external.source_one": "\"{name}\" failed {count} time in a row (last at {time}: {error})",
+  "calendar.doctor.external.source_other": "\"{name}\" failed {count} times in a row (last at {time}: {error})",
+  "calendar.doctor.external.sep": "; ",
+  "calendar.doctor.external.failing": "These events are missing from the calendar: {sources}",
+  "calendar.doctor.external.fix": "Check what this data source reports in Settings · Data sources; most likely its plugin has a problem — disable and re-enable it in Settings · Plugins (or restart Ergo), then open the calendar again"
 }

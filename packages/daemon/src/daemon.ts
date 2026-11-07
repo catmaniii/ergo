@@ -1441,7 +1441,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         bindService(KERNEL.oneShot, <T>(entry: string, request: unknown, label: string, timeoutMs: number) => agents.runOneShot<T>(entry, request, label, timeoutMs)),
         bindService(KERNEL.webSearch, { appBrowserNote: () => appBrowserTurnNote(webSettings.view().effective) }),
         // 日历插件要的：外部日历（数据源交来的日程）。数据源的服务建在插件之后：现转给它
-        bindService(KERNEL.externalCalendars, { events: (from, to) => wiring.dataSources?.calendarEvents(from, to) ?? [], version: () => wiring.dataSources?.calendarVersion() ?? 0 }),
+        bindService(KERNEL.externalCalendars, {
+          events: (from, to) => wiring.dataSources?.calendarEvents(from, to) ?? [],
+          version: () => wiring.dataSources?.calendarVersion() ?? 0,
+          // 414：哪个数据源的日程拿不到过（日历插件的体检项读）
+          problems: () => wiring.dataSources?.calendarProblems() ?? [],
+        }),
         // 记忆插件要的：整理之前把能由电脑拉的数据源各同步一次。数据源的服务建在插件之后：等它起来再转给它（中止了就不再同步）
         bindService(KERNEL.dataSourceSync, {
           syncPullable: async ({ freshMs, signal }) => {

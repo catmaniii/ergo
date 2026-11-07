@@ -10,7 +10,8 @@
 //   认不出的、几个数据源都认的、插件没启用的、导入关着的、出错的留在原地并提示；出错的同一个文件自动再看时不重试（手动看时重试）。
 // 同步、导入出错的原因里带着这个数据源的密钥的换成 ***（redactSecrets），记进同步记录（events.ts）。
 // 加了：设备交来的（push：按数据源登记的 schema 查、交给它收下、记同步记录 trigger device，同一个幂等键重发只收一次）、
-// 外部日历（calendarEvents：插件在运行的数据源交给日历插件显示的日程，经 KERNEL.externalCalendars 给日历插件）、
+// 外部日历（calendarEvents：插件在运行的数据源交给日历插件显示的日程，经 KERNEL.externalCalendars 给日历插件；
+// 哪个数据源的日程拿不到记下次数和原因，calendarProblems 给日历插件的体检项读，414）、
 // 数据源自己数"共几条"（count）、同步记录带"这次进来的是什么"（summary）。
 // 加了：原始数据（raw：插件自己存储里的，页面按天列出；动作 clear_raw 清掉几天的，插件在运行时才行）。
 // 定期导入可以"每隔几分钟"（内部作业的 IntervalSchedule）；每隔几分钟的那种，到点同步了、什么都没变（新进来 0 条、没出错、
@@ -142,6 +143,20 @@ export type PullableSync =
   | { readonly id: string; readonly title: string; readonly state: "broken"; readonly problem?: string };
 
 /**
+ * 交给日历的日程拿不到（体检读，414）：哪个数据源、给人看的名字、连着拿不到几次（拿到一次清零）、这次开机以来一共几次、
+ * 这一串从什么时候起、最近一次的时间和原因（密钥换成 ***）。只在内存里，重启就没
+ */
+export interface CalendarFetchProblem {
+  readonly source: string;
+  readonly title: string;
+  readonly failures: number;
+  readonly total: number;
+  readonly since: string;
+  readonly at: string;
+  readonly error: string;
+}
+
+/**
  * 体检（409）要的一个数据源：整页视图里的那一项，加上上次成功同步（不算导入文件）是什么时候、定期导入大约多久一次（毫秒；
  * 导入开着、登记了定期导入时间的才有，见 scheduleEveryMs）
  */
@@ -214,6 +229,8 @@ export interface DataSources {
   calendarEvents(from: Date, to: Date): CalendarExternalEntry[];
   /** 外部日历现在的版本：交给日历的日程变了就往上加（只增不减，毫秒时间起步） */
   calendarVersion(): number;
+  /** 交给日历的日程拿不到过的数据源（体检读，414；没拿不到过的不在里面） */
+  calendarProblems(): CalendarFetchProblem[];
   /** 外部日历变了（交来新版本）；返回取消订阅 */
   onCalendarChange(listener: (version: number) => void): () => void;
   /** 看一遍导入文件夹（retry：出错过的也再试一次） */
@@ -1008,17 +1025,28 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     }
   };
 
+  /** 交给日历的日程拿不到的（体检读，414）：数据源 → 连着几次、一共几次、从什么时候起、最近一次的时间和原因 */
+  const calendarFailures = new Map<string, { failures: number; total: number; since: string; at: string; error: string }>();
   const calendarEvents = (from: Date, to: Date): CalendarExternalEntry[] =>
     registry.list().flatMap((entry) => {
       const { source } = entry;
       if (!source.calendar || !entry.owner.running()) return [];
       try {
-        return source.calendar({ from, to }, contextOf(entry)).map((e): CalendarExternalEntry => ({ ...e, source: source.id, sourceTitle: source.title }));
+        const events = source.calendar({ from, to }, contextOf(entry)).map((e): CalendarExternalEntry => ({ ...e, source: source.id, sourceTitle: source.title }));
+        const failed = calendarFailures.get(source.id);
+        if (failed && failed.failures > 0) calendarFailures.set(source.id, { ...failed, failures: 0 });
+        return events;
       } catch (err) {
-        log(`数据源 ${source.id} 的日程拿不到：${describe(err)}`);
+        const error = redact(entry, describe(err));
+        const at = options.now();
+        const before = calendarFailures.get(source.id);
+        calendarFailures.set(source.id, { failures: (before?.failures ?? 0) + 1, total: (before?.total ?? 0) + 1, since: before && before.failures > 0 ? before.since : at, at, error });
+        log(`数据源 ${source.id} 的日程拿不到：${error}`);
         return [];
       }
     });
+  const calendarProblems = (): CalendarFetchProblem[] =>
+    [...calendarFailures].map(([id, p]) => ({ source: id, title: registry.get(id)?.source.title ?? id, ...p }));
 
   let toolsUndo: (() => void) | undefined;
   /** 体检要的：整页视图的每一项，加上上次成功同步的时间、定期导入（开着的）大约多久一次、数据源自己定的过期时长（414） */
@@ -1042,6 +1070,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     live,
     calendarEvents,
     calendarVersion: () => calendarVersion,
+    calendarProblems,
     onCalendarChange(listener) {
       calendarListeners.add(listener);
       return () => void calendarListeners.delete(listener);

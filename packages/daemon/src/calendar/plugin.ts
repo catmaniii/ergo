@@ -10,12 +10,14 @@
 // - 没有给 agent 的工具、上下文块，系统提示里不讲日历；没有 start/stop（不挂计时器、不订阅）。
 // -外部日历（数据源交来的日程：手机日历……）经内核的 KERNEL.externalCalendars 现取，按天放进日历；日历插件停用时看不到，
 //   数据源那边照常收（"手机 · 日历"写明日历插件没启用）。
+// - 体检（414，doctor.ts）：登记"数据源交来的日程"一项（拿不到的次数和原因由内核记，KERNEL.externalCalendars 的 problems）。
 import { t } from "@ergo/protocol";
 import type { PluginDefinition } from "../plugins/host.ts";
 import { KERNEL } from "../plugins/kernel.ts";
 import { REMINDERS } from "../reminders/api.ts";
 import { CALENDAR } from "./api.ts";
 import { createCalendarService } from "./calendar.ts";
+import { externalCalendarCheck } from "./doctor.ts";
 
 export const calendarPlugin: PluginDefinition = {
   name: "calendar",
@@ -29,6 +31,7 @@ export const calendarPlugin: PluginDefinition = {
   wants: [REMINDERS],
   provides: [CALENDAR],
   setup(ctx) {
+    const external = ctx.use(KERNEL.externalCalendars);
     ctx.provide(
       CALENDAR,
       createCalendarService({
@@ -36,10 +39,12 @@ export const calendarPlugin: PluginDefinition = {
         workdayCalendar: ctx.use(KERNEL.workdayCalendar),
         scheduledJobs: ctx.use(KERNEL.scheduledJobs),
         clock: ctx.use(KERNEL.clock),
-        external: ctx.use(KERNEL.externalCalendars),
+        external,
         // 可选依赖：现取（提醒插件没装、运行中停了是 undefined）
         reminders: () => ctx.optional(REMINDERS),
       }),
     );
+    // 体检（414）：数据源交来的日程拿不到（内核记下的次数和原因）
+    ctx.doctor.register(externalCalendarCheck(() => external.problems()));
   },
 };

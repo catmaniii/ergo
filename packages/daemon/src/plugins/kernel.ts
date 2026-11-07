@@ -16,7 +16,7 @@ import type { ElementToRemember } from "../browsing/api.ts";
 import type { CardService } from "../cards/cards.ts";
 import type { DataDirLayout } from "../config/data-dir.ts";
 import type { ErgoConfig } from "../config/config.ts";
-import type { PullableSync } from "../data-sources/index.ts";
+import type { CalendarFetchProblem, PullableSync } from "../data-sources/index.ts";
 import type { EphemeralBus } from "../events/ephemeral.ts";
 import type { EventTriggers } from "../event-sources/index.ts";
 import type { EventStore } from "../events/event-store.ts";
@@ -96,6 +96,8 @@ export interface ExternalCalendars {
    * 带着它，工作日历频道上的临时事件 external_calendar 推新的版本，网页比一比就知道手里那份旧了
    */
   version(): number;
+  /** 交给日历的日程拿不到过的数据源：连着几次、一共几次、最近一次的原因（日历插件的体检项读，414；只在内存里） */
+  problems(): readonly CalendarFetchProblem[];
 }
 
 /**
