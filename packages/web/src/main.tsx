@@ -17,6 +17,8 @@ import "./styles/detail.css";
 import "./styles/manage.css";
 // 地图页（地图插件）：地图、点、盖在地图上的按钮和署名
 import "./styles/map.css";
+// 地图上的"我的足迹"：选日期的一条、轨迹、停留点、照片小点、常去的地方、列表和详情
+import "./styles/map-footprints.css";
 // 视觉规矩（颜色、线型、动效），压在前面几份上面
 import "./styles/look.css";
 // 界面字号调过以后才要的排版（字大了放不下时怎么收；比例是 1 时一条都不生效）

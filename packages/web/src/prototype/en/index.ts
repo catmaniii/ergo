@@ -10,6 +10,7 @@ import { EN_CONNECTION } from "./fake-connection.ts";
 import { EN_CONVERSATIONS } from "./fake-conversations.ts";
 import { EN_DATA_SOURCES } from "./fake-data-sources.ts";
 import { EN_DATA } from "./fake-data.ts";
+import { EN_FOOTPRINTS } from "./fake-footprints.ts";
 import { EN_HTTP } from "./fake-http.ts";
 import { EN_LONG_TASKS } from "./fake-long-tasks.ts";
 import { EN_MAP } from "./fake-map.ts";
@@ -40,6 +41,7 @@ export const EN_PHRASES: Phrases = {
   ...EN_CONVERSATIONS,
   ...EN_DATA_SOURCES,
   ...EN_DATA,
+  ...EN_FOOTPRINTS,
   ...EN_HTTP,
   ...EN_LONG_TASKS,
   ...EN_MAP,
