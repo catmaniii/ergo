@@ -96,15 +96,22 @@ export interface DoctorMessage {
 
 /**
  * 一项可以带的一个动作按钮（网页认得这几种；不认得的不画）：
- * - open：跳到二狗的某一页，route 是网页的地址（"#/more/data-sources/looki"）；也可以是本机的一个网址（只认 127.0.0.1、localhost、
- *   [::1] 的 http(s)，见 doctorOpensUrl）：服务管家的网页 "http://127.0.0.1:7420/"——410 托管的服务、413 语音合成 / 识别停了
- *   都跳它；网页画成新开一页的链接，按钮写"打开服务管家"，只在这台电脑上打得开；
- * - compact：现在压缩某个 agent 的对话（和会话 ⚙ 里"现在压缩"同一个接口，POST /api/agents/<agent id>/compact）
+ * - open：跳到二狗的某一页，route 是网页的地址（"#/more/data-sources/looki"；服务管家里的一个服务是 "#/more/services/<服务 id>"，
+ *   设置 · 服务一页定位到它）；也可以是本机的一个网址（只认 127.0.0.1、localhost、[::1] 的 http(s)，见 doctorOpensUrl），
+ *   网页画成新开一页的链接，按钮写"打开服务管家"，只在这台电脑上打得开；
+ * - compact：现在压缩某个 agent 的对话（和会话 ⚙ 里"现在压缩"同一个接口，POST /api/agents/<agent id>/compact）；
+ * - start：把服务管家里的一个服务开起来（418、428）：网页调设置 · 服务一页同一个接口（POST /api/managed-services/<服务 id> 的 start，
+ *   会过"和二狗有关"和受保护的检查），开完再查一遍；按钮写"开起来"。410 托管的服务、413 语音合成 / 识别停着时带它
  */
-export type DoctorAction = { kind: "open"; route: string } | { kind: "compact"; agentId: string };
+export type DoctorAction = { kind: "open"; route: string } | { kind: "compact"; agentId: string } | { kind: "start"; service: string };
 
 /** 动作的种类（网页按它挑按钮上的字） */
-export const DOCTOR_ACTION_KINDS = ["open", "compact"] as const;
+export const DOCTOR_ACTION_KINDS = ["open", "compact", "start"] as const;
+
+/** 设置 · 服务一页里定位到一个服务的地址（体检"去看看"跳过去，428） */
+export function doctorServiceRoute(id: string): string {
+  return `#/more/services/${encodeURIComponent(id)}`;
+}
 
 /**
  * open 的 route 是不是本机的一个网址（服务管家的网页）：是的话网页画成新开一页的链接，不是二狗的页。

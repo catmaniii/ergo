@@ -91,7 +91,7 @@ export function registerCoreDoctorChecks(registry: Pick<DoctorCheckRegistry, "re
       cost: "local",
       // 等服务管家的命令行（和服务管家那一项同一次），比默认的 1.5 秒长
       timeoutMs: SUPERVISOR_PROBE_TIMEOUT_MS + 1_000,
-      run: async () => judgeServices((await sources.supervisor.read()).snapshot, sources.servicesInUse(), sources.managerUrl()),
+      run: async () => judgeServices((await sources.supervisor.read()).snapshot, sources.servicesInUse(), sources.managerUrl() !== undefined),
     }),
     registry.register({ id: "plugins", title: "doctor.check.plugins.title", cost: "passive", run: () => judgePlugins(sources.plugins()) }),
     registry.register({ id: "web", title: "doctor.check.web.title", cost: "passive", run: () => judgeWeb(sources.webIndex) }),

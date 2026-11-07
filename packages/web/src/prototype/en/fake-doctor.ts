@@ -20,7 +20,7 @@ export const EN_DOCTOR: Phrases = {
   "语音合成": "Speech synthesis",
   "语音合成服务没开（http://127.0.0.1:8090）：你发语音时的回复都合成不了，退回只发文字":
     "The speech synthesis service isn't running (http://127.0.0.1:8090): replies to your voice messages can't be synthesized and fall back to text only",
-  "在装二狗的那台电脑上打开服务管家，把「audiocpp」开起来，再查一遍": "On the computer running ergo, open the service manager, start “audiocpp”, then run the checkup again",
+  "到设置 · 服务把「audiocpp」开起来，再查一遍": "Start “audiocpp” in Settings · Services, then run the checkup again",
   "语音识别": "Speech recognition",
   "服务管家托管的识别服务（127.0.0.1:8091）：模型加载好了（large-v3）": "The recognition service run by the service manager (127.0.0.1:8091): model loaded (large-v3)",
   "参考音色": "Reference voices",

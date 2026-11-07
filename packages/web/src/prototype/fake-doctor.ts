@@ -1,14 +1,14 @@
 // 原型里的设置 · 体检（409–414）：编的一份体检结果，五种结果都有——
 // - 二狗本身：八项（组件缺记忆的向量模型是注意；外网入口登记了 tailnet，可服务管家从外面打不通，是坏了；句子由协议包的八项拼句按当前语言拼），
 //   加上内核登记的几项（410），照 2026-11-07 那天的样子编：主对话在线在干活；模型近况坏了（最近 5 轮服务商报 503 / 500）；
-//   对话长度要注意（93.5 万 token，过了自动压缩点 70 万，带"现在压缩"）；托管的服务坏了（8090 的语音合成 audiocpp 停着，带"打开服务管家"）；
+//   对话长度要注意（93.5 万 token，过了自动压缩点 70 万，带"现在压缩"）；托管的服务坏了（8090 的语音合成 audiocpp 停着，带"开起来"）；
 //   插件、网页文件正常。句子照守护进程的文案键拼（和真的一样）；再加 411 的十项（备份 EBUSY、日志 265 MB、
 //   合集缺两个 skill 是注意，待办、旧手机、预写日志是提示，别的正常；文案键和守护进程的一样）；
 // - 插件块：每个在跑的插件一块（插件本身在跑）；记忆是 412 的六项（句子照守护进程 memory.doctor.* 的中文写：向量索引、推理库、
 //   记忆系统、整理前导入数据源正常，记忆简报超时多是注意，每晚整理 60 小时没跑成是坏了、跳记忆管理员），
 //   Looki 的"存一份到本地"出了问题（Looki 换了接口，注意；414），Google 的一个日历地址失效了（坏了，数据源那一项是上次同步出错的注意；414），
 //   语音那一块是 413 的五项（合成服务连不上、从 15:42 起，修法写到服务管家把 audiocpp 开起来——和"托管的服务"说的是同一个服务，
-//   那边从服务管家看它停着、记的出错，这边从语音看回复合成不了——"打开服务管家"跳服务管家的网页；识别、参考音色、ffmpeg 正常，
+//   那边从服务管家看它停着、记的出错，这边从语音看回复合成不了——两边都是"开起来"（原型的假服务管家里照样开）；识别、参考音色、ffmpeg 正常，
 //   N 卡这次没查出来（第一次问要跑 nvidia-smi，1.5 秒没查完）），Codex 要的外部程序没装（插件本身和运行时都是不适用），
 //   手机、提醒、日历、内置浏览器、Claude Code 各自登记的那几项正常（414）；
 // - 停用、移除了的插件（地址带 ?demo-plugins-off=…）不成块，只列名字。
@@ -121,9 +121,9 @@ function extras(name: string): DoctorItemView[] {
       // 413 的五项：合成服务停了（手工登记在 8090 上的 audiocpp，和"托管的服务"那一项同一个），去看看跳服务管家的网页；N 卡这次没查出来
       return [
         said("speech", "error", "语音合成", "语音合成服务没开（http://127.0.0.1:8090）：你发语音时的回复都合成不了，退回只发文字", {
-          fix: "在装二狗的那台电脑上打开服务管家，把「audiocpp」开起来，再查一遍",
+          fix: "到设置 · 服务把「audiocpp」开起来，再查一遍",
           since: "2026-11-07T15:42:00+08:00",
-          action: { kind: "open", route: "http://127.0.0.1:7420/" },
+          action: { kind: "start", service: "audiocpp" },
         }),
         said("recognizer", "ok", "语音识别", "服务管家托管的识别服务（127.0.0.1:8091）：模型加载好了（large-v3）"),
         said("references", "ok", "参考音色", "有 2 条，语音回复用「示例音色」"),
@@ -215,7 +215,7 @@ function kernelItems(): DoctorItemView[] {
       "error",
       { key: "doctor.check.services.title" },
       { key: "doctor.services.badSome", params: { list: services, fine: 2 } },
-      { fix: { key: "doctor.fix.services" }, action: { kind: "open", route: "http://127.0.0.1:7420/" } },
+      { fix: { key: "doctor.fix.services" }, action: { kind: "start", service: "audiocpp" } },
     ),
     keyed("plugins", "ok", { key: "doctor.check.plugins.title" }, { key: "doctor.plugins.fine", params: { running: 9 } }),
     keyed("web", "ok", { key: "doctor.check.web.title" }, { key: "doctor.web.fine" }),

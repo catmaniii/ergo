@@ -104,10 +104,12 @@ const isMessage = (value: unknown): value is DoctorMessage =>
 
 const isAction = (value: unknown): value is DoctorAction => {
   if (typeof value !== "object" || value === null) return false;
-  const action = value as Partial<{ kind: string; route: unknown; agentId: unknown }>;
-  // open：二狗的某一页（#/…），或者本机的一个网址（服务管家的网页：410 托管的服务、413 语音）；外面的网站不认
+  const action = value as Partial<{ kind: string; route: unknown; agentId: unknown; service: unknown }>;
+  // open：二狗的某一页（#/…），或者本机的一个网址；外面的网站不认
   if (action.kind === "open") return typeof action.route === "string" && (action.route.startsWith("#/") || doctorOpensUrl(action.route));
   if (action.kind === "compact") return typeof action.agentId === "string" && action.agentId !== "";
+  // start：服务管家里一个服务的 id（开不开得了、和二狗有没有关由设置 · 服务的接口判）
+  if (action.kind === "start") return typeof action.service === "string" && action.service !== "";
   return false;
 };
 

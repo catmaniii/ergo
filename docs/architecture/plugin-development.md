@@ -246,7 +246,7 @@ expect(listNotes(k.store.reader)).toEqual([]);
   （`claude-code/deep-doctor.ts`、`codex/deep-doctor.ts`）。要连数据源上游的不用自己登记：数据源给一个只读的 `probe`（Looki 调 `/me`），
   二狗替它在插件那一块生成"连一下：X"；
 - `timeoutMs`：默认 1500。超时、抛错、交回的东西不像样只算这一项"没查出来"，不影响别的项；`run(signal)` 要快，重活先在后台算好，这里只读结果；
-- `run` 交回 `DoctorFinding`：`level` 是 `ok`、`warn`（能用但打折扣）、`error`（用不了）、`unknown`（没查出来）、`na`（没开这个功能，不查）之一；`fact`、`fix` 是文案键 + 参数（键放插件自己的语言文件 `<插件>.doctor.*`，中英都加；时间、数字先按当前语言写好放进参数）；可选的 `since`（ISO）和一个 `action`（`{ kind: "open", route: "#/more/…" }` 跳页，`route` 也可以是本机的网页——只认 127.0.0.1、localhost、[::1] 的 `http(s)://…`（协议包的 `doctorOpensUrl`），比如服务管家，网页画成新开一页的链接、写"打开服务管家"；别的网址算交回的东西不像样；`{ kind: "compact", agentId }` 现在压缩）。
+- `run` 交回 `DoctorFinding`：`level` 是 `ok`、`warn`（能用但打折扣）、`error`（用不了）、`unknown`（没查出来）、`na`（没开这个功能，不查）之一；`fact`、`fix` 是文案键 + 参数（键放插件自己的语言文件 `<插件>.doctor.*`，中英都加；时间、数字先按当前语言写好放进参数）；可选的 `since`（ISO）和一个 `action`（`{ kind: "open", route: "#/more/…" }` 跳页，`route` 也可以是本机的网页——只认 127.0.0.1、localhost、[::1] 的 `http(s)://…`（协议包的 `doctorOpensUrl`），比如服务管家，网页画成新开一页的链接、写"打开服务管家"；别的网址算交回的东西不像样；服务管家里的一个服务跳设置 · 服务定位到它用 `#/more/services/<服务 id>`（协议包的 `doctorServiceRoute`）；`{ kind: "compact", agentId }` 现在压缩；`{ kind: "start", service }` 把服务管家里的一个服务开起来，网页调设置 · 服务一页同一个接口（会过"和二狗有关"、受保护的检查），开完再查一遍）。
 
 例子是语音插件（`packages/daemon/src/voice/doctor.ts`，413）：五项各自先看功能开没开（没开交 `na`）；合成直接读预热每分钟探一次的状态，太久没探才当场探本机端口（`cost: "local"`，自己限时 1.5 秒、整项 2.5 秒）；只连本机地址，当场探的结果不写回状态。插件自己看不到的现状（组件页的功能门、服务管家里登记在某端口的服务）由内核服务给（`KERNEL.voiceSetup`）。
 

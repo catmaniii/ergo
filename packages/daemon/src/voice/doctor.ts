@@ -21,7 +21,7 @@
 // 平时体检的规矩：只读状态、不改任何东西（当场探的结果不写回预热的状态）；只连本机（地址不是本机的不探，照状态说）。
 // 句子是文案键 + 参数（键在 voice.json 的 voice.doctor.*），参数里的小句、时间先按当前语言拼好（体检每次现查，换了语言重新拼）。
 import fs from "node:fs";
-import { COMPONENT_FEATURES, type DoctorAction, type DoctorMessage, doctorOpensUrl, t, type VoiceModelState } from "@ergo/protocol";
+import { COMPONENT_FEATURES, type DoctorAction, type DoctorMessage, doctorServiceRoute, t, type VoiceModelState } from "@ergo/protocol";
 import { findOnPath } from "../components/probes.ts";
 import type { RecognizeMode } from "../config/config.ts";
 import type { DoctorCheck, DoctorFinding } from "../doctor/checks.ts";
@@ -184,16 +184,22 @@ export function voiceDoctorChecks(facts: VoiceDoctorFacts): DoctorCheck[] {
   const replyOn = () => voiceReplyOn(setup, facts.speech.url);
   const inputOn = () => voiceInputOn(setup);
 
-  /** 服务停了的修法：到服务管家把登记在这个端口上的那条开起来；带"去看看"跳服务管家的网页（418 做好后换成"开起来"按钮） */
+  /** 这台电脑上有服务管家、里面登记在这个地址的端口上的那条（没有的不给按钮，修法照样写） */
+  const managed = (url: string | undefined): RegisteredService | undefined => (url === undefined || setup.managerUrl() === undefined ? undefined : registeredAt(setup, url));
+  /**
+   * 服务停了的修法：到设置 · 服务把登记在这个端口上的那条开起来；按钮"开起来"（418 + 428：和设置 · 服务一页同一个接口，
+   * 会过"和二狗有关"、受保护的检查，开完再查一遍）
+   */
   const startFix = (url: string): { fix: DoctorMessage; action?: DoctorAction } => {
     const service = registeredAt(setup, url);
     const fix: DoctorMessage = service === undefined ? { key: "voice.doctor.fixStartUnknown", params: { url: hostOf(url) } } : { key: "voice.doctor.fixStart", params: { service: serviceText(service) } };
-    return { fix, ...managerAction() };
+    const target = managed(url);
+    return { fix, ...(target === undefined ? {} : { action: { kind: "start", service: target.id } }) };
   };
-  // 体检的 open 只认本机的网址（doctorOpensUrl）：服务管家只听在别的地址上时不给按钮，修法照样写
-  const managerAction = (): { action?: DoctorAction } => {
-    const url = setup.managerUrl();
-    return url === undefined || !doctorOpensUrl(url) ? {} : { action: { kind: "open", route: url } };
+  /** 服务在跑却出了错：去看看跳设置 · 服务里它那一块（重启、看日志） */
+  const servicesAction = (url: string | undefined): { action?: DoctorAction } => {
+    const target = managed(url);
+    return target === undefined ? {} : { action: { kind: "open", route: doctorServiceRoute(target.id) } };
   };
   /** 服务登记的那条的名字（修法里"到服务管家重启 X"用）；不知道写地址 */
   const serviceOf = (url: string): string => {
@@ -235,7 +241,7 @@ export function voiceDoctorChecks(facts: VoiceDoctorFacts): DoctorCheck[] {
             fact: { key: "voice.doctor.speech.failed", params: { url: where, reason: state.reason ?? "" } },
             fix: { key: "voice.doctor.speech.fixFailed", params: { service: serviceOf(url) } },
             since: state.since,
-            ...managerAction(),
+            ...servicesAction(url),
           };
         default:
           // 开着：加载好了的带模型名；还没预热、正在加载的照说
@@ -260,7 +266,7 @@ export function voiceDoctorChecks(facts: VoiceDoctorFacts): DoctorCheck[] {
         mode === "spawn"
           ? { fix: { key: "voice.recognizer.hint" }, action: { kind: "open", route: "#/more/voice" } }
           : mode === "lsm"
-            ? { fix: { key: "voice.recognizer.lsmHint" }, ...managerAction() }
+            ? { fix: { key: "voice.recognizer.lsmHint" }, ...servicesAction(url) }
             : { fix: { key: "voice.recognizer.audiocppHint" }, action: { kind: "open", route: "#/more/components" } };
       const broken = (reason: string, since?: string): DoctorFinding => ({
         level: "error",

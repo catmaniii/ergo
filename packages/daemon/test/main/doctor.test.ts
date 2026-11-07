@@ -162,7 +162,7 @@ describe("体检的接口（319b）", () => {
     expect(item("presync").level).toBe("na");
   });
 
-  it("语音插件那一块（413）：五项都在；合成服务手工登记在服务管家里却连不上 → 坏了，修法写那一条、去看看跳服务管家的网页", { timeout: 60_000 }, async () => {
+  it("语音插件那一块（413）：五项都在；合成服务手工登记在服务管家里却连不上 → 坏了，修法写那一条、按钮\"开起来\"它（418 + 428）", { timeout: 60_000 }, async () => {
     // 测试底座的合成服务地址是本机 1 号端口（连不上，不碰真的 8090）；服务管家目录是临时的，里面手写一条登记在这个端口上的服务
     const svc = makeTempDir("ergo-doctor-svc-");
     fs.mkdirSync(path.join(svc, "registry", "services"), { recursive: true });
@@ -176,8 +176,8 @@ describe("体检的接口（319b）", () => {
     const speech = voice.items.find((item) => item.id === "speech")!;
     expect(speech.level).toBe("error");
     expect(speech.text.fact).toContain("127.0.0.1:1");
-    expect(speech.text.fix).toBe("在装二狗的那台电脑上打开服务管家，把「我的语音合成」（my-tts）开起来，再查一遍");
-    expect(speech.action).toEqual({ kind: "open", route: "http://127.0.0.1:17420/" });
+    expect(speech.text.fix).toBe("到设置 · 服务把「我的语音合成」（my-tts）开起来，再查一遍");
+    expect(speech.action).toEqual({ kind: "start", service: "my-tts" });
     // 内置的默认参考音色装上了；测试底座没有 N 卡（提示：不适用）
     expect(voice.items.find((item) => item.id === "references")!.level).toBe("ok");
     expect(voice.items.find((item) => item.id === "gpu")!.level).toBe("na");

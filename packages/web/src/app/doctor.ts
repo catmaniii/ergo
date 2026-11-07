@@ -14,6 +14,7 @@ import {
   type DoctorView,
   formatDate,
   formatList,
+  managedServiceResultText,
   t,
   worstLevel,
 } from "../state/index.ts";
@@ -63,10 +64,26 @@ export function knownDoctorAction(action: DoctorAction | undefined): action is D
   return action !== undefined && (DOCTOR_ACTION_KINDS as readonly string[]).includes(action.kind);
 }
 
-/** 动作按钮上的字：跳过去看是"去看看"，打开本机的网址（服务管家的网页，410）是"打开服务管家"，压缩是"现在压缩"（busy：正在压） */
+/**
+ * 动作按钮上的字：跳过去看是"去看看"，打开本机的网址是"打开服务管家"，压缩是"现在压缩"，把服务开起来是"开起来"
+ * （busy：正在压、正在开）
+ */
 export function doctorActionText(action: DoctorAction, busy = false): string {
   if (action.kind === "compact") return busy ? t("doctor.action.compacting") : t("doctor.action.compact");
+  if (action.kind === "start") return busy ? t("doctor.action.starting") : t("doctor.action.start");
   return doctorOpensUrl(action.route) ? t("doctor.action.openManager") : t("doctor.action.open");
+}
+
+/**
+ * 体检的"开起来"（418 + 428）：调设置 · 服务一页同一个接口（POST /api/managed-services/<id> 的 start，守护进程那边会过
+ * "和二狗有关"、受保护的检查），交回要提示的一句——开成了、本来就开着、没开成（服务管家的原话）都照实说
+ */
+export async function startDoctorService(http: Pick<DaemonHttp, "managedServiceAction">, service: string): Promise<string> {
+  try {
+    return managedServiceResultText(await http.managedServiceAction(service, "start"), service).text;
+  } catch (err) {
+    return t("doctor.action.startFailed", { error: err instanceof Error ? err.message : String(err) });
+  }
 }
 
 /** 查的时刻写成一句话（本地日期和时间） */

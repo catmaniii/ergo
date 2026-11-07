@@ -286,29 +286,30 @@ describe("托管的服务", () => {
   const audiocpp = { id: "audiocpp", name: "audiocpp", port: 8090, state: "STOPPED", autostart: true, lastError: "进程退出（代码 1）" };
   const asr = { id: "ergo-asr", name: "ergo-asr", port: 8091, state: "RUNNING", autostart: true };
   const tunnel = { id: "ergo-tunnel", name: "ergo-tunnel", port: 0, state: "RUNNING", autostart: true, role: "tunnel" };
-  const MANAGER = "http://127.0.0.1:7420/";
+  /** 接入了服务管家 */
+  const LINKED = true;
 
-  it("今天的样子：8090 那个（语音合成）停着 → 坏了，事实写服务名、状态、最后一次出错；动作打开服务管家的网页", () => {
+  it("今天的样子：8090 那个（语音合成）停着 → 坏了，事实写服务名、状态、最后一次出错；动作是\"开起来\"它（418 + 428）", () => {
     const snapshot = parseSupervisorSnapshot(snapshotJson([daemon, audiocpp, asr, tunnel]))!;
-    const finding = judgeServices(snapshot, { speechPort: 8090, recognizerPort: 8091 }, MANAGER);
+    const finding = judgeServices(snapshot, { speechPort: 8090, recognizerPort: 8091 }, LINKED);
     expect(finding.level).toBe("error");
-    expect(finding.action).toEqual({ kind: "open", route: MANAGER });
+    expect(finding.action).toEqual({ kind: "start", service: "audiocpp" });
     const text = said(finding);
     expect(text.fact).toBe("有问题：语音合成 audiocpp（停着；服务管家记的最后一次出错：进程退出（代码 1））；另有 2 个正常");
-    expect(text.fix).toContain("在服务管家里把它开起来");
+    expect(text.fix).toBe("到设置 · 服务把它开起来；开不起来就在那里看它记的出错和日志");
   });
 
   it("都在跑 → 正常，列出来；tailnet 网关在 ergo-daemon 开了 tailnet 时算进来（网关是服务管家里登记的一个服务）", () => {
     const gateway = { id: "tailnet-gw", name: "tailnet-gw", port: 8443, state: "RUNNING", autostart: true };
     const snapshot = parseSupervisorSnapshot(snapshotJson([daemon, { ...audiocpp, state: "RUNNING" }, tunnel, gateway], { tailnet: { gateway: { id: "tailnet-gw", state: "RUNNING", autostart: true } } }))!;
-    const finding = judgeServices(snapshot, { speechPort: 8090, recognizerPort: 8090 }, MANAGER);
+    const finding = judgeServices(snapshot, { speechPort: 8090, recognizerPort: 8090 }, LINKED);
     expect(finding.level).toBe("ok");
     expect(said(finding).fact).toBe("都正常：语音合成和语音识别 audiocpp（在跑）、外网隧道 ergo-tunnel（在跑）和tailnet 网关 tailnet-gw（在跑）");
   });
 
   it("名下的项目服务：失败 → 坏了；开着开机自启却停着 → 注意；关着（没开机自启）停着 → 正常；隧道停了 → 坏了", () => {
     const owned = (state: string, autostart: boolean, lastError?: string) => ({ id: "ergo-daemon--ledger-web", name: "ledger-web", port: 9100, state, autostart, ...(lastError ? { lastError } : {}) });
-    const judge = (services: Array<Record<string, unknown>>) => judgeServices(parseSupervisorSnapshot(snapshotJson(services))!, {}, MANAGER);
+    const judge = (services: Array<Record<string, unknown>>) => judgeServices(parseSupervisorSnapshot(snapshotJson(services))!, {}, LINKED);
     expect(judge([owned("FAILED", true, "健康检查不过")]).level).toBe("error");
     const autostart = judge([owned("STOPPED", true)]);
     expect(autostart.level).toBe("warn");
@@ -317,18 +318,19 @@ describe("托管的服务", () => {
     expect(judge([daemon, { ...tunnel, state: "FAILED" }]).level).toBe("error");
   });
 
-  it("语音没在用（端口不给）就不管 8090；一个相关的都没有 → 不适用；快照拿不到 → 没查出来；没接入服务管家不给动作", () => {
+  it("语音没在用（端口不给）就不管 8090；一个相关的都没有 → 不适用；快照拿不到 → 没查出来；没接入服务管家不给动作；不太健康的跳设置 · 服务里它那一块", () => {
     const snapshot = parseSupervisorSnapshot(snapshotJson([{ ...daemon, exposure: {}, tailnet: null }, audiocpp]))!;
-    expect(judgeServices(snapshot, {}, MANAGER).level).toBe("na");
-    expect(judgeServices(undefined, { speechPort: 8090 }, MANAGER).level).toBe("unknown");
-    const noLink = judgeServices(parseSupervisorSnapshot(snapshotJson([audiocpp]))!, { speechPort: 8090 }, undefined);
+    expect(judgeServices(snapshot, {}, LINKED).level).toBe("na");
+    expect(judgeServices(undefined, { speechPort: 8090 }, LINKED).level).toBe("unknown");
+    const noLink = judgeServices(parseSupervisorSnapshot(snapshotJson([audiocpp]))!, { speechPort: 8090 }, false);
     expect(noLink.action).toBeUndefined();
     expect(noLink.fix).toEqual({ key: "doctor.fix.servicesNoLink" });
-    // 服务管家的网页不是本机网址（体检的 open 只认本机）：照样坏了，不给动作，不会因为动作不像样变成"没查出来"
-    const remote = judgeServices(parseSupervisorSnapshot(snapshotJson([audiocpp]))!, { speechPort: 8090 }, "http://192.168.1.5:7420/");
-    expect(remote.level).toBe("error");
-    expect(remote.action).toBeUndefined();
-    expect(remote.fix).toEqual({ key: "doctor.fix.servicesNoLink" });
+    // 不太健康、端口被占着：开起来没用，去看看跳设置 · 服务里它那一块（#/more/services/<id>，id 编码过）
+    const degraded = judgeServices(parseSupervisorSnapshot(snapshotJson([{ ...audiocpp, state: "DEGRADED" }]))!, { speechPort: 8090 }, LINKED);
+    expect(degraded).toMatchObject({ level: "warn", action: { kind: "open", route: "#/more/services/audiocpp" } });
+    // 坏了的排在注意的前面，按钮给坏了的那个
+    const both = judgeServices(parseSupervisorSnapshot(snapshotJson([daemon, { ...asr, state: "ORPHAN" }, audiocpp, tunnel]))!, { speechPort: 8090, recognizerPort: 8091 }, LINKED);
+    expect(both.action).toEqual({ kind: "start", service: "audiocpp" });
   });
 
   it("和设置 · 服务一页同一份判定（ergoRelated，428）：二狗登记的依赖连同它们硬依赖的停了是坏了；标了 ergo: true 的按名下的判；二狗自己不列；无关的不列", () => {
@@ -337,7 +339,7 @@ describe("托管的服务", () => {
     const mount = { id: "disk-mount", name: "disk-mount", port: 0, state: "STOPPED", autostart: false };
     const marked = { id: "comfyui", name: "comfyui", port: 8188, state: "STOPPED", autostart: true, ergo: true };
     const drama = { id: "drama-server", name: "drama-server", port: 3000, state: "FAILED", autostart: true };
-    const finding = judgeServices(parseSupervisorSnapshot(snapshotJson([withDeps, db, mount, marked, drama]))!, {}, MANAGER);
+    const finding = judgeServices(parseSupervisorSnapshot(snapshotJson([withDeps, db, mount, marked, drama]))!, {}, LINKED);
     expect(finding.level).toBe("error");
     const fact = said(finding).fact;
     expect(fact).toContain("二狗要靠的服务 disk-mount（停着）");

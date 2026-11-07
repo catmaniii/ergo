@@ -9,9 +9,10 @@
 //   按名下的判。
 // 判法（票 410）：二狗要用的停着或失败 → 坏了；名下的、标了的失败 → 坏了，开了开机自启却停着 → 注意（关着的项目服务停着是正常的）；
 // 不太健康（DEGRADED）、端口被不归服务管家管的进程占着（ORPHAN）→ 注意。事实写服务名、状态、服务管家记的最后一次出错。
-// 动作：跳到服务管家的网页（只在这台电脑上打得开；418 做好后换成"开起来"）。
+// 动作（418 + 428）：最要紧的那个停着、失败了给"开起来"（start，设置 · 服务一页同一个接口）；不太健康、端口被占着的
+// "去看看"跳设置 · 服务里它那一块（#/more/services/<id>）。没接入服务管家不给（修法写 lsm start）。
 // 快照拿不到（服务管家没回应）算"没查出来"；一个和二狗有关的都没有算"不适用"。纯函数，句子由 doctor.ts 拼。
-import { DOCTOR_FIX_UNKNOWN, type DoctorMessage, doctorOpensUrl, type ErgoRelatedService, type ErgoUse, ergoRelated, formatList, t, tTable } from "@ergo/protocol";
+import { DOCTOR_FIX_UNKNOWN, type DoctorAction, type DoctorMessage, doctorServiceRoute, type ErgoRelatedService, type ErgoUse, ergoRelated, formatList, t, tTable } from "@ergo/protocol";
 import { DAEMON_SERVICE_ID } from "../cli/service.ts";
 import type { VoicePortsInUse } from "../lsm/voice-ports.ts";
 import type { DoctorFinding } from "./checks.ts";
@@ -178,12 +179,16 @@ function serviceText(related: Related, withError: boolean): string {
   return t("doctor.services.one", { uses, name: related.service.name, state });
 }
 
+/** 一个有问题的服务的动作：停着、失败了是"开起来"；别的（不太健康、端口被别的进程占着）跳设置 · 服务里它那一块看 */
+export function serviceAction(service: Pick<SupervisorService, "id" | "state">): DoctorAction {
+  return service.state === "STOPPED" || service.state === "FAILED" ? { kind: "start", service: service.id } : { kind: "open", route: doctorServiceRoute(service.id) };
+}
+
 /**
  * 判一次：snapshot 是服务管家那一项拿到的快照（没回应是 undefined），inUse 是二狗在用的语音服务的端口，
- * managerPage 是服务管家的网页（没接入是 undefined，就不给动作；不是本机的网址也不给——体检的 open 只认本机，doctorOpensUrl）
+ * linked 是接入了服务管家（没接入不给动作：设置 · 服务一页、"开起来"都走接入层）
  */
-export function judgeServices(snapshot: SupervisorSnapshot | undefined, inUse: ServicesInUse, managerPage: string | undefined): DoctorFinding {
-  const managerUrl = managerPage !== undefined && doctorOpensUrl(managerPage) ? managerPage : undefined;
+export function judgeServices(snapshot: SupervisorSnapshot | undefined, inUse: ServicesInUse, linked: boolean): DoctorFinding {
   if (!snapshot) return { level: "unknown", fact: { key: "doctor.services.noSnapshot" }, fix: { key: DOCTOR_FIX_UNKNOWN } };
   const related = relatedOf(snapshot, inUse);
   if (related.length === 0) return { level: "na", fact: { key: "doctor.services.none" } };
@@ -191,13 +196,15 @@ export function judgeServices(snapshot: SupervisorSnapshot | undefined, inUse: S
   const bad = judged.filter((j) => j.level !== "ok");
   if (bad.length === 0) return { level: "ok", fact: { key: "doctor.services.fine", params: { list: formatList(related.map((r) => serviceText(r, false))) } } };
   const level = bad.some((j) => j.level === "error") ? "error" : "warn";
-  const problems = bad.toSorted((a, b) => (a.level === b.level ? 0 : a.level === "error" ? -1 : 1)).map((j) => serviceText(j.r, true));
+  const sorted = bad.toSorted((a, b) => (a.level === b.level ? 0 : a.level === "error" ? -1 : 1));
+  const problems = sorted.map((j) => serviceText(j.r, true));
   const fine = judged.filter((j) => j.level === "ok").length;
   const fact: DoctorMessage = fine === 0 ? { key: "doctor.services.bad", params: { list: formatList(problems) } } : { key: "doctor.services.badSome", params: { list: formatList(problems), fine } };
   return {
     level,
     fact,
-    fix: { key: managerUrl === undefined ? "doctor.fix.servicesNoLink" : "doctor.fix.services" },
-    ...(managerUrl === undefined ? {} : { action: { kind: "open" as const, route: managerUrl } }),
+    fix: { key: linked ? "doctor.fix.services" : "doctor.fix.servicesNoLink" },
+    // 一项只放一个按钮：给最要紧的那个（坏了的在前）
+    ...(linked ? { action: serviceAction(sorted[0]!.r.service) } : {}),
   };
 }

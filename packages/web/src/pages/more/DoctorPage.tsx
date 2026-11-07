@@ -2,7 +2,8 @@
 // 最上面一句说明，然后是总状态（坏了几项、要注意几项、都正常；没查出来的另起一句灰字）和查的时刻；下面按块显示——
 // "二狗本身"一块在最前，每个在跑或没装上的插件一块（有问题的在前），块头是名字和这一块最差的结果；
 // 每项一行：结果的小圆点、名字（不正常的带结果的小签）、查出来的事实、"从什么时候起"、怎么修，带动作的有一个按钮
-// （去看看：跳到那一页；打开服务管家：本机的网址画成新开一页的链接，410、413；现在压缩：和会话 ⚙ 里同一个接口）；不适用的淡显、排在块的最后。
+// （去看看：跳到那一页，服务管家里的服务跳设置 · 服务定位到它；开起来：和设置 · 服务一页同一个接口，开完再查一遍，410、413；
+// 现在压缩：和会话 ⚙ 里同一个接口；本机的网址画成新开一页的链接）；不适用的淡显、排在块的最后。
 // 停用了的插件最底下一行列名字。
 // 再往下是后台盯着（416）那一段：每几分钟看一眼哪几件、坏了放进待办；在待办里点了"不再提醒这件事"的列出来，各带"恢复提醒"。
 // 右上"再查一遍"（重新请求 GET /api/doctor）。演示页用原型编的一份（prototype/fake-doctor.ts）。
@@ -26,24 +27,37 @@ import {
   doctorSinceText,
   doctorSummary,
   knownDoctorAction,
+  startDoctorService,
 } from "../../app/doctor.ts";
 import { useDoctor, useDoctorDeep } from "../../app/page-doctor.ts";
 import { type Navigate, parseHash } from "../../app/route.ts";
 import { useStore } from "../../app/store.tsx";
-import { type DoctorAction, type DoctorDeepView, type DoctorGroupView, type DoctorItemView, doctorOpensUrl, type DoctorView, type DoctorWatchMutedView, type DoctorWatchView, doctorWatchKey, t } from "../../state/index.ts";
+import {
+  type DoctorAction,
+  type DoctorDeepView,
+  type DoctorGroupView,
+  type DoctorItemView,
+  doctorOpensUrl,
+  type DoctorView,
+  type DoctorWatchMutedView,
+  type DoctorWatchView,
+  doctorWatchKey,
+  t,
+} from "../../state/index.ts";
 import { TopBar } from "../../ui/common.tsx";
 import { useToast } from "../../ui/toast.tsx";
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-/** 动作按钮被点了：交给页面（跳转、压缩）；busy 是正在做的那一个（压缩中） */
+/** 动作按钮被点了：交给页面（跳转、压缩、开起来）；busy 是正在做的那一个（压缩中、正在开） */
 interface ActionProps {
   onAction?: ((action: DoctorAction) => void) | undefined;
   busy?: DoctorAction | undefined;
 }
 
-/** 这个按钮正在做（压缩同一个 agent 的） */
-const working = (busy: DoctorAction | undefined, action: DoctorAction) => busy?.kind === "compact" && action.kind === "compact" && busy.agentId === action.agentId;
+/** 这个按钮正在做（压缩同一个 agent 的、开同一个服务的） */
+const working = (busy: DoctorAction | undefined, action: DoctorAction) =>
+  (busy?.kind === "compact" && action.kind === "compact" && busy.agentId === action.agentId) || (busy?.kind === "start" && action.kind === "start" && busy.service === action.service);
 
 /** 一项：小圆点、名字（不正常的带结果的小签）、事实、从什么时候起、怎么修、动作按钮 */
 export function DoctorItemRow({ item, onAction, busy }: { item: DoctorItemView } & ActionProps) {
@@ -248,6 +262,17 @@ export function DoctorPage({ title, onBack, navigate }: { title: string; onBack:
       // 本机的网址在行里画成链接，不走这里；别处调来的照样新开一页
       if (doctorOpensUrl(action.route)) window.open(action.route, "_blank", "noopener");
       else navigate(parseHash(action.route));
+      return;
+    }
+    // 开起来（418 + 428）：和设置 · 服务一页同一个接口（会过"和二狗有关"、受保护的检查）；结果说一句，开完再查一遍
+    if (action.kind === "start") {
+      setBusy(action);
+      void startDoctorService(http, action.service)
+        .then((text) => {
+          toast(text);
+          recheck();
+        })
+        .finally(() => setBusy(undefined));
       return;
     }
     // 现在压缩：和会话 ⚙ 里同一个接口；压缩要一会儿，压完了自己再查一遍

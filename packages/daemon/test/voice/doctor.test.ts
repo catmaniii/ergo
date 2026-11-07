@@ -139,13 +139,12 @@ describe("语音合成", () => {
     expect(finding.since).toBe(STOPPED_AT);
     expect(finding.probed).toEqual([]); // 预热 30 秒前刚看过：照它说的，不另探
     expect(say(finding.fact)).toBe(`语音合成服务没开（${speechUrl}）：你发语音时的回复都合成不了，退回只发文字`);
-    expect(say(finding.fix)).toBe("在装二狗的那台电脑上打开服务管家，把「audio.cpp 语音合成」（audiocpp）开起来，再查一遍");
-    expect(finding.action).toEqual({ kind: "open", route: MANAGER });
-    // 服务管家只听在别的地址上（体检的 open 只认本机网址）：照样坏了、修法照写，只是不带按钮，不会变成"没查出来"
+    expect(say(finding.fix)).toBe("到设置 · 服务把「audio.cpp 语音合成」（audiocpp）开起来，再查一遍");
+    // 418 + 428：按钮是"开起来"登记在这个端口上的那条（和设置 · 服务一页同一个接口）
+    expect(finding.action).toEqual({ kind: "start", service: "audiocpp" });
+    // 服务管家只听在别的地址上：按钮照样给（开起来走二狗和服务管家的接入层，不用在浏览器里打开它的网页）
     const remote = await run({ ...fake, manager: "http://192.168.1.5:7420/" }, "speech");
-    expect(remote.level).toBe("error");
-    expect(remote.action).toBeUndefined();
-    expect(say(remote.fix)).toBe("在装二狗的那台电脑上打开服务管家，把「audio.cpp 语音合成」（audiocpp）开起来，再查一遍");
+    expect(remote).toMatchObject({ level: "error", action: { kind: "start", service: "audiocpp" } });
   });
 
   it("组件页装的那条（ergo-daemon--audiocpp）：开着正常（带模型名）；太久没看过就当场探，连不上是坏了，修法写它", async () => {
@@ -193,8 +192,9 @@ describe("语音合成", () => {
     const failed = await run({ ...base, speech: state("error", { reason: "模型 id 不对" }) }, "speech");
     expect(failed.level).toBe("error");
     expect(say(failed.fact)).toBe(`127.0.0.1:${speechPort} 开着，但试合成没成：模型 id 不对`);
-    expect(say(failed.fix)).toContain("到服务管家重启「audiocpp」");
-    expect(failed.action).toEqual({ kind: "open", route: MANAGER });
+    expect(say(failed.fix)).toContain("到设置 · 服务重启「audiocpp」");
+    // 在跑却试合成出错：去看看跳设置 · 服务里它那一块（重启、看日志）
+    expect(failed.action).toEqual({ kind: "open", route: "#/more/services/audiocpp" });
 
     // 别的机器上的合成服务：平时体检不联网，太久没看过也只照状态说
     const remote = await run({ speechUrl: "http://192.0.2.10:8090", recognizerUrl, features: [COMPONENT_FEATURES.voiceReply], checkedAt: NOW - 600_000 }, "speech");
@@ -248,8 +248,8 @@ describe("语音识别：三种来源各按各的", () => {
     expect(down.probed).toEqual([recognizerUrl]);
     expect(down.level).toBe("error");
     expect(say(down.fact)).toBe(`服务管家托管的识别服务（127.0.0.1:${recognizerPort}）连不上（没有服务在听）：你发的语音识别不了`);
-    expect(say(down.fix)).toBe("在装二狗的那台电脑上打开服务管家，把「二狗语音识别」（ergo-asr）开起来，再查一遍");
-    expect(down.action).toEqual({ kind: "open", route: MANAGER });
+    expect(say(down.fix)).toBe("到设置 · 服务把「二狗语音识别」（ergo-asr）开起来，再查一遍");
+    expect(down.action).toEqual({ kind: "start", service: "ergo-asr" });
 
     const failed = await run({ ...stale, probe: () => ({ reachable: true, body: { ok: false, loaded: false, error: "模型加载失败：CUDA out of memory" } }) }, "recognizer");
     expect(failed.level).toBe("error");
@@ -369,9 +369,9 @@ describe("登记进体检：语音那一块", () => {
     expect(voice.items[0]!.text).toEqual({
       title: "语音合成",
       fact: "语音合成服务没开：你发语音时的回复都合成不了，退回只发文字",
-      fix: "在装二狗的那台电脑上打开服务管家，把「audiocpp」开起来，再查一遍",
+      fix: "到设置 · 服务把「audiocpp」开起来，再查一遍",
     });
-    expect(voice.items[0]!.action).toEqual({ kind: "open", route: MANAGER });
+    expect(voice.items[0]!.action).toEqual({ kind: "start", service: "audiocpp" });
   });
 });
 

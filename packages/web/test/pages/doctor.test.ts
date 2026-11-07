@@ -15,7 +15,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { Connection } from "../../src/app/connection.ts";
 import type { DaemonHttp } from "../../src/app/daemon-http.ts";
-import { doctorActionText, doctorDeepAgoText, doctorDeepButtonText, doctorDeepNow, doctorDeepWaitSeconds, doctorSinceText, doctorSummary, knownDoctorAction, loadDoctor } from "../../src/app/doctor.ts";
+import { doctorActionText, doctorDeepAgoText, doctorDeepButtonText, doctorDeepNow, doctorDeepWaitSeconds, doctorSinceText, doctorSummary, knownDoctorAction, loadDoctor, startDoctorService } from "../../src/app/doctor.ts";
 import { StoreProvider } from "../../src/app/store.tsx";
 import { DoctorDeepBlock, DoctorGroups, DoctorItemRow, DoctorPage, DoctorWatchSection } from "../../src/pages/more/DoctorPage.tsx";
 import { hasChinese, localizedFake } from "../../src/prototype/fake-content.ts";
@@ -148,10 +148,40 @@ describe("按块显示", () => {
     expect(renderToStaticMarkup(createElement(DoctorItemRow, { item: strange, onAction: noop }))).not.toContain("data-action");
     expect(knownDoctorAction({ kind: "open", route: "#/more/plugins" })).toBe(true);
     expect(doctorActionText({ kind: "open", route: "#/more/plugins" })).toBe("去看看");
-    // 410：本机的网址（服务管家的网页）是"打开服务管家"
+    // 本机的网址是"打开服务管家"（插件也能给）
     expect(doctorActionText({ kind: "open", route: "http://127.0.0.1:7420/" })).toBe("打开服务管家");
     const manager = item("services", "error", "托管的服务", "语音合成停着", { action: { kind: "open", route: "http://127.0.0.1:7420/" } });
     expect(renderToStaticMarkup(createElement(DoctorItemRow, { item: manager, onAction: noop }))).toContain("打开服务管家");
+    // 418 + 428：托管的服务、语音合成停着时是"开起来"（按钮，不是链接）；正在开的那个灰着写"正在开…"
+    const start = { kind: "start" as const, service: "audiocpp" };
+    expect(knownDoctorAction(start)).toBe(true);
+    expect(doctorActionText(start)).toBe("开起来");
+    const stopped = item("services", "error", "托管的服务", "语音合成 audiocpp（停着）", { action: start });
+    expect(renderToStaticMarkup(createElement(DoctorItemRow, { item: stopped, onAction: noop }))).toMatch(/<button[^>]*data-action="start"[^>]*>开起来<\/button>/);
+    expect(renderToStaticMarkup(createElement(DoctorItemRow, { item: stopped, onAction: noop, busy: start }))).toMatch(/<button[^>]*disabled=""[^>]*>正在开…<\/button>/);
+    // 不太健康的：去看看跳设置 · 服务里它那一块
+    expect(doctorActionText({ kind: "open", route: "#/more/services/audiocpp" })).toBe("去看看");
+  });
+
+  test("开起来（418 + 428）：调设置 · 服务一页同一个接口的 start，结果照实说一句；接口出错也说一句", async () => {
+    const calls: Array<[string, string]> = [];
+    const http = {
+      managedServiceAction: async (id: string, action: string) => {
+        calls.push([id, action]);
+        return { ok: true as const, action: "start" as const };
+      },
+    };
+    expect(await startDoctorService(http, "audiocpp")).toContain("audiocpp");
+    expect(calls).toEqual([["audiocpp", "start"]]);
+    // 没开成：和设置 · 服务一页一样的说法（不相关的、服务管家的原话）
+    const unrelated = { managedServiceAction: async () => ({ ok: false as const, action: "start" as const, code: "not-related", message: "" }) };
+    expect(await startDoctorService(unrelated, "drama-server")).toContain("不是和二狗有关的服务");
+    const refused = { managedServiceAction: async () => ({ ok: false as const, action: "start" as const, code: "failed", message: "端口 8090 被别的程序占着" }) };
+    expect(await startDoctorService(refused, "audiocpp")).toContain("端口 8090 被别的程序占着");
+    const broken = { managedServiceAction: () => Promise.reject(new Error("连不上二狗")) };
+    expect(await startDoctorService(broken, "audiocpp")).toBe("没开起来：连不上二狗");
+    // 原型的假服务管家：照样能点
+    expect(await startDoctorService(new FakeDaemonHttp(new FakeConnection()), "audiocpp")).not.toBe("");
   });
 
   test("跳本机的网页（服务管家，410、413）：画成新开一页的链接，写\"打开服务管家\"，不经页面的跳转", () => {
@@ -183,7 +213,7 @@ describe("原型编的一份", () => {
     expect(core.find((i) => i.id === "context")!.action).toEqual({ kind: "compact", agentId: "secretary" });
     expect(core.find((i) => i.id === "context")!.text.fact).toBe("二狗：对话用了 93.5 万 token，过了自动压缩点 70 万还没压下去（模型窗口 104.9 万）");
     expect(core.find((i) => i.id === "model-calls")!.text.fact).toContain("最近 5 轮都失败了：服务商说太忙和服务商出错（500）");
-    expect(core.find((i) => i.id === "services")!.action).toEqual({ kind: "open", route: "http://127.0.0.1:7420/" });
+    expect(core.find((i) => i.id === "services")!.action).toEqual({ kind: "start", service: "audiocpp" });
     expect(core.find((i) => i.id === "external")!.text.fact).toBe("配了：Tailscale。入口从外面都打不通：https://ergo.demo-tailnet.ts.net/（tailnet 节点离线）");
     // 411 的十项照今天的样子：备份 EBUSY、日志 265 MB、合集缺两个 skill；待办、旧手机是提示（正常，带事实和去看看）
     const text = (id: string) => core.find((i) => i.id === id)!.text;
@@ -219,7 +249,7 @@ describe("原型编的一份", () => {
     expect(memory.items.find((i) => i.id === "nightly")).toMatchObject({ since: "2026-11-05T03:14:00+08:00", action: { kind: "open", route: "#/more/memory/curator" } });
     // 坏了的插件块排在前面（记忆、语音、Google，照插件清单的先后），然后是要注意的（Looki），总状态是坏了
     expect(view.groups.slice(1, 5).map((g) => g.id)).toEqual(["memory", "voice", "google", "looki"]);
-    // 语音那一块是 413 的五项：合成服务坏了（从 15:42 起，打开服务管家），N 卡这次没查出来，别的正常
+    // 语音那一块是 413 的五项：合成服务坏了（从 15:42 起，开起来），N 卡这次没查出来，别的正常
     const voice = view.groups.find((g) => g.id === "voice")!.items;
     expect(voice.map((i) => [i.id, i.level])).toEqual([
       ["plugin", "ok"],
@@ -229,8 +259,8 @@ describe("原型编的一份", () => {
       ["ffmpeg", "ok"],
       ["gpu", "unknown"],
     ]);
-    expect(voice[1]).toMatchObject({ since: "2026-11-07T15:42:00+08:00", action: { kind: "open", route: "http://127.0.0.1:7420/" } });
-    expect(voice[1]!.text.fix).toContain("服务管家");
+    expect(voice[1]).toMatchObject({ since: "2026-11-07T15:42:00+08:00", action: { kind: "start", service: "audiocpp" } });
+    expect(voice[1]!.text.fix).toContain("设置 · 服务");
     // 和二狗本身的"托管的服务"说的是同一个停着的服务（audiocpp），一个从服务管家看、一个从语音看
     expect(voice[1]!.text.fix).toContain("audiocpp");
     expect(view.groups[0]!.items.find((i) => i.id === "services")!.text.fact).toContain("audiocpp");
@@ -257,7 +287,7 @@ describe("原型编的一份", () => {
     expect(html).toContain("&quot;Work&quot; failed 2 times in a row");
     expect(html).toContain("Compact now");
     expect(html).toContain("Take a look");
-    expect(html).toContain("Open service manager");
+    expect(html).toContain("Start it");
     expect(html).toContain("ergo: the conversation is at 935K tokens");
     expect(html).toContain("In the list of the &quot;matt-pocock&quot; collection but not in the library: handoff and to-questionnaire");
     expect(html).toContain("The app on 1 phone is older than the required 0.4.1: Home tablet (0.3.9)");

@@ -102,6 +102,9 @@ describe("查一项", () => {
     for (const route of ["http://127.0.0.1:7420/", "http://localhost:7420", "https://[::1]:7420/"]) {
       expect(validFinding({ level: "error", fact: { key: "x" }, action: { kind: "open", route } })?.action).toEqual({ kind: "open", route });
     }
+    // 418 + 428：开起来服务管家里的一个服务，要写是哪个服务
+    expect(validFinding({ level: "error", fact: { key: "x" }, action: { kind: "start", service: "audiocpp" } })?.action).toEqual({ kind: "start", service: "audiocpp" });
+    for (const action of [{ kind: "start" }, { kind: "start", service: "" }, { kind: "start", service: 3 }]) expect(validFinding({ level: "error", fact: { key: "x" }, action })).toBeUndefined();
   });
 
   it("不给超时用默认的 1.5 秒", () => {
