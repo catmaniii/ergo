@@ -203,6 +203,8 @@ describe("发起任务的三条路", () => {
       "[tool] suggest_project",
       // 只读工具：查看板、读项目档案、列出待我处理、把卡片放进聊天（不对卡片做动作）
       "[tool] view_board",
+      // 只读的体检（和设置 · 体检同一份）
+      "[tool] check_health",
       "[tool] read_project_records",
       // 给出项目的服务的入口（放一张服务入口卡）
       "[tool] open_service",

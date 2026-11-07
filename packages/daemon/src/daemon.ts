@@ -65,6 +65,7 @@ import { defaultSvcDataDir } from "./cli/context.ts";
 import { type AutostartSwitch, createAutostartSwitch } from "./lsm/autostart-switch.ts";
 import { detectLayout, type InstallLayout, readInstallState } from "./release/layout.ts";
 import { releasePublicKey } from "./release/public-key.ts";
+import { createDoctorChecks, type DoctorCheckRegistry } from "./doctor/checks.ts";
 import { type DoctorService, createDoctor, diskProbe, externalProbe, missingDefaultFeatures, nodeProbe, piVersionProbe, portsProbe, supervisorProbe } from "./doctor/doctor.ts";
 import { modelCredentials, tavilyKey } from "./config/secrets.ts";
 import { messagePurge, timelineRecordPurge } from "./conversation/purge.ts";
@@ -585,6 +586,10 @@ export interface Daemon {
   readonly memoryHost: MemoryHost;
   /** 设置 · 数据源：插件登记的数据源、立即同步、断开、用法开关、导入文件夹 */
   readonly dataSources: DataSources;
+  /** 体检（GET /api/doctor、秘书的 check_health）：八项、插件块、二狗替插件生成的几项 */
+  readonly doctor: DoctorService;
+  /** 体检项的登记表：插件经 ctx.doctor 登记的、内核自己登记的（"二狗本身"那一块） */
+  readonly doctorChecks: DoctorCheckRegistry;
   /** 设置 · 组件：模型、语音这些大件按需下载——装、删、更新、暂停、继续、取消、离线导入 */
   readonly components: Components;
   /** 组件每晚查更新：测试直接叫它的 nightly */
@@ -1357,6 +1362,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 数据源（ADR-0027 的"数据源"贡献点）：登记表在插件装配之前建好（插件在数据契约里登记它们的数据源）；
     // 服务（设置 · 数据源、定期导入、按需查的工具、导入文件夹）在插件起来之后建，插件的状况变了跟着变
     const dataSourceRegistry = createDataSourceRegistry();
+    // 体检项（409）：插件在 setup 里经 ctx.doctor 登记的检查进这里（带插件名，停用时撤掉），内核自己的检查也登记在这里（不带插件名，
+    // 放"二狗本身"那一块）；体检（createDoctor）每次现查时并行跑它们
+    const doctorChecks = createDoctorChecks();
     // 数据源的服务起来了（定期导入挂上、开机补的同步已经开始）：记忆整理之前同步一遍要等它（开机补跑的那一夜在它之前就开始了）
     let dataSourcesStarted!: (sources: DataSources) => void;
     const dataSourcesReady = new Promise<DataSources>((resolve) => (dataSourcesStarted = resolve));
@@ -1466,6 +1474,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         runtimes: agentRuntimes,
         // 数据源：插件在数据契约里登记的数据源
         dataSources: dataSourceRegistry,
+        // 体检项：插件在 setup 里登记的检查
+        doctor: doctorChecks,
       },
     });
     await plugins.start();
@@ -1899,6 +1909,16 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
           },
         }),
       },
+      // 409：插件块——登记的检查项、插件宿主的现状（每个插件一行）、数据源整页视图（每个数据源一项）、运行时登记表（每个运行时一项；
+      // 没装的运行时有没结束的任务、项目用着才算坏）
+      checks: doctorChecks,
+      plugins: () => plugins.info(),
+      dataSources: () => dataSources.doctorFacts(),
+      runtimes: () => agentRuntimes.view().runtimes,
+      runtimeUsers: (runtimeId) =>
+        tasks.list().filter((task) => task.runtime === runtimeId && UNFINISHED_TASK_STATES.includes(task.state)).length +
+        projectDirectory.list().filter((project) => project.runtime === runtimeId && project.state !== "archived").length,
+      log,
       now: () => clock.now(),
     });
     const agentModel = (agent: ModelAgent) => modelSettings.modelFor(agent);
@@ -1999,6 +2019,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       boardKinds,
       // 秘书建任务时写的运行时：现在能用的才行
       runtimeRefusal,
+      // 只读的体检工具（check_health）：和设置 · 体检同一份
+      doctor,
       // 提议定时任务：接下来几次按守护进程的时钟和工作日历算；pi 跑的写任务负责人那一行现在的模型；每次大概花多少按同类运行的历史用量
       scheduling: {
         now: () => new Date(clock.now()),
@@ -3024,6 +3046,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       materials,
       memoryHost,
       dataSources,
+      doctor,
+      doctorChecks,
       components,
       pairing,
       approvals,

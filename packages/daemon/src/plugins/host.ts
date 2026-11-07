@@ -23,6 +23,8 @@
 //   数据契约里还登记数据源（"数据源"贡献点，ctx.dataSources）：名字、敏感类别、两种用法（按需查 / 导入）、它导入的记录、
 //   认导入文件夹里哪种文件，连同要插件在运行才叫的函数（连接状态、填设置、同步、导入文件、按需查的工具）——停用的插件的数据源照样在
 //   设置 · 数据源里列出、写"X插件没启用"，断开并删照样删得掉它导入的（登记表 data-sources/registry.ts，见 data-sources/service.ts）。
+// - 体检项（409）：插件经 ctx.doctor.register 登记自己的检查（doctor/checks.ts），宿主记上插件名、返回撤销函数，停用时撤掉——
+//   体检页上这个插件那一块跟着没了，再启用回来。插件本身、它的数据源、它的运行时那几项由二狗替它生成（doctor/auto.ts），不用登记。
 // - agent 贡献：插件给 agent 的工具（守卫的登记随工具走）、每轮的上下文块、钩子订阅经 ctx.agent 登记进 agent 贡献模块
 //   （agent-host/contributions.ts），和别的登记一样返回撤销函数、停用时撤掉；上下文块、钩子订阅的 id 前面加上插件名（"reminders:…"）。
 //   工具由宿主包一层：停用后还没按新的贡献重新装配的 agent 在正在跑的一轮里再调它，回"X插件没启用"（isError），不崩、不做。
@@ -46,6 +48,7 @@ import type { DataSourceRegistry } from "../data-sources/registry.ts";
 import type { CardTypeDefinition } from "../cards/registry.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventSubscriberKind } from "../event-sources/triggers.ts";
+import type { DoctorCheck, DoctorCheckRegistry } from "../doctor/checks.ts";
 import type { DerivedView } from "../events/event-store.ts";
 import type { PurgeQuotes, PurgeRewriter } from "../events/purge.ts";
 import type { RequestHandlers } from "../gateway/gateway.ts";
@@ -109,6 +112,8 @@ export interface PluginSurfaces {
   runtimes: Pick<RuntimeRegistry, "register">;
   /** 数据源的登记表（data-sources/registry.ts）：插件在数据契约里登记的数据源进这里，带上插件名和"在不在运行" */
   dataSources: Pick<DataSourceRegistry, "register">;
+  /** 体检项的登记表（doctor/checks.ts）：插件在 setup 里登记的检查进这里，带上插件名 */
+  doctor: Pick<DoctorCheckRegistry, "register">;
 }
 
 /** 插件自己的 start/stop：宿主按依赖顺序叫 start，停用时（依赖它的先停）叫 stop */
@@ -189,6 +194,12 @@ export interface PluginContext {
    * 撤销（停用）以后 404、开着的 WebSocket 断开
    */
   readonly apps: { register(app: AppRegistration): Undo };
+  /**
+   * 体检项（doctor/checks.ts 的 DoctorCheck）：id（插件里不重复）、名字的文案键、开销（passive 只读内存文件事件 / local 连本机端口）、
+   * 超时（默认 1.5 秒）、run 交回五种结果之一和事实、怎么修（文案键 + 参数，键放插件自己的语言文件 <插件>.doctor.*）。
+   * 体检页上放在这个插件那一块；停用时撤掉
+   */
+  readonly doctor: { register(check: DoctorCheck): Undo };
   /** 定时器、订阅、事件监听这类：执行 execute，记下它返回的撤销函数（store.onAppend、workdayCalendar.onChange 直接交进来） */
   effect(execute: () => Undo | void): Undo;
   /** 插件自己的 start/stop（可以叫几次，按先后 start、倒着 stop） */
@@ -827,6 +838,7 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
         notes: { register: registrar((_c: NoteContribution) => "给 agent 的输入附注", (c) => surfaces!.agent.notes.register(c)) },
       },
       apps: { register: registrar((a: AppRegistration) => `转发的应用 ${a.name}`, (a) => surfaces!.apps.register(a)) },
+      doctor: { register: registrar((c: DoctorCheck) => `体检项 ${name}:${c.id}`, (c) => surfaces!.doctor.register({ ...c, plugin: name })) },
       effect(execute) {
         guard("登记定时器、订阅或监听");
         return record("定时器、订阅或监听", execute() ?? (() => {}));

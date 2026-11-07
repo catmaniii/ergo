@@ -7,5 +7,5 @@ export { openFolderOnDesktop } from "./import-folder.ts";
 export { dataSourceMaterial, type DataSourceRecordMaterial } from "./material.ts";
 export { createDataSourceRegistry, type DataSourceEntry, type DataSourceOwner, type DataSourceRegistry } from "./registry.ts";
 export { createDataSourceSecrets, type DataSourceSecretStore, redactSecrets } from "./secrets.ts";
-export { createDataSources, type DataSources, type DataSourcesOptions, type PullableSync } from "./service.ts";
+export { createDataSources, type DataSourceDoctorFacts, type DataSources, type DataSourcesOptions, type PullableSync, scheduleEveryMs } from "./service.ts";
 export { createDataSourceSettings, type DataSourceSettings } from "./settings.ts";

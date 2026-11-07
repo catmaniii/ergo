@@ -1,121 +1,54 @@
-// 体检（319b）在网页上的这一半里"不碰浏览器"的那部分：取八项检查（GET /api/doctor）、演示页的假数据、
-// 把每项查出来的结构化事实按当前语言拼成一句话、"怎么修"的文案；页面要的"再查一遍"也走这里的 loadDoctor。
-// 八项是哪八项、形状是什么在共享协议包的 doctor.ts；真相在守护进程，这边一个字节也不存。
-// 这些函数都不碰 window、不引 React（Node 里直接查，test/pages/doctor.test.ts）：钩子和演示页判断在 app/page-doctor.ts。
-import {
-  DOCTOR_CHECKS,
-  DOCTOR_FIX_UNKNOWN,
-  type DoctorCheckDataById,
-  type DoctorCheckId,
-  type DoctorCheckView,
-  type DoctorView,
-  formatDate,
-  formatList,
-  formatNumber,
-  HTTP_PATHS,
-  type HttpErrorBody,
-  t,
-  tTable,
-} from "../state/index.ts";
+// 体检（319b、409）在网页上的这一半里"不碰浏览器"的那部分：取一遍（loadDoctor：经 DaemonHttp 的 GET /api/doctor，
+// 演示页是原型的假 HTTP，prototype/fake-doctor.ts）、总状态那几句、五种结果的叫法、"从什么时候起"、停用的插件那一行、
+// 动作按钮上的字、查的时刻。每项的句子守护进程已经按当前语言拼好了（DoctorItemView 的 text——插件的文案键在插件自己的
+// 语言文件里，网页的词典里没有那些区域），这里照着显示，不自己拼。真相在守护进程，这边一个字节也不存。
+// 这些函数都不碰 window、不引 React（Node 里直接查，test/pages/doctor.test.ts）：钩子在 app/page-doctor.ts。
+import { DOCTOR_ACTION_KINDS, type DoctorAction, type DoctorLevel, type DoctorView, formatDate, formatList, t } from "../state/index.ts";
+import type { DaemonHttp } from "./daemon-http.ts";
 
-/** 取八项检查现在各自的样子（GET /api/doctor，每次现查，不缓存） */
-export async function fetchDoctor(): Promise<DoctorView> {
-  const res = await fetch(HTTP_PATHS.doctor, { credentials: "same-origin" });
-  if (!res.ok) {
-    const error = (await res.json().catch(() => undefined)) as HttpErrorBody | undefined;
-    throw new Error(error?.message ?? t("doctor.requestFailed", { status: res.status }));
-  }
-  return (await res.json()) as DoctorView;
+/** 八项的事实拼句、修法、名字：319b 时写在这里，409 挪进了协议包（守护进程也要拼），这里照旧能取 */
+export { doctorCheckTitle, doctorFactText, doctorFixText } from "../state/index.ts";
+
+/** 取一遍：打开页面时、点"再查一遍"时、换了语言时都走这一条（每次现查，不缓存） */
+export function loadDoctor(http: Pick<DaemonHttp, "doctor">): Promise<DoctorView> {
+  return http.doctor();
 }
 
-/**
- * 取一遍：打开页面时、点"再查一遍"时都走这一条。演示页（没有守护进程）不请求网络，给编好的数据（demo，由页面那一半给）
- */
-export async function loadDoctor(demo: (() => DoctorView) | undefined, load: () => Promise<DoctorView> = fetchDoctor): Promise<DoctorView> {
-  return demo ? demo() : load();
+/** 五种结果的叫法（正常、注意、坏了、没查出来、不适用） */
+export function doctorLevelText(level: DoctorLevel): string {
+  return t(`doctor.level.${level}`);
 }
 
-/** 演示页的假数据：六项是好的，组件缺记忆的向量模型、外网入口没查到依据——各带一句"怎么修" */
-export function demoDoctorView(): DoctorView {
-  const data: { [Id in DoctorCheckId]: DoctorCheckDataById[Id] } = {
-    ports: { local: 8810, external: 8811, localUp: true, externalUp: true },
-    node: { running: "22.23.4", expected: "22" },
-    pi: { version: "1.0.4" },
-    supervisor: { running: true, port: 7420 },
-    model: { configured: true },
-    components: { missing: ["memory.semantic"] },
-    disk: { freeGb: 42.3, totalGb: 476.8, path: "C:\\Users\\demo\\.ergo" },
-    external: { configured: false },
-  };
-  return {
-    checks: DOCTOR_CHECKS.map((id) => {
-      const ok = id !== "components" && id !== "external";
-      return { id, ok, data: data[id], ...(ok ? {} : { fix: `doctor.fix.${id}` }) };
-    }),
-    at: "2026-10-28T09:30:00.000Z",
-  };
+/** 总状态那几句：坏了几项、要注意几项（都没有是"都正常"），没查出来的另起一句（灰字，不算进总状态） */
+export function doctorSummary(view: DoctorView): Array<{ level: DoctorLevel; text: string }> {
+  const { error, warn, unknown } = view.counts;
+  const out: Array<{ level: DoctorLevel; text: string }> = [];
+  if (error > 0) out.push({ level: "error", text: t("doctor.summary.error", { count: error }) });
+  if (warn > 0) out.push({ level: "warn", text: t("doctor.summary.warn", { count: warn }) });
+  if (out.length === 0) out.push({ level: "ok", text: t("doctor.summary.ok") });
+  if (unknown > 0) out.push({ level: "unknown", text: t("doctor.summary.unknown", { count: unknown }) });
+  return out;
 }
 
-/** 组件打开的功能（清单里 enables 的 id）在页面上的叫法；不认得的功能写 id 本身 */
-const FEATURE_NAME = tTable({
-  "memory.semantic": "doctor.feature.memorySemantic",
-  "voice.input": "doctor.feature.voiceInput",
-  "voice.reply": "doctor.feature.voiceReply",
-  "runtime.claude-code": "doctor.feature.runtimeClaudeCode",
-});
-
-const featureName = (id: string): string => (FEATURE_NAME as Readonly<Record<string, string>>)[id] ?? id;
-
-/** 每一项的事实拼成一句话（端口号、版本号、剩多少 GB 都按当前语言写） */
-const FACT: { readonly [Id in DoctorCheckId]: (data: DoctorCheckDataById[Id]) => string } = {
-  ports: (data) =>
-    t("doctor.fact.ports", {
-      local: data.local,
-      external: data.external,
-      localState: t(data.localUp ? "doctor.fact.portsUp" : "doctor.fact.portsDown"),
-      externalState: t(data.externalUp ? "doctor.fact.portsUp" : "doctor.fact.portsDown"),
-    }),
-  node: (data) => t("doctor.fact.node", { running: data.running, expected: data.expected }),
-  pi: (data) => (data.version === undefined ? t("doctor.fact.piMissing") : t("doctor.fact.pi", { version: data.version })),
-  supervisor: (data) =>
-    data.running ? (data.port === undefined ? t("doctor.fact.supervisorNoPort") : t("doctor.fact.supervisor", { port: data.port })) : t("doctor.fact.supervisorDown"),
-  model: (data) => t(data.configured ? "doctor.fact.model" : "doctor.fact.modelMissing"),
-  components: (data) => (data.missing.length === 0 ? t("doctor.fact.components") : t("doctor.fact.componentsMissing", { features: formatList(data.missing.map(featureName)) })),
-  disk: (data) =>
-    t("doctor.fact.disk", {
-      path: data.path,
-      free: formatNumber(data.freeGb, { maximumFractionDigits: 1 }),
-      total: formatNumber(data.totalGb, { maximumFractionDigits: 1 }),
-    }),
-  // 没查到依据时只说查到的（服务管家里没登记），不断言"没配"：手动跑的 tailscale serve 服务管家不知道
-  external: (data) => {
-    const rejected = data.rejected ?? [];
-    const base = !data.configured
-      ? t("doctor.fact.externalUnregistered")
-      : data.kind === "paired"
-        ? t("doctor.fact.externalPaired", { count: data.devices ?? 0 })
-        : t("doctor.fact.external", { kind: t(`doctor.kind.${data.kind ?? "tailscale"}`) });
-    if (rejected.length === 0) return base;
-    // 服务管家给了、手机用不了的入口：写清是哪个、为什么（接错端口是要修的事故）
-    const entries = rejected.map((r) => (r.reason === "wrong_port" ? t("doctor.fact.externalRejected.wrongPort", { url: r.url, port: r.port ?? "?" }) : t("doctor.fact.externalRejected.notHttps", { url: r.url })));
-    return t("doctor.fact.externalRejected", { base, count: rejected.length, entries: formatList(entries) });
-  },
-};
-
-/** 一项查出来的事实写成一句话；这次没查出来的写"这次没查出来"（data 是空值，不能拿它拼句子） */
-export function doctorFactText(check: DoctorCheckView): string {
-  if (check.fix === DOCTOR_FIX_UNKNOWN) return t("doctor.fact.unknown");
-  return (FACT[check.id] as (data: DoctorCheckView["data"]) => string)(check.data);
+/** "从什么时候起"那一句（本地的月日和时刻） */
+export function doctorSinceText(since: string): string {
+  return t("doctor.since", { time: formatDate(since, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) });
 }
 
-/** "怎么修"那一句（没有就不写）；这一项查不了时说的是"再查一遍" */
-export function doctorFixText(check: DoctorCheckView): string | undefined {
-  return check.fix === undefined ? undefined : t(check.fix);
+/** 停用、移除了的插件那一行；没有是 undefined */
+export function doctorOffText(view: DoctorView): string | undefined {
+  return view.off.length === 0 ? undefined : t("doctor.off", { plugins: formatList(view.off.map((plugin) => plugin.title)) });
 }
 
-/** 一项的名字（八项各自的名字，按当前语言） */
-export function doctorCheckTitle(id: DoctorCheckId): string {
-  return t(`doctor.check.${id}.title`);
+/** 网页认得这个动作没有（不认得的不画按钮：守护进程比网页新时） */
+export function knownDoctorAction(action: DoctorAction | undefined): action is DoctorAction {
+  return action !== undefined && (DOCTOR_ACTION_KINDS as readonly string[]).includes(action.kind);
+}
+
+/** 动作按钮上的字：跳过去看是"去看看"，压缩是"现在压缩"（busy：正在压） */
+export function doctorActionText(action: DoctorAction, busy = false): string {
+  if (action.kind === "compact") return busy ? t("doctor.action.compacting") : t("doctor.action.compact");
+  return t("doctor.action.open");
 }
 
 /** 查的时刻写成一句话（本地日期和时间） */

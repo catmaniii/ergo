@@ -41,6 +41,7 @@
 // 记忆每晚整理之前同步一遍（syncPullable，经 KERNEL.dataSourceSync 给记忆插件）：能由电脑拉的（有 sync）、插件在运行、导入开着、
 // 连着的各同步一次，触发方式记成定期的那种；正在同步的交回那一次；刚同步过的（freshMs 以内成功过）不再同步；连接出错的不在这里试
 // （每小时再试那一套管），交回原因；没连的、手机这类设备交来的、只靠导入文件夹的不在里面。等多久、怎么记由记忆插件定。
+// 体检（409，doctor/auto.ts）读 doctorFacts：整页视图的每一项，加上上次成功同步的时间、定期导入大约多久一次——都是现成的，不联网。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -140,9 +141,56 @@ export type PullableSync =
   | { readonly id: string; readonly title: string; readonly state: "fresh"; readonly at: string }
   | { readonly id: string; readonly title: string; readonly state: "broken"; readonly problem?: string };
 
+/**
+ * 体检（409）要的一个数据源：整页视图里的那一项，加上上次成功同步（不算导入文件）是什么时候、定期导入大约多久一次（毫秒；
+ * 导入开着、登记了定期导入时间的才有，见 scheduleEveryMs）
+ */
+export interface DataSourceDoctorFacts {
+  readonly view: DataSourceView;
+  readonly lastOkAt?: string;
+  readonly everyMs?: number;
+}
+
+const DAY_MS = 86_400_000;
+
+/** 一圈里相邻两个的最大间隔（几个数排好，首尾按 period 接上）：每周几、每月几号最长隔几天 */
+function widestGap(values: readonly number[], period: number): number {
+  const sorted = [...new Set(values)].toSorted((a, b) => a - b);
+  if (sorted.length <= 1) return period;
+  let widest = period - sorted.at(-1)! + sorted[0]!;
+  for (let i = 1; i < sorted.length; i += 1) widest = Math.max(widest, sorted[i]! - sorted[i - 1]!);
+  return widest;
+}
+
+/**
+ * 定期导入大约多久一次（毫秒），体检判"多久没同步成功算过期"用：每隔几分钟的就是那几分钟；每天 1 天；每 N 天 N 天；
+ * 每周几、每月几号取相邻两次最长隔几天（每月按 31 天算）；每年 366 天；按我的工作日按 3 天（周五到周一）；一次性的没有
+ */
+export function scheduleEveryMs(schedule: DataSourceSchedule): number | undefined {
+  if (isInterval(schedule)) return Math.max(1, schedule.minutes) * 60_000;
+  switch (schedule.kind) {
+    case "once":
+      return undefined;
+    case "daily":
+      return DAY_MS;
+    case "everyNDays":
+      return schedule.interval * DAY_MS;
+    case "weekly":
+      return widestGap(schedule.weekdays, 7) * DAY_MS;
+    case "monthly":
+      return widestGap(schedule.days, 31) * DAY_MS;
+    case "yearly":
+      return 366 * DAY_MS;
+    case "workdays":
+      return 3 * DAY_MS;
+  }
+}
+
 export interface DataSources {
   /** 设置 · 数据源整页 */
   view(): DataSourcesView;
+  /** 体检要的（409）：整页视图里的每一项，加上上次成功同步的时间、定期导入大约多久一次 */
+  doctorFacts(): DataSourceDoctorFacts[];
   /** 对一个数据源做的事 */
   act(id: string, body: DataSourceActionBody): Promise<DataSourceActionResult>;
   /** 对导入文件夹做的事 */
@@ -971,8 +1019,19 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     });
 
   let toolsUndo: (() => void) | undefined;
+  /** 体检要的：整页视图的每一项，加上上次成功同步的时间、定期导入（开着的）大约多久一次 */
+  const doctorFacts = (): DataSourceDoctorFacts[] =>
+    view().sources.map((source) => {
+      const entry = registry.get(source.id);
+      const schedule = entry?.source.usages.import?.schedule;
+      const everyMs = entry && schedule && usageOn(entry, "import") ? scheduleEveryMs(schedule) : undefined;
+      const lastOkAt = lastSyncAt(source.id);
+      return { view: source, ...(lastOkAt === undefined ? {} : { lastOkAt }), ...(everyMs === undefined ? {} : { everyMs }) };
+    });
+
   return {
     view,
+    doctorFacts,
     act,
     folder,
     push,

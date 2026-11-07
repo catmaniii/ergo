@@ -533,13 +533,38 @@ See [On your phone](mobile.en.md) for more.
 
 ### Checkup
 
-**What it is:** Whether ergo is working well on this computer right now; eight checks and you know. When something's wrong, look here first.
+**What it is:** Whether ergo is working well on this computer right now: ergo itself and each plugin, checked one by one. When something's wrong, look here first.
 
 **Where:** Settings · Data & devices · Checkup.
 
 ![The Checkup page](images/settings/09-doctor.png)
 
-**How to use it:** It checks as soon as you open it. Each check has a tick or an exclamation mark in front, the facts it found behind it, and how to fix anything wrong below. After fixing, click **Run again** at the top right.
+**How to use it:** It checks as soon as you open it and has results within a few seconds. The top line is the overall status: how many items are broken and how many need attention, or **All good** if none; items that couldn't be checked this time get a separate grey line. Below that come the blocks:
+
+- **ergo itself**: the eight checks in the table below.
+- **One block per plugin**, titled with the plugin's name; blocks with problems come first. The first line of each block is **The plugin itself**: running, or not loaded (with the reason). ergo also checks each data source and each agent runtime (Claude Code, Codex) that a plugin brings. Plugins can bring their own checks too: install a plugin and you get its block; disable it and the block goes away (disabled plugins are listed on the last line).
+
+Each item has a small dot in front, and there are five results:
+
+| Result | Meaning |
+|---|---|
+| OK (green) | Fine |
+| Heads-up (orange) | Works, but not fully |
+| Broken (red) | The related feature can't be used |
+| Not checked (grey) | The check timed out or failed this time. That doesn't count as broken and doesn't lower the overall status. Press **Run again** |
+| Not applicable (hollow, faded) | The feature isn't on or the data source isn't connected, so it isn't checked; listed last in its block |
+
+Items that aren't OK show what was found, since when, and how to fix it. Where one click fixes it there's a button: **Take a look** jumps to the right page, **Compact now** compacts that conversation. After fixing, click **Run again** at the top right.
+
+What ergo checks for each plugin:
+
+| Item | How it's judged |
+|---|---|
+| The plugin itself | Running is OK; not loaded is broken, with the reason; an external program it needs isn't installed and you don't use it, that's just a hint (not applicable) |
+| Data sources | Not connected, or both uses off: not checked. Needs authorizing again, or can't connect: broken. Scheduled import with no successful sync for over 3 times its interval counts as stale (heads-up); the last sync failing is also a heads-up |
+| Runtimes | Usable is OK; not installed and no task or project uses it is just a hint; not installed while a task or project uses it is broken |
+
+ergo's own eight checks:
 
 | Check | What it checks | If it's wrong |
 |---|---|---|
@@ -554,7 +579,9 @@ See [On your phone](mobile.en.md) for more.
 
 **Good to know:**
 
-- Everything checked is local. It doesn't go online (other than probing local ports), call a model, or change any settings.
+- The regular checkup only looks at this machine: it doesn't go online, call a model, or change any settings. It may connect to the ports of local services ergo uses (speech synthesis, for example).
+- When one of the eight is wrong: ports, pi, the model key and disk space count as broken; the Node version, the service manager, components and outside access count as heads-up.
+- Tell ergo "run a checkup on yourself" and it reads this page too, then tells you what's wrong and how to fix it. It only looks; it doesn't fix things for you.
 - **Outside access** saying **No outside access is registered in the service manager; if your phone already connects, you can ignore this** doesn't mean it isn't set up.
 - Something the service manager doesn't know about, such as running `tailscale serve` by hand, counts as fine once a phone has paired.
 - An entry connected to local port 8810 counts as unhealthy for this check. Port 8810 automatically trusts local requests and must never be connected to the outside.

@@ -5249,65 +5249,190 @@ a.att-icon:hover {
   font-size: var(--fs-s);
 }
 /*
- * 设置 · 更多 · 体检（319b，pages/more/DoctorPage.tsx）：一行一项——✅ / ⚠️、名字、事实（一句）、坏了的时候一句"怎么修"；
- * 上面一句查的时刻、一句说明。手机宽时事实和修法换行到名字下面，电脑宽时修法占一行。只用 token
+ * 设置 · 更多 · 体检（319b、409，pages/more/DoctorPage.tsx）：上面一句说明、查的时刻、总状态（坏了几项、要注意几项、没查出来的灰字）；
+ * 下面一块一块（二狗本身、每个插件）：块头是名字和最差的结果，块里一项一行——结果的小圆点、名字（不正常的带小签）、事实、
+ * 从什么时候起、怎么修、动作按钮。五种结果的颜色：正常 ok、注意 op-fg/op-bg、坏了 high-fg/high-bg、没查出来和不适用 muted；
+ * 不适用的整行淡显。宽的栏里名字和事实一行，窄的栏（手机、分栏后的窄栏）事实换到名字下面。只用 token
  */
 .doctor-page {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 .doctor-intro,
-.doctor-at {
+.doctor-at,
+.doctor-off {
   font-size: var(--fs-s);
+  line-height: 1.5;
+}
+.doctor-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  font-size: var(--fs-m);
+  font-weight: 600;
+}
+.doctor-summary-item.doctor-ok {
+  color: var(--ok);
+}
+.doctor-summary-item.doctor-warn {
+  color: var(--op-fg);
+}
+.doctor-summary-item.doctor-error {
+  color: var(--high-fg);
+}
+.doctor-summary-item.doctor-unknown {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: var(--fs-s);
+}
+.doctor-group {
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  padding: 4px 12px;
+  min-width: 0;
+}
+.doctor-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 0 6px;
+  font-family: var(--font-title);
+  font-size: var(--fs-m);
+  font-weight: 700;
+}
+.doctor-group-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .doctor-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin: 4px 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 .doctor-row {
-  display: grid;
-  grid-template-columns: max-content max-content minmax(0, 1fr);
+  display: flex;
   align-items: baseline;
-  gap: 2px 8px;
-  padding: 10px 12px;
-  border-radius: var(--radius-l);
-  background: var(--surface);
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
   min-width: 0;
 }
-.doctor-mark {
-  font-size: var(--fs-m);
-  line-height: 1.4;
+.doctor-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.doctor-head {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: none;
+  max-width: 100%;
 }
 .doctor-name {
   font-weight: 600;
   font-size: var(--fs-m);
+  overflow-wrap: anywhere;
 }
 .doctor-fact {
+  flex: 1 1 16em;
+  min-width: 0;
   font-size: var(--fs-m);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
-.doctor-warn .doctor-fact {
-  color: var(--high-fg);
-}
-.doctor-fix {
-  grid-column: 2 / -1;
+.doctor-since,
+.doctor-fix,
+.doctor-action {
+  flex: 1 1 100%;
   font-size: var(--fs-s);
   line-height: 1.5;
-  color: var(--muted);
   overflow-wrap: anywhere;
 }
-@media (max-width: 600px) {
-  .doctor-row {
-    grid-template-columns: max-content minmax(0, 1fr);
-  }
+.doctor-fix {
+  color: var(--muted);
+}
+.doctor-action {
+  margin-top: 2px;
+}
+/* 结果的小圆点：正常绿、注意橙、坏了红、没查出来灰、不适用空心 */
+.doctor-mark {
+  flex: none;
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: var(--radius-pill);
+  background: var(--muted);
+  align-self: center;
+}
+.doctor-row > .doctor-mark {
+  align-self: baseline;
+  transform: translateY(-0.05em);
+}
+.doctor-ok > .doctor-mark,
+.doctor-group-head > .doctor-mark {
+  background: var(--ok);
+}
+.doctor-warn > .doctor-mark,
+.doctor-group.doctor-warn > .doctor-group-head > .doctor-mark {
+  background: var(--op-fg);
+}
+.doctor-error > .doctor-mark,
+.doctor-group.doctor-error > .doctor-group-head > .doctor-mark {
+  background: var(--high-fg);
+}
+.doctor-unknown > .doctor-mark,
+.doctor-group.doctor-unknown > .doctor-group-head > .doctor-mark {
+  background: var(--muted);
+}
+.doctor-na > .doctor-mark,
+.doctor-group.doctor-na > .doctor-group-head > .doctor-mark {
+  background: transparent;
+  border: 1px solid var(--muted);
+}
+/* 结果的小签：注意、坏了带底色；没查出来、不适用灰字；正常的块头写绿字 */
+.doctor-level {
+  flex: none;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--muted);
+  background: var(--fill);
+}
+.doctor-ok .doctor-group-head .doctor-level {
+  color: var(--ok);
+}
+.doctor-warn > .doctor-body .doctor-level,
+.doctor-group.doctor-warn > .doctor-group-head .doctor-level {
+  color: var(--op-fg);
+  background: var(--op-bg);
+}
+.doctor-error > .doctor-body .doctor-level,
+.doctor-group.doctor-error > .doctor-group-head .doctor-level {
+  color: var(--high-fg);
+  background: var(--high-bg);
+}
+.doctor-error > .doctor-body .doctor-fact {
+  color: var(--high-fg);
+}
+.doctor-na {
+  opacity: 0.6;
+}
+.doctor-group.doctor-na {
+  opacity: 1;
+}
+@container page (max-width: 560px) {
   .doctor-fact {
-    grid-column: 2 / -1;
+    flex-basis: 100%;
   }
 }
 /* 没装的组件对应的功能（ui/component-gate.tsx）：灰掉的入口，和它旁边一行"要先装「X」· 去装 ›" */

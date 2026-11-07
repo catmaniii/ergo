@@ -316,8 +316,8 @@ function SubPageCol({ page, item, onBack, go, navigate }: { page: Sub; item?: st
   if (page === "devices") return <DevicesPage title={pageTitle("devices")} onBack={onBack} onPreviewPairing={import.meta.env.MODE === "demo" ? () => navigate({ tab: "pair-wait" }) : undefined} onShowQr={() => navigate({ tab: "more", page: "devices", item: "qr" })} />;
   // 设置向导：标题栏上除了返回还有它自己的"先不弄了"（任何时候都能出去接着用），内容和步骤在 pages/SetupWizard.tsx
   if (page === "setup") return <SetupPage title={pageTitle("setup")} onBack={onBack} navigate={navigate} />;
-  // 体检：标题栏右上"再查一遍"，八项在 pages/more/DoctorPage.tsx
-  if (page === "doctor") return <DoctorPage title={pageTitle("doctor")} onBack={onBack} />;
+  // 体检：标题栏右上"再查一遍"，二狗本身和每个插件各一块（pages/more/DoctorPage.tsx）；动作按钮"去看看"要跳页
+  if (page === "doctor") return <DoctorPage title={pageTitle("doctor")} onBack={onBack} navigate={navigate} />;
   // 个人档案：标题栏上有"加一个人"，点进一个人是下一级 #/more/files/<编号>；删掉这个人回到列表（不压新记录）
   if (page === "files")
     return (

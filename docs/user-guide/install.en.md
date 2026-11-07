@@ -352,7 +352,7 @@ Your data is in `%USERPROFILE%\.ergo` and the supervisor's in `%LOCALAPPDATA%\er
 
 ## Troubleshooting
 
-**Run a checkup first**: **More · Settings · Data & devices → Checkup** runs eight checks — ports, Node, pi, the service manager, the model key, components, disk, outside access — and gives the fact it found plus how to fix each one; **Run again** is in the top right. Everything it looks at is local: no network (other than probing ergo's own ports), no model calls, no settings changed.
+**Run a checkup first**: **More · Settings · Data & devices → Checkup** has a block for ergo itself (ports, Node, pi, the service manager, the model key, components, disk, outside access) and one per plugin (the plugin itself, its data sources and runtimes), and gives the fact it found plus how to fix each one; **Run again** is in the top right. The regular checkup only looks at this machine: no network, no model calls, no settings changed; it may connect to the ports of local services ergo uses.
 
 **Logs**: the daemon's output is in `logs\ergo-daemon.out.log` under the supervisor's data directory, and live in the supervisor's web UI; ergo's own health: <http://127.0.0.1:8810/healthz>.
 

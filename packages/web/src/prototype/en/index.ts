@@ -9,6 +9,7 @@ import { EN_COMPONENTS } from "./fake-components.ts";
 import { EN_CONNECTION } from "./fake-connection.ts";
 import { EN_CONVERSATIONS } from "./fake-conversations.ts";
 import { EN_DATA_SOURCES } from "./fake-data-sources.ts";
+import { EN_DOCTOR } from "./fake-doctor.ts";
 import { EN_DATA } from "./fake-data.ts";
 import { EN_HTTP } from "./fake-http.ts";
 import { EN_LONG_TASKS } from "./fake-long-tasks.ts";
@@ -38,6 +39,7 @@ export const EN_PHRASES: Phrases = {
   ...EN_CONNECTION,
   ...EN_CONVERSATIONS,
   ...EN_DATA_SOURCES,
+  ...EN_DOCTOR,
   ...EN_DATA,
   ...EN_HTTP,
   ...EN_LONG_TASKS,

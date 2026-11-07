@@ -201,6 +201,7 @@ expect(listNotes(k.store.reader)).toEqual([]);
 | `ctx.operationMeans.register` | 运营方案里的一种手段 | 还没有插件用 |
 | `ctx.apps.register` | 把 `/apps/<应用名>/` 转发到本机的一个地址 | 还没有插件用 |
 | `ctx.agent.*` | 给二狗的（第 4 节） | |
+| `ctx.doctor.register` | 体检项：设置 · 体检上这个插件那一块多一项（下面） | 412 起的记忆、语音 |
 | `ctx.effect(execute)` | 定时器、订阅、监听：执行它、记下它交回的撤销函数 | 下面 |
 | `ctx.lifecycle({ start, stop })` | 插件自己的启停：宿主按依赖顺序叫 `start`，停用时 `stop` 最先叫 | 下面 |
 | `ctx.log(line)`、`ctx.plugin` | 写日志（给开发者看的，不翻）、自己的插件名 | |
@@ -235,6 +236,15 @@ expect(listNotes(k.store.reader)).toEqual([]);
 ```
 
 时间规则、`run(trigger, signal)` 的约定见[系统架构](README.md)的"插件的内部作业"。
+
+**体检项**（409）：`ctx.doctor.register(check)` 在设置 · 体检上这个插件那一块加一项，停用时跟着撤，那一块消失。插件本身（在跑 / 没装上）、它的数据源、它的 agent 运行时那几项二狗替它生成，不用登记。一项是 `DoctorCheck`（`packages/daemon/src/doctor/checks.ts`）：
+
+- `id`：插件里不重复，小写英文、数字和连字符（`plugin` 和原来八项的 id 留给二狗）；`title`：名字的文案键（要参数时写 `{ key, params }`）；
+- `cost`：`passive` 只读内存、文件、事件，`local` 连本机端口、起本机进程。平时体检两种都跑：不联网、不调模型、不改东西；
+- `timeoutMs`：默认 1500。超时、抛错、交回的东西不像样只算这一项"没查出来"，不影响别的项；`run(signal)` 要快，重活先在后台算好，这里只读结果；
+- `run` 交回 `DoctorFinding`：`level` 是 `ok`、`warn`（能用但打折扣）、`error`（用不了）、`unknown`（没查出来）、`na`（没开这个功能，不查）之一；`fact`、`fix` 是文案键 + 参数（键放插件自己的语言文件 `<插件>.doctor.*`，中英都加；时间、数字先按当前语言写好放进参数）；可选的 `since`（ISO）和一个 `action`（`{ kind: "open", route: "#/more/…" }` 跳页，`{ kind: "compact", agentId }` 现在压缩）。
+
+网页的词典里没有插件的区域，句子由守护进程按当前语言拼好（`DoctorItemView.text`）交给网页；秘书的只读工具 `check_health` 读的也是这一份。
 
 **前端请求**：插件经数据契约登记网关请求里**可选的**那些（`ctx.requests.register(名字, 处理函数)`，名字是网关 `RequestHandlers` 里写成可选的；一个请求只能一个插件登记），处理函数里用 `ctx.active` 现取服务，插件没在运行时自动回"X插件没启用"。要新的请求先在网关的 `RequestHandlers` 里加一项可选的。HTTP 接口留在内核、经 `plugins.active(KEY)` 现取服务（日历的按月取）：
 
@@ -880,6 +890,7 @@ export const remindersPlugin: PluginDefinition = {
 | `MaterialSource` | `packages/daemon/src/materials/capture.ts` | 事件怎么变成素材 |
 | `CardTypeDefinition` | `packages/daemon/src/cards/registry.ts` | 卡片类型 |
 | `InternalJob` | `packages/daemon/src/scheduler/internal-jobs.ts` | 内部作业 |
+| `DoctorCheck`、`DoctorFinding`、`createDoctorChecks` | `packages/daemon/src/doctor/checks.ts` | 体检项、查出来的样子、体检项的登记表 |
 | `RequestHandlers` | `packages/daemon/src/gateway/gateway.ts` | 网关的请求（可选的那些插件能登记） |
 | `WebPluginDefinition`、`WebPluginContext`、`createWebPluginHost` | `packages/web/src/plugins/host.ts` | 网页插件的定义、装配时的 `ctx`、宿主 |
 | `SlotMap`、`PageSlot`、`CardSlot`、`SLOT_KEYS` | `packages/web/src/plugins/slots.ts` | 类型化插槽 |
