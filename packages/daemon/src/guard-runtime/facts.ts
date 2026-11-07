@@ -12,7 +12,8 @@
 // - 这个 agent 在做任务、项目时（FactsContext.ownWork）：认任务、项目自己的临时文件要的——文件的创建时间（stat 的 birthtime），
 //   要删除的、在工作目录里的目录里面有什么（递归、不跟进链接，最多 MAX_CONTENTS 项），带通配符要删除的展开成的每个现有路径的文件事实；
 // - 有授权的文件夹时（FactsContext.authorizedFolders）：通配符展开成的路径落在里面的，也取一份文件事实——读授权的文件夹按真实路径算，
-//   通配符穿过的符号链接只有这样才看得见。
+//   通配符穿过的符号链接只有这样才看得见；
+// - 服务管家（FactsContext.supervisor，419）：有发 HTTP 请求这类调用时管理器此刻的端口，有杀进程的调用时受保护的进程。
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -31,6 +32,7 @@ import {
   isWithinAny,
   type JudgedCall,
   pathReplacement,
+  type ProcessFacts,
   type ScriptFact,
   type ShellEnv,
   TOOL,
@@ -52,7 +54,15 @@ export interface FactsContext {
   ownWork?: boolean;
   /** 授权的文件夹：通配符展开成的路径落在里面的另取文件事实 */
   authorizedFolders?: readonly string[];
+  /**
+   * 服务管家（419，lsm/guard-facts.ts）：有发 HTTP 请求、用浏览器打开、连远端主机、拆不开的调用时现取管理器端口，
+   * 有杀进程的调用时现取受保护的进程。不给就不取（判定时端口按守护进程起来时读的，进程按取不到判）
+   */
+  supervisor?: { ports(): readonly number[]; processes(): ProcessFacts };
 }
+
+/** 要看管理器端口的调用 */
+const PORT_TOOLS: ReadonlySet<string> = new Set([TOOL.http_request, TOOL.browse, TOOL.network_command, TOOL.opaque_shell]);
 
 /** 判定用的授权的文件夹：名单上写的和它们的真实路径（文件夹本身是链接、短名时两种写法都认），去重 */
 export function authorizedFolderRoots(folders: readonly string[]): string[] {
@@ -105,7 +115,28 @@ export function gatherFacts(calls: readonly JudgedCall[], ctx: FactsContext): En
   if (Object.keys(scripts).length > 0) facts.scripts = scripts;
   const repos = gitFacts(paths, files, ctx.agent);
   if (Object.keys(repos).length > 0) facts.git = repos;
+  supervisorFacts(calls, ctx, facts);
   return facts;
+}
+
+/** 服务管家的事实（只在有相关的调用时取）；取的时候出错就不给（端口按起来时读的，进程按取不到判，都更严） */
+function supervisorFacts(calls: readonly JudgedCall[], ctx: FactsContext, facts: EnvironmentFacts): void {
+  const supervisor = ctx.supervisor;
+  if (!supervisor) return;
+  if (calls.some((c) => PORT_TOOLS.has(c.tool))) {
+    try {
+      facts.supervisorPorts = supervisor.ports();
+    } catch {
+      // 读不了 manager.yaml：按起来时读的
+    }
+  }
+  if (calls.some((c) => c.tool === TOOL.kill_process)) {
+    try {
+      facts.processes = supervisor.processes();
+    } catch {
+      // 取不到受保护的进程：杀进程按"接近底线"先问
+    }
+  }
 }
 
 /** bash 的通配符：* ? [...]（路径里有它的才展开） */

@@ -189,6 +189,8 @@ export const TOOL = Object.freeze({
   install_global: "install_global",
   account_command: "account_command",
   account_change: "account_change",
+  kill_process: "kill_process",
+  supervisor_command: "supervisor_command",
   run_script: "run_script",
   shell_command: "shell_command",
   opaque_shell: "opaque_shell",
@@ -492,6 +494,41 @@ const PSEUDO_TOOLS: UntitledTool[] = [
     source: "pseudo",
     categories: ["account_security"],
     bottomLines: ["payment_account_auth"],
+    args: { program: other, command: content },
+  },
+  {
+    // 杀进程（419）：taskkill、tskill、pskill、kill、pkill、killall、Stop-Process、wmic process … delete / terminate 拆出来的。
+    // 不落入关注类别，判定函数按要杀的是谁判：杀到二狗自己、服务管家、命脉服务的永不，看不准的接近底线先问，别的先问
+    name: TOOL.kill_process,
+    source: "pseudo",
+    categories: [],
+    args: {
+      program: other,
+      // 写明的进程号
+      pids: { kind: "other", list: true },
+      // 按名字（match 是怎么比：exact 整个名字、glob 带通配符、regex 正则里的一段）
+      names: { kind: "other", list: true },
+      match: other,
+      // 连同子进程一起杀（taskkill /T）
+      tree: { kind: "other", type: "boolean" },
+      // 杀所有进程（kill -1、wmic process delete 不带 where）
+      all: { kind: "other", type: "boolean" },
+      // 自己起的（作业号 %1、$!）
+      own: { kind: "other", list: true },
+      // 看不出是哪些的原文（变量、管道传来的、按命令行匹配、别的筛选条件）
+      unknown: { kind: "other", list: true },
+      // 别的电脑上的（taskkill /S）
+      remote: other,
+      command: content,
+    },
+    nature: "modify",
+  },
+  {
+    // 服务管家和二狗自己的运维命令（419）：lsm、packages/supervisor/bin 里的脚本、ergo 的停止、重启、升级、回退、卸载和 svc。
+    // 判定函数一律硬拒绝，叫 agent 用服务管家工具
+    name: TOOL.supervisor_command,
+    source: "pseudo",
+    categories: [],
     args: { program: other, command: content },
   },
   {

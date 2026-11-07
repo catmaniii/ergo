@@ -81,7 +81,7 @@ import {
   type ToolCallStartedPayload,
 } from "./events.ts";
 import { callText, interruptionEvents, needsExecutionRecord, unsettledExecutions } from "./executions.ts";
-import { authorizedFolderRoots, gatherFacts } from "./facts.ts";
+import { authorizedFolderRoots, type FactsContext, gatherFacts } from "./facts.ts";
 import { folderGrantSuggestion, folderGrantUseEvents } from "./folder-grants.ts";
 import {
   checkAgainstPlan,
@@ -187,6 +187,11 @@ export interface GuardRuntimeOptions {
    * 宣布完成、提计划变更不拦。不给就不拦
    */
   heldCall?: (scope: MessageScope, tool: string) => string | undefined;
+  /**
+   * 服务管家（419，lsm/guard-facts.ts）：判定前现取管理器端口、受保护的进程（守护进程、服务管家、命脉服务的进程号），
+   * 防 agent 用 bash 停掉二狗、杀掉服务管家。不给就不取
+   */
+  supervisor?: FactsContext["supervisor"];
   log: (line: string) => void;
 }
 
@@ -347,6 +352,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       homeDir: places.homeDir,
       ...(options.autoVersioning ? { backedUp: options.autoVersioning.covers } : {}),
       ...(ownWork ? { ownWork: true } : {}),
+      ...(options.supervisor ? { supervisor: options.supervisor } : {}),
       // 通配符展开成的路径落在授权的文件夹、登记目录里的另取文件事实（按真实路径算）
       ...(authorizedFolders.length > 0 || (folderGrants?.length ?? 0) > 0 ? { authorizedFolders: [...authorizedFolders, ...(folderGrants ?? []).map((g) => g.dir)] } : {}),
     });

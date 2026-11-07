@@ -6,7 +6,8 @@
 //   Git Bash 写法、`~`、`$HOME`、`%USERPROFILE%`、`$env:USERPROFILE` 拼出来的，数据目录的目录名（`.ergo` 这样写在变量后面的）
 //   和它的 8.3 短名；
 // - 一段文字是不是要往外送（秘书的特别敏感：往外 POST、发信……；目标都是本机的不算）；网址是不是本机；
-// - 网址是不是二狗自己（本机的、端口是守护进程实际监听的本机端口或外网端口；"发往本机不算对外"的例外不包括它）。
+// - 网址是不是二狗自己（本机的、端口是守护进程实际监听的本机端口或外网端口；"发往本机不算对外"的例外不包括它）；
+// - 网址是不是服务管家的管理器（本机的、管理器端口：发往它的不是查询的请求一律拒绝，419）。
 import { t } from "@ergo/protocol";
 import { win32 } from "node:path";
 import { absolutePathsIn, comparable, isWithin, isWithinAny } from "./paths.ts";
@@ -174,6 +175,20 @@ export function ownPortOf(url: string, ownPorts: readonly number[]): number | un
   if (!parsed || !isLocalHost(parsed.hostname)) return undefined;
   const port = parsed.port !== "" ? Number(parsed.port) : DEFAULT_PORTS[parsed.protocol];
   return port !== undefined && ownPorts.includes(port) ? port : undefined;
+}
+
+/**
+ * 网址是不是服务管家的管理器（419）：本机的（同 isLocalUrl，再加上 0.0.0.0、[::]），端口是管理器端口。没写协议的按 http 补上；
+ * httpie 的 `:7420/x` 简写是本机
+ */
+export function isSupervisorUrl(url: string, port: number): boolean {
+  const raw = /^:\d/.test(url) ? `localhost${url}` : url;
+  const parsed = parseUrl(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `http://${raw}`);
+  if (!parsed) return false;
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (!isLocalHost(host) && host !== "0.0.0.0" && host !== "::") return false;
+  const p = parsed.port !== "" ? Number(parsed.port) : DEFAULT_PORTS[parsed.protocol];
+  return p === port;
 }
 
 /** 写着的网址里二狗自己的端口（去重，按出现的先后） */

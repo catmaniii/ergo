@@ -66,6 +66,7 @@ import { defaultSvcDataDir } from "./cli/context.ts";
 import { managerAddress } from "./cli/service.ts";
 import { registeredServiceOnPort } from "./lsm/registered.ts";
 import { type AutostartSwitch, createAutostartSwitch } from "./lsm/autostart-switch.ts";
+import { supervisorGuardFacts } from "./lsm/guard-facts.ts";
 import { detectLayout, type InstallLayout, readInstallState } from "./release/layout.ts";
 import { releasePublicKey } from "./release/public-key.ts";
 import { createDoctorChecks, type DoctorCheckRegistry } from "./doctor/checks.ts";
@@ -929,6 +930,11 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 守卫：各区用真实路径（展开符号链接、目录联接和 8.3 短名），agent 的工作目录也用真实路径，路径比较才对得上
     // （挪到这里：快速动作判处置要用，快速动作的服务要在插件装配之前建好）
     const bashTmp = bashTmpMount(options.env);
+    // 服务管家的数据目录只能从 LSM_DATA_DIR 知道：它拉服务时不把自己的 --data-dir、环境变量传下来，也没有接口直接报这个目录，
+    // 所以它不在默认位置时，二狗的登记要声明这个变量（ergo start 写的登记自带；手写的见 deploy/lsm/ergo-daemon.example.yaml）。
+    // 守卫（它的注册表、运行状态、密钥区受保护，419）、体检、开机自启开关都用这一份
+    const svcDataDir = options.env.LSM_DATA_DIR?.trim() ? path.resolve(options.env.LSM_DATA_DIR.trim()) : defaultSvcDataDir(options.env);
+    const svcGuardFacts = supervisorGuardFacts({ svcDataDir, env: options.env });
     const places: GuardPlaces = {
       dataDir: { root: realLayout.root, config: realLayout.config, secrets: realLayout.secrets, db: realLayout.db, projects: realLayout.projects, skills: realLayout.skills },
       programDir,
@@ -936,6 +942,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       homeDir: real(options.env.HOME ?? options.env.USERPROFILE ?? options.homeDir),
       // 二狗自己的端口：网关开好之前按配置的，开好之后换成实际监听的（见下面 places.ownPorts 那里）
       ownPorts: [localPort, options.externalPort ?? config.ports.external],
+      // 服务管家：停二狗、杀服务管家的路只走服务管家工具（419）。端口判定前现取（guards 的 supervisor），这里是取不到时用的
+      supervisor: { dataDir: real(svcDataDir), ports: svcGuardFacts.ports() },
     };
     // 唯一的后接接线点（解循环依赖）：任务模块要派单器派起草计划的工单（项目系统要任务模块，建在它之后；项目系统自己的后接线
     // 收在 projects/system.ts 里，这里只剩这一处），任务控制快速动作要执行控制器（执行控制器建在快速动作登记之后）。
@@ -1728,6 +1736,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       lateNotice: (decision) => wiring.subAgents?.lateNotice(decision),
       // 超预算停下的这一支：除了宣布完成、提计划变更都拦
       heldCall: (scope, tool) => wiring.taskExecution?.heldCall(scope, tool),
+      // 服务管家的端口、受保护的进程号（守护进程、服务管家、命脉服务）：有相关的调用时判定前现取（419）
+      supervisor: svcGuardFacts,
       log,
     });
     teardown.push(() => guards.stop());
@@ -1914,10 +1924,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 端口是网关实际监听的那两个（生产里就是配置里的 ports.local / ports.external；测试里是系统挑的，免得体检去碰本机真的 8810 / 8811），
     // 所以先建，网关起来之后把真实端口填进去（view 是请求到时才现算的）；pi 的版本、服务管家的命令行都在二狗的程序目录里；
     // 组件缺不缺按清单的默认（missingDefaultFeatures）；最外面那项看服务管家的登记和已配对的设备，不真连出去。
-    // 服务管家的数据目录只能从 LSM_DATA_DIR 知道：它拉服务时不把自己的 --data-dir、环境变量传下来，也没有接口直接报这个目录，
-    // 所以它不在默认位置时，二狗的登记要声明这个变量（ergo start 写的登记自带；手写的见 deploy/lsm/ergo-daemon.example.yaml）
+    // 服务管家的数据目录（svcDataDir）在上面守卫那里定
     let boundPorts = { local: config.ports.local, external: options.externalPort ?? config.ports.external };
-    const svcDataDir = options.env.LSM_DATA_DIR?.trim() ? path.resolve(options.env.LSM_DATA_DIR.trim()) : defaultSvcDataDir(options.env);
     // 向导里的开机自启开关：走 ergo svc 同一条路；不归这份安装管的任务不动
     const autostart: AutostartSwitch = createAutostartSwitch({ env: options.env, layout: installLayout, svcDataDir, log });
     // 连接地址：手机从外面连到二狗用的地址。入口问服务管家（接入层建好之后接上，见 linkToLsm 那里），手填的在配置文件
