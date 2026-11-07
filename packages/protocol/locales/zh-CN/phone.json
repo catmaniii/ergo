@@ -68,5 +68,18 @@
   "phone.places.refused.badRadius": "范围只能选 100、200、300、500、1000 米",
   "phone.places.refused.tooMany": "最多起名 {max} 处，先删掉几处",
   "phone.places.refused.notFound": "没有这一处（可能已经删了）",
-  "phone.places.refused.unknown": "认不出要做什么"
+  "phone.places.refused.unknown": "认不出要做什么",
+  "phone.doctor.app.title": "手机 App",
+  "phone.doctor.app.notLinked": "手机日历、相册、位置都没连，不查",
+  "phone.doctor.app.never": "还没交来过东西，不查",
+  "phone.doctor.app.ok": "最近一次交来东西是 {time}",
+  "phone.doctor.app.quiet": "手机 App 很久没打开了：最近一次交来东西是 {count} 天前（{time}）",
+  "phone.doctor.app.fixQuiet": "在手机上打开二狗 App、开着待一会儿：它只在开着时把日历、照片、位置交过来",
+  "phone.doctor.calendarEmpty.title": "手机日历交来 0 条",
+  "phone.doctor.calendarEmpty.notLinked": "手机日历没连，不查",
+  "phone.doctor.calendarEmpty.ok": "最近没有交来 0 条",
+  "phone.doctor.calendarEmpty.kept": "从 {time} 起手机连着 {times} 次交来 0 条日程，多半是手机这一下没读到日历；原来的 {count} 条先留着、没删",
+  "phone.doctor.calendarEmpty.dropped": "从 {time} 起手机连着 {times} 次交来 0 条日程，多半是手机这一下没读到日历；原来的 {count} 条跟着删了",
+  "phone.doctor.calendarEmpty.fixKept": "在手机的日历里看一眼日程还在不在：在的话把二狗 App 关掉重开，下次交来就好了；真的清空了，到待办里回「清空了，删掉」",
+  "phone.doctor.calendarEmpty.fixDropped": "在手机的日历里看一眼日程还在不在：在的话把二狗 App 关掉重开，下次交来日程就回来了"
 }

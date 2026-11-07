@@ -1,4 +1,11 @@
 {
   "calendar.plugin.title": "日历",
-  "calendar.plugin.summary": "按月看每天上班还是休息、当天的提醒、定时触发的任务和订阅的外部日历；只是合起来看，不存自己的数据"
+  "calendar.plugin.summary": "按月看每天上班还是休息、当天的提醒、定时触发的任务和订阅的外部日历；只是合起来看，不存自己的数据",
+  "calendar.doctor.external.title": "数据源交来的日程",
+  "calendar.doctor.external.ok": "都拿得到",
+  "calendar.doctor.external.recovered": "这次开机以来拿不到过 {count} 次，后来又拿到了",
+  "calendar.doctor.external.source": "「{name}」连着 {count} 次拿不到（最近一次 {time}：{error}）",
+  "calendar.doctor.external.sep": "；",
+  "calendar.doctor.external.failing": "日历里少了这些日程：{sources}",
+  "calendar.doctor.external.fix": "去设置 · 数据源看这个数据源报了什么；多半是它的插件出了问题，到设置 · 插件里把它停用再启用（或者重启二狗），再打开日历看看"
 }

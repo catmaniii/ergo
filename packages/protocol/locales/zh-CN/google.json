@@ -124,5 +124,13 @@
   "google.gmail.error.accountGone": "这个账号已经断开了",
   "google.gmail.error.idNoAccount": "这个邮件编号没写是哪个账号的：重新搜一次再读",
   "google.gmail.live.scopeEach": "每个账号全部邮件里最新的 {n} 封",
-  "google.gmail.accountWithId": "{account}（{id}）"
+  "google.gmail.accountWithId": "{account}（{id}）",
+  "google.doctor.feeds.title": "每个日历地址",
+  "google.doctor.feeds.notTried": "这次开机后还没拉过日历，不查",
+  "google.doctor.feeds.allBroken": "每个日历都一直拉不到，上面「数据源：Google · 日历」那一项已经写了原因",
+  "google.doctor.feeds.ok": "{count} 个日历，最近没有一直拉不到的",
+  "google.doctor.feeds.feed": "「{name}」连着 {count} 次没拉到：{reason}",
+  "google.doctor.feeds.failing": "{feeds}",
+  "google.doctor.feeds.fixLasting": "地址失效、没权限的要重新复制：Google 日历网页版 → 这个日历的设置 → 「iCal 格式的私密地址」，在设置 · 数据源 · Google · 日历里删掉旧的、加上新的",
+  "google.doctor.feeds.fixTransient": "多半是这台电脑连 Google 不顺（超时、连不上）：看看能不能打开 Google 日历网页版；二狗每 30 分钟会再拉一次，拉到了这一项自己就好"
 }

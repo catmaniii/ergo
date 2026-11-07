@@ -18,6 +18,7 @@
 // 取文件、缩略图、存进素材）回"内置浏览器插件没启用"；以前的网页候选卡点"交"回同一句。网页上没有"浏览"页签、侧边栏、悬浮按钮。
 // 不搬进来的（都是内核的）：授权的文件夹（folders/：秘书在聊天里也用它）、App 的原生浏览器那一层的接口（网页的
 // app/native-browser.ts、page-bridge/）、内置浏览器叠层（/apps/ 转发的页面、渲染附件）。
+// 体检（414，doctor.ts）：缩小图片的一次性子进程出错（以前只记日志）包一层记个数，登记"缩略图"一项。
 import path from "node:path";
 import { browseSearchEngineOf, t } from "@ergo/protocol";
 import { getMessage } from "../conversation/views.ts";
@@ -29,6 +30,7 @@ import { BROWSING } from "./api.ts";
 import { createBrowserLinks } from "./browser-links.ts";
 import { createElementMemos } from "./element-memos.ts";
 import { createPageFileTokens } from "./file-tokens.ts";
+import { countThumbnailFailures, thumbnailsCheck } from "./doctor.ts";
 import { createPageThumbnails } from "./page-thumbnails.ts";
 import { createPageVoice } from "./page-voice.ts";
 import { browsePickCardType } from "./pick-card.ts";
@@ -95,7 +97,10 @@ export const browsingPlugin: PluginDefinition = {
     const clock = ctx.use(KERNEL.clock);
     const cards = ctx.use(KERNEL.cards);
     const localFolders = ctx.use(KERNEL.localFolders);
-    const thumbnails = ctx.use(KERNEL.thumbnails);
+    // 缩小图片（一次性子进程）：包一层记下出错几次，体检读（414）；候选的缩略图、看图都用包过的
+    const counted = countThumbnailFailures(ctx.use(KERNEL.thumbnails), () => clockIso(clock));
+    const thumbnails = counted.thumbnails;
+    ctx.doctor.register(thumbnailsCheck(counted.stats));
     const webSearch = ctx.use(KERNEL.webSearch);
     // 设备通路：停用时正等着设备回的事回"断开了"
     const links = createBrowserLinks();

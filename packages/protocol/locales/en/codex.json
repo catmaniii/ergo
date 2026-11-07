@@ -61,5 +61,12 @@
   "codex.child.approvalDeclined": "ergo's guard didn't allow it",
   "codex.navigate.noInput": "There's no record of this message being given to Codex (from before the takeover, or it never went to Codex), so it can't roll back past it",
   "codex.navigate.noCallPoint": "Codex can only roll back to before a message, not around a tool call (start of a stage or step)",
-  "codex.navigate.ownSummary": "Codex doesn't write branch summaries itself (ergo has to write one and pass it in)"
+  "codex.navigate.ownSummary": "Codex doesn't write branch summaries itself (ergo has to write one and pass it in)",
+  "codex.doctor.program.title": "Program and version",
+  "codex.doctor.program.ok": "Codex {version} ({min} or newer needed)",
+  "codex.doctor.program.gone": "Codex can't be found on this computer anymore (it was there at startup): tasks and projects using it won't start",
+  "codex.doctor.program.noVersion": "Found Codex, but can't tell its version ({min} or newer needed)",
+  "codex.doctor.program.tooOld": "Codex on this computer is now {version}, too old: {min} or newer is needed, and tasks and projects using it won't run",
+  "codex.doctor.program.fixInstall": "Reinstall it with npm i -g @openai/codex (codex has to be on PATH), sign in with codex login, then restart ergo",
+  "codex.doctor.program.fixUpdate": "Update it with npm i -g @openai/codex, then restart ergo"
 }

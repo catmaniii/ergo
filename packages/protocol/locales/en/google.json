@@ -133,5 +133,15 @@
   "google.gmail.error.accountGone": "This account has been disconnected",
   "google.gmail.error.idNoAccount": "This message number doesn't say which account it's from: search again, then read it",
   "google.gmail.live.scopeEach": "Latest {n} messages in All Mail of each account",
-  "google.gmail.accountWithId": "{account} ({id})"
+  "google.gmail.accountWithId": "{account} ({id})",
+  "google.doctor.feeds.title": "Each calendar address",
+  "google.doctor.feeds.notTried": "No calendar fetched since ergo started, not checked",
+  "google.doctor.feeds.allBroken": "None of the calendars can be fetched; the \"Data source: Google · Calendar\" item above already says why",
+  "google.doctor.feeds.ok_one": "{count} calendar, none failing over and over",
+  "google.doctor.feeds.ok_other": "{count} calendars, none failing over and over",
+  "google.doctor.feeds.feed_one": "\"{name}\" failed {count} time in a row: {reason}",
+  "google.doctor.feeds.feed_other": "\"{name}\" failed {count} times in a row: {reason}",
+  "google.doctor.feeds.failing": "{feeds}",
+  "google.doctor.feeds.fixLasting": "Addresses that expired or lost permission need copying again: Google Calendar on the web → this calendar's settings → \"Secret address in iCal format\", then remove the old one and add the new one in Settings · Data sources · Google · Calendar",
+  "google.doctor.feeds.fixTransient": "Most likely this computer can't reach Google reliably (timeouts, can't connect): check that Google Calendar opens in a browser; ergo tries again every 30 minutes and this clears on its own once it gets through"
 }

@@ -99,5 +99,13 @@
   "claudeCode.remote.startFailed": "The background session didn't start: {error}",
   "claudeCode.remote.copied": "Claude Code started a copy ({copy}) instead of continuing the original session; the copy was stopped and nothing was handed over",
   "claudeCode.remote.notStarted": "The background session was started but can't be seen running, so it doesn't count as handed over",
-  "claudeCode.remote.stopFailed": "{busy}: still running {seconds} seconds after stopping, so it was not taken back"
+  "claudeCode.remote.stopFailed": "{busy}: still running {seconds} seconds after stopping, so it was not taken back",
+  "claudeCode.doctor.sdk.title": "Agent SDK",
+  "claudeCode.doctor.sdk.ok": "Agent SDK {version}; Claude Code (claude.exe) is installed on this computer and is used for sessions, takeovers and handing off to the official app",
+  "claudeCode.doctor.sdk.okNoCli": "Agent SDK {version}; no claude.exe found on this computer: new sessions use the one bundled with the SDK, but taking over local sessions or handing off to the official app needs Claude Code installed",
+  "claudeCode.doctor.sdk.gone": "The Claude Code Agent SDK can't be found anymore (it was there at startup): tasks and projects using Claude Code won't start",
+  "claudeCode.doctor.sdk.noVersion": "Found the Agent SDK, but can't read its version",
+  "claudeCode.doctor.sdk.tooOld": "The installed Agent SDK is {version}, older than the {want} ergo expects: sessions may not run",
+  "claudeCode.doctor.sdk.fixInstall": "Reinstall \"Claude Code integration\" under Settings · Components (or install it as the Claude Code row in Settings · Plugins says), then restart ergo",
+  "claudeCode.doctor.sdk.fixUpdate": "Update \"Claude Code integration\" under Settings · Components, then restart ergo"
 }

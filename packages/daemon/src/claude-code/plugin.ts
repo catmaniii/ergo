@@ -10,6 +10,7 @@
 // - 网页这一张不加界面（新建任务、项目时选运行时，⚙ 按它显示）；GET /api/runtimes 里照常列出它。
 // -SDK 是可选依赖（Anthropic 自己的许可，不随二狗分发，sdk-installed.ts）。没装时插件不装配（定义里的 missing）：设置 · 插件里写"没装"
 //   和怎么装、启用不了；运行时写同一句（新建任务、项目时 Claude Code 那一项、用它的负责人不拉起）；别的插件和功能不受影响。装好后点启用就装上。
+// - 体检（414，doctor.ts）：登记"Agent SDK"一项——开机以后 SDK 没了、换成旧的，这一项变红、变黄；顺带说本机有没有 claude.exe。
 import { t } from "@ergo/protocol";
 import type { PluginDefinition } from "../plugins/host.ts";
 import { KERNEL } from "../plugins/kernel.ts";
@@ -17,6 +18,7 @@ import { CLAUDE_CODE_PLUGIN } from "./api.ts";
 import { type ClaudeCli, detachedClaudeCli } from "./cli.ts";
 import type { RemoteTiming } from "./remote-control.ts";
 import { claudeCodeRuntime } from "./runtime.ts";
+import { claudeSdkCheck, probeClaudeSdk } from "./doctor.ts";
 import { claudeSdkInstalled, claudeSdkMissing } from "./sdk-installed.ts";
 import { type ClaudeSessionSource, oneShotSessionSource } from "./sessions.ts";
 
@@ -37,6 +39,8 @@ export function createClaudeCodePlugin(
   /** 交给官方 App 用的命令行：同上 */
   let cli: ClaudeCli | undefined;
   let log: (line: string) => void = ignoreLine;
+  /** 组件区在哪（宿主问 missing 时交来；体检找 SDK 用） */
+  let componentsDir: string | undefined;
   return {
     name: CLAUDE_CODE_PLUGIN,
     get title() {
@@ -48,7 +52,10 @@ export function createClaudeCodePlugin(
     needs: [KERNEL.oneShot, KERNEL.env],
     // SDK 没装：不装配，设置 · 插件、运行时都写这一句（没装什么、怎么装）
     // 组件区里装的也算（宿主给组件区在哪）
-    missing: (ctx) => claudeSdkMissing(options.sdkInstalled ?? (() => claudeSdkInstalled(ctx?.componentsDir))),
+    missing: (ctx) => {
+      componentsDir = ctx?.componentsDir;
+      return claudeSdkMissing(options.sdkInstalled ?? (() => claudeSdkInstalled(ctx?.componentsDir)));
+    },
     contracts(ctx) {
       ctx.runtimes.register(
         claudeCodeRuntime(options.entry, {
@@ -77,6 +84,8 @@ export function createClaudeCodePlugin(
           cli = undefined;
         };
       });
+      // 体检（414）：Agent SDK 现在还在不在、版本够不够，本机有没有 claude.exe（开机时的样子由插件本身、运行时那两项写）
+      ctx.doctor.register(claudeSdkCheck(() => probeClaudeSdk({ env, ...(componentsDir === undefined ? {} : { componentsDir }), ...(options.sdkInstalled ? { installed: options.sdkInstalled } : {}) })));
     },
   };
 }

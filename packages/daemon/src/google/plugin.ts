@@ -16,6 +16,7 @@
 // - 给秘书的"查 Google 日历""搜 Gmail 邮件""读 Gmail 邮件"由内核替数据源登记（按需查开着、插件在运行时才有），插件自己不经 ctx.agent
 //   登记工具；系统提示里不讲它们。
 // Gmail 可以连几个账号（gmail-accounts.ts），导入的素材写明是哪个账号的（origin.account）。
+// 体检（414，doctor.ts）：登记"每个日历地址"一项（一直不行的坏了、一时拉不到连着 3 次以上注意）；Gmail 密码被撤由数据源那一项报。
 // 测试里不连 Google：拉地址用注入的 fetch 或本机假服务（createGooglePlugin 的 fetch、timeoutMs），IMAP 连本机的假服务（imap：地址、端口、
 // 测试证书）。
 import { type CardEventPayload, CHANNELS, EVENT_TYPES, type EventType, PURGED_TEXT, t } from "@ergo/protocol";
@@ -27,6 +28,7 @@ import { clockIso } from "../scheduler/clock.ts";
 import { GOOGLE } from "./api.ts";
 import { createGoogleCalendar, GOOGLE_CALENDAR_SOURCE } from "./calendar-feeds.ts";
 import { googleCalendarSource } from "./calendar-source.ts";
+import { googleFeedsCheck } from "./doctor.ts";
 import { GOOGLE_CONTACT, GOOGLE_CONTACTS_OFFERED } from "./contacts-events.ts";
 import { googleContactsSource } from "./contacts-source.ts";
 import { createGoogleContacts } from "./contacts.ts";
@@ -137,6 +139,8 @@ export function createGooglePlugin(options: GooglePluginOptions = {}): PluginDef
         log: (line) => ctx.log(line),
       });
       ctx.provide(GOOGLE, { calendar, gmail, contacts });
+      // 体检（414）：每个日历地址拉得怎么样（Gmail 密码被撤、日历全都拉不到由二狗替数据源生成的那几项报）
+      ctx.doctor.register(googleFeedsCheck(() => calendar.feedHealth()));
       // 上一批联系人合进的候选核对卡处理完了（写了、都不用、作废了），接着交下一批
       ctx.effect(() =>
         store.onAppend((event) => {

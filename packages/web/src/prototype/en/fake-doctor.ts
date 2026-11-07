@@ -31,4 +31,27 @@ export const EN_DOCTOR: Phrases = {
   "tailnet 节点离线": "tailnet node offline",
   "进程退出（代码 3221225477）": "process exited (code 3221225477)",
   "家里的平板": "Home tablet",
+  "存一份到本地": "Keep a local copy",
+  "出了问题：vlog 没存：Looki 换了接口：这个接口停用了（HTTP 400：This endpoint is deprecated）。照片、日记照常存，二狗跟着改好之前 vlog 先存不了":
+    "Ran into a problem: Vlogs not saved: Looki changed its API: this endpoint has been retired (HTTP 400: This endpoint is deprecated). Photos and journals still save; vlogs wait until ergo catches up",
+  "去设置 · 数据源 · Looki 的「存一份到本地」那一块看原因：位置、磁盘、权限的问题照它说的改；写着 Looki 回的不对（比如换了接口）的，等二狗更新，照片、日记照常存":
+    'Open the "Keep a local copy" panel in Settings · Data sources · Looki to see why: fix folder, disk or permission problems as it says; if Looki answered something unexpected (say, it changed its API), wait for an ergo update — photos and journals keep saving',
+  "「工作」：地址失效了（Google 回了 404）": '"Work": the address no longer works (Google returned 404)',
+  "每个日历地址": "Each calendar address",
+  "「工作」连着 2 次没拉到：地址失效了（Google 回了 404）：可能在 Google 日历里重置过私密地址，去 Google 日历的设置里重新复制「iCal 格式的私密地址」":
+    '"Work" failed 2 times in a row: the address no longer works (Google returned 404): the private address may have been reset in Google Calendar; copy the "Secret address in iCal format" again from its settings',
+  "地址失效、没权限的要重新复制：Google 日历网页版 → 这个日历的设置 → 「iCal 格式的私密地址」，在设置 · 数据源 · Google · 日历里删掉旧的、加上新的":
+    'Addresses that expired or lost permission need copying again: Google Calendar on the web → this calendar\'s settings → "Secret address in iCal format", then remove the old one and add the new one in Settings · Data sources · Google · Calendar',
+  "手机 App": "Phone app",
+  "最近一次交来东西是 11/7 14:12": "Last sent something at 11/7 14:12",
+  "手机日历交来 0 条": "Phone calendar sent 0 events",
+  "最近没有交来 0 条": "No sends with 0 events lately",
+  "时区": "Time zone",
+  "和这台电脑一样（Asia/Shanghai）": "Same as this computer (Asia/Shanghai)",
+  "数据源交来的日程": "Events from data sources",
+  "都拿得到": "All coming through",
+  "缩略图": "Thumbnails",
+  "这次开机以来缩了 12 批图，都没出错": "Shrank 12 batches of images since ergo started, no errors",
+  "Agent SDK 0.3.296；本机装了 Claude Code（claude.exe），会话、接管、交给官方 App 都用它":
+    "Agent SDK 0.3.296; Claude Code (claude.exe) is installed on this computer and is used for sessions, takeovers and handing off to the official app",
 };

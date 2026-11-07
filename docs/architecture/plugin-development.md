@@ -248,6 +248,8 @@ expect(listNotes(k.store.reader)).toEqual([]);
 
 网页的词典里没有插件的区域，句子由守护进程按当前语言拼好（`DoctorItemView.text`）交给网页；秘书的只读工具 `check_health` 读的也是这一份。
 
+别重复二狗已经替它生成的：数据源要重新授权（`needsAuth`）、连接出错、过期、上次同步出错，运行时没装，都已经在那几项里。插件登记的是那几项看不出来的（414 的例子）：Looki 的"存一份到本地"出了问题（`looki/doctor.ts`）、手机 App 很久没交来东西和手机日历交来 0 条（`phone/doctor.ts`）、Google 每个日历地址连着拉不到（`google/doctor.ts`）、日历拿不到数据源的日程（`calendar/doctor.ts`）、内置浏览器的缩略图子进程出错（`browsing/doctor.ts`）、提醒的时区和电脑不一致（`reminders/doctor.ts`）、Codex 和 Claude Code 的程序还在不在、版本够不够（`codex/doctor.ts`、`claude-code/doctor.ts`）。原来只记日志的失败，要报就先在插件的服务里记个数或者标记，体检只读它。
+
 **前端请求**：插件经数据契约登记网关请求里**可选的**那些（`ctx.requests.register(名字, 处理函数)`，名字是网关 `RequestHandlers` 里写成可选的；一个请求只能一个插件登记），处理函数里用 `ctx.active` 现取服务，插件没在运行时自动回"X插件没启用"。要新的请求先在网关的 `RequestHandlers` 里加一项可选的。HTTP 接口留在内核、经 `plugins.active(KEY)` 现取服务（日历的按月取）：
 
 <!-- 摘自 packages/daemon/src/daemon.ts -->
@@ -544,7 +546,10 @@ export function createClaudeCodePlugin(
     name: CLAUDE_CODE_PLUGIN,
     // …
     needs: [KERNEL.oneShot, KERNEL.env],
-    missing: (ctx) => claudeSdkMissing(options.sdkInstalled ?? (() => claudeSdkInstalled(ctx?.componentsDir))),
+    missing: (ctx) => {
+      // …
+      return claudeSdkMissing(options.sdkInstalled ?? (() => claudeSdkInstalled(ctx?.componentsDir)));
+    },
     contracts(ctx) {
       ctx.runtimes.register(
         claudeCodeRuntime(options.entry, {
@@ -593,7 +598,7 @@ export function createClaudeCodePlugin(
 |---|---|
 | `id` / `title` / `summary` | 小写英文、数字和连字符，定了别改（用法开关、密钥区、同步记录按它记）；名字和一句话写成取值函数走 `t()` |
 | `sensitive` | 用到的敏感类别（健康、财务、位置、关系……，`SensitiveCategory`）：对上记忆的敏感类别开关，页面上写明默认只记录、不用于推断。`dataSourceMaterial` 写的素材不写 `sensitive` 就带上这里的全部（保守）；某条记录不涉及的写窄（见下面"把记录写成素材"） |
-| `usages` | 提供哪两种用法、默认开没开：`query`（按需查：给秘书 `tools`，现查不存）、`import`（导入：`sync` 和 `files`，`schedule` 是定期导入的时间——提醒那一套，或者 每隔几分钟 `{ kind: "every", minutes }`；`destination` 写导入的东西去哪，不写是"整理成素材"；`syncOnConnect` 填好设置连上以后马上同步一次）。用户在数据源页上开关，存在配置区的 `data-sources.json` |
+| `usages` | 提供哪两种用法、默认开没开：`query`（按需查：给秘书 `tools`，现查不存）、`import`（导入：`sync` 和 `files`，`schedule` 是定期导入的时间——提醒那一套，或者 每隔几分钟 `{ kind: "every", minutes }`；`destination` 写导入的东西去哪，不写是"整理成素材"；`syncOnConnect` 填好设置连上以后马上同步一次；`staleAfterMs` 是体检里多久没同步成功算过期，不写是定期导入间隔的 3 倍，Looki 写 26 小时）。用户在数据源页上开关，存在配置区的 `data-sources.json` |
 | `records` | 它导入的记录（事件的频道、类型）：页面上的"共几条"按它数；断开时选了"连已导入的一起删"，这些整条换成"已删除"标记，由它们采成的素材彻底删除 |
 | `files` | 认导入文件夹里哪种文件（`DataSourceFileType`）：扩展名、文件名、内容特征（开头 4 KB）写了的都对上才认；`import(file, ctx)` 读文件、写记录，交回新进来几条 |
 | `status(ctx)` | 连接状态（没连 / 连着 / 出错及原因 / 账号），要快；不给是"手动导入"的数据源（只靠导入文件夹）。要用户去授权、重新填的（手机上的授权被拒、被撤回，登录没过、Key 不认）带 `needsAuth: true`，卡片上写"要授权"。可以带一句提示 `note`（不算出错："日历插件没启用"）和它下面的几样 `items`（几个日历，插件画的设置那一块列出）；还能带插件画的那一块要的数据 `panel`（内核原样交给网页、不看里面：Looki 的"存一份到本地"）和断开的确认框里要说的一句 `disconnectNote`（"存到本地的文件不删"）。连接状态还决定按需查的工具给不给秘书：内核只用插件报的**最近一次已知的**状态（装配时不等网络），所以插件在同步、按需查时碰到 Key 失效、地址失效要记在内存里、下一次 `status` 报 `error`（Looki 的 Key 不认、Gmail 登录没过、Google 日历每个地址都失效），一时的（限速、超时、连不上）照样报连着、原因写在 `problem`。报出错以后内核每小时替它再试一次（见下面 `recheck`），页面上写明"每小时自动再试一次，也可以重新填" |
@@ -668,7 +673,7 @@ export function createClaudeCodePlugin(
         id: LOOKI_SOURCE_ID,
         // …
         sensitive: ["location", "emotion", "health"],
-        usages: { query: { default: true }, import: { default: true, schedule: { kind: "daily", time: LOOKI_IMPORT_TIME } } },
+        usages: { query: { default: true }, import: { default: true, schedule: { kind: "daily", time: LOOKI_IMPORT_TIME }, staleAfterMs: LOOKI_STALE_AFTER_MS } },
         records,
         status: (c) => ctx.active(LOOKI).status(c.secrets),
         configure: (values, c) => ctx.active(LOOKI).configure(values, c.secrets),

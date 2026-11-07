@@ -165,7 +165,7 @@ describe("按块显示", () => {
 const plugins = (off: string[] = []) => new FakePlugins(new Set(off), new Set()).view();
 
 describe("原型编的一份", () => {
-  test("五种结果都有：二狗本身在最前（照 11-07 那天：外网入口打不通、模型近况、托管的服务坏了，组件、对话长度要注意，带\"现在压缩\"和\"打开服务管家\"），有插件块、过期的数据源（跳到详情）、没查出来的、不适用的、坏了的", () => {
+  test("五种结果都有：二狗本身在最前（照 11-07 那天：外网入口打不通、模型近况、托管的服务坏了，组件、对话长度要注意，带\"现在压缩\"和\"打开服务管家\"），有插件块、Looki 存一份到本地出了问题（注意，414）、Google 一个日历地址失效了（坏了，414）、没查出来的、不适用的、坏了的", () => {
     const view = fakeDoctorView(plugins());
     expect(view.groups[0]!.id).toBe(DOCTOR_CORE_GROUP);
     const levels = new Set(view.groups.flatMap((g) => g.items.map((i) => i.level)));
@@ -188,9 +188,15 @@ describe("原型编的一份", () => {
     expect(core.find((i) => i.id === "pending")).toMatchObject({ level: "ok", action: { kind: "open", route: "#/inbox" } });
     expect(text("pending").fact).toBe("待办 6 条，其中待审批 2 条");
     expect(text("app-version").fact).toBe("1 台手机的 App 比要求的 0.4.1 旧：家里的平板（0.3.9）");
+    // 414：Looki 一块一项黄（存一份到本地出了问题，跳到数据源详情），Google 一块一项红（每个日历地址，从什么时候起）
     const looki = view.groups.find((g) => g.id === "looki")!;
-    expect(looki.items.find((i) => i.id === "source:looki")).toMatchObject({ level: "warn", since: "2026-11-04T02:30:00+08:00", action: { kind: "open", route: "#/more/data-sources/looki" } });
-    expect(looki.items.find((i) => i.id === "source:looki")!.text.fact).toBe("85 小时没同步成功了（定期导入是每天 02:30）");
+    expect(looki.level).toBe("warn");
+    expect(looki.items.filter((i) => i.level === "warn").map((i) => i.id)).toEqual(["archive"]);
+    expect(looki.items.find((i) => i.id === "archive")).toMatchObject({ action: { kind: "open", route: "#/more/data-sources/looki" }, text: { title: "存一份到本地", fact: expect.stringContaining("Looki 换了接口") } });
+    const google = view.groups.find((g) => g.id === "google")!;
+    expect(google.level).toBe("error");
+    expect(google.items.filter((i) => i.level === "error").map((i) => i.id)).toEqual(["calendar-feeds"]);
+    expect(google.items.find((i) => i.id === "calendar-feeds")).toMatchObject({ since: "2026-11-07T14:30:00+08:00", text: { title: "每个日历地址", fact: expect.stringContaining("「工作」连着 2 次没拉到") } });
     // 没查出来的示例（412 挪到语音那一块；413 之后是 N 卡：第一次问要跑 nvidia-smi）
     expect(view.groups.find((g) => g.id === "voice")!.items.find((i) => i.id === "gpu")!.text.fact).toBe("这次没查出来：1.5 秒内没查完");
     // 记忆那一块（412 的六项）：记忆简报注意、每晚整理坏了（从上次跑成起，跳记忆管理员），别的正常
@@ -205,8 +211,8 @@ describe("原型编的一份", () => {
       ["presync", "ok"],
     ]);
     expect(memory.items.find((i) => i.id === "nightly")).toMatchObject({ since: "2026-11-05T03:14:00+08:00", action: { kind: "open", route: "#/more/memory/curator" } });
-    // 坏了的插件块排在前面（记忆、语音，照插件清单的先后），总状态是坏了
-    expect(view.groups.slice(1, 3).map((g) => g.id)).toEqual(["memory", "voice"]);
+    // 坏了的插件块排在前面（记忆、语音、Google，照插件清单的先后），然后是要注意的（Looki），总状态是坏了
+    expect(view.groups.slice(1, 5).map((g) => g.id)).toEqual(["memory", "voice", "google", "looki"]);
     // 语音那一块是 413 的五项：合成服务坏了（从 15:42 起，打开服务管家），N 卡这次没查出来，别的正常
     const voice = view.groups.find((g) => g.id === "voice")!.items;
     expect(voice.map((i) => [i.id, i.level])).toEqual([
@@ -223,7 +229,7 @@ describe("原型编的一份", () => {
     expect(voice[1]!.text.fix).toContain("audiocpp");
     expect(view.groups[0]!.items.find((i) => i.id === "services")!.text.fact).toContain("audiocpp");
     expect(view.level).toBe("error");
-    expect(view.counts).toEqual({ error: 5, warn: 7, unknown: 1 });
+    expect(view.counts).toEqual({ error: 6, warn: 8, unknown: 1 });
     expect(view.off).toEqual([]);
   });
 
@@ -241,7 +247,8 @@ describe("原型编的一份", () => {
     expect(texts.filter(hasChinese)).toEqual([]);
     const html = render(view);
     expect(html).toContain("ergo itself");
-    expect(html).toContain("No successful sync for 85 hours (scheduled import: Daily at 02:30)");
+    expect(html).toContain("Ran into a problem: Vlogs not saved: Looki changed its API");
+    expect(html).toContain("&quot;Work&quot; failed 2 times in a row");
     expect(html).toContain("Compact now");
     expect(html).toContain("Take a look");
     expect(html).toContain("Open service manager");

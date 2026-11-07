@@ -25,6 +25,7 @@
 //   日历插件是可选依赖（wants：不在时"手机 · 日历"写明日历插件没启用，照常收）。没有给 agent 的工具、上下文块。
 // - 数据源详情里看数据：已获取的——通讯录、日历不进素材，由 stored 列；照片、位置进素材的摘要内核按素材的出处列。
 //   都没有"现在能查到的"（live）：数据由手机交来，守护进程查不了上游。
+// - 体检（414，doctor.ts）：登记"手机 App"（很久没交来东西）、"手机日历交来 0 条"两项；授权被撤回由二狗替数据源生成的那几项报。
 import {
   type EventType,
   PHONE_CALENDAR_EMPTY_ACTIONS,
@@ -59,6 +60,7 @@ import {
   PHONE_PHOTOS_STATUS,
   type PhoneDaySummaryPayload,
 } from "./events.ts";
+import { phoneDoctorChecks } from "./doctor.ts";
 import { createPhoneService, PHONE_CALENDAR_EMPTY_NOTICE } from "./phone.ts";
 import { PHONE_DATA_DIR } from "./photos-location.ts";
 
@@ -222,8 +224,9 @@ export const phonePlugin: PluginDefinition = {
   setup(ctx) {
     const clock = ctx.use(KERNEL.clock);
     const inbox = ctx.use(KERNEL.inbox);
+    const store = ctx.use(KERNEL.store);
     const phone = createPhoneService({
-      store: ctx.use(KERNEL.store),
+      store,
       now: () => clockIso(clock),
       personalFiles: ctx.use(KERNEL.personalFiles),
       inbox,
@@ -238,5 +241,7 @@ export const phonePlugin: PluginDefinition = {
     const { clear, keep } = PHONE_CALENDAR_EMPTY_ACTIONS;
     ctx.effect(() => inbox.onNoticeHandled(PHONE_CALENDAR_EMPTY_NOTICE, clear, (item) => phone.answerCalendarEmpty(item.id, true)));
     ctx.effect(() => inbox.onNoticeHandled(PHONE_CALENDAR_EMPTY_NOTICE, keep, (item) => phone.answerCalendarEmpty(item.id, false)));
+    // 体检（414）：手机 App 很久没交来东西、手机日历交来 0 条（授权被撤回由数据源那几项报，二狗替它生成）
+    for (const check of phoneDoctorChecks({ store, service: phone, now: () => clock.now() })) ctx.doctor.register(check);
   },
 };

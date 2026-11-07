@@ -99,5 +99,13 @@
   "claudeCode.remote.startFailed": "后台会话没开起来：{error}",
   "claudeCode.remote.copied": "Claude Code 没接着原来的会话，另开了一份副本（{copy}），副本已经停掉；先不交给官方 App",
   "claudeCode.remote.notStarted": "后台会话开了，却没查到它在跑；先不算交出去",
-  "claudeCode.remote.stopFailed": "{busy}：停了 {seconds} 秒还没退，先不收回"
+  "claudeCode.remote.stopFailed": "{busy}：停了 {seconds} 秒还没退，先不收回",
+  "claudeCode.doctor.sdk.title": "Agent SDK",
+  "claudeCode.doctor.sdk.ok": "Agent SDK {version}；本机装了 Claude Code（claude.exe），会话、接管、交给官方 App 都用它",
+  "claudeCode.doctor.sdk.okNoCli": "Agent SDK {version}；本机没找到 claude.exe：新会话用 SDK 自带的，接管本机会话、交给官方 App 要先装 Claude Code",
+  "claudeCode.doctor.sdk.gone": "找不到 Claude Code 的 Agent SDK 了（开机时还在）：用 Claude Code 的任务、项目起不来",
+  "claudeCode.doctor.sdk.noVersion": "找到了 Agent SDK，但读不出它的版本",
+  "claudeCode.doctor.sdk.tooOld": "装着的 Agent SDK 是 {version}，比二狗认的 {want} 旧：会话可能跑不起来",
+  "claudeCode.doctor.sdk.fixInstall": "到设置 · 组件里重新装「Claude Code 接入」（或者照设置 · 插件里 Claude Code 那一行写的装），然后重启二狗",
+  "claudeCode.doctor.sdk.fixUpdate": "到设置 · 组件里更新「Claude Code 接入」，然后重启二狗"
 }

@@ -36,5 +36,11 @@
   "browsing.voice.empty": "没听清，再说一次？",
   "browsing.voice.onlyFiller": "只听到模型自带的串词（求点赞订阅之类），已丢弃。再说一次？",
   "browsing.tools.elementContent": "取网页元素的内容",
-  "browsing.tools.elementDownload": "下载网页元素"
+  "browsing.tools.elementDownload": "下载网页元素",
+  "browsing.doctor.thumbnails.title": "缩略图",
+  "browsing.doctor.thumbnails.idle": "这次开机后还没缩过图，不查",
+  "browsing.doctor.thumbnails.ok": "这次开机以来缩了 {count} 批图，都没出错",
+  "browsing.doctor.thumbnails.recovered": "这次开机以来缩图出错过 {count} 次，后来又好了",
+  "browsing.doctor.thumbnails.failing": "缩图的子进程出错了，连着 {count} 次（最近一次 {time}：{error}）；网页候选的图片、看图都缩不出来",
+  "browsing.doctor.thumbnails.fix": "重启二狗再试；还这样的话，看日志里「候选的缩略图没做出来」「看图时缩小图片出错」那几行报了什么"
 }
