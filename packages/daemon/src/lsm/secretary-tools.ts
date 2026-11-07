@@ -4,7 +4,9 @@
 //
 // 按风险拆成六个工具，守卫的类别整个工具固定（不按参数变）：
 // - 只读（只看，不落入类别）：lsm_status 看列表和某个服务的详情，lsm_logs 看某个服务最后几行日志（截短、擦掉像密钥的）；
-// - 普通（不落入类别，用户说了就做）：lsm_control——启动、优雅停止、等空闲再停、取消等空闲再停、立刻重启、开机自启开、按场景启动；
+// - 普通（不落入类别，用户说了就做）：lsm_control——启动、停止、等空闲再停、取消等空闲再停、立刻重启、开机自启开、按场景启动；
+//   停止、重启遇到没有正常办法的服务（服务管家回 no-capability）自动改成强制的、结果里说明（用户 11-07 定的"直接停"）；
+//   有正常办法的服务，用户点名要强制停、强制重启的走 lsm_force；
 // - 要审批（落在秘书特别敏感的类别 SECRETARY_ASKS 里，对话审批关着也出审批卡）：
 //   lsm_force（不可逆的提交）——强制停止、强制重启、开机自启关、按场景停止、撤销、裁决孤儿（认领 / 杀掉）；
 //   lsm_entries（账户与安全：改的是外面谁连得上这个服务）——公网入口开关、tailnet 入口开关；
@@ -178,8 +180,8 @@ function failText(reply: Extract<LsmManageReply, { ok: false }>, action?: AnyAct
     case "protected":
       return t("lsm.tools.err.protected", { message });
     case "no-capability":
-      if (action === "stop" || action === "stop_when_idle") return t("lsm.tools.err.noStop", { name, tool: LSM_TOOL.force });
-      if (action === "restart") return t("lsm.tools.err.noRestart", { name, tool: LSM_TOOL.force });
+      // 等空闲再停只对接入了忙闲的服务有意义；停、重启遇到它会自动改成强制的（act），走不到这里
+      if (action === "stop_when_idle") return t("lsm.tools.err.noIdleStop", { name });
       return t("lsm.tools.err.failed", { message });
     case "not-found":
       return t("lsm.tools.err.notFound", { message });
@@ -346,13 +348,14 @@ function send(manage: LsmManage, action: AnyAction, s: LsmManagedService, tailne
   }
 }
 
-/** 做成了：做了什么、现在的样子 */
-function doneText(action: AnyAction, s: LsmManagedService, reply: Extract<LsmManageReply, { ok: true }>): string {
+/** 做成了：做了什么、现在的样子。forced：用户说的是停 / 重启，它没有正常的办法，自动改成了强制的 */
+function doneText(action: AnyAction, s: LsmManagedService, reply: Extract<LsmManageReply, { ok: true }>, forced = false): string {
   const name = nameOf(s);
   const now = reply.service ?? s;
   const state = stateText(now.state);
   let said: string;
-  if (reply.pending) said = t("lsm.tools.done.pending", { name });
+  if (forced && !reply.already && !reply.pending) said = t(action === "stop" ? "lsm.tools.done.forcedStop" : "lsm.tools.done.forcedRestart", { name });
+  else if (reply.pending) said = t("lsm.tools.done.pending", { name });
   else if (reply.already) said = t(action === "start" || action === "expose_on" ? "lsm.tools.done.alreadyUp" : action === "stop" || action === "force_stop" || action === "expose_off" ? "lsm.tools.done.alreadyStopped" : "lsm.tools.done.already", { name });
   else {
     switch (action) {
@@ -399,9 +402,13 @@ async function act(deps: LsmToolDeps, action: AnyAction, args: { service?: strin
   if ("out" in found) return found.out;
   const hit = protectedHit(action, found.s, listed.services);
   if (hit) return refuse(action, hit, listed.services, listed.self);
-  const reply = await send(manage!, action, found.s, args.tailnetName);
+  let reply = await send(manage!, action, found.s, args.tailnetName);
+  // 用户 2026-11-07 定的"直接停"：没有正常停止 / 重启办法的服务（服务管家回 no-capability，命脉在上面已经拒了），
+  // 说停就直接强制停、说重启就直接强制重启，不出审批卡；有正常办法的服务要强制停仍走 lsm_force
+  const forced = !reply.ok && reply.error.code === "no-capability" && (action === "stop" || action === "restart");
+  if (forced) reply = await send(manage!, action === "stop" ? "force_stop" : "force_restart", found.s, undefined);
   if (!reply.ok) return failed(reply, action, found.s);
-  return { text: doneText(action, found.s, reply) };
+  return { text: doneText(action, found.s, reply, forced) };
 }
 
 // ───────────────────────── 工具 ─────────────────────────

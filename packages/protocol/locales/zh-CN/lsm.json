@@ -85,8 +85,6 @@
   "lsm.tools.err.disconnected": "做到一半和服务管家的连接断了：可能做了也可能没做，用 {tool} 看一眼现在的样子。",
   "lsm.tools.err.timeout": "服务管家很久没回话。不代表没做（启动要等就绪、场景要一层层起），过一会儿用 {tool} 看一眼。",
   "lsm.tools.err.protected": "服务管家拒绝了（二狗离不开的服务不能这样动）：{message}",
-  "lsm.tools.err.noStop": "{name}没有优雅停机的办法，只能强制停止（杀进程，它手上正在做的会断）。要停就用 {tool} 的 force_stop，会出审批卡等用户点。",
-  "lsm.tools.err.noRestart": "{name}没有重启的办法，只能强制重启（先杀进程再起）。要重启就用 {tool} 的 force_restart，会出审批卡等用户点。",
   "lsm.tools.err.failed": "没做成：{message}",
   "lsm.tools.err.notFound": "服务管家说没有：{message}",
   "lsm.tools.err.inUse": "还有别的在用它，先撤掉那些：{message}",
@@ -142,5 +140,8 @@
   "lsm.tools.logs.head": "{name}的{label}，最后 {n} 行：",
   "lsm.tools.logs.cut": "（太长了，只留最后 {n} 行）",
   "lsm.tools.logs.others": "还有别的日志（写 source 看）：{list}",
-  "lsm.tools.managerNote": "服务管家说：{note}"
+  "lsm.tools.managerNote": "服务管家说：{note}",
+  "lsm.tools.done.forcedStop": "{name}没有正常停止的办法，已经强制停下（它手上正在做的断了）。",
+  "lsm.tools.done.forcedRestart": "{name}没有正常重启的办法，已经强制重启（先强制停下再起来）。",
+  "lsm.tools.err.noIdleStop": "{name}没有接入忙闲，等不了它空闲。用户只是要停的话用 stop：它没有正常停止的办法时会直接强制停下。"
 }

@@ -205,19 +205,53 @@ describe("普通：用户说了就做", () => {
     expect((await run(LSM_TOOL.control, { action: "stop_when_idle", service: "comfyui" })).text).toMatch(/^「comfyui」（画图）正忙，等它空闲了再停：已经排上了。/);
   });
 
-  it("没有优雅停机、没有重启办法的：指去要批准的 lsm_force，不说做了", async () => {
+  it("没有正常停止 / 重启办法的（不是命脉）：说停就直接强制停、说重启就直接强制重启（用户 11-07 定的\"直接停\"），结果里写明", async () => {
+    const stopped = { ...SERVICES[3]!, state: "STOPPED", up: false };
     const fake = fakeManage({
-      stop: () => ({ ok: false, error: { code: "no-capability", message: "没有停机能力。要停就带 force: true" } }),
-      restart: () => ({ ok: false, error: { code: "no-capability", message: "没有重启能力" } }),
+      // 不带 force 回 no-capability；带 force 才做
+      stop: (_name: never, options?: never) =>
+        (options as { force?: boolean } | undefined)?.force ? { ok: true, service: stopped } : { ok: false, error: { code: "no-capability", message: "没有停机能力。要停就带 force: true" } },
+      restart: (_name: never, options?: never) =>
+        (options as { force?: boolean } | undefined)?.force ? { ok: true, service: SERVICES[3]! } : { ok: false, error: { code: "no-capability", message: "没有重启能力" } },
     });
     const { run } = tools(fake.manage);
     const stop = await run(LSM_TOOL.control, { action: "stop", service: "audiocpp" });
-    expect(stop.isError).toBe(true);
+    expect(stop.isError).toBeUndefined();
     expect(stop.text).toBe(
-      "「ergo-daemon--audiocpp」（语音合成）没有优雅停机的办法，只能强制停止（杀进程，它手上正在做的会断）。要停就用 lsm_force 的 force_stop，会出审批卡等用户点。\n照实告诉用户，别说已经做了。",
+      "「ergo-daemon--audiocpp」（语音合成）没有正常停止的办法，已经强制停下（它手上正在做的断了）。\n现在：「ergo-daemon--audiocpp」（语音合成）：停着，端口 18090，开机自启",
     );
     const restart = await run(LSM_TOOL.control, { action: "restart", service: "audiocpp" });
-    expect(restart.text).toContain("只能强制重启（先杀进程再起）。要重启就用 lsm_force 的 force_restart");
+    expect(restart.text).toMatch(/^「ergo-daemon--audiocpp」（语音合成）没有正常重启的办法，已经强制重启（先强制停下再起来）。/);
+    expect(fake.commands()).toEqual([
+      { method: "stop", args: ["ergo-daemon--audiocpp"] },
+      { method: "stop", args: ["ergo-daemon--audiocpp", { force: true }] },
+      { method: "restart", args: ["ergo-daemon--audiocpp"] },
+      { method: "restart", args: ["ergo-daemon--audiocpp", { force: true }] },
+    ]);
+  });
+
+  it("有正常停止办法的照常优雅停，不改成强制；强制也没成的照实说；等空闲再停的不改成强制", async () => {
+    const fake = fakeManage({
+      stop: (name: never, options?: never) => {
+        const o = options as { force?: boolean; mode?: string } | undefined;
+        if (name === "comfyui") return { ok: true, service: SERVICES[4]! };
+        if (o?.mode === "when-idle") return { ok: false, error: { code: "no-capability", message: "没有接入，等不了空闲" } };
+        return o?.force ? { ok: false, error: { code: "failed", message: "10 秒没停下" } } : { ok: false, error: { code: "no-capability", message: "没有停机能力" } };
+      },
+    });
+    const { run } = tools(fake.manage);
+    expect((await run(LSM_TOOL.control, { action: "stop", service: "comfyui" })).text).toMatch(/^已停止「comfyui」（画图）。/);
+    const failedForce = await run(LSM_TOOL.control, { action: "stop", service: "audiocpp" });
+    expect(failedForce).toEqual({ text: "没做成：10 秒没停下\n照实告诉用户，别说已经做了。", isError: true });
+    const idle = await run(LSM_TOOL.control, { action: "stop_when_idle", service: "audiocpp" });
+    expect(idle.isError).toBe(true);
+    expect(idle.text).toMatch(/^「ergo-daemon--audiocpp」（语音合成）没有接入忙闲，等不了它空闲。用户只是要停的话用 stop/);
+    expect(fake.commands()).toEqual([
+      { method: "stop", args: ["comfyui"] },
+      { method: "stop", args: ["ergo-daemon--audiocpp"] },
+      { method: "stop", args: ["ergo-daemon--audiocpp", { force: true }] },
+      { method: "stop", args: ["ergo-daemon--audiocpp", { mode: "when-idle" }] },
+    ]);
   });
 
   it("按场景启动：每个服务起没起来", async () => {

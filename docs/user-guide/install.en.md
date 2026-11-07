@@ -152,8 +152,8 @@ Things you can just say:
 
 | What you ask for | What it does |
 |---|---|
-| Check status, read logs; start, stop (services that have their own way to stop), restart, stop when idle, add to autostart, start a scenario | Does it as soon as you say so; the tool call in the chat says what was stopped and how things are now |
-| Force stop (the only way to stop a service with no way to stop, cutting off whatever it's doing), force restart, remove from autostart, stop a scenario, remove a project service registered by ergo, deal with a stray process holding a port, open or close public or tailnet access | Shows an approval card and only does it once you click "Approve once". Same with chat approvals off |
+| Check status, read logs; start, stop, restart, stop when idle, add to autostart, start a scenario | Does it as soon as you say so; the tool call in the chat says what was stopped and how things are now. A service with no normal way to stop (or restart) is force-stopped (or force-restarted) right away when you say so, cutting off whatever it's doing; the result says so |
+| Force stop or force restart a service that does have a normal way to stop, when you ask for it by name; remove from autostart, stop a scenario, remove a project service registered by ergo, deal with a stray process holding a port, open or close public or tailnet access | Shows an approval card and only does it once you click "Approve once". Same with chat approvals off |
 | Restart ergo itself | Shows an approval card. Once approved it doesn't restart straight away: it waits until its tasks and whatever it's doing are finished and it has finished this reply, then exits and the service manager brings it back. The conversation carries on afterwards |
 | Stop ergo itself or restart it without waiting until idle, stop its tunnel to the internet or a service it depends on | Won't do it, and tells you which one and why. If it really has to be done, do it yourself on the service manager's web page |
 

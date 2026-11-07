@@ -1268,7 +1268,7 @@ const SECRETARY: MessageEnvelope[] = [
       "照你存的那篇《秋季跑步入门》：第一周每次 3 公里、跑走结合，心率别超过 150；天凉了跑前多热身五分钟。\n\n另外几件事：你左膝盖有旧伤，先在平路上跑、别冲坡；下周三上午你要体检，前一天别跑太猛；你说过对芒果过敏，路上补给别买芒果味的能量胶。",
     ),
   ),
-  // 指挥服务管家（418）：用户说了就停（工具卡片写着停了谁、现在怎样）；重启二狗自己只能等空闲、要批准，对话审批关着也出审批卡
+  // 指挥服务管家（418）：用户说了就停（工具卡片写着停了谁、现在怎样；audiocpp 没有正常停止的办法，直接强制停下）；重启二狗自己只能等空闲、要批准，对话审批关着也出审批卡
   // （id 写死，不经 msg() 编号，前面消息的 id 不变）
   { id: "msg-lsm-demo-1", conversation: S, speaker: "user", time: at("10-07", "10:50"), parts: [text("audiocpp 先停一下，显存不够用了")] },
   {
@@ -1277,7 +1277,7 @@ const SECRETARY: MessageEnvelope[] = [
     speaker: "agent",
     time: at("10-07", "10:50"),
     parts: [
-      toolAs("call-lsm-demo-1", "lsm_control", "action=stop service=audiocpp", { result: "已停止「audiocpp」（语音合成）。 现在：「audiocpp」（语音合成）：停着，端口 18090，开机自启" }),
+      toolAs("call-lsm-demo-1", "lsm_control", "action=stop service=audiocpp", { result: "「audiocpp」（语音合成）没有正常停止的办法，已经强制停下（它手上正在做的断了）。 现在：「audiocpp」（语音合成）：停着，端口 18090，开机自启" }),
       text("停好了，语音合成先关着，显存腾出来了。要用的时候说一声，我再把它开起来。"),
     ],
   },

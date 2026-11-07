@@ -339,7 +339,7 @@ export const EN_CONVERSATIONS: Phrases = {
   "服务「菜谱网页」在线，入口放进聊天了": "Service “Recipes site” is online, link is in the chat",
   "菜谱网页在线，点下面就能打开：": "The recipes site is online. Click below to open it:",
   "audiocpp 先停一下，显存不够用了": "Stop audiocpp for now, I'm short on GPU memory",
-  "已停止「audiocpp」（语音合成）。 现在：「audiocpp」（语音合成）：停着，端口 18090，开机自启": "Stopped “audiocpp” (speech synthesis). Now: “audiocpp” (speech synthesis): stopped, port 18090, starts at boot",
+  "「audiocpp」（语音合成）没有正常停止的办法，已经强制停下（它手上正在做的断了）。 现在：「audiocpp」（语音合成）：停着，端口 18090，开机自启": "“audiocpp” (speech synthesis) has no normal way to stop, so it was force-stopped (whatever it was doing was cut off). Now: “audiocpp” (speech synthesis): stopped, port 18090, starts at boot",
   "停好了，语音合成先关着，显存腾出来了。要用的时候说一声，我再把它开起来。": "Done. Speech synthesis is off for now and the GPU memory is free. Say the word when you need it and I'll start it again.",
   "你也重启一下吧，刚改了配置": "Restart yourself too, I just changed the config",
   "reason=改了配置要生效": "reason=config change needs to take effect",

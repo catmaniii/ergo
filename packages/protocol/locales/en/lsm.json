@@ -88,8 +88,6 @@
   "lsm.tools.err.disconnected": "The connection to the service manager dropped partway: it may or may not have happened. Check with {tool}.",
   "lsm.tools.err.timeout": "The service manager hasn't answered for a long time. That doesn't mean it didn't happen (starting waits until ready, scenarios start layer by layer). Check with {tool} in a bit.",
   "lsm.tools.err.protected": "The service manager refused (services ergo depends on can't be touched this way): {message}",
-  "lsm.tools.err.noStop": "{name} has no graceful stop; it can only be force-stopped (its process killed, cutting off whatever it's doing). To stop it, use force_stop in {tool}, which shows the user an approval card.",
-  "lsm.tools.err.noRestart": "{name} has no way to restart; it can only be force-restarted (killed, then started). To restart it, use force_restart in {tool}, which shows the user an approval card.",
   "lsm.tools.err.failed": "Didn't work: {message}",
   "lsm.tools.err.notFound": "The service manager says it doesn't exist: {message}",
   "lsm.tools.err.inUse": "Something else still uses it; remove that first: {message}",
@@ -148,5 +146,8 @@
   "lsm.tools.logs.cut_one": "(Too long; kept only the last {n} line)",
   "lsm.tools.logs.cut_other": "(Too long; kept only the last {n} lines)",
   "lsm.tools.logs.others": "Other logs (pass source to read one): {list}",
-  "lsm.tools.managerNote": "The service manager says: {note}"
+  "lsm.tools.managerNote": "The service manager says: {note}",
+  "lsm.tools.done.forcedStop": "{name} has no normal way to stop, so it was force-stopped (whatever it was doing was cut off).",
+  "lsm.tools.done.forcedRestart": "{name} has no normal way to restart, so it was force-restarted (force-stopped, then started).",
+  "lsm.tools.err.noIdleStop": "{name} doesn't report when it's busy, so there's no waiting until it's idle. If the user just wants it stopped, use stop: with no normal way to stop, it gets force-stopped right away."
 }
