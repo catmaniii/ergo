@@ -74,7 +74,7 @@
   "phone.doctor.app.fixQuiet": "Open the Ergo app on your phone and leave it open for a bit: it only sends calendar, photos and location while it's open",
   "phone.doctor.calendarEmpty.title": "Phone calendar sent 0 events",
   "phone.doctor.calendarEmpty.notLinked": "Phone calendar isn't connected, not checked",
-  "phone.doctor.calendarEmpty.ok": "No empty sends lately",
+  "phone.doctor.calendarEmpty.ok": "No sends with 0 events lately",
   "phone.doctor.calendarEmpty.kept_one": "Since {time} the phone has sent an empty calendar (times in a row: {times}), most likely it just couldn't read it; the {count} event already here is kept, not deleted",
   "phone.doctor.calendarEmpty.kept_other": "Since {time} the phone has sent an empty calendar (times in a row: {times}), most likely it just couldn't read it; the {count} events already here are kept, not deleted",
   "phone.doctor.calendarEmpty.dropped_one": "Since {time} the phone has sent an empty calendar (times in a row: {times}), most likely it just couldn't read it; the {count} event already here was deleted with it",

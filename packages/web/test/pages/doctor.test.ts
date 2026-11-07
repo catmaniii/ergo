@@ -149,7 +149,7 @@ describe("按块显示", () => {
 const plugins = (off: string[] = []) => new FakePlugins(new Set(off), new Set()).view();
 
 describe("原型编的一份", () => {
-  test("五种结果都有：二狗本身在最前（组件、外网入口是注意，带\"现在压缩\"的一项），有插件块、过期的数据源（跳到详情）、没查出来的、不适用的、坏了的", () => {
+  test("五种结果都有：二狗本身在最前（组件、外网入口是注意，带\"现在压缩\"的一项），有插件块、Looki 存一份到本地停下了（注意）、Google 一个日历地址失效了（坏了）、没查出来的、不适用的", () => {
     const view = fakeDoctorView(plugins());
     expect(view.groups[0]!.id).toBe(DOCTOR_CORE_GROUP);
     const levels = new Set(view.groups.flatMap((g) => g.items.map((i) => i.level)));
@@ -157,14 +157,20 @@ describe("原型编的一份", () => {
     const core = view.groups[0]!.items;
     expect(core.filter((i) => i.level === "warn").map((i) => i.id)).toEqual(["components", "external", "context"]);
     expect(core.find((i) => i.id === "context")!.action).toEqual({ kind: "compact", agentId: "secretary" });
+    // 414：Looki 一块一项黄（存一份到本地停下了，跳到数据源详情），Google 一块一项红（每个日历地址，从什么时候起）
     const looki = view.groups.find((g) => g.id === "looki")!;
-    expect(looki.items.find((i) => i.id === "source:looki")).toMatchObject({ level: "warn", since: "2026-11-04T02:30:00+08:00", action: { kind: "open", route: "#/more/data-sources/looki" } });
-    expect(looki.items.find((i) => i.id === "source:looki")!.text.fact).toBe("85 小时没同步成功了（定期导入是每天 02:30）");
+    expect(looki.level).toBe("warn");
+    expect(looki.items.filter((i) => i.level === "warn").map((i) => i.id)).toEqual(["archive"]);
+    expect(looki.items.find((i) => i.id === "archive")).toMatchObject({ action: { kind: "open", route: "#/more/data-sources/looki" }, text: { title: "存一份到本地", fact: expect.stringContaining("Looki 换了接口") } });
+    const google = view.groups.find((g) => g.id === "google")!;
+    expect(google.level).toBe("error");
+    expect(google.items.filter((i) => i.level === "error").map((i) => i.id)).toEqual(["calendar-feeds"]);
+    expect(google.items.find((i) => i.id === "calendar-feeds")).toMatchObject({ since: "2026-11-07T14:30:00+08:00", text: { title: "每个日历地址", fact: expect.stringContaining("「工作」连着 2 次没拉到") } });
     expect(view.groups.find((g) => g.id === "memory")!.items.find((i) => i.id === "brief")!.text.fact).toBe("这次没查出来：1.5 秒内没查完");
-    // 坏了的插件块排在前面（语音），总状态是坏了
-    expect(view.groups[1]!.id).toBe("voice");
+    // 坏了的插件块排在前面（语音、Google），然后是要注意的（Looki），总状态是坏了
+    expect(view.groups.slice(1, 4).map((g) => g.id)).toEqual(["voice", "google", "looki"]);
     expect(view.level).toBe("error");
-    expect(view.counts).toEqual({ error: 1, warn: 4, unknown: 1 });
+    expect(view.counts).toEqual({ error: 2, warn: 5, unknown: 1 });
     expect(view.off).toEqual([]);
   });
 
@@ -182,7 +188,8 @@ describe("原型编的一份", () => {
     expect(texts.filter(hasChinese)).toEqual([]);
     const html = render(view);
     expect(html).toContain("ergo itself");
-    expect(html).toContain("No successful sync for 85 hours (scheduled import: Daily at 02:30)");
+    expect(html).toContain("Stopped: Vlogs not saved: Looki changed its API");
+    expect(html).toContain("&quot;Work&quot; failed 2 times in a row");
     expect(html).toContain("Compact now");
     expect(html).toContain("Take a look");
     expect(hasChinese(html)).toBe(false);
