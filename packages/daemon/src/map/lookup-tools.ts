@@ -342,8 +342,8 @@ export function lookupTools(deps: LookupToolDeps): HostTool[] {
   };
 
   /**
-   * 按名字找（搜地点 / 地理编码）：照 nameOrder 一家一家问，去掉不在那家管的范围里的，找到就停。参照点只发给管它的那一家
-   * （另一头在新加坡时不发给高德）。
+   * 按名字找（搜地点 / 地理编码）：照 nameOrder 一家一家问，去掉不在那家管的范围里的，找到就停。参照点只发给管它、排在最前的
+   * 那一家（就是要拿它去算路线的那家：有高德时家在杭州只发给高德，转去问 OpenStreetMap 的不带；另一头在新加坡时不发给高德）。
    * 都没找到时：排第一的那家没问成（没填 Key、到上限、连不上……）交回它的错（最该问的那家用不了，照它说）；
    * 排第一的问成了只是没找到的交回空的，别的没问成的写在 skipped 里
    */
@@ -357,8 +357,9 @@ export function lookupTools(deps: LookupToolDeps): HostTool[] {
     let answered: LookupProvider | undefined;
     const city = q.city === undefined ? {} : { city: q.city };
     const order = nameOrder(`${q.text}${q.city ?? ""}`, anchor);
+    const anchorOwner = anchor?.send ? order.find((p) => p.covers(anchor.point)) : undefined;
     for (const provider of order) {
-      const near = anchor?.send && provider.covers(anchor.point) ? { near: anchor.point } : {};
+      const near = anchor !== undefined && provider === anchorOwner ? { near: anchor.point } : {};
       try {
         const raw = await ask(provider, () => (kind === "search" ? provider.searchText({ keyword: q.text, limit: q.limit, ...city, ...near }, signal) : provider.geocode({ address: q.text, ...city, ...near }, signal)));
         answered ??= provider;

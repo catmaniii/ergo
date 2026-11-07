@@ -108,11 +108,14 @@ describe("从家到公司多久", () => {
   });
 
   it("终点是地名：先按名字搜地点（搜不到再当地址做地理编码），写明是高德找到的", async () => {
-    const { fake, call } = await setup();
+    const { fake, osmFake, call } = await setup();
     fake.state.replies["/v5/place/text"] = { status: "1", info: "OK", infocode: "10000", count: "0", pois: [] };
     const out = await call(MAP_TOOL.route, { from: "家", to: "示例路 478 号", modes: ["driving"], city: "杭州" });
     expect(fake.requests.map((r) => r.path)).toEqual(["/v5/place/text", "/v3/geocode/geo", "/v5/direction/driving"]);
     expect(fake.requests[0]!.query.get("region")).toBe("杭州");
+    // 高德没搜到、转去问 OpenStreetMap 的：只发地名，不带家的点（家的点只发给要算路线的高德）
+    const asked = osmFake.requests.find((r) => r.path === "/search")!;
+    expect(asked.query.get("viewbox")).toBeNull();
     expect(out.text).toContain("到「浙江省杭州市西湖区示例路478号」（高德找到的：浙江省杭州市西湖区）");
   });
 
