@@ -2,7 +2,7 @@
 // 删除参与方登记数据源那一份。插件把记录写成素材用 material.ts 的 dataSourceMaterial。
 export type { DataSource, DataSourceContext, DataSourceFileType, DataSourceImportContext, DataSourceItem, DataSourceRecheckContext, DataSourceRecords, DataSourceSchedule, DataSourceSecrets, DataSourceStatus, DataSourceSyncContext, DataSourceSyncResult, ImportFile } from "./api.ts";
 export { recordDisconnect, registerDataSourceDeletion } from "./deletion.ts";
-export { DATA_SOURCE_DISCONNECTED, DATA_SOURCE_SYNCED, DATA_SOURCES_CHANNEL } from "./events.ts";
+export { DATA_SOURCE_DISCONNECTED, DATA_SOURCE_QUIET_SYNC, DATA_SOURCE_SYNCED, DATA_SOURCES_CHANNEL, DATA_SOURCES_QUIET_CHANNEL, dataSourceQuietView } from "./events.ts";
 export { openFolderOnDesktop } from "./import-folder.ts";
 export { dataSourceMaterial, type DataSourceRecordMaterial } from "./material.ts";
 export { createDataSourceRegistry, type DataSourceEntry, type DataSourceOwner, type DataSourceRegistry } from "./registry.ts";

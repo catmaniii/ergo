@@ -14,8 +14,10 @@
 // 数据源自己数"共几条"（count）、同步记录带"这次进来的是什么"（summary）。
 // 加了：原始数据（raw：插件自己存储里的，页面按天列出；动作 clear_raw 清掉几天的，插件在运行时才行）。
 // 定期导入可以"每隔几分钟"（内部作业的 IntervalSchedule）；每隔几分钟的那种，到点同步了、什么都没变（新进来 0 条、没出错、
-// 上一条记下的同步也没出错）的那次不记事件（每 30 分钟一条会把事件日志撑大），只在内存里记着、页面上照样显示"上次同步"；
-// 重启后显示最后记下的那次。数据源可以说导入的东西去哪（destination，不写是整理成素材）、填好设置连上以后马上同步一次（syncOnConnect）、
+// 上一条记下的同步也没出错）的那次不进同步记录的频道（每 30 分钟一条，数据源页每次现读会越读越慢），记在另一个频道、
+// 派生视图里每个数据源只留最后一次（events.ts 的 dataSourceQuietView，435：以前只在内存里，重启后"上次同步"回到最后记下的那次，
+// 体检跟着报"好几天没同步成功"）；页面上的"上次同步"、体检的上次成功、整理前"刚同步过"都算它。
+// 数据源可以说导入的东西去哪（destination，不写是整理成素材）、填好设置连上以后马上同步一次（syncOnConnect）、
 // 报一句提示（note）和它下面的几样（items）。
 // 数据源报的插件那一块要的数据（panel）、断开时要说的一句（disconnectNote）原样交给页面；有本机文件夹的（localFolder）能
 // "在电脑上打开"（open 动作，和导入文件夹同一个 openFolder）。
@@ -85,7 +87,7 @@ import { type InternalJobs, isInterval } from "../scheduler/internal-jobs.ts";
 import type { Scheduler } from "../scheduler/scheduler.ts";
 import type { DataSourceContext, DataSourceFileType, DataSourceSchedule, DataSourceStatus } from "./api.ts";
 import { disconnectedBefore, recordDisconnect } from "./deletion.ts";
-import { DATA_SOURCE_SYNCED, DATA_SOURCES_CHANNEL, dataSourceRecords, type DataSourceSyncedPayload } from "./events.ts";
+import { DATA_SOURCE_QUIET_SYNC, DATA_SOURCE_SYNCED, DATA_SOURCES_CHANNEL, DATA_SOURCES_QUIET_CHANNEL, dataSourceRecords, type DataSourceSyncedPayload, quietSyncs } from "./events.ts";
 import { fileTypeMatches, listImportFiles, moveInto, readHead } from "./import-folder.ts";
 import type { DataSourceEntry, DataSourceRegistry } from "./registry.ts";
 import { type DataSourceSecretStore, redactSecrets } from "./secrets.ts";
@@ -102,6 +104,7 @@ export const RETRY_EVERY_MS = 60 * 60_000;
 
 export interface DataSourcesOptions {
   registry: DataSourceRegistry;
+  /** 事件存储：打开时要带上 events.ts 的 dataSourceQuietView（什么都没变的那几次读它） */
   store: EventStore;
   secrets: DataSourceSecretStore;
   settings: DataSourceSettings;
@@ -272,8 +275,6 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
   const running = new Map<string, { promise: Promise<{ added?: number; error?: string }>; controller: AbortController }>();
   /** 填设置时测试连接没过的原因（下一次填对了、断开时清掉） */
   const configureProblems = new Map<string, string>();
-  /** 每隔几分钟的定期导入什么都没变的那次（不记事件，只记在这里；断开时清掉） */
-  const quietSyncs = new Map<string, DataSourceSyncedPayload>();
   /** 挂着的定期导入：数据源 → 撤销 */
   const jobs = new Map<string, () => void>();
   /** 导入文件夹：留着的文件的提示、上次看的时间、导入出错过的文件（名字、大小、修改时间 → 原因） */
@@ -361,21 +362,21 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
 
   /** 同步记录归并：每个数据源最近一次断开之后的最后一次同步；最近导入的文件（新的在前） */
   const history = () => {
-    const last = new Map<string, DataSourceSyncedPayload>();
+    const last = new Map<string, { payload: DataSourceSyncedPayload; globalSeq: number }>();
     const files: DataSourceSyncedPayload[] = [];
-    for (const { synced, disconnected } of dataSourceRecords(store)) {
+    for (const { event, synced, disconnected } of dataSourceRecords(store)) {
       // 只断开它下面的一样不算：别的几样照常，"上次同步"照旧
       if (disconnected && disconnected.item === undefined) last.delete(disconnected.source);
       if (!synced) continue;
-      last.set(synced.source, synced);
+      last.set(synced.source, { payload: synced, globalSeq: event.globalSeq });
       if (synced.file) files.push(synced);
     }
-    // 没记事件的那几次（每隔几分钟、什么都没变）更晚的话用它
-    for (const [id, quiet] of quietSyncs) {
+    // 没进这个频道的那几次（每隔几分钟、什么都没变；整个断开时视图里删了）更晚（全局序号更大）的话用它
+    for (const [id, quiet] of quietSyncs(store.reader)) {
       const recorded = last.get(id);
-      if (!recorded || Date.parse(quiet.at) >= Date.parse(recorded.at)) last.set(id, quiet);
+      if (!recorded || quiet.globalSeq > recorded.globalSeq) last.set(id, quiet);
     }
-    return { last, files: files.toReversed() };
+    return { last: new Map([...last].map(([id, { payload }]) => [id, payload])), files: files.toReversed() };
   };
 
   /** 原始数据：插件在运行、登记了的才有；列不出来的记日志、不写 */
@@ -457,14 +458,17 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     return p;
   };
 
-  /** 上次成功同步（不算导入文件）是什么时候：记下的和没记事件的那几次里更晚的 */
+  /**
+   * 上次成功同步（不算导入文件）是什么时候：记下的和什么都没变的那几次（另一个频道）里更晚（全局序号更大）的。
+   * 什么都没变的那次也是成功：之后又出错了，上次成功还是它（体检"多久没同步成功"从它算）
+   */
   const lastSyncAt = (id: string): string | undefined => {
     const recorded = dataSourceRecords(store)
-      .flatMap(({ synced }) => (synced && synced.source === id && synced.trigger !== "file" && synced.error === undefined ? [synced.at] : []))
+      .flatMap(({ event, synced }) => (synced && synced.source === id && synced.trigger !== "file" && synced.error === undefined ? [{ at: synced.at, globalSeq: event.globalSeq }] : []))
       .at(-1);
-    const quiet = quietSyncs.get(id)?.at;
-    if (quiet === undefined) return recorded;
-    return recorded === undefined || Date.parse(quiet) >= Date.parse(recorded) ? quiet : recorded;
+    const quiet = quietSyncs(store.reader).get(id);
+    if (quiet === undefined) return recorded?.at;
+    return recorded === undefined || quiet.globalSeq > recorded.globalSeq ? quiet.payload.at : recorded.at;
   };
 
   /** 这次同步要不要记事件：每隔几分钟的定期导入什么都没变、上一条记下的同步（断开之后的）也没出错的不记 */
@@ -494,15 +498,14 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
       try {
         const result = await doSync({ ...contextOf(entry), trigger, lastSyncAt: lastSyncAt(id), signal });
         if (signal.aborted) return { error: t("dataSources.syncAborted") };
-        if (worthRecording(id, trigger, result.added)) {
-          recordSync(entry, { trigger, added: result.added, ...(result.summary === undefined ? {} : { summary: result.summary }) });
-          quietSyncs.delete(id);
-        } else quietSyncs.set(id, { source: id, at: options.now(), trigger, added: 0 });
+        const summary = result.summary === undefined ? {} : { summary: result.summary };
+        // 什么都没变的记在另一个频道（派生视图里每个数据源只留最后一次），重启后照样是"上次同步"（435）
+        if (worthRecording(id, trigger, result.added)) recordSync(entry, { trigger, added: result.added, ...summary });
+        else store.append({ channel: DATA_SOURCES_QUIET_CHANNEL, type: DATA_SOURCE_QUIET_SYNC, payload: { source: id, at: options.now(), trigger, added: 0, ...summary } satisfies DataSourceSyncedPayload });
         return { added: result.added };
       } catch (err) {
         if (signal.aborted) return { error: t("dataSources.syncAborted") };
         const p = recordSync(entry, { trigger, error: describe(err) });
-        quietSyncs.delete(id);
         log(`数据源 ${id} 同步出错：${p.error}`);
         return { error: p.error! };
       } finally {
@@ -892,7 +895,6 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
         }
         secrets.clear(id);
         configureProblems.delete(id);
-        quietSyncs.delete(id);
         const record = recordDisconnect({ store, participants: options.participants, now: options.now, log }, { source: id, records: source.records ?? [], purge: body.purge }, body.idempotencyKey);
         refresh();
         return { view: view(), ...(record.counts ? { purged: record.counts } : {}) };

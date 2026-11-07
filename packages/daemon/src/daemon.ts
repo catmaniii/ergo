@@ -96,7 +96,7 @@ import {
   shippedManifestVerifier,
   type Transport,
 } from "./components/index.ts";
-import { createDataSourceRegistry, createDataSources, createDataSourceSecrets, createDataSourceSettings, type DataSources, openFolderOnDesktop, registerDataSourceDeletion } from "./data-sources/index.ts";
+import { createDataSourceRegistry, createDataSources, createDataSourceSecrets, createDataSourceSettings, dataSourceQuietView, type DataSources, openFolderOnDesktop, registerDataSourceDeletion } from "./data-sources/index.ts";
 import { startGateway } from "./gateway/gateway.ts";
 import { createHttpApi, type FolderGrantsApi } from "./gateway/http-api.ts";
 import { createLanguageService, createLocales, type LanguageService, type Locales, withLanguageLine } from "./i18n/index.ts";
@@ -787,6 +787,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         inboxView,
         pairingView,
         internalJobsView,
+        // 数据源每隔几分钟的定期导入什么都没变的那几次：每个数据源最后一次（435）
+        dataSourceQuietView,
         approvalsView,
         effectLogView,
         executionsView,

@@ -19,7 +19,7 @@ import { createCardService } from "../../src/cards/cards.ts";
 import { CardTypeRegistry } from "../../src/cards/registry.ts";
 import { cardsView } from "../../src/cards/views.ts";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
-import { createDataSourceRegistry, createDataSources, createDataSourceSecrets, createDataSourceSettings, registerDataSourceDeletion } from "../../src/data-sources/index.ts";
+import { createDataSourceRegistry, createDataSources, createDataSourceSecrets, createDataSourceSettings, dataSourceQuietView, registerDataSourceDeletion } from "../../src/data-sources/index.ts";
 import { createDoctorChecks } from "../../src/doctor/checks.ts";
 import { EventSubscriberRegistry } from "../../src/event-sources/index.ts";
 import { DeletionParticipants } from "../../src/deletion/participants.ts";
@@ -86,7 +86,7 @@ export async function startPluginKernel(options: PluginKernelOptions) {
   const extras = options.services ?? [];
   const kernelKeys = [KERNEL.store, KERNEL.clock, KERNEL.scheduler, KERNEL.cards, KERNEL.inbox, ...extras.map((s) => s.key)];
   const plugins = createPluginHost({ plugins: options.plugins, disabled: config.disabled, removed: config.removed, kernel: kernelKeys, log });
-  const store = openEventStore({ file: path.join(dir, "ergo.db"), views: [cardsView, inboxView, internalJobsView, ...plugins.views()], dormantViews: plugins.dormantViews(), now, log });
+  const store = openEventStore({ file: path.join(dir, "ergo.db"), views: [cardsView, inboxView, internalJobsView, dataSourceQuietView, ...plugins.views()], dormantViews: plugins.dormantViews(), now, log });
 
   const scheduler = createScheduler({ clock, log });
   const cardTypes = new CardTypeRegistry();

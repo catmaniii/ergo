@@ -6,13 +6,21 @@
 //   只断开它下面的一样（Gmail 的一个账号）的带 item，不算整个断开，"上次同步"照旧。
 // 数据源导入的记录本身是插件自己的事件（插件的频道和类型，数据源登记时写在 records 里），不在这个频道。
 // 记录不多（一次同步一条），数据源页每次现读这个频道归并，不建派生视图。
+// 435：每隔几分钟的定期导入什么都没变的那次（新进来 0 条、没出错、上一条记下的也没出错）不进上面这个频道（每 30 分钟一条，
+// 数据源页每次现读会越读越慢），记在另一个内部频道 data_sources_quiet（data_source_quiet_sync，负载和同步记录一样），
+// 派生视图 data_source_quiet 每个数据源只留最后一次——以前只在内存里记，重启就回到最后记下的那次（Google 日历的"上次同步"
+// 停在 11-01、体检报 165 小时没同步成功）。整个断开时那一行删掉；和同步记录谁更晚按全局序号比（同一毫秒的也分得清）。
 import { type DataSourcePurgeCounts, type DataSourceSyncTrigger, isDeletedEventPayload } from "@ergo/protocol";
-import type { EventStore, StoredEvent } from "../events/event-store.ts";
+import type { DerivedView, EventStore, StoredEvent } from "../events/event-store.ts";
+import type { ReadonlyDatabase } from "../storage/sqlite.ts";
 
 /** 守护进程内部的频道：数据源的同步、导入、断开记录 */
 export const DATA_SOURCES_CHANNEL = "data_sources";
 export const DATA_SOURCE_SYNCED = "data_source_synced";
 export const DATA_SOURCE_DISCONNECTED = "data_source_disconnected";
+/** 守护进程内部的频道：每隔几分钟的定期导入什么都没变的那几次（435） */
+export const DATA_SOURCES_QUIET_CHANNEL = "data_sources_quiet";
+export const DATA_SOURCE_QUIET_SYNC = "data_source_quiet_sync";
 
 export interface DataSourceSyncedPayload {
   source: string;
@@ -52,4 +60,53 @@ export function dataSourceRecords(store: Pick<EventStore, "read">): Array<{ even
           ? { event, disconnected: event.payload as DataSourceDisconnectedPayload }
           : { event },
     );
+}
+
+const QUIET_TABLE = "data_source_quiet";
+
+/** 一个数据源最后一次"什么都没变"的同步，和它在事件日志里的全局序号（和同步记录比谁更晚用） */
+export interface QuietSync {
+  readonly payload: DataSourceSyncedPayload;
+  readonly globalSeq: number;
+}
+
+/**
+ * 每个数据源最后一次"什么都没变"的同步（435）：data_sources_quiet 频道上的记一行（同一个数据源换掉）；
+ * data_sources 频道上整个断开（不带 item）时删掉那一行
+ */
+export const dataSourceQuietView: DerivedView = {
+  name: QUIET_TABLE,
+  channels: [DATA_SOURCES_QUIET_CHANNEL, DATA_SOURCES_CHANNEL],
+  create(db) {
+    const existed = db.get<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", QUIET_TABLE) !== undefined;
+    db.exec(`CREATE TABLE IF NOT EXISTS ${QUIET_TABLE} (source TEXT PRIMARY KEY, payload TEXT NOT NULL, global_seq INTEGER NOT NULL)`);
+    // 新建的表（升级上来、手删过库）：从这两个频道补一遍
+    return existed ? undefined : "refill";
+  },
+  clear: (db) => db.exec(`DELETE FROM ${QUIET_TABLE}`),
+  apply(db, event) {
+    if (event.channel === DATA_SOURCES_QUIET_CHANNEL && event.type === DATA_SOURCE_QUIET_SYNC) {
+      const p = event.payload as DataSourceSyncedPayload;
+      db.run(
+        `INSERT INTO ${QUIET_TABLE} (source, payload, global_seq) VALUES (?, ?, ?) ON CONFLICT (source) DO UPDATE SET payload = excluded.payload, global_seq = excluded.global_seq`,
+        p.source,
+        JSON.stringify(p),
+        event.globalSeq,
+      );
+      return;
+    }
+    if (event.channel === DATA_SOURCES_CHANNEL && event.type === DATA_SOURCE_DISCONNECTED) {
+      const p = event.payload as DataSourceDisconnectedPayload;
+      if (p.item === undefined) db.run(`DELETE FROM ${QUIET_TABLE} WHERE source = ?`, p.source);
+    }
+  },
+};
+
+/** 每个数据源最后一次"什么都没变"的同步（整个断开以后的；没有的不在） */
+export function quietSyncs(db: ReadonlyDatabase): Map<string, QuietSync> {
+  return new Map(
+    db
+      .all<{ source: string; payload: string; global_seq: number }>(`SELECT source, payload, global_seq FROM ${QUIET_TABLE}`)
+      .map((row) => [row.source, { payload: JSON.parse(row.payload) as DataSourceSyncedPayload, globalSeq: Number(row.global_seq) }]),
+  );
 }

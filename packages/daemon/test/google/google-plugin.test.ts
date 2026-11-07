@@ -7,18 +7,21 @@
 //   断开以后页面上没了；
 // - 同步：只写新的、变了的、没了的；地址失效了写明"地址失效了"、那个日历下面也写着，拉到的照样写；
 // - 交给日历的日程：标出来自 Google 哪个日历、重复事件展开、全天的按日期；删掉一个日历它的日程跟着没了；
-// - 每隔 30 分钟定期导入：到点同步，什么都没变的不记事件（页面上照样显示上次同步），变了的记；
+// - 每隔 30 分钟定期导入：到点同步，什么都没变的不进同步记录的频道（页面上照样显示上次同步），变了的记；
+//   什么都没变的那几次重启后照样是"上次同步"，体检的上次成功从它算、不报过期；后来出错了上次成功还是它；断开了就没了（435）；
 // - 按需查：现拉问的那几天；拉不到用同步来的那份；没填地址如实说；
 // - 断开并删、插件停用：日程没了、外部日历的版本往前挪。
 import fs from "node:fs";
 import path from "node:path";
 import { isDeletedEventPayload } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
-import { DATA_SOURCE_SYNCED, DATA_SOURCES_CHANNEL } from "../../src/data-sources/index.ts";
+import { DATA_SOURCE_QUIET_SYNC, DATA_SOURCE_SYNCED, DATA_SOURCES_CHANNEL, DATA_SOURCES_QUIET_CHANNEL } from "../../src/data-sources/index.ts";
+import { sourceItem } from "../../src/doctor/auto.ts";
 import { GOOGLE_CALENDAR_TOOL } from "../../src/google/calendar-tool.ts";
 import { GOOGLE_CALENDAR_ITEM, GOOGLE_CHANNEL } from "../../src/google/events.ts";
 import { createGooglePlugin } from "../../src/google/plugin.ts";
 import { SECRETARY_TARGET } from "../../src/secretary/secretary.ts";
+import { openDatabase } from "../../src/storage/sqlite.ts";
 import { fakeCalendarFetch, googleAddress, icsOf, myCalendar, PRIVATE_TOKEN } from "../helpers/fake-ical.ts";
 import { KERNEL } from "../../src/plugins/kernel.ts";
 import { fakePersonalFiles } from "../helpers/fake-personal-files.ts";
@@ -31,14 +34,16 @@ const FAMILY = googleAddress("family123@group.calendar.google.com", "private-fed
 let keySeq = 0;
 const key = () => `g-${++keySeq}`;
 
-async function start(options: { at?: Date } = {}) {
-  const remote = fakeCalendarFetch();
-  remote.routes.set(MINE, { status: 200, body: myCalendar() });
+/** 起一套假内核装上 Google 插件；dataDir、remote 给了是"再起一次"（接着用上一次的数据目录和假的 Google） */
+async function start(options: { at?: Date; dataDir?: string; remote?: ReturnType<typeof fakeCalendarFetch> } = {}) {
+  const remote = options.remote ?? fakeCalendarFetch();
+  if (!options.remote) remote.routes.set(MINE, { status: 200, body: myCalendar() });
   // Google 插件要个人档案（联系人进档案候选）：日历这边用不上，给个假的
   const k = await startPluginKernel({
     plugins: [createGooglePlugin({ fetch: remote.fetch })],
     at: options.at ?? new Date("2026-10-24T09:00:00+08:00"),
     services: [extraService(KERNEL.personalFiles, () => fakePersonalFiles().service)],
+    ...(options.dataDir === undefined ? {} : { dataDir: options.dataDir }),
   });
   return { k, remote };
 }
@@ -59,6 +64,16 @@ function leaked(k: PluginKernel): boolean {
   return events || k.logs.some((l) => l.includes(PRIVATE_TOKEN));
 }
 const syncRecords = (k: PluginKernel) => k.store.read(DATA_SOURCES_CHANNEL, 0, DATA_SOURCE_SYNCED).filter((e) => !isDeletedEventPayload(e.payload));
+/** 什么都没变的那几次（另一个频道，435） */
+const quietRecords = (k: PluginKernel) => k.store.read(DATA_SOURCES_QUIET_CHANNEL, 0, DATA_SOURCE_QUIET_SYNC);
+/** 体检里 Google · 日历那一项要的（数据源服务的 doctorFacts） */
+const factsOf = (k: PluginKernel) => k.dataSources.doctorFacts().find((f) => f.view.id === SOURCE)!;
+/** 拨到这个时刻，等到点的定期导入跑完 */
+async function advance(k: PluginKernel, iso: string) {
+  k.clock.advanceTo(new Date(iso));
+  await k.internalJobs.whenIdle();
+  await k.dataSources.whenIdle();
+}
 
 describe("设置 · 数据源里的 Google · 日历", () => {
   it("名字、两种用法（按需查、导入每 30 分钟，显示在日历里不进素材）、没连；日历插件不在时写\"日历插件没启用\"", async () => {
@@ -397,6 +412,81 @@ describe("每 30 分钟定期导入", () => {
     await k.dataSources.whenIdle();
     expect(syncRecords(k)).toHaveLength(2);
     expect(sourceOf(k)).toMatchObject({ count: 7, lastSync: { trigger: "scheduled", added: 1 } });
+  });
+
+  // 435：11-07 体检报"Google · 日历 165 小时没同步成功了"，数据源页的上次同步停在 11-01 那次手动的——每 30 分钟的定期导入一直在跑、
+  // 一直是 +0，什么都没变的那几次以前只记在内存里，守护进程一重启就回到最后记下的那次
+  it("什么都没变的那几次重启后照样是上次同步：页面、体检的上次成功都是最后那次，体检不报过期，整理前算刚同步过；同步记录的频道不多记（435）", async () => {
+    const { k, remote } = await start();
+    await configure(k, { add: MINE });
+    expect(syncRecords(k)).toHaveLength(1);
+    // 三个多小时里到点同步了 7 次，Google 那边什么都没变
+    for (const at of ["09:31", "10:02", "10:33", "11:04", "11:35", "12:06", "12:37"]) await advance(k, `2026-10-24T${at}:00+08:00`);
+    const lastQuiet = { at: "2026-10-24T12:37:00.000+08:00", trigger: "scheduled", added: 0 };
+    expect(sourceOf(k).lastSync).toEqual(lastQuiet);
+    expect(syncRecords(k)).toHaveLength(1);
+    expect(quietRecords(k)).toHaveLength(7);
+    const fetched = remote.fetched.length;
+
+    // 重启：停机时离上次到点同步不到 30 分钟，开机不补跑（11-07 那次就是这样）
+    const dir = k.dir;
+    await k.close();
+    const { k: again } = await start({ at: new Date("2026-10-24T12:50:00+08:00"), dataDir: dir, remote });
+    expect(remote.fetched).toHaveLength(fetched);
+    expect(sourceOf(again).lastSync).toEqual(lastQuiet);
+    expect(factsOf(again).lastOkAt).toBe(lastQuiet.at);
+    // 体检：上次成功是 13 分钟前，正常（以前从 09:00 那次手动的算，3 小时 50 分钟，超过间隔 3 倍报过期）
+    expect(sourceItem(factsOf(again), Date.parse("2026-10-24T12:50:00+08:00"))).toMatchObject({ level: "ok", fact: { key: "doctor.source.synced" } });
+    // 记忆整理之前：30 分钟内成功过的算刚同步过，不再拉
+    expect(again.dataSources.syncPullable({ freshMs: 30 * 60_000 }).filter((p) => p.id === SOURCE)).toEqual([{ id: SOURCE, title: "Google · 日历", state: "fresh", at: lastQuiet.at }]);
+    expect(remote.fetched).toHaveLength(fetched);
+
+    // 接着每 30 分钟：最后一次换成新的
+    await advance(again, "2026-10-24T13:08:00+08:00");
+    expect(remote.fetched).toHaveLength(fetched + 1);
+    expect(sourceOf(again).lastSync).toEqual({ ...lastQuiet, at: "2026-10-24T13:08:00.000+08:00" });
+    expect(quietRecords(again)).toHaveLength(8);
+    expect(syncRecords(again)).toHaveLength(1);
+
+    // 拉不到了：照实记出错（原因写明），上次成功还是 13:08 那次（不退回 09:00）
+    remote.routes.set(MINE, { status: 503, body: "" });
+    await advance(again, "2026-10-24T13:39:00+08:00");
+    expect(sourceOf(again).lastSync).toMatchObject({ trigger: "scheduled", error: expect.stringContaining("503") });
+    expect(factsOf(again).lastOkAt).toBe("2026-10-24T13:08:00.000+08:00");
+    expect(sourceItem(factsOf(again), Date.parse("2026-10-24T13:39:00+08:00"))).toMatchObject({ level: "warn", fact: { key: "doctor.source.lastFailed" } });
+  });
+
+  it("视图的表没了（手删过库）：开机时从事件日志补回来，上次同步照旧（435）", async () => {
+    const { k, remote } = await start();
+    await configure(k, { add: MINE });
+    await advance(k, "2026-10-24T09:31:00+08:00");
+    await advance(k, "2026-10-24T10:02:00+08:00");
+    const dir = k.dir;
+    await k.close();
+    const db = openDatabase(path.join(dir, "ergo.db"));
+    db.exec("DROP TABLE data_source_quiet");
+    db.close();
+    const { k: again } = await start({ at: new Date("2026-10-24T10:10:00+08:00"), dataDir: dir, remote });
+    expect(sourceOf(again).lastSync).toEqual({ at: "2026-10-24T10:02:00.000+08:00", trigger: "scheduled", added: 0 });
+    expect(factsOf(again).lastOkAt).toBe("2026-10-24T10:02:00.000+08:00");
+  });
+
+  it("断开以后什么都没变的那几次不再算：页面上没有上次同步，重启后也没有；再连上从新的算（435）", async () => {
+    const { k, remote } = await start();
+    await configure(k, { add: MINE });
+    await advance(k, "2026-10-24T09:31:00+08:00");
+    expect(sourceOf(k).lastSync).toMatchObject({ trigger: "scheduled", added: 0 });
+    await k.dataSources.act(SOURCE, { action: "disconnect", purge: false, idempotencyKey: key() });
+    expect(sourceOf(k).lastSync).toBeUndefined();
+    const dir = k.dir;
+    await k.close();
+    const { k: again } = await start({ at: new Date("2026-10-24T09:40:00+08:00"), dataDir: dir, remote });
+    expect(sourceOf(again).lastSync).toBeUndefined();
+    // 再连上：填地址马上同步一次（手动的那次记下），到点没变的接着算
+    await configure(again, { add: MINE });
+    expect(sourceOf(again).lastSync).toMatchObject({ at: "2026-10-24T09:40:00.000+08:00", trigger: "manual" });
+    await advance(again, "2026-10-24T10:11:00+08:00");
+    expect(sourceOf(again).lastSync).toEqual({ at: "2026-10-24T10:11:00.000+08:00", trigger: "scheduled", added: 0 });
   });
 });
 
