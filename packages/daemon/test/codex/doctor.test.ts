@@ -66,11 +66,13 @@ describe("读版本", () => {
   });
 });
 
+/** 假的 codex login status（415 的深度体检；平时体检不跑它） */
+const loginStatus = () => Promise.resolve({ code: 0, stdout: "", stderr: "Logged in using ChatGPT" });
+
 describe("体检页上的 Codex 一块", () => {
   it("插件在跑时有这一项：开机以后 codex 没了是坏了；停用后跟着没了", async () => {
     let program: { found: boolean; version?: string } = { found: true, version: "0.170.0" };
-    // 深度体检的登录（415）也换成假的：平时体检不跑它，这里只看登记上了
-    const loginStatus = () => Promise.resolve({ code: 0, stdout: "", stderr: "Logged in using ChatGPT" });
+    // 深度体检的登录（415）也换成假的（loginStatus）：平时体检不跑它，这里只看登记上了
     const plugin = createCodexPlugin({ missing: () => undefined, sessions: {} as never, program: async () => program, loginStatus });
     // 415 起插件要 KERNEL.env（跑 codex 用守护进程的环境）
     const k = await startPluginKernel({
@@ -89,7 +91,6 @@ describe("体检页上的 Codex 一块", () => {
 
   it("不给 program 时按守护进程的环境（KERNEL.env，和深度体检的登录一样）找 codex：那个 PATH 里 npm 装的读 package.json，不跑程序", async () => {
     const env = { PATH: npmInstall("0.170.2") };
-    const loginStatus = () => Promise.resolve({ code: 0, stdout: "", stderr: "Logged in using ChatGPT" });
     const plugin = createCodexPlugin({ missing: () => undefined, sessions: {} as never, loginStatus });
     const k = await startPluginKernel({
       plugins: [plugin],
