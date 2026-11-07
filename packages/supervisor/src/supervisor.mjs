@@ -109,6 +109,13 @@ export function stopPlan({ mode = 'now', force = false, linked = false, hookStop
   return { mode, deadlineMs: hookStop?.timeoutMs ?? 60000 };
 }
 
+/**
+ * 等空闲再重启（`lsm restart --when-idle`、WebUI 上忙着时点重启）最多让请求等多久。
+ * 服务报了忙、或者过了这么久还没退出，就先回「等它空闲后重启」，剩下的（等它退出、拉起来）在后台做完——
+ * 忙多久等多久，把请求挂住几十分钟不行（命令行 5 分钟就超时了，2026-08-23 停机那边踩过同样的坑）。
+ */
+export const RESTART_REPLY_WAIT_MS = 60000;
+
 export class Supervisor extends EventEmitter {
   constructor() {
     super();
@@ -120,6 +127,8 @@ export class Supervisor extends EventEmitter {
     // 2026-09-03 实测：六条隧道的 autoRestart 就是这么全部失效的。
     this.autoRestarting = new Set();
     this.starting = new Map();   // id → 正在进行的那次 start() 的 Promise（见 start 的注释）
+    // id → 正在进行的那次接入服务重启（见 restartLinked）：{ mode, queued }。和 autoRestarting 一样不进 st、不落盘
+    this.restarting = new Map();
     // 开机那一下正在决定「上次留下的服务还算不算数」，这期间不许 autoRestart 抢先把它们拉起来
     this.booting = false;
     // 命令行输出超了上限、却正被服务占着切不了的：管理器日志里每个服务只提一次（rotateLogs）
@@ -659,34 +668,22 @@ export class Supervisor extends EventEmitter {
     return r.ok ? { ok: true } : { ok: false, why: `管理器这边已取消，但${r.why}` };
   }
 
+  /**
+   * 重启。回的是这次重启实际怎样了（438）：
+   *  - `{ ok: true, restarted: true, pid? }`：旧的停干净了，新的起来了；
+   *  - `{ ok: true, pending: true, why }`：等空闲再重启、服务正忙（或迟迟没退出）——排上了，等它空闲后重启，剩下的在后台做完；
+   *  - `{ ok: false, why }`：没重启成，原因照实写。
+   * 绝不回 already（「本来就在跑」）：重启不是启动，旧的停了、新的没起来也绝不报成功。
+   */
   async restart(id, { mode = 'now', reason = 'manual' } = {}) {
     const svc = this.get(id);
     const st = this.st(id);
-    const linked = this.link?.status(id)?.connected;
+    const link = this.link?.status(id);
+    const caps = link?.connected ? link.capabilities || [] : [];
     audit('restart', { id, mode, reason });
 
-    if (linked && this.link.status(id).capabilities?.includes('restart')) {
-      // ⚠ 协议里的 restart 只走到「服务自己退出」为止：clients/lsm-link.mjs 的
-      //   doShutdown 是 process.exit(0)，它不会自己再起来。**谁把它拉起来**
-      //   link-protocol.md §4 从没写过，两边都以为是对方的活，于是 linked 服务的
-      //   restart 长期等价于 stop —— 指令报 ✓，站点 502。
-      //   （2026-09-29 实测到：restart 后 FAILED + 公网 502。
-      //     link-demo 的 onboarding 只验过 [start, stop]，从来没验过 restart。）
-      //   这一段由管理器补：等进程真的退干净，再按注册表的 start 钩子起回来。
-      st.desired = 'running';
-      this.persist();
-      const r = await this.link.restart(id, { mode, deadlineMs: 600000 });
-      if (!r.ok) { await this.refresh(); return r; }
-      // when-idle 可能挂起很久（协议规定它永远不被强杀），等它退的上限就用同一个 deadline。
-      // 退没退看进程和端口，不看健康检查——否则健康检查不过时会当它退了，接着在它还占着的端口上再起一份
-      const down = await waitFor(async () => !(await this.liveness(svc, st)).running,
-        { timeoutMs: mode === 'when-idle' ? 600000 : 60000, intervalMs: 1000 });
-      if (!down) {
-        await this.refresh();
-        return { ok: false, why: `restart：服务 ack 了但没退出（${(await this.liveness(svc, st)).why || '还在跑'}），未敢重复拉起` };
-      }
-      return await this.start(id, { reason: 'restart' });
-    }
+    // 接入了的：经协议让它自己退出，管理器亲眼看到退干净后再按注册表的 start 钩子拉起来（restartLinked）
+    if (caps.includes('restart')) return this.restartLinked(svc, st, { mode, via: 'restart' });
     if (svc.hooks.restart) {
       st.desired = 'running';
       st.state = 'STARTING';
@@ -704,14 +701,150 @@ export class Supervisor extends EventEmitter {
         return (await probeService(svc, st, snap, this.linkStatus)).ok;
       }, { timeoutMs: svc.hooks.restart.readyTimeoutMs ?? 60000, intervalMs: 1000 });
       await this.refresh();
-      return ready ? { ok: true } : { ok: false, why: 'restart 后未在 readyTimeout 内就绪' };
+      return ready ? { ok: true, restarted: true, ...(st.pid ? { pid: st.pid } : {}) } : { ok: false, why: 'restart 后未在 readyTimeout 内就绪' };
     }
     if (svc.hooks.stop && svc.hooks.start) {
+      // 停机走接入层的（接入了、报了 stop）：协议里 stop 和 restart 对服务是同一件事（自己退出），和上面同一条路。
+      // 不能先 stop 再 start：等空闲再停一排队 stop 就回 pending，紧接着的 start 看它还在跑回「已经在跑」，等它空闲了却是真停——停了没起来
+      if (caps.includes('stop')) return this.restartLinked(svc, st, { mode, via: 'stop' });
       const s = await this.stop(id, { mode, reason: 'restart' });
       if (!s.ok) return s;
-      return await this.start(id, { reason: 'restart' });
+      const r = await this.start(id, { reason: 'restart' });
+      if (!r.ok) return { ok: false, why: `${id} 已经停了，但没起来：${r.why}` };
+      return { ok: true, restarted: true, ...(st.pid ? { pid: st.pid } : {}), ...(s.already ? { note: '它本来就没在跑，这次是直接启动' } : {}) };
     }
     return { ok: false, why: `${id} 既没有 restart 能力，也无法用 stop+start 拼出来` };
+  }
+
+  /**
+   * 接入了的服务的重启（438 重写）。
+   *
+   * 协议里的重启只走到「服务自己退出」为止（clients/lsm-link.mjs 的 doShutdown 是 process.exit(0)），**谁把它拉起来**
+   * link-protocol.md §4 从没写过——两边都以为是对方的活，linked 服务的 restart 曾长期等价于 stop，指令报 ✓、站点 502
+   * （2026-09-29 实测）。这一段由管理器补：亲眼看到旧进程退干净，再按注册表的 start 钩子拉起来。
+   *
+   * 退干净之后**先把账本记成已停**（desired 仍是 running）再 start。不记的话，start 先跑的那一轮探活会给「上一轮还在跑」的
+   * 服务一轮宽限（confirmsDown、DOWN_CONFIRM_PROBES），账本上还是 RUNNING，start 当它「已经在跑」直接回 already、什么都不起：
+   * 命令行报「✓ 本来就在跑」，服务其实停着，开了 autoRestart 的过一会儿被它拉回来，没开的就是「重启 = 停止」
+   * （2026-11-08 02:35 部署时实测，417 票记过；restartSelf 那边早就这样绕开了）。
+   *
+   * 等空闲再重启：服务忙着会挂起这条指令，忙多久等多久。它报了忙、或 RESTART_REPLY_WAIT_MS 内没退出，先回「等它空闲后重启」，
+   * 剩下的在后台做完（结果进管理器日志和审计 restart-done）。等到上限（和等空闲再停同一个上限）还没退出：两边都撤（cancel），
+   * 它照常跑——不留一个「哪天空闲了自己退出、却没人拉」的挂起。立刻重启过了停机期限还没退出：和立刻停止一样杀进程树兜底。
+   */
+  async restartLinked(svc, st, { mode, via }) {
+    const id = svc.id;
+    const cur = this.restarting.get(id);
+    if (cur && mode === 'when-idle') {
+      return { ok: true, pending: true, why: cur.queued ? '已经排着一次重启了：等它空闲后重启' : '已经有一次重启在进行，不再重复发' };
+    }
+    const job = { mode, queued: false };
+    this.restarting.set(id, job);
+    let onQueued = null;
+    const queued = new Promise((resolve) => { onQueued = resolve; });
+    const flow = this.linkedRestartFlow(svc, st, { mode, via, job, onQueued })
+      .catch((e) => ({ ok: false, why: `重启出错：${e?.message || e}` }))
+      .then((r) => {
+        if (this.restarting.get(id) === job) this.restarting.delete(id);
+        audit('restart-done', { id, mode, ok: !!r.ok, pid: r.pid ?? null, why: r.ok ? (r.note ?? null) : r.why, background: job.queued });
+        if (job.queued) {
+          // 请求早就回了「等它空闲后重启」：结果只能进日志
+          if (r.ok) info(`${id} 等到空闲，已重启`, { pid: r.pid ?? null });
+          else warn(`${id} 等空闲后重启没成：${r.why}`);
+          this.emit('change', { id, from: null, to: st.state });
+        }
+        return r;
+      });
+    return Promise.race([flow, queued]);
+  }
+
+  /** restartLinked 的正文：发指令、等旧进程退干净、记账、拉起来。onQueued 在要先回「等它空闲后重启」时调一次。 */
+  async linkedRestartFlow(svc, st, { mode, via, job, onQueued }) {
+    const id = svc.id;
+    // 等多久：立刻重启按停机钩子的超时（默认 60 秒），等空闲按等空闲再停的上限（默认 1 小时）——和停机同一套（stopPlan）
+    const plan = stopPlan({ mode, linked: true, hookStop: svc.hooks.stop });
+    const oldPid = this.link.status(id).pid ?? null;
+    // 这次重启接替之前排着的「等空闲再停」：服务那边挂着的那条也会被这条指令换掉
+    st.desired = 'running';
+    st.pendingStop = false;
+    this.persist();
+    const ack = await this.link[via](id, { mode, deadlineMs: plan.deadlineMs });
+    if (!ack?.ok) {
+      await this.refresh();
+      return { ok: false, why: `${id} 没接下重启指令（${ack?.why || '没说原因'}），没重启，它照常跑` };
+    }
+
+    const t0 = Date.now();
+    const slow = () => mode === 'when-idle' && Date.now() - t0 >= RESTART_REPLY_WAIT_MS;
+    const queue = (why) => {
+      if (job.queued) return;
+      job.queued = true;
+      info(`${id}：${why}，重启已排队——等它空闲了自己退出，管理器再把它拉起来`);
+      onQueued({ ok: true, pending: true, why: `${why}，重启已排队：等它空闲后重启（管理器不会强杀它）` });
+    };
+    let replaced = null;
+    const exited = await waitFor(async () => {
+      const l = this.link?.status(id);
+      if (l?.connected) {
+        // 连着的已经换了一个进程：旧的退了之后被别人（autoRestart）抢先拉了起来，这次重启已经发生
+        if (oldPid && l.pid && l.pid !== oldPid) { replaced = l.pid; return true; }
+        if (mode === 'when-idle' && l.busy) queue(`${id} 正忙（${l.busyReason || '没说在忙什么'}）`);
+        else if (slow()) queue(`${id} 接下了重启指令，${Math.round(RESTART_REPLY_WAIT_MS / 1000)} 秒还没退出`);
+        return false;   // 连接在 = 进程在
+      }
+      // 连接断了不等于退了（可能只是在重连）。退没退看进程和端口，不看健康检查——
+      // 否则健康检查不过时会当它退了，接着在它还占着的端口上再起一份
+      const live = await this.liveness(svc, st);
+      if (live.running && slow()) queue(`${id} 接下了重启指令，${Math.round(RESTART_REPLY_WAIT_MS / 1000)} 秒还没退出（${live.why}）`);
+      return !live.running;
+    }, { timeoutMs: plan.deadlineMs, intervalMs: 1000 });
+
+    if (replaced) {
+      // 别人拉起来的那次 start 可能还在等就绪：等它走完，结果照它的
+      const inflight = this.starting.get(id);
+      const r = inflight ? await inflight : { ok: true };
+      if (!r.ok) return { ok: false, why: `${id} 的旧进程已经退出，新进程起来了却没就绪：${r.why}` };
+      return { ok: true, restarted: true, pid: replaced, note: `旧进程退出后新进程已经被拉起来了（${oldPid} → ${replaced}）` };
+    }
+    if (!exited && mode === 'when-idle') {
+      // 等到上限还没空闲：两边都撤（服务那边的挂起也撤），它照常跑
+      const c = this.link?.status(id)?.connected ? await this.link.cancel(id) : { ok: false, why: '它现在没接入，撤不到它那边' };
+      await this.refresh();
+      return { ok: false, why: `等了 ${Math.round(plan.deadlineMs / 60000)} 分钟它还没空闲退出，这次重启撤销了${c.ok ? '（它那边挂着的也撤了）' : `（但${c.why}）`}，它照常跑` };
+    }
+    if (!exited) {
+      // 立刻重启过了停机期限还没退出：和立刻停止一样杀进程树兜底（docs/link-protocol.md §4）
+      const live = await this.liveness(svc, st);
+      if (live.pids.length) {
+        warn(`${id} 接下了立刻重启，却没在 ${plan.deadlineMs}ms 内退出，taskkill /T /F 兜底`, { pids: live.pids, why: live.why });
+        const killed = [];
+        for (const pid of live.pids) killed.push(...(await this.killServiceTree(svc, pid)).killed);
+        audit('force-kill', { id, pids: live.pids, killed, reason: 'restart-timeout' });
+      }
+      const gone = await waitFor(async () => !(await this.liveness(svc, st)).running, { timeoutMs: 10000, intervalMs: 500 });
+      if (!gone) {
+        await this.refresh();
+        return { ok: false, why: `${id} 接下了重启指令，却没在 ${Math.round(plan.deadlineMs / 1000)} 秒内退出，杀了进程树之后${(await this.liveness(svc, st)).why || '还在跑'}——没重启` };
+      }
+    }
+
+    // 等它退出的工夫里有人让它停下（停止、等空闲再停）：按停止算，不再拉起
+    if (st.desired !== 'running' || st.pendingStop) {
+      return { ok: false, why: `${id} 退出了，但等它退出的工夫里有人让它停下，按停止算，没再拉起来` };
+    }
+    // 进程和端口都亲眼看过没了：账本照实记成已停（desired 仍是 running）再 start，见上面 restartLinked 的说明。
+    // 已经有一次 start 在跑（autoRestart 抢先了）就别动账本，下面的 start 会跟它共用结果
+    if (!this.starting.has(id)) {
+      const was = st.state;
+      Object.assign(st, { state: 'STOPPED', pid: null, pidStart: null, runningSince: null, failStreak: 0 });
+      this.persist();
+      if (was !== 'STOPPED') this.emit('change', { id, from: was, to: 'STOPPED' });
+    }
+    const r = await this.start(id, { reason: 'restart' });
+    if (!r.ok) return { ok: false, why: `${id} 已经退出，但没拉起来：${r.why}` };
+    // 旧进程亲眼看过没了：start 回「已经在跑」只可能是别人刚把新的拉了起来，也是重启了
+    const pid = r.pid ?? st.pid ?? null;
+    return { ok: true, restarted: true, ...(pid ? { pid } : {}) };
   }
 
   /**
@@ -1227,6 +1360,8 @@ export class Supervisor extends EventEmitter {
           degradedObservation: !!st.degradedObservation,
           pid: st.pid, runningSince: st.runningSince, lastError: st.lastError,
           pendingStop: !!st.pendingStop,
+          // 等空闲再重启排上了、还在等它空闲（restartLinked）
+          pendingRestart: !!this.restarting.get(svc.id)?.queued,
           orphanWhy: st.orphanWhy, logs: svc.logs, profiles: svc.profiles,
           dependsOn: svc.dependsOn,
           // 注册表里标了 ergo: true（二狗的「服务」页、体检也列出它）
