@@ -87,6 +87,8 @@ export function createLookiPlugin(options: LookiPluginOptions = {}): PluginDefin
         sync: (c) => ctx.active(LOOKI).sync(c),
         // 306：Key 不认（出错）后内核每小时叫一次，拿存着的 Key 再测
         recheck: (c) => ctx.active(LOOKI).recheck(c.secrets, c.signal),
+        // 415：深度体检"测一下"——拿存着的 Key 调一次 /me（只读，不动连接状态）
+        probe: (c) => ctx.active(LOOKI).probe(c.secrets, c.signal),
         disconnect: () => ctx.active(LOOKI).reset(),
         localFolder: () => ctx.active(LOOKI).localFolder(),
         live: (_query, c) => lookiLive(ctx.active(LOOKI), c),

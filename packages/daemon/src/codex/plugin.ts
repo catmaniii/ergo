@@ -4,19 +4,22 @@
 // - 装配：只备好接管已有会话用的会话来源（sessions.ts：经内核的一次性子进程起 codex app-server；测试注入假的）。没有给 agent 的工具、没有定时作业。
 // - 不拥有数据：没有视图、事件、卡片、改写函数，移除时没有"连数据删"的勾。Codex 自己的会话是 Codex 的；接管记录记在任务、项目上（内核的）。
 // - Codex 不随二狗分发：没装、版本太低时插件不装配（定义里的 missing）：设置 · 插件和运行时都写这一句，别的功能不受影响，装好后点启用就装上。
+// - 深度体检（415，deep-doctor.ts）：体检页上点了"深度体检"才跑一次 codex login status，看本机的 Codex 登录了没有。
 import { t } from "@ergo/protocol";
 import type { PluginDefinition } from "../plugins/host.ts";
 import { KERNEL } from "../plugins/kernel.ts";
 import { CODEX_PLUGIN } from "./api.ts";
+import { type CodexLoginStatus, codexLoginCheck, codexLoginStatus } from "./deep-doctor.ts";
 import { codexMissing } from "./install.ts";
 import { codexRuntime } from "./runtime.ts";
 import { type CodexSessionSource, oneShotSessionSource } from "./sessions.ts";
 
 /**
  * Codex 插件；entry 不给是真的子进程入口（测试换成接假 app-server 的）；sessions 不给是经一次性子进程读本机的会话（主切面换成假的）；
- * missing 不给是按 PATH 找本机的 codex（测试换掉，结果不看这台机器装没装）
+ * missing 不给是按 PATH 找本机的 codex（测试换掉，结果不看这台机器装没装）；loginStatus 不给是跑本机的 codex login status
+ * （深度体检用，415；测试换成假的，不跑真的 codex）
  */
-export function createCodexPlugin(options: { entry?: string; sessions?: CodexSessionSource; missing?: () => string | undefined } = {}): PluginDefinition {
+export function createCodexPlugin(options: { entry?: string; sessions?: CodexSessionSource; missing?: () => string | undefined; loginStatus?: CodexLoginStatus } = {}): PluginDefinition {
   /** 接管已有会话用的会话来源：插件在运行时才有（停用时登记表不会叫到它） */
   let sessions: CodexSessionSource | undefined;
   return {
@@ -27,7 +30,7 @@ export function createCodexPlugin(options: { entry?: string; sessions?: CodexSes
     get summary() {
       return t("codex.plugin.summary");
     },
-    needs: [KERNEL.oneShot],
+    needs: [KERNEL.oneShot, KERNEL.env],
     missing: () => (options.missing ?? codexMissing)(),
     contracts(ctx) {
       ctx.runtimes.register(
@@ -41,12 +44,15 @@ export function createCodexPlugin(options: { entry?: string; sessions?: CodexSes
     },
     setup(ctx) {
       const run = ctx.use(KERNEL.oneShot);
+      const env = ctx.use(KERNEL.env);
       ctx.effect(() => {
         sessions = options.sessions ?? oneShotSessionSource(run);
         return () => {
           sessions = undefined;
         };
       });
+      // 深度体检（415）：登录了没有（跑一次 codex login status；点了"深度体检"才跑）
+      ctx.doctor.register(codexLoginCheck(options.loginStatus ?? codexLoginStatus(() => env)));
     },
   };
 }

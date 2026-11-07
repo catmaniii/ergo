@@ -1,6 +1,7 @@
 {
   "dataSources.unknown": "没有数据源 {id}",
   "dataSources.noSync": "{title}没有能同步的",
+  "dataSources.noProbe": "{title}不能单独测一下",
   "dataSources.importOff": "{title}的导入关着",
   "dataSources.notConnected": "{title}还没连上",
   "dataSources.noQuery": "{title}没有按需查",

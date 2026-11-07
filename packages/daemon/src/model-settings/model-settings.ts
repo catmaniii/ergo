@@ -137,6 +137,12 @@ export interface ModelSettingsService {
    */
   test(modelId?: string, custom?: ModelCustomProvider): Promise<ModelTestResult>;
   /**
+   * 深度体检（415）测模型：用设置里的默认模型（自定义服务商是它那个模型）发同一句极短的话（输出封顶几十个 token），
+   * 这次请求最多等 timeoutMs（到点中止，结果 timedOut）、服务商回 5xx、429 不重试（原样报出来）。没配 key 不发，直接说没配。
+   * 不占连通测试的"同一时间只跑一个"（深度体检自己防连点）
+   */
+  probeDefault(limits: { timeoutMs: number }): Promise<ModelTestResult>;
+  /**
    * 列出自定义（OpenAI 兼容）服务商有哪些模型（POST /api/model-settings/custom-models）：GET {baseUrl}/models，
    * 带 Authorization: Bearer <key>。baseUrl 不给按设置里存的那份。列不成不算出错（ok 为 false，error 写原因），
    * key 的内容不进原因
@@ -362,7 +368,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
   };
 
   /** 连通测试本身（test 管同一时间只跑一个） */
-  const ping = async (modelId: string | undefined, input?: ModelCustomProvider): Promise<ModelTestResult> => {
+  const ping = async (modelId: string | undefined, input?: ModelCustomProvider, limits?: { timeoutMs: number; maxRetries: number }): Promise<ModelTestResult> => {
     const provider = providerOf(settings.provider) ?? MODEL_PROVIDERS[0]!;
     // 自定义服务商：测请求体带来的那份（设置页还没存就想试一下），没带就按设置里存的；测的模型就是它里面的 modelId
     const custom = provider.id === CUSTOM_PROVIDER_ID ? (input ?? settings.custom) : undefined;
@@ -374,7 +380,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
     if (custom === undefined) checkModel(target, await selectable(provider.id), provider, t("modelSettings.where.test"));
     const spec: CatalogModelSpec = { kind: "catalog", provider: provider.id, modelId: target, thinkingLevel: "off", ...(custom !== undefined || options.catalogBaseUrl === undefined ? {} : { baseUrl: options.catalogBaseUrl }) };
     try {
-      const result = await options.probe({ type: "ping", model: spec, credentials: { [provider.id]: key }, ...(custom === undefined ? {} : { custom }) });
+      const result = await options.probe({ type: "ping", model: spec, credentials: { [provider.id]: key }, ...(custom === undefined ? {} : { custom }), ...limits });
       if (result.type !== "ping") throw new Error("模型探查回的不是连通测试的结果"); // @i18n-ignore log：编程错误
       return {
         ok: result.ok,
@@ -382,10 +388,13 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
         ...(result.firstTokenMs === undefined ? {} : { firstTokenMs: result.firstTokenMs }),
         totalMs: result.totalMs,
         ...(result.error === undefined ? {} : { error: redactApiKeys(result.error, [key]) }),
+        ...(result.timedOut ? { timedOut: true } : {}),
       };
     } catch (err) {
-      // 子进程出错、超时（"连通测试超时（60 秒），结束了子进程"）
-      return { ok: false, modelId: target, totalMs: Math.round(performance.now() - started), error: redactApiKeys(firstLine(err), [key]) };
+      // 子进程出错、超时（"连通测试超时（60 秒），结束了子进程"）；带了时限的、过了时限才出错的也算超时（子进程没起来就到点了）
+      const totalMs = Math.round(performance.now() - started);
+      const late = limits !== undefined && totalMs >= limits.timeoutMs;
+      return { ok: false, modelId: target, totalMs, error: redactApiKeys(firstLine(err), [key]), ...(late ? { timedOut: true } : {}) };
     }
   };
 
@@ -511,6 +520,8 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
         testing = false;
       }
     },
+    // 深度体检：默认模型、带时限、不重试；不占连通测试的锁
+    probeDefault: ({ timeoutMs }) => ping(undefined, undefined, { timeoutMs, maxRetries: 0 }),
     async customModels(baseUrl) {
       // 列模型永远是"自定义服务商"的事，key 只能用 custom 那一份：以前按"当前选中的服务商"取，
       // 于是 provider 还是 deepseek 时调这个接口，会把 DeepSeek 的 key 当 Bearer 发给请求里那个任意 baseUrl。

@@ -30,6 +30,10 @@
 // 410 起"二狗本身"里还有内核登记的几项（core.ts：主对话在不在线、模型近况、对话长度、托管的服务、插件、网页文件），
 // 和插件的检查项一样经登记表（checks.ts）跑。服务管家那一项跑 lsm status --json 拿到的快照留给"托管的服务"那一项
 // （supervisorStatus：同一次体检里两项共用一份，不跑两遍）。
+//
+// 415 深度体检：登记表里 cost 是 deep 的（二狗本身的"模型（真发一句）""数据库完整性"，插件的"登录"……），加上二狗替每个登记了
+// probe 的数据源生成的"测一下"——view() 一律不跑它们（平时体检、秘书、后台盯着都走 view），只有 deepPlan() 交给深度体检（deep.ts）
+// 在用户点了以后跑。
 import { execFile } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
@@ -52,6 +56,7 @@ import {
   type DoctorItemView,
   doctorItemText,
   type DoctorLevel,
+  type DoctorMessage,
   type DoctorOffPlugin,
   type DoctorView,
   type PluginInfo,
@@ -66,7 +71,9 @@ import type { DataSourceDoctorFacts } from "../data-sources/service.ts";
 import { listeningPids } from "../process/port-owner.ts";
 import type { InstallLayout } from "../release/layout.ts";
 import { type DoctorItemDraft, pluginItem, runtimeItem, sourceItem } from "./auto.ts";
+import type { DataSourceProbeResult } from "../data-sources/api.ts";
 import { type DoctorCheckRegistry, type DoctorCost, type DoctorFinding, type RegisteredDoctorCheck, runDoctorCheck } from "./checks.ts";
+import { judgeSourceProbe, SOURCE_PROBE_TIMEOUT_MS } from "./deep-checks.ts";
 import { parseSupervisorSnapshot, type SupervisorSnapshot } from "./services.ts";
 
 /** 二狗和 pi 用的 Node 大版本（ADR-0031：跟着 pi 的测试线走，现在是 22） */
@@ -95,9 +102,24 @@ export interface DoctorRunOptions {
   include?(check: DoctorCheckRef): boolean;
 }
 
+/** 深度体检（415）里的一项：哪一块、哪一项、名字，查一次（超时、抛错已经接住，只算"没查出来"，从不抛错） */
+export interface DoctorDeepCheck {
+  group: string;
+  id: string;
+  title: DoctorMessage;
+  run(): Promise<DoctorFinding>;
+}
+
 export interface DoctorService {
-  /** 现在各项的样子（每次现算，互不影响，并行查） */
+  /** 现在各项的样子（每次现算，互不影响，并行查）。深度体检那一档（cost: deep）不在里面 */
   view(options?: DoctorRunOptions): Promise<DoctorView>;
+  /**
+   * 深度体检要跑的（415）：二狗本身的在前，然后按插件清单的先后（每个在跑的插件：它的数据源"测一下"、它登记的 deep 项）。
+   * 只列，不跑
+   */
+  deepPlan(): DoctorDeepCheck[];
+  /** 一块的标题（按当前语言）：二狗本身，或者插件给人看的名字（不在清单里的写插件名） */
+  groupTitle(group: string): string;
 }
 
 export interface DoctorOptions {
@@ -116,6 +138,8 @@ export interface DoctorOptions {
   runtimes?: () => readonly AgentRuntimeView[];
   /** 用着这个运行时、还没结束的任务和项目有几个（没装的运行时有人用才算坏）；不给当没有 */
   runtimeUsers?: (runtimeId: string) => number;
+  /** 深度体检"测一下"一个数据源（数据源服务的 probe，415）；不给时深度体检里没有数据源那几项 */
+  probeSource?: (sourceId: string, signal: AbortSignal) => Promise<DataSourceProbeResult & { ms: number }>;
   /** 写日志（哪项没查出来、为什么；给开发者看的） */
   log?: (line: string) => void;
 }
@@ -279,7 +303,8 @@ export function createDoctor(options: DoctorOptions): DoctorService {
     const at = new Date((options.now ?? Date.now)()).toISOString();
     const wanted = (group: string, id: string, cost: DoctorCost) => run.include?.({ group, id, cost }) ?? true;
     const legacyIds = DOCTOR_CHECKS.filter((id) => wanted(DOCTOR_CORE_GROUP, id, LEGACY_COST[id]));
-    const registered = (options.checks?.list() ?? []).filter((check) => wanted(check.plugin ?? DOCTOR_CORE_GROUP, check.id, check.cost));
+    // 深度体检那一档（cost: deep）平时不跑：只有 deepPlan() 交出去、用户点了才跑
+    const registered = (options.checks?.list() ?? []).filter((check) => check.cost !== "deep" && wanted(check.plugin ?? DOCTOR_CORE_GROUP, check.id, check.cost));
     // 八项和登记的检查一起并行查：一项抛错、超时只算它自己
     const [checks, findings] = await Promise.all([Promise.all(legacyIds.map(legacy)), Promise.all(registered.map((check) => runDoctorCheck(check, log)))]);
     const ofGroup = (group: string) => registered.flatMap((check, i) => ((check.plugin ?? DOCTOR_CORE_GROUP) === group ? [rendered(registeredItem(check, findings[i]!))] : []));
@@ -317,7 +342,52 @@ export function createDoctor(options: DoctorOptions): DoctorService {
     const sorted = sortDoctorGroups(groups);
     return { checks, groups: sorted, off, level: overallLevel(sorted), counts: doctorCounts(sorted), at };
   };
-  return { view };
+
+  /** 登记的一项 deep 检查交给深度体检：超时、抛错由 runDoctorCheck 接住 */
+  const deepOf = (check: RegisteredDoctorCheck): DoctorDeepCheck => ({
+    group: check.plugin ?? DOCTOR_CORE_GROUP,
+    id: check.id,
+    title: typeof check.title === "string" ? { key: check.title } : check.title,
+    run: () => runDoctorCheck(check, log),
+  });
+
+  /** 数据源"测一下"：没连的不测（不适用）；连着的叫数据源服务的 probe，时限 SOURCE_PROBE_TIMEOUT_MS */
+  const sourceProbe = (facts: DataSourceDoctorFacts, probe: NonNullable<DoctorOptions["probeSource"]>): DoctorDeepCheck => {
+    const { view: source } = facts;
+    const connected = source.connection === "connected" || source.connection === "error";
+    const check: RegisteredDoctorCheck = {
+      id: `probe:${source.id}`,
+      plugin: source.plugin,
+      title: { key: "doctor.check.sourceProbe.title", params: { name: source.title } },
+      cost: "deep",
+      timeoutMs: SOURCE_PROBE_TIMEOUT_MS + 2_000,
+      run: async (signal) => judgeSourceProbe(source.id, connected, connected ? await probe(source.id, AbortSignal.any([signal, AbortSignal.timeout(SOURCE_PROBE_TIMEOUT_MS)])) : undefined),
+    };
+    return deepOf(check);
+  };
+
+  const deepPlan = (): DoctorDeepCheck[] => {
+    const registered = (options.checks?.list() ?? []).filter((check) => check.cost === "deep");
+    const plan: DoctorDeepCheck[] = registered.filter((check) => check.plugin === undefined).map(deepOf);
+    const sources = read("dataSources", options.dataSources);
+    const seen = new Set<string>();
+    for (const info of read("plugins", options.plugins)) {
+      seen.add(info.name);
+      if (info.state !== "running") continue;
+      if (options.probeSource) for (const facts of sources) if (facts.view.plugin === info.name && facts.probeable) plan.push(sourceProbe(facts, options.probeSource));
+      plan.push(...registered.filter((check) => check.plugin === info.name).map(deepOf));
+    }
+    // 登记了、却不在插件清单里的（测试里只给了登记表）
+    plan.push(...registered.filter((check) => check.plugin !== undefined && !seen.has(check.plugin)).map(deepOf));
+    return plan;
+  };
+
+  const groupTitle = (group: string): string => {
+    if (group === DOCTOR_CORE_GROUP) return t("doctor.group.core");
+    return read("plugins", options.plugins).find((info) => info.name === group)?.title ?? group;
+  };
+
+  return { view, deepPlan, groupTitle };
 }
 
 // ───────── 正式用的探测器（组合根按数据目录、服务管家目录拼起来交给上面） ─────────

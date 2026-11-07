@@ -12,6 +12,8 @@
 // - 总状态取最差的；"没查出来"（unknown）不拉低总状态、单独数；"不适用"（na）不算。
 // - 平时体检只读本机：不联网、不调模型、不改任何状态；可以连本机上二狗在用的服务的端口（cost: local，用户 11-07 同意）。
 //   每次查现算，不缓存。
+// - 深度体检（415，DoctorDeepView，GET / POST /api/doctor/deep）是另一档（cost: deep）：用户点了才跑，会真发一个很短的请求测模型、
+//   会连外网；结果在守护进程内存里留着，页面写"几分钟前测的"，再点才重测。平时体检、秘书都不跑这一档（秘书只读上一次的结果）。
 // 不引用 TypeBox：网页只用常量和类型。
 import type { RejectedConnectionAddress } from "./connection-addresses.ts";
 
@@ -195,6 +197,41 @@ export function sortDoctorGroups(groups: readonly DoctorGroupView[]): DoctorGrou
 /** 块里各项的先后：照原来的先后，"不适用"的挪到最后 */
 export function sortDoctorItems(items: readonly DoctorItemView[]): DoctorItemView[] {
   return [...items.filter((item) => item.level !== "na"), ...items.filter((item) => item.level === "na")];
+}
+
+/**
+ * 深度体检（415）里的一项：哪一块（DOCTOR_CORE_GROUP 或插件名）、哪一项、在测还是测完了；测完了的带结果（item，句子按当前语言拼好）
+ * 和测了多久（ms）。pending 是还在排队或正在测（同时最多测两项）
+ */
+export interface DoctorDeepItemView {
+  group: string;
+  /** 块的标题（按当前语言：二狗本身、插件给人看的名字） */
+  groupTitle: string;
+  id: string;
+  /** 这一项的名字（按当前语言） */
+  title: string;
+  state: "pending" | "done";
+  item?: DoctorItemView;
+  ms?: number;
+}
+
+/**
+ * GET / POST /api/doctor/deep（415）：深度体检——点了才跑，真试一遍（用默认模型真发一句很短的话、拿存着的 Key 连一下数据源、
+ * 看 Claude Code / Codex 登录了没有、对 ergo.db 跑只读的完整性检查）。平时体检（GET /api/doctor）不跑这一档。
+ * 结果留在守护进程内存里（重启就没了）：打开页面只取上一次的，再点才重测；两次之间至少隔一会儿（nextAt 之前点回 429）。
+ * - never：还没做过；running：在测（items 里有 pending 的，网页每秒取一次）；done：测完了
+ */
+export interface DoctorDeepView {
+  state: "never" | "running" | "done";
+  startedAt?: string;
+  finishedAt?: string;
+  /** 最早什么时候能再测（防连点）；不给是现在就能 */
+  nextAt?: string;
+  items: DoctorDeepItemView[];
+  /** 测完的里坏了、要注意、没查出来的各几项 */
+  counts: { error: number; warn: number; unknown: number };
+  /** 守护进程此刻的时间（ISO）：网页算"几分钟前测的"、"几秒后能再测"按它，不按手机自己的时钟 */
+  now: string;
 }
 
 /** 查不了的那一项用的 fix（网页写"这次没查出来"）：别的 fix 说的是这一项坏了怎么修 */

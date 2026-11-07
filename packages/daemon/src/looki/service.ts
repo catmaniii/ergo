@@ -12,7 +12,7 @@
 //   （values.archive）交给它，连接状态里带它那一块（panel）和断开时要说的一句；断开时它停下（存下的文件不删）。
 // Key 只经密钥区读写，不进日志、事件、出错原因（出错原因由 client.ts 写，里面不带 Key；内核记下之前还会再换一遍 ***）。
 import { t } from "@ergo/protocol";
-import type { DataSourceSecrets, DataSourceStatus, DataSourceSyncContext, DataSourceSyncResult } from "../data-sources/api.ts";
+import type { DataSourceProbeResult, DataSourceSecrets, DataSourceStatus, DataSourceSyncContext, DataSourceSyncResult } from "../data-sources/api.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import { type Clock, clockIso } from "../scheduler/clock.ts";
 import { LOOKI_CHANNEL, LOOKI_JOURNAL, LOOKI_MOMENT, LOOKI_REGIONS, type LookiJournalPayload, type LookiMomentPayload, type LookiRegion } from "./api.ts";
@@ -72,6 +72,11 @@ export interface LookiService {
   sync(ctx: DataSourceSyncContext): Promise<DataSourceSyncResult>;
   /** 出错后再试（内核每小时叫）：Key 不认的，拿存着的 Key 调一次 /me，认了就清掉出错 */
   recheck(secrets: DataSourceSecrets, signal: AbortSignal): Promise<void>;
+  /**
+   * 深度体检"测一下"（415）：拿存着的 Key 调一次所选区域的 /me，交回通没通、没通是哪一种。只读：不动记着的状态（体检不改东西），
+   * 限速了不等。signal 是体检的时限
+   */
+  probe(secrets: DataSourceSecrets, signal: AbortSignal): Promise<DataSourceProbeResult>;
   query(query: LookiQuery, secrets: DataSourceSecrets, signal?: AbortSignal): Promise<LookiQueryResult>;
   /** 断开：忘掉内存里的状态，正在存到本地的、补存的停下（存下的文件不删） */
   reset(): Promise<void>;
@@ -231,6 +236,21 @@ export function createLookiService(options: LookiServiceOptions): LookiService {
       } catch (err) {
         if (signal.aborted) throw err;
         note(err);
+      }
+    },
+
+    async probe(secrets, signal) {
+      if (!secrets.has(SECRET.key)) return { ok: false, failure: "unconfigured", reason: t("looki.error.noKey") };
+      try {
+        const me = await clientOf(secrets, signal).me();
+        const account = maskedAccount(me);
+        return account === undefined ? { ok: true } : { ok: true, account };
+      } catch (err) {
+        // 体检的时限到了（signal）：算到点没回
+        if (signal.aborted) return { ok: false, failure: "timeout", reason: t("looki.error.timeout") };
+        if (!(err instanceof LookiError)) return { ok: false, failure: "response", reason: err instanceof Error ? err.message : String(err) };
+        const failure = err.failure === "key" ? "auth" : err.failure === "no_key" ? "unconfigured" : err.failure === "network" && err.timedOut ? "timeout" : err.failure;
+        return { ok: false, failure, reason: err.message };
       }
     },
 

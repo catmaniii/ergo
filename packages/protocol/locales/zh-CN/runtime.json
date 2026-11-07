@@ -12,6 +12,7 @@
   "runtime.probe.aborted": "被中止了",
   "runtime.probe.failed": "出错了",
   "runtime.probe.empty": "模型没有回任何内容",
+  "runtime.probe.timeout": "超时（{seconds} 秒没回完），中止了这次请求",
   "runtime.compactFailed": "压缩出错了",
   "runtime.navigate.empty": "会话是空的，没有可以撤回的",
   "runtime.navigate.alreadyHere": "已经在这里了，没有可以撤回的",

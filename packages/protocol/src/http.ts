@@ -306,6 +306,8 @@ const SERVICE_EVENTS = "service-events";
 const PROJECT_OPS_MCP = "project-ops-mcp";
 const SETUP = "setup";
 const DOCTOR = "doctor";
+/** 体检下面的深度体检（415）：/api/doctor/deep */
+const DOCTOR_DEEP = "deep";
 const APP_UPDATE = "app-update";
 /** 安卓安装包在 /api/app-update/ 下的名字：.apk 结尾，按地址猜文件名的下载器也存成 .apk */
 const ANDROID_APK = "android.apk";
@@ -554,6 +556,12 @@ export const HTTP_PATHS = {
    */
   doctor: api(DOCTOR),
   /**
+   * 深度体检（415，DoctorDeepView）：GET 取上一次的结果（不跑）；POST 开测（点了才跑：用默认模型真发一句很短的话、拿存着的 Key
+   * 连一下数据源、看 Claude Code / Codex 登录了没有、对 ergo.db 跑只读的完整性检查），回开测之后的样子（items 里还在测的是 pending）。
+   * 正在测时 POST 回正在测的那一份；离上一次测完不够一会儿（nextAt 之前）回 429
+   */
+  doctorDeep: api(DOCTOR, DOCTOR_DEEP),
+  /**
    * 手机 App 的更新（票 399）：GET 二狗带着哪一版安卓安装包（AppUpdateView：版本、versionCode、SHA-256、大小），
    * 设置里"有新版"、提示条的"更新"看它。和别的接口一样，外网端口要设备凭证
    */
@@ -764,6 +772,7 @@ export type HttpRoute =
   | { route: "project_ops_mcp" }
   | { route: "setup" }
   | { route: "doctor" }
+  | { route: "doctor_deep" }
   | { route: "app_update" }
   | { route: "android_app_package" }
   | { route: "connection_addresses" }
@@ -917,6 +926,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === PROJECT_OPS_MCP && id === undefined) return { route: "project_ops_mcp" };
   if (head === SETUP && id === undefined) return { route: "setup" };
   if (head === DOCTOR && id === undefined) return { route: "doctor" };
+  if (head === DOCTOR && id === DOCTOR_DEEP && tail === undefined) return { route: "doctor_deep" };
   if (head === APP_UPDATE && tail === undefined) {
     if (id === undefined) return { route: "app_update" };
     if (id === ANDROID_APK) return { route: "android_app_package" };

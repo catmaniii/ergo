@@ -47,7 +47,8 @@ export class FakeCodexSessions implements CodexSessionSource {
 
 /** 子进程接假 app-server、会话来源是这一份假本机的 Codex 插件（同名，换掉清单里的那个）；不给 sessions 是空的本机 */
 export function fakeCodexPluginWith(sessions: CodexSessionSource = new FakeCodexSessions()): PluginDefinition {
-  return createCodexPlugin({ entry: FAKE_CODEX_CHILD, sessions, missing: () => undefined });
+  // 深度体检的"登录"（415）也换成假的：绝不跑真的 codex login status
+  return createCodexPlugin({ entry: FAKE_CODEX_CHILD, sessions, missing: () => undefined, loginStatus: () => Promise.resolve({ code: 0, stdout: "", stderr: "Logged in using ChatGPT\n" }) });
 }
 
 /** 子进程接假 app-server 的 Codex 插件 */
