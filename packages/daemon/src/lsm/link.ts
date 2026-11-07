@@ -210,6 +210,8 @@ export interface LsmManagedService {
   project?: string | null;
   /** 名下的服务是谁登记的 */
   owner?: string | null;
+  /** 纯隧道是 "tunnel" */
+  role?: string | null;
   port: number | null;
   /** STOPPED / STARTING / RUNNING / DEGRADED / STOPPING / FAILED / ORPHAN */
   state: string;
@@ -240,6 +242,8 @@ export interface LsmManagedService {
   /** 对二狗是命脉（停、杀、撤都会被管理器拒），protectedWhy 是管理器写的原因 */
   protected: boolean;
   protectedWhy: string[];
+  /** 登记里标了 ergo: true（和二狗有关，设置 · 服务一页也列出它；老的服务管家没有这个字段） */
+  ergo?: boolean;
   [key: string]: unknown;
 }
 
@@ -273,6 +277,8 @@ export type LsmManageReply =
       services?: LsmManagedService[];
       profiles?: Record<string, string[]>;
       lifeline?: Array<{ id: string; why: string[] }>;
+      /** list：tailnet 网关是哪个服务（开了 tailnet 才有；老的服务管家没有这个字段） */
+      tailnetGateway?: string | null;
       /** logs */
       name?: string;
       source?: number;

@@ -89,6 +89,7 @@ import {
   ModelSettingsBody,
   ModelKeyBody,
   PluginActionBody,
+  ManagedServiceActionBody,
   DataSourceActionBody,
   DataSourceLiveBody,
   DataSourcePushBody,
@@ -160,6 +161,7 @@ import type { SafetySettingsService } from "../config/safety-settings.ts";
 import type { AutostartSwitch } from "../lsm/autostart-switch.ts";
 import type { SetupStateService } from "../config/setup-state.ts";
 import type { DoctorService } from "../doctor/doctor.ts";
+import type { ManagedServices } from "../lsm/services-page.ts";
 import type { ConnectionAddressesService } from "../pairing/addresses.ts";
 import type { AppPackages } from "../pairing/app-package.ts";
 import type { WebSettingsService } from "../web/index.ts";
@@ -277,6 +279,11 @@ export interface HttpApiOptions {
   setup?: Pick<SetupStateService, "view" | "mark">;
   /** 体检（319b）：GET /api/doctor（八项检查现在的样子，每次现算）；不给就没有这个接口 */
   doctor?: Pick<DoctorService, "view">;
+  /**
+   * 设置 · 服务（428）：GET /api/managed-services（服务管家里和二狗有关的服务）、POST /api/managed-services/<id>（启停、重启、
+   * 开关开机自启）、GET /api/managed-services/<id>/logs（最后几十行）。经接入层的管理指令；不给就没有这几个接口
+   */
+  managedServices?: ManagedServices;
   /**
    * 二狗带着的手机 App 安装包（票 399）：GET /api/app-update（哪一版）、GET /api/app-update/android.apk（安装包本身）。
    * 外网端口上和别的接口一样要设备凭证（网关挡），没配对的拿不到。不给就没有这两个接口
@@ -1192,6 +1199,39 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
           async GET(_req, res) {
             if (!options.doctor) throw new HttpError("not_found", t("gateway.http.noDoctor"));
             sendJson(res, 200, await options.doctor.view());
+          },
+        };
+      case "managed_services":
+        return {
+          // 设置 · 服务：服务管家里和二狗有关的服务，每次现取（经接入层的管理指令；没接入、没连上、服务管家太老写在 support 里）
+          async GET(_req, res) {
+            if (!options.managedServices) throw new HttpError("not_found", t("gateway.http.noManagedServices"));
+            sendJson(res, 200, await options.managedServices.view());
+          },
+        };
+      case "managed_service":
+        return {
+          // 对一个和二狗有关的服务做一个操作：用户亲手点的，不出审批卡；做不了的（不是和二狗有关的、二狗离不开的、服务管家拒的）
+          // 在结果里照实说（ok: false），不回 4xx
+          async POST(req, res) {
+            if (!options.managedServices) throw new HttpError("not_found", t("gateway.http.noManagedServices"));
+            const body = checkHttpBody(ManagedServiceActionBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badManagedServiceAction", { message: body.message }));
+            sendJson(res, 200, await options.managedServices.act(route.id, body.value.action));
+          },
+        };
+      case "managed_service_logs":
+        return {
+          // 一个和二狗有关的服务最后几十行日志（截短、擦掉像密钥的）；?lines= 几行、?source= 第几份
+          async GET(_req, res, url) {
+            if (!options.managedServices) throw new HttpError("not_found", t("gateway.http.noManagedServices"));
+            const count = (name: string): number | undefined => {
+              const raw = url.searchParams.get(name);
+              if (raw === null) return undefined;
+              if (!/^\d{1,4}$/.test(raw)) throw new HttpError("bad_request", t("gateway.http.badManagedServiceLogs", { name, value: raw }));
+              return Number(raw);
+            };
+            sendJson(res, 200, await options.managedServices.logs(route.id, { lines: count(HTTP_QUERY.lines), source: count(HTTP_QUERY.source) }));
           },
         };
       case "connection_addresses":

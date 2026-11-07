@@ -178,6 +178,8 @@ import { daemonBusy, mayChangeBusy } from "./lsm/busy.ts";
 import { linkToLsm, type LsmLink } from "./lsm/link.ts";
 import { createRestartSelfHold, withRestartHold } from "./lsm/restart-hold.ts";
 import { lsmSecretaryTools } from "./lsm/secretary-tools.ts";
+import { createManagedServices } from "./lsm/services-page.ts";
+import { voicePortsInUse } from "./lsm/voice-ports.ts";
 import { type ConnectionAddressesService, createConnectionAddresses } from "./pairing/addresses.ts";
 import { createAppPackages } from "./pairing/app-package.ts";
 import { daemonRunning, removePidFile, writePidFile } from "./process/pid-file.ts";
@@ -2884,6 +2886,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         autostart,
         // 体检：八项检查现在的样子（GET /api/doctor）
         doctor,
+        // 设置 · 服务（428）：服务管家里和二狗有关的服务，看、启停、看日志（经接入层的管理指令，和秘书的服务管家工具同一条通道）。
+        // 接入层比网关晚建，每次请求现取；语音插件启用着时，语音合成、识别的本机端口用来认出手工登记的语音服务
+        managedServices: createManagedServices({
+          manage: () => lsmForTools?.manage,
+          voicePorts: () => voicePortsInUse(config.voice, { voiceOn: plugins.service(VOICE) !== undefined, speechUrl: options.speechUrl }),
+          managerUrl: () => lsmForTools?.managerUrl,
+        }),
         // 手机 App 的更新：程序目录里带的安卓安装包（GET /api/app-update、/api/app-update/android.apk，票 399）
         appPackages: createAppPackages({ programDir, log }),
         // 连接地址：设备配对页的二维码界面用（GET / POST /api/connection-addresses）

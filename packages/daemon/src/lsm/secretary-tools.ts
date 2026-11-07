@@ -19,8 +19,8 @@
 // 服务管家的事一律用这几个工具，不用 bash 敲命令行或端口（工具说明里写明；守卫那边的拦截在 419）。
 import { t, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
-import { redactSecretShapes } from "../guard/index.ts";
 import { type LsmManage, type LsmManagedService, type LsmManageReply, type LsmProfileResult, MANAGE_REQUEST_TIMEOUT_MS } from "./link.ts";
+import { LOG_LINES_DEFAULT, LOG_LINES_MAX, tidyLogLines } from "./log-lines.ts";
 import type { RestartSelfHold } from "./restart-hold.ts";
 import { lsmToolDescriptions as d } from "./secretary-texts.ts";
 
@@ -34,12 +34,8 @@ export const LSM_TOOL = Object.freeze({
   restartSelf: "lsm_restart_self",
 } as const);
 
-/** 日志默认给几行、最多几行（服务管家那边最多 500：给 agent 看的不用那么多） */
-export const LOG_LINES_DEFAULT = 60;
-export const LOG_LINES_MAX = 200;
-/** 日志一行最长多少字、一共最多多少字（多了只留最后的） */
-const LOG_LINE_MAX_CHARS = 400;
-const LOG_TOTAL_MAX_CHARS = 6_000;
+/** 日志默认给几行、最多几行（和设置 · 服务一页同一套，在 log-lines.ts） */
+export { LOG_LINES_DEFAULT, LOG_LINES_MAX } from "./log-lines.ts";
 /** 会等服务管家回话的工具：比接入层的请求超时多一分钟，免得 agent 管家先把这次调用掐了 */
 const SLOW_TOOL_TIMEOUT_MS = MANAGE_REQUEST_TIMEOUT_MS + 60_000;
 
@@ -543,27 +539,14 @@ export function lsmSecretaryTools(deps: LsmToolDeps): HostTool[] {
   return [status, logs, control, force, entries, restartSelf];
 }
 
-/** 日志：每行截短、擦掉像密钥的，太长只留最后的 */
+/** 日志：每行截短、擦掉像密钥的，太长只留最后的（log-lines.ts，和设置 · 服务一页同一套） */
 function logsText(s: LsmManagedService, reply: Extract<LsmManageReply, { ok: true }>): string {
-  const all = (reply.lines ?? "")
-    .split(/\r?\n/)
-    .filter((line, i, arr) => !(i === arr.length - 1 && line === ""))
-    .map((line) => {
-      const clean = redactSecretShapes(line);
-      return clean.length > LOG_LINE_MAX_CHARS ? `${clean.slice(0, LOG_LINE_MAX_CHARS)}…` : clean;
-    });
-  const kept: string[] = [];
-  let size = 0;
-  for (let i = all.length - 1; i >= 0; i -= 1) {
-    size += all[i]!.length + 1;
-    if (size > LOG_TOTAL_MAX_CHARS) break;
-    kept.unshift(all[i]!);
-  }
+  const { lines: kept, cut } = tidyLogLines(reply.lines ?? "");
   const label = reply.label ?? "";
   const others = (reply.sources ?? []).filter((x) => x.source !== reply.source).map((x) => t("lsm.tools.logs.source", { source: x.source, label: x.label }));
   return [
     kept.length === 0 ? t("lsm.tools.logs.empty", { name: nameOf(s), label }) : t("lsm.tools.logs.head", { name: nameOf(s), label, count: kept.length, n: kept.length }),
-    ...(kept.length < all.length ? [t("lsm.tools.logs.cut", { count: kept.length, n: kept.length })] : []),
+    ...(cut ? [t("lsm.tools.logs.cut", { count: kept.length, n: kept.length })] : []),
     ...kept,
     ...(others.length > 0 ? [t("lsm.tools.logs.others", { list: others.join(listSep()) })] : []),
   ].join("\n");

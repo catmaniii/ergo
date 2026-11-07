@@ -96,6 +96,10 @@
 // - folder-grants-schema.ts：目录授权——每个 agent 一份的目录授权表（读、写、删分开，可过期）、设置接口和使用记录的 schema，审批卡上"以后都允许"登记的目录（ADR-0049）。
 // - connection-addresses.ts、connection-addresses-schema.ts：连接地址——手机从外面连到二狗用的地址：种类、校验、排序，GET / POST /api/connection-addresses 的样子。
 // - autostart.ts、autostart-schema.ts：服务管家的开机自启——向导里的开关，GET / PUT /api/autostart 的样子。
+// - ergo-related.ts：服务管家里哪些服务"和二狗有关"（二狗自己、名下的、语音按端口对上的、隧道 / 网关 / 依赖、标了 ergo: true 的），
+//   设置 · 服务一页和体检共用的判定。
+// - managed-services.ts、managed-services-schema.ts：设置 · 服务（428）——在二狗里看和开关和二狗有关的服务：
+//   GET /api/managed-services、POST /api/managed-services/<id>、GET /api/managed-services/<id>/logs 的样子。
 // - setup.ts / setup-schema.ts：首次设置向导——网页上要走的五步、每步做完了没有（GET /api/setup 的样子）、
 //   标"以后再说"和"看过了"的请求体（POST /api/setup）的 schema。
 // - doctor.ts：体检（319b）——设置 · 更多 · 体检一页的八项检查（端口、Node、pi、服务管家、模型的 key、组件、磁盘、外网入口），
@@ -194,6 +198,9 @@ export * from "./data-sources.ts";
 export * from "./data-sources-schema.ts";
 export * from "./autostart.ts";
 export * from "./autostart-schema.ts";
+export * from "./ergo-related.ts";
+export * from "./managed-services.ts";
+export * from "./managed-services-schema.ts";
 export * from "./components.ts";
 export * from "./components-schema.ts";
 export * from "./phone.ts";
