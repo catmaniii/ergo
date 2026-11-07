@@ -24,7 +24,7 @@ describe("太久没回应的计时（假的钟）", () => {
   });
 
   test("发出去 90 秒一个字都没回来才叫，只叫一次；89 秒时还不叫", () => {
-    const onSilent = vi.fn();
+    const onSilent = vi.fn<() => void>();
     const watch = watchForSilence(NINETY, onSilent);
     vi.advanceTimersByTime(NINETY - 1000);
     expect(onSilent).not.toHaveBeenCalled();
@@ -38,7 +38,7 @@ describe("太久没回应的计时（假的钟）", () => {
   });
 
   test("流式持续输出超过 90 秒：每回一段（正文、思考、工具调用参数）就重新计时，不叫；停住 90 秒才叫", () => {
-    const onSilent = vi.fn();
+    const onSilent = vi.fn<() => void>();
     const watch = watchForSilence(NINETY, onSilent);
     // 第 60 秒才回第一个字（思考），之后每 30 秒回一段，一共输出了 5 分钟
     vi.advanceTimersByTime(60_000);
@@ -56,14 +56,14 @@ describe("太久没回应的计时（假的钟）", () => {
   });
 
   test("\"开始\"不算回了字（有的服务商发请求之前就报它）；调用结束了（stop）不再叫", () => {
-    const onSilent = vi.fn();
+    const onSilent = vi.fn<() => void>();
     const watch = watchForSilence(NINETY, onSilent);
     vi.advanceTimersByTime(50_000);
     watch.heard("start");
     vi.advanceTimersByTime(40_000);
     expect(onSilent).toHaveBeenCalledTimes(1);
 
-    const quiet = vi.fn();
+    const quiet = vi.fn<() => void>();
     const done = watchForSilence(NINETY, quiet);
     vi.advanceTimersByTime(10_000);
     done.stop();
@@ -109,22 +109,23 @@ describe("出错的种类和最后没成时的说法", () => {
   });
 });
 
-describe("账本：出错、被中止的那次照样记，⚙ 取最近一次成了的", () => {
-  function setup() {
-    const store = openEventStore({ file: path.join(makeTempDir("ergo-ledger-failed-"), "ergo.db"), views: [ledgerView] });
-    onTestFinished(() => store.close());
-    const ledger = createTokenLedger({ store, now: () => "2026-11-07T15:36:00.000+08:00", currentStage: () => undefined, prices: () => ({ currency: "CNY", models: {} }), holidays: () => [], log: () => undefined });
-    const usage = (input: number, cacheRead: number, output: number, failed?: true) =>
-      ledger.record({
-        agentId: "secretary",
-        sessionId: "s-1",
-        model: "deepseek/deepseek-flash",
-        attribution: { owner: null, role: "secretary" },
-        report: { type: "usage", messageId: `m-${input}-${cacheRead}`, provider: "deepseek", modelId: "deepseek-flash", input, cacheRead, cacheWrite: 0, output, totalTokens: input + cacheRead + output, ...(failed ? { failed } : {}) },
-      });
-    return { ledger, usage };
-  }
+/** 内存里的账本（临时目录里的事件库），usage 记一次秘书干活的调用（failed 时是出错、被中止的那次） */
+function setup() {
+  const store = openEventStore({ file: path.join(makeTempDir("ergo-ledger-failed-"), "ergo.db"), views: [ledgerView] });
+  onTestFinished(() => store.close());
+  const ledger = createTokenLedger({ store, now: () => "2026-11-07T15:36:00.000+08:00", currentStage: () => undefined, prices: () => ({ currency: "CNY", models: {} }), holidays: () => [], log: () => undefined });
+  const usage = (input: number, cacheRead: number, output: number, failed?: true) =>
+    ledger.record({
+      agentId: "secretary",
+      sessionId: "s-1",
+      model: "deepseek/deepseek-flash",
+      attribution: { owner: null, role: "secretary" },
+      report: { type: "usage", messageId: `m-${input}-${cacheRead}`, provider: "deepseek", modelId: "deepseek-flash", input, cacheRead, cacheWrite: 0, output, totalTokens: input + cacheRead + output, ...(failed ? { failed } : {}) },
+    });
+  return { ledger, usage };
+}
 
+describe("账本：出错、被中止的那次照样记，⚙ 取最近一次成了的", () => {
   test("最后两次出错、被中止（用量 0）：照样记两条；取成了的那一次是之前那 93 万", () => {
     const { ledger, usage } = setup();
     usage(20_000, 910_000, 1500);

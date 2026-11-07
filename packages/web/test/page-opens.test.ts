@@ -1885,14 +1885,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
   }, 60_000);
 
   test("手机宽：模型服务忙时聊天末尾一行\"正在重试（第 N 次）\"，停下就收起；重试用完写清服务商那边忙、可以等一会儿再问或换模型（中英）", async () => {
-    const send = async (page: Page, text: string) => {
-      await page.evaluate(`window.location.hash = "#/secretary"`);
-      await page.waitForTimeout(300);
-      const box = page.locator(".composer textarea").first();
-      await box.fill(text);
-      await box.press("Enter");
-    };
-    const line = (page: Page) => page.locator(".model-retry");
+    const send = sendInSecretary;
+    const line = retryLine;
     // 一直在重试：第 1 次、第 2 次，输入框上是"停止"；点停止就收起
     const busy = await open({ width: 390, height: 844 }, "?demo-model-busy=retrying");
     await send(busy.page, "问个问题");
@@ -1916,7 +1910,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       const { page, errors } = await open({ width: 390, height: 844 }, search);
       await send(page, "ask again");
       await line(page).waitFor({ timeout: 10_000 });
-      await page.waitForFunction((text) => document.querySelector(".conv")?.textContent?.includes(text) === true, note, { timeout: 15_000 });
+      await page.waitForFunction(`document.querySelector(".conv")?.textContent?.includes(${JSON.stringify(note)}) === true`, undefined, { timeout: 15_000 });
       expect(await line(page).count()).toBe(0);
       // 会话里的话不写"秘书"（导航上那一项除外，不在会话里）
       const said = await page.locator(".conv").innerText();
@@ -1927,6 +1921,18 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }
   }, 60_000);
 });
+
+/** 秘书会话里打一句、回车发出去 */
+async function sendInSecretary(page: Page, text: string): Promise<void> {
+  await page.evaluate(`window.location.hash = "#/secretary"`);
+  await page.waitForTimeout(300);
+  const box = page.locator(".composer textarea").first();
+  await box.fill(text);
+  await box.press("Enter");
+}
+
+/** 会话末尾"正在重试"那一行 */
+const retryLine = (page: Page) => page.locator(".model-retry");
 
 /**
  * ⚙ 开着时另一个弹层（确认框）：在不在 ⚙ 的弹层里、遮罩是不是直接挂在 body 上；它底下那排按钮是不是整个在屏幕里、
