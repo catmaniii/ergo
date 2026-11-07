@@ -488,6 +488,8 @@ Gmail 可以连几个账号（`google/gmail-accounts.ts`）。密钥区 `secrets
 
 地图插件（`map/`，[ADR-0051](adr/0051-map-amap-js-and-osm-tiles.md)）：数据源 `amap`"高德地图"只用来填 Key（Web 端 Key、安全密钥、Web 服务 Key，先测再存），不导入、现在不给秘书工具；转发高德请求时插件经内核服务 `KERNEL.dataSourceSecrets` 现取自己那一格。坐标在 `packages/protocol/src/geo.ts`（WGS-84 和 GCJ-02 互转、在不在大陆），二狗里一律存、传 WGS-84，只在跟高德来回时转。
 
+我的足迹（[ADR-0052](adr/0052-map-footprints-local-only.md)）：`GET /api/map/day?date=YYYY-MM-DD` 经地图插件的服务 `MAP_DAY`（`map/day.ts`）现取"手机"插件的 `footprints(date)`（纯函数在 `phone/footprints.ts`）——那一天的点、停留、有地点的照片、起了名的常去的地方、有足迹的日子。手机插件是地图插件的可选依赖（`wants`），没启用时回"数据源-手机插件没启用"。停留的参数和记忆里的位置摘要同一套（`phone/summaries.ts`，只在那里定一次）。算的时候不联网，点只在页面里画（`plugins/map/footprints.ts` 整理成 `MapScene`，编号 `fp-` 开头），不发给任何地图服务。
+
 ### 网页插件
 
 网页用**类型化插槽**，插件之间不互相 import（`packages/web/src/plugins/`）。守护进程在插件频道上推每个插件的状况，网页插件宿主按它装、停。

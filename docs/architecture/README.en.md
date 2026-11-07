@@ -486,6 +486,8 @@ Gmail can connect several accounts (`google/gmail-accounts.ts`). In the secrets 
 
 The map plugin (`map/`, [ADR-0051](adr/0051-map-amap-js-and-osm-tiles.md)): its data source `amap` ("AMap") only holds keys (the Web key, its security code and the Web service key, tested before saving); it imports nothing and gives the assistant no tools yet. When forwarding AMap requests, the plugin reads its own entry through the kernel service `KERNEL.dataSourceSecrets`. Coordinates live in `packages/protocol/src/geo.ts` (WGS-84 ↔ GCJ-02, inside mainland China or not); ergo stores and passes WGS-84 everywhere and converts only when talking to AMap.
 
+Footprints ([ADR-0052](adr/0052-map-footprints-local-only.md)): `GET /api/map/day?date=YYYY-MM-DD` goes through the map plugin's `MAP_DAY` service (`map/day.ts`), which fetches the phone plugin's `footprints(date)` on the spot (pure function in `phone/footprints.ts`): that day's points, stays, photos with a location, named frequent places, and the days that have footprints. The phone plugin is an optional dependency of the map plugin (`wants`); when it's off the reply is "The Data source - Phone plugin isn't enabled". Stays use the same parameters as the daily location summary in memory (`phone/summaries.ts`, defined only there). Nothing goes online while computing; the points are drawn only in the page (`plugins/map/footprints.ts` turns them into a `MapScene`, ids starting with `fp-`) and are never sent to any map service.
+
 ### Web plugins
 
 The web UI uses **typed slots** and plugins never import each other (`packages/web/src/plugins/`). The daemon pushes each plugin's status on the plugins channel and the web plugin host installs and stops web plugins accordingly.
