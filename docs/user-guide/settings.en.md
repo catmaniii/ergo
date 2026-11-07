@@ -561,8 +561,22 @@ What ergo checks for each plugin:
 | Item | How it's judged |
 |---|---|
 | The plugin itself | Running is OK; not loaded is broken, with the reason; an external program it needs isn't installed and you don't use it, that's just a hint (not applicable) |
-| Data sources | Not connected, or both uses off: not checked. Needs authorizing again, or can't connect: broken. Scheduled import with no successful sync for over 3 times its interval counts as stale (heads-up); the last sync failing is also a heads-up |
+| Data sources | Not connected, or both uses off: not checked. Needs authorizing again (key rejected, permission revoked, Gmail password revoked), or can't connect: broken. Scheduled import with no successful sync for over 3 times its interval counts as stale (heads-up; for Looki it's 26 hours, so a missed 02:30 import shows up the same day); the last sync failing is also a heads-up |
 | Runtimes | Usable is OK; not installed and no task or project uses it is just a hint; not installed while a task or project uses it is broken |
+
+What plugins check themselves:
+
+| Plugin | Item | How it's judged |
+|---|---|---|
+| Looki | Keep a local copy | Stopped (disk full, no permission, Looki changed its API…) or moments that couldn't be saved after several tries: heads-up, with the reason as given; off: not checked |
+| Phone | Phone app | With phone calendar, photos or location connected, nothing sent for over 3 days is a heads-up (the phone app hasn't been opened for a while; it only sends while open) |
+| Phone | Phone calendar sent 0 events | The phone sending 0 events when there used to be plenty is a heads-up (most likely it just couldn't read the calendar); it clears once events come in again |
+| Google | Each calendar address | Address expired or no permission: broken; failing to fetch 3 times in a row or more for other reasons: heads-up; after ergo restarts it counts again from the next sync |
+| Calendar | Events from data sources | A data source whose events can't be fetched when you open the calendar: heads-up |
+| Built-in browser | Thumbnails | The image-shrinking program failing on its last run: heads-up |
+| Reminders | Time zone | The config file's time zone differing from this computer's: heads-up (reminder times would be off) |
+| Claude Code | Agent SDK | Gone since startup: broken; older than the version needed: heads-up; also says whether Claude Code is installed on this computer |
+| Codex | Program and version | Gone since startup or too old: broken |
 
 ergo's own eight checks:
 
