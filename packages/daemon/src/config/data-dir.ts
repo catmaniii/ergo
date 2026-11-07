@@ -66,6 +66,11 @@ export interface DataDirLayout {
    */
   folderGrantsFile: string;
   /**
+   * 体检后台盯着（416，doctor/watch.ts）：用户在待办里点了"不再提醒这件事"的那几项（块、项、名字、什么时候点的）。
+   * 只由运行时写（待办里点、体检页上"恢复提醒"），没有文件是一项都没有
+   */
+  doctorWatchFile: string;
+  /**
    * 用户改过的各 agent 的系统提示（<编号>.md）：有就用它，没有用程序目录里默认的。只由设置页写（用户也可以手改），
    * 在配置区里，agent 写不了
    */
@@ -225,6 +230,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     secretarySkillsFile: path.join(config, "secretary-skills.json"),
     localFoldersFile: path.join(config, "local-folders.json"),
     folderGrantsFile: path.join(config, "folder-grants.json"),
+    doctorWatchFile: path.join(config, "doctor-watch.json"),
     prompts: path.join(config, "prompts"),
     agentPrompts: path.join(config, "agent-prompts"),
     holidaysDir: path.join(config, "holidays"),

@@ -1218,6 +1218,9 @@ export { DOCTOR_CHECKS, DOCTOR_FIX_UNKNOWN, doctorCheck, doctorDataOf } from "@e
 // 410、413：open 动作可以是本机的网址（服务管家的网页），doctorOpensUrl 认它（只认 127.0.0.1、localhost、[::1]）
 export { coreDoctorItem, DOCTOR_ACTION_KINDS, DOCTOR_CORE_GROUP, DOCTOR_LEVELS, doctorCheckFact, doctorCheckTitle, doctorCounts, doctorFactText, doctorFixText, doctorItemText, doctorOpensUrl, doctorText, sortDoctorGroups, sortDoctorItems, worstLevel } from "@ergo/protocol";
 export type { DoctorAction, DoctorExternalEntry, DoctorGroupView, DoctorItemView, DoctorLevel, DoctorLinkState, DoctorMessage, DoctorOffPlugin } from "@ergo/protocol";
+// 416：体检后台盯着——待办里"体检发现"的两个动作（去体检页看看、不再提醒这件事）、修好了的那一项，体检页上"后台盯着"那一段、"恢复提醒"的请求体
+export { DOCTOR_MUTE_ACTION, DOCTOR_OPEN_ACTION, DOCTOR_WATCH_FIXED, doctorWatchKey } from "@ergo/protocol";
+export type { DoctorProblemNoticeData, DoctorUnmuteBody, DoctorWatchKey, DoctorWatchMutedView, DoctorWatchView } from "@ergo/protocol";
 // 连接地址：手机从外面连到二狗用的地址，校验和排序和守护进程同一份
 export { checkManualConnectionAddress, orderConnectionAddresses } from "@ergo/protocol";
 export type { ConnectionAddress, ConnectionAddressesView, RejectedConnectionAddress } from "@ergo/protocol";

@@ -71,5 +71,8 @@ const INBOX_ACTION_TEXT_KEYS: Readonly<Record<string, string>> = {
   把没过的阶段也重做: "protocol.inboxAction.redoFailed",
   "清空了，删掉": "protocol.inboxAction.phoneCalendarCleared",
   "没清空，留着": "protocol.inboxAction.phoneCalendarKept",
+  去体检页看看: "protocol.inboxAction.openDoctor",
+  不再提醒这件事: "protocol.inboxAction.muteDoctor",
+  已经好了: "protocol.inboxAction.doctorFixed",
 };
 // @i18n-ignore-end

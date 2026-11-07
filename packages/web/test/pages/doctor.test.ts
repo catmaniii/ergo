@@ -8,6 +8,7 @@
 // - "再查一遍"每次重新取（loadDoctor 经 DaemonHttp）；页面右上的按钮；界面上不出现"秘书""待我处理"；
 // - 415 深度体检那一块：还没做过、正在测（逐项出结果、还在测的写"正在测…"）、测完了（"几分钟前测的"、总状态、按块）、
 //   刚测过（按钮倒数）；"几分钟前"按守护进程的时钟走；原型编的一份和点了以后的样子；英文里没有中文。
+// - 后台盯着（416）那一段：多久看一眼、看哪几件；点过"不再提醒这件事"的一项一行带"恢复提醒"（正在恢复时灰着）；原型的假 HTTP 能恢复；中英。
 // 设置列表里的位置见 settings-groups.test.ts；页面打得开见 page-opens.test.ts。
 import { type ComponentProps, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -16,10 +17,10 @@ import type { Connection } from "../../src/app/connection.ts";
 import type { DaemonHttp } from "../../src/app/daemon-http.ts";
 import { doctorActionText, doctorDeepAgoText, doctorDeepButtonText, doctorDeepNow, doctorDeepWaitSeconds, doctorSinceText, doctorSummary, knownDoctorAction, loadDoctor } from "../../src/app/doctor.ts";
 import { StoreProvider } from "../../src/app/store.tsx";
-import { DoctorDeepBlock, DoctorGroups, DoctorItemRow, DoctorPage } from "../../src/pages/more/DoctorPage.tsx";
+import { DoctorDeepBlock, DoctorGroups, DoctorItemRow, DoctorPage, DoctorWatchSection } from "../../src/pages/more/DoctorPage.tsx";
 import { hasChinese, localizedFake } from "../../src/prototype/fake-content.ts";
 import { FakeConnection } from "../../src/prototype/fake-connection.ts";
-import { fakeDoctorView } from "../../src/prototype/fake-doctor.ts";
+import { fakeDoctorView, FakeDoctorWatch } from "../../src/prototype/fake-doctor.ts";
 import { FakeDaemonHttp } from "../../src/prototype/fake-http.ts";
 import { FakePlugins } from "../../src/prototype/fake-plugins.ts";
 import {
@@ -38,6 +39,7 @@ import {
   doctorFixText,
   type DoctorItemView,
   type DoctorView,
+  type DoctorWatchView,
   setActiveLocale,
 } from "../../src/state/index.ts";
 import { ToastProvider } from "../../src/ui/toast.tsx";
@@ -451,5 +453,57 @@ describe("深度体检（415）", () => {
 
   test("界面上不出现「秘书」「待我处理」", () => {
     expect(renderDeep(deepSample(), DEEP_AT)).not.toMatch(/秘书|待我处理/);
+  });
+});
+
+describe("后台盯着（416）", () => {
+  const watch: DoctorWatchView = {
+    everyMinutes: 5,
+    muted: [
+      { group: DOCTOR_CORE_GROUP, id: "context", title: "对话长度", at: "2026-11-06T13:40:00.000Z" },
+      { group: "voice", id: "speech", title: "语音合成", at: "2026-11-07T07:42:00.000Z" },
+    ],
+  };
+  const section = (props: Partial<ComponentProps<typeof DoctorWatchSection>> = {}) => renderToStaticMarkup(createElement(DoctorWatchSection, { watch, onUnmute: noop, ...props }));
+
+  test("一句说明：每 5 分钟看哪几件、坏了放进待办；点过不再提醒的一项一行：名字、从什么时候起、恢复提醒", () => {
+    const html = section();
+    expect(html).toContain("后台盯着：每 5 分钟看一眼备份、夜里整理记忆、语音合成和识别（开了的才看）、模型近况、对话长度");
+    expect(html).toContain("放进待办");
+    expect(html).toContain("这几件点了「不再提醒这件事」");
+    expect(html).toContain('data-muted="ergo/context"');
+    expect(html).toContain("对话长度");
+    expect(html).toContain("11/6 21:40 起不再提醒");
+    expect(html).toContain('data-muted="voice/speech"');
+    expect(html.match(/data-action="unmute"/g)).toHaveLength(2);
+    expect(html).toContain("恢复提醒");
+    expect(html).not.toMatch(/秘书|待我处理/);
+  });
+
+  test("正在恢复的那一项按钮灰着、写\"正在恢复…\"；没有不再提醒的就只有那句说明；没给处理函数时按钮灰着", () => {
+    const busy = section({ busy: "voice/speech" });
+    expect(busy).toMatch(/data-muted="voice\/speech"[^]*?<button[^>]*disabled=""[^>]*>正在恢复…<\/button>/);
+    const empty = section({ watch: { everyMinutes: 5, muted: [] } });
+    expect(empty).toContain("后台盯着");
+    expect(empty).not.toContain("data-action=\"unmute\"");
+    expect(section({ onUnmute: undefined })).toMatch(/<button[^>]*disabled=""[^>]*>恢复提醒<\/button>/);
+  });
+
+  test("原型：假 HTTP 的体检带上后台盯着（编了一项对话长度不再提醒），恢复提醒了就拿掉", async () => {
+    const http = new FakeDaemonHttp(new FakeConnection());
+    const view = await http.doctor();
+    expect(view.watch).toEqual({ everyMinutes: 5, muted: [{ group: DOCTOR_CORE_GROUP, id: "context", title: "对话长度", at: "2026-11-06T13:40:00.000Z" }] });
+    expect(await http.doctorUnmute({ group: DOCTOR_CORE_GROUP, id: "context" })).toEqual({ everyMinutes: 5, muted: [] });
+    expect((await http.doctor()).watch?.muted).toEqual([]);
+    expect(new FakeDoctorWatch().view().muted).toHaveLength(1);
+  });
+
+  test("英文：说明、不再提醒的那几行都是英文", () => {
+    inEnglish();
+    const html = renderToStaticMarkup(createElement(DoctorWatchSection, { watch: new FakeDoctorWatch().view(), onUnmute: noop }));
+    expect(html).toContain("every 5 minutes");
+    expect(html).toContain("Conversation length");
+    expect(html).toContain("Remind me again");
+    expect(hasChinese(html)).toBe(false);
   });
 });

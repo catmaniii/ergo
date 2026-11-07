@@ -12,6 +12,7 @@ import {
   appUpgradeLink,
   COMPONENTS_INSTALL_ACTION,
   COMPONENTS_UPDATE_ACTION,
+  DOCTOR_OPEN_ACTION,
   inboxActionText,
   type InboxItem,
   isCardType,
@@ -58,11 +59,13 @@ const NOTICE_LABEL: Readonly<Record<NoticeType, string>> = tTable({
   app_outdated: "ui.inboxNotice.kind.appOutdated",
   folder_grant_expiring: "ui.inboxNotice.kind.folderGrantExpiring",
   phone_calendar_empty: "ui.inboxNotice.kind.phoneCalendarEmpty",
+  doctor_problem: "ui.inboxNotice.kind.doctorProblem",
 });
 
 /**
  * 去设置里某一页修的动作：点了是去那一页，不算处理（修好后守护进程自动归档这条）——
- * "关注类别设置文件有问题"的"去设置页修复"、"还没有参考音色"的"去导入参考音色"、"向量模型还没下载"的"去装组件"
+ * "关注类别设置文件有问题"的"去设置页修复"、"还没有参考音色"的"去导入参考音色"、"向量模型还没下载"的"去装组件"、
+ * "体检发现"的"去体检页看看"
  */
 const SETTINGS_LINKS: Partial<Record<NoticeType, { action: string; page: MorePage }>> = {
   watch_categories_broken: { action: WATCH_CATEGORIES_REPAIR_ACTION, page: "watch" },
@@ -71,6 +74,8 @@ const SETTINGS_LINKS: Partial<Record<NoticeType, { action: string; page: MorePag
   embedding_model_missing: { action: COMPONENTS_INSTALL_ACTION, page: "components" },
   // 组件有新版本——"去更新组件"去设置 · 组件，点了"更新"才换
   component_update_available: { action: COMPONENTS_UPDATE_ACTION, page: "components" },
+  // 体检后台发现问题（416）——"去体检页看看"去设置 · 体检；修好了守护进程自动收起
+  doctor_problem: { action: DOCTOR_OPEN_ACTION, page: "doctor" },
 };
 
 /** 这条通知的这个动作是去设置里的哪一页（不是就是 undefined） */

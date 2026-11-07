@@ -176,6 +176,11 @@ export interface StartTestDaemonOptions {
    * 给了 plugins、config.plugins，或者沿用的数据目录已经起过守护进程（停掉再起）时，不填就照它们的（不再按 clock 默认停）
    */
   memoryPlugin?: boolean;
+  /**
+   * 体检后台盯着（416）开不开：不填是关的（拨时钟跨过几个钟头的用例，它会照备份、模型近况往待办里放东西，别的用例数待办会多出来）；
+   * 测它的写 true
+   */
+  doctorWatch?: boolean;
   /** 额外登记（或替换）的卡片类型（比如 card-fixtures.ts 里的替身） */
   cardTypes?: readonly CardTypeDefinition[];
   /**
@@ -338,6 +343,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     taskDoneSettleMs: options.taskDoneSettleMs ?? TASK_DONE_TEST_SETTLE_MS,
     kickoffOpening: options.kickoffOpening ?? false,
     ...(options.clock === undefined ? {} : { clock: options.clock }),
+    doctorWatch: options.doctorWatch ?? false,
     ...(options.cardTypes === undefined ? {} : { extraCardTypes: options.cardTypes }),
     // Codex 插件默认换成接假 app-server、假本机的（结果不看这台机器装没装 Codex，绝不起真的 codex）；测试自己给了同名的用它的
     extraPlugins: [...(options.extraPlugins ?? []), ...((options.extraPlugins ?? []).some((plugin) => plugin.name === CODEX_PLUGIN) ? [] : [fakeCodexPlugin])],

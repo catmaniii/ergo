@@ -90,6 +90,7 @@
   "gateway.http.badSetup": "Bad parameters for marking a setup step: {message}",
   "gateway.http.noAppPackage": "This ergo doesn't carry a phone app package",
   "gateway.http.noDoctor": "This version doesn't have the doctor endpoint yet",
+  "gateway.http.badDoctorUnmute": "Bad request to turn reminders back on: {message}",
   "gateway.http.badModelSettings": "Bad model settings: {message}",
   "gateway.http.badModelKey": "Bad model key request: {message}",
   "gateway.http.noWebSettings": "This version doesn't have network settings yet",

@@ -156,12 +156,14 @@ import type {
   MemorySummaryView,
   DoctorDeepView,
   DoctorView,
+  DoctorWatchKey,
+  DoctorWatchView,
 } from "../state/index.ts";
 import { AUTO_COMPACT_DEFAULT, AUTO_COMPACT_MAX, AUTO_COMPACT_MIN, autoCompactDefaultOf, autoCompactProblem, copyWebSettings, nowIso, CUSTOM_PROVIDER_ID, DEFAULT_MEMORY_SETTINGS, MEMORY_CURATOR_CONVERSATION, DEFAULT_SECRETARY_SKILLS, DEFAULT_WEB_SETTINGS, effectiveModelChoice, effectiveWebQueue, framePreviewOf, IMPORT_NAME_PATTERN, MEDIA_FRAME_MAX_BYTES, MEDIA_TEXT_MAX_BYTES, MODEL_AGENTS, modelKeyOf, reopenScope, t, textPreviewOf, webSettingsProblem } from "../state/index.ts";
 import { demoParam, FAKE_SAFETY_START, fakeServerWebVersion } from "./fake-connection.ts";
 import { fakeMemoryClaim, fakeMemoryClaims, fakeMemoryQuestions, fakeMemoryStrategies, fakeMemorySummary } from "./fake-memory-graph.ts";
 import { FakeDataSources } from "./fake-data-sources.ts";
-import { FakeDoctorDeep, fakeDoctorView } from "./fake-doctor.ts";
+import { FakeDoctorDeep, fakeDoctorView, FakeDoctorWatch } from "./fake-doctor.ts";
 import { fakeAutostart, FakeComponents } from "./fake-components.ts";
 import { FAKE_HISTORY, FAKE_TAKEOVER_TASK } from "./fake-conversations.ts";
 import { FAKE_CURATOR_COMMANDS, FAKE_GRANT_USES, FAKE_PROJECTS, FAKE_SESSIONS, FAKE_SLASH_COMMANDS, FAKE_SLASH_SKILLS, FAKE_STAGE_EFFECTS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary, taskDetailOf } from "./fake-data.ts";
@@ -1174,9 +1176,16 @@ export class FakeDaemonHttp implements DaemonHttp {
     return this.fakeComponents.view();
   }
 
-  // 设置 · 体检：编的一份（prototype/fake-doctor.ts），停用了的插件照原型的插件清单不成块
+  /** 体检后台盯着：编的"不再提醒"那几项（恢复了就拿掉，刷新页面回到编好的样子） */
+  private readonly fakeDoctorWatch = new FakeDoctorWatch();
+
+  // 设置 · 体检：编的一份（prototype/fake-doctor.ts），停用了的插件照原型的插件清单不成块；带上后台盯着那一段
   doctor(): Promise<DoctorView> {
-    return attempt(() => fakeDoctorView(this.pluginSettings?.pluginList()));
+    return attempt(() => ({ ...fakeDoctorView(this.pluginSettings?.pluginList()), watch: this.fakeDoctorWatch.view() }));
+  }
+
+  doctorUnmute(key: DoctorWatchKey): Promise<DoctorWatchView> {
+    return attempt(() => this.fakeDoctorWatch.unmute(key));
   }
 
   // 深度体检（415）：打开是 3 分钟前测完的一份，点了逐项出结果（prototype/fake-doctor.ts）

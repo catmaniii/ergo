@@ -4,6 +4,7 @@
 // 每项一行：结果的小圆点、名字（不正常的带结果的小签）、查出来的事实、"从什么时候起"、怎么修，带动作的有一个按钮
 // （去看看：跳到那一页；打开服务管家：本机的网址画成新开一页的链接，410、413；现在压缩：和会话 ⚙ 里同一个接口）；不适用的淡显、排在块的最后。
 // 停用了的插件最底下一行列名字。
+// 再往下是后台盯着（416）那一段：每几分钟看一眼哪几件、坏了放进待办；在待办里点了"不再提醒这件事"的列出来，各带"恢复提醒"。
 // 右上"再查一遍"（重新请求 GET /api/doctor）。演示页用原型编的一份（prototype/fake-doctor.ts）。
 // 415：说明下面是"深度体检"那一块（DoctorDeepSection）——按钮旁一句"会真发一个很短的请求测模型、会连外网、要一点时间"，
 // 打开时只取上一次的结果（"3 分钟前测的"），点了才跑、逐项出结果（还在测的写"正在测…"），刚测过按钮倒数"几秒后能再测"。
@@ -20,6 +21,7 @@ import {
   doctorDeepSummary,
   doctorDeepWaitSeconds,
   doctorLevelText,
+  doctorMutedAtText,
   doctorOffText,
   doctorSinceText,
   doctorSummary,
@@ -28,7 +30,7 @@ import {
 import { useDoctor, useDoctorDeep } from "../../app/page-doctor.ts";
 import { type Navigate, parseHash } from "../../app/route.ts";
 import { useStore } from "../../app/store.tsx";
-import { type DoctorAction, type DoctorDeepView, type DoctorGroupView, type DoctorItemView, doctorOpensUrl, type DoctorView, t } from "../../state/index.ts";
+import { type DoctorAction, type DoctorDeepView, type DoctorGroupView, type DoctorItemView, doctorOpensUrl, type DoctorView, type DoctorWatchMutedView, type DoctorWatchView, doctorWatchKey, t } from "../../state/index.ts";
 import { TopBar } from "../../ui/common.tsx";
 import { useToast } from "../../ui/toast.tsx";
 
@@ -182,6 +184,38 @@ export function DoctorDeepBlock({
   );
 }
 
+/**
+ * 后台盯着（416）那一段：一句说明（多久看一眼、看哪几件、坏了放进待办）；点过"不再提醒这件事"的一项一行，带"恢复提醒"。
+ * busy 是正在恢复的那一项（按钮灰着、写"正在恢复…"）
+ */
+export function DoctorWatchSection({ watch, onUnmute, busy }: { watch: DoctorWatchView; onUnmute?: ((item: DoctorWatchMutedView) => void) | undefined; busy?: string | undefined }) {
+  return (
+    <section className="doctor-watch" data-section="watch">
+      <div className="doctor-watch-intro muted">{t("doctor.watch.intro", { minutes: watch.everyMinutes })}</div>
+      {watch.muted.length > 0 && (
+        <>
+          <div className="doctor-watch-head">{t("doctor.watch.muted")}</div>
+          <ul className="doctor-watch-list">
+            {watch.muted.map((item) => {
+              const key = doctorWatchKey(item);
+              const doing = busy === key;
+              return (
+                <li key={key} className="doctor-watch-row" data-muted={key}>
+                  <span className="doctor-watch-name">{item.title}</span>
+                  <span className="doctor-watch-at muted">{doctorMutedAtText(item.at)}</span>
+                  <button type="button" className="btn ghost small" data-action="unmute" disabled={doing || onUnmute === undefined} onClick={() => onUnmute?.(item)}>
+                    {doing ? t("doctor.watch.unmuting") : t("doctor.watch.unmute")}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+    </section>
+  );
+}
+
 /** 深度体检那一块连上守护进程：取上一次的、点了开测、正在测时每秒取（重画只在这一块里） */
 function DoctorDeepSection({ onAction, busy }: ActionProps) {
   const { view, now, starting, error, start } = useDoctorDeep();
@@ -190,10 +224,25 @@ function DoctorDeepSection({ onAction, busy }: ActionProps) {
 
 /** 设置 · 更多里的体检页：标题栏右上"再查一遍"，底下是总状态、各块和查的时刻 */
 export function DoctorPage({ title, onBack, navigate }: { title: string; onBack: (() => void) | undefined; navigate: Navigate }) {
-  const { view, loading, error, recheck } = useDoctor();
+  const { view, loading, error, recheck, updateWatch } = useDoctor();
   const { http } = useStore();
   const toast = useToast();
   const [busy, setBusy] = useState<DoctorAction | undefined>();
+  const [unmuting, setUnmuting] = useState<string | undefined>();
+  // 恢复提醒：这一项再不正常会照常放进待办
+  const unmute = (item: DoctorWatchMutedView) => {
+    setUnmuting(doctorWatchKey(item));
+    http
+      .doctorUnmute({ group: item.group, id: item.id })
+      .then(
+        (watch) => {
+          updateWatch(watch);
+          toast(t("doctor.watch.unmuted", { name: item.title }));
+        },
+        (err: unknown) => toast(t("doctor.watch.unmuteFailed", { error: errorText(err) })),
+      )
+      .finally(() => setUnmuting(undefined));
+  };
   const act = (action: DoctorAction) => {
     if (action.kind === "open") {
       // 本机的网址在行里画成链接，不走这里；别处调来的照样新开一页
@@ -232,6 +281,7 @@ export function DoctorPage({ title, onBack, navigate }: { title: string; onBack:
             <>
               <div className="doctor-at muted">{doctorAtText(view)}</div>
               <DoctorGroups view={view} onAction={act} busy={busy} />
+              {view.watch !== undefined && <DoctorWatchSection watch={view.watch} onUnmute={unmute} busy={unmuting} />}
             </>
           )}
         </div>

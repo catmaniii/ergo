@@ -380,5 +380,17 @@
   "doctor.dbWal.ok": "Small (largest: {size})",
   "doctor.dbWal.big": "Larger than {limit}: {files}",
   "doctor.dbWal.file": "{db}: {size}",
-  "doctor.fix.dbWal": "ergo folds it back into the database when it restarts; if it's still this big after a restart, tell the developers"
+  "doctor.fix.dbWal": "ergo folds it back into the database when it restarts; if it's still this big after a restart, tell the developers",
+  "doctor.watch.title.error": "{name} is broken",
+  "doctor.watch.title.warn": "{name} has a problem",
+  "doctor.watch.source": "Checkup",
+  "doctor.watch.fix": "How to fix: {fix}",
+  "doctor.watch.note": "ergo checks this in the background every {minutes} minutes and only adds it to the Inbox after several bad checks in a row; it closes by itself once fixed.",
+  "doctor.watch.intro": "Watching in the background: every {minutes} minutes ergo looks at backups, the nightly memory tidy-up, speech synthesis and recognition (only if turned on), recent model calls and conversation length. Several bad checks in a row go into the Inbox; they close by themselves once fixed.",
+  "doctor.watch.muted": "You chose \"Don't remind me about this\" for these, so they won't go into the Inbox even if they go bad:",
+  "doctor.watch.mutedAt": "muted since {time}",
+  "doctor.watch.unmute": "Remind me again",
+  "doctor.watch.unmuting": "Turning back on…",
+  "doctor.watch.unmuted": "Back on: {name} will go into the Inbox if it goes bad",
+  "doctor.watch.unmuteFailed": "Couldn't turn reminders back on: {error}"
 }

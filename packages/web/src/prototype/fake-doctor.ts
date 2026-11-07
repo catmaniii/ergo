@@ -32,6 +32,8 @@ import {
   type DoctorLevel,
   type DoctorMessage,
   type DoctorView,
+  type DoctorWatchKey,
+  type DoctorWatchView,
   formatDate,
   formatList,
   formatNumber,
@@ -434,5 +436,22 @@ function attemptView<T>(fn: () => T): Promise<T> {
     return Promise.resolve(fn());
   } catch (err) {
     return Promise.reject(err instanceof Error ? err : new Error(String(err)));
+  }
+}
+
+/**
+ * 后台盯着（416）的那一段：每 5 分钟；编的一项"不再提醒"——对话长度（体检页上它是注意，用户嫌它天天提醒点了不再提醒）。
+ * 名字用守护进程同一个文案键按当前语言拼（真的守护进程也这样拼）；"恢复提醒"了就拿掉（刷新页面回到编好的样子）
+ */
+export class FakeDoctorWatch {
+  private muted: Array<DoctorWatchKey & { titleKey: string; at: string }> = [{ group: DOCTOR_CORE_GROUP, id: "context", titleKey: "doctor.check.context.title", at: "2026-11-06T13:40:00.000Z" }];
+
+  view(): DoctorWatchView {
+    return { everyMinutes: 5, muted: this.muted.map((entry) => ({ group: entry.group, id: entry.id, title: t(entry.titleKey), at: entry.at })) };
+  }
+
+  unmute(key: DoctorWatchKey): DoctorWatchView {
+    this.muted = this.muted.filter((entry) => entry.group !== key.group || entry.id !== key.id);
+    return this.view();
   }
 }

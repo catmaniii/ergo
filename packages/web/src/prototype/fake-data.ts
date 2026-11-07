@@ -33,6 +33,10 @@ import {
   type PairedDevice,
   APP_UPGRADE_ACTION,
   type AppOutdatedNoticeData,
+  DOCTOR_CORE_GROUP,
+  DOCTOR_MUTE_ACTION,
+  DOCTOR_OPEN_ACTION,
+  type DoctorProblemNoticeData,
   OUT_OF_SCOPE_ACK,
   PHONE_CALENDAR_EMPTY_ACTIONS,
   REVERIFY_ACTIONS,
@@ -638,7 +642,7 @@ function cardItem(x: Fresh & { cardId: string }): InboxItem {
   return { kind: "card", version: 1, pinned: false, archived: false, deleted: false, ...x };
 }
 
-function notice(x: Fresh & { notice: NoticeType; body: string; actions: string[]; pinned?: boolean; archiveList?: ArchiveListData["archiveList"]; data?: ReverifyNoticeData | AppOutdatedNoticeData }): InboxItem {
+function notice(x: Fresh & { notice: NoticeType; body: string; actions: string[]; pinned?: boolean; archiveList?: ArchiveListData["archiveList"]; data?: ReverifyNoticeData | AppOutdatedNoticeData | DoctorProblemNoticeData }): InboxItem {
   const { archiveList, data, ...rest } = x;
   return { kind: "notice", version: 1, pinned: false, archived: false, deleted: false, ...rest, ...(archiveList ? { data: { archiveList } satisfies ArchiveListData } : data ? { data: { ...data } } : {}) };
 }
@@ -735,7 +739,21 @@ const FAKE_INBOX_ITEMS: InboxItem[] = [
     read: false,
     actions: [PHONE_CALENDAR_EMPTY_ACTIONS.clear, PHONE_CALENDAR_EMPTY_ACTIONS.keep],
   }),
-  notice({ id: "i-backup", notice: "backup_failed", title: "昨晚的备份没写进同步目录", body: "03:30 的备份：快照已在本机做好，但配置里的同步目录（网盘的同步文件夹）不存在。", source: "系统", urgency: "non_blocking", createdAt: at("10-07", "03:31"), read: false, actions: ["重试", "知道了"] }),
+  // 用户把这条归档了、同步目录还是没修：体检后台盯着连着几轮看到备份有问题，放了下面那条"体检发现"（备份自己的通知开着时不重复放）
+  notice({ id: "i-backup", notice: "backup_failed", title: "昨晚的备份没写进同步目录", body: "03:30 的备份：快照已在本机做好，但配置里的同步目录（网盘的同步文件夹）不存在。", source: "系统", urgency: "non_blocking", createdAt: at("10-07", "03:31"), read: true, archived: true, actions: ["重试", "知道了"] }),
+  // 体检后台盯着（416）：备份那一项连着 3 轮"注意"，放进待办；"去体检页看看"去设置 · 体检，"不再提醒这件事"以后不再放
+  notice({
+    id: "i-doctor-backup",
+    notice: "doctor_problem",
+    title: "备份有问题",
+    body: "最近一次（10/7 03:30）本机快照做好了，写进另存的文件夹时失败：同步目录不存在\n从 10/7 03:31 起\n怎么修：去设置 · 备份看最近一次失败的原因，修好后点「立即备份」\n二狗在后台每 5 分钟看一眼，连着几次都这样才放进待办；修好了这条会自动收起。",
+    source: "体检",
+    urgency: "non_blocking",
+    createdAt: at("10-07", "09:46"),
+    read: false,
+    actions: [DOCTOR_OPEN_ACTION, DOCTOR_MUTE_ACTION],
+    data: { group: DOCTOR_CORE_GROUP, id: "backup", level: "warn", title: { key: "doctor.check.backup.title" }, since: at("10-07", "03:31") },
+  }),
   notice({ id: "i-sjob", notice: "scheduled_job_auto_paused", title: "定时触发的任务「每周日备份照片」已自动暂停", body: "连续失败 3 次（10-04、09-27、09-20），最近一次：NAS 没挂载。", source: "项目「相册库」", urgency: "non_blocking", createdAt: at("10-04", "03:05"), read: true, actions: ["恢复", "保持暂停"] }),
   notice({
     id: "i-archive",

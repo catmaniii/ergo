@@ -1211,6 +1211,7 @@
   "ui.inboxNotice.kind.componentUpdateAvailable": "Component update",
   "ui.inboxNotice.kind.appOutdated": "App update needed",
   "ui.inboxNotice.kind.folderGrantExpiring": "Folder grant expiring",
+  "ui.inboxNotice.kind.doctorProblem": "Checkup found",
   "ui.inboxNotice.kind.handOver": "For me to do",
   "ui.inboxNotice.kind.holidayDataMissing": "Holiday data missing",
   "ui.inboxNotice.kind.watchCategoriesBroken": "Watch category settings have a problem",

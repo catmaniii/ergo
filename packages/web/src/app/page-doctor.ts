@@ -2,7 +2,7 @@
 // 纯的部分（请求、总状态那几句、几种结果的叫法）在 app/doctor.ts，那边能在 Node 里直接测；分工照 app/setup.ts / app/page-setup.ts。
 // 演示页也走 DaemonHttp：原型的假 HTTP 给编好的一份（prototype/fake-doctor.ts），不请求网络。
 import { useCallback, useEffect, useState } from "react";
-import type { DoctorDeepView, DoctorView } from "../state/index.ts";
+import type { DoctorDeepView, DoctorView, DoctorWatchView } from "../state/index.ts";
 import { doctorDeepNow, doctorDeepWaitSeconds, loadDoctor, loadDoctorDeep, startDoctorDeep } from "./doctor.ts";
 import { useLocale } from "./locale.ts";
 import { useStore } from "./store.tsx";
@@ -18,6 +18,8 @@ export interface DoctorState {
   error?: string | undefined;
   /** 再查一遍（右上的按钮） */
   recheck(): void;
+  /** 后台盯着那一段换成新的（"恢复提醒"之后守护进程回的），不用整份再查 */
+  updateWatch(watch: DoctorWatchView): void;
 }
 
 /**
@@ -72,7 +74,9 @@ export function useDoctor(): DoctorState {
     );
   }, [http]);
 
-  return { view, loading, error, recheck };
+  const updateWatch = useCallback((watch: DoctorWatchView) => setView((current) => (current === undefined ? current : { ...current, watch })), []);
+
+  return { view, loading, error, recheck, updateWatch };
 }
 
 /** 深度体检正在测时多久取一次（毫秒） */

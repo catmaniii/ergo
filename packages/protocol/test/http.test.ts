@@ -15,6 +15,12 @@ describe("HTTP 接口的路径", () => {
     expect(parseHttpPath(HTTP_PATHS.androidAppPackage)).toEqual({ route: "android_app_package" });
     expect(parseHttpPath("/api/app-update/harmony.hap")).toBeUndefined();
     expect(parseHttpPath("/api/app-update/android.apk/x")).toBeUndefined();
+    // 体检、体检页上"恢复提醒"（416）
+    expect(parseHttpPath(HTTP_PATHS.doctor)).toEqual({ route: "doctor" });
+    expect(HTTP_PATHS.doctorUnmute).toBe("/api/doctor/unmute");
+    expect(parseHttpPath(HTTP_PATHS.doctorUnmute)).toEqual({ route: "doctor_unmute" });
+    expect(parseHttpPath("/api/doctor/unmute/x")).toBeUndefined();
+    expect(parseHttpPath("/api/doctor/x")).toBeUndefined();
     // 目录授权：全部、删一条、一次清掉几条、使用记录
     expect(parseHttpPath(pathOf(HTTP_PATHS.folderGrants))).toEqual({ route: "folder_grants" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.folderGrant("fg-1")))).toEqual({ route: "folder_grant", grantId: "fg-1" });

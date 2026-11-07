@@ -70,6 +70,7 @@ import {
   type SetupView,
   type DoctorDeepView,
   type DoctorView,
+  type DoctorWatchView,
   type ModelTestResult,
   type ToolCallCleanupResult,
   type ToolCallDetail,
@@ -350,6 +351,8 @@ export const doctorApi = {
   deep: (baseUrl: string) => requestJson<DoctorDeepView & HttpErrorBody>(baseUrl, HTTP_PATHS.doctorDeep),
   /** 深度体检：开测 */
   deepStart: (baseUrl: string) => requestJson<DoctorDeepView & HttpErrorBody>(baseUrl, HTTP_PATHS.doctorDeep, { method: "POST", body: {} }),
+  /** 体检页上"恢复提醒"（416） */
+  unmute: (baseUrl: string, body: unknown) => requestJson<DoctorWatchView & HttpErrorBody>(baseUrl, HTTP_PATHS.doctorUnmute, { method: "POST", body }),
 };
 
 /** 设置里 agent 的联网搜索、读网页：取、整份存 */
