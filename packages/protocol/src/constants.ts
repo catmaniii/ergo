@@ -639,6 +639,11 @@ export const CARD_TYPES = [
    * 你点"确认"才建（看板运营中），"取消"什么都不建
    */
   "schedule_task",
+  /**
+   * 地图卡片：秘书的"画在地图上"（地图插件的 show_on_map）放进聊天的一张缩略地图——某一天的足迹、一组点、一条路线、
+   * 查地点和路线的结果；出来就是已处理（没有要你选的），点开进地图页看大的
+   */
+  "map",
 ] as const;
 
 export type CardType = (typeof CARD_TYPES)[number];
@@ -725,6 +730,8 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   runtime_question: 1,
   /** 秘书提议的定时任务 */
   schedule_task: 1,
+  /** 地图卡片（431） */
+  map: 1,
 };
 
 /** 卡片上的按钮动作（"对卡片做动作"请求里的动作名） */

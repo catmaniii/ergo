@@ -142,6 +142,7 @@ import type { UserNameService } from "../user-name/index.ts";
 import type { PersonalFilesService } from "../personal-files/index.ts";
 import type { ProjectOpsMcpApi, ServiceEventsApi } from "../projects/api.ts";
 import type { CalendarService } from "../calendar/api.ts";
+import type { MapDayService, MapDrawingService, MapService } from "../map/api.ts";
 import { latestAttachment } from "../conversation/attachments-view.ts";
 import { historyPage, isConversationChannel } from "../conversation/history.ts";
 import { RequestRejected } from "../errors.ts";
@@ -254,6 +255,21 @@ export interface HttpApiOptions {
    * 日历插件没启用时抛 not_allowed"日历插件没启用"（回 400 带这句）
    */
   calendar: CalendarService;
+  /**
+   * 地图页现在能用什么（GET /api/map/config）：是地图插件的服务，组合根经插件宿主现取，
+   * 地图插件没启用时抛 not_allowed"地图插件没启用"（回 400 带这句）
+   */
+  map: Pick<MapService, "config">;
+  /**
+   * 我的足迹（GET /api/map/day?date=）：某一天的点、停留、照片地点、常去的地方。是地图插件的服务，组合根经插件宿主现取，
+   * 地图插件没启用时抛"地图插件没启用"；日期写法不对、手机插件没启用也抛 RequestRejected（都回 400 带这句）
+   */
+  mapDay: MapDayService;
+  /**
+   * 聊天里的地图卡片（GET /api/map/drawing?lookup=）：查地点、算路线那一次查到的点和线（只在内存里）。是地图插件的服务，组合根现取，
+   * 地图插件没启用时抛"地图插件没启用"（400）；过期了、没有这个编号抛 not_found（404）
+   */
+  mapDrawing: MapDrawingService;
   /** token 账本：消耗页的汇总和粗估成本 */
   ledger: TokenLedger;
   /**
@@ -663,6 +679,24 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         return {
           GET(_req, res, url) {
             sendJson(res, 200, options.calendar.month(url.searchParams.get(HTTP_QUERY.month) ?? ""));
+          },
+        };
+      case "map_config":
+        return {
+          GET(_req, res) {
+            sendJson(res, 200, options.map.config());
+          },
+        };
+      case "map_day":
+        return {
+          GET(_req, res, url) {
+            sendJson(res, 200, options.mapDay.day(url.searchParams.get(HTTP_QUERY.date) ?? ""));
+          },
+        };
+      case "map_drawing":
+        return {
+          GET(_req, res, url) {
+            sendJson(res, 200, options.mapDrawing.drawing(url.searchParams.get(HTTP_QUERY.lookup) ?? ""));
           },
         };
       case "usage":

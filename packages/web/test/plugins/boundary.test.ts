@@ -37,9 +37,9 @@ const rel = (file: string) => path.relative(SRC, file).replaceAll("\\", "/");
 const ALL = sources();
 
 describe("网页插件的边界", () => {
-  test("找得到插件（扫的路子没走偏）：记忆、提醒、日历、语音、浏览、手机、Google、Looki、Claude Code、Codex十个插件，清单引了它们", () => {
+  test("找得到插件（扫的路子没走偏）：记忆、提醒、日历、语音、浏览、手机、Google、Looki、Claude Code、Codex、地图十一个插件，清单引了它们", () => {
     const dirs = fs.readdirSync(PLUGINS, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
-    expect(dirs.toSorted()).toEqual(["browsing", "calendar", "claude-code", "codex", "google", "looki", "memory", "phone", "reminders", "voice"]);
+    expect(dirs.toSorted()).toEqual(["browsing", "calendar", "claude-code", "codex", "google", "looki", "map", "memory", "phone", "reminders", "voice"]);
     const manifest = ALL.find((s) => s.file === MANIFEST)!;
     // 每个插件目录都在清单里
     expect(dirs.filter((d) => !manifest.imports.some((i) => pluginOf(i) === d))).toEqual([]);

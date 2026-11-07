@@ -145,6 +145,7 @@ Each row below is something it can do for you. Click the text on the left to see
 | [Use it on your phone](mobile.en.md) | Connect back to the computer at home from a phone browser or the app |
 | [Have it operate web pages](browser.en.md) | "Summarize this page"; "Post the photos I took in Hangzhou at the weekend". Only in the phone app |
 | [See your calendar, set reminders](calendar-reminders.en.md) | "Remind me to pay the rent at 9 am on the 8th of every month"; see which days are workdays and which are days off (by Chinese and Singaporean public holidays) |
+| [Maps](map.en.md) | AMap inside mainland China, OpenStreetMap abroad, switching as you look around; an AMap key makes the map inside China clearer |
 | [Bring in outside data](data-sources.en.md) | Connect Google Calendar, Gmail or a wearable camera, then ask "What did that flight email last month say?" For now, contacts and photos on a phone can only be connected through the HarmonyOS app |
 | [Have Claude Code write code](claude-code.en.md) | Claude Code is an AI tool for writing code. If it's installed on your computer, owners can work through it, using your own subscription quota |
 | [Have Codex write code](codex.en.md) | Codex is a similar tool. If it's installed on your computer, owners can work through it too; what the guard covers is spelled out |

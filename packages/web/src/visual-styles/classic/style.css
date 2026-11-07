@@ -52,6 +52,10 @@
 :root[data-style="classic"] [data-nav="memory"] {
   --classic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3.1 20.9 8 12 12.9 3.1 8z' stroke='black' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M3.4 12.7 12 17.4l8.6-4.7' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3.4 16.9 12 21.6l8.6-4.7' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
+/* 地图（地图插件）：折起来的一张地图，两道折痕镂空 */
+:root[data-style="classic"] [data-nav="map"] {
+  --classic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3Cmask id='m'%3E%3Crect width='24' height='24' fill='white'/%3E%3Cpath d='M9 5.2v12.6M15 7.4v12.6' stroke='black' stroke-width='1.6'/%3E%3C/mask%3E%3C/defs%3E%3Cpath d='M9 4.2 3 6.7v13.6l6-2.5 6 2.5 6-2.5V4.2l-6 2.5z' mask='url(%23m)'/%3E%3C/svg%3E");
+}
 /* 设置：齿轮（中间镂空） */
 :root[data-style="classic"] [data-nav="settings"] {
   --classic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' stroke='black' stroke-width='1' stroke-linejoin='round' d='M10.23 4.61L10.51 2.01A10.1 10.1 0 0 1 13.49 2.01L13.77 4.61A7.6 7.6 0 0 1 15.97 5.52L18.01 3.88A10.1 10.1 0 0 1 20.12 5.99L18.48 8.03A7.6 7.6 0 0 1 19.39 10.23L21.99 10.51A10.1 10.1 0 0 1 21.99 13.49L19.39 13.77A7.6 7.6 0 0 1 18.48 15.97L20.12 18.01A10.1 10.1 0 0 1 18.01 20.12L15.97 18.48A7.6 7.6 0 0 1 13.77 19.39L13.49 21.99A10.1 10.1 0 0 1 10.51 21.99L10.23 19.39A7.6 7.6 0 0 1 8.03 18.48L5.99 20.12A10.1 10.1 0 0 1 3.88 18.01L5.52 15.97A7.6 7.6 0 0 1 4.61 13.77L2.01 13.49A10.1 10.1 0 0 1 2.01 10.51L4.61 10.23A7.6 7.6 0 0 1 5.52 8.03L3.88 5.99A10.1 10.1 0 0 1 5.99 3.88L8.03 5.52A7.6 7.6 0 0 1 10.23 4.61zM12 8.9a3.1 3.1 0 1 0 0 6.2a3.1 3.1 0 1 0 0 -6.2z'/%3E%3C/svg%3E");

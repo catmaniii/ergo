@@ -12,6 +12,10 @@ export const DEMO_SENTINELS: readonly string[] = [
   "p-fake-mom",
   "project-ledger",
   "ergo.tail.example.com",
+  // 地图页演示用的假高德 Key
+  "demo-amap-key-not-real",
+  // 地图页演示用的假足迹（编号前缀）
+  "demo-fp-",
   // 中文：记忆管理员的假访谈（0.4.1 的真页面里显示过这些）、看板和项目上的假名字
   "示例实验小学",
   "我是个什么样的人",

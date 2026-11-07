@@ -11,9 +11,11 @@ import { EN_CONVERSATIONS } from "./fake-conversations.ts";
 import { EN_DATA_SOURCES } from "./fake-data-sources.ts";
 import { EN_DOCTOR } from "./fake-doctor.ts";
 import { EN_DATA } from "./fake-data.ts";
+import { EN_FOOTPRINTS } from "./fake-footprints.ts";
 import { EN_HTTP } from "./fake-http.ts";
 import { EN_LONG_TASKS } from "./fake-long-tasks.ts";
 import { EN_MANAGED_SERVICES } from "./fake-managed-services.ts";
+import { EN_MAP } from "./fake-map.ts";
 import { EN_MATERIALS } from "./fake-materials.ts";
 import { EN_MEDIA } from "./fake-media.ts";
 import { EN_MEMORY_GRAPH } from "./fake-memory-graph.ts";
@@ -42,9 +44,11 @@ export const EN_PHRASES: Phrases = {
   ...EN_DATA_SOURCES,
   ...EN_DOCTOR,
   ...EN_DATA,
+  ...EN_FOOTPRINTS,
   ...EN_HTTP,
   ...EN_LONG_TASKS,
   ...EN_MANAGED_SERVICES,
+  ...EN_MAP,
   ...EN_MATERIALS,
   ...EN_MEDIA,
   ...EN_MEMORY_GRAPH,

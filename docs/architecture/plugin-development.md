@@ -934,6 +934,7 @@ export const remindersPlugin: PluginDefinition = {
 | `DataSourcePush`、`DataSourcePushOutcome`、`DataSourceCalendarEvent` | `packages/daemon/src/data-sources/api.ts` | 设备交来的、交回的、交给日历插件的一条日程 |
 | `KERNEL.externalCalendars` | `packages/daemon/src/plugins/kernel.ts` | 数据源交给日历插件的外部日历（内核服务） |
 | `KERNEL.dataSourceSync`、`DataSourcePreSync` | `packages/daemon/src/plugins/kernel.ts` | 记忆整理之前把能由电脑拉的数据源各同步一次（内核服务，数据源服务起来之前叫的等它起来） |
+| `KERNEL.dataSourceSecrets` | `packages/daemon/src/plugins/kernel.ts` | 插件在数据源的函数之外现取自己那个数据源的密钥区那一格（地图插件转发高德请求时拼安全密钥；内核服务） |
 | `PullableSync` | `packages/daemon/src/data-sources/service.ts` | 整理之前同步时一个数据源的那一次：开始了（同步的结果）、刚同步过、连接出错没同步 |
 | `fakeDataSourcePlugin` | `packages/daemon/test/helpers/fake-data-source.ts` | 测试用的假数据源插件 |
 | `DataSourceSchedule`、`DataSourceItem` | `packages/daemon/src/data-sources/api.ts` | 定期导入的时间（提醒那一套或每隔几分钟）、数据源下面的一样 |

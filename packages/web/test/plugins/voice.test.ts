@@ -58,6 +58,7 @@ describe("语音插件的网页这一半", () => {
       ["google", "running"],
       ["looki", "running"],
       ["codex", "running"],
+      ["map", "running"],
     ]);
     expect(host.running("voice")).toBe(false);
     // 设置页里只剩别的插件的（设置 · Claude Code、设置 · Codex）

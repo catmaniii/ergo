@@ -9,6 +9,7 @@
 // 为记忆插件加了记忆插件槽（按原话记一条、每条消息的简报，转给在跑的那个记忆插件）。
 // 为记忆插件加了整理前同步一遍（数据源的服务把能由电脑拉的各同步一次）。
 // 为语音插件的体检项加了语音在这台电脑上是怎么配的（组件页的功能门、服务管家里登记在某端口的服务、服务管家的网页、有没有 N 卡）。
+// 为地图插件加了数据源密钥区里自己那一格（转发高德的请求时拼安全密钥）。
 import type { ChatModel } from "@ergo/memory";
 import type { CalendarExternalEntry, MemoryBriefInput, MemoryBriefResult, MemoryHealth, MemoryItem, MemoryProviderInfo, MemoryRememberInput } from "@ergo/protocol";
 import type { HostToolCall } from "../agent-manager/host-tools.ts";
@@ -17,7 +18,7 @@ import type { ElementToRemember } from "../browsing/api.ts";
 import type { CardService } from "../cards/cards.ts";
 import type { DataDirLayout } from "../config/data-dir.ts";
 import type { ErgoConfig } from "../config/config.ts";
-import type { CalendarFetchProblem, PullableSync } from "../data-sources/index.ts";
+import type { CalendarFetchProblem, DataSourceSecretStore, PullableSync } from "../data-sources/index.ts";
 import type { EphemeralBus } from "../events/ephemeral.ts";
 import type { EventTriggers } from "../event-sources/index.ts";
 import type { EventStore } from "../events/event-store.ts";
@@ -237,6 +238,11 @@ export const KERNEL = {
   elementFiles: serviceKey<ElementFiles>("elementFiles"),
   /** 记忆整理之前把能由电脑拉的数据源各同步一次（见 DataSourcePreSync）。数据源的服务建在插件装配之后，组合根现转给它 */
   dataSourceSync: serviceKey<DataSourcePreSync>("dataSourceSync"),
+  /**
+   * 数据源密钥区里某一格（data-sources/secrets.ts 的 forSource）：插件在数据源的函数之外现取自己登记的那个数据源的密钥——
+   * 地图插件转发高德的请求时拼安全密钥。只取自己的；取到的是现读的（填设置、断开之后马上跟着变），不打印、不交给页面
+   */
+  dataSourceSecrets: serviceKey<Pick<DataSourceSecretStore, "forSource">>("dataSourceSecrets"),
 } as const;
 
 /** 内核提供的全部服务（建插件宿主时交给它，排依赖用） */

@@ -56,7 +56,7 @@ describe("按真守护进程报的状况装", () => {
     const host = createWebPluginHost({ plugins: WEB_PLUGIN_MANIFEST, log: () => {} });
     host.apply(state.pluginStatus?.plugins);
     expect(host.running("looki")).toBe(true);
-    expect(host.list("dataSources").map((e) => e.id)).toEqual(["phone-contacts", "phone-calendar", "phone-photos", "phone-location", "google-calendar", "google-gmail", "google-contacts", "looki"]);
+    expect(host.list("dataSources").map((e) => e.id)).toEqual(["phone-contacts", "phone-calendar", "phone-photos", "phone-location", "google-calendar", "google-gmail", "google-contacts", "looki", "amap"]);
     expect(host.ownerOf("dataSources", "looki")?.name).toBe("looki");
   });
 

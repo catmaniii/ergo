@@ -39,6 +39,12 @@
 //   job-runs.ts：一次运行的触发怎么说、老的运行补上触发、以前的定时作业的判定（守护进程和 Web 共用这一处）。
 // - calendar.ts / calendar-schema.ts：日历（按月看的每一天：工作日判定、当天的提醒和定时作业）的名字、纯函数（不引用 TypeBox）
 //   和 schema。
+// - geo.ts：地图的坐标（WGS-84 和高德的 GCJ-02 互转、在不在中国大陆、两点距离），纯函数；map.ts / map-schema.ts：地图插件的瓦片转发、
+//   高德安全密钥代理的地址，地图页要的设置（GET /api/map/config）的 schema。
+// - map-day.ts / map-day-schema.ts：地图上的"我的足迹"（GET /api/map/day?date=：某天的点、停留、照片地点、常去的地方，430）的日期、
+//   地图页地址里的日期，和响应的 schema。
+// - map-card.ts / map-card-schema.ts：聊天里的地图卡片（431：卡片类型 map 的负载、点开去地图页的哪里）和查地点、算路线查到的能画的那一份
+//   （GET /api/map/drawing?lookup=）的 schema。
 // - assistant-name.ts / assistant-name-schema.ts：个人助理的名字（起名的规则、守护进程生成的话里的名字占位，不引用 TypeBox）
 //   和名字事件、配置文件、设置接口的 schema。
 // - personal-files.ts / personal-files-schema.ts：个人档案——本人和重要的人各一份；有哪些字段、叫什么、哪些算号码
@@ -170,6 +176,13 @@ export * from "./scheduled-job-schema.ts";
 export * from "./job-runs.ts";
 export * from "./calendar.ts";
 export * from "./calendar-schema.ts";
+export * from "./geo.ts";
+export * from "./map.ts";
+export * from "./map-schema.ts";
+export * from "./map-day.ts";
+export * from "./map-day-schema.ts";
+export * from "./map-card.ts";
+export * from "./map-card-schema.ts";
 export * from "./assistant-name.ts";
 export * from "./assistant-name-schema.ts";
 export * from "./user-name.ts";

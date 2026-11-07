@@ -1,0 +1,342 @@
+/*
+ * 地图上的"我的足迹"（地图插件，plugins/map/DayFootprints.tsx、footprints.ts）：
+ * - 标题栏下面一条：前一天、日期、后一天，这一天的概况，"足迹"开关；
+ * - 地图上：轨迹线、停留点（定位针，旁边写名字和待了多久）、照片小点（空心圆，旁边写几点拍的）、
+ *   常去的地方（范围圈，这一天没去的另写名字）。足迹的点编号都以 fp- 开头，样式按 data-id、data-kind 挑；
+ * - 宽的时候地图左边一栏列这一天，窄的时候地图下面一张卡（详情或列表）。
+ * 只用 token，十一套风格都跟着换皮。
+ */
+.map-stage {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ---- 选日期的一条 ---- */
+.map-day-bar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 6px var(--space-page);
+  border-bottom: 1px solid var(--border);
+  background: var(--bar-bg);
+}
+.map-day-pick {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+.map-day-pick .icon-btn {
+  padding: 6px;
+}
+.map-day-pick .icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.map-day-date {
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-num);
+  font-size: var(--fs-s);
+  color-scheme: light dark;
+}
+.map-day-note {
+  display: flex;
+  flex: 1 1 160px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+}
+.map-day-summary {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--fs-s);
+  text-align: left;
+}
+button.map-day-summary {
+  color: var(--text);
+  cursor: pointer;
+}
+.map-day-bar[data-loading] .map-day-summary {
+  opacity: 0.7;
+}
+.map-day-summary[data-error] {
+  color: var(--reject-fg);
+}
+.map-day-note .btn {
+  flex: none;
+  max-width: 100%;
+}
+.map-day-layer {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--card-border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: var(--fs-s);
+}
+.map-day-layer[aria-pressed="true"] {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* ---- 地图上 ---- */
+.map-line-track {
+  stroke-width: 4;
+  stroke-opacity: 0.75;
+}
+/* 停留点：字最多这么宽，长的地名收成省略号 */
+.map-mark[data-kind="stay"] .map-mark-label {
+  max-width: 200px;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+/* 照片小点：14×14 的空心圆。按钮本身 14×14、圆往下挪半个，按钮底边（两种底图都按它摆）正好在圆心 */
+.map-mark[data-kind="photo"] {
+  width: 14px;
+  height: 14px;
+}
+.map-osm .map-mark[data-kind="photo"] {
+  margin: -14px 0 0 -7px;
+}
+.map-mark[data-kind="photo"] .map-pin {
+  left: 0;
+  top: 7px;
+  width: 14px;
+  height: 14px;
+  border: 3px solid var(--primary);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-btn);
+  transform: none;
+}
+.map-mark[data-kind="photo"] .map-pin::after {
+  content: none;
+}
+.map-mark[data-kind="photo"] .map-mark-label {
+  left: 16px;
+  top: 5px;
+  padding: 0 4px;
+  color: var(--muted);
+  font-family: var(--font-num);
+  font-size: var(--fs-2xs);
+}
+/* 常去的地方（这一天没去的）：不画针，只在范围圈中间写名字 */
+.map-mark[data-id^="fp-place-"] {
+  width: 10px;
+  height: 10px;
+}
+.map-osm .map-mark[data-id^="fp-place-"] {
+  margin: -10px 0 0 -5px;
+}
+.map-mark[data-id^="fp-place-"] .map-pin {
+  left: 2px;
+  top: 7px;
+  width: 6px;
+  height: 6px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: none;
+  transform: none;
+}
+.map-mark[data-id^="fp-place-"] .map-pin::after {
+  content: none;
+}
+.map-mark[data-id^="fp-place-"] .map-mark-label {
+  left: 10px;
+  top: 3px;
+  border-color: transparent;
+  background: var(--surface);
+  color: var(--muted);
+  box-shadow: none;
+  opacity: 0.9;
+}
+
+/* ---- 宽的时候左边一栏 ---- */
+.map-day-panel {
+  position: absolute;
+  z-index: 300;
+  left: 10px;
+  top: 44px;
+  display: flex;
+  flex-direction: column;
+  width: 296px;
+  max-height: calc(100% - 72px);
+  height: fit-content;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+}
+.map-day-panel-head {
+  flex: none;
+  padding: 10px 12px 6px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.map-day-panel .map-day-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ---- 窄的时候下面一张卡 ---- */
+.map-day-card {
+  position: absolute;
+  z-index: 300;
+  left: 10px;
+  right: 10px;
+  bottom: 28px;
+  max-height: 55%;
+  padding: 10px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  overflow-y: auto;
+}
+
+/* ---- 列表 ---- */
+.map-day-list {
+  margin: 0;
+  padding: 0 0 6px;
+  list-style: none;
+}
+.map-day-entry + .map-day-entry {
+  border-top: 1px solid var(--border);
+}
+.map-day-entry-btn {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.map-day-card .map-day-entry-btn {
+  padding: 8px 0;
+}
+.map-day-entry[data-selected] > .map-day-entry-btn {
+  background: var(--fill);
+}
+@media (hover: hover) {
+  .map-day-entry-btn:hover {
+    background: var(--fill);
+  }
+}
+.map-day-time {
+  color: var(--muted);
+  font-family: var(--font-num);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.map-day-entry-btn .map-day-time {
+  grid-row: span 2;
+  padding-top: 2px;
+}
+.map-day-entry-title {
+  overflow: hidden;
+  font-size: var(--fs-s);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.map-day-entry[data-kind="photos"] .map-day-entry-title {
+  font-weight: 400;
+}
+.map-day-entry-sub {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.map-day-entry-note {
+  padding: 8px 12px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.map-day-card .map-day-entry-note {
+  padding: 8px 0;
+}
+.map-day-privacy {
+  flex: none;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: var(--fs-2xs);
+}
+.map-day-card .map-day-privacy {
+  padding: 8px 0 0;
+}
+
+/* ---- 一处的详情 ---- */
+.map-day-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.map-day-panel .map-day-detail {
+  padding: 4px 12px 12px;
+  background: var(--fill);
+}
+.map-day-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.map-day-detail-head .icon-btn {
+  margin-left: auto;
+  padding: 4px;
+}
+.map-day-detail-title {
+  font-size: var(--fs-m);
+}
+.map-day-detail-sub {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.map-day-visits {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-s);
+}
+.map-day-visits li {
+  display: flex;
+  gap: 10px;
+}
+.map-day-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}

@@ -16,11 +16,15 @@
 //   做不成的原因写在那一块里（refused，下一次填设置时清掉）；
 // - 整理摘要时把起了名的地方交给 summaries.ts，地点按"起了名的 > 系统地名 > 坐标"写；改名后以前的摘要不动，往后的用新名；
 // - 断开"手机 · 位置"并连已导入的一起删时起了名的地方一起删（断开的确认框里说一句）。
+// 足迹（430）：地图页的"我的足迹"按天取（footprints，地图插件的 GET /api/map/day 经它）——那一天的位置点、停留、有地点的照片、
+// 起了名的常去的地方，由 footprints.ts 现算（纯函数，不联网、不调地图服务）；日期写法不对的不读文件。
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import {
   formatList,
   localDate,
+  type MapDayView,
+  mapDateProblem,
   nowIso,
   PHONE_PLACE_DAYS,
   PHONE_PLACE_NAME_MAX,
@@ -47,6 +51,7 @@ import {
   type PhoneDaySummaryPayload,
   type PhoneMediaStatusPayload,
 } from "./events.ts";
+import { dayFootprints } from "./footprints.ts";
 import { addressNear, frequentPlaces, openPlacesStore, type PhonePlace, type PointsOfDay } from "./places.ts";
 import { openRawStore, type RawItem, type RawPhoto, type RawPoint, type RawStore } from "./raw-store.ts";
 import { dateOfIso, type DaySummary, type NamedPlace, summarizeLocation, summarizePhotos } from "./summaries.ts";
@@ -80,6 +85,11 @@ export interface PhoneMediaService {
   clearLocationRaw(dates: readonly string[]): number;
   /** 常去的地方：起名、改名、删、手动加一处（values.places 是哪一样，见协议包 phone.ts）；交回"手机 · 位置"不算出错的状态 */
   configurePlaces(values: Readonly<Record<string, string>>): DataSourceStatus;
+  /**
+   * 某一天（YYYY-MM-DD）的足迹：位置点、停留、有地点的照片、起了名的常去的地方，有足迹的日子（地图页、秘书画在地图上用）。
+   * 只读插件自己的存储、现算，不联网；日期写法不对抛 RequestRejected（bad_params）
+   */
+  footprints(date: string): MapDayView;
 }
 
 /** 一种（照片、位置）的那几样 */
@@ -394,6 +404,18 @@ export function createPhoneMediaService(options: PhoneMediaServiceOptions): Phon
     clearLocationRaw: (dates) => {
       placesCache = undefined;
       return location.raw.clear(dates, options.nowMs());
+    },
+    footprints(date) {
+      const problem = mapDateProblem(date);
+      if (problem !== undefined) throw new RequestRejected("bad_params", problem);
+      return dayFootprints({
+        date,
+        points: location.raw.itemsOf(date),
+        photos: photos.raw.itemsOf(date),
+        places: places.list(),
+        days: [...location.raw.days(), ...photos.raw.days()].map((d) => d.date),
+        linked: { location: mediaStatus(store, PHONE_LOCATION_STATUS)?.linked === true, photos: mediaStatus(store, PHONE_PHOTOS_STATUS)?.linked === true },
+      });
     },
     configurePlaces(values) {
       placesRefused = applyPlaces(values);

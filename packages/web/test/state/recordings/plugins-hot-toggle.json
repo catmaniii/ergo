@@ -60,6 +60,11 @@
             "name": "codex",
             "title": "Codex",
             "state": "running"
+          },
+          {
+            "name": "map",
+            "title": "地图",
+            "state": "running"
           }
         ]
       }
@@ -81,9 +86,9 @@
           },
           "nextAt": "2099-10-08T09:00:00.000+08:00",
           "status": "pending",
-          "cardId": "c-2b5e8a43-165b-456c-92fc-a9cbe80b1c66",
-          "createdAt": "2026-11-02T06:47:02.802+08:00",
-          "updatedAt": "2026-11-02T06:47:02.802+08:00"
+          "cardId": "c-e536afa3-585a-4c70-9f71-87a5101abd1c",
+          "createdAt": "2026-11-07T21:34:31.309+08:00",
+          "updatedAt": "2026-11-07T21:34:31.309+08:00"
         },
         "change": "created",
         "by": "user"
@@ -98,9 +103,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-2b5e8a43-165b-456c-92fc-a9cbe80b1c66",
+          "id": "c-e536afa3-585a-4c70-9f71-87a5101abd1c",
           "type": "reminder",
-          "typeVersion": 4,
+          "typeVersion": 5,
           "version": 1,
           "status": "pending",
           "payload": {
@@ -114,7 +119,7 @@
             "nextAt": "2099-10-08T09:00:00.000+08:00"
           },
           "text": "简单提醒：交报告 · 10 月 8 日（周四）09:00",
-          "createdAt": "2026-11-02T06:47:02.802+08:00"
+          "createdAt": "2026-11-07T21:34:31.309+08:00"
         }
       }
     }
@@ -176,6 +181,11 @@
             "name": "codex",
             "title": "Codex",
             "state": "running"
+          },
+          {
+            "name": "map",
+            "title": "地图",
+            "state": "running"
           }
         ]
       }
@@ -237,6 +247,11 @@
           {
             "name": "codex",
             "title": "Codex",
+            "state": "running"
+          },
+          {
+            "name": "map",
+            "title": "地图",
             "state": "running"
           }
         ]
@@ -300,6 +315,11 @@
             "name": "codex",
             "title": "Codex",
             "state": "running"
+          },
+          {
+            "name": "map",
+            "title": "地图",
+            "state": "running"
           }
         ]
       }
@@ -313,7 +333,7 @@
       "type": "plugin_data_purged",
       "payload": {
         "plugin": "reminders",
-        "at": "2026-11-02T06:47:02.885+08:00",
+        "at": "2026-11-07T21:34:31.395+08:00",
         "eventTypes": [
           "reminder"
         ],

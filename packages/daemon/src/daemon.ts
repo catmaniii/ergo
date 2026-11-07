@@ -51,6 +51,7 @@ import { type BackupService, createBackupService } from "./backup/backup.ts";
 import type { SnapshotFiles } from "./backup/files.ts";
 import { BoardKindRegistry, type BoardKinds } from "./board/kinds.ts";
 import { CALENDAR } from "./calendar/api.ts";
+import { MAP, MAP_DAY, MAP_DRAWING } from "./map/api.ts";
 import { cardPurge, type CardService, createCardService } from "./cards/cards.ts";
 import { createRuntimeQuestions, runtimeQuestionCardType } from "./conversation/runtime-questions.ts";
 import { createSessionRollbacks, type RollbackSession, type SessionRollbackHook } from "./conversation/rollback.ts";
@@ -1405,6 +1406,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 体检项（409）：插件在 setup 里经 ctx.doctor 登记的检查进这里（带插件名，停用时撤掉），内核自己的检查也登记在这里（不带插件名，
     // 放"二狗本身"那一块）；体检（createDoctor）每次现查时并行跑它们
     const doctorChecks = createDoctorChecks();
+    // 数据源的密钥区：数据源的服务用它，插件也能现取自己那个数据源的那一格（KERNEL.dataSourceSecrets：地图插件转发高德时拼安全密钥）
+    const dataSourceSecrets = createDataSourceSecrets({ dir: layout.dataSourceSecrets, log });
     // 数据源的服务起来了（定期导入挂上、开机补的同步已经开始）：记忆整理之前同步一遍要等它（开机补跑的那一夜在它之前就开始了）
     let dataSourcesStarted!: (sources: DataSources) => void;
     const dataSourcesReady = new Promise<DataSources>((resolve) => (dataSourcesStarted = resolve));
@@ -1517,6 +1520,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         }),
         // 记忆插件要的：用户说"这张图记下来"时能带上的文件，现转给浏览插件（没在运行就只能记文字）
         bindService(KERNEL.elementFiles, { toRemember: (ref, call) => plugins.service(BROWSING)?.elementToRemember(ref, call) }),
+        // 地图插件要的：密钥区里它自己那个数据源（高德地图）的那一格，转发高德的请求时现取安全密钥
+        bindService(KERNEL.dataSourceSecrets, { forSource: (id) => dataSourceSecrets.forSource(id) }),
       ],
       surfaces: {
         cardTypes: registry,
@@ -1567,7 +1572,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const dataSources = createDataSources({
       registry: dataSourceRegistry,
       store,
-      secrets: createDataSourceSecrets({ dir: layout.dataSourceSecrets, log }),
+      secrets: dataSourceSecrets,
       settings: createDataSourceSettings({ file: layout.dataSourcesFile, log }),
       internalJobs,
       scheduler,
@@ -2984,6 +2989,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         language,
         // 主导航的日历：是日历插件的服务，现取；日历插件没启用时回"日历插件没启用"
         calendar: { month: (month) => plugins.active(CALENDAR).month(month) },
+        // 地图页现在能用什么：是地图插件的服务，现取；地图插件没启用时回"地图插件没启用"
+        map: { config: () => plugins.active(MAP).config() },
+        // 我的足迹：同样是地图插件的服务、现取（它再现取手机插件的）；不联网
+        mapDay: { day: (date) => plugins.active(MAP_DAY).day(date) },
+        // 地图卡片按编号取查地点、算路线查到的那一份：同样现取（只在地图插件的内存里）
+        mapDrawing: { drawing: (lookup) => plugins.active(MAP_DRAWING).drawing(lookup) },
         ledger,
         // 设置 · 语音（参考音色、两个模型的状态）、分段合成的段、Debug 工具集的语音组（经语音插件的服务现取）
         voice: () => plugins.service(VOICE),
@@ -3086,6 +3097,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       apps: createAppProxy({ registry: apps, log }),
       // 浏览侧边栏：连接报的浏览器、回的结果（交给浏览插件，现取；没启用时回"内置浏览器插件没启用"）
       browsers: () => plugins.service(BROWSING)?.links,
+      // 地图：瓦片转发、高德安全密钥代理（交给地图插件，现取；没启用时回"地图插件没启用"）
+      map: () => plugins.service(MAP),
       log,
     });
     teardown.push(() => gateway.close());

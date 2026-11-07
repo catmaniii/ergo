@@ -64,10 +64,10 @@ describe("运行中停用、启用、移除：网页插件跟着收起、放回�
       seen.push(`${host.list("pages").map((p) => p.id).join(",") || "-"} | ${host.list("calendar").map((c) => c.id).join(",") || "-"} | ${host.list("boardEntries").map((b) => b.kind).join(",") || "-"}`);
     }
     expect(seen).toEqual([
-      "calendar,memory | reminders | reminder,memory_curator",
-      "calendar | reminders | reminder",
-      "calendar,memory | reminders | reminder,memory_curator",
-      "calendar,memory | - | memory_curator",
+      "calendar,memory,map | reminders | reminder,memory_curator",
+      "calendar,map | reminders | reminder",
+      "calendar,memory,map | reminders | reminder,memory_curator",
+      "calendar,memory,map | - | memory_curator",
     ]);
     // 停了的拥有的位置交回占位的名字
     expect(host.unavailable("cards", "reminder")).toBe("提醒");
@@ -88,9 +88,9 @@ describe("运行中停用、启用、移除：网页插件跟着收起、放回�
       seen.push(`${navItemsFor({ browse: false, plugins: host.list("pages") }).join(",")} | ${host.unavailable("pages", "calendar") ?? "-"} | ${host.list("calendar").map((c) => c.id).join(",") || "-"}`);
     }
     expect(seen).toEqual([
-      "secretary,tasks,projects,inbox,calendar,usage,memory,settings | - | reminders",
-      "secretary,tasks,projects,inbox,usage,memory,settings | 日历 | reminders",
-      "secretary,tasks,projects,inbox,calendar,usage,memory,settings | - | reminders",
+      "secretary,tasks,projects,inbox,calendar,usage,memory,map,settings | - | reminders",
+      "secretary,tasks,projects,inbox,usage,memory,map,settings | 日历 | reminders",
+      "secretary,tasks,projects,inbox,calendar,usage,memory,map,settings | - | reminders",
     ]);
   });
 

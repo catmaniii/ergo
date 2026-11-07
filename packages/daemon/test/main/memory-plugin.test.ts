@@ -51,14 +51,14 @@ describe("记忆插件", () => {
   it("配置里停用记忆插件：照常起、不算降级；不采成素材但照样留原话副本；没有记忆命令、秘书没有素材检索、提示里不讲记忆命令；提醒、工作日历照常", async () => {
     const logs: string[] = [];
     const td = await startTestDaemon({
-      plugins: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"],
+      plugins: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"],
       log: (line) => logs.push(line),
       secretary: [call("propose_quick_action", { type: "remember", params: { content: "下周三上午体检" } }), echo],
     });
-    expect(td.daemon.plugins.report()).toEqual({ running: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], disabled: ["memory"], skipped: [] });
+    expect(td.daemon.plugins.report()).toEqual({ running: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"], disabled: ["memory"], skipped: [] });
     expect(logs).toContain("插件 memory（记忆）在配置里停用了");
     const health = (await (await fetch(new URL("/healthz", td.url))).json()) as Record<string, unknown>;
-    expect(health).toMatchObject({ status: "ok", plugins: { running: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], disabled: ["memory"], skipped: [] } });
+    expect(health).toMatchObject({ status: "ok", plugins: { running: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"], disabled: ["memory"], skipped: [] } });
 
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe(ALL);
@@ -67,10 +67,10 @@ describe("记忆插件", () => {
     // 没有记忆命令：秘书提了"记住"，运行时回没有这种动作，不出卡
     expect(seen).toContain("[toolResult] propose_quick_action: 没有登记这种快速动作：remember");
     expect(cardsOf(frontend)).toEqual([]);
-    // 秘书没有 search_materials、read_material、ask_memory、ask_curator、mark_woven_question（提醒的四个工具后面是内核的；Google 日历、Gmail、Looki 的按需查排在中间，没连上的不给），系统提示里不讲记忆命令，快速动作那一段照样通顺
+    // 秘书没有 search_materials、read_material、ask_memory、ask_curator、mark_woven_question（提醒的四个工具、地图插件的 show_on_map 后面是内核的；Google 日历、Gmail、Looki 的按需查排在中间，没连上的不给），系统提示里不讲记忆命令，快速动作那一段照样通顺
     const assembly = assemblyOf(seen);
     expect(assembly).not.toMatch(/search_materials|read_material|ask_memory|ask_curator|mark_woven_question|remember|forget|no_infer|ingest_material/);
-    expect(assembly).toContain("[tool] cancel_reminder\n[tool] archive_reminder\n[tool] mcp_call\n[tool] propose_quick_action");
+    expect(assembly).toContain("[tool] cancel_reminder\n[tool] archive_reminder\n[tool] show_on_map\n[tool] mcp_call\n[tool] propose_quick_action");
     expect(assembly).toContain("否则出卡请用户确认）。哪天不上班、要上班用 workday_calendar");
     expect(td.daemon.quickActions.registry.list().map((e) => e.type)).toEqual(expect.not.arrayContaining(["remember", "forget", "purge", "no_infer"]));
     const description = proposeQuickActionTool(td.daemon.quickActions, SECRETARY).spec.description;
@@ -95,7 +95,7 @@ describe("记忆插件", () => {
   });
 
   it("停用记忆插件时 HTTP 那几条：访谈接口回\"记忆插件没启用\"（404，不是 500）、记忆的设置照常能读能改、推理库的只读接口 200 加一句原因", async () => {
-    const td = await startTestDaemon({ plugins: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], secretary: [echo] });
+    const td = await startTestDaemon({ plugins: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"], secretary: [echo] });
     // 了解你访谈是记忆插件的服务，网关每次现取：插件没启用时 404 加一句"记忆插件没启用"，不是 500
     const interview = await requestJson<HttpErrorBody>(td.url, HTTP_PATHS.memoryInterview);
     expect(interview.status).toBe(404);
@@ -147,7 +147,7 @@ describe("记忆插件", () => {
 
     // 停用着起来
     const reuse = { dataDir: first.dataDir, homeDir: first.homeDir };
-    const second = await startTestDaemon({ plugins: ["reminders", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], reuse, secretary: [say("好"), say("好")] });
+    const second = await startTestDaemon({ plugins: ["reminders", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"], reuse, secretary: [say("好"), say("好")] });
     const f2 = await TestFrontend.connect(second.url);
     await f2.subscribe(ALL);
     expect(refusalOf(await f2.cardAction({ cardId: card.id, action: "delete", expectedVersion: 1, input: { mode: "forget", materialIds: [moving!.id] } }))).toBe(
@@ -171,7 +171,7 @@ describe("记忆插件", () => {
     await second.daemon.stop();
 
     // 再启用：停用期间没删的那句补采成素材（能检索），删过的不回来
-    const third = await startTestDaemon({ plugins: ["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], reuse });
+    const third = await startTestDaemon({ plugins: ["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"], reuse });
     expect(third.daemon.materials.searchKeyword("周五复查").map((m) => m.kind)).toEqual(["user_utterance"]);
     expect(third.daemon.materials.searchKeyword("周三体检")).toEqual([]);
     expect(third.daemon.materials.searchKeyword("搬家")).toEqual([]);
@@ -184,9 +184,9 @@ describe("记忆插件", () => {
     await frontend.subscribe(ALL);
     await tell(frontend, "在吗");
     const seen = lastSecretaryText(frontend);
-    // 工具排在哪：记忆插件的七个工具按登记先后，之后是数据源的按需查（查 Google 日历；搜、读 Gmail 邮件；查 Looki——没连上的不给，这里都没连），再后面才是内核的 mcp_call、propose_quick_action
+    // 工具排在哪：记忆插件的七个工具按登记先后、地图插件的 show_on_map（431），之后是数据源的按需查（查 Google 日历；搜、读 Gmail 邮件；查 Looki——没连上的不给，这里都没连），再后面才是内核的 mcp_call、propose_quick_action
     expect(assemblyOf(seen)).toContain(
-      "[tool] read_material\n[tool] ask_memory\n[tool] ask_curator\n[tool] mark_woven_question\n[tool] remember_memory\n[tool] ingest_material\n[tool] mcp_call\n[tool] propose_quick_action",
+      "[tool] read_material\n[tool] ask_memory\n[tool] ask_curator\n[tool] mark_woven_question\n[tool] remember_memory\n[tool] ingest_material\n[tool] show_on_map\n[tool] mcp_call\n[tool] propose_quick_action",
     );
     expect(assemblyOf(seen)).not.toMatch(/query_google_calendar|search_gmail|read_gmail|query_looki/);
     // 推理库刚建好、还没整理出结论：简报是空串，不注入（模型看到的消息里没有那一块）；每条消息的记忆简报也没有
