@@ -13,4 +13,6 @@ export const EN_DOCTOR: Phrases = {
   "没装 Codex：在终端里跑 npm i -g @openai/codex，装好后在设置 · 插件里启用": "Codex isn't installed: run npm i -g @openai/codex in a terminal, then enable it in Settings · Plugins",
   "tailnet 节点离线": "tailnet node offline",
   "进程退出（代码 3221225477）": "process exited (code 3221225477)",
+  "登录": "Sign-in",
+  "登录了（Claude Max 订阅）": "Signed in (Claude Max subscription)",
 };

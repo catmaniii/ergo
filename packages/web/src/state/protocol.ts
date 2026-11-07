@@ -1218,6 +1218,8 @@ export type { DoctorAction, DoctorExternalEntry, DoctorGroupView, DoctorItemView
 export { checkManualConnectionAddress, orderConnectionAddresses } from "@ergo/protocol";
 export type { ConnectionAddress, ConnectionAddressesView, RejectedConnectionAddress } from "@ergo/protocol";
 export type { DoctorCheckData, DoctorCheckDataById, DoctorCheckId, DoctorCheckView, DoctorView } from "@ergo/protocol";
+// 415：深度体检（GET / POST /api/doctor/deep）的形状
+export type { DoctorDeepItemView, DoctorDeepView } from "@ergo/protocol";
 // 做法（交互策略）列表、猜测为什么还是猜测
 export { MEMORY_STRATEGY_STATUSES } from "@ergo/protocol";
 export type { MemoryGuessReason, MemoryStrategiesView, MemoryStrategyStatus, MemoryStrategyView } from "@ergo/protocol";

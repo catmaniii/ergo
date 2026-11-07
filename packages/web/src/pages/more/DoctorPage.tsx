@@ -5,15 +5,30 @@
 // （去看看：跳到那一页；打开服务管家：本机的网址在新标签页里打开，410；现在压缩：和会话 ⚙ 里同一个接口）；不适用的淡显、排在块的最后。
 // 停用了的插件最底下一行列名字。
 // 右上"再查一遍"（重新请求 GET /api/doctor）。演示页用原型编的一份（prototype/fake-doctor.ts）。
+// 415：说明下面是"深度体检"那一块（DoctorDeepSection）——按钮旁一句"会真发一个很短的请求测模型、会连外网、要一点时间"，
+// 打开时只取上一次的结果（"3 分钟前测的"），点了才跑、逐项出结果（还在测的写"正在测…"），刚测过按钮倒数"几秒后能再测"。
 // 每项查什么、几级怎么判、句子怎么拼都在守护进程（packages/daemon/src/doctor/）；形状在共享协议包的 doctor.ts；
 // 页面上的几句（总状态、几种结果的叫法、"从什么时候起"）在 app/doctor.ts，中英文案在 locales/*/doctor.json。
 // 块和行（DoctorGroups）是纯渲染，测试在 Node 里直接渲染。
 import { useState } from "react";
-import { doctorActionText, doctorAtText, doctorLevelText, doctorOffText, doctorSinceText, doctorSummary, knownDoctorAction } from "../../app/doctor.ts";
-import { useDoctor } from "../../app/page-doctor.ts";
+import {
+  doctorActionText,
+  doctorAtText,
+  doctorDeepButtonText,
+  doctorDeepGroups,
+  doctorDeepStatusText,
+  doctorDeepSummary,
+  doctorDeepWaitSeconds,
+  doctorLevelText,
+  doctorOffText,
+  doctorSinceText,
+  doctorSummary,
+  knownDoctorAction,
+} from "../../app/doctor.ts";
+import { useDoctor, useDoctorDeep } from "../../app/page-doctor.ts";
 import { type Navigate, parseHash } from "../../app/route.ts";
 import { useStore } from "../../app/store.tsx";
-import { type DoctorAction, type DoctorGroupView, type DoctorItemView, doctorOpensUrl, type DoctorView, t } from "../../state/index.ts";
+import { type DoctorAction, type DoctorDeepView, type DoctorGroupView, type DoctorItemView, doctorOpensUrl, type DoctorView, t } from "../../state/index.ts";
 import { TopBar } from "../../ui/common.tsx";
 import { useToast } from "../../ui/toast.tsx";
 
@@ -93,6 +108,79 @@ export function DoctorGroups({ view, onAction, busy }: { view: DoctorView } & Ac
   );
 }
 
+/** 深度体检里还在测的一项：小圆点（灰）、名字、"正在测…" */
+function DoctorDeepPendingRow({ id, title }: { id: string; title: string }) {
+  return (
+    <li className="doctor-row doctor-pending" data-item={id} data-level="pending">
+      <span className="doctor-mark" aria-hidden="true" />
+      <div className="doctor-body">
+        <span className="doctor-head">
+          <span className="doctor-name">{title}</span>
+        </span>
+        <span className="doctor-fact muted">{t("doctor.deep.pending")}</span>
+      </div>
+    </li>
+  );
+}
+
+/** 深度体检那一块（纯渲染，测试在 Node 里直接渲染）：标题和按钮、说明、状态、测完的总状态、按块的各项 */
+export function DoctorDeepBlock({
+  view,
+  now,
+  starting = false,
+  error,
+  onStart,
+  onAction,
+  busy,
+}: { view: DoctorDeepView | undefined; now: number; starting?: boolean; error?: string | undefined; onStart?: (() => void) | undefined } & ActionProps) {
+  const running = view?.state === "running";
+  const waiting = view !== undefined && !running && doctorDeepWaitSeconds(view, now) > 0;
+  const summary = view === undefined ? [] : doctorDeepSummary(view);
+  return (
+    <section className="doctor-deep" data-state={view?.state ?? "loading"}>
+      <div className="doctor-deep-head">
+        <h3 className="doctor-deep-title">{t("doctor.deep.title")}</h3>
+        <button type="button" className="btn primary small" data-action="deep" disabled={onStart === undefined || starting || running || waiting} onClick={onStart}>
+          {starting ? t("doctor.deep.running") : doctorDeepButtonText(view, now)}
+        </button>
+      </div>
+      <div className="doctor-deep-hint muted">{t("doctor.deep.hint")}</div>
+      {error !== undefined && (
+        <div className="field-error" role="alert">
+          {t("doctor.deep.startFailed", { reason: error })}
+        </div>
+      )}
+      {view !== undefined && <div className="doctor-deep-status muted">{doctorDeepStatusText(view, now)}</div>}
+      {summary.length > 0 && (
+        <div className="doctor-summary doctor-deep-summary">
+          {summary.map((line) => (
+            <span key={line.level} className={`doctor-summary-item doctor-${line.level}`}>
+              {line.text}
+            </span>
+          ))}
+        </div>
+      )}
+      {view !== undefined &&
+        doctorDeepGroups(view).map((group) => (
+          <div key={group.id} className="doctor-deep-group" data-group={group.id} data-level={group.level ?? "pending"}>
+            <h4 className="doctor-deep-group-title">{group.title}</h4>
+            <ul className="doctor-list">
+              {group.entries.map((entry) =>
+                entry.item === undefined ? <DoctorDeepPendingRow key={entry.id} id={entry.id} title={entry.title} /> : <DoctorItemRow key={entry.id} item={entry.item} onAction={onAction} busy={busy} />,
+              )}
+            </ul>
+          </div>
+        ))}
+    </section>
+  );
+}
+
+/** 深度体检那一块连上守护进程：取上一次的、点了开测、正在测时每秒取（重画只在这一块里） */
+function DoctorDeepSection({ onAction, busy }: ActionProps) {
+  const { view, now, starting, error, start } = useDoctorDeep();
+  return <DoctorDeepBlock view={view} now={now} starting={starting} error={error} onStart={start} onAction={onAction} busy={busy} />;
+}
+
 /** 设置 · 更多里的体检页：标题栏右上"再查一遍"，底下是总状态、各块和查的时刻 */
 export function DoctorPage({ title, onBack, navigate }: { title: string; onBack: (() => void) | undefined; navigate: Navigate }) {
   const { view, loading, error, recheck } = useDoctor();
@@ -126,6 +214,7 @@ export function DoctorPage({ title, onBack, navigate }: { title: string; onBack:
       <div className="scroll page-pad">
         <div className="doctor-page">
           <div className="doctor-intro muted">{t("doctor.intro")}</div>
+          <DoctorDeepSection onAction={act} busy={busy} />
           {view === undefined && error === undefined && <div className="muted">{t("doctor.loading")}</div>}
           {error !== undefined && (
             <div className="field-error" role="alert">

@@ -5435,6 +5435,53 @@ a.att-icon:hover {
     flex-basis: 100%;
   }
 }
+/*
+ * 深度体检（415）：说明下面单独一块——标题和按钮一行（窄了按钮换到下一行），一句"会真发请求、会连外网"，状态（几分钟前测的、
+ * 正在测几项里的几项），测完的总状态，然后按块（二狗本身、插件）一项一行，和平时体检同一种行；还在测的那一项小圆点是空心的灰圈、
+ * 写"正在测…"。底板用 surface 加 panel-border，和下面的块分开。只用 token
+ */
+.doctor-deep {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  min-width: 0;
+}
+.doctor-deep-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+.doctor-deep-title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: var(--fs-m);
+  font-weight: 700;
+}
+.doctor-deep-hint,
+.doctor-deep-status {
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+.doctor-deep-group {
+  min-width: 0;
+}
+.doctor-deep-group-title {
+  margin: 6px 0 0;
+  font-size: var(--fs-s);
+  font-weight: 600;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.doctor-pending > .doctor-mark {
+  background: transparent;
+  border: 1px dashed var(--muted);
+}
 /* 没装的组件对应的功能（ui/component-gate.tsx）：灰掉的入口，和它旁边一行"要先装「X」· 去装 ›" */
 .component-off {
   opacity: 0.45;

@@ -94,7 +94,6 @@
   "doctor.deep.cooldown": "Just tested; you can test again in {seconds} s",
   "doctor.deep.tooSoon": "Just tested; try again in {seconds} s",
   "doctor.deep.pending": "Testing…",
-  "doctor.deep.took": "took {seconds} s",
   "doctor.deep.startFailed": "Couldn't start: {reason}",
   "doctor.deep.empty": "Nothing to test",
   "doctor.check.modelProbe.title": "Model (live request)",

@@ -18,6 +18,8 @@ import {
   type DoctorCheckDataById,
   type DoctorCheckId,
   doctorCounts,
+  type DoctorDeepItemView,
+  type DoctorDeepView,
   type DoctorGroupView,
   type DoctorItemView,
   doctorItemText,
@@ -185,4 +187,138 @@ export function fakeDoctorView(plugins?: PluginsView): DoctorView {
   const counts = doctorCounts(sorted);
   const level: DoctorLevel = counts.error > 0 ? "error" : counts.warn > 0 ? "warn" : "ok";
   return { checks, groups: sorted, off, level, counts, at: AT };
+}
+
+// ───────── 深度体检（415）：编的一份，照 11-07 那天的样子——测模型时 DeepSeek 回 503（服务商忙），数据库完整，Looki 认得 Key，
+// Claude Code 登录着（Codex 在原型里没装，没有它那一项）。打开时是"3 分钟前测的"那一份；点"再测一遍"在原型里逐项出结果（每项隔一会儿），
+// 测完一分钟内再点说"刚测过"。句子照守护进程的文案键拼（doctorItemText，和真的一样，换语言跟着换）。─────────
+
+/** 秒数写成"0.6"这样（和守护进程一样） */
+const secs = (ms: number) => formatNumber(ms / 1000, { maximumFractionDigits: 1 });
+
+/** 深度体检测完的一项 */
+function deepDone(groupId: string, groupTitle: string, item: DoctorItemView, ms: number): DoctorDeepItemView {
+  return { group: groupId, groupTitle, id: item.id, title: item.text.title, state: "done", item, ms };
+}
+
+/** 编的深度体检各项（停用、移除了的插件没有它那一项） */
+export function fakeDoctorDeepItems(plugins?: PluginsView): DoctorDeepItemView[] {
+  const core = t("doctor.group.core");
+  /** 插件在跑时它的名字（没有插件清单时用 fallback）；停用、移除了的是 undefined */
+  const titleIfRunning = (name: string, fallback: string) => {
+    if (plugins === undefined) return fallback;
+    const found = plugins.plugins.find((plugin) => plugin.name === name);
+    return found?.state === "running" ? found.title : undefined;
+  };
+  const items: DoctorDeepItemView[] = [
+    deepDone(
+      DOCTOR_CORE_GROUP,
+      core,
+      keyed(
+        "model-probe",
+        "error",
+        { key: "doctor.check.modelProbe.title" },
+        { key: "doctor.modelProbe.failed", params: { model: "deepseek-flash", why: t("doctor.modelProbe.why.busy", { code: "503" }), seconds: secs(640) } },
+        { fix: { key: "doctor.fix.modelProbe.busy" }, action: { kind: "open", route: "#/more/models" } },
+      ),
+      2_400,
+    ),
+    deepDone(
+      DOCTOR_CORE_GROUP,
+      core,
+      keyed("database", "ok", { key: "doctor.check.database.title" }, { key: "doctor.database.ok", params: { size: t("doctor.size.mb", { n: formatNumber(312) }), seconds: secs(2_400) } }),
+      2_400,
+    ),
+  ];
+  const claude = titleIfRunning("claude-code", "Claude Code");
+  // 插件自己的文案键（claudeCode.doctor.*）网页的词典里没有：真的由守护进程拼好，这里直接写句子（英文在 en/fake-doctor.ts）
+  if (claude !== undefined) items.push(deepDone("claude-code", claude, said("login", "ok", "登录", "登录了（Claude Max 订阅）"), 1_100));
+  const looki = titleIfRunning("looki", "Looki");
+  if (looki !== undefined) {
+    items.push(
+      deepDone(
+        "looki",
+        looki,
+        keyed("probe:looki", "ok", { key: "doctor.check.sourceProbe.title", params: { name: "Looki" } }, { key: "doctor.sourceProbe.okAccount", params: { account: "d***@example.com", seconds: secs(720) } }),
+        720,
+      ),
+    );
+  }
+  return items;
+}
+
+/** 测完的里坏了、要注意、没查出来的各几项 */
+function deepCounts(items: readonly DoctorDeepItemView[]): DoctorDeepView["counts"] {
+  const counts = { error: 0, warn: 0, unknown: 0 };
+  for (const entry of items) {
+    const level = entry.item?.level;
+    if (level === "error" || level === "warn" || level === "unknown") counts[level] += 1;
+  }
+  return counts;
+}
+
+/** 原型里两次之间至少隔多久（和守护进程一样一分钟） */
+const DEEP_GAP_MS = 60_000;
+/** 原型里每项测多久才出结果 */
+const DEEP_STEP_MS = 700;
+
+/** 原型里的深度体检：打开是 3 分钟前测完的那一份；点了逐项出结果 */
+export class FakeDoctorDeep {
+  private readonly plugins: () => PluginsView | undefined;
+  private startedAt: number;
+  private finishedAt: number | undefined;
+  /** 正在测时已经出了结果的有几项 */
+  private shown: number;
+
+  constructor(plugins: () => PluginsView | undefined) {
+    this.plugins = plugins;
+    this.finishedAt = Date.now() - 3 * 60_000;
+    this.startedAt = this.finishedAt - 4_000;
+    this.shown = Number.POSITIVE_INFINITY;
+  }
+
+  view(): Promise<DoctorDeepView> {
+    return attemptView(() => this.current());
+  }
+
+  start(): Promise<DoctorDeepView> {
+    const now = Date.now();
+    if (this.finishedAt === undefined) return this.view();
+    if (now - this.finishedAt < DEEP_GAP_MS) return Promise.reject(new Error(t("doctor.deep.tooSoon", { seconds: Math.ceil((this.finishedAt + DEEP_GAP_MS - now) / 1000) })));
+    this.startedAt = now;
+    this.finishedAt = undefined;
+    this.shown = 0;
+    const total = fakeDoctorDeepItems(this.plugins()).length;
+    for (let i = 1; i <= total; i += 1) {
+      setTimeout(() => {
+        this.shown = i;
+        if (i === total) this.finishedAt = Date.now();
+      }, i * DEEP_STEP_MS);
+    }
+    return this.view();
+  }
+
+  private current(): DoctorDeepView {
+    const now = Date.now();
+    const items = fakeDoctorDeepItems(this.plugins()).map((entry, at): DoctorDeepItemView => (at < this.shown ? entry : { group: entry.group, groupTitle: entry.groupTitle, id: entry.id, title: entry.title, state: "pending" }));
+    const done = this.finishedAt;
+    return {
+      state: done === undefined ? "running" : "done",
+      startedAt: new Date(this.startedAt).toISOString(),
+      ...(done === undefined ? {} : { finishedAt: new Date(done).toISOString() }),
+      ...(done !== undefined && now - done < DEEP_GAP_MS ? { nextAt: new Date(done + DEEP_GAP_MS).toISOString() } : {}),
+      items,
+      counts: deepCounts(items),
+      now: new Date(now).toISOString(),
+    };
+  }
+}
+
+/** 同步算出来的交成 Promise（算的时候抛错就是拒绝） */
+function attemptView<T>(fn: () => T): Promise<T> {
+  try {
+    return Promise.resolve(fn());
+  } catch (err) {
+    return Promise.reject(err instanceof Error ? err : new Error(String(err)));
+  }
 }

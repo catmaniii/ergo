@@ -88,7 +88,6 @@
   "doctor.deep.cooldown": "刚测过，{seconds} 秒后能再测",
   "doctor.deep.tooSoon": "刚测过，{seconds} 秒后再测",
   "doctor.deep.pending": "正在测…",
-  "doctor.deep.took": "用了 {seconds} 秒",
   "doctor.deep.startFailed": "没开始测：{reason}",
   "doctor.deep.empty": "没有要测的项",
   "doctor.check.modelProbe.title": "模型（真发一句）",
