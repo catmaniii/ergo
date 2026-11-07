@@ -178,6 +178,14 @@ export function journalRecord(raw: unknown, groupDate?: string): LookiJournalPay
   return { journalId, date, time, ...(kind === undefined ? {} : { kind }), title, summary, content, text: [label, brief].filter((s) => s.length > 0).join("\n") };
 }
 
+/**
+ * 日记条目是不是 Looki 每天自动剪的 vlog（种类里有 VLOG，现在是 DAILY_VLOG）：「存一份到本地」里 vlog 不勾时整条不要——
+ * 不存视频、不当日记导入、不写进 日记.md（424）
+ */
+export function isVlogKind(kind: string | undefined): boolean {
+  return kind !== undefined && /vlog/i.test(kind);
+}
+
 /** /journals 的回包（按天分组）→ 一篇篇日记：组是 { date, journals: [...] } 这类，有 content / description 的是一篇 */
 export function journalRecords(list: readonly unknown[]): LookiJournalPayload[] {
   const out: LookiJournalPayload[] = [];

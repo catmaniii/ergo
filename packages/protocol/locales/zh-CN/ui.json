@@ -427,7 +427,7 @@
   "ui.plugins.looki.archive.kind.journals": "AI 日记",
   "ui.plugins.looki.archive.kind.journalsSub": "存成当天文件夹里的 日记.md",
   "ui.plugins.looki.archive.kind.vlogs": "vlog",
-  "ui.plugins.looki.archive.kind.vlogsSub": "Looki 每天生成的",
+  "ui.plugins.looki.archive.kind.vlogsSub": "Looki 每天自动剪的视频；勾上才存，它那段说明也会算进当天的日记",
   "ui.plugins.looki.archive.kind.clips": "原始视频片段",
   "ui.plugins.looki.archive.kind.clipsSub": "很占地方，默认不存",
   "ui.plugins.looki.archive.saved": "已存：{what}，共 {size}（{n} 天）",

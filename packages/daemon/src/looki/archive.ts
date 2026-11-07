@@ -1,7 +1,8 @@
 // Looki 的"存一份到本地"（默认存照片 + 日记 + vlog，原始视频不存）：每天同步时刻时顺带把照片、AI 日记、vlog
 // 存到本地一个文件夹（默认是「文档」下的 Looki；能换成任何本地文件夹，比如网盘的同步目录，手机上也就翻得到），
 // 按 年-月\日期\时刻（起始时间 标题）\ 分文件夹。
-// - 存哪几类各自开关（照片、AI 日记、vlog 默认存，原始视频片段默认不存）；照片、视频原样保存（download.ts：不改一个字节，元数据都在），
+// - 存哪几类各自开关（照片、AI 日记默认存；vlog、原始视频片段默认不存）；vlog 不勾时整条不要：不下视频、它那一条不写进 日记.md
+//   （同步也不把它当日记导入，service.ts 经 vlogsOn() 问这里），勾上才存视频、它那段说明也算进当天的日记（424）；照片、视频原样保存（download.ts：不改一个字节，元数据都在），
 //   文件时间设成拍摄时间；AI 日记写进当天文件夹的"日记.md"；vlog 放当天文件夹；每天一份"说明.txt"（这天有哪些时刻、几点、在哪、存了什么）；
 // - 下载链接 1 小时失效：列出文件就下，过了 50 分钟先重新列一次；下的时候说过期了（403……）就重新列一次、拿新链接再下一次；
 // - vlog 从 /journals 里种类为 DAILY_VLOG 的条目取（2026-11 起 /for_you/items 停用了，424 号票）；以前从 for_you 存下的 vlog 不动、不重下
@@ -37,7 +38,7 @@ import { journalVlogs, type RemoteFile, remoteFile, type RemoteVlog } from "./ar
 import { ARCHIVE_SETTINGS_FILE, ARCHIVE_STATE_DIR, type ArchiveSettings, type ArchiveState, createArchiveStore, type DayIndex, MAX_ATTEMPTS, type MomentEntry } from "./archive-store.ts";
 import { LOOKI_FILES_PAGE, LOOKI_JOURNAL_MAX_DAYS, LOOKI_RATE_LIMIT_WAIT_MS, type LookiClient, LookiError } from "./client.ts";
 import { DownloadError, downloadTo } from "./download.ts";
-import { addDays, daysBetween, journalRecords, momentRecord } from "./records.ts";
+import { addDays, daysBetween, isVlogKind, journalRecords, momentRecord } from "./records.ts";
 
 export { ARCHIVE_SETTINGS_FILE, ARCHIVE_STATE_DIR };
 
@@ -205,6 +206,8 @@ export interface LookiArchive {
   view(): LookiArchiveView;
   /** 断开时要说的一句（开着或者存过东西时） */
   disconnectNote(): string | undefined;
+  /** vlog 勾没勾（不勾时 Looki 每天剪的 vlog 整条不要：同步不把它当日记导入、按需查也不列） */
+  vlogsOn(): boolean;
   /** 存放位置（建好的）：数据源页"在电脑上打开"用；建不了抛错（原因给人看） */
   folder(): string;
   /** 填设置（values.archive 是哪一样，见协议包 looki.ts）；做不成的原因记在 view().refused */
@@ -629,9 +632,9 @@ export function createLookiArchive(options: LookiArchiveOptions): LookiArchive {
     }
   };
 
-  /** 存一天的日记（快、只写字：放在照片前面，照片存到一半停下了日记也已经在了） */
+  /** 存一天的日记（快、只写字：放在照片前面，照片存到一半停下了日记也已经在了）；vlog 不勾时 vlog 那一条不写 */
   const saveJournals = (job: Job, date: string, journals: readonly LookiJournalPayload[]) => {
-    const mine = journals.filter((j) => j.date === date);
+    const mine = journals.filter((j) => j.date === date && (settings.kinds.vlogs || !isVlogKind(j.kind)));
     if (!settings.kinds.journals || mine.length === 0) return;
     const day = store.day(date);
     for (const j of mine) saveJournal(job, day, j);
@@ -845,6 +848,8 @@ export function createLookiArchive(options: LookiArchiveOptions): LookiArchive {
     },
 
     folder: () => ensureRoot(),
+
+    vlogsOn: () => settings.kinds.vlogs,
 
     configure(values, secrets) {
       refused = undefined;

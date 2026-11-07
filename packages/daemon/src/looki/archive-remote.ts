@@ -15,7 +15,7 @@
 //   以前 for_you 的写法（files / media 数组，file / video 一个，条目上直接一个 temporary_url / video_url）照样认。
 //   type 里没有 VLOG 的不要（日记里还有 DIARY、COMIC_PAGE 这些，带的是图片）。
 import { createHash } from "node:crypto";
-import { lookiTime } from "./records.ts";
+import { isVlogKind, lookiTime } from "./records.ts";
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -108,7 +108,7 @@ export function remoteFile(raw: unknown, date?: string, tz?: string): RemoteFile
 export function remoteVlog(raw: unknown, groupDate?: string): RemoteVlog | undefined {
   if (!isRecord(raw)) return undefined;
   const type = textOf(raw.type, 60);
-  if (type === undefined || !/vlog/i.test(type)) return undefined;
+  if (!isVlogKind(type)) return undefined;
   const id = idOf(raw.id ?? raw.journal_id ?? raw.item_id);
   if (id === undefined) return undefined;
   const tz = textOf(raw.tz ?? raw.timezone, 64);

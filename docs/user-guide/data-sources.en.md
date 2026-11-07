@@ -204,7 +204,7 @@ The card in the image comes from a chat. One from contacts looks the same, and t
 
 1. Further down the same page, under **Keep a local copy**, **Save while syncing** is on by default.
 2. By default it saves to a Looki folder in **Documents**. To change it, click **Change folder**, fill in the full path and click **Save folder**. Point it at a cloud drive's sync folder and you can browse it on your phone too.
-3. Tick under **What to keep**: Photos, AI journals and Vlogs are saved by default; Raw video clips take a lot of space and aren't saved by default.
+3. Tick under **What to keep**: Photos and AI journals are saved by default; Raw video clips take a lot of space and aren't saved by default; Vlogs (the video Looki cuts automatically each day) aren't saved by default. Tick Vlogs and the video is saved, and its description also counts toward that day's AI journal (written into the journal file and kept as material); leave it unticked and ergo skips the whole entry: it isn't saved, isn't treated as a journal, and isn't listed when you ask about that day's journal.
 4. To save earlier ones too, pick start and end dates under **Save earlier days too** and click **Start catching up**. The default is the last 30 days, and it goes back at most 366 days at a time. You can **Stop** and **Continue** at any time.
 5. Click **Open folder** to see the saved files.
 
