@@ -90,6 +90,8 @@ export function validate(svc, file, errors) {
   // lifeline：接入层 manage 的「命脉」标记（link-protocol.md §9）。写错成别的值（字符串、yes）时宁可报错，
   // 也不能被悄悄当成 false——那等于把保护静默撤掉
   if (svc._rawLifeline != null && typeof svc._rawLifeline !== 'boolean') at(`lifeline 只能是 true / false，得到 ${JSON.stringify(svc._rawLifeline)}`);
+  // ergo：「和二狗有关」的标记（link-protocol.md §9.6）。同理，写错时报错，不悄悄当成没标
+  if (svc._rawErgo != null && typeof svc._rawErgo !== 'boolean') at(`ergo 只能是 true / false，得到 ${JSON.stringify(svc._rawErgo)}`);
   for (const [n, h] of Object.entries(svc.hooks || {})) {
     if (h && !h.cmd && !h.argv) at(`hooks.${n} 必须给 cmd（字符串）或 argv（数组）`);
     if (h?.argv && !Array.isArray(h.argv)) at(`hooks.${n}.argv 必须是数组`);
@@ -140,6 +142,9 @@ export function parseService(raw, file, owner = null) {
     // 命脉：经接入层 manage 谁都不许停它（link-protocol.md §9）；你在 WebUI / CLI 上照样能停
     lifeline: raw.lifeline === true,
     _rawLifeline: raw.lifeline ?? null,
+    // 和二狗有关：二狗的「服务」页（和体检）把它也列出来——手工登记、二狗按端口认不出用途的服务靠它（只是显示，不管保护）
+    ergo: raw.ergo === true,
+    _rawErgo: raw.ergo ?? null,
     _file: file,
   };
   svc.capabilities = deriveCapabilities({ ...svc, capabilities: raw.capabilities });

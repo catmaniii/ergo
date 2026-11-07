@@ -5585,6 +5585,148 @@ a.att-icon:hover {
   background: transparent;
   border: 1px dashed var(--muted);
 }
+/*
+ * 设置 · 服务（428，pages/more/ServicesPage.tsx）：一个服务一块，版式照设置 · 组件——名字、状态的小签（在跑绿、有问题和出错用醒目色、
+ * 正在起停用操作色、停着灰）、受保护的小签；一行 id、端口、在跑多久；为什么和二狗有关的几个小签；最近一次出错、受保护的原因；
+ * 按钮一排，开机自启开关靠右（窄了换行）；结果一句；展开的日志（等宽、自己滚）。体检里点过来的那一块描一圈主色。只用 token
+ */
+.services-page {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.services-intro,
+.services-status,
+.services-manager {
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+.services-manager a {
+  color: var(--primary);
+  overflow-wrap: anywhere;
+}
+.service-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.service-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  border: 1px solid transparent;
+  min-width: 0;
+}
+.service-focus {
+  border-color: var(--primary);
+}
+.service-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: var(--fs-l);
+}
+.service-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.service-meta {
+  font-size: var(--fs-s);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.service-uses {
+  margin-top: 0;
+}
+.service-tone-ok {
+  background: var(--data-bg);
+  color: var(--ok);
+}
+.service-tone-warn,
+.service-tone-bad {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+.service-tone-bad {
+  font-weight: 600;
+}
+.service-tone-busy {
+  background: var(--op-bg);
+  color: var(--op-fg);
+}
+.service-note,
+.service-protected {
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  color: var(--muted);
+}
+.service-error {
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  color: var(--high-fg);
+  overflow-wrap: anywhere;
+}
+.service-result {
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  color: var(--ok);
+}
+.service-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.service-autostart {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  font-size: var(--fs-m);
+  cursor: pointer;
+}
+.service-logs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: var(--fs-s);
+}
+.service-logs[data-loading] {
+  opacity: 0.6;
+}
+.service-logs-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.service-logs-head button.chip {
+  border: none;
+  cursor: pointer;
+}
+.service-logs-text {
+  margin: 0;
+  padding: 8px 10px;
+  max-height: 320px;
+  overflow: auto;
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 /* 没装的组件对应的功能（ui/component-gate.tsx）：灰掉的入口，和它旁边一行"要先装「X」· 去装 ›" */
 .component-off {
   opacity: 0.45;

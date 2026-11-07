@@ -187,6 +187,10 @@ import { createPluginSettings, type PluginSettings } from "./plugins/settings.ts
 import { createEventTriggers, createServiceEventDesk, dataDirTitle, EventSubscriberRegistry, eventSourceImplementations, type EventTriggers } from "./event-sources/index.ts";
 import { daemonBusy, mayChangeBusy } from "./lsm/busy.ts";
 import { linkToLsm, type LsmLink } from "./lsm/link.ts";
+import { createRestartSelfHold, withRestartHold } from "./lsm/restart-hold.ts";
+import { lsmSecretaryTools } from "./lsm/secretary-tools.ts";
+import { createManagedServices } from "./lsm/services-page.ts";
+import { voicePortsInUse } from "./lsm/voice-ports.ts";
 import { type ConnectionAddressesService, createConnectionAddresses } from "./pairing/addresses.ts";
 import { createAppPackages } from "./pairing/app-package.ts";
 import { daemonRunning, removePidFile, writePidFile } from "./process/pid-file.ts";
@@ -1339,6 +1343,15 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     });
     // agent 贡献：插件给 agent 的工具、每轮的上下文块、钩子订阅登记在这里，秘书和 agent 宿主装配时按"给谁"筛。先建好给插件登记
     const agentContributions = createAgentContributions({ log });
+    // 秘书指挥服务管家的工具（418）：只给秘书，排在内核的工具之后（at: end，先于插件登记，所以在浏览插件的网页工具前面）。
+    // 接入层比秘书晚建（要等网关开好端口），工具每次调用现取；没建好时回"没接入"。重启自己排上后、秘书这一轮说完之前也报忙
+    let lsmForTools: LsmLink | undefined;
+    const restartHold = createRestartSelfHold();
+    agentContributions.tools.register({
+      to: { agents: ["secretary"], sessions: ["secretary"] },
+      at: "end",
+      tools: () => lsmSecretaryTools({ manage: () => lsmForTools?.manage, restartHold }),
+    });
     // 媒体库（附件、语音的录音和合成出的音频）、授权的文件夹（秘书在聊天里和浏览插件的找文件共用一份，每次现读）：
     // 语音插件、浏览插件装配时要用，在插件之前打开
     const media = openMediaStore({ mediaDir: layout.media, uploadsDir: layout.uploads, maxUploadBytes: config.media.maxUploadBytes });
@@ -3023,6 +3036,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 深度体检（415）：GET 取上一次的，POST 开测（GET / POST /api/doctor/deep）
         doctorDeep,
         doctorWatch,
+        // 设置 · 服务（428）：服务管家里和二狗有关的服务，看、启停、看日志（经接入层的管理指令，和秘书的服务管家工具同一条通道）。
+        // 接入层比网关晚建，每次请求现取；语音插件启用着时，语音合成、识别的本机端口用来认出手工登记的语音服务
+        managedServices: createManagedServices({
+          manage: () => lsmForTools?.manage,
+          voicePorts: () => voicePortsInUse(config.voice, { voiceOn: plugins.service(VOICE) !== undefined, speechUrl: options.speechUrl }),
+          managerUrl: () => lsmForTools?.managerUrl,
+        }),
         // 手机 App 的更新：程序目录里带的安卓安装包（GET /api/app-update、/api/app-update/android.apk，票 399）
         appPackages: createAppPackages({ programDir, log }),
         // 连接地址：设备配对页的二维码界面用（GET / POST /api/connection-addresses）
@@ -3086,7 +3106,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       }));
     // 接入 LSM 的 link 协议：有任务在执行、有正在执行的有副作用的调用就报"忙"（忙闲变了马上补一次心跳）；
     // 管理器要求停机时优雅停止。没有 LSM 注入的身份（测试、手动起的）时什么都不做
-    const lsmBusy = () => daemonBusy(tasks, store.reader);
+    // 秘书排上了"等空闲重启二狗"：它这一轮说完之前也报忙（restart-hold.ts）
+    const lsmBusy = () => withRestartHold(daemonBusy(tasks, store.reader), restartHold);
     // 守卫眼里二狗自己的端口换成实际监听的（测试里是系统随机挑的）：判定时都从这一份 places 现取
     places.ownPorts = [gateway.port, gateway.externalPort];
     const lsm = linkToLsm({
@@ -3209,15 +3230,22 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 项目的服务：接入层建好了，开始做（上线了的先登记转发、没做完的接着做、接 LSM 推来的状态）；之后按网关实际监听的端口
     projectSystem.startServices({ lsm: lsm.services, ports: { local: gateway.port, external: gateway.externalPort } });
     audioCppHost.attachLsm(lsm.services);
+    // 秘书指挥服务管家的工具从这里起用得上接入层
+    lsmForTools = lsm;
     let busyNow = lsmBusy().busy;
+    const recheckBusy = () => {
+      const busy = lsmBusy().busy;
+      if (busy === busyNow) return;
+      busyNow = busy;
+      lsm.notifyBusy();
+    };
     teardown.push(
       store.onAppend((event) => {
-        if (!mayChangeBusy(event)) return;
-        const busy = lsmBusy().busy;
-        if (busy === busyNow) return;
-        busyNow = busy;
-        lsm.notifyBusy();
+        // 秘书这一轮说完了：放开"等它说完再重启"（放开时 onChange 补心跳）
+        restartHold.release(event);
+        if (mayChangeBusy(event)) recheckBusy();
       }),
+      restartHold.onChange(recheckBusy),
     );
 
     return {

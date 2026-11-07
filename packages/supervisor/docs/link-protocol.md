@@ -409,7 +409,8 @@ Python 客户端（`lsm_link.py`）暂未加，它会忽略这些消息。
 {"type":"manage.reply","id":"m-1","ok":true,"self":"ergo-daemon",
  "services":[ /* 下面这样的一条 × 全部服务 */ ],
  "profiles":{"gpu":["tts-engine","comfyui"]},
- "lifeline":[{"id":"ergo-daemon","why":["调用方自己"]},{"id":"ergo-tunnel","why":["ergo-daemon 的公网隧道（exposure.via）"]}]}
+ "lifeline":[{"id":"ergo-daemon","why":["调用方自己"]},{"id":"ergo-tunnel","why":["ergo-daemon 的公网隧道（exposure.via）"]}],
+ "tailnetGateway":"tail-gw"}                  // manager.yaml 的 tailnet.gateway（开了 tailnet 才有，没有是 null）
 {"type":"manage.reply","id":"m-2","ok":true,"name":"tts-engine","source":0,"label":"命令行输出",
  "lines":"……最后 N 行，过脱敏……","capped":false,"sources":[{"source":0,"label":"命令行输出"},{"source":1,"label":"server"}]}
 {"type":"manage.reply","id":"m-3","ok":true,"service":{ /* 一条 */ }}                 // start / stop / restart / cancelStop / autostart / orphan
@@ -439,7 +440,8 @@ Python 客户端（`lsm_link.py`）暂未加，它会忽略这些消息。
   "profiles": ["gpu"], "dependsOn": [{"id": "cuda-host", "type": "soft"}],
   "exposure": null,                           // 有公网入口：{"via": "隧道 id", "publicUrl": "…" 或 null}
   "tailnet": null,                            // 有 tailnet 入口：{"name": "tts", "url": "https://tts.<domain>/"}
-  "protected": false, "protectedWhy": []      // 对这个调用方是不是命脉、为什么（9.3）
+  "protected": false, "protectedWhy": [],     // 对这个调用方是不是命脉、为什么（9.3）
+  "ergo": false                               // 注册表里标了 ergo: true（service-schema.md）：二狗的「服务」页、体检也列出它，和保护无关
 }
 ```
 
@@ -471,4 +473,5 @@ Python 客户端（`lsm_link.py`）暂未加，它会忽略这些消息。
 
 参考客户端 `clients/lsm-link.mjs` 有 `lsm.manage`（`ready()` / `list` / `logs` / `start` / `stop` / `restart` / `cancelStop` / `autostart` /
 `profileStart` / `profileStop` / `exposeOn` / `exposeOff` / `tailnetOpen` / `tailnetClose` / `remove` / `orphan` / `restartSelf`），
-同样不抛异常。Python 客户端暂未加。二狗自己的接入层在 `packages/daemon/src/lsm/link.ts`。
+同样不抛异常。Python 客户端暂未加。二狗自己的接入层在 `packages/daemon/src/lsm/link.ts`（`manage`），秘书用它的六个工具在
+`packages/daemon/src/lsm/secretary-tools.ts`（看列表和日志、开关服务直接做；强制停、撤、外网入口、重启自己出审批卡；先按列表的 `protected` 本地拒一遍）。

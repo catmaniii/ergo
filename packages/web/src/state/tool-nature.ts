@@ -37,6 +37,9 @@ const LOOK_TOOLS: ReadonlySet<string> = new Set([
   "summarize_receipts",
   "web_search",
   "web_fetch",
+  // 看服务管家的列表和日志
+  "lsm_status",
+  "lsm_logs",
 ]);
 
 /** 删改的工具（旧记录按它估）：改文件，以及守护进程的工具注册表里登记成删改（nature: "modify"）的那些 */

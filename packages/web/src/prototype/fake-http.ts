@@ -23,6 +23,10 @@ import { FakePersonalFiles } from "./fake-personal-files.ts";
 import type { UploadProgress } from "../app/uploader.ts";
 import { wavOf } from "../app/voice-wav.ts";
 import type {
+  ManagedServiceAction,
+  ManagedServiceActionResult,
+  ManagedServiceLogsView,
+  ManagedServicesView,
   ProjectStandardView,
   DebugRecognizeResult,
   DebugSpeakResult,
@@ -164,6 +168,7 @@ import { demoParam, FAKE_SAFETY_START, fakeServerWebVersion } from "./fake-conne
 import { fakeMemoryClaim, fakeMemoryClaims, fakeMemoryQuestions, fakeMemoryStrategies, fakeMemorySummary } from "./fake-memory-graph.ts";
 import { FakeDataSources } from "./fake-data-sources.ts";
 import { FakeDoctorDeep, fakeDoctorView, FakeDoctorWatch } from "./fake-doctor.ts";
+import { FakeManagedServices } from "./fake-managed-services.ts";
 import { fakeAutostart, FakeComponents } from "./fake-components.ts";
 import { FAKE_HISTORY, FAKE_TAKEOVER_TASK } from "./fake-conversations.ts";
 import { FAKE_CURATOR_COMMANDS, FAKE_GRANT_USES, FAKE_PROJECTS, FAKE_SESSIONS, FAKE_SLASH_COMMANDS, FAKE_SLASH_SKILLS, FAKE_STAGE_EFFECTS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary, taskDetailOf } from "./fake-data.ts";
@@ -1140,6 +1145,21 @@ export class FakeDaemonHttp implements DaemonHttp {
         }
       }, 300),
     );
+  }
+
+  /** 设置 · 服务：编的一份服务管家（混着和二狗无关的服务，按同一份判定挑出和二狗有关的；prototype/fake-managed-services.ts） */
+  private readonly fakeManagedServices = new FakeManagedServices();
+
+  managedServices(): Promise<ManagedServicesView> {
+    return this.fakeManagedServices.view();
+  }
+
+  managedServiceAction(id: string, action: ManagedServiceAction): Promise<ManagedServiceActionResult> {
+    return this.fakeManagedServices.act(id, action);
+  }
+
+  managedServiceLogs(id: string, source?: number): Promise<ManagedServiceLogsView> {
+    return this.fakeManagedServices.logs(id, source);
   }
 
   /** 设置 · 数据源：原型里编的几个数据源和导入文件夹（prototype/fake-data-sources.ts） */

@@ -242,6 +242,10 @@ export const HTTP_QUERY = {
   tier: "tier",
   /** 记忆的结论列表：只看哪种状态（active、contested、retracted、superseded，不给是全部；没有 needs_review） */
   status: "status",
+  /** 设置 · 服务的日志：最后几行 */
+  lines: "lines",
+  /** 设置 · 服务的日志：第几份（0 是命令行输出） */
+  source: "source",
 } as const;
 
 const UPLOADS = "uploads";
@@ -310,6 +314,8 @@ const DOCTOR = "doctor";
 const DOCTOR_DEEP = "deep";
 /** 体检页上"恢复提醒"（416）：/api/doctor/unmute */
 const UNMUTE = "unmute";
+const MANAGED_SERVICES = "managed-services";
+const LOGS = "logs";
 const APP_UPDATE = "app-update";
 /** 安卓安装包在 /api/app-update/ 下的名字：.apk 结尾，按地址猜文件名的下载器也存成 .apk */
 const ANDROID_APK = "android.apk";
@@ -570,6 +576,19 @@ export const HTTP_PATHS = {
    */
   doctorUnmute: api(DOCTOR, UNMUTE),
   /**
+   * 设置 · 服务（428，形状在 managed-services.ts）：GET 服务管家里和二狗有关的服务（ManagedServicesView，经接入层的管理指令现取，
+   * 和服务管家无关的不给）
+   */
+  managedServices: api(MANAGED_SERVICES),
+  /**
+   * POST：对其中一个启动、停止、强制停止、重启、取消等空闲再停、开关开机自启（ManagedServiceActionBody → ManagedServiceActionResult）。
+   * 不是和二狗有关的、二狗离不开的不让停都在结果里照实说（ok: false），不抛 4xx
+   */
+  managedService: (id: string) => api(MANAGED_SERVICES, id),
+  /** GET：它最后几十行日志（ManagedServiceLogsView；?lines= 几行、?source= 第几份，截短、擦掉像密钥的） */
+  managedServiceLogs: (id: string, q: { lines?: number | undefined; source?: number | undefined } = {}) =>
+    `${api(MANAGED_SERVICES, id, LOGS)}${query({ [HTTP_QUERY.lines]: q.lines?.toString(), [HTTP_QUERY.source]: q.source?.toString() })}`,
+  /**
    * 手机 App 的更新（票 399）：GET 二狗带着哪一版安卓安装包（AppUpdateView：版本、versionCode、SHA-256、大小），
    * 设置里"有新版"、提示条的"更新"看它。和别的接口一样，外网端口要设备凭证
    */
@@ -784,6 +803,9 @@ export type HttpRoute =
   | { route: "doctor" }
   | { route: "doctor_deep" }
   | { route: "doctor_unmute" }
+  | { route: "managed_services" }
+  | { route: "managed_service"; id: string }
+  | { route: "managed_service_logs"; id: string }
   | { route: "app_update" }
   | { route: "android_app_package" }
   | { route: "connection_addresses" }
@@ -940,6 +962,12 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === DOCTOR && id === undefined) return { route: "doctor" };
   if (head === DOCTOR && id === DOCTOR_DEEP && tail === undefined) return { route: "doctor_deep" };
   if (head === DOCTOR && id === UNMUTE && tail === undefined) return { route: "doctor_unmute" };
+  // 设置 · 服务：列表、一个服务的操作、它的日志
+  if (head === MANAGED_SERVICES) {
+    if (id === undefined) return { route: "managed_services" };
+    if (tail === undefined) return { route: "managed_service", id };
+    if (tail === LOGS) return { route: "managed_service_logs", id };
+  }
   if (head === APP_UPDATE && tail === undefined) {
     if (id === undefined) return { route: "app_update" };
     if (id === ANDROID_APK) return { route: "android_app_package" };

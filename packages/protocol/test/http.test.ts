@@ -111,6 +111,13 @@ describe("HTTP 接口的路径", () => {
     expect(parseHttpPath("/api/memory")).toBeUndefined();
     expect(parseHttpPath("/api/memory/unknown")).toBeUndefined();
     expect(parseHttpPath("/api/memory/claims/cl-1/more")).toBeUndefined();
+    // 设置 · 服务（428）：列表、一个服务的操作（名下的服务全名带 --）、它的日志
+    expect(HTTP_PATHS.managedServices).toBe("/api/managed-services");
+    expect(parseHttpPath(HTTP_PATHS.managedServices)).toEqual({ route: "managed_services" });
+    expect(parseHttpPath(HTTP_PATHS.managedService("ergo-daemon--audiocpp"))).toEqual({ route: "managed_service", id: "ergo-daemon--audiocpp" });
+    expect(parseHttpPath(pathOf(HTTP_PATHS.managedServiceLogs("ergo-asr", { lines: 60 })))).toEqual({ route: "managed_service_logs", id: "ergo-asr" });
+    expect(parseHttpPath("/api/managed-services/x/y")).toBeUndefined();
+    expect(parseHttpPath("/api/managed-services/x/logs/y")).toBeUndefined();
   });
 
   it("查询参数用 HTTP_QUERY 里的名字", () => {
@@ -124,6 +131,8 @@ describe("HTTP 接口的路径", () => {
     expect(queryOf(HTTP_PATHS.memoryClaims({ tier: "need", status: "active", limit: 50 }))).toEqual({ [HTTP_QUERY.tier]: "need", [HTTP_QUERY.status]: "active", [HTTP_QUERY.limit]: "50" });
     expect(queryOf(HTTP_PATHS.memoryClaims())).toEqual({});
     expect(queryOf(HTTP_PATHS.memoryQuestions({ limit: 10 }))).toEqual({ [HTTP_QUERY.limit]: "10" });
+    expect(queryOf(HTTP_PATHS.managedServiceLogs("tts", { lines: 60, source: 1 }))).toEqual({ [HTTP_QUERY.lines]: "60", [HTTP_QUERY.source]: "1" });
+    expect(queryOf(HTTP_PATHS.managedServiceLogs("tts"))).toEqual({});
   });
 
   it("不是 HTTP 接口的路径拆不出来", () => {

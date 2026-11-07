@@ -132,7 +132,7 @@
   "guard.review.failed": "审查出错：{error}",
   "guard.review.ruleFailed": "规则出错：{error}",
   "guard.sep": "；",
-  "guard.judge.secretaryAsksNote": "秘书特别敏感的操作，对话审批关着也要用户授权",
+  "guard.judge.secretaryAsksNote": "特别敏感的操作，对话审批关着也要用户授权",
   "guard.judge.nearBottomLineNote": "守卫看不准，可能碰到受保护区域、密钥，或者停掉二狗、杀掉服务管家，对话审批关着也照旧先问",
   "guard.judge.beyondGrantNote": "任务 agent 超出授权先不管，照常标出",
   "guard.judge.approvalsOffNote": "对话审批关着，按直接做",

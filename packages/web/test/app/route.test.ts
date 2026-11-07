@@ -150,6 +150,14 @@ test("体检是设置下面的一页（319b）：地址拆得开、拼得回，�
   expect(MORE_PAGES).toContain("doctor");
 });
 
+test("服务是设置下面的一页（428）：带服务 id 的地址（体检里点过来）拆得开、拼得回，名下服务的 -- 原样", () => {
+  expect(parseHash("#/more/services")).toEqual({ tab: "more", page: "services" });
+  expect(parseHash("#/more/services/ergo-daemon--audiocpp")).toEqual({ tab: "more", page: "services", item: "ergo-daemon--audiocpp" });
+  expect(toHash({ tab: "more", page: "services", item: "ergo-daemon--audiocpp" })).toBe("#/more/services/ergo-daemon--audiocpp");
+  expect(navItemOf({ tab: "more", page: "services" })).toBe("settings");
+  expect(MORE_PAGES.indexOf("services")).toBe(MORE_PAGES.indexOf("doctor") + 1);
+});
+
 // 待办里"去看看 ›"去的地址，会话里要定位的那一条（卡片、调用）写在 /at/ 后面
 describe("待办里跳过去的地址", () => {
   test.each<[string, InboxJump, string]>([

@@ -62,6 +62,8 @@
   "shell.pages.dataSources.sub": "Data brought in from outside: what is connected; open one to configure it and see its data",
   "shell.pages.materialsDelete.title": "Delete materials",
   "shell.pages.materialsDelete.sub": "Delete by conversation or time range; open one to see what it says",
+  "shell.pages.services.title": "Services",
+  "shell.pages.services.sub": "ergo's services in the service manager: status, start and stop, logs",
   "shell.pages.about.title": "About ergo",
   "shell.pages.about.sub": "Version and changelog",
   "shell.pages.debug.title": "Debug tools",

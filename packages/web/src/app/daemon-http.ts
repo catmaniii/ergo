@@ -11,11 +11,12 @@
 // 设置里的"模型"：取、整份存、连通测试。报告页取文本类附件的内容。设置 · 插件：列出、停用 / 启用 / 移除。
 // 网页现在是哪一版（切回前台时问一次，和页面自己的对不上就提示刷新）。项目页上的"规范"一块。
 // 二狗带着哪一版手机 App 安装包（设置里"有新版"、提示条的"更新"）。
+// 设置 · 服务（428）：服务管家里和二狗有关的服务，启停、重启、开关开机自启、看日志。
 // Debug 工具集的语音组：录一段送识别、合成念一句（不经会话）。
 // 每个 agent 的会话里的 ⚙：面板、单独的提示词、清空当前对话、现在压缩；项目、任务的负责人单独配模型。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 演示页是原型的假实现（prototype/fake-http.ts）。
-import { type BackgroundAgentList, type BackgroundAgentTranscript, type AutostartBody, type AutostartView, type AgentAutoCompactBody, type AgentModelBody, type AgentPromptBody, type AgentRuntimeBody, type RuntimeFolderBody, type RuntimeSessionsView, type WorkFolderCheckResult, type TakeoverAction, type TakeOverBody, type TakeOverResult, type AgentRoleAssignmentBody, type AgentRoleBody, type AgentRolesView, type AgentRoleUpdateBody, type AgentSettingsView, type AppUpdateView, type AssistantNameResult, type BranchView, type CalendarMonthView, type ConversationId, type DebugRecognizeBody, type DebugRecognizeResult, type DebugSpeakBody, type DebugSpeakResult, type DeleteMaterialsBody, type DeleteMaterialsResult, type FileTextResult, type FolderBrowseView, type FolderGrantAddBody, type FolderGrantsClearBody, type FolderGrantsView, type FolderGrantUsesView,type FramePreview, type HistoryPage, HTTP_PATHS, type HttpErrorBody, type ImportReferenceVoiceBody, type ImportSkillBody, type ImportSkillResult, type InterviewStartResult, type InterviewStatusView, type LanguageResult, type LocaleDictionaryView, type LocaleListView, type LocalFoldersBody, type LocalFoldersChangeBody, type LocalFoldersView, type MaterialDetailView, type MaterialListFilter, type MaterialListPage, type MaterialScope, type MaterialScopeSummary, type MediaTextResult, type MediaTextView, type MemoryClaimDetailView, type MemoryClaimListPage, type MemoryClaimQuery, type MemoryDeleteMode, type MemoryQuestionsView, type MemoryStrategiesView, type MemorySettingsBody, type MemorySettingsView, type MemorySummaryView, type SafetySettingsBody, type SafetySettingsView, type ModelSettingsBody, type ModelSettingsView, type ModelTestBody, type ModelTestResult, type ModelCustomModelsBody, type ModelCustomModelsResult, type PageVoiceBody, type PageVoiceResult, type PluginAction, type PluginActionResult, type PluginsView, type ProjectStandardView, type ReferenceVoice, type ReferenceVoiceList, type RollbackPreview, type RollbackTarget, type SaveWebPageBody, type SaveWebPageResult, type SecretarySkillsBody, type SecretarySkillsView, type SlashCommandList, type SystemPromptBody, type SystemPromptDetail, type SystemPromptList, t, type TaskStageView, type ToolCallCleanupResult, type ToolCallDetail, type ToolCallStorageView, type BackupConfigBody, type BackupFolderCheck, type BackupOpenResult, type BackupPlace, type BackupSnapshotsView, type BackupStatusView, type ToolkitCatalog, type UploadedMedia, type UsageSummary, type UserNameResult, type UserNameView, type AddPersonBody, type PersonalFileChangeBody, type PersonalFileDeleteBody, type PersonalFileDeleteResult, type PersonalFileLearnedView, type PersonalFilesView, type PersonalFileView, type VoiceModelsView, type WebSettingsBody, type WebSettingsView, type WebVersionView, type WorkdayChange, type WorkdayChangeResult, type RuntimesView, type DataSourceActionBody, type DataSourceActionResult, type DataSourceLiveBody, type DataSourceLiveResult, type DataSourceStoredBody, type DataSourceStoredPage, type DataSourcesView, type ImportFolderActionBody, type ImportFolderActionResult, type DataSourcePushBody, type DataSourcePushResult, type ModelKeyBody, type ModelKeyView, type ModelKeyWriteResult, type ComponentAction, type ComponentImportResult, type ComponentsView, type DoctorDeepView, type DoctorView, type DoctorWatchKey, type DoctorWatchView } from "../state/index.ts";
+import { type BackgroundAgentList, type BackgroundAgentTranscript, type AutostartBody, type AutostartView, type AgentAutoCompactBody, type AgentModelBody, type AgentPromptBody, type AgentRuntimeBody, type RuntimeFolderBody, type RuntimeSessionsView, type WorkFolderCheckResult, type TakeoverAction, type TakeOverBody, type TakeOverResult, type AgentRoleAssignmentBody, type AgentRoleBody, type AgentRolesView, type AgentRoleUpdateBody, type AgentSettingsView, type AppUpdateView, type AssistantNameResult, type BranchView, type CalendarMonthView, type ConversationId, type DebugRecognizeBody, type DebugRecognizeResult, type DebugSpeakBody, type DebugSpeakResult, type DeleteMaterialsBody, type DeleteMaterialsResult, type FileTextResult, type FolderBrowseView, type FolderGrantAddBody, type FolderGrantsClearBody, type FolderGrantsView, type FolderGrantUsesView,type FramePreview, type HistoryPage, HTTP_PATHS, type HttpErrorBody, type ImportReferenceVoiceBody, type ImportSkillBody, type ImportSkillResult, type InterviewStartResult, type InterviewStatusView, type LanguageResult, type LocaleDictionaryView, type LocaleListView, type LocalFoldersBody, type LocalFoldersChangeBody, type LocalFoldersView, type MaterialDetailView, type MaterialListFilter, type MaterialListPage, type MaterialScope, type MaterialScopeSummary, type MediaTextResult, type MediaTextView, type MemoryClaimDetailView, type MemoryClaimListPage, type MemoryClaimQuery, type MemoryDeleteMode, type MemoryQuestionsView, type MemoryStrategiesView, type MemorySettingsBody, type MemorySettingsView, type MemorySummaryView, type SafetySettingsBody, type SafetySettingsView, type ModelSettingsBody, type ModelSettingsView, type ModelTestBody, type ModelTestResult, type ModelCustomModelsBody, type ModelCustomModelsResult, type PageVoiceBody, type PageVoiceResult, type PluginAction, type PluginActionResult, type PluginsView, type ProjectStandardView, type ReferenceVoice, type ReferenceVoiceList, type RollbackPreview, type RollbackTarget, type SaveWebPageBody, type SaveWebPageResult, type SecretarySkillsBody, type SecretarySkillsView, type SlashCommandList, type SystemPromptBody, type SystemPromptDetail, type SystemPromptList, t, type TaskStageView, type ToolCallCleanupResult, type ToolCallDetail, type ToolCallStorageView, type BackupConfigBody, type BackupFolderCheck, type BackupOpenResult, type BackupPlace, type BackupSnapshotsView, type BackupStatusView, type ToolkitCatalog, type UploadedMedia, type UsageSummary, type UserNameResult, type UserNameView, type AddPersonBody, type PersonalFileChangeBody, type PersonalFileDeleteBody, type PersonalFileDeleteResult, type PersonalFileLearnedView, type PersonalFilesView, type PersonalFileView, type VoiceModelsView, type WebSettingsBody, type WebSettingsView, type WebVersionView, type WorkdayChange, type WorkdayChangeResult, type RuntimesView, type DataSourceActionBody, type DataSourceActionResult, type DataSourceLiveBody, type DataSourceLiveResult, type DataSourceStoredBody, type DataSourceStoredPage, type DataSourcesView, type ImportFolderActionBody, type ImportFolderActionResult, type DataSourcePushBody, type DataSourcePushResult, type ModelKeyBody, type ModelKeyView, type ModelKeyWriteResult, type ComponentAction, type ComponentImportResult, type ComponentsView, type DoctorDeepView, type DoctorView, type DoctorWatchKey, type DoctorWatchView, type ManagedServiceAction, type ManagedServiceActionResult, type ManagedServiceLogsView, type ManagedServicesView } from "../state/index.ts";
 import { fetchFileText } from "./file-source.ts";
 import { httpErrorMessage, notJsonMessage } from "./http-error.ts";
 import { type UploadProgress, uploadFile } from "./uploader.ts";
@@ -213,6 +214,12 @@ export interface DaemonHttp {
    * 状况随后在插件频道上推来（网页插件跟着装、停）
    */
   pluginAction(name: string, body: { action: PluginAction; purgeData?: boolean; idempotencyKey: string }): Promise<PluginActionResult>;
+  /** 设置 · 服务：服务管家里和二狗有关的服务（每次现取：没接入、没连上、服务管家太老写在 support 里） */
+  managedServices(): Promise<ManagedServicesView>;
+  /** 对其中一个启动、停止、强制停止、重启、取消等空闲再停、开关开机自启；做不了的在结果里照实说（ok: false），不抛错 */
+  managedServiceAction(id: string, action: ManagedServiceAction): Promise<ManagedServiceActionResult>;
+  /** 它最后几十行日志（截短、擦掉像密钥的）；source 是第几份（不给是命令行输出） */
+  managedServiceLogs(id: string, source?: number): Promise<ManagedServiceLogsView>;
   /**
    * 设置 · 数据源：插件登记的全部数据源（停用的插件的也在，写明没启用）和导入文件夹（路径、留着没导入的、最近导入的）；
    * 每次打开、插件的状况变了、正在同步时隔一会儿现取
@@ -685,6 +692,19 @@ export class HttpDaemonClient implements DaemonHttp {
 
   pluginAction(name: string, body: { action: PluginAction; purgeData?: boolean; idempotencyKey: string }): Promise<PluginActionResult> {
     return this.post<PluginActionResult>(HTTP_PATHS.plugin(name), body);
+  }
+
+  // 设置 · 服务：每次现取，不缓存
+  async managedServices(): Promise<ManagedServicesView> {
+    return this.json<ManagedServicesView>(await fetch(`${this.baseUrl}${HTTP_PATHS.managedServices}`, { cache: "no-store" }));
+  }
+
+  managedServiceAction(id: string, action: ManagedServiceAction): Promise<ManagedServiceActionResult> {
+    return this.post<ManagedServiceActionResult>(HTTP_PATHS.managedService(id), { action });
+  }
+
+  async managedServiceLogs(id: string, source?: number): Promise<ManagedServiceLogsView> {
+    return this.json<ManagedServiceLogsView>(await fetch(`${this.baseUrl}${HTTP_PATHS.managedServiceLogs(id, { source })}`, { cache: "no-store" }));
   }
 
   // 设置 · 数据源：每次现取，不缓存

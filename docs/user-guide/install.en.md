@@ -138,6 +138,33 @@ What `ergo status` means:
 | `ergo: STOPPED` | It was stopped | `ergo start` |
 | `ergo: FAILED — reason` | It didn't start | Deal with the reason, check `ergo logs`, then `ergo start` |
 
+### Have ergo switch services for you
+
+**What it is:** No command line needed. Tell ergo, and it checks status, reads logs and starts or stops services in the service manager for you.
+
+Things you can just say:
+
+- What's in the service manager? Is speech synthesis still running?
+- Stop audiocpp for now; start it again; restart it
+- Why won't comfyui start? Look at its logs
+- Add the drawing service to autostart
+- Restart yourself, I just changed the config
+
+| What you ask for | What it does |
+|---|---|
+| Check status, read logs; start, stop, restart, stop when idle, add to autostart, start a scenario | Does it as soon as you say so; the tool call in the chat says what was stopped and how things are now. A service with no normal way to stop (or restart) is force-stopped (or force-restarted) right away when you say so, cutting off whatever it's doing; the result says so |
+| Force stop or force restart a service that does have a normal way to stop, when you ask for it by name; remove from autostart, stop a scenario, remove a project service registered by ergo, deal with a stray process holding a port, open or close public or tailnet access | Shows an approval card and only does it once you click "Approve once". Same with chat approvals off |
+| Restart ergo itself | Shows an approval card. Once approved it doesn't restart straight away: it waits until its tasks and whatever it's doing are finished and it has finished this reply, then exits and the service manager brings it back. The conversation carries on afterwards |
+| Stop ergo itself or restart it without waiting until idle, stop its tunnel to the internet or a service it depends on | Won't do it, and tells you which one and why. If it really has to be done, do it yourself on the service manager's web page |
+
+Good to know:
+
+- **The real safeguard is in the service manager.** ergo gives orders with the identity the service manager gave it, and the service manager works out from that identity what ergo depends on; however it's asked, the service manager won't stop those.
+- **To protect one more service** (speech recognition, say), add a line `lifeline: true` to its entry; then nobody can stop it this way.
+- **If the service manager is too old**, ergo says plainly that the service manager needs updating first, and leaves everything as it is.
+- **Not done here:** setting up public access (creating a tunnel), changing the service manager's password and reloading entries are done on the service manager's web page.
+- **Or click it yourself:** Settings · Data & devices · Services lists the ergo-related services; you can start, stop and read logs there, on your phone too, with the same rules. See [Settings · Services](settings.en.md#services).
+
 ## Starting automatically
 
 There are two layers, and **both must be on for ergo to come back after a restart**. The one-line install turns both on, so there's nothing to set up. The rest of this section is for checking or changing them.

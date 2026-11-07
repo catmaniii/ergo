@@ -217,6 +217,13 @@ describe("发起任务的三条路", () => {
       "[tool] propose_skill",
       "[tool] list_inbox",
       "[tool] show_card",
+      // 指挥服务管家（看列表和日志、开关服务、要批准的、开关外网入口、等空闲后重启二狗）
+      "[tool] lsm_status",
+      "[tool] lsm_logs",
+      "[tool] lsm_control",
+      "[tool] lsm_force",
+      "[tool] lsm_entries",
+      "[tool] lsm_restart_self",
       // 浏览侧边栏里的网页工具（工具列表固定，只在侧边栏发的那一轮能用）
       "[tool] browse_read_page",
       "[tool] browse_fill",

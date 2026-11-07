@@ -29,7 +29,7 @@ const [MGR, P_ERGO, P_GW, P_DB, P_DISK, P_NET, P_TTS, P_GUARD, P_PLAIN, P_REPORT
 
 // ---- 临时注册表
 // ergo-test：调用方。公网经 ergo-tunnel（隧道硬依赖 net-up），开着 tailnet 入口，硬依赖 db（db 再硬依赖 db-disk），软依赖 tts
-// guard-svc：标了 lifeline: true；plain：普通服务（有自己的隧道和 tailnet 入口）；reporting：硬依赖 db 的普通服务
+// guard-svc：标了 lifeline: true；plain：普通服务（有自己的隧道和 tailnet 入口）；reporting：硬依赖 db 的普通服务（标了 ergo: true，只是显示、不算命脉）
 // other：另一个接入的项目；ergo-test--web / ergo-test--bot：ergo-test 名下的服务（bot 自己也接入）
 const REG = path.join(DATA, 'registry');
 fs.mkdirSync(path.join(REG, 'services', 'owned', 'ergo-test'), { recursive: true });
@@ -64,7 +64,7 @@ write('tts.yaml', svc('tts', P_TTS));
 write('guard-svc.yaml', svc('guard-svc', P_GUARD, ['lifeline: true']));
 write('plain.yaml', svc('plain', P_PLAIN, ['exposure:', '  via: plain-tunnel', '  remotePort: 18899', '  check: false', 'logs:', '  - path: plain-app.log', '    label: app']));
 write('plain-tunnel.yaml', tunnel('plain-tunnel'));
-write('reporting.yaml', svc('reporting', P_REPORT, ['dependsOn:', '  - id: db', '    type: hard']));
+write('reporting.yaml', svc('reporting', P_REPORT, ['dependsOn:', '  - id: db', '    type: hard', 'ergo: true']));
 write('other.yaml', svc('other', P_OTHER, ['link:', '  enabled: true']));
 write(path.join('owned', 'ergo-test', 'web.yaml'), svc('ergo-test--web', P_WEB, ['owner: ergo-test']));
 write(path.join('owned', 'ergo-test', 'bot.yaml'), svc('ergo-test--bot', P_BOT, ['owner: ergo-test', 'link:', '  enabled: true']));
@@ -150,6 +150,19 @@ test('探活端口就是管理器自己端口的：对谁都是命脉（管理�
     s.probe.port = MGR;
     assert.match(lifelineOf(sup, 'other').get('tts')[0], /服务管家自己/);
   } finally { s.probe.port = port; }
+});
+
+test('注册表的 ergo（和二狗有关）只能是 true / false：写错报错；它不算命脉', () => {
+  const file = path.join(REG, 'services', 'x.yaml');
+  for (const [v, bad] of [[true, false], [false, false], [undefined, false], ['yes', true], [1, true]]) {
+    const errs = [];
+    const s = parseService({ id: 'x', root: DATA, kind: 'managed', probe: { tier: 'port', port: 1 }, hooks: { start: 'node -e 0' }, ...(v === undefined ? {} : { ergo: v }) }, file);
+    validate(s, file, errs);
+    assert.equal(errs.some((e) => /ergo/.test(e)), bad, JSON.stringify(v));
+    assert.equal(s.ergo, v === true);
+  }
+  assert.equal(sup.services.get('reporting').ergo, true);
+  assert.equal(lifelineOf(sup, 'ergo-test').has('reporting'), false);
 });
 
 test('注册表的 lifeline 只能是 true / false：写成字符串报错，不悄悄当成没标', () => {
@@ -364,6 +377,11 @@ test('列表：每个服务带状态、端口、开机自启、最后一次出�
   assert.equal(by.get('ergo-test--web').owner, 'ergo-test');
   assert.deepEqual(r.profiles.data, ['reporting']);
   assert.deepEqual(r.lifeline.map((x) => x.id).toSorted(), ['db', 'db-disk', 'ergo-test', 'ergo-tunnel', 'guard-svc', 'net-up', 'tail-gw']);
+  // tailnet 网关是哪个（调用方认「它离不开的」用）；标了 ergo: true 的带着标记，别的是 false
+  assert.equal(r.tailnetGateway, 'tail-gw');
+  assert.equal(by.get('reporting').ergo, true);
+  assert.equal(by.get('tts').ergo, false);
+  assert.equal(sup.snapshotForUi().services.find((s) => s.id === 'reporting').ergo, true);
   // 换个调用方，同一个服务的保护就不一样
   const other = await ask('other', { type: 'manage.list' });
   assert.equal(other.services.find((s) => s.id === 'ergo-test').protected, false);

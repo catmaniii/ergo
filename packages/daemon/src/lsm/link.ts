@@ -12,6 +12,11 @@
 //   之后只推变了的）交给 onStatus 的订阅者。断线时在途的请求一律回"断了"（管理器那边可能做完了也可能没做，以重连后的全量推送为准）。
 // - 指向自己的入口（协议 §8）：hello 里声明 features: ["entries"] 和外网端口，管理器的 welcome 里有 "entries" 才算支持；
 //   入口清单（公网、tailnet，最近一次从外面打通了没有）接入时推一次、变了再推，交给 entries.onChange 的订阅者。二狗只读，从不让管理器开入口。
+// - 管理指令（协议 §9，418）：welcome 里 features 含 "manage" 才算支持（hello 不用声明）。经自己这条带身份的连接看、启停、重启
+//   服务管家里**别的**服务（秘书的工具 lsm/secretary-tools.ts 用）；对二狗和它的命脉的停、杀、撤由管理器回 protected。
+//   请求带自己编的 id、等 manage.reply（和名下服务的请求共用一张在途表）；看列表、日志、restartSelf 等 30 秒，别的给足 10 分钟
+//   （启动等就绪、场景按层起停、tailnet 连 VPS 签证书、强制停先等 10 秒），超时不代表没做、以列表为准。restartSelf（等我空闲了
+//   重启我）管理器收下就回「已排队」，之后才发 §3 的 restart（when-idle），这里照现有的停机处理（ack、忙就挂起、空闲了停）。
 // 铁律（协议第 0 节）：没有注入身份（四个变量缺一个、协议版本不是 1）时静默跳过，什么都不连；连不上、断线一律只是重连
 // （1 秒起翻倍、最多 30 秒，无限重试），从不抛错、从不挡守护进程启动。services 的方法也从不抛错，失败一律 { ok: false, error }。
 // 照 LSM 的参考客户端 clients/lsm-link.mjs 的做法写，没有照搬它（它用 Node 自带的 WebSocket，零依赖）：
@@ -28,12 +33,22 @@ export const LSM_SERVICES_FEATURE = "services";
 /** 指向自己的入口（协议 §8）这个扩展的名字：hello、welcome 的 features 里写它 */
 export const LSM_ENTRIES_FEATURE = "entries";
 
+/** 管理指令（协议 §9）这个扩展的名字：管理器在 welcome 的 features 里写它（hello 不用声明） */
+export const LSM_MANAGE_FEATURE = "manage";
+
 /** 默认心跳间隔（管理器的 welcome 给了就按它的） */
 const DEFAULT_HEARTBEAT_MS = 5_000;
 const RECONNECT_MIN_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 /** 启动要等服务就绪（LSM 的 readyTimeoutMs 默认 60 秒）：给足 */
 const SERVICES_REQUEST_TIMEOUT_MS = 180_000;
+/** 管理指令里只看的（列表、日志）和 restartSelf：管理器马上回 */
+export const MANAGE_QUICK_TIMEOUT_MS = 30_000;
+/**
+ * 别的管理指令：启动等就绪（服务的 readyTimeoutMs 最多 10 分钟）、场景按层起停、tailnet 连 VPS 签证书、强制停先等 10 秒——给足。
+ * 超时不代表没做（以列表为准）
+ */
+export const MANAGE_REQUEST_TIMEOUT_MS = 600_000;
 
 /** 忙不忙：有任务在跑时忙，原因写跑的是什么 */
 export interface LsmBusy {
@@ -187,6 +202,125 @@ export interface LsmEntries {
   onChange(listener: () => void): () => void;
 }
 
+/** 管理指令（协议 §9.6）里的一条服务：管理器回的样子（只列用得到的字段，别的原样留着） */
+export interface LsmManagedService {
+  /** 服务全名（名下的是 <登记方>--<名字>） */
+  id: string;
+  title?: string | null;
+  project?: string | null;
+  /** 名下的服务是谁登记的 */
+  owner?: string | null;
+  /** 纯隧道是 "tunnel" */
+  role?: string | null;
+  port: number | null;
+  /** STOPPED / STARTING / RUNNING / DEGRADED / STOPPING / FAILED / ORPHAN */
+  state: string;
+  desired?: string;
+  up: boolean;
+  listening?: boolean | null;
+  health?: string | null;
+  pid?: number | null;
+  /** 从什么时候起在跑（毫秒时间戳） */
+  since?: number | null;
+  autostart: boolean;
+  /** 接入了 link 协议 */
+  linked?: boolean;
+  busy?: boolean;
+  busyReason?: string | null;
+  /** 挂着"等空闲再停" */
+  pendingStop?: boolean;
+  /** 没有 stop 就是没有优雅停机：停要带 force；重启另看有没有 restart（管理器按钩子和接入算） */
+  capabilities: string[];
+  detail?: string | null;
+  lastError?: string | null;
+  profiles?: string[];
+  dependsOn?: Array<{ id: string; type: string }>;
+  /** 有公网入口：它的隧道和公网地址 */
+  exposure?: { via: string; publicUrl: string | null } | null;
+  /** 有 tailnet 入口 */
+  tailnet?: { name: string; url: string } | null;
+  /** 对二狗是命脉（停、杀、撤都会被管理器拒），protectedWhy 是管理器写的原因 */
+  protected: boolean;
+  protectedWhy: string[];
+  /** 登记里标了 ergo: true（和二狗有关，设置 · 服务一页也列出它；老的服务管家没有这个字段） */
+  ergo?: boolean;
+  [key: string]: unknown;
+}
+
+/** 场景起停里一个服务的结果 */
+export interface LsmProfileResult {
+  id: string;
+  ok: boolean;
+  already?: boolean;
+  pending?: boolean;
+  why?: string;
+}
+
+/** 管理指令的回复（manage.reply），或者这边造的失败（没接入、不支持、断了、超时）。成功时有哪些字段看是哪条指令（协议 §9.6） */
+export type LsmManageReply =
+  | {
+      ok: true;
+      already?: boolean;
+      pending?: boolean;
+      /** restartSelf：已排队 */
+      queued?: boolean;
+      note?: string;
+      /** 孤儿 kill：杀掉的进程 */
+      killed?: number[];
+      /** tailnetOpen：入口地址 */
+      url?: string;
+      /** exposeOn / exposeOff：隧道 id */
+      tunnel?: string;
+      service?: LsmManagedService;
+      /** list：调用方自己、全部服务、场景、命脉 */
+      self?: string;
+      services?: LsmManagedService[];
+      profiles?: Record<string, string[]>;
+      lifeline?: Array<{ id: string; why: string[] }>;
+      /** list：tailnet 网关是哪个服务（开了 tailnet 才有；老的服务管家没有这个字段） */
+      tailnetGateway?: string | null;
+      /** logs */
+      name?: string;
+      source?: number;
+      label?: string;
+      lines?: string;
+      capped?: boolean;
+      sources?: Array<{ source: number; label: string }>;
+      /** profileStart / profileStop */
+      profile?: string;
+      results?: LsmProfileResult[];
+      /** remove */
+      removed?: { id: string; name: string };
+    }
+  | { ok: false; error: { code: string; message: string; details?: unknown }; service?: LsmManagedService; profile?: string; results?: LsmProfileResult[] };
+
+/** 管理指令（协议 §9）：方法都不抛错，失败一律 { ok: false, error: { code, message } }。name 一律写服务全名 */
+export interface LsmManage {
+  /** 含义和名下的服务那个一样：disabled 没接入；waiting 还没收到 welcome；unsupported 管理器太老（welcome 里没有 manage） */
+  readonly support: LsmServicesSupport;
+  list(): Promise<LsmManageReply>;
+  /** 最后 lines 行（管理器默认 100、最多 500），source 是第几份日志（默认 0 = 命令行输出） */
+  logs(name: string, options?: { lines?: number; source?: number }): Promise<LsmManageReply>;
+  /** 等到就绪（或失败）才回 */
+  start(name: string): Promise<LsmManageReply>;
+  /** 没有停机能力的不带 force 回 no-capability；force 是强制停止（杀进程树）；when-idle 只对接入了的服务有意义 */
+  stop(name: string, options?: { force?: boolean; mode?: "now" | "when-idle" }): Promise<LsmManageReply>;
+  /** 立刻重启；没有重启能力的要 force（先强制停再起） */
+  restart(name: string, options?: { force?: boolean }): Promise<LsmManageReply>;
+  cancelStop(name: string): Promise<LsmManageReply>;
+  autostart(name: string, on: boolean): Promise<LsmManageReply>;
+  profileStart(profile: string): Promise<LsmManageReply>;
+  profileStop(profile: string, options?: { force?: boolean }): Promise<LsmManageReply>;
+  exposeOn(name: string): Promise<LsmManageReply>;
+  exposeOff(name: string): Promise<LsmManageReply>;
+  tailnetOpen(name: string, tailnetName?: string): Promise<LsmManageReply>;
+  tailnetClose(name: string): Promise<LsmManageReply>;
+  remove(name: string): Promise<LsmManageReply>;
+  orphan(name: string, decision: "adopt" | "kill"): Promise<LsmManageReply>;
+  /** 等我空闲了重启我：管理器收下就回 queued（之后才发 restart when-idle），绝不等重启完 */
+  restartSelf(): Promise<LsmManageReply>;
+}
+
 export interface LsmLink {
   /** 注入了身份、在接入（连没连上另说） */
   readonly enabled: boolean;
@@ -194,6 +328,8 @@ export interface LsmLink {
   readonly services: LsmServices;
   /** 指向自己的入口 */
   readonly entries: LsmEntries;
+  /** 管理指令（看、启停、重启服务管家里别的服务） */
+  readonly manage: LsmManage;
   /** 管理器的网页（从 LSM_URL 算的，只在这台电脑上打得开）；没接入是 undefined */
   readonly managerUrl: string | undefined;
   /** 忙闲变了：马上补一次心跳；有"等空闲再停"挂着、现在不忙了就停机 */
@@ -221,7 +357,38 @@ export const DISABLED_LSM_SERVICES: LsmServices = {
 /** 没接入时的入口清单：什么都没有 */
 export const DISABLED_LSM_ENTRIES: LsmEntries = { support: "disabled", current: undefined, onChange: () => () => {} };
 
-const DISABLED: LsmLink = { enabled: false, services: DISABLED_LSM_SERVICES, entries: DISABLED_LSM_ENTRIES, managerUrl: undefined, notifyBusy() {}, close() {} };
+const manageNotLinked = async (): Promise<LsmManageReply> => ({ ok: false, error: { code: "not-linked", message: t("lsm.notLinked") } });
+
+/** 没接入时的管理指令：什么都做不了，也不抛错 */
+export const DISABLED_LSM_MANAGE: LsmManage = {
+  support: "disabled",
+  list: manageNotLinked,
+  logs: manageNotLinked,
+  start: manageNotLinked,
+  stop: manageNotLinked,
+  restart: manageNotLinked,
+  cancelStop: manageNotLinked,
+  autostart: manageNotLinked,
+  profileStart: manageNotLinked,
+  profileStop: manageNotLinked,
+  exposeOn: manageNotLinked,
+  exposeOff: manageNotLinked,
+  tailnetOpen: manageNotLinked,
+  tailnetClose: manageNotLinked,
+  remove: manageNotLinked,
+  orphan: manageNotLinked,
+  restartSelf: manageNotLinked,
+};
+
+const DISABLED: LsmLink = {
+  enabled: false,
+  services: DISABLED_LSM_SERVICES,
+  entries: DISABLED_LSM_ENTRIES,
+  manage: DISABLED_LSM_MANAGE,
+  managerUrl: undefined,
+  notifyBusy() {},
+  close() {},
+};
 
 /** 管理器接入端点（ws://127.0.0.1:7420/link）→ 它的网页（http://127.0.0.1:7420/）；写法不对是 undefined */
 export function managerPageOf(linkUrl: string): string | undefined {
@@ -241,7 +408,7 @@ type ManagerMessage =
   | { type: "ping"; id: string }
   | { type: "cancel"; id: string }
   | { type: "stop" | "restart"; id: string; mode?: "now" | "when-idle"; deadlineMs?: number }
-  | ({ type: "services.reply"; id: string } & Record<string, unknown>)
+  | ({ type: "services.reply" | "manage.reply"; id: string } & Record<string, unknown>)
   | { type: "services.status"; full?: boolean; services?: LsmServiceStatus[]; removed?: string[] }
   | { type: "entries.status"; entries?: unknown; wrongPort?: unknown };
 
@@ -283,7 +450,9 @@ export function linkToLsm(options: LsmLinkOptions): LsmLink {
   let byeReason = "closing";
   // 名下的服务：welcome 带来的支不支持（没收到 welcome 前是 waiting）、在途的请求、订阅者
   let support: LsmServicesSupport = "waiting";
-  const pending = new Map<string, { resolve: (reply: LsmServicesReply) => void; timer: NodeJS.Timeout }>();
+  // 管理指令（协议 §9）：welcome 带来的支不支持；在途的请求和名下服务的共用一张表（id 一起编号）
+  let manageSupport: LsmServicesSupport = "waiting";
+  const pending = new Map<string, { resolve: (reply: Record<string, unknown>) => void; timer: NodeJS.Timeout }>();
   let requestSeq = 0;
   const statusListeners = new Set<(message: LsmServicesStatusMessage) => void>();
   const supportListeners = new Set<(support: LsmServicesSupport) => void>();
@@ -348,6 +517,7 @@ export function linkToLsm(options: LsmLinkOptions): LsmLink {
     if (!closed) {
       setSupport("waiting");
       setEntriesSupport("waiting");
+      manageSupport = "waiting";
     }
   };
 
@@ -385,6 +555,8 @@ export function linkToLsm(options: LsmLinkOptions): LsmLink {
         heartbeat();
         // 老管理器的 welcome 没有 features：当成不支持名下的服务，别发了等不到回复
         setSupport(Array.isArray(message.features) && message.features.includes(LSM_SERVICES_FEATURE) ? "supported" : "unsupported");
+        // 管理指令同样：welcome 里没有 manage 的管理器不理 manage.*，别发
+        manageSupport = Array.isArray(message.features) && message.features.includes(LSM_MANAGE_FEATURE) ? "supported" : "unsupported";
         // 同样：老管理器不给入口清单，二狗只有用户手填的地址
         {
           const supported = options.externalPort !== undefined && Array.isArray(message.features) && message.features.includes(LSM_ENTRIES_FEATURE);
@@ -420,13 +592,15 @@ export function linkToLsm(options: LsmLinkOptions): LsmLink {
         shutdown();
         return;
       }
-      case "services.reply": {
+      case "services.reply":
+      case "manage.reply": {
+        // 超时以后才到的回复没人等了：丢掉（以状态推送、列表为准）
         const p = pending.get(message.id);
         if (!p) return;
         pending.delete(message.id);
         clearTimeout(p.timer);
         const { type: _type, id: _id, ...reply } = message;
-        p.resolve(reply as LsmServicesReply);
+        p.resolve(reply);
         return;
       }
       case "services.status":
@@ -508,23 +682,32 @@ export function linkToLsm(options: LsmLinkOptions): LsmLink {
     retry = undefined;
   };
 
-  /** 发一条名下服务的请求，等回复（不支持、没连上、超时、断了都回失败，不抛错） */
-  const request = (type: string, body: Record<string, unknown>): Promise<LsmServicesReply> => {
-    if (closed) return Promise.resolve({ ok: false, error: { code: "closed", message: t("lsm.closed") } });
-    if (support === "waiting") return Promise.resolve({ ok: false, error: { code: "not-connected", message: t("lsm.notConnected") } });
-    if (support === "unsupported") return Promise.resolve({ ok: false, error: { code: "unsupported", message: t("lsm.unsupported") } });
+  /**
+   * 发一条请求，等回复（不支持、没连上、超时、断了都回失败，不抛错）。名下的服务看 support，管理指令看 manageSupport；
+   * 两种的在途请求在同一张表里（id 一起编号）
+   */
+  const ask = <R>(type: string, body: Record<string, unknown>, supported: LsmServicesSupport, unsupported: () => string, timeoutMs: number): Promise<R> => {
+    const fail = (code: string, message: string) => Promise.resolve({ ok: false, error: { code, message } } as R);
+    if (closed) return fail("closed", t("lsm.closed"));
+    if (supported === "waiting") return fail("not-connected", t("lsm.notConnected"));
+    if (supported === "unsupported") return fail("unsupported", unsupported());
     requestSeq += 1;
     const id = `q-${requestSeq}`;
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         pending.delete(id);
-        resolve({ ok: false, error: { code: "timeout", message: t("lsm.timeout") } });
-      }, SERVICES_REQUEST_TIMEOUT_MS);
+        resolve({ ok: false, error: { code: "timeout", message: t("lsm.timeout") } } as R);
+      }, timeoutMs);
       timer.unref();
-      pending.set(id, { resolve, timer });
+      pending.set(id, { resolve: (reply) => resolve(reply as R), timer });
       send({ type, id, ...body });
     });
   };
+  /** 名下服务的请求 */
+  const request = (type: string, body: Record<string, unknown>) => ask<LsmServicesReply>(type, body, support, () => t("lsm.unsupported"), SERVICES_REQUEST_TIMEOUT_MS);
+  /** 管理指令：只看的和 restartSelf 管理器马上回，别的给足 */
+  const command = (type: string, body: Record<string, unknown>, timeoutMs = MANAGE_REQUEST_TIMEOUT_MS) =>
+    ask<LsmManageReply>(`manage.${type}`, body, manageSupport, () => t("lsm.manageUnsupported"), timeoutMs);
 
   const services: LsmServices = {
     get support() {
@@ -547,6 +730,29 @@ export function linkToLsm(options: LsmLinkOptions): LsmLink {
     },
   };
 
+  const manage: LsmManage = {
+    get support() {
+      return manageSupport;
+    },
+    list: () => command("list", {}, MANAGE_QUICK_TIMEOUT_MS),
+    logs: (name, { lines, source } = {}) => command("logs", { name, ...(lines === undefined ? {} : { lines }), ...(source === undefined ? {} : { source }) }, MANAGE_QUICK_TIMEOUT_MS),
+    start: (name) => command("start", { name }),
+    stop: (name, { force = false, mode = "now" } = {}) => command("stop", { name, mode, force }),
+    restart: (name, { force = false } = {}) => command("restart", { name, force }),
+    cancelStop: (name) => command("cancelStop", { name }),
+    autostart: (name, on) => command("autostart", { name, on }),
+    profileStart: (profile) => command("profileStart", { profile }),
+    profileStop: (profile, { force = false } = {}) => command("profileStop", { profile, force }),
+    exposeOn: (name) => command("exposeOn", { name }),
+    exposeOff: (name) => command("exposeOff", { name }),
+    tailnetOpen: (name, tailnetName) => command("tailnetOpen", { name, ...(tailnetName === undefined ? {} : { tailnetName }) }),
+    tailnetClose: (name) => command("tailnetClose", { name }),
+    remove: (name) => command("remove", { name }),
+    orphan: (name, decision) => command("orphan", { name, decision }),
+    // 管理器收下就回「已排队」（之后才发 restart when-idle）：等的只是这句回复
+    restartSelf: () => command("restartSelf", { mode: "when-idle" }, MANAGE_QUICK_TIMEOUT_MS),
+  };
+
   const entriesView: LsmEntries = {
     get support() {
       return entriesSupport;
@@ -564,6 +770,7 @@ export function linkToLsm(options: LsmLinkOptions): LsmLink {
     enabled: true,
     services,
     entries: entriesView,
+    manage,
     managerUrl: managerPageOf(url),
     notifyBusy() {
       if (closed) return;

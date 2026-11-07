@@ -62,6 +62,8 @@
   "shell.pages.dataSources.sub": "外面接进来的数据：有哪些、连没连上；点进去配置、看数据",
   "shell.pages.materialsDelete.title": "删除素材",
   "shell.pages.materialsDelete.sub": "按会话或按时间段删，点开一条看内容",
+  "shell.pages.services.title": "服务",
+  "shell.pages.services.sub": "服务管家里和二狗有关的：看状态、开关、看日志",
   "shell.pages.about.title": "关于二狗",
   "shell.pages.about.sub": "版本、更新日志",
   "shell.pages.debug.title": "Debug 工具集",

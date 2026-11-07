@@ -141,8 +141,18 @@ describe("浏览插件", () => {
     const context = lastEcho(frontend);
     const tools = toolsIn(context);
     expect(tools.filter((name) => BROWSE_TOOLS.includes(name))).toEqual([]);
-    // 别的工具照旧（内核的在前，联网工具接着）
-    expect(tools.slice(tools.indexOf("show_card"), tools.indexOf("show_card") + 3)).toEqual(["show_card", "web_search", "web_fetch"]);
+    // 别的工具照旧（内核的在前，指挥服务管家的接着，再是联网工具）
+    expect(tools.slice(tools.indexOf("show_card"), tools.indexOf("show_card") + 9)).toEqual([
+      "show_card",
+      "lsm_status",
+      "lsm_logs",
+      "lsm_control",
+      "lsm_force",
+      "lsm_entries",
+      "lsm_restart_self",
+      "web_search",
+      "web_fetch",
+    ]);
     const prompt = assemblyOf(context);
     for (const paragraph of BROWSE_PARAGRAPHS) expect(prompt).not.toContain(paragraph);
     expect(prompt).not.toMatch(/browse_/);

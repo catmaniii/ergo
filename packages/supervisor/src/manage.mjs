@@ -147,6 +147,8 @@ export function createManage(sup, { restartSelfWaitMs = RESTART_SELF_WAIT_MS } =
       exposure: exp.scope === 'public' ? { via: exp.via, publicUrl: exp.publicUrl } : null,
       tailnet: entry && tcfg?.domain ? { name: entry.name, url: `https://${hostOf(entry.name, tcfg)}/` } : null,
       protected: why.length > 0, protectedWhy: why,
+      // 注册表里标了 ergo: true：二狗的「服务」页把它也列出来（只是显示，和保护无关）
+      ergo: svc.ergo === true,
     };
   }
 
@@ -295,6 +297,8 @@ export function createManage(sup, { restartSelfWaitMs = RESTART_SELF_WAIT_MS } =
             ...[...sup.services.values()].flatMap((s) => s.profiles || []),
           ])].map((n) => [n, sup.profileMembers(n)])),
           lifeline: [...lifeline].map(([id, why]) => ({ id, why })),
+          // tailnet 网关是哪个服务（manager.yaml 的 tailnet.gateway，开了 tailnet 才有）：调用方认「它离不开的」要用
+          tailnetGateway: (sup.manager?.tailnet?.domain && sup.manager.tailnet.gateway) || null,
         };
       }
       case 'manage.logs': {

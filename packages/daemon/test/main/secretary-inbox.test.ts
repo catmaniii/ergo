@@ -76,6 +76,13 @@ const SECRETARY_TOOLS = [
   "search_materials",
   "send_attachment",
   "show_card",
+  // 指挥服务管家（只碰服务管家，不对卡片做动作；要批准的出的是守卫的审批卡）
+  "lsm_status",
+  "lsm_logs",
+  "lsm_control",
+  "lsm_force",
+  "lsm_entries",
+  "lsm_restart_self",
   "start_workflow",
   "suggest_project",
   "suggest_task",
