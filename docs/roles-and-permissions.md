@@ -149,10 +149,10 @@ agent 能碰哪里、能用什么，只有用户改得了。agent 最多提出�
 
 <!-- secretary-tools：和 packages/daemon/test/main/reminders.test.ts 断言的那一份一致 -->
 ```text
-read write edit ls grep find bash read_attachment send_attachment create_reminder update_reminder cancel_reminder archive_reminder search_materials read_material ask_memory ask_curator mark_woven_question remember_memory ingest_material mcp_call propose_quick_action read_personal_file start_workflow create_task delegate_task suggest_task ask_questions write_task_brief schedule_task suggest_project view_board check_health read_project_records open_service switch_project_services project_ops propose_go_live propose_skill list_inbox show_card lsm_status lsm_logs lsm_control lsm_force lsm_entries lsm_restart_self browse_read_page browse_fill find_files view_files browse_attach_files browse_open browse_snapshot browse_click browse_element_content browse_element_download web_search web_fetch spoken_summary send_voice
+read write edit ls grep find bash read_attachment send_attachment create_reminder update_reminder cancel_reminder archive_reminder search_materials read_material ask_memory ask_curator mark_woven_question remember_memory ingest_material show_on_map mcp_call propose_quick_action read_personal_file start_workflow create_task delegate_task suggest_task ask_questions write_task_brief schedule_task suggest_project view_board check_health read_project_records open_service switch_project_services project_ops propose_go_live propose_skill list_inbox show_card lsm_status lsm_logs lsm_control lsm_force lsm_entries lsm_restart_self browse_read_page browse_fill find_files view_files browse_attach_files browse_open browse_snapshot browse_click browse_element_content browse_element_download web_search web_fetch spoken_summary send_voice
 ```
 
-- 提醒插件给 `create_reminder` 到 `archive_reminder`，记忆插件给 `search_materials` 到 `ingest_material`，浏览插件给 `browse_read_page` 到 `browse_element_download`，语音插件给 `spoken_summary`、`send_voice`。插件停用时这几段没有。
+- 提醒插件给 `create_reminder` 到 `archive_reminder`，记忆插件给 `search_materials` 到 `ingest_material`，地图插件给 `show_on_map`，浏览插件给 `browse_read_page` 到 `browse_element_download`，语音插件给 `spoken_summary`、`send_voice`。插件停用时这几段没有。
 - 连上了数据源、开着按需查的，另有 `query_looki`、`query_google_calendar`、`search_gmail`、`read_gmail`。
 
 依据：`secretary/secretary.ts` 的 `startSecretary`；`secretary/tool-list.ts` 的 `secretaryToolList`；`data-sources/service.ts` 的 `createDataSources`。
