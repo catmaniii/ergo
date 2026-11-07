@@ -5,7 +5,9 @@
 // - 文本类（textPreviewOf）：Markdown、纯文本、JSON、CSV / TSV、代码和配置，画法和内置浏览器打开文件同一套（file-view.ts 的 fileBodyOf）；
 // - HTML、SVG（framePreviewOf，1 MB 以内）：报告页里 HTML 在沙箱框里打开，SVG 用 <img> 显示；
 // - 音频、视频（mediaPreviewOf）：报告页里用页面自带的播放器放，编码浏览器放不了的由播放器报错时提示下载（卡片上不事先判断）。
+//   视频在聊天里不画卡片，像图片一样直接显示第一帧、点开大播放器（chat-video.ts）；第一帧取不到、解不了的才退回卡片。
 // 报告页（pages/ReportPage.tsx）显示什么也在这里推：取到的内容怎么画（HTML、SVG 在框里看，音视频给播放器）、截断的提示、取不到时说什么。
+import { isChatVideo } from "./chat-video.ts";
 import { sizeLabel } from "./detail-content.ts";
 import { FILE_RENDER_LABEL, type FileBody, fileBodyOf } from "./file-view.ts";
 import {
@@ -101,6 +103,8 @@ export interface FileCard {
   readonly iconHint: string;
   /** 卡片的悬停文字：全名、类型、大小 */
   readonly tooltip: string;
+  /** 标题下面多写的一行（聊天里放不了的视频退回卡片时写"网页里放不了，下载看"，chat-video.ts）；平常没有 */
+  readonly note?: string;
 }
 
 /** 卡片标题最多多宽（汉字算两个字母宽）：卡片两行写得下 */
@@ -179,14 +183,17 @@ export function fileCards(files: readonly FilePartValue[]): FileCard[] {
   });
 }
 
-/** 一条消息的各部分怎么排：连着的文件附件合成一组（画成一横排），别的各是各的；index 是在原来 parts 里的位置 */
+/**
+ * 一条消息的各部分怎么排：连着的文件附件合成一组（画成一横排），别的各是各的；index 是在原来 parts 里的位置。
+ * 视频附件像图片一样各自单独一块（聊天里直接显示第一帧，chat-video.ts 的 isChatVideo），不和别的附件挤在一排卡片里
+ */
 export type PartRun = { kind: "part"; part: MessagePart; index: number } | { kind: "files"; files: FilePartValue[]; index: number };
 
 export function partRuns(parts: readonly MessagePart[]): PartRun[] {
   const runs: PartRun[] = [];
   parts.forEach((part, index) => {
     const last = runs.at(-1);
-    if (part.type !== "file") runs.push({ kind: "part", part, index });
+    if (part.type !== "file" || isChatVideo(part)) runs.push({ kind: "part", part, index });
     else if (last?.kind === "files" && last.index + last.files.length === index) last.files.push(part);
     else runs.push({ kind: "files", files: [part], index });
   });

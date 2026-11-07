@@ -183,20 +183,34 @@ describe("一条消息里连着的附件排成一排", () => {
   test("连着的文件附件合成一组（一组画成一横排，装不下换行）；图片、文字、语音照旧各是各的", () => {
     const parts: MessagePart[] = [
       { type: "image", mediaId: "img", name: "截图.png", mime: "image/png" },
-      file("a.mp4", "video/mp4"),
-      file("b.mp4", "video/mp4"),
-      file("c.mp4", "video/mp4"),
-      { type: "text", text: "三段录像" },
+      file("a.zip", "application/zip"),
+      file("b.wav", "audio/wav"),
+      file("c.csv", "text/csv"),
+      { type: "text", text: "三份文件" },
       file("纪要.md", "text/markdown"),
     ];
-    expect(partRuns(parts).map((r) => (r.kind === "files" ? `files@${r.index}:${r.files.map((f) => f.name).join(",")}` : `${r.part.type}@${r.index}`))).toEqual([
-      "image@0",
-      "files@1:a.mp4,b.mp4,c.mp4",
-      "text@4",
-      "files@5:纪要.md",
-    ]);
+    expect(partRuns(parts).map(runLabel)).toEqual(["image@0", "files@1:a.zip,b.wav,c.csv", "text@4", "files@5:纪要.md"]);
+  });
+
+  test("视频附件像图片一样各自单独一块（聊天里直接显示第一帧），夹在中间的把一排卡片隔开；avi 这类浏览器放不了的照旧是卡片", () => {
+    const parts: MessagePart[] = [
+      file("a.mp4", "video/mp4"),
+      file("b.mov", "video/quicktime"),
+      file("清单.md", "text/markdown"),
+      file("c.webm", "video/webm"),
+      file("旧录像.avi", "video/x-msvideo"),
+      file("d.zip", "application/zip"),
+      // 没有扩展名，看 part 上的类型
+      file("录屏", "video/mp4"),
+    ];
+    expect(partRuns(parts).map(runLabel)).toEqual(["file@0", "file@1", "files@2:清单.md", "file@3", "files@4:旧录像.avi,d.zip", "file@6"]);
   });
 });
+
+/** 一组怎么排的：files@位置:名字…，单独的 类型@位置 */
+function runLabel(r: ReturnType<typeof partRuns>[number]): string {
+  return r.kind === "files" ? `files@${r.index}:${r.files.map((f) => f.name).join(",")}` : `${r.part.type}@${r.index}`;
+}
 
 describe("历史消息里的附件也有预览入口", () => {
   test("回放主切面录下的附件消息（以前的数据，part 上只有媒体 id、名字、类型、大小）：清单.md 照样能预览", () => {

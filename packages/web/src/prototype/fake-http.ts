@@ -166,7 +166,7 @@ import { FakeAgentSettings } from "./fake-agent-settings.ts";
 import { FAKE_CLAUDE_CODE, FAKE_CLAUDE_COMMANDS, FAKE_CLAUDE_MAINTAINERS, FAKE_CLAUDE_SKILLS, FAKE_CODEX, fakeCodexSessions, fakeRuntimes, setFakeDefaultFolder } from "./fake-runtimes.ts";
 import { fakeTakeoverSessions } from "./fake-takeover.ts";
 import { fakeAppFileText } from "./fake-app-files.ts";
-import { fakeMedia, fakeSoundUrl } from "./fake-media.ts";
+import { fakeMedia, fakeSoundUrl, fakeVideoUrl } from "./fake-media.ts";
 import { FAKE_MATERIAL_IMAGES, fakeMaterialConversations, fakeMaterialDetail, fakeMaterialsIn, fakeSaveWebPage } from "./fake-materials.ts";
 import { fakeServiceThumbnail } from "./fake-operations.ts";
 import { fakeProjectStandard } from "./fake-standard.ts";
@@ -383,7 +383,7 @@ export class FakeDaemonHttp implements DaemonHttp {
   }
 
   mediaUrl(mediaId: string): string | undefined {
-    const url = this.urls.get(mediaId) ?? FAKE_MATERIAL_IMAGES.get(mediaId) ?? (fakeMedia(mediaId)?.sound ? fakeSoundUrl() : undefined);
+    const url = this.urls.get(mediaId) ?? FAKE_MATERIAL_IMAGES.get(mediaId) ?? (fakeMedia(mediaId)?.sound ? fakeSoundUrl() : fakeVideoUrl(mediaId));
     if (url) return url;
     // 假会话里的附件、刚上传的文件：下载给一段说明文字（原型没有原文件）
     const name = fakeMedia(mediaId)?.part.name ?? this.uploads.get(mediaId)?.name;
@@ -422,7 +422,10 @@ export class FakeDaemonHttp implements DaemonHttp {
     return { ok: true, view: { mediaId, name: part.name, mime: part.mime, text: decoded.text, bytes: uploaded.size, truncated, sentAt, ...(decoded.encoding ? { encoding: decoded.encoding } : {}) } };
   }
 
-  /** 原型：音频、视频在报告页播放器里放的地址——刚上传的用本地的 blob: 地址，假录音是合成的提示音，别的假附件（录像）没有内容 */
+  /**
+   * 原型：音频、视频在报告页、聊天里的播放器放的地址——刚上传的用本地的 blob: 地址，假录音是合成的提示音，带内容的两段假视频
+   * 是它们自己的字节；周会录像没有内容（聊天里照旧是卡片）
+   */
   mediaPlayUrl(mediaId: string): string | undefined {
     const url = this.urls.get(mediaId);
     if (url) return url;
@@ -433,7 +436,7 @@ export class FakeDaemonHttp implements DaemonHttp {
       this.urls.set(mediaId, made);
       return made;
     }
-    return fakeMedia(mediaId)?.sound ? fakeSoundUrl() : undefined;
+    return fakeMedia(mediaId)?.sound ? fakeSoundUrl() : fakeVideoUrl(mediaId);
   }
 
   /**

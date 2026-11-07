@@ -85,7 +85,7 @@ The recording panel, canceling a send and the press-and-hold menu on bubbles are
 | Menu item | What you can pick | After sending |
 |---|---|---|
 | **Image** | Image files only | Shows directly in the bubble; click to enlarge |
-| **File** | Any file | An attachment card |
+| **File** | Any file | An attachment card; videos show directly, like images |
 | **Feed as material** | Any file | Saved into materials, marked **Fed as material**. See [Memory](memory.en.md#having-ergo-remember-something) |
 
 **Step by step:**
@@ -100,10 +100,13 @@ Hold to talk works the same way: pick the attachments first, and it says **Hold 
 **Viewing attachments in the chat:**
 
 - **Images:** Click to enlarge. Pinch with two fingers (or use the scroll wheel on a computer) to zoom in and out, drag to look around once zoomed in, and double-click (double-tap) to zoom in or back out. To close: click ×, click outside the image, press Esc or Back. The enlarged view has **Download** at the bottom.
+- **Videos** (mp4, m4v, mov, mkv, webm): they show directly, like images: the first frame, a play button in the middle and the length in the corner. The first frame is only fetched once you scroll near it, so a screen full of videos doesn't load them all at once. Click one and a large player opens on top and starts playing (with sound), as big as the video's shape allows. Use the bar at the bottom of the player to seek, change the volume or go full screen. Closing works like the enlarged image: click ×, click outside the picture, press Esc or Back, and it stops playing. **Download** is at the bottom.
+  - Full screen: in a browser on a computer or phone, the full screen button gives you true full screen. In the ergo app you need the new version of the app for the full screen button. Older versions don't have it; the large player still fills the page, and to get full screen, update the app first.
+  - A video your browser can't play (from an old camcorder, or some phone formats) stays an attachment card that says **Can't play in the browser. Download to watch**. Click **Download** and watch it in a media player.
 - **File cards:** The type is at the top, with **Preview** and **Download** below. **Preview** shows the file the same way the built-in browser does:
   - Text: Markdown, plain text, tables (CSV and TSV, drawn as a table; long ones show the first 500 rows), JSON (neatly indented), and code or config files (monospaced). Markdown, tables and indented JSON have **View source** at the top right. For files over 1 MB only the beginning is shown, with a note at the top to download the full file. Text that isn't UTF-8 is read as GBK, so Chinese CSVs saved from Excel show correctly, with **GBK encoding** next to the type. If it's neither, it says it can't be previewed; download it and open it with an app on your device.
   - HTML and SVG up to 1 MB.
-  - Audio (mp3, m4a, aac, wav, flac, ogg, opus) and video (mp4, m4v, mov, mkv, webm): they play right there, and you can drag to any point. If your browser can't play a file's format (some mov files, for example), it says so and suggests downloading it to watch in a media player. **Download** is still there.
+  - Audio (mp3, m4a, aac, wav, flac, ogg, opus): it plays right there, and you can drag to any point. If your browser can't play a file's format, it says so and suggests downloading it to play in a media player. **Download** is still there.
   - Anything else (PDF, Word, archives, avi…) says **Download only**, and clicking the icon downloads it.
 
 **Things you can just say:**

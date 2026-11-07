@@ -15,6 +15,7 @@ import {
   type InsetsScope,
   type NativeInsets,
   parseNativeInsets,
+  videoFullscreenAllowed,
 } from "../../src/app/native-app.ts";
 import {
   followNotifyInApp,
@@ -162,6 +163,42 @@ describe("在 App 里", () => {
     expect(() => app?.setColorMode("dark")).not.toThrow();
     expect(() => app?.editServer()).not.toThrow();
     expect(() => app?.log("x")).not.toThrow();
+  });
+});
+
+describe("视频全屏（App 接住网页的全屏，票 407）", () => {
+  test("新版 App 的原生桥上有 videoFullscreen：认出来；旧版 App 没有", () => {
+    const fresh = detectNativeApp({ ergoNative: { ...fakeBridge("0.4.4"), videoFullscreen: () => true } });
+    expect(fresh?.videoFullscreen).toBe(true);
+    expect(detectNativeApp({ ergoNative: fakeBridge("0.4.3") })?.videoFullscreen).toBeUndefined();
+    // 不是函数的不算
+    expect(detectNativeApp({ ergoNative: { ...fakeBridge("0.4.4"), videoFullscreen: true } })?.videoFullscreen).toBeUndefined();
+  });
+
+  test("有这个方法就算能真全屏，网页不调它", () => {
+    let called = 0;
+    const app = detectNativeApp({
+      ergoNative: {
+        ...fakeBridge("0.4.4"),
+        videoFullscreen: () => {
+          called += 1;
+          return true;
+        },
+      },
+    });
+    expect(app?.videoFullscreen).toBe(true);
+    expect(called).toBe(0);
+  });
+
+  test("播放器给不给全屏按钮：浏览器（电脑、手机）给；App 里新版给、旧版藏掉；原生桥拒绝了这个页面（认不出 App）也藏掉", () => {
+    // 不在 App 里：照浏览器，本来就是真全屏
+    expect(videoFullscreenAllowed(false, undefined)).toBe(true);
+    // 新版 App
+    expect(videoFullscreenAllowed(true, detectNativeApp({ ergoNative: { ...fakeBridge("0.4.4"), videoFullscreen: () => true } }))).toBe(true);
+    // 旧版 App：全屏按钮点了没反应
+    expect(videoFullscreenAllowed(true, detectNativeApp({ ergoNative: fakeBridge("0.4.3") }))).toBe(false);
+    // 有原生桥但认不出 App（版本号回空串）：还是在 App 的 WebView 里，不给
+    expect(videoFullscreenAllowed(true, detectNativeApp({ ergoNative: fakeBridge("") }))).toBe(false);
   });
 });
 

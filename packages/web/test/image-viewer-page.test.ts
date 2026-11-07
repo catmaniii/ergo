@@ -230,8 +230,8 @@ describe.skipIf(!CHROME)("图片查看器：手机宽（390，触屏）", () => 
     await expectStillOpen(page);
 
     // × 和下面一行（下载）在放大的图上面，点得到
-    expect(await onTop(page, ".image-viewer-close")).toBe(true);
-    expect(await onTop(page, ".image-viewer-bar a")).toBe(true);
+    expect(await onTop(page, ".media-viewer-close")).toBe(true);
+    expect(await onTop(page, ".media-viewer-bar a")).toBe(true);
 
     // 点图外面的深色底：关
     await page.touchscreen.tap(dark.x, dark.y);
@@ -326,8 +326,8 @@ describe.skipIf(!CHROME)("图片查看器：电脑宽（1280，鼠标）", () =>
     await openViewer(page, false);
     await page.mouse.dblclick(center(base).x, center(base).y);
     await expectView(page, base, 2.5);
-    expect(await onTop(page, ".image-viewer-close")).toBe(true);
-    await page.locator(".image-viewer-close").click();
+    expect(await onTop(page, ".media-viewer-close")).toBe(true);
+    await page.locator(".media-viewer-close").click();
     await expect.poll(() => viewerCount(page), { timeout: 3000 }).toBe(0);
     expect(errors).toEqual([]);
     await context.close();

@@ -70,6 +70,8 @@ import {
   FAKE_HTML,
   FAKE_LEDGER_PART,
   FAKE_MEETING_AUDIO,
+  FAKE_OLD_CAMERA_VIDEO,
+  FAKE_PROJECTOR_VIDEO,
   FAKE_REIMBURSE_PY,
   FAKE_STATEMENT_CSV,
   FAKE_TREND_SVG,
@@ -1889,7 +1891,9 @@ const SECRETARY_RELAY: MessageEnvelope[] = [
 ];
 
 /**
- * 附件卡片和报告页。三段录像一次发（同类多个按序号显示，报告页给播放器，原型里没有内容）、源码包（只能下载）和预览页（HTML，沙箱里看）、
+ * 附件卡片和报告页。三段录像一次发（同类多个按序号显示，报告页给播放器，原型里没有内容，聊天里照旧是卡片）、
+ * 投影仪的测试画面和老摄像机录的生日会（视频在聊天里直接显示第一帧、点开大播放器；老摄像机那段浏览器解不了，退回卡片提示下载）、
+ * 源码包（只能下载）和预览页（HTML，沙箱里看）、
  * 银行导出的 GBK 编码流水（表格，写明编码）和周会录音（播放器真能放）、训练记录（JSON 格式化）和算报销的脚本（代码等宽）、
  * 超过 1 MB 的流水（报告页截断）、晚上的日报（Markdown，点开渲染着看：标题、列表、表格、外链）。附件见 fake-media.ts。
  * 后加的几条 id 写死，不经 msg() 编号，后面消息的 id 不变
@@ -1897,6 +1901,20 @@ const SECRETARY_RELAY: MessageEnvelope[] = [
 const SECRETARY_ATTACHMENTS: MessageEnvelope[] = [
   msg(S, "user", at("10-07", "11:02"), ...FAKE_VIDEOS.map((v) => v.part), text("周会录像分成了三段，帮我整理成纪要")),
   msg(S, "agent", at("10-07", "11:03"), text("收到三段录像，整理好纪要发给你。")),
+  {
+    id: "msg-videos-ask",
+    conversation: S,
+    speaker: "user",
+    time: at("10-07", "11:40"),
+    parts: [FAKE_PROJECTOR_VIDEO.part, FAKE_OLD_CAMERA_VIDEO.part, text("新投影仪投出来的测试画面，颜色正不正？还有一段老摄像机录的生日会，我这儿打不开")],
+  },
+  {
+    id: "msg-videos-reply",
+    conversation: S,
+    speaker: "agent",
+    time: at("10-07", "11:41"),
+    parts: [text("测试画面看着正常：彩条的颜色和顺序都对，白块走过去也没有拖影。生日会那段是老摄像机的编码，网页里放不了，下载到电脑上用播放器看。")],
+  },
   msg(S, "agent", at("10-07", "15:20"), text("活动页做好了：源码打包在 zip 里，预览页是单独的 HTML，点开就能看。"), FAKE_ZIP.part, FAKE_HTML.part),
   {
     id: "msg-formats-ask",

@@ -539,7 +539,8 @@
 :root[data-style="pixel"] .att-card {
   border: none;
 }
-:root[data-style="pixel"] .part-image img {
+:root[data-style="pixel"] .part-image img,
+:root[data-style="pixel"] .video-thumb {
   border: none;
   box-shadow: var(--pixel-edge-s);
 }

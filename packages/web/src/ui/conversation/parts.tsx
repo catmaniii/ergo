@@ -1,18 +1,38 @@
 // 消息按 part 渲染：文本、推理（一行，点开看）、图片、文件、语音（VoiceBubble.tsx）、agent 的语音（同一个气泡）、
-// 卡片引用、工单分隔；视频只预留。
+// 卡片引用、工单分隔；视频 part 只预留（作为文件附件发的视频像图片一样直接显示，见 VideoView）。
 // 有详情的都能点开（onDetail：这一部分所属的那一条的详情，由会话组件按条目 id 绑好）：思考旁边"详情 ›"，
 // 卡片旁边"详情 ›"，语音在长按菜单里。会话里的思考、回复、工具调用组按聊天区精简画（rows.tsx：
 // 回复是 Markdown 的 AssistantBubble，工具调用组是一行"调用了 N 个工具 ›"），每次工具调用不再单独画一行，在详情页里看。
-// 文件附件画成卡片（FileCards：类型图标、标题、"预览""下载"，一组排成一横排），能预览的点图标去报告页。
-import { type MouseEvent, useState } from "react";
+// 文件附件画成卡片（FileCards：类型图标、标题、"预览""下载"，一组排成一横排），能预览的点图标去报告页；
+// 视频附件不画卡片，直接显示第一帧、播放键和时长，点开大播放器（VideoView）。
+import { type MouseEvent, useEffect, useRef, useState } from "react";
 import { pushHash } from "../../app/history-nav.ts";
 import { toHash } from "../../app/route-hash.ts";
 import { useStore } from "../../app/store.tsx";
-import { clearedDividerText, type FileCard, fileCards, type FilePartValue, type MessagePart, t, thinkingLabel } from "../../state/index.ts";
+import {
+  clearedDividerText,
+  type FileCard,
+  fileCards,
+  type FilePartValue,
+  isChatVideo,
+  type MessagePart,
+  t,
+  thinkingLabel,
+  unplayableVideoCard,
+  VIDEO_THUMB_IDLE,
+  VIDEO_THUMB_UNPLAYABLE,
+  type VideoThumb,
+  videoDurationLabel,
+  videoThumbOf,
+  videoThumbSrc,
+} from "../../state/index.ts";
 import { useAssistantName } from "../assistant-name.tsx";
 import { CardPanel } from "../cards/CardPanel.tsx";
 import { T } from "../i18n.tsx";
+import { Icon } from "../icons.tsx";
 import { ImageViewer } from "../image-viewer.tsx";
+import { useNearScreen } from "../near-screen.ts";
+import { VideoViewer } from "../video-viewer.tsx";
 import { ThinkingRow } from "./rows.tsx";
 import { AgentVoiceBubble, VoiceBubble } from "./VoiceBubble.tsx";
 
@@ -25,7 +45,8 @@ export function PartView({ part, onDetail, onQuote }: { part: MessagePart; onDet
     case "image":
       return <ImageView part={part} />;
     case "file":
-      return <FileCards files={[part]} />;
+      // 视频附件单独成一块（state 的 partRuns）：直接显示第一帧；别的单独画时是一张卡片
+      return isChatVideo(part) ? <VideoView part={part} /> : <FileCards files={[part]} />;
     case "voice":
       return <VoiceBubble part={part} onDetail={onDetail} />;
     case "tts_audio":
@@ -160,6 +181,84 @@ function ImageView({ part }: { part: Extract<MessagePart, { type: "image" }> }) 
 }
 
 /**
+ * 聊天里的视频附件：像图片一样直接显示第一帧（按比例，限宽限高和图片一样）、中间播放键、角上时长；点开盖一层大播放器
+ * （ui/video-viewer.tsx，自动放、有声音）。第一帧滚到附近才取（ui/near-screen.ts）：<video preload="metadata" muted playsinline>，
+ * 地址带 #t=0.1 停在开头那一帧，只取元数据和开头一小段，不在守护进程截图。
+ * 取不到、解不了（播放器报错，或者元数据里没有画面宽高）：退回文件卡片，写"网页里放不了，下载看"（state/chat-video.ts）。
+ * 没有地址（原型里没有内容的假录像）照旧画卡片，报告页说原型里没有内容
+ */
+function VideoView({ part }: { part: FilePartValue }) {
+  const { http } = useStore();
+  const src = http.mediaPlayUrl(part.mediaId, part.name);
+  const download = http.mediaUrl(part.mediaId, part.name, { download: true });
+  const boxRef = useRef<HTMLButtonElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const near = useNearScreen(boxRef, src !== undefined);
+  const [thumb, setThumb] = useState<VideoThumb>(VIDEO_THUMB_IDLE);
+  const [viewing, setViewing] = useState(false);
+  // 滚到附近了挂上取第一帧的地址；卸下时（会话切走、消息被换掉）拿掉地址再 load()，不接着下载。
+  // 地址在这里挂、拿（不写成 src 属性）：开发时 StrictMode 把 effect 跑两遍也能再挂回来
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!near || !video || !src) return;
+    video.src = videoThumbSrc(src);
+    return () => {
+      video.removeAttribute("src");
+      video.load();
+    };
+  }, [near, src]);
+  if (!src) return <FileCards files={[part]} />;
+  if (thumb.kind === "unplayable") return <UnplayableVideo part={part} />;
+  const ready = thumb.kind === "ready" ? thumb : undefined;
+  const duration = videoDurationLabel(ready?.duration);
+  return (
+    <figure className="part-video">
+      {viewing && <VideoViewer src={src} name={part.name} download={download} ratio={ready && ready.width / ready.height} onClose={() => setViewing(false)} />}
+      <button
+        ref={boxRef}
+        type="button"
+        className={`video-thumb${ready ? " video-thumb-ready" : ""}`}
+        title={t("ui.parts.videoPlayHint", { name: part.name })}
+        aria-label={t("ui.parts.videoPlayHint", { name: part.name })}
+        onClick={() => setViewing(true)}
+      >
+        {near && (
+          <video
+            ref={videoRef}
+            preload="metadata"
+            muted
+            playsInline
+            disablePictureInPicture
+            tabIndex={-1}
+            aria-hidden="true"
+            onLoadedMetadata={(e) => setThumb(videoThumbOf(e.currentTarget))}
+            onError={() => setThumb(VIDEO_THUMB_UNPLAYABLE)}
+          />
+        )}
+        <span className="video-play">
+          <Icon name="play" />
+        </span>
+        {duration && <span className="video-duration">{duration}</span>}
+      </button>
+      <figcaption>
+        {part.name}
+        {part.asMaterial && <span className="chip chip-data">{t("ui.parts.fedAsMaterial")}</span>}
+      </figcaption>
+    </figure>
+  );
+}
+
+/** 放不了的视频：退回原来的文件卡片（不给"预览"，点了下载），卡片上写"网页里放不了，下载看" */
+function UnplayableVideo({ part }: { part: FilePartValue }) {
+  const card = fileCards([part])[0]!;
+  return (
+    <div className="att-row">
+      <AttachmentCard card={unplayableVideoCard(card)} />
+    </div>
+  );
+}
+
+/**
  * 一组文件附件（一条消息里连着的几个由 state 的 partRuns 合成一组）：每个一张卡片，排成一横排，装不下换行。
  * 卡片竖排三层：类型图标（方块里写类型，按类别上色）、标题（同类多个时带序号）、"预览""下载"
  */
@@ -213,6 +312,7 @@ function AttachmentCard({ card }: { card: FileCard }) {
         {card.seq && <b className="att-seq">{card.seq}</b>}
         {card.title}
       </div>
+      {card.note && <div className="att-note">{card.note}</div>}
       {part.asMaterial && <span className="chip chip-data">{t("ui.parts.fedAsMaterial")}</span>}
       <div className="att-btns">
         {card.preview && (

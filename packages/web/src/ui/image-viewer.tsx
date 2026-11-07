@@ -1,8 +1,6 @@
 // 图片放大预览：聊天里的图片点开，在页面上盖一层全屏看大图。原来是新窗口打开图片地址，
 // 鸿蒙 App 里会整页跳到图片上，没有关闭的地方，返回手势也回不来。
-// 关掉的办法：右上角的 ×、点图片以外的地方、鸿蒙的返回手势（挂一层返回栈 overlay，和弹窗一样）、电脑上按 Esc。
-// 下面一行写文件名和"下载"（App 里走原生下载，浏览器里存成文件），不再在新窗口打开原图。
-// 挂到 body 上（createPortal），不受消息列表的滚动和裁切影响。
+// 外壳（深色底、×、下面一行文件名和"下载"，×、点图片以外的地方、返回手势、Esc 都能关）和视频播放器共用：ui/media-viewer.tsx。
 //
 // 放大看细节：整页的 viewport 关掉了浏览器自己的捏合缩放（index.html，App 里也一样），查看器自己做缩放和拖动：
 // - 触屏：双指捏合，以两指中点为中心（手指落在图外面的深色底上也行），途中可以比 1 倍小、松手弹回，最大 5 倍；
@@ -11,10 +9,9 @@
 // 触屏和鼠标都走 Pointer Events（查看器 touch-action: none，浏览器不自己滚、不自己缩放），滚轮单独听（不是 passive 的，
 // 才拦得下 Ctrl + 滚轮的整页缩放）；用 transform 画。算术在 state/image-zoom.ts。
 // 拖过、捏过之后松手浏览器照样派 click，这种不算"点"，不关；点图外面的深色底才关。每次打开都从 1 倍开始。
-import { type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { useBackLayer } from "../app/page-back.ts";
-import { doubleTapZoom, isZoomed, panBy, pinchStep, settle, t, wheelFactor, ZOOM_FIT, zoomAt, type ZoomBox, type ZoomPoint, type ZoomView } from "../state/index.ts";
+import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import { doubleTapZoom, isZoomed, panBy, pinchStep, settle, wheelFactor, ZOOM_FIT, zoomAt, type ZoomBox, type ZoomPoint, type ZoomView } from "../state/index.ts";
+import { isViewerControl, MediaViewer } from "./media-viewer.tsx";
 
 /** 按下到松手挪了不到这么多（像素）才算点 */
 const TAP_SLOP = 8;
@@ -65,25 +62,7 @@ function measure(root: HTMLElement, img: HTMLImageElement): Frame {
 
 const toZoom = (f: Frame, p: ClientPoint): ZoomPoint => ({ x: p.x - f.cx, y: p.y - f.cy });
 
-/** × 和下面一行：自己管自己的点击，不参与缩放手势 */
-const isControl = (target: EventTarget | null) => target instanceof Element && target.closest(".image-viewer-close, .image-viewer-bar") !== null;
-
 export function ImageViewer({ src, name, onClose }: { src: string; name: string; onClose(): void }) {
-  useBackLayer("overlay", true, onClose);
-  const latest = useRef(onClose);
-  useEffect(() => {
-    latest.current = onClose;
-  });
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.preventDefault();
-      latest.current();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
   const rootRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [view, setView] = useState<ZoomView>(ZOOM_FIT);
@@ -137,9 +116,8 @@ export function ImageViewer({ src, name, onClose }: { src: string; name: string;
   const frame = (): Frame | undefined => (rootRef.current && imgRef.current ? measure(rootRef.current, imgRef.current) : undefined);
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    // 查看器是挂在 body 上的，React 的事件还会顺着组件树冒到聊天那边：在这里截住
-    e.stopPropagation();
-    if (isControl(e.target)) return;
+    // 按下不往聊天那边冒由外壳截住
+    if (isViewerControl(e.target)) return;
     if (e.pointerType === "mouse") {
       if (e.button !== 0) return;
       // 拖的时候不选中文件名这些字（click 照样派）
@@ -217,40 +195,26 @@ export function ImageViewer({ src, name, onClose }: { src: string; name: string;
     }
   };
 
-  const onClick = (e: ReactMouseEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    // × 自己关；下面一行（文件名、下载）点了不关
-    if (isControl(e.target)) return;
-    // 拖过、捏过之后松手也会派 click（鼠标按下、松开都在查看器上），不算点；点在图上的不关
+  /** 拖过、捏过之后松手也会派 click（鼠标按下、松开都在查看器上），不算点；点在图上的不关；点图外面的深色底才关 */
+  const closeOnClick = () => {
     const g = gesture.current;
-    if (g.moved || g.multi || g.onImage) return;
-    latest.current();
+    return !(g.moved || g.multi || g.onImage);
   };
 
-  return createPortal(
-    <div
-      ref={rootRef}
+  return (
+    <MediaViewer
+      rootRef={rootRef}
       className={`image-viewer${isZoomed(view) ? " zoomed" : ""}${held ? " held" : ""}`}
-      role="dialog"
-      aria-modal="true"
-      aria-label={name}
+      name={name}
+      download={src}
+      onClose={onClose}
+      closeOnClick={closeOnClick}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}
       onPointerCancel={onPointerEnd}
-      onClick={onClick}
     >
       <img ref={imgRef} src={src} alt={name} draggable={false} className={smooth ? "settling" : undefined} style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }} />
-      <button type="button" className="image-viewer-close" onClick={onClose} aria-label={t("common.close")} title={t("ui.imageViewer.closeHint")}>
-        ×
-      </button>
-      <div className="image-viewer-bar">
-        <span className="image-viewer-name">{name}</span>
-        <a href={src} download={name}>
-          {t("ui.imageViewer.download")}
-        </a>
-      </div>
-    </div>,
-    document.body,
+    </MediaViewer>
   );
 }
