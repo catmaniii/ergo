@@ -166,6 +166,8 @@ export interface DataDirLayout {
   serviceThumbnails: string;
   /** 网页候选的缩略图（<哈希>.jpg / .png）：守护进程缩的，24 小时没用、总量超了就清 */
   pageThumbnails: string;
+  /** 地图瓦片的缓存（map-tiles/<源>/<z>/<x>/<y>.png 和到期记录）：地图插件替浏览器取的 OpenStreetMap 瓦片，按缓存头到期、总量超了删最老的 */
+  mapTiles: string;
   /** 斜杠命令说明的译文（按"语言 + 命令名 + 原文"）：二狗的模型翻的，随时能重新翻出来 */
   slashTranslationsFile: string;
 }
@@ -258,6 +260,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     cache: path.join(root, "cache"),
     serviceThumbnails: path.join(root, "cache", "service-thumbnails"),
     pageThumbnails: path.join(root, "cache", "page-thumbnails"),
+    mapTiles: path.join(root, "cache", "map-tiles"),
     slashTranslationsFile: path.join(root, "cache", "slash-translations.json"),
   };
 }

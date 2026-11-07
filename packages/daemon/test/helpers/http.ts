@@ -81,6 +81,7 @@ import {
   type WorkdayChange,
   type WorkdayChangeResult,
   type WorkdayMonthView,
+  type MapConfigView,
   type UserNameResult,
   type UserNameView,
 } from "@ergo/protocol";
@@ -279,6 +280,11 @@ export const languageApi = {
 /** 主导航的日历：某个月（YYYY-MM）每一天的日历条目 */
 export const calendarApi = {
   month: (baseUrl: string, month: string) => requestJson<CalendarMonthView & HttpErrorBody>(baseUrl, HTTP_PATHS.calendarMonth(month)),
+};
+
+/** 地图页现在能用什么（429） */
+export const mapApi = {
+  config: (baseUrl: string) => requestJson<MapConfigView & HttpErrorBody>(baseUrl, HTTP_PATHS.mapConfig),
 };
 
 /** 工具调用的完整参数和返回：按调用 id 取 */

@@ -139,6 +139,7 @@ import type { UserNameService } from "../user-name/index.ts";
 import type { PersonalFilesService } from "../personal-files/index.ts";
 import type { ProjectOpsMcpApi, ServiceEventsApi } from "../projects/api.ts";
 import type { CalendarService } from "../calendar/api.ts";
+import type { MapService } from "../map/api.ts";
 import { latestAttachment } from "../conversation/attachments-view.ts";
 import { historyPage, isConversationChannel } from "../conversation/history.ts";
 import { RequestRejected } from "../errors.ts";
@@ -248,6 +249,11 @@ export interface HttpApiOptions {
    * 日历插件没启用时抛 not_allowed"日历插件没启用"（回 400 带这句）
    */
   calendar: CalendarService;
+  /**
+   * 地图页现在能用什么（GET /api/map/config）：是地图插件的服务，组合根经插件宿主现取，
+   * 地图插件没启用时抛 not_allowed"地图插件没启用"（回 400 带这句）
+   */
+  map: Pick<MapService, "config">;
   /** token 账本：消耗页的汇总和粗估成本 */
   ledger: TokenLedger;
   /**
@@ -645,6 +651,12 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         return {
           GET(_req, res, url) {
             sendJson(res, 200, options.calendar.month(url.searchParams.get(HTTP_QUERY.month) ?? ""));
+          },
+        };
+      case "map_config":
+        return {
+          GET(_req, res) {
+            sendJson(res, 200, options.map.config());
           },
         };
       case "usage":
