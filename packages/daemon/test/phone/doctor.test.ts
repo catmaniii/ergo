@@ -1,17 +1,17 @@
 // "手机"插件的体检项（414，src/phone/doctor.ts）：
 // - 手机 App（app）：日历、相册、位置都没连不适用；最近一次交来东西超过 3 天是注意（"手机 App 很久没打开"，从那时起），别的正常；
 //   设备交来的同步记录看四个数据源里最晚的一条；
-// - 手机日历交来 0 条（calendar-empty）：日历没连不适用；交来 0 条、一下删了不少于 20 条是注意（跟着删了），手机又交来日程就过去了；
-//   425 记下的 phone_calendar_held（先留着没删）有就用它（写"先留着、没删"）；只删了几条的不算；
+// - 手机日历交来 0 条（calendar-empty）：日历没连不适用；交来 0 条、原来不少于 20 条（425 先留着没删，记 phone_calendar_held）
+//   是注意（写"先留着、没删"），手机又交来日程就过去了；只有几条、照常删光了的不算；
 // - 授权被撤回由二狗替数据源生成的那一项报坏了，手机插件不另报。
 // 假内核；插件登记的检查按插件自己的时钟算，要"几天后"就拨假内核的时钟。
 import { PHONE_CALENDAR_SOURCE, PHONE_PHOTOS_SOURCE, type PhoneCalendarEvent } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import type { CandidateInput } from "../../src/personal-files/index.ts";
-import { appFinding, calendarEmptyFinding, PHONE_APP_QUIET_MS, PHONE_CALENDAR_HELD_EVENT } from "../../src/phone/doctor.ts";
-import { PHONE_CHANNEL } from "../../src/phone/events.ts";
-import { PHONE_CALENDAR_DROP_MIN } from "../../src/phone/phone.ts";
+import { appFinding, calendarEmptyFinding, PHONE_APP_QUIET_MS } from "../../src/phone/doctor.ts";
+import { PHONE_CALENDAR_HELD, PHONE_CHANNEL } from "../../src/phone/events.ts";
+import { PHONE_CALENDAR_HOLD_MIN } from "../../src/phone/phone.ts";
 import { phonePlugin } from "../../src/phone/plugin.ts";
 import { KERNEL } from "../../src/plugins/kernel.ts";
 import { blockOf, itemOf, kernelDoctor } from "../helpers/plugin-doctor.ts";
@@ -68,7 +68,7 @@ describe("手机日历交来 0 条那一项（判法）", () => {
 });
 
 describe("体检页上的手机一块", () => {
-  it("连上日历：App 那一项按最近一次交来的算（4 天后注意）；交来 0 条删了不少：注意，又交来日程就过去了；只删几条的不算", async () => {
+  it("连上日历：App 那一项按最近一次交来的算（4 天后注意）；交来 0 条、原来不少（425 先留着没删）：注意，又交来日程就过去了；只有几条删光了的不算", async () => {
     const k = await start();
     expect(k.doctorChecks.list().map((c) => `${c.plugin}:${c.id}`)).toEqual(["phone:app", "phone:calendar-empty"]);
     const before = await kernelDoctor(k).view();
@@ -85,18 +85,18 @@ describe("体检页上的手机一块", () => {
     expect(itemOf(quiet, "phone", "app")).toMatchObject({ level: "warn" });
     expect(itemOf(quiet, "phone", "app")!.text.fact).toContain("手机 App 很久没打开了：最近一次交来东西是 4 天前");
 
-    // 交来 0 条：30 条全删了（没有 425 的时候）
+    // 交来 0 条：原来 30 条，425 先留着不删（记 phone_calendar_held），体检读的就是它
     await pushTo(k, PHONE_CALENDAR_SOURCE, { device: "Pura 90", state: "granted", ...WINDOW, events: [] });
     await pushTo(k, PHONE_CALENDAR_SOURCE, { device: "Pura 90", state: "granted", ...WINDOW, events: [] });
     const empty = await kernelDoctor(k).view();
-    expect(itemOf(empty, "phone", "calendar-empty")).toMatchObject({ level: "warn", fact: { key: "phone.doctor.calendarEmpty.dropped", params: { times: 2, count: 30 } } });
-    expect(itemOf(empty, "phone", "calendar-empty")!.text.fact).toContain("原来的 30 条跟着删了");
+    expect(itemOf(empty, "phone", "calendar-empty")).toMatchObject({ level: "warn", fact: { key: "phone.doctor.calendarEmpty.kept", params: { times: 2, count: 30 } } });
+    expect(itemOf(empty, "phone", "calendar-empty")!.text.fact).toContain("原来的 30 条先留着、没删");
 
     // 又交来了：过去了
     await pushTo(k, PHONE_CALENDAR_SOURCE, { device: "Pura 90", state: "granted", ...WINDOW, events: events(3) });
     expect(itemOf(await kernelDoctor(k).view(), "phone", "calendar-empty")).toMatchObject({ level: "ok" });
-    // 只有几条、删光了：不算（门槛 20）
-    expect(PHONE_CALENDAR_DROP_MIN).toBe(20);
+    // 只有几条、删光了：照常删（425 的门槛 20），不算
+    expect(PHONE_CALENDAR_HOLD_MIN).toBe(20);
     await pushTo(k, PHONE_CALENDAR_SOURCE, { device: "Pura 90", state: "granted", ...WINDOW, events: [] });
     expect(itemOf(await kernelDoctor(k).view(), "phone", "calendar-empty")).toMatchObject({ level: "ok" });
   });
@@ -105,11 +105,11 @@ describe("体检页上的手机一块", () => {
     const k = await start();
     await pushTo(k, PHONE_CALENDAR_SOURCE, { device: "Pura 90", state: "granted", link: true, ...WINDOW, events: events(3) });
     const since = "2026-11-06T21:05:00+08:00";
-    k.store.append({ channel: PHONE_CHANNEL, type: PHONE_CALENDAR_HELD_EVENT, payload: { at: since, held: { since, times: 3, count: 773, from: WINDOW.from, to: WINDOW.to } } });
+    k.store.append({ channel: PHONE_CHANNEL, type: PHONE_CALENDAR_HELD, payload: { at: since, held: { since, times: 3, count: 773, from: WINDOW.from, to: WINDOW.to } } });
     const held = await kernelDoctor(k).view();
     expect(itemOf(held, "phone", "calendar-empty")).toMatchObject({ level: "warn", fact: { key: "phone.doctor.calendarEmpty.kept", params: { times: 3, count: 773 } }, since });
     expect(itemOf(held, "phone", "calendar-empty")!.text.fact).toContain("原来的 773 条先留着、没删");
-    k.store.append({ channel: PHONE_CHANNEL, type: PHONE_CALENDAR_HELD_EVENT, payload: { at: "2026-11-07T09:00:00+08:00" } });
+    k.store.append({ channel: PHONE_CHANNEL, type: PHONE_CALENDAR_HELD, payload: { at: "2026-11-07T09:00:00+08:00" } });
     expect(itemOf(await kernelDoctor(k).view(), "phone", "calendar-empty")).toMatchObject({ level: "ok" });
   });
 

@@ -63,7 +63,7 @@ const startsIn = (event: PhoneCalendarEvent, from: number, to: number) => {
 
 /**
  * 手机交来 0 条日程的那一段（体检读，414）：这一段头一次交来 0 条的时刻、连着几次、原来有几条；kept 是先留着没删（425 的做法），
- * 不是的是跟着删了
+ * 不是的是跟着删了。425 起不少于 PHONE_CALENDAR_HOLD_MIN 条的一律先留着，所以服务给的都是 kept（数据就是 calendarHeld 那一段）
  */
 export interface PhoneCalendarEmpty {
   since: string;
@@ -71,12 +71,6 @@ export interface PhoneCalendarEmpty {
   count: number;
   kept: boolean;
 }
-
-/**
- * 交来 0 条、一下删了不少于这么多条，体检才提示（414）：日程本来就几条、真的删光了的不算。425 合并后同样的门槛是 PHONE_CALENDAR_HOLD_MIN
- * （不少于它的不再删，这里就记不到了），到时这一段记法可以去掉
- */
-export const PHONE_CALENDAR_DROP_MIN = 20;
 
 export interface PhoneServiceOptions {
   store: EventStore;
@@ -111,7 +105,7 @@ export interface PhoneService extends PhoneMediaService {
   calendarHeld(): PhoneCalendarHeld | undefined;
   /** 用户在待办里回了手机上的日程是不是真的清空了：cleared 为真是清空了（删掉留着的），否则接着留着 */
   answerCalendarEmpty(itemId: string, cleared: boolean): void;
-  /** 手机最近交来 0 条、一下删了不少日程的那一段（只在内存里，重启就没；手机又交来日程、断开了就过去了）：体检读（414） */
+  /** 手机交来 0 条、日程先留着没删的那一段，体检那一项要的样子（414；就是 calendarHeld()，手机又交来日程、断开了就过去了） */
   calendarEmpty(): PhoneCalendarEmpty | undefined;
   /** 挑过的人（数据源详情的"已获取的"）：后挑的在前 */
   contactsStored(query: DataSourceStoredQuery): DataSourceStoredResult;
@@ -139,14 +133,6 @@ const validTime = (iso: string) => !Number.isNaN(Date.parse(iso));
 
 export function createPhoneService(options: PhoneServiceOptions): PhoneService {
   const { store, now, personalFiles, inbox, log } = options;
-  /** 手机交来 0 条、一下删了不少的那一段（体检读；只在内存里） */
-  let emptied: PhoneCalendarEmpty | undefined;
-  /** 交来一次日历之后记一下：0 条、一下删了不少的开始一段，这一段里再交来 0 条接着数；交来了日程这一段就过去了 */
-  const noteCalendarSize = (total: number, removed: number) => {
-    if (total > 0) emptied = undefined;
-    else if (emptied) emptied = { ...emptied, times: emptied.times + 1, count: emptied.count + removed };
-    else if (removed >= PHONE_CALENDAR_DROP_MIN) emptied = { since: now(), times: 1, count: removed, kept: false };
-  };
 
   const receiveContacts = (push: PhoneContactsPush): DataSourcePushOutcome => {
     const contacts = push.contacts.map(cleanContact).filter((c) => c.name !== "");
@@ -289,7 +275,6 @@ export function createPhoneService(options: PhoneServiceOptions): PhoneService {
     if (held !== undefined) events.push(...endHeld(held, t("phone.calendar.empty.voidedBack")));
     if (events.length > 0) store.appendBatch(events);
     if (held !== undefined) log(`手机：手机日历先前连着 ${held.times} 次交来 0 条、没删，这次交来 ${incoming.size} 条，接着照常同步`);
-    noteCalendarSize(incoming.size, removed);
     log(`手机：手机日历交来 ${incoming.size} 条（新 ${added}、改 ${changed}、删 ${removed}）`);
     return { added: added + changed, summary: t("phone.calendar.synced", { total: incoming.size, added, changed, removed }) };
   };
@@ -355,7 +340,6 @@ export function createPhoneService(options: PhoneServiceOptions): PhoneService {
       return { total: events.length, items };
     },
     unlinkCalendar() {
-      emptied = undefined;
       const events: NewEvent[] = [];
       if (calendarStatus(store)?.linked) events.push(statusEvent({ linked: false }));
       const held = calendarHeld(store);
@@ -377,6 +361,9 @@ export function createPhoneService(options: PhoneServiceOptions): PhoneService {
       store.appendBatch([...removes, heldEvent()]);
       log(`手机：用户确认手机上的日程清空了，删掉 ${removes.length} 条`);
     },
-    calendarEmpty: () => emptied,
+    calendarEmpty() {
+      const held = calendarHeld(store);
+      return held && { since: held.since, times: held.times, count: held.count, kept: true };
+    },
   };
 }
