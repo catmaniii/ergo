@@ -2,6 +2,7 @@
 // 每项有 id、ok、结构化的事实，健康时没有"怎么修"、不健康时给的是文案键（doctor.fix.*，网页按当前语言取）。
 // 数据目录是临时目录、两个端口是系统挑的（不碰真的 8810 / 8811、不碰真的 ~/.ergo）：磁盘那项报得出数据目录所在卷的数；
 // 这个临时数据目录里没装组件、没配 key、临时程序目录里没有 lsm.mjs，所以对应的三项是坏的，报的仍是查出来的事实。
+// 412：记忆插件那一块（它自己登记的六项）经组合根接上，记忆系统那一项经记忆插件槽读会意自己报的健康。
 import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, DOCTOR_CHECKS, type DoctorCheckView } from "@ergo/protocol";
@@ -102,6 +103,22 @@ describe("体检的接口（319b）", () => {
     fs.writeFileSync(path.join(svc, "registry", "tailnet.yaml"), "entries:\n  - id: ergo-daemon\n    name: ergo\n");
     const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined, LSM_DATA_DIR: svc } });
     expect(idOf((await doctorApi.view(td.url)).body.checks, "external")).toEqual({ id: "external", ok: true, data: { configured: true, kind: "tailscale" } });
+  });
+
+  it("记忆插件那一块（412）：组合根接上了它自己的六项，记忆系统那一项读的是记忆插件槽里在跑的会意，句子按当前语言拼好", { timeout: 60_000 }, async () => {
+    const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined } });
+    const memory = (await doctorApi.view(td.url)).body.groups.find((group) => group.id === "memory");
+    expect(memory).toBeDefined();
+    expect(memory!.items.map((item) => item.id).toSorted()).toEqual(["brief", "graph", "index", "nightly", "plugin", "presync", "system"]);
+    const item = (id: string) => memory!.items.find((i) => i.id === id)!;
+    // 会意在跑：起来时建好了推理库，还没整理过（健康是它自己报的，经记忆插件槽转过来）
+    expect(item("system")).toMatchObject({ level: "ok", text: { title: "记忆系统" } });
+    expect(item("system").text.fact).toMatch(/^会意在跑：0 条有效证据，还没整理过/);
+    expect(item("graph").level).toBe("ok");
+    // 刚装好：还没到第一次整理；简报还没问过；整理前还没导过数据源
+    expect(item("nightly")).toMatchObject({ level: "ok", text: { fact: "还没整理过：每晚 03:00 整理" } });
+    expect(item("brief").level).toBe("ok");
+    expect(item("presync").level).toBe("na");
   });
 
   it("只认 GET：POST /api/doctor 回 405；路径不对回 404", { timeout: 60_000 }, async () => {

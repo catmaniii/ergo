@@ -124,7 +124,7 @@
   "memory.doctor.fix.indexBehind": "后台在补算，过一会儿再查；一直不动就重启二狗",
   "memory.doctor.graph.title": "推理库",
   "memory.doctor.graph.rebuild": "要重建推理库：{reason}",
-  "memory.doctor.graph.unusable": "{reason}：问记忆和记忆简报这会儿都用不了",
+  "memory.doctor.graph.unusable": "{reason}。问记忆和记忆简报这会儿都用不了",
   "memory.doctor.graph.off": "这台机器上不整理记忆（配置 memory.enabled 是 false），也还没有推理库",
   "memory.doctor.graph.missing": "推理库文件不在：问记忆和记忆简报都是空的",
   "memory.doctor.graph.notLoaded": "推理库在（{size} MB），可问记忆和记忆简报头一回用的时候它还没建好，这次起来不会再去开",

@@ -131,7 +131,7 @@
   "memory.doctor.fix.indexBehind": "It's catching up in the background: check again in a while, and restart ergo if it doesn't move",
   "memory.doctor.graph.title": "Reasoning DB",
   "memory.doctor.graph.rebuild": "The reasoning DB needs to be rebuilt: {reason}",
-  "memory.doctor.graph.unusable": "{reason}: asking memory and memory briefs can't use it right now",
+  "memory.doctor.graph.unusable": "{reason}. Asking memory and memory briefs can't use it right now",
   "memory.doctor.graph.off": "Memory consolidation is turned off on this machine (memory.enabled is false), and there's no reasoning DB yet",
   "memory.doctor.graph.missing": "The reasoning DB file is missing: asking memory and memory briefs come back empty",
   "memory.doctor.graph.notLoaded": "The reasoning DB exists ({size} MB), but it wasn't built yet when asking memory and memory briefs first needed it, so they won't open it until ergo restarts",
