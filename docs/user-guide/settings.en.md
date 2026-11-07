@@ -545,7 +545,7 @@ See [On your phone](mobile.en.md) for more.
 
 **How to use it:** It checks as soon as you open it and has results within a few seconds. The top line is the overall status: how many items are broken and how many need attention, or **All good** if none; items that couldn't be checked this time get a separate grey line. Below that come the blocks:
 
-- **ergo itself**: the eight checks in the table below.
+- **ergo itself**: the eight checks, the six checks and the ten checks in the three tables below.
 - **One block per plugin**, titled with the plugin's name; blocks with problems come first. The first line of each block is **The plugin itself**: running, or not loaded (with the reason). ergo also checks each data source and each agent runtime (Claude Code, Codex) that a plugin brings. Plugins can bring their own checks too: install a plugin and you get its block; disable it and the block goes away (disabled plugins are listed on the last line).
 
 Each item has a small dot in front, and there are five results:
@@ -558,7 +558,7 @@ Each item has a small dot in front, and there are five results:
 | Not checked (grey) | The check timed out or failed this time. That doesn't count as broken and doesn't lower the overall status. Press **Run again** |
 | Not applicable (hollow, faded) | The feature isn't on or the data source isn't connected, so it isn't checked; listed last in its block |
 
-Items that aren't OK show what was found, since when, and how to fix it. Where one click fixes it there's a button: **Take a look** jumps to the right page, **Compact now** compacts that conversation. After fixing, click **Run again** at the top right.
+Items that aren't OK show what was found, since when, and how to fix it. Where one click fixes it there's a button: **Take a look** jumps to the right page, **Compact now** compacts that conversation, **Open service manager** opens the service manager's web page in a new tab (managed services and speech synthesis being down both come with it; it only works on the computer running ergo). After fixing, click **Run again** at the top right.
 
 What ergo checks for each plugin:
 
@@ -568,6 +568,27 @@ What ergo checks for each plugin:
 | Data sources | Not connected, or both uses off: not checked. Needs authorizing again, or can't connect: broken. Scheduled import with no successful sync for over 3 times its interval counts as stale (heads-up); the last sync failing is also a heads-up |
 | Runtimes | Usable is OK; not installed and no task or project uses it is just a hint; not installed while a task or project uses it is broken |
 
+The memory plugin brings six checks of its own (they only read the state already at hand: they don't open the reasoning DB or call a model):
+
+| Item | How it's judged |
+|---|---|
+| Vector index | Computing vectors failing is broken; the vector model missing is a heads-up (materials can only be found by keyword; **Take a look** goes to Settings · Components); more than a tenth, and at least 100, still without vectors is also a heads-up |
+| Reasoning DB | Needing a rebuild (doesn't match this version of ergo), not opening, or missing while consolidation is on: broken. Consolidation turned off on this computer and no DB yet: not checked |
+| Memory system | The one in use (Subtext) running is OK, with how much evidence it holds and when it last consolidated; it reporting a problem is a heads-up; none running is broken |
+| Memory brief | Since ergo started, within the last 24 hours, asked at least 5 times with timeouts plus errors at three in ten or more: heads-up (a turn over 3 seconds goes without memory). Briefs turned off on the Memory page: not checked |
+| Nightly consolidation | The latest one failing, being skipped for lack of a DeepSeek key, or needing the reasoning DB rebuilt, or no success for over 36 hours: broken (**Take a look** goes to the consolidation records on the memory curator's page). Succeeded but timed out along the way: heads-up. Consolidation turned off on this computer: not checked |
+| Data source import before consolidation | A data source not imported before consolidating (error, can't connect, still importing at the time limit): heads-up. No data sources to import first: not checked |
+
+The voice plugin brings five checks of its own. Voice replies count as on when speech synthesis is installed in Settings · Components, or a service is registered on the synthesis port in the service manager (an audio.cpp you registered by hand counts too); voice input counts as on when speech recognition is installed in Settings · Components or you've configured your own. Checks for what isn't on are skipped.
+
+| Check | How it's judged | If it's wrong |
+|---|---|---|
+| Speech synthesis | The synthesis service (audio.cpp) can be reached. ergo already probes it every minute; the checkup reads that result and probes right away if it's been too long | Can't reach it, or the trial synthesis failed: broken. On the computer running ergo, open the service manager and start the service the fix names (press **Open service manager**). The GPU being busy with another program is a heads-up |
+| Speech recognition | Recognition can be used. The process ergo starts itself is judged by its status; a service run by the service manager or on audio.cpp gets its port probed | Follow the fix: check that service in the service manager, or the Python in the config |
+| Reference voices | There's at least one | None at all is a heads-up: import some clean speech in Settings · Voice |
+| ffmpeg | It's on PATH | Not found is a heads-up: without it reference voices can only be imported as WAV. Install ffmpeg and restart ergo |
+| NVIDIA GPU | There is one | None is just a hint (not applicable): synthesis and recognition run on the CPU and will be slow |
+
 ergo's own eight checks:
 
 | Check | What it checks | If it's wrong |
@@ -575,20 +596,50 @@ ergo's own eight checks:
 | Ports | Something is listening on 8810 and 8811, and it's ergo itself | Close the program using the port, or change the port and restart ergo |
 | Node version | The running Node matches what's required | Install the Node that comes with ergo, or Node 22, then start ergo |
 | pi version | The version of pi, ergo's agent core, can be read | Without it ergo can't chat. For a one-line install, run `ergo uninstall --keep-data` first, then run the install command again; data isn't touched. For an npm install, reinstall with `npm i -g ergo-ai@latest`. If you run from the repository, run `npm ci` in the repository folder, then restart ergo |
-| Service manager | The service manager responds | Run `ergo start` to bring it up again; if that doesn't help, look at its log |
+| Service manager | The service manager responds; if it started ergo, ergo's link to it is up (down and reconnecting is a heads-up) | Run `ergo start` to bring it up again; if that doesn't help, look at its log. If only the link is down and the service manager just restarted, wait a few seconds and check again |
 | Model key | A key is set (no real request is sent) | Enter one in Settings · Models |
 | Components | Everything that should be installed by default is | Install what's missing in Settings · Components; **Install the default components** is the easiest |
-| Disk space | The drive holding the data folder has over 1 GB free | Clear old backups and logs, or move the data folder to a bigger drive |
-| Outside access | Any one of: an entry registered in the service manager, an address entered by hand, or a paired device | Ignore it if you only use this computer. If your phone can't connect, see [On your phone](mobile.en.md) |
+| Disk space | The drive holding the data folder has over 1 GB free; so must the drive holding the service manager's data and logs, if that's a different one | Clear old backups and logs, or move the data folder to a bigger drive |
+| Outside access | Any one of: an entry registered in the service manager, an entry it reports, an address entered by hand, or a paired device; and every entry the service manager tested from outside must be reachable | Ignore it if you only use this computer. If an entry can't be reached, check under **Managed services** whether the tunnel and the tailnet gateway are running, and whether Tailscale is signed in. If your phone can't connect, see [On your phone](mobile.en.md) |
+
+ergo itself has six more checks (they only read state that's already there; no extra requests):
+
+| Check | What it checks and how it's judged | If it's wrong |
+|---|---|---|
+| Main conversation | Whether the ergo you talk to is online; offline for over half a minute is broken, with how long and why | Wait a moment and check again; if it stays offline, look at **Model calls lately** and **Conversation length** first, then restart ergo in the service manager |
+| Model calls lately | How recent model calls went (succeeded, failed, timed out; turns you stopped don't count): the last 5 turns all failing is broken, 30% or more failing in the last 15 minutes is a heads-up; shows the gist of the errors (the provider is too busy, 500, rate-limited, wrong key…). Right after a restart with no calls yet it says **No model calls lately** | Usually the provider is busy: wait a while, or switch to another model in Settings · Models; for key or balance problems, check the key |
+| Conversation length | How many tokens the ergo you talk to and each working owner have used: past its own auto-compaction point without being compacted, or the last automatic compaction failed, is a heads-up; 90% of the model's window is broken. Agents run by Claude Code or Codex aren't checked (they manage this themselves) | Press **Compact now**; if that doesn't bring it down, clear the current conversation from its ⚙ |
+| Managed services | Services the service manager runs that ergo cares about: speech synthesis and recognition (when the voice plugin is on and the address is on this computer), the tunnel that gives ergo outside access, the tailnet gateway, and the project services registered by ergo. Something ergo needs being stopped or failed is broken; a project service failing is broken, and one set to start at boot but stopped is a heads-up. Shows the service name, its state and the last error the service manager recorded | Press **Open service manager** and start it; if it won't start, read the error and logs it recorded |
+| Plugins | Whether any enabled plugin failed to load (details are in that plugin's own block); one that failed is a heads-up | See the reason in Settings · Plugins |
+| Web page files | Whether ergo's web page files are there; missing is broken (if ergo's pages won't open, telling ergo "run a checkup on yourself" still shows this check) | Running from source: run `npm run build:web` in the repository root. Installed program: reinstall (`ergo uninstall --keep-data`, then run the install command again; your data stays) |
+
+ergo itself has ten more checks, all based on what this computer has on record:
+
+| Check | How it's judged | If it's wrong |
+|---|---|---|
+| Backup | Never backed up successfully (the last attempt failed, or the first backup is over 48 hours overdue): broken. The last backup failed, or no successful backup for over 48 hours: heads-up, with the error as written. A backup that succeeded but left out files held by other programs, or a failed last snapshot check: also heads-up | **Take a look** opens Settings · Backup: fix the cause, then press **Back up now**; for a failed check, press **Check the latest snapshots** again |
+| Triggered tasks | Paused automatically after failing several times in a row, or a run that has been running for over 3 hours or queued for over 1 hour: heads-up | **Take a look** opens it; for an auto-paused one, fix the cause and press **Resume** |
+| Internal jobs | ergo's own routine jobs (nightly backup, weekly snapshot check, temp folder cleanup and so on): one whose last run failed is a heads-up, with which one, when, and the error | It runs again when it's next due; if it keeps failing, send these lines and the log to the developers |
+| Stuck agents | An agent stuck on the same step (waiting for the model, or calling a tool) for longer than one model call plus one tool call may take (5 + 10 minutes by default; a tool that declares a longer timeout gets it): heads-up. Agents running at once reaching 90% of the limit: also heads-up. Waiting for your approval doesn't count as stuck | **Take a look** opens its conversation; if it's really stuck, press **Stop**. For more room, raise `agents.maxLive` in `config/ergo.json` |
+| Log size | A single file over 200 MB in the service manager's log folder or in ergo's data folder logs: heads-up, with which file and how big | Stop the service that writes it, delete or move the file, then start the service again |
+| Config files | The MCP registrations (`mcp.json`) can't be read, the model settings file can't be read (defaults are in use), or credentials an MCP needs aren't in ergo's environment: heads-up, with which file and what's wrong | Fix `mcp.json`; save once in Settings · Models to overwrite the model settings; add the missing environment variables to ergo's registration in the service manager and restart ergo |
+| Missing skills | Skills listed in a collection's list, in a project's or task's toolkit, or among the skills chosen for your assistant, but not in the skill library: heads-up, with names and where they're listed | For a collection: import it again, or remove them from its list on the skills page. For a toolkit: remove them there or import them |
+| Inbox | Hint: how many items are in the inbox, and how many of them wait for approval | — |
+| Phone app version | Hint: how many paired phones have an app older than required; not checked without a paired phone | Update the app on that phone using the banner at the top of the app |
+| Database write-ahead log | Hint: mentioned when a database's `-wal` file is over 256 MB | ergo folds it back into the database when it restarts; if it's still that big after a restart, tell the developers |
+
+The three hints always count as OK and don't lower the overall status; they just show the numbers.
 
 **Good to know:**
 
 - The regular checkup only looks at this machine: it doesn't go online, call a model, or change any settings. It may connect to the ports of local services ergo uses (speech synthesis, for example).
-- When one of the eight is wrong: ports, pi, the model key and disk space count as broken; the Node version, the service manager, components and outside access count as heads-up.
+- When one of the eight is wrong: ports, pi, the model key and disk space count as broken; the Node version, the service manager, components and outside access count as heads-up — except that outside access with no entry reachable from outside counts as broken.
+- The result of the last snapshot check is kept in the local backup area, so Settings · Backup and the checkup still show it after ergo restarts.
 - Tell ergo "run a checkup on yourself" and it reads this page too, then tells you what's wrong and how to fix it. It only looks; it doesn't fix things for you.
 - **Outside access** saying **No outside access is registered in the service manager; if your phone already connects, you can ignore this** doesn't mean it isn't set up.
 - Something the service manager doesn't know about, such as running `tailscale serve` by hand, counts as fine once a phone has paired.
 - An entry connected to local port 8810 counts as unhealthy for this check. Port 8810 automatically trusts local requests and must never be connected to the outside.
+- **Outside access** and **Managed services** read what the service manager has already tested; the checkup itself doesn't connect out. While ergo's link to the service manager is down, whether the entries work is from before it dropped.
 
 ### About ergo
 

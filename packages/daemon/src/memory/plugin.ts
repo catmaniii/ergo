@@ -39,6 +39,8 @@
 // 移除时"连数据删"只删记忆插件自己的："记住"的命令里的内容（现有的改写函数）、长期没处理的卡的
 // 记录（card_stale）、记忆删除卡的每个版本；素材库不动（素材属于内核，设置里写明去成批删除删），删除类的记忆命令不碰（它是删除记录，
 // 改写了重建时被删的素材会回来，ADR-0008）。
+// 体检（412，doctor.ts）：setup 里经 ctx.doctor.register 登记自己的六项（向量索引、推理库、记忆系统、记忆简报、每晚整理、整理前导入数据源），
+// 停用时跟着撤；记忆简报的统计在 brief-stats.ts（message-brief.ts 每问完一次记一笔）。
 // 了解你访谈，interview.ts：数据契约里登记约访卡（卡片类型 interview，动作现取服务）、移除时连数据删访谈的记录；
 // 装配：访谈的服务（MEMORY_INTERVIEWS：记忆管理员的访谈工具、组合根给访谈里的话标编号、网关的 /api/memory/interview 用它）、
 // 每周六 10:00 约访的内部作业、秘书开访谈的快速动作 start_interview。访谈本身在记忆管理员的会话里（它是内核建的，curator.ts）。
@@ -85,6 +87,9 @@ import { readMaterialTool, searchMaterialsTool } from "./search-tool.ts";
 import { createProfileFactExpiry, learnedAbout } from "./personal-files-link.ts";
 import { createWovenQuestions } from "./woven-questions.ts";
 import { createMessageBriefs } from "./message-brief.ts";
+import { createBriefStats } from "./brief-stats.ts";
+import { memoryDoctorChecks } from "./doctor.ts";
+import type { ReasoningDbIssue } from "./rg-db.ts";
 import { inAbandonedBranch } from "../conversation/session-branches.ts";
 import { savedPageOf } from "../browsing/api.ts";
 import { internalRecordOf } from "./internal-records.ts";
@@ -93,6 +98,16 @@ import { internalRecordOf } from "./internal-records.ts";
 const BRIEF_WARMUP_MS = 20_000;
 /** 用户发来一句时拉起向量模型：最多等它这么久来记一行加载用了多久（只为日志，不挡任何事） */
 const BRIEF_PREWARM_WAIT_MS = 30_000;
+
+/** 推理库文件多大（字节）；不在、是空的、读不了是 undefined */
+function rgDbBytes(file: string): number | undefined {
+  try {
+    const size = fs.statSync(file).size;
+    return size > 0 ? size : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export const memoryPlugin: PluginDefinition = {
   name: "memory",
@@ -269,11 +284,14 @@ export const memoryPlugin: PluginDefinition = {
     // 每带一次账本记一笔估的 token（用量页的"记忆简报"）。记忆页的设置里关掉就不带。
     // 这段正文不再直接问引擎，问记忆插件槽（宿主的 brief：插件声明了 brief 就用它的、没有拿 search 拼；插件没起来就不带）。
     // 登记在顺口问前面：两块都跟在输入后面，简报在前（背景），顺口问在后（回话末尾要带的那一句）
+    // 每问完一次记一笔（问了几次、超时几次、出错几次、最近一次用了多久；只在内存里），体检的"记忆简报"那一项读它
+    const briefStats = createBriefStats({ now: () => clock.now() });
+    const briefEnabled = () => ctx.optional(KERNEL.memorySettings)?.current().memoryBrief ?? DEFAULT_MEMORY_SETTINGS.memoryBrief;
     const briefs = createMessageBriefs({
       brief: (input) => (memorySlot === undefined ? Promise.resolve(undefined) : memorySlot.brief(input)),
       store,
       materials,
-      enabled: () => ctx.optional(KERNEL.memorySettings)?.current().memoryBrief ?? DEFAULT_MEMORY_SETTINGS.memoryBrief,
+      enabled: briefEnabled,
       record: (usage) => ctx.optional(KERNEL.usage)?.recordContextUsage({ ...usage, role: "secretary" }),
       // 用户发来一句就把向量模型拉起来（闲置十分钟会卸掉）；这一次是真去加载的才记一行用了多久（看冷启动到底要几秒）
       prewarm: () => {
@@ -285,6 +303,7 @@ export const memoryPlugin: PluginDefinition = {
         });
       },
       now: () => clockIso(clock),
+      stats: briefStats,
       log,
     });
     ctx.agent.context.register({
@@ -329,6 +348,8 @@ export const memoryPlugin: PluginDefinition = {
     // 素材采集、素材检索、简报、ask_memory 照旧（简报和 ask_memory 读已有的库，没有库就回"还没准备好"）。
     let nightly: MemoryNightlyJob | undefined;
     let nightlyBlocked: string | undefined;
+    /** 启动时推理库没打开成的原因（体检的"推理库"那一项读） */
+    let setupIssue: ReasoningDbIssue | undefined;
     if (!config.memory.enabled) {
       nightlyBlocked = t("memory.nightly.manual.off");
       log("记忆整理在这台机器上关着（配置 memory.enabled 是 false）：不排每晚整理，素材采集、检索和简报照常");
@@ -337,6 +358,7 @@ export const memoryPlugin: PluginDefinition = {
       if (!opened.ok) {
         reportUnusableReasoningDb({ store, inbox, clock, issue: opened.issue, log });
         nightlyBlocked = reasoningIssueText(opened.issue);
+        setupIssue = opened.issue;
       } else {
         if (opened.created) ctx.log(`记忆整理建好了推理库 ${layout.rgDb}`);
         opened.engine.close();
@@ -373,6 +395,32 @@ export const memoryPlugin: PluginDefinition = {
           },
         });
       }
+    }
+
+    // 体检（412，memory/doctor.ts）：向量索引、推理库、记忆系统（槽里在跑的那一套）、记忆简报、每晚整理、整理前导入数据源六项，
+    // 都只读内存、文件和事件日志（不开推理库、不联网、不调模型）；经 ctx 登记，插件停用时跟着撤、体检页上记忆那一块就没了。
+    // 记忆系统那一项要记忆插件槽：没接上（只有插件的测试）就不登记
+    for (const check of memoryDoctorChecks({
+      vectors: () => materials.vectorStatus(),
+      graph: () => {
+        const issue = engineProvider.issue();
+        const bytes = rgDbBytes(layout.rgDb);
+        return {
+          enabled: config.memory.enabled,
+          opened: engineProvider.opened,
+          ...(setupIssue === undefined ? {} : { setupIssue }),
+          ...(issue === undefined ? {} : { engineIssue: issue }),
+          ...(bytes === undefined ? {} : { bytes }),
+        };
+      },
+      ...(memorySlot === undefined ? {} : { system: { info: () => memorySlot.info(), health: () => memorySlot.health() } }),
+      briefEnabled,
+      briefStats: () => briefStats.snapshot(),
+      enabled: () => config.memory.enabled,
+      store,
+      now: () => clock.now(),
+    })) {
+      ctx.doctor.register(check);
     }
 
     // 把每晚整理露给记忆管理员（内核那个按需拉起的 agent）——立即整理一次（同一份 runNow）、

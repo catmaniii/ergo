@@ -2,6 +2,7 @@
 // 每项有 id、ok、结构化的事实，健康时没有"怎么修"、不健康时给的是文案键（doctor.fix.*，网页按当前语言取）。
 // 数据目录是临时目录、两个端口是系统挑的（不碰真的 8810 / 8811、不碰真的 ~/.ergo）：磁盘那项报得出数据目录所在卷的数；
 // 这个临时数据目录里没装组件、没配 key、临时程序目录里没有 lsm.mjs，所以对应的三项是坏的，报的仍是查出来的事实。
+// 412：记忆插件那一块（它自己登记的六项）经组合根接上，记忆系统那一项经记忆插件槽读会意自己报的健康。
 import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, DOCTOR_CHECKS, type DoctorCheckView } from "@ergo/protocol";
@@ -9,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { pairDevice } from "../helpers/device.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
+import { fakeProbes } from "../helpers/fake-downloads.ts";
 import { doctorApi } from "../helpers/http.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -102,6 +104,84 @@ describe("体检的接口（319b）", () => {
     fs.writeFileSync(path.join(svc, "registry", "tailnet.yaml"), "entries:\n  - id: ergo-daemon\n    name: ergo\n");
     const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined, LSM_DATA_DIR: svc } });
     expect(idOf((await doctorApi.view(td.url)).body.checks, "external")).toEqual({ id: "external", ok: true, data: { configured: true, kind: "tailscale" } });
+  });
+
+  it("二狗本身的新检查（二）（411）：十项都接上了；今天的情形——合集缺两个 skill、服务管家的日志 265 MB——是注意，别的照这个临时环境的样子", { timeout: 90_000 }, async () => {
+    // 数据目录先放一个合集：清单里写了 handoff、to-questionnaire，skill 区里没有这两个目录
+    const dataDir = makeTempDir("ergo-doctor-411-data-");
+    const homeDir = makeTempDir("ergo-doctor-411-home-");
+    const collection = path.join(dataDir, "skills", "matt-pocock");
+    fs.mkdirSync(path.join(collection, "tdd"), { recursive: true });
+    fs.writeFileSync(path.join(collection, "tdd", "SKILL.md"), "---\nname: tdd\ndescription: 测试驱动\n---\n\n先写测试。\n");
+    const manifest = { format: 1, name: "matt-pocock", source: "假的", version: "1", description: "假的合集", members: ["tdd", "handoff", "to-questionnaire"], importedFrom: homeDir, importedAt: "2026-11-01T00:00:00.000+08:00" };
+    fs.writeFileSync(path.join(collection, "ergo-collection.json"), JSON.stringify(manifest));
+    // 服务管家的日志目录：一个 265 MB 的（稀疏文件，不真写这么多）
+    const svc = makeTempDir("ergo-doctor-411-svc-");
+    fs.mkdirSync(path.join(svc, "logs"), { recursive: true });
+    const log = path.join(svc, "logs", "ergo-daemon.out.log");
+    fs.writeFileSync(log, "");
+    fs.truncateSync(log, 265 * 1024 ** 2);
+
+    const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined, LSM_DATA_DIR: svc }, reuse: { dataDir, homeDir } });
+    const core = (await doctorApi.view(td.url)).body.groups.find((group) => group.kind === "core")!;
+    const item = (id: string) => core.items.find((i) => i.id === id)!;
+    const ids = ["backup", "triggers", "internal-jobs", "stuck-agents", "log-size", "config-files", "missing-skills", "pending", "app-version", "db-wal"];
+    expect(ids.filter((id) => item(id) === undefined)).toEqual([]);
+    // 八项在前，新的接在后面（不适用的挪到最后）
+    expect(core.items.slice(0, DOCTOR_CHECKS.length).map((i) => i.id)).toEqual([...DOCTOR_CHECKS].filter((id) => core.items.find((i) => i.id === id)!.level !== "na"));
+
+    expect(item("missing-skills")).toMatchObject({ level: "warn", action: { kind: "open", route: "#/more/skills" } });
+    expect(item("missing-skills").text.fact).toContain("handoff");
+    expect(item("missing-skills").text.fact).toContain("to-questionnaire");
+    expect(item("log-size")).toMatchObject({ level: "warn" });
+    expect(item("log-size").text.fact).toContain("265 MB");
+    // 刚起来的临时环境：还没到第一次备份、没有定时触发的任务、内部作业还没跑过、没卡住、配置都读得出来、没有配对的手机
+    expect(item("backup")).toMatchObject({ level: "ok", fact: { key: "doctor.backup.notYet" } });
+    expect(item("triggers")).toMatchObject({ level: "ok", fact: { key: "doctor.triggers.ok" } });
+    expect(item("internal-jobs")).toMatchObject({ level: "ok", fact: { key: "doctor.internalJobs.ok" } });
+    expect(item("stuck-agents")).toMatchObject({ level: "ok", fact: { key: "doctor.stuckAgents.ok" } });
+    expect(item("config-files")).toMatchObject({ level: "ok", fact: { key: "doctor.configFiles.ok" } });
+    expect(item("pending").level).toBe("ok");
+    expect(item("app-version")).toMatchObject({ level: "na", fact: { key: "doctor.appVersion.noDevices" } });
+    expect(item("db-wal").level).toBe("ok");
+  });
+
+  it("记忆插件那一块（412）：组合根接上了它自己的六项，记忆系统那一项读的是记忆插件槽里在跑的会意，句子按当前语言拼好", { timeout: 60_000 }, async () => {
+    const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined } });
+    const memory = (await doctorApi.view(td.url)).body.groups.find((group) => group.id === "memory");
+    expect(memory).toBeDefined();
+    expect(memory!.items.map((item) => item.id).toSorted()).toEqual(["brief", "graph", "index", "nightly", "plugin", "presync", "system"]);
+    const item = (id: string) => memory!.items.find((i) => i.id === id)!;
+    // 会意在跑：起来时建好了推理库，还没整理过（健康是它自己报的，经记忆插件槽转过来）
+    expect(item("system")).toMatchObject({ level: "ok", text: { title: "记忆系统" } });
+    expect(item("system").text.fact).toMatch(/^会意在跑：0 条有效证据，还没整理过/);
+    expect(item("graph").level).toBe("ok");
+    // 刚装好：还没到第一次整理；简报还没问过；整理前还没导过数据源
+    expect(item("nightly")).toMatchObject({ level: "ok", text: { fact: "还没整理过：每晚 03:00 整理" } });
+    expect(item("brief").level).toBe("ok");
+    expect(item("presync").level).toBe("na");
+  });
+
+  it("语音插件那一块（413）：五项都在；合成服务手工登记在服务管家里却连不上 → 坏了，修法写那一条、去看看跳服务管家的网页", { timeout: 60_000 }, async () => {
+    // 测试底座的合成服务地址是本机 1 号端口（连不上，不碰真的 8090）；服务管家目录是临时的，里面手写一条登记在这个端口上的服务
+    const svc = makeTempDir("ergo-doctor-svc-");
+    fs.mkdirSync(path.join(svc, "registry", "services"), { recursive: true });
+    fs.writeFileSync(path.join(svc, "registry", "manager.yaml"), ["bind: 127.0.0.1", "port: 17420", ""].join("\n"));
+    fs.writeFileSync(path.join(svc, "registry", "services", "my-tts.yaml"), ["id: my-tts", "name: 我的语音合成", "probe:", "  tier: health", "  port: 1", ""].join("\n"));
+    // 组件页的"按住说话"算能用（别处配了识别）；"用语音回复"认不出（合成停着）
+    const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined, LSM_DATA_DIR: svc }, components: { probes: fakeProbes({ provided: { "voice-recognizer": "测试里配的识别" } }) } });
+    const view = (await doctorApi.view(td.url)).body;
+    const voice = view.groups.find((group) => group.id === "voice")!;
+    expect(voice.items.map((item) => item.id).toSorted()).toEqual(["ffmpeg", "gpu", "plugin", "recognizer", "references", "speech"]);
+    const speech = voice.items.find((item) => item.id === "speech")!;
+    expect(speech.level).toBe("error");
+    expect(speech.text.fact).toContain("127.0.0.1:1");
+    expect(speech.text.fix).toBe("在装二狗的那台电脑上打开服务管家，把「我的语音合成」（my-tts）开起来，再查一遍");
+    expect(speech.action).toEqual({ kind: "open", route: "http://127.0.0.1:17420/" });
+    // 内置的默认参考音色装上了；测试底座没有 N 卡（提示：不适用）
+    expect(voice.items.find((item) => item.id === "references")!.level).toBe("ok");
+    expect(voice.items.find((item) => item.id === "gpu")!.level).toBe("na");
+    expect(voice.level).toBe("error");
   });
 
   it("只认 GET：POST /api/doctor 回 405；路径不对回 404", { timeout: 60_000 }, async () => {

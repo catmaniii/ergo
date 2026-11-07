@@ -3,7 +3,7 @@
 // 动作按钮上的字、查的时刻。每项的句子守护进程已经按当前语言拼好了（DoctorItemView 的 text——插件的文案键在插件自己的
 // 语言文件里，网页的词典里没有那些区域），这里照着显示，不自己拼。真相在守护进程，这边一个字节也不存。
 // 这些函数都不碰 window、不引 React（Node 里直接查，test/pages/doctor.test.ts）：钩子在 app/page-doctor.ts。
-import { DOCTOR_ACTION_KINDS, type DoctorAction, type DoctorLevel, type DoctorView, formatDate, formatList, t } from "../state/index.ts";
+import { DOCTOR_ACTION_KINDS, type DoctorAction, type DoctorLevel, doctorOpensUrl, type DoctorView, formatDate, formatList, t } from "../state/index.ts";
 import type { DaemonHttp } from "./daemon-http.ts";
 
 /** 八项的事实拼句、修法、名字：319b 时写在这里，409 挪进了协议包（守护进程也要拼），这里照旧能取 */
@@ -45,10 +45,10 @@ export function knownDoctorAction(action: DoctorAction | undefined): action is D
   return action !== undefined && (DOCTOR_ACTION_KINDS as readonly string[]).includes(action.kind);
 }
 
-/** 动作按钮上的字：跳过去看是"去看看"，压缩是"现在压缩"（busy：正在压） */
+/** 动作按钮上的字：跳过去看是"去看看"，打开本机的网址（服务管家的网页，410）是"打开服务管家"，压缩是"现在压缩"（busy：正在压） */
 export function doctorActionText(action: DoctorAction, busy = false): string {
   if (action.kind === "compact") return busy ? t("doctor.action.compacting") : t("doctor.action.compact");
-  return t("doctor.action.open");
+  return doctorOpensUrl(action.route) ? t("doctor.action.openManager") : t("doctor.action.open");
 }
 
 /** 查的时刻写成一句话（本地日期和时间） */

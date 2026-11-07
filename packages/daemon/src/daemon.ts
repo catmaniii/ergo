@@ -16,6 +16,7 @@ import {
   CHANNELS,
   clockLabel,
   COMPONENT_FEATURES,
+  DEFAULT_SECRETARY_SKILLS,
   fillAssistantName,
   type ConversationId,
   EVENT_TYPES,
@@ -45,7 +46,7 @@ import type { HostTool, HostToolCall } from "./agent-manager/host-tools.ts";
 import { bashTmpMount } from "./agent-manager/work-temp.ts";
 import { approvalCardType, type ApprovalService, createApprovalService } from "./approvals/approvals.ts";
 import { approvalDecisionPurge, approvalDecisionSource, approvalRequestPurge } from "./approvals/material-source.ts";
-import { approvalsView } from "./approvals/views.ts";
+import { approvalsView, listApprovals } from "./approvals/views.ts";
 import { type BackupService, createBackupService } from "./backup/backup.ts";
 import type { SnapshotFiles } from "./backup/files.ts";
 import { BoardKindRegistry, type BoardKinds } from "./board/kinds.ts";
@@ -62,11 +63,16 @@ import { modelConfigKey } from "./config/model-key.ts";
 import { createSafetySettings, type SafetySettingsService, withLiveBudgetControl } from "./config/safety-settings.ts";
 import { createSetupState, type SetupStateService } from "./config/setup-state.ts";
 import { defaultSvcDataDir } from "./cli/context.ts";
+import { managerAddress } from "./cli/service.ts";
+import { registeredServiceOnPort } from "./lsm/registered.ts";
 import { type AutostartSwitch, createAutostartSwitch } from "./lsm/autostart-switch.ts";
 import { detectLayout, type InstallLayout, readInstallState } from "./release/layout.ts";
 import { releasePublicKey } from "./release/public-key.ts";
 import { createDoctorChecks, type DoctorCheckRegistry } from "./doctor/checks.ts";
-import { type DoctorService, createDoctor, diskProbe, externalProbe, missingDefaultFeatures, nodeProbe, piVersionProbe, portsProbe, supervisorProbe } from "./doctor/doctor.ts";
+import { registerCoreDoctorChecks } from "./doctor/core.ts";
+import { type DoctorService, createDoctor, diskProbe, externalProbe, missingDefaultFeatures, nodeProbe, piVersionProbe, portsProbe, supervisorProbe, supervisorStatus } from "./doctor/doctor.ts";
+import { localPortOf } from "./doctor/services.ts";
+import { type AgentLabel, housekeepingChecks } from "./doctor/housekeeping.ts";
 import { modelCredentials, tavilyKey } from "./config/secrets.ts";
 import { messagePurge, timelineRecordPurge } from "./conversation/purge.ts";
 import { createReadMarks } from "./conversation/read-marks.ts";
@@ -197,7 +203,7 @@ import { createWorkFolders } from "./work-folders/index.ts";
 import { type Clock, clockIso, systemClock } from "./scheduler/clock.ts";
 import { createInternalJobs, type InternalJobs, internalJobsView } from "./scheduler/internal-jobs.ts";
 import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
-import { createJobMaintainers, createScheduledJobs, getJob, isJobMaintainerId, registerJobDeletion, type ScheduledJobs, scheduledJobsView, scheduledRunEstimate } from "./scheduled-jobs/index.ts";
+import { createJobMaintainers, createScheduledJobs, getJob, isJobMaintainerId, listJobs, registerJobDeletion, runsIn, type ScheduledJobs, scheduledJobsView, scheduledRunEstimate } from "./scheduled-jobs/index.ts";
 import { relayActions } from "./secretary/relay.ts";
 import { type Secretary, SECRETARY_AGENT_ID, SECRETARY_TARGET, startSecretary } from "./secretary/secretary.ts";
 import { AUTHORIZED_FOLDERS_BLOCK_ID, authorizeFoldersAction, secretaryFoldersBlock } from "./folders/authorize-folders.ts";
@@ -1437,6 +1443,17 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
           recognizerStableMs: options.recognizerStableMs,
           sendVoiceWaitMs: options.sendVoiceWaitMs,
         }),
+        // 语音插件的体检项要的（413）：组件页的两个功能门、服务管家里登记在某个端口上的服务（读它的注册表文件，不连它）、
+        // 服务管家的网页、有没有 N 卡。组件、组件的检测、服务管家的目录都在后面才有，体检时才问：现转给它
+        bindService(KERNEL.voiceSetup, {
+          featureReady: (feature) => components.view().features.some((gate) => gate.feature === feature && gate.ready),
+          registeredOn: (port) => registeredServiceOnPort(svcDataDir, port),
+          managerUrl: () => {
+            const { bind, port } = managerAddress({ svcDataDir, env: options.env });
+            return `http://${bind === "0.0.0.0" || bind === "::" ? "127.0.0.1" : bind}:${port}/`;
+          },
+          gpu: () => componentProbes.gpu(),
+        }),
         // 浏览插件要的：媒体库、数据目录（同上）、授权的文件夹；后面两样建在插件之后（agent 管家、联网设置），用到时现转
         bindService(KERNEL.localFolders, localFolders),
         bindService(KERNEL.thumbnails, (request) => agents.thumbnails(request)),
@@ -1454,7 +1471,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         }),
         // 记忆插件要的：记忆插件槽——用户说"帮我记一句"时把原话交给在跑的那个记忆插件，每条消息的简报问它要。
         // 宿主建在插件之后：现转给它
-        bindService(KERNEL.memorySlot, { remember: (input) => wired("memorySlot").remember(input), brief: (input) => wired("memorySlot").brief(input) }),
+        bindService(KERNEL.memorySlot, {
+          remember: (input) => wired("memorySlot").remember(input),
+          brief: (input) => wired("memorySlot").brief(input),
+          // 体检（412）：在跑的是哪一套、它自己报的健康
+          info: () => wiring.memorySlot?.info(),
+          health: () => wired("memorySlot").health(),
+        }),
         // 记忆插件要的：用户说"这张图记下来"时能带上的文件，现转给浏览插件（没在运行就只能记文字）
         bindService(KERNEL.elementFiles, { toRemember: (ref, call) => plugins.service(BROWSING)?.elementToRemember(ref, call) }),
       ],
@@ -1886,13 +1909,19 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       save: (manual) => writeConnectionConfig(layout.configFile, manual),
       log,
     });
+    // 410：和服务管家的接入（linkToLsm）在网关起来之后才建，体检现查时现取；服务管家那一项跑 lsm status --json 拿到的快照
+    // 同一次体检里给"托管的服务"那一项接着用（supervisorStatus），二狗和服务管家的连接断着（在重连）时服务管家、外网入口两项算注意
+    let lsmLink: LsmLink | undefined;
+    const lsmLinkState = () => (lsmLink?.enabled ? (lsmLink.services.support === "waiting" ? ("waiting" as const) : ("connected" as const)) : undefined);
+    const supervisorCommand = { node: process.execPath, script: path.join(programDir, "packages", "supervisor", "bin", "lsm.mjs"), dataDir: svcDataDir };
+    const supervisorSnapshot = supervisorStatus(supervisorCommand);
     const doctor: DoctorService = createDoctor({
       install: installLayout,
       probes: {
         ports: portsProbe(() => boundPorts),
         node: nodeProbe,
         pi: piVersionProbe(path.join(programDir, "node_modules", "@earendil-works", "pi-coding-agent", "package.json")),
-        supervisor: supervisorProbe({ node: process.execPath, script: path.join(programDir, "packages", "supervisor", "bin", "lsm.mjs"), dataDir: svcDataDir }),
+        supervisor: supervisorProbe(supervisorCommand, { status: supervisorSnapshot, link: lsmLinkState }),
         model: () => ({ configured: modelSettings.keyView().apiKey.configured }),
         components: () => {
           const view = components.view();
@@ -1901,7 +1930,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
           if (view.components.length === 0) throw new Error("shipped component manifest is empty");
           return { missing: missingDefaultFeatures(view) };
         },
-        disk: diskProbe(layout.root),
+        // 410：服务管家的数据和日志（%LOCALAPPDATA%\ergo\supervisor）在另一个卷上时那个卷也看
+        disk: diskProbe(layout.root, { supervisorDir: svcDataDir }),
         // 配对设备的算法和设置向导"手机"那一步一样：吊销了还没删的算现在用不上，不算
         external: externalProbe({
           svcDataDir,
@@ -1910,6 +1940,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
             const view = connectionAddresses.view();
             return { manual: view.manual !== undefined, rejected: view.rejected };
           },
+          // 410：服务管家推来的入口测好的通不通（不自己连出去），连接停在等待没有
+          reachability: () => connectionAddresses.reachability(),
         }),
       },
       // 409：插件块——登记的检查项、插件宿主的现状（每个插件一行）、数据源整页视图（每个数据源一项）、运行时登记表（每个运行时一项；
@@ -2749,6 +2781,40 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       }),
     };
 
+    // 每个 agent 的会话里的 ⚙：秘书、任务自己的负责人、项目负责人各自认自己的（体检的"对话长度"也读它，410）
+    const agentSettings = createAgentSettings({
+      // ⚙ 面板里"实际生效的"系统提示和拉起时一样：前缀 + 角色的 + 不是中文时末尾那句
+      prompts: { ...prompts, withPrefix: effectiveSystemPrompt },
+      ledger,
+      agents,
+      // 项目、任务的负责人单独配模型
+      models: modelSettings,
+      // 角色：配置区里的 agent-roles.json；没指定角色就跟默认角色（名字是全局的名字、音色是全局选中的参考音色）
+      roles: agentRoles,
+      // 秘书跟默认时用全局的名字；负责人的默认名字是角色称呼
+      assistantName: () => assistantName.current(),
+      // 能配的有哪些：秘书、每个在的项目负责人、每个在的任务负责人，以及记忆管理员（在跑就有）；
+      // 以后按 agent id 自动有的也不写死在这里：认不得的（删了的任务、项目的负责人）跳过
+      candidates: () => [
+        CHANNELS.secretary,
+        ...projectDirectory.list().map((project) => project.maintainerId),
+        ...tasks.list().map((task) => task.maintainerId),
+        ...(memoryCurator === undefined ? [] : [MEMORY_CURATOR_AGENT_ID]),
+      ],
+      // 语音插件没启用：音色改不了（名字照常）
+      voiceUnavailable: () => (plugins.service(VOICE) === undefined ? voiceOffReason() : undefined),
+      // 项目、任务的负责人用哪个运行时、给它选的值：按登记表核对
+      runtimes: agentRuntimes,
+      // 接管来的会话交还、收回
+      takeover: takeoverService,
+      // 名字和音色按 agent id 现取；记忆管理员也有自己的 ⚙（提示词、清空、上下文用量；模型那行先跟随秘书的）
+      resolve: (agentId) =>
+        agentId === SECRETARY_AGENT_ID
+          ? secretary.agentHandle()
+          : memoryCurator !== undefined && agentId === MEMORY_CURATOR_AGENT_ID
+            ? memoryCurator.agentHandle()
+            : agentHost.agentHandle(agentId),
+    });
     const gateway = await startGateway({
       port: localPort,
       externalPort: options.externalPort ?? config.ports.external,
@@ -2941,39 +3007,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
           return rollbacks.branchView(conversation, branchId, against, rollbackSessionOf(conversation));
         },
         // 每个 agent 的会话里的 ⚙：秘书、任务自己的负责人、项目负责人各自认自己的
-        agentSettings: createAgentSettings({
-          // ⚙ 面板里"实际生效的"系统提示和拉起时一样：前缀 + 角色的 + 不是中文时末尾那句
-          prompts: { ...prompts, withPrefix: effectiveSystemPrompt },
-          ledger,
-          agents,
-          // 项目、任务的负责人单独配模型
-          models: modelSettings,
-          // 角色：配置区里的 agent-roles.json；没指定角色就跟默认角色（名字是全局的名字、音色是全局选中的参考音色）
-          roles: agentRoles,
-          // 秘书跟默认时用全局的名字；负责人的默认名字是角色称呼
-          assistantName: () => assistantName.current(),
-          // 能配的有哪些：秘书、每个在的项目负责人、每个在的任务负责人，以及记忆管理员（在跑就有）；
-          // 以后按 agent id 自动有的也不写死在这里：认不得的（删了的任务、项目的负责人）跳过
-          candidates: () => [
-            CHANNELS.secretary,
-            ...projectDirectory.list().map((project) => project.maintainerId),
-            ...tasks.list().map((task) => task.maintainerId),
-            ...(memoryCurator === undefined ? [] : [MEMORY_CURATOR_AGENT_ID]),
-          ],
-          // 语音插件没启用：音色改不了（名字照常）
-          voiceUnavailable: () => (plugins.service(VOICE) === undefined ? voiceOffReason() : undefined),
-          // 项目、任务的负责人用哪个运行时、给它选的值：按登记表核对
-          runtimes: agentRuntimes,
-          // 接管来的会话交还、收回
-          takeover: takeoverService,
-          // 名字和音色按 agent id 现取；记忆管理员也有自己的 ⚙（提示词、清空、上下文用量；模型那行先跟随秘书的）
-          resolve: (agentId) =>
-            agentId === SECRETARY_AGENT_ID
-              ? secretary.agentHandle()
-              : memoryCurator !== undefined && agentId === MEMORY_CURATOR_AGENT_ID
-                ? memoryCurator.agentHandle()
-                : agentHost.agentHandle(agentId),
-        }),
+        agentSettings,
         // 项目的服务首页的缩略图：取图顺带算"有人在看"，旧了的补截
         serviceThumbnail: (projectId, name) => projectSystem.serviceThumbnail(projectId, name),
         // 项目的服务报事件：只在本机端口（网关挡外网端口）
@@ -3024,6 +3058,103 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       log,
     });
     lsmEnabled = lsm.enabled;
+    lsmLink = lsm;
+    // 体检"二狗本身"里内核自己的几项（410）：主对话在不在线、模型近况、对话长度、托管的服务、插件、网页文件
+    teardown.push(
+      registerCoreDoctorChecks(doctorChecks, {
+        assistantName: () => assistantName.current(),
+        secretary: () => secretary.health(),
+        turns: () => agents.recentTurns(),
+        // 秘书在前，然后是活着的负责人、任务 agent（⚙ 认不得的——子 agent、一次性的——跳过）
+        contextAgents: () =>
+          [...new Set([SECRETARY_AGENT_ID, ...agents.live().map((agent) => agent.agentId)])].flatMap((agentId) => {
+            try {
+              return [agentSettings.view(agentId)];
+            } catch {
+              return [];
+            }
+          }),
+        supervisor: supervisorSnapshot,
+        // 语音插件启用着才算在用：合成是 voice.speech.url；识别是 LSM 托管的那条（lsm）或 audio.cpp 上的（audiocpp，和合成同一个服务），
+        // 二狗自己拉起的 Python（spawn）不归服务管家
+        servicesInUse: () => {
+          if (plugins.service(VOICE) === undefined) return {};
+          const speechPort = localPortOf(options.speechUrl ?? config.voice.speech.url);
+          const recognizer = config.voice.recognizer;
+          const recognizerPort = recognizer.mode === "lsm" ? localPortOf(recognizer.url) : recognizer.mode === "audiocpp" ? speechPort : undefined;
+          return { ...(speechPort === undefined ? {} : { speechPort }), ...(recognizerPort === undefined ? {} : { recognizerPort }) };
+        },
+        managerUrl: () => lsm.managerUrl,
+        plugins: () => plugins.info(),
+        webIndex: path.join(options.webRoot ?? DEFAULT_WEB_ROOT, "index.html"),
+        now: () => clock.now(),
+      }),
+    );
+    // 体检"二狗本身"的新检查（二）（411，doctor/housekeeping.ts；登记在 410 那几项后面，页面上排在它们之后）：备份、定时触发的任务、内部作业、卡住的 agent 和名额、日志大小、
+    // 配置文件、缺的 skill，加三项提示（待办、手机 App 版本、数据库的预写日志）。都只读这里现成的状态和本机文件，查的时候现取；
+    // 登记在负责人（maintainers）建好之后：缺的 skill 要读在跑的项目、没结束的任务的工具包
+    const agentLabel = (agentId: string): AgentLabel => {
+      if (agentId === SECRETARY_AGENT_ID) return { name: assistantName.current(), route: "#/secretary" };
+      const task = tasks.ofMaintainer(agentId);
+      if (task) return { name: t("doctor.stuckAgents.taskOwner", { title: task.title }), route: `#/tasks/${encodeURIComponent(task.id)}` };
+      const project = projectDirectory.maintainedBy(agentId);
+      if (project) return { name: t("doctor.stuckAgents.projectOwner", { name: project.name }), route: `#/projects/${encodeURIComponent(project.id)}/chat` };
+      const ownJob = isJobMaintainerId(agentId) ? listJobs(store.reader).find((each) => each.maintainerId === agentId) : undefined;
+      if (ownJob) return { name: t("doctor.stuckAgents.taskOwner", { title: ownJob.title }), route: `#/tasks/jobs/${encodeURIComponent(ownJob.id)}` };
+      return { name: agentId };
+    };
+    for (const check of housekeepingChecks({
+      now: () => clock.now(),
+      backup: () => backup.doctorFacts(),
+      triggers: () => ({
+        autoPaused: listJobs(store.reader, ["paused"]).filter((paused) => paused.pausedBy === "failures"),
+        open: runsIn(store.reader, ["queued", "running"]).map((run) => ({ run, job: getJob(store.reader, run.jobId) })),
+      }),
+      internalJobs: () => internalJobs.registeredStates(),
+      agents: () => agents.doctorFacts(),
+      agentLabel,
+      logDirs: () => [
+        { kind: "supervisor", dir: path.join(svcDataDir, "logs") },
+        { kind: "data", dir: layout.logs },
+      ],
+      config: () => {
+        const facts = mcp.doctorFacts();
+        const modelError = modelSettings.fileError();
+        return {
+          ...(facts.problem === undefined ? {} : { mcpProblem: facts.problem }),
+          ...(modelError === undefined ? {} : { modelSettings: { file: layout.modelSettingsFile, error: modelError } }),
+          missingEnv: facts.missingEnv,
+        };
+      },
+      skills: () => {
+        // 装配清单：在跑的项目、没结束的任务的工具包，给助手选的名单（默认的那两个可以先于导入留着，不算缺）
+        // 库只扫一遍（每扫一遍，认不出来的合集成员都会记一行日志）
+        const known = new Set(skills.list().map((skill) => skill.name));
+        const missing = (names: readonly string[]) => [...new Set(names.filter((name) => !known.has(name)))];
+        const lists: Array<{ where: string; names: readonly string[] }> = [];
+        for (const project of projectDirectory.list()) {
+          if (project.state === "archived") continue;
+          const names = projectSystem.skillsOf(project.maintainerId);
+          if (names) lists.push({ where: t("doctor.missingSkills.project", { name: project.name }), names: missing(names) });
+        }
+        for (const task of tasks.list()) {
+          if (!UNFINISHED_TASK_STATES.includes(task.state)) continue;
+          const names = maintainers.skillsOf(task.maintainerId);
+          if (names) lists.push({ where: t("doctor.missingSkills.task", { title: task.title }), names: missing(names) });
+        }
+        const chosen = secretarySkills.view().skills.filter((name) => !(DEFAULT_SECRETARY_SKILLS as readonly string[]).includes(name));
+        lists.push({ where: t("doctor.missingSkills.assistant", { name: assistantName.current() }), names: missing(chosen) });
+        return { collections: skills.brokenCollections(), lists };
+      },
+      pending: () => ({
+        open: inbox.list().filter((item) => !item.archived && !inbox.isProcessed(item)).length,
+        approvals: listApprovals(store.reader, "pending").length,
+      }),
+      devices: () => pairing.list(),
+      dbDir: () => layout.db,
+    })) {
+      doctorChecks.register(check);
+    }
     teardown.push(connectionAddresses.attach({ entries: lsm.entries, managerUrl: lsm.managerUrl, externalPort: gateway.externalPort }));
     // 项目的服务：接入层建好了，开始做（上线了的先登记转发、没做完的接着做、接 LSM 推来的状态）；之后按网关实际监听的端口
     projectSystem.startServices({ lsm: lsm.services, ports: { local: gateway.port, external: gateway.externalPort } });

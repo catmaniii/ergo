@@ -670,6 +670,7 @@ flowchart LR
 | ✅ | `latestNightlyRecord` | `packages/daemon/src/memory/nightly-record.ts` | 只读连接 | 最近一夜的整理记录 |
 | ✅ | `createMemoryEngineProvider` | `packages/daemon/src/memory/engine-provider.ts` | 推理库路径、时钟、模型名、向量函数 | `MemoryEngineProvider` |
 | ✅ | `MemoryEngineProvider.get`、`MemoryEngineProvider.close` | `packages/daemon/src/memory/engine-provider.ts` | 第一次用时打开、缓存一个；打不开就降级、不顺手建库；插件停用时关；写入口只读 | 能用的引擎，没有是 undefined |
+| ✅ | `MemoryEngineProvider.issue` | `packages/daemon/src/memory/engine-provider.ts` | 只读内存（不去开库）；体检的"推理库"那一项读（412） | 认定一直用不了的原因（还没建库，或 `ReasoningDbIssue`）和从什么时候起；没认定是 undefined |
 | ✅ | `createWritableEngineUse` | `packages/daemon/src/memory/engine-provider.ts` | 推理库路径、时钟、模型名、向量函数；顺口问要写时随用随开一份可写的、用完关掉，库没建不顺手建，打不开的原因变了才记一行日志 | `MemoryEngineUse`：做一件事，库用不了是 undefined |
 | ✅ | `MemoryConfig.maxModelCalls` | `packages/daemon/src/config/config.ts` | 每次整理最多调几次模型，默认 200（抽事实、整理、判预测共用；对抗复核另有每次 5 次） | 数 |
 | ✅ | `MemoryConfig.extractor` | `packages/daemon/src/config/config.ts` | `model`（默认）或 `rule` | 抽事实用哪个 |
@@ -727,6 +728,8 @@ flowchart LR
 | ✅ | `createMessageBriefs` | `packages/daemon/src/memory/message-brief.ts` | 读者引擎（醒来简报、问记忆那一份）、事件存储、素材库、开没开（现取设置）、记账（可选，插件里接 `KERNEL.usage`）、上限毫秒数（默认 3000） | `MessageBriefs` |
 | ✅ | `MessageBriefs.inputText` | `packages/daemon/src/memory/message-brief.ts` | 秘书主会话里用户本人发的一句、给谁；短应答、关着、没有引擎不带；第一次用时从会话里找回这一段带过的；按消息 id 记住 | 跟在这条输入后面的【记忆简报】块（Promise）；不带是 undefined |
 | ✅ | `MessageBriefs.replyParts` | `packages/daemon/src/memory/message-brief.ts` | 这条输入；取一次就没了 | `[MemoryBriefPart]`；没带是 undefined |
+| ✅ | `createBriefStats`、`BriefStats.record`、`BriefStats.snapshot` | `packages/daemon/src/memory/brief-stats.ts` | 时钟、窗口（默认 24 小时）、上限条数；`createMessageBriefs` 的 `stats` 每问完一次记一笔结局（带上了、没相关的、超时、出错）和用时；只在内存里，重启清零（412） | 窗口里问了几次、超时几次、出错几次、最近一次（时刻、毫秒、结局）、从什么时候起算 |
+| ✅ | `memoryDoctorChecks` | `packages/daemon/src/memory/doctor.ts` | 向量状态、推理库现状、记忆插件槽的 `info`/`health`（可选）、简报开没开和统计、`memory.enabled`、事件日志、时钟；记忆插件在 setup 里逐项 `ctx.doctor.register`（412） | 六项体检（`index`、`graph`、`system`、`brief`、`nightly`、`presync`，都是 passive）；判法是同一文件里的纯函数 `indexFinding`……`presyncFinding` |
 | ✅ | `MessageBriefs.onEvent` | `packages/daemon/src/memory/message-brief.ts` | 事件日志的一条（`store.onAppend`）；秘书会话的分界（压缩、清空、换模型、回退切换分支）清掉"带过的" | 无 |
 | ✅ | `isShortReply` | `packages/daemon/src/memory/message-brief.ts` | 一句话；"好的""谢谢""嗯"这类（可带语气词、标点、表情），带了正事的不算 | 是不是短应答 |
 | ✅ | `queryMemoEmbedder` | `packages/daemon/src/memory/embedder-adapter.ts` | 向量函数、记几句（默认 16）；查询向量按句子记住（记的是算的那个承诺，同时问同一句也只算一次，算失败的不留），文档向量照算（一句话的几处检索、相关门槛只算一次） | 包了一层的向量函数 |

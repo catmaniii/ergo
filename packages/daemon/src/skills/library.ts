@@ -201,6 +201,11 @@ export interface SkillLibrary {
   /** 不在库里的那些名字（扫一遍库） */
   missing(names: readonly string[]): string[];
   /**
+   * 体检读的（411）：集合的清单（ergo-collection.json 的 members）里写着、skill 区里却认不出来的成员——目录不在、没有 SKILL.md、
+   * SKILL.md 不合规（每次扫库都写一行日志，以前只有日志）。按集合名排；members 是成员目录的最后一段（一般就是 skill 名）
+   */
+  brokenCollections(): Array<{ collection: string; dir: string; members: string[] }>;
+  /**
    * 名字展开成 skill 名（负责人增减 skill 时用）：skill 名原样，集合名换成它的全部成员；
    * 两样都不是的放进 unknown。skill 名和集合名同名时按 skill 算（导入时不让同名）
    */
@@ -240,6 +245,8 @@ export interface SkillLibrary {
 interface FoundCollection {
   entry: SkillCollectionEntry;
   dir: string;
+  /** 清单里写着、认不出来的成员目录（相对集合目录） */
+  unreadable: string[];
 }
 
 interface Scan {
@@ -286,7 +293,7 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
       const kept = c.members.toSorted(byName).filter(keep);
       members.push(...kept);
       const { name, source, version, description } = c.manifest;
-      return { entry: { name, source, version, description, skills: kept.map((m) => m.entry.name) }, dir: c.dir };
+      return { entry: { name, source, version, description, skills: kept.map((m) => m.entry.name) }, dir: c.dir, unreadable: c.unreadable };
     });
     return { skills: [...builtin, ...[...singles, ...members].toSorted(byName)], collections: found };
   };
@@ -550,6 +557,8 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
   return {
     list: () => scan().skills.map((f) => f.entry),
     collections: () => scan().collections.map((c) => c.entry),
+    brokenCollections: () =>
+      scan().collections.flatMap((c) => (c.unreadable.length > 0 ? [{ collection: c.entry.name, dir: c.dir, members: c.unreadable.map((rel) => rel.split("/").at(-1) ?? rel) }] : [])),
     missing(names) {
       const known = new Set(scan().skills.map((f) => f.entry.name));
       return names.filter((n) => !known.has(n));
@@ -941,9 +950,17 @@ function scanSingles(root: string, origin: SkillEntry["origin"], log: (line: str
 }
 
 /** skill 区：一层的单个 skill（含 SKILL.md），和集合（含 ergo-collection.json） */
-function scanUserDir(root: string, log: (line: string) => void): { singles: LibrarySkill[]; collections: { manifest: CollectionManifest; dir: string; members: LibrarySkill[] }[] } {
+/** skill 区里的一个集合：说明文件、目录、认得的成员；清单里写着、却认不出来的成员目录（没有 SKILL.md、SKILL.md 不合规） */
+interface ScannedCollection {
+  manifest: CollectionManifest;
+  dir: string;
+  members: LibrarySkill[];
+  unreadable: string[];
+}
+
+function scanUserDir(root: string, log: (line: string) => void): { singles: LibrarySkill[]; collections: ScannedCollection[] } {
   const singles: LibrarySkill[] = [];
-  const collections: { manifest: CollectionManifest; dir: string; members: LibrarySkill[] }[] = [];
+  const collections: ScannedCollection[] = [];
   for (const dir of topDirs(root)) {
     if (fs.existsSync(path.join(dir, "SKILL.md"))) {
       const found = foundSkill(dir, "imported", undefined, log);
@@ -954,6 +971,7 @@ function scanUserDir(root: string, log: (line: string) => void): { singles: Libr
     if (!fs.existsSync(manifestFile)) continue;
     const manifest = readManifest(manifestFile, log);
     if (!manifest) continue;
+    const unreadable: string[] = [];
     const members = manifest.members.flatMap((rel) => {
       const normalized = normalizeRel(rel);
       if (normalized === undefined || normalized === "") {
@@ -963,12 +981,14 @@ function scanUserDir(root: string, log: (line: string) => void): { singles: Libr
       const memberDir = path.join(dir, ...splitRel(normalized));
       if (!fs.existsSync(path.join(memberDir, "SKILL.md"))) {
         log(`集合 ${manifest.name} 的成员 ${rel} 没有 SKILL.md（可能被删了），不认`);
+        unreadable.push(normalized);
         return [];
       }
       const found = foundSkill(memberDir, "imported", manifest.name, log);
+      if (!found) unreadable.push(normalized);
       return found ? [found] : [];
     });
-    collections.push({ manifest, dir, members });
+    collections.push({ manifest, dir, members, unreadable });
   }
   return { singles, collections };
 }

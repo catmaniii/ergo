@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { SnapshotFiles } from "../../src/backup/files.ts";
-import { BACKUP_RECORD_FILE } from "../../src/backup/record.ts";
+import { BACKUP_RECORD_FILE, VERIFY_RECORD_FILE } from "../../src/backup/record.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { ManualClock } from "./clock.ts";
 import { startTestDaemon, type TestDaemon } from "./daemon.ts";
@@ -81,9 +81,9 @@ export async function restartBackupDaemon(previous: BackupDaemon, time: Date, op
   return startBackupDaemon({ ...options, start: time, syncDir: previous.syncDir, reuse: { dataDir: previous.dataDir, homeDir: previous.homeDir } });
 }
 
-/** 本机备份区里有什么（不算最近一次备份的记录 last-backup.json）：日期目录和别的东西 */
+/** 本机备份区里有什么（不算最近一次备份、最近一次校验的记录 last-backup.json、last-verify.json）：日期目录和别的东西 */
 export function backupArea(dir: string): string[] {
-  return fs.readdirSync(dir).filter((name) => name !== BACKUP_RECORD_FILE);
+  return fs.readdirSync(dir).filter((name) => name !== BACKUP_RECORD_FILE && name !== VERIFY_RECORD_FILE);
 }
 
 /** 文件（或目录）的修改时间改成 time */

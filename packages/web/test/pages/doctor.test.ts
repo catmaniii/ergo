@@ -142,6 +142,22 @@ describe("按块显示", () => {
     expect(renderToStaticMarkup(createElement(DoctorItemRow, { item: strange, onAction: noop }))).not.toContain("data-action");
     expect(knownDoctorAction({ kind: "open", route: "#/more/plugins" })).toBe(true);
     expect(doctorActionText({ kind: "open", route: "#/more/plugins" })).toBe("去看看");
+    // 410：本机的网址（服务管家的网页）是"打开服务管家"
+    expect(doctorActionText({ kind: "open", route: "http://127.0.0.1:7420/" })).toBe("打开服务管家");
+    const manager = item("services", "error", "托管的服务", "语音合成停着", { action: { kind: "open", route: "http://127.0.0.1:7420/" } });
+    expect(renderToStaticMarkup(createElement(DoctorItemRow, { item: manager, onAction: noop }))).toContain("打开服务管家");
+  });
+
+  test("跳本机的网页（服务管家，410、413）：画成新开一页的链接，写\"打开服务管家\"，不经页面的跳转", () => {
+    const speech = item("speech", "error", "语音合成", "连不上", { action: { kind: "open", route: "http://127.0.0.1:7420/" } });
+    let clicked = 0;
+    const html = renderToStaticMarkup(createElement(DoctorItemRow, { item: speech, onAction: () => (clicked += 1) }));
+    expect(html).toContain('<a class="btn ghost small" data-action="open" href="http://127.0.0.1:7420/" target="_blank" rel="noreferrer">打开服务管家</a>');
+    expect(html).not.toContain("<button");
+    expect(clicked).toBe(0);
+    // 二狗自己的地址照旧是按钮
+    const inside = renderToStaticMarkup(createElement(DoctorItemRow, { item: { ...speech, action: { kind: "open", route: "#/more/voice" } }, onAction: noop }));
+    expect(inside).toContain('<button type="button" class="btn ghost small" data-action="open"');
   });
 });
 
@@ -149,22 +165,65 @@ describe("按块显示", () => {
 const plugins = (off: string[] = []) => new FakePlugins(new Set(off), new Set()).view();
 
 describe("原型编的一份", () => {
-  test("五种结果都有：二狗本身在最前（组件、外网入口是注意，带\"现在压缩\"的一项），有插件块、过期的数据源（跳到详情）、没查出来的、不适用的、坏了的", () => {
+  test("五种结果都有：二狗本身在最前（照 11-07 那天：外网入口打不通、模型近况、托管的服务坏了，组件、对话长度要注意，带\"现在压缩\"和\"打开服务管家\"），有插件块、过期的数据源（跳到详情）、没查出来的、不适用的、坏了的", () => {
     const view = fakeDoctorView(plugins());
     expect(view.groups[0]!.id).toBe(DOCTOR_CORE_GROUP);
     const levels = new Set(view.groups.flatMap((g) => g.items.map((i) => i.level)));
     expect([...levels].toSorted()).toEqual(["error", "na", "ok", "unknown", "warn"]);
     const core = view.groups[0]!.items;
-    expect(core.filter((i) => i.level === "warn").map((i) => i.id)).toEqual(["components", "external", "context"]);
+    expect(core.map((i) => i.id)).toEqual([...DOCTOR_CHECKS, "assistant", "model-calls", "context", "services", "plugins", "web", "backup", "triggers", "internal-jobs", "stuck-agents", "log-size", "config-files", "missing-skills", "pending", "app-version", "db-wal"]);
+    expect(core.filter((i) => i.level === "warn").map((i) => i.id)).toEqual(["components", "context", "backup", "log-size", "missing-skills"]);
+    expect(core.filter((i) => i.level === "error").map((i) => i.id)).toEqual(["external", "model-calls", "services"]);
     expect(core.find((i) => i.id === "context")!.action).toEqual({ kind: "compact", agentId: "secretary" });
+    expect(core.find((i) => i.id === "context")!.text.fact).toBe("二狗：对话用了 93.5 万 token，过了自动压缩点 70 万还没压下去（模型窗口 104.9 万）");
+    expect(core.find((i) => i.id === "model-calls")!.text.fact).toContain("最近 5 轮都失败了：服务商说太忙和服务商出错（500）");
+    expect(core.find((i) => i.id === "services")!.action).toEqual({ kind: "open", route: "http://127.0.0.1:7420/" });
+    expect(core.find((i) => i.id === "external")!.text.fact).toBe("配了：Tailscale。入口从外面都打不通：https://ergo.demo-tailnet.ts.net/（tailnet 节点离线）");
+    // 411 的十项照今天的样子：备份 EBUSY、日志 265 MB、合集缺两个 skill；待办、旧手机是提示（正常，带事实和去看看）
+    const text = (id: string) => core.find((i) => i.id === id)!.text;
+    expect(text("backup").fact).toContain("EBUSY: resource busy or locked");
+    expect(text("backup").fix).toContain("立即备份");
+    expect(text("log-size").fact).toContain("ergo-daemon.out.log（服务管家的日志，265 MB）");
+    expect(text("missing-skills").fact).toBe("合集「matt-pocock」的清单里有、库里没有：handoff和to-questionnaire");
+    expect(core.find((i) => i.id === "pending")).toMatchObject({ level: "ok", action: { kind: "open", route: "#/inbox" } });
+    expect(text("pending").fact).toBe("待办 6 条，其中待审批 2 条");
+    expect(text("app-version").fact).toBe("1 台手机的 App 比要求的 0.4.1 旧：家里的平板（0.3.9）");
     const looki = view.groups.find((g) => g.id === "looki")!;
     expect(looki.items.find((i) => i.id === "source:looki")).toMatchObject({ level: "warn", since: "2026-11-04T02:30:00+08:00", action: { kind: "open", route: "#/more/data-sources/looki" } });
     expect(looki.items.find((i) => i.id === "source:looki")!.text.fact).toBe("85 小时没同步成功了（定期导入是每天 02:30）");
-    expect(view.groups.find((g) => g.id === "memory")!.items.find((i) => i.id === "brief")!.text.fact).toBe("这次没查出来：1.5 秒内没查完");
-    // 坏了的插件块排在前面（语音），总状态是坏了
-    expect(view.groups[1]!.id).toBe("voice");
+    // 没查出来的示例（412 挪到语音那一块；413 之后是 N 卡：第一次问要跑 nvidia-smi）
+    expect(view.groups.find((g) => g.id === "voice")!.items.find((i) => i.id === "gpu")!.text.fact).toBe("这次没查出来：1.5 秒内没查完");
+    // 记忆那一块（412 的六项）：记忆简报注意、每晚整理坏了（从上次跑成起，跳记忆管理员），别的正常
+    const memory = view.groups.find((g) => g.id === "memory")!;
+    expect(memory.items.map((i) => [i.id, i.level])).toEqual([
+      ["plugin", "ok"],
+      ["index", "ok"],
+      ["graph", "ok"],
+      ["system", "ok"],
+      ["brief", "warn"],
+      ["nightly", "error"],
+      ["presync", "ok"],
+    ]);
+    expect(memory.items.find((i) => i.id === "nightly")).toMatchObject({ since: "2026-11-05T03:14:00+08:00", action: { kind: "open", route: "#/more/memory/curator" } });
+    // 坏了的插件块排在前面（记忆、语音，照插件清单的先后），总状态是坏了
+    expect(view.groups.slice(1, 3).map((g) => g.id)).toEqual(["memory", "voice"]);
+    // 语音那一块是 413 的五项：合成服务坏了（从 15:42 起，打开服务管家），N 卡这次没查出来，别的正常
+    const voice = view.groups.find((g) => g.id === "voice")!.items;
+    expect(voice.map((i) => [i.id, i.level])).toEqual([
+      ["plugin", "ok"],
+      ["speech", "error"],
+      ["recognizer", "ok"],
+      ["references", "ok"],
+      ["ffmpeg", "ok"],
+      ["gpu", "unknown"],
+    ]);
+    expect(voice[1]).toMatchObject({ since: "2026-11-07T15:42:00+08:00", action: { kind: "open", route: "http://127.0.0.1:7420/" } });
+    expect(voice[1]!.text.fix).toContain("服务管家");
+    // 和二狗本身的"托管的服务"说的是同一个停着的服务（audiocpp），一个从服务管家看、一个从语音看
+    expect(voice[1]!.text.fix).toContain("audiocpp");
+    expect(view.groups[0]!.items.find((i) => i.id === "services")!.text.fact).toContain("audiocpp");
     expect(view.level).toBe("error");
-    expect(view.counts).toEqual({ error: 1, warn: 4, unknown: 1 });
+    expect(view.counts).toEqual({ error: 5, warn: 7, unknown: 1 });
     expect(view.off).toEqual([]);
   });
 
@@ -185,6 +244,10 @@ describe("原型编的一份", () => {
     expect(html).toContain("No successful sync for 85 hours (scheduled import: Daily at 02:30)");
     expect(html).toContain("Compact now");
     expect(html).toContain("Take a look");
+    expect(html).toContain("Open service manager");
+    expect(html).toContain("ergo: the conversation is at 935K tokens");
+    expect(html).toContain("In the list of the &quot;matt-pocock&quot; collection but not in the library: handoff and to-questionnaire");
+    expect(html).toContain("The app on 1 phone is older than the required 0.4.1: Home tablet (0.3.9)");
     expect(hasChinese(html)).toBe(false);
   });
 });
@@ -207,6 +270,20 @@ describe("八项的事实拼句（协议包，守护进程和演示页共用）"
     expect(fact("external", { configured: true, kind: "tunnel", rejected: [{ url: "https://x.example", reason: "wrong_port", port: 8810 }] } as DoctorCheckDataById["external"])).toBe(
       "配了：VPS 隧道。有 1 个入口手机用不了：https://x.example（接到了端口 8810）",
     );
+  });
+
+  test("410 补的几处：服务管家的连接断着、服务管家的数据在另一个卷、外网入口从外面打不通（哪个、为什么）、连接停在等待", () => {
+    expect(fact("supervisor", { running: true, port: 7420, link: "waiting" })).toBe("有回应（端口 7420）；但二狗和它的连接断着，在重连");
+    expect(fact("supervisor", { running: true, port: 7420, link: "connected" })).toBe("有回应（端口 7420）");
+    expect(fact("disk", { ...GOOD.disk, supervisor: { freeGb: 0.6, totalGb: 64, path: "D:\\lsm" } })).toBe(
+      "数据目录 C:\\Users\\demo\\.ergo 所在卷还剩 42.3 GB（一共 476.8 GB）；服务管家的数据和日志 D:\\lsm 所在卷还剩 0.6 GB（一共 64 GB）",
+    );
+    const entries = [
+      { kind: "tailnet" as const, url: "https://ergo.tail.example/", reachable: false, why: "节点离线" },
+      { kind: "public" as const, url: "https://ergo.example/", reachable: true },
+    ];
+    expect(fact("external", { configured: true, kind: "tailscale", entries })).toBe("配了：Tailscale。2 个入口里有 1 个从外面打不通：https://ergo.tail.example/（节点离线）");
+    expect(fact("external", { configured: true, kind: "tailscale", entries: [entries[1]!], link: "waiting" })).toBe("配了：Tailscale。二狗和服务管家的连接断着，入口通不通是断之前的结果");
   });
 
   test("坏的那项的修法是整句（不是键名）；查不了的写\"这次没查出来\"，不拿空值（0 GB）拼句子", () => {

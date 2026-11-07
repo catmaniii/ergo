@@ -33,11 +33,11 @@ import { memoryPlugin } from "../../src/memory/plugin.ts";
 import { PurgeRewriters } from "../../src/memory/rewriters.ts";
 import { OperationMeansRegistry } from "../../src/operations/index.ts";
 import { bindService, createPluginHost, type PluginHost, type ServiceKey } from "../../src/plugins/host.ts";
-import { KERNEL } from "../../src/plugins/kernel.ts";
+import { KERNEL, type MemorySlot } from "../../src/plugins/kernel.ts";
 import { QuickActionRegistry, type QuickActionService } from "../../src/quick-actions/index.ts";
 import { createRuntimeRegistry } from "../../src/runtime/index.ts";
 import { createDataSourceRegistry } from "../../src/data-sources/registry.ts";
-import { createDoctorChecks } from "../../src/doctor/checks.ts";
+import { createDoctorChecks, type DoctorCheckRegistry } from "../../src/doctor/checks.ts";
 import { clockIso } from "../../src/scheduler/clock.ts";
 import { createInternalJobs, type InternalJobs, INTERNAL_CHANNEL, internalJobsView } from "../../src/scheduler/internal-jobs.ts";
 import { createScheduler, type Scheduler } from "../../src/scheduler/scheduler.ts";
@@ -70,6 +70,8 @@ export interface MemoryPluginHostOptions {
   chat?: () => ChatModel;
   /** 建不建临时目录（默认建一个，close 时删） */
   dir?: string;
+  /** 记忆插件槽（假的记忆系统）；不给就不接（插件不给"记一句"、体检没有"记忆系统"那一项） */
+  memorySlot?: MemorySlot;
 }
 
 export interface MemoryPluginHost {
@@ -89,6 +91,8 @@ export interface MemoryPluginHost {
   readonly agent: AgentContributions;
   /** 记忆插件起来时的日志 */
   readonly logs: string[];
+  /** 体检项的登记表（插件在 setup 里登记的进这里，停用时撤） */
+  readonly doctorChecks: DoctorCheckRegistry;
   /** 停宿主、停内部作业和素材库、关库、删临时目录 */
   close(): Promise<void>;
 }
@@ -145,6 +149,11 @@ export async function createMemoryPluginHost(options: MemoryPluginHostOptions = 
     services.push(bindService(KERNEL.memoryModel, options.chat));
     kernel.push(KERNEL.memoryModel);
   }
+  if (options.memorySlot !== undefined) {
+    services.push(bindService(KERNEL.memorySlot, options.memorySlot));
+    kernel.push(KERNEL.memorySlot);
+  }
+  const doctorChecks = createDoctorChecks();
   const host = createPluginHost({ plugins: [memoryPlugin], kernel, log });
   const agent = createAgentContributions({ log });
   await host.setup({
@@ -163,7 +172,7 @@ export async function createMemoryPluginHost(options: MemoryPluginHostOptions = 
       views: { detach: (name) => store.detachView(name), attach: (view) => store.attachView(view) },
       runtimes: createRuntimeRegistry({ log }),
       dataSources: createDataSourceRegistry(),
-      doctor: createDoctorChecks(),
+      doctor: doctorChecks,
     },
   });
   // 记忆插件的视图（每周整理的记录）装上：事件日志打开时没登记，这里补上；表不存在时建出来
@@ -184,6 +193,7 @@ export async function createMemoryPluginHost(options: MemoryPluginHostOptions = 
     quickActions,
     agent,
     logs,
+    doctorChecks,
     async close() {
       if (closed) return;
       closed = true;

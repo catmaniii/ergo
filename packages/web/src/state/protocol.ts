@@ -1215,8 +1215,9 @@ export type { SetupMarkBody, SetupStepId, SetupStepView, SetupView } from "@ergo
 // doctorCheck / doctorDataOf 是取某一项、按 id 收窄事实类型的两个小函数。
 // 409：五种结果、分块、动作按钮，汇总和排序的纯函数，八项的事实拼句（演示页的假数据用；真页面照守护进程拼好的 text 显示）
 export { DOCTOR_CHECKS, DOCTOR_FIX_UNKNOWN, doctorCheck, doctorDataOf } from "@ergo/protocol";
-export { coreDoctorItem, DOCTOR_ACTION_KINDS, DOCTOR_CORE_GROUP, DOCTOR_LEVELS, doctorCheckFact, doctorCheckTitle, doctorCounts, doctorFactText, doctorFixText, doctorItemText, doctorText, sortDoctorGroups, sortDoctorItems, worstLevel } from "@ergo/protocol";
-export type { DoctorAction, DoctorGroupView, DoctorItemView, DoctorLevel, DoctorMessage, DoctorOffPlugin } from "@ergo/protocol";
+// 410、413：open 动作可以是本机的网址（服务管家的网页），doctorOpensUrl 认它（只认 127.0.0.1、localhost、[::1]）
+export { coreDoctorItem, DOCTOR_ACTION_KINDS, DOCTOR_CORE_GROUP, DOCTOR_LEVELS, doctorCheckFact, doctorCheckTitle, doctorCounts, doctorFactText, doctorFixText, doctorItemText, doctorOpensUrl, doctorText, sortDoctorGroups, sortDoctorItems, worstLevel } from "@ergo/protocol";
+export type { DoctorAction, DoctorExternalEntry, DoctorGroupView, DoctorItemView, DoctorLevel, DoctorLinkState, DoctorMessage, DoctorOffPlugin } from "@ergo/protocol";
 // 连接地址：手机从外面连到二狗用的地址，校验和排序和守护进程同一份
 export { checkManualConnectionAddress, orderConnectionAddresses } from "@ergo/protocol";
 export type { ConnectionAddress, ConnectionAddressesView, RejectedConnectionAddress } from "@ergo/protocol";

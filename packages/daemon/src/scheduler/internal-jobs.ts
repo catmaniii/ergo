@@ -14,11 +14,15 @@
 //
 // 设置页上改了备份的时刻、谁来定时，要不重启换时间表：撤掉旧的、再 register（fromNow），从现在往后算下一次，不因为新的时刻已经过了点就马上补跑。
 //
-// 作业的 run 是异步的。跑完（成功或失败都算跑过；失败由作业自己报告）记一次，再登记下一次。
+// 作业的 run 是异步的。跑完记一次（上一次开始跑的时间，错过补跑从它算；成功、出错都记），连同这一次的结局（411）：
+// 跑完了是 ok；run 抛错是 failed，记下出错的说明（一行）和跑完的时间——以前出错只写一行日志、照样记"跑过了"，体检看不出来；
+// 现在体检的"内部作业"一项读这个结局，上一次出错的算注意。出错的不因此在下次开机时重跑（补跑只看时间表，和以前一样：
+// 出错的多半下次照样出错，开机就重跑一遍只会在每次重启时重复出错；作业自己要重试的自己做）。
 // 守护进程停止时中止信号（AbortSignal）置位，作业因此中止（抛 AbortError）的不算跑过，下次启动照常补。
 import { dependsOnWorkdayCalendar, nextOccurrence, nowIso, type ReminderSchedule, type ScheduleContext } from "@ergo/protocol";
 import type { DerivedView, EventStore } from "../events/event-store.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
+import { oneLine } from "../util/text.ts";
 import type { Clock } from "./clock.ts";
 import type { Scheduler } from "./scheduler.ts";
 
@@ -33,7 +37,19 @@ export interface InternalJobState {
   since: string;
   /** 上一次开始跑的时间 */
   lastRunAt?: string;
+  /** 上一次的结局（411 起记）：ok 跑完了，failed 出错了（run 抛错）；以前记下的没有 */
+  lastOutcome?: InternalJobOutcome;
+  /** 上一次出错的说明（一行、截短）；跑完了的没有 */
+  lastError?: string;
+  /** 上一次跑完（或出错）的时间（411 起记） */
+  lastEndedAt?: string;
 }
+
+/** 一次跑的结局：跑完了、出错了 */
+export type InternalJobOutcome = "ok" | "failed";
+
+/** 出错的说明最多记多少字 */
+const ERROR_MAX = 300;
 
 /** 这次为什么跑：到点了、启动时补错过的、用户点了"立即跑一次"（手动整理） */
 export type JobTrigger = "scheduled" | "catch_up" | "manual";
@@ -67,6 +83,8 @@ export interface InternalJobs {
    */
   register(job: InternalJob, options?: { fromNow?: boolean }): () => void;
   state(name: string): InternalJobState | undefined;
+  /** 登记着的作业各自的状态（按登记的先后；还没记过状态的不在里面）：体检看上一次的结局 */
+  registeredStates(): InternalJobState[];
   /**
    * 登记着的作业下一次什么时候跑（设置里"备份"写下一次）：正在跑的按"这一次跑完之后"算（从现在往后），
    * 没登记（撤销了、没登记过）、没有下一次是 undefined
@@ -115,7 +133,8 @@ const keyOf = (job: InternalJob) => `internal:${job.name}`;
 const describe = (err: unknown) => (err instanceof Error ? (err.stack ?? err.message) : String(err));
 const isAbort = (err: unknown) => err instanceof Error && err.name === "AbortError";
 
-function getJobState(db: ReadonlyDatabase, job: string): InternalJobState | undefined {
+/** 一个作业记下的状态（第一次见到、上一次开始跑的时间），直接读视图；体检这种只读内存和库的也用（记忆插件的每晚整理那一项） */
+export function getJobState(db: ReadonlyDatabase, job: string): InternalJobState | undefined {
   const row = db.get<{ state: string }>("SELECT state FROM internal_jobs WHERE job = ?", job);
   return row && (JSON.parse(row.state) as InternalJobState);
 }
@@ -144,16 +163,26 @@ export function createInternalJobs(options: InternalJobsOptions): InternalJobs {
     const startedAt = clock.now();
     busy.add(job.name);
     const run = (async () => {
+      /** 出错的说明（一行）；跑完了是 undefined */
+      let failure: string | undefined;
       try {
         await job.run(trigger, controller.signal);
       } catch (err) {
         // 守护进程停止时被中止的不算跑过（也不再登记下一次）
         if (controller.signal.aborted || isAbort(err)) return;
         log(`内部作业 ${job.name} 出错：${describe(err)}`);
+        failure = oneLine(err instanceof Error ? err.message : String(err), ERROR_MAX) || job.name;
       }
       try {
         const state = getJobState(store.reader, job.name);
-        record({ job: job.name, since: state?.since ?? iso(startedAt), lastRunAt: iso(startedAt) });
+        record({
+          job: job.name,
+          since: state?.since ?? iso(startedAt),
+          lastRunAt: iso(startedAt),
+          lastOutcome: failure === undefined ? "ok" : "failed",
+          ...(failure === undefined ? {} : { lastError: failure }),
+          lastEndedAt: iso(clock.now()),
+        });
       } catch (err) {
         log(`内部作业 ${job.name} 跑完了，但没记下来：${describe(err)}`);
       }
@@ -184,6 +213,7 @@ export function createInternalJobs(options: InternalJobsOptions): InternalJobs {
       return undo;
     },
     state: (name) => getJobState(store.reader, name),
+    registeredStates: () => [...jobs.keys()].flatMap((name) => getJobState(store.reader, name) ?? []),
     nextRun(name) {
       const job = jobs.get(name);
       if (!job || controller.signal.aborted) return undefined;

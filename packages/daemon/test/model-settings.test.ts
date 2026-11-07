@@ -128,10 +128,13 @@ describe("设置里的模型：设置文件和按 agent 取模型", () => {
     expect(logs.join("\n")).toMatch(/模型设置的文件读不出来：.*格式不对.*正在用默认，设置页保存会覆盖它/);
     expect(fs.readFileSync(modelSettingsFile, "utf8")).toContain("超高");
     expect((await service.view()).settingsFileError).toMatch(/格式不对/);
+    // 体检（411）不查模型目录，直接读同一个原因
+    expect(service.fileError()).toMatch(/格式不对/);
 
     // 存一份和正在用的默认一样的：照样写文件、覆盖坏的，提示消失
     const saved = await service.change(settings());
     expect(saved.settingsFileError).toBeUndefined();
+    expect(service.fileError()).toBeUndefined();
     expect(JSON.parse(fs.readFileSync(modelSettingsFile, "utf8"))).toEqual({ format: 1, ...DEFAULT_MODEL_SETTINGS });
     expect(logs.join("\n")).toMatch(/设置页存了一份新的，覆盖了它/);
 

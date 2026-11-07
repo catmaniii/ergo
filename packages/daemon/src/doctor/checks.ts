@@ -9,7 +9,7 @@
 // - 结果（DoctorFinding）是结构化的：五种结果之一、事实和怎么修（文案键 + 参数，键放插件自己的语言文件 <插件>.doctor.*）、
 //   可选的"从什么时候起"和一个动作按钮。守护进程不在这里拼界面的字，拼在 doctor.ts。
 // @i18n-ignore-file log：登记出错的说明是给开发者看的（编程错误）
-import { DOCTOR_FIX_UNKNOWN, DOCTOR_LEVELS, type DoctorAction, type DoctorLevel, type DoctorMessage } from "@ergo/protocol";
+import { DOCTOR_FIX_UNKNOWN, DOCTOR_LEVELS, type DoctorAction, type DoctorLevel, type DoctorMessage, doctorOpensUrl } from "@ergo/protocol";
 import { oneLine } from "../util/text.ts";
 
 /** 一项检查的开销：passive 只读内存、文件、事件；local 连本机端口、起本机进程 */
@@ -103,7 +103,8 @@ const isMessage = (value: unknown): value is DoctorMessage =>
 const isAction = (value: unknown): value is DoctorAction => {
   if (typeof value !== "object" || value === null) return false;
   const action = value as Partial<{ kind: string; route: unknown; agentId: unknown }>;
-  if (action.kind === "open") return typeof action.route === "string" && action.route.startsWith("#/");
+  // open：二狗的某一页（#/…），或者本机的一个网址（服务管家的网页：410 托管的服务、413 语音）；外面的网站不认
+  if (action.kind === "open") return typeof action.route === "string" && (action.route.startsWith("#/") || doctorOpensUrl(action.route));
   if (action.kind === "compact") return typeof action.agentId === "string" && action.agentId !== "";
   return false;
 };

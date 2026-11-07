@@ -338,6 +338,20 @@ describe("把一个目录作为集合导入", () => {
     expect(lib.expand(["fake-pstack", "yt-dlp", "nope"])).toEqual({ skills: ["alpha", "beta", "tdd", "yt-dlp"], unknown: ["nope"] });
   });
 
+  it("清单里写着、skill 区里认不出来的成员（目录被删了、SKILL.md 坏了）：体检能列出来（411），库照旧只认好的；都在时是空的", () => {
+    const { lib, userDir } = library();
+    const plugin = fakePlugin(makeTempDir("ergo-src-"));
+    lib.importFrom({ path: plugin, collection: { name: "matt-pocock", source: "假的", version: "1", description: "假的合集", skillsDir: "skills" } });
+    expect(lib.brokenCollections()).toEqual([]);
+    // 今天的样子：清单里多了两个，skill 区里没有这两个目录；另有一个成员的 SKILL.md 坏了
+    const manifestFile = path.join(userDir, "matt-pocock", COLLECTION_MANIFEST);
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8")) as { members: string[] };
+    fs.writeFileSync(manifestFile, JSON.stringify({ ...manifest, members: [...manifest.members, "skills/handoff", "skills/to-questionnaire"] }));
+    write(path.join(userDir, "matt-pocock", "skills", "beta", "SKILL.md"), "---\nname: beta\n---\n\n说明没了。\n");
+    expect(lib.brokenCollections()).toEqual([{ collection: "matt-pocock", dir: path.join(userDir, "matt-pocock"), members: ["beta", "handoff", "to-questionnaire"] }]);
+    expect(lib.list().map((s) => s.name)).toEqual(["example-checklist", "alpha", "tdd"]);
+  });
+
   it("成员和库里已有的重名：整套拒绝、说清和谁重名（什么都不复制）；导入并改名就能进来（只改目录名和 name）", () => {
     const { lib, userDir } = library();
     lib.importFrom({ path: fakePlugin(makeTempDir("ergo-src-")), collection: { name: "fake-pstack", source: "假插件", version: "0.1.0", description: "假的", skillsDir: "skills" } });
