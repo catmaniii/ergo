@@ -2,6 +2,12 @@
 
 二狗每个版本有什么，新的在上面。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 未发布
+
+### 修复
+
+- **Looki 的 vlog 又能存到本地了**：Looki 把每日 vlog 挪进了日记，二狗原来取 vlog 的地方被停用，11 月 4 日起 vlog 一直没存下来。现在改从日记里取，照常放进当天的文件夹；以前存下的 vlog 不动、不重下，更早没存上的点「把以前的也存下来」补。以后 Looki 再换接口，设置 · 数据源里 Looki 的「存一份到本地」那一块直接写明"Looki 换了接口"和对方的原话，照片、日记照常存。见[手册](docs/user-guide/data-sources.md#looki-穿戴式相机)。
+
 ## [0.4.3] - 2026-11-04
 
 ### 对话

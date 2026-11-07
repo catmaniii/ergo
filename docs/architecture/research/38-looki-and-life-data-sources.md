@@ -62,7 +62,7 @@
 | `GET /moments/{id}/files` | 这个时刻里的照片 / 视频 / 音频文件，可只要高光 | `highlight`、`cursor_id`、`limit`（≤100） |
 | `GET /journals` | 按天分组的日记 | `cursor_date`、`max_days`（≤31）、`sort_order` |
 | `GET /journals/calendar`、`/journals/by_date`、`/journals/{id}` | 哪天有日记、某天的日记、单篇详情 | — |
-| `GET /for_you/items` | AI 生成的高光：每日 vlog 等 | `group`（all/vlog/other）、`liked`、录制 / 创建日期范围、游标、`order_by` |
+| `GET /for_you/items` | AI 生成的高光：每日 vlog 等（**2026-11 已停用**：回 HTTP 400、code 105，"Please use GET /journals instead"；vlog 改成 `/journals` 里种类为 `DAILY_VLOG` 的条目，见 424 号票） | `group`（all/vlog/other）、`liked`、录制 / 创建日期范围、游标、`order_by` |
 | `GET /realtime/latest-event` | 设备检测到的**最新实时事件**（描述、起止时间、地点）。要在 App 里开主动模式，**beta，可能还没开放给你** | — |
 
 **数据长什么样**：

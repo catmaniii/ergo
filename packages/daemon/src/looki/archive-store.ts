@@ -52,6 +52,8 @@ export interface SavedText {
   path: string;
   size: number;
   title: string;
+  /** vlog 是从哪个接口列出来的：journals（424 起）；没写是以前从 /for_you/items 存下的（换接口后按标题、日子认回来，不重下） */
+  api?: "journals";
 }
 
 /** 一天的索引 */

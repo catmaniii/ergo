@@ -6,12 +6,18 @@
 // - GET /api/v1/moments?on_date=YYYY-MM-DD：那一天的时刻（id、title、description、media_types、封面文件、date、tz、start_time、end_time；
 //   地点在文件上：封面文件的 location），封面文件带 1 小时过期的预签名链接 temporary_url；
 // - GET /api/v1/moments/search?query=…&start_date&end_date：按意思搜（这里按标题、描述里有没有这个词）；
-// - GET /api/v1/journals?cursor_date&max_days&sort_order：按天分组的日记（type、title、description 摘要、content 全文、recorded_at）；
+// - GET /api/v1/journals?cursor_date&max_days&sort_order：按天分组的日记，照官方文档的回包
+//   { code: 0, detail: "success", data: { items: [{ date, start_date, journals: [...] }], next_cursor_id, has_more } }——
+//   日记有 type、title、description 摘要、content 全文、media_items、date、tz、recorded_at、created_at；
+//   AI 生成的每日 vlog 也在这里（2026-11 起，424 号票）：type DAILY_VLOG、没有 content、media_items 里 source 是视频（VIDEO）、
+//   thumbnail 是封面（IMAGE）。cursor_date 这里当"含那一天"（官方没写，插件两种都不漏）；一页最多 max_days 个日历日
+//   （测试拨 journalsPageDays 再压小，测翻页），更早还有就 has_more、next_cursor_id 是下一页从哪天起；
 // -（存一份到本地）：GET /api/v1/moments/{id}/files?limit&cursor_id——时刻里的照片、视频、录音（id、media_type、
 //   temporary_url、created_at、size、duration、location），一页最多 limit 个，下一页的游标 next_cursor_id；
-//   GET /api/v1/for_you/items?group=vlog——AI 生成的每日 vlog（id、type DAILY_VLOG、title、recorded_date、files）；
+//   GET /api/v1/for_you/items：已停用，照真的回 400、code 105、"This endpoint is deprecated. Please use GET /journals instead."；
 //   文件的下载链接指向同一个假服务的 /media/…（不带 Key 也能下，和 S3 的预签名链接一样），每列一次发一批新链接；
-//   测试拨 expireNext 让接下来几次列出的链接一发出就过期（下载回 403，像 S3 的"Request has expired"），brokenMedia 里的文件下载回 500。
+//   测试拨 expireNext 让接下来几次列文件列出的链接一发出就过期（下载回 403，像 S3 的"Request has expired"）；/journals 也会被同步自己调，
+//   不跟着算，vlog 的链接过期用 expireOnce（这些文件第一次下载时说过期了，之后照常）；brokenMedia 里的文件下载回 500。
 // 官方文档没写清的（成功时外面包不包一层 data、时间是不是带偏移的 ISO、地点在时刻上还是只在文件上、分页参数叫什么）这里各挑一种，
 // 插件按宽松的读法写（looki/records.ts、looki/client.ts），等用户拿到 Key 真机核对。
 import http from "node:http";
@@ -59,7 +65,7 @@ export interface FakeLookiFile {
   contentType: string;
 }
 
-/** 一个 AI 生成的 vlog（for_you 里的一条） */
+/** 一个 AI 生成的 vlog（/journals 里种类为 DAILY_VLOG 的一条；以前在 for_you 里） */
 export interface FakeLookiVlog {
   id: string;
   type: string;
@@ -68,6 +74,8 @@ export interface FakeLookiVlog {
   recorded_date: string;
   created_at: string;
   file: FakeLookiFile;
+  /** 封面（media_items 的 thumbnail；不给编一张） */
+  cover?: FakeLookiFile;
 }
 
 /** 编一张"照片"：JPEG 的开头、带拍摄时间和地点的 EXIF 段（一段编的字节）、结尾——下载下来要一个字节不差 */
@@ -105,14 +113,20 @@ export interface FakeLooki {
   rateLimitNext: number;
   /** /journals 回 422（模拟参数和官方文档对不上） */
   journalsRejected: boolean;
+  /** /journals 也停用了：回 400、code 105（模拟 Looki 又换了接口） */
+  journalsRetired: boolean;
+  /** /journals 一页最多几个日历日（再压小 max_days：测翻页） */
+  journalsPageDays: number;
   /** 每个时刻的文件（测试往里放） */
   files: Map<string, FakeLookiFile[]>;
   /** 列文件一页最多几个（测试拨小了测翻页） */
   filesPageSize: number;
-  /** AI 生成的 vlog */
+  /** AI 生成的 vlog（经 /journals 发出去） */
   vlogs: FakeLookiVlog[];
-  /** 接下来几次列文件、列 vlog 发出的链接一发出就过期 */
+  /** 接下来几次列文件发出的链接一发出就过期 */
   expireNext: number;
+  /** 这些文件第一次下载时说链接过期了（之后照常；vlog 用：/journals 同步也调，按次数算不准） */
+  expireOnce: Set<string>;
   /** 这些文件一下载就回 500 */
   brokenMedia: Set<string>;
   /** 下载成功的文件 id（按先后；断言不重下） */
@@ -160,10 +174,13 @@ export async function startFakeLooki(options: { key?: string } = {}): Promise<Fa
     mode: "ok",
     rateLimitNext: 0,
     journalsRejected: false,
+    journalsRetired: false,
+    journalsPageDays: 31,
     files: new Map(),
     filesPageSize: 100,
     vlogs: [],
     expireNext: 0,
+    expireOnce: new Set(),
     brokenMedia: new Set(),
     downloads: [],
     mediaWithKey: 0,
@@ -172,9 +189,9 @@ export async function startFakeLooki(options: { key?: string } = {}): Promise<Fa
   const issued = new Map<string, { file: FakeLookiFile; expired: boolean }>();
   let signature = 0;
   let origin = "";
-  /** 这一批链接（列一次发一批） */
-  const linker = () => {
-    const expired = state.expireNext > 0;
+  /** 这一批链接（列一次发一批）；counted：算不算进 expireNext（只有列文件算） */
+  const linker = (counted = true) => {
+    const expired = counted && state.expireNext > 0;
     if (expired) state.expireNext -= 1;
     return (file: FakeLookiFile) => {
       const sig = `sig${++signature}`;
@@ -200,7 +217,7 @@ export async function startFakeLooki(options: { key?: string } = {}): Promise<Fa
       if (apiKey !== undefined) state.mediaWithKey += 1;
       const hit = issued.get(query["X-Amz-Signature"] ?? "");
       if (!hit) return json(res, 403, { error: "SignatureDoesNotMatch" });
-      if (hit.expired) {
+      if (hit.expired || state.expireOnce.delete(hit.file.id)) {
         res.writeHead(403, { "content-type": "application/xml" });
         return res.end("<Error><Code>AccessDenied</Code><Message>Request has expired</Message></Error>");
       }
@@ -232,29 +249,40 @@ export async function startFakeLooki(options: { key?: string } = {}): Promise<Fa
       }
       case "/api/v1/journals": {
         if (state.journalsRejected) return json(res, 422, { detail: [{ loc: ["query", "cursor_date"], msg: "field required" }] });
-        const cursor = query.cursor_date;
-        const days = Math.min(31, Number(query.max_days ?? "7"));
-        const inRange = (date: string) => {
-          if (!cursor) return true;
-          const end = new Date(`${cursor}T00:00:00Z`).getTime();
-          const at = new Date(`${date}T00:00:00Z`).getTime();
-          return at <= end && at > end - days * 86_400_000;
-        };
-        const byDay = new Map<string, FakeLookiJournal[]>();
-        for (const j of state.journals) {
-          const date = j.recorded_at.slice(0, 10);
-          if (inRange(date)) byDay.set(date, [...(byDay.get(date) ?? []), j]);
-        }
-        const groups = [...byDay.entries()].map(([date, journals]) => ({ date, journals })).toSorted((a, b) => (query.sort_order === "asc" ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)));
-        return json(res, 200, { data: groups });
+        if (state.journalsRetired) return json(res, 400, { code: 105, detail: "This endpoint is deprecated. Please use GET /journals/v2 instead.", data: null });
+        const desc = query.sort_order !== "asc";
+        const days = Math.max(1, Math.min(31, Number(query.max_days ?? "7"), state.journalsPageDays));
+        const link = linker(false);
+        const entries = [
+          ...state.journals.map((j) => ({ date: j.recorded_at.slice(0, 10), entry: { id: j.id, type: j.type, title: j.title, description: j.description, content: j.content, media_items: [], date: j.recorded_at.slice(0, 10), start_date: null, tz: "+08:00", recorded_at: j.recorded_at, created_at: j.recorded_at } })),
+          ...state.vlogs.map((v) => ({
+            date: v.recorded_date,
+            entry: {
+              id: v.id,
+              type: v.type,
+              title: v.title,
+              description: v.description,
+              media_items: [{ source: { temporary_url: link(v.file), media_type: v.file.media_type, size: v.file.size, metadata: { duration_ms: (v.file.duration ?? 0) * 1000 } }, thumbnail: { temporary_url: link(v.cover ?? fakePhoto(`${v.id}-cover`, v.created_at)), media_type: "IMAGE", size: (v.cover ?? fakePhoto(`${v.id}-cover`, v.created_at)).size } }],
+              date: v.recorded_date,
+              start_date: null,
+              tz: "+08:00",
+              recorded_at: `${v.recorded_date}T21:00:00+08:00`,
+              created_at: v.created_at,
+            },
+          })),
+        ];
+        // 只做倒序（插件只用 desc）：从 cursor_date 那天（含）往前 days 个日历日
+        const top = query.cursor_date ?? entries.map((e) => e.date).toSorted().at(-1) ?? "9999-12-31";
+        const bottom = new Date(Date.parse(`${top}T00:00:00Z`) - (days - 1) * 86_400_000).toISOString().slice(0, 10);
+        const byDay = new Map<string, unknown[]>();
+        for (const e of entries) if (e.date <= top && e.date >= bottom) byDay.set(e.date, [...(byDay.get(e.date) ?? []), e.entry]);
+        const items = [...byDay.entries()].map(([date, journals]) => ({ date, start_date: null, journals })).toSorted((a, b) => (desc ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date)));
+        const older = entries.some((e) => e.date < bottom);
+        const next = new Date(Date.parse(`${bottom}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+        return json(res, 200, { code: 0, detail: "success", data: { items, next_cursor_id: older ? next : null, has_more: older } });
       }
-      case "/api/v1/for_you/items": {
-        const link = linker();
-        const items = state.vlogs
-          .filter(() => query.group === undefined || query.group === "all" || query.group === "vlog")
-          .map((v) => ({ id: v.id, type: v.type, title: v.title, description: v.description, content: "", recorded_date: v.recorded_date, created_at: v.created_at, files: [fileView(v.file, link)] }));
-        return json(res, 200, { data: { items, next_cursor: null } });
-      }
+      case "/api/v1/for_you/items":
+        return json(res, 400, { code: 105, detail: "This endpoint is deprecated. Please use GET /journals instead.", data: null });
       default: {
         const filesOf = /^\/api\/v1\/moments\/([^/]+)\/files$/.exec(url.pathname);
         if (filesOf) {
