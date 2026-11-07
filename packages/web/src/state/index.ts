@@ -107,6 +107,7 @@ export * from "./scroll-end.ts";
 export * from "./secretary-unread.ts";
 export * from "./page-update.ts";
 export * from "./debug-tools.ts";
+export * from "./managed-services.ts";
 export * from "./changelog.ts";
 export * from "./browse.ts";
 export * from "./browse-tools.ts";

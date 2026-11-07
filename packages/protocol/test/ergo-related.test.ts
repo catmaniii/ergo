@@ -38,7 +38,7 @@ describe("和二狗有关的服务", () => {
 
   it("和二狗无关的一个都不带：别的项目、它们的隧道、隧道的软依赖、同一个端口上没在跑的旧登记", () => {
     const related = ergoRelated(SERVICES, CTX);
-    for (const id of ["drama-server", "comfyui", "comfy-tunnel", "metrics", "old-tts"]) expect(related.has(id), id).toBe(false);
+    expect(["drama-server", "comfyui", "comfy-tunnel", "metrics", "old-tts"].filter((id) => related.has(id))).toEqual([]);
   });
 
   it("没在用语音、没开 tailnet、没有隧道时那几条就没有；服务管家不知道 tailnet 网关（老版本）时网关不算", () => {

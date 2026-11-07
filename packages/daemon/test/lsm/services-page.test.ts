@@ -45,6 +45,13 @@ const SERVICES: LsmManagedService[] = [
 
 type Sent = { method: keyof LsmManage; args: unknown[] };
 
+/** 没有正常停止 / 重启办法的服务管家：不带 force 回 no-capability，带了就停 */
+const nocap = (name: unknown, options?: { force?: boolean }): LsmManageReply =>
+  options?.force ? { ok: true, service: { ...SERVICES.find((s) => s.id === name)!, state: "STOPPED", up: false } } : { ok: false, error: { code: "no-capability", message: `${String(name)} 没有停机能力。要停就带 force: true` } };
+
+/** 语音配置（只有用得到的两段） */
+const voiceConfig = (mode: "spawn" | "lsm" | "audiocpp", speech = "http://127.0.0.1:18090", recognizer = "http://127.0.0.1:18091") => ({ speech: { url: speech }, recognizer: { mode, url: recognizer } }) as never;
+
 /** 假的管理指令：记下每次调用；replies 按方法名给回复（不给的回 ok + 这个服务现在的样子） */
 function fakeManage(replies: Partial<Record<keyof LsmManage, (...args: never[]) => LsmManageReply>> = {}, support: LsmManage["support"] = "supported") {
   const sent: Sent[] = [];
@@ -140,9 +147,9 @@ describe("设置 · 服务：操作", () => {
       const p = page(fake.manage);
       for (const action of ["stop", "force_stop", "restart", "autostart_off"] as const) {
         const r = await p.act(id, action);
-        expect(r, `${id} ${action}`).toMatchObject({ ok: false, action, code: "protected", service: { id } });
+        expect({ id, r }).toMatchObject({ id, r: { ok: false, action, code: "protected", service: { id } } });
       }
-      expect(fake.commands(), id).toEqual([]);
+      expect({ id, commands: fake.commands() }).toEqual({ id, commands: [] });
       expect((await p.act(id, "start")).ok).toBe(true);
       expect((await p.act(id, "autostart_on")).ok).toBe(true);
       expect(fake.commands().map((c) => c.method)).toEqual(["start", "autostart"]);
@@ -150,8 +157,6 @@ describe("设置 · 服务：操作", () => {
   });
 
   it("没有正常停止 / 重启办法的：先发普通的，服务管家回 no-capability 再发强制的，结果写 forced；强制也没成照实说", async () => {
-    const nocap = (name: unknown, options?: { force?: boolean }): LsmManageReply =>
-      options?.force ? { ok: true, service: { ...SERVICES.find((s) => s.id === name)!, state: "STOPPED", up: false } } : { ok: false, error: { code: "no-capability", message: `${String(name)} 没有停机能力。要停就带 force: true` } };
     const fake = fakeManage({ stop: nocap as never, restart: nocap as never });
     const p = page(fake.manage);
     expect(await p.act("audiocpp", "stop")).toMatchObject({ ok: true, action: "stop", forced: true, service: { id: "audiocpp", state: "STOPPED" } });
@@ -231,13 +236,12 @@ describe("设置 · 服务：日志", () => {
 });
 
 describe("二狗在用的语音端口", () => {
-  const voice = (mode: "spawn" | "lsm" | "audiocpp", speech = "http://127.0.0.1:18090", recognizer = "http://127.0.0.1:18091") => ({ speech: { url: speech }, recognizer: { mode, url: recognizer } }) as never;
   it("语音插件启用着才算；识别 lsm 用自己的地址、audiocpp 和合成同一个、spawn 不归服务管家；不是本机的不算", () => {
-    expect(voicePortsInUse(voice("lsm"), { voiceOn: true })).toEqual({ speechPort: 18090, recognizerPort: 18091 });
-    expect(voicePortsInUse(voice("audiocpp"), { voiceOn: true })).toEqual({ speechPort: 18090, recognizerPort: 18090 });
-    expect(voicePortsInUse(voice("spawn"), { voiceOn: true })).toEqual({ speechPort: 18090 });
-    expect(voicePortsInUse(voice("lsm", "http://192.168.1.9:8090", "http://192.168.1.9:8091"), { voiceOn: true })).toEqual({});
-    expect(voicePortsInUse(voice("lsm"), { voiceOn: false })).toEqual({});
-    expect(voicePortsInUse(voice("lsm"), { voiceOn: true, speechUrl: "http://127.0.0.1:1" })).toEqual({ speechPort: 1, recognizerPort: 18091 });
+    expect(voicePortsInUse(voiceConfig("lsm"), { voiceOn: true })).toEqual({ speechPort: 18090, recognizerPort: 18091 });
+    expect(voicePortsInUse(voiceConfig("audiocpp"), { voiceOn: true })).toEqual({ speechPort: 18090, recognizerPort: 18090 });
+    expect(voicePortsInUse(voiceConfig("spawn"), { voiceOn: true })).toEqual({ speechPort: 18090 });
+    expect(voicePortsInUse(voiceConfig("lsm", "http://192.168.1.9:8090", "http://192.168.1.9:8091"), { voiceOn: true })).toEqual({});
+    expect(voicePortsInUse(voiceConfig("lsm"), { voiceOn: false })).toEqual({});
+    expect(voicePortsInUse(voiceConfig("lsm"), { voiceOn: true, speechUrl: "http://127.0.0.1:1" })).toEqual({ speechPort: 1, recognizerPort: 18091 });
   });
 });

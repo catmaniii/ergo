@@ -1214,6 +1214,20 @@ export { DOCTOR_CHECKS, DOCTOR_FIX_UNKNOWN, doctorCheck, doctorDataOf } from "@e
 export { checkManualConnectionAddress, orderConnectionAddresses } from "@ergo/protocol";
 export type { ConnectionAddress, ConnectionAddressesView, RejectedConnectionAddress } from "@ergo/protocol";
 export type { DoctorCheckData, DoctorCheckDataById, DoctorCheckId, DoctorCheckView, DoctorView } from "@ergo/protocol";
+// 设置 · 服务（428）：服务管家里和二狗有关的服务——用途、能点的操作、哪些要先确认，GET / POST /api/managed-services 的形状
+// ergoRelated 是"和二狗有关"的判定（守护进程用同一份；网页里只有原型的假服务管家用它挑）
+export { ERGO_USES, ergoRelated, MANAGED_SERVICE_ACTIONS, MANAGED_SERVICE_CONFIRM_ACTIONS, MANAGED_SERVICE_GUARDED_ACTIONS } from "@ergo/protocol";
+export type {
+  ErgoRelatedService,
+  ErgoUse,
+  ManagedServiceAction,
+  ManagedServiceActionResult,
+  ManagedServiceLogsView,
+  ManagedServiceProtection,
+  ManagedServicesSupport,
+  ManagedServicesView,
+  ManagedServiceView,
+} from "@ergo/protocol";
 // 做法（交互策略）列表、猜测为什么还是猜测
 export { MEMORY_STRATEGY_STATUSES } from "@ergo/protocol";
 export type { MemoryGuessReason, MemoryStrategiesView, MemoryStrategyStatus, MemoryStrategyView } from "@ergo/protocol";

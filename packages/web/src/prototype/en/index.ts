@@ -12,6 +12,7 @@ import { EN_DATA_SOURCES } from "./fake-data-sources.ts";
 import { EN_DATA } from "./fake-data.ts";
 import { EN_HTTP } from "./fake-http.ts";
 import { EN_LONG_TASKS } from "./fake-long-tasks.ts";
+import { EN_MANAGED_SERVICES } from "./fake-managed-services.ts";
 import { EN_MATERIALS } from "./fake-materials.ts";
 import { EN_MEDIA } from "./fake-media.ts";
 import { EN_MEMORY_GRAPH } from "./fake-memory-graph.ts";
@@ -41,6 +42,7 @@ export const EN_PHRASES: Phrases = {
   ...EN_DATA,
   ...EN_HTTP,
   ...EN_LONG_TASKS,
+  ...EN_MANAGED_SERVICES,
   ...EN_MATERIALS,
   ...EN_MEDIA,
   ...EN_MEMORY_GRAPH,

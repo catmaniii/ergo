@@ -40,6 +40,8 @@
 // 设置列表最上面多一行"设置向导"（#/more/setup，pages/SetupWizard.tsx）：首次设置的五步加一屏外网访问的说明。
 // 它不进四组（不是哪一类的设置，是一次走完的流程），所以 settingsShown / settingsGroups 里没有它。
 // 319b：数据与设备组里"关于二狗"前面多一行"体检"（#/more/doctor，pages/more/DoctorPage.tsx）：八项一查、右上"再查一遍"。
+// 428：体检后面紧跟着"服务"（#/more/services[/<服务 id>]，pages/more/ServicesPage.tsx）：服务管家里和二狗有关的服务，看、开关、看日志，
+// 右上"刷新"；体检里点过来的带服务 id，那一块描一圈。
 // 备份从设置列表里就地展开的一小块变成单独一页（#/more/backup，pages/more/BackupPage.tsx）：文件夹位置能配、详细选项和按钮都在里面。
 // 数据源分两层——设置下面的那一页是卡片总览（DataSourcesPage），点卡片是单独全屏的详情（#/more/data-sources/<id>，pages/more/DataSourceDetail.tsx）：
 // 不管设置现在是导航项还是收在"更多"里，详情都占满内容区（宽屏不留设置的左栏）。共用的导入文件夹也是一张卡（ImportFolderPage）。
@@ -73,6 +75,7 @@ import { ComponentsPage } from "./more/ComponentsPage.tsx";
 import { DataSourceDetailPage, ImportFolderPage } from "./more/DataSourceDetail.tsx";
 import { DataSourcesPage } from "./more/DataSourcesPage.tsx";
 import { DoctorPage } from "./more/DoctorPage.tsx";
+import { ServicesPage } from "./more/ServicesPage.tsx";
 import { PromptsPage } from "./more/PromptsPage.tsx";
 import { RolesPage } from "./more/RolesPage.tsx";
 import { SettingsGroup } from "./more/SettingsGroup.tsx";
@@ -109,6 +112,7 @@ const PAGE_TITLES: Readonly<Record<Exclude<Sub, "language">, string>> = tTable({
   "materials-delete": "shell.pages.materialsDelete.title",
   backup: "shell.pages.backup.title",
   doctor: "doctor.title",
+  services: "shell.pages.services.title",
   about: "shell.pages.about.title",
   debug: "shell.pages.debug.title",
   files: "shell.pages.files.title",
@@ -138,6 +142,7 @@ const PAGE_SUBS: Readonly<Record<Exclude<Sub, "language">, string>> = tTable({
   "materials-delete": "shell.pages.materialsDelete.sub",
   backup: "shell.pages.backup.sub",
   doctor: "doctor.sub",
+  services: "shell.pages.services.sub",
   about: "shell.pages.about.sub",
   debug: "shell.pages.debug.sub",
   files: "shell.pages.files.sub",
@@ -169,9 +174,9 @@ const SETTINGS_GROUPS: readonly { id: SettingsGroupId; rows: readonly SettingsRo
   { id: "rules", rows: ["watch", "prompts", "workday-rules"] },
   // 数据源排在这一组最前面（外面接进来的数据，和删除素材挨着）
   // "备份"紧挨着工具调用的完整内容（是普通一行，点了进去）
-  // 319b：体检（八项一查）排在"关于二狗"前面：都是"这套东西现在怎么样"的那一类
+  // 319b：体检（八项一查）排在"关于二狗"前面：都是"这套东西现在怎么样"的那一类；428：服务（服务管家里和二狗有关的）紧挨着体检
   // 授权的文件夹（电脑上的文件）排在数据源后面，内核的页面，浏览插件停用时也在；目录授权（每个 agent 一份）紧挨着它
-  { id: "data", rows: ["data-sources", "authorized-folders", "folder-grants", "materials-delete", "tool-call-storage", "backup", "devices", "doctor", "about"] },
+  { id: "data", rows: ["data-sources", "authorized-folders", "folder-grants", "materials-delete", "tool-call-storage", "backup", "devices", "doctor", "services", "about"] },
 ];
 
 /**
@@ -244,8 +249,9 @@ export function MorePage({ wide, page: shownPage, item, sub, folded, navigate }:
 
   // 竖屏：设置下面的页返回到设置，其余返回到"更多"；有下一级的页点进去的那一项返回到那一页（宽屏也是）。网页插件的页面同"消耗"。
   // 个人档案不是设置下面的页：回到来处（从设置、记忆页点过来的回那里），没有来处回"更多"
+  // 服务页带的服务 id 只是定位到哪一块，不是下一级：返回照没带的算
   const back =
-    page && item
+    page && item && page !== "services"
       ? page === "materials-delete"
         ? () => goBackFromMaterial({ tab: "more", page })
         : () => go(page)
@@ -305,7 +311,7 @@ function SettingsSection({ wide, page, item, go, navigate }: { wide: boolean; pa
     </div>
   );
   const backFromItem = sub === "materials-delete" ? () => goBackFromMaterial({ tab: "more", page: sub }) : () => sub && go(sub);
-  const detail = sub && <SubPageCol page={sub} item={item} onBack={item ? backFromItem : wide ? undefined : () => go("settings")} go={go} navigate={navigate} />;
+  const detail = sub && <SubPageCol page={sub} item={item} onBack={item && sub !== "services" ? backFromItem : wide ? undefined : () => go("settings")} go={go} navigate={navigate} />;
   return <ListDetail wide={wide} list={list} detail={detail} listWidth={280} />;
 }
 
@@ -318,6 +324,8 @@ function SubPageCol({ page, item, onBack, go, navigate }: { page: Sub; item?: st
   if (page === "setup") return <SetupPage title={pageTitle("setup")} onBack={onBack} navigate={navigate} />;
   // 体检：标题栏右上"再查一遍"，八项在 pages/more/DoctorPage.tsx
   if (page === "doctor") return <DoctorPage title={pageTitle("doctor")} onBack={onBack} />;
+  // 服务：标题栏右上"刷新"；item 是体检里点过来时带的服务 id（不是下一级，返回照旧）
+  if (page === "services") return <ServicesPage key={item ?? ""} title={pageTitle("services")} item={item} onBack={onBack} />;
   // 个人档案：标题栏上有"加一个人"，点进一个人是下一级 #/more/files/<编号>；删掉这个人回到列表（不压新记录）
   if (page === "files")
     return (
@@ -385,6 +393,9 @@ function SubPage({ page, item, go, navigate }: { page: Sub; item?: string; go(p:
       return null;
     case "doctor":
       // 自己排一栏（标题栏右上"再查一遍"），见 SubPageCol
+      return null;
+    case "services":
+      // 自己排一栏（标题栏右上"刷新"），见 SubPageCol
       return null;
     case "plugins":
       return <PluginsPage />;

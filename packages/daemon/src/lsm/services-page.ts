@@ -122,16 +122,16 @@ function send(manage: LsmManage, action: ManagedServiceAction | "force_restart",
   }
 }
 
+/** 接入层能不能用：不能用的说清是哪种（没接入、还没连上、服务管家太老） */
+function usable(manage: LsmManage | undefined): { manage: LsmManage } | { failure: Failure } {
+  if (!manage || manage.support === "disabled") return { failure: { code: "not-linked", message: "" } };
+  if (manage.support === "waiting") return { failure: { code: "not-connected", message: "" } };
+  if (manage.support === "unsupported") return { failure: { code: "unsupported", message: "" } };
+  return { manage };
+}
+
 export function createManagedServices(deps: ManagedServicesDeps): ManagedServices {
   const now = deps.now ?? Date.now;
-
-  /** 接入层能不能用：不能用的说清是哪种（没接入、还没连上、服务管家太老） */
-  const usable = (manage: LsmManage | undefined): { manage: LsmManage } | { failure: Failure } => {
-    if (!manage || manage.support === "disabled") return { failure: { code: "not-linked", message: "" } };
-    if (manage.support === "waiting") return { failure: { code: "not-connected", message: "" } };
-    if (manage.support === "unsupported") return { failure: { code: "unsupported", message: "" } };
-    return { manage };
-  };
 
   /** 取一次列表，挑出和二狗有关的 */
   const list = async (manage: LsmManage): Promise<{ listed: Listed } | { failure: Failure }> => {
@@ -175,7 +175,7 @@ export function createManagedServices(deps: ManagedServicesDeps): ManagedService
       if ("failure" in found) return { ok: false, action, ...found.failure };
       const { manage, listed, s, uses } = found;
       // 二狗离不开的：本地先拒，一条指令都不发（服务管家那边也会拒）
-      if (s.protected && MANAGED_SERVICE_GUARDED_ACTIONS.includes(action)) return { ok: false, action, code: "protected", message: s.protectedWhy.join("；"), service: viewOf(s, uses, listed) };
+      if (s.protected && MANAGED_SERVICE_GUARDED_ACTIONS.includes(action)) return { ok: false, action, code: "protected", message: s.protectedWhy.join("; "), service: viewOf(s, uses, listed) };
       let reply = await send(manage, action, id);
       // 用户 2026-11-07 定的"直接停"：没有正常停止 / 重启办法的（服务管家回 no-capability），停就直接强制停、重启就直接强制重启
       const forced = !reply.ok && reply.error.code === "no-capability" && (action === "stop" || action === "restart");

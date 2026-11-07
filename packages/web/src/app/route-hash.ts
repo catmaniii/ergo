@@ -31,7 +31,7 @@ export type Tab = "secretary" | "tasks" | "projects" | "inbox" | "browse" | "cal
  * 数据源分两层——#/more/data-sources 是卡片总览，点一张卡是单独全屏的详情（#/more/data-sources/<数据源 id>），
  * 共用的导入文件夹也是一张卡（#/more/data-sources/import_folder：数据源的 id 只有小写英文、数字和连字符，撞不上）
  */
-export const MORE_PAGES = ["usage", "settings", "setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "codex", "data-sources", "authorized-folders", "folder-grants", "materials-delete", "backup", "doctor", "about", "debug", "files"] as const;
+export const MORE_PAGES = ["usage", "settings", "setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "codex", "data-sources", "authorized-folders", "folder-grants", "materials-delete", "backup", "doctor", "services", "about", "debug", "files"] as const;
 
 export type MorePage = (typeof MORE_PAGES)[number];
 
@@ -111,7 +111,7 @@ export type Route =
   | { tab: "app"; app: string; path?: string };
 
 /** 设置下面的几页（最前面还有"设置向导"） */
-const SETTINGS_PAGES: readonly MorePage[] = ["setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "codex", "data-sources", "authorized-folders", "folder-grants", "backup", "materials-delete", "doctor", "about", "debug"];
+const SETTINGS_PAGES: readonly MorePage[] = ["setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "codex", "data-sources", "authorized-folders", "folder-grants", "backup", "materials-delete", "doctor", "services", "about", "debug"];
 
 /** 这一页属于主导航的哪一项："更多"本身是 more；配对等待页独占整页，不属于任何一项 */
 export function navItemOf(route: Route): NavItem | "more" | undefined {
@@ -172,9 +172,10 @@ export function parseHash(hash: string): Route {
       // 网页插件的页面：#/more/<页面 id>[/<item>[/<sub>]]，item、sub 原样留着由插件自己认（不认得的页面画成"更多"）
       if (a && page === undefined) return { tab: "more", page: a, ...(b ? { item: b } : {}), ...(b && c ? { sub: c } : {}) };
       // 有下一级的页（系统提示；删除素材里点开的一条素材；个人档案里点开的一个人；数据源详情；设备配对的二维码界面）：
-      // #/more/prompts/<编号>、#/more/materials-delete/<素材 id>、#/more/files/<档案编号>、#/more/data-sources/<数据源 id>、#/more/devices/qr
+      // #/more/prompts/<编号>、#/more/materials-delete/<素材 id>、#/more/files/<档案编号>、#/more/data-sources/<数据源 id>、#/more/devices/qr；
+      // 设置 · 服务定位到一个服务（体检里点过来）：#/more/services/<服务 id>
       if (page === "devices") return b === "qr" ? { tab: "more", page, item: b } : { tab: "more", page };
-      return (page === "prompts" || page === "materials-delete" || page === "files" || page === "data-sources") && b ? { tab: "more", page, item: b } : { tab: "more", page };
+      return (page === "prompts" || page === "materials-delete" || page === "files" || page === "data-sources" || page === "services") && b ? { tab: "more", page, item: b } : { tab: "more", page };
     }
     case "card":
       return a ? { tab: "card", cardId: a } : { tab: "secretary" };

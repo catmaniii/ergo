@@ -82,6 +82,8 @@ const PAGES = [
   "#/more/data-sources/没有这个",
   // 设备配对的二维码界面
   "#/more/devices/qr",
+  // 设置 · 服务定位到一个服务（体检里点过来的样子，原型编的服务管家）
+  "#/more/services/ergo-daemon--p-ledger-web",
   "#/more/data-sources/import_folder",
   // 设置里删除素材的旧地址：跳到记忆 · 素材
   "#/more/materials",
@@ -159,6 +161,8 @@ const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boo
   { hash: "#/more/data-sources/phone-contacts", selector: "[data-from-device]" },
   // 319b：设置 · 体检——八项的名字、事实、怎么修都是网页按语言拼的（演示页的数据是编的，路径和时间不是中文）
   { hash: "#/more/doctor", selector: ".doctor-page" },
+  // 428：设置 · 服务——状态、用途、受保护的原因、按钮、开关都是网页按语言拼的；原型编的服务名、出错原因、服务管家的话经假数据的英文表
+  { hash: "#/more/services", selector: ".services-page" },
   { hash: "#/more/memory", selector: ".memory-layers", except: ".assistant-name" },
   { hash: "#/more/memory/materials", selector: ".mat-search, .mat-count, .mat-range-nav button" },
   // 结论、证据与推理、问题箱——状态筛、顶上那几行、详情里的分节标题（结论的陈述、原话是内容，不在这里查）
