@@ -49,6 +49,9 @@
 // 主导航的日历：GET /api/calendar?month=2026-10 按月给出每一天的日历条目——上班或休息及原因、当天的简单提醒、
 // 当天的定时作业（时间表展开到当天，跑过的带着这一次的结果），连同算的时候任务看板、工作日历两个频道的序号（前端据此知道旧没旧）。
 //
+// 地图页（429 地图插件）：GET /api/map/config 现在能用什么——高德 Web 端的 Key（填了 Key 和安全密钥才有，安全密钥不给）。
+// 瓦片转发 /tiles/、高德安全密钥代理 /_AMapService/ 不在 /api/ 下面，地址在 map.ts。
+//
 // 消耗页：GET /api/usage?from=2026-10-01&to=2026-10-08 选定范围（含两头）按天、按 agent 的 token 汇总，
 // 秘书单列为系统开销，成本是用量乘配置里的单价（每次现读配置，粗估）。
 //
@@ -269,6 +272,8 @@ const LIST = "list";
 const WEB_PAGE = "web-page";
 const WORKDAY_CALENDAR = "workday-calendar";
 const CALENDAR = "calendar";
+const MAP = "map";
+const MAP_CONFIG = "config";
 const USAGE = "usage";
 const REFERENCE_VOICES = "reference-voices";
 const SELECT = "select";
@@ -442,6 +447,8 @@ export const HTTP_PATHS = {
   workdayMonth: (month: string) => `${api(WORKDAY_CALENDAR)}${query({ [HTTP_QUERY.month]: month })}`,
   /** 日历：某个月（YYYY-MM）每一天的日历条目（GET，响应 CalendarMonthView） */
   calendarMonth: (month: string) => `${api(CALENDAR)}${query({ [HTTP_QUERY.month]: month })}`,
+  /** 地图页现在能用什么：高德 Web 端的 Key（填了 Key 和安全密钥才有；安全密钥不给）（GET，响应 MapConfigView；地图插件没启用时 400） */
+  mapConfig: api(MAP, MAP_CONFIG),
   /** 消耗页：from 到 to（YYYY-MM-DD，含两头）的用量汇总和粗估成本（GET，响应 UsageSummary） */
   usage: (range: { from: string; to: string }) => `${api(USAGE)}${query({ [HTTP_QUERY.from]: range.from, [HTTP_QUERY.to]: range.to })}`,
   /** 参考音色：GET 列出（ReferenceVoiceList），POST 导入一个（ImportReferenceVoiceBody → ReferenceVoice） */
@@ -723,6 +730,7 @@ export type HttpRoute =
   | { route: "memory_interview" }
   | { route: "workday_calendar" }
   | { route: "calendar" }
+  | { route: "map_config" }
   | { route: "usage" }
   | { route: "reference_voices" }
   | { route: "reference_voice"; voiceId: string }
@@ -859,6 +867,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   }
   if (head === WORKDAY_CALENDAR && id === undefined) return { route: "workday_calendar" };
   if (head === CALENDAR && id === undefined) return { route: "calendar" };
+  if (head === MAP && id === MAP_CONFIG && tail === undefined) return { route: "map_config" };
   if (head === USAGE && id === undefined) return { route: "usage" };
   if (head === REFERENCE_VOICES) {
     if (id === undefined) return { route: "reference_voices" };
