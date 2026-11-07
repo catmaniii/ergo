@@ -1,10 +1,12 @@
 // 体检项的登记表和跑法（409，src/doctor/checks.ts）：
 // - 登记返回撤销函数；id 的规矩、二狗自己用的 id、同一块里重名都拒；不同插件可以同名；
 // - 查一项：交回的结果原样（只留认得的几样）；超时（到点置中止信号）、同步抛错、异步抛错、交回的东西不像样都只算"没查出来"，
-//   修法是"再查一遍"，从不抛错；不给超时用默认的 1.5 秒。
+//   修法是"再查一遍"，从不抛错；不给超时用默认的 1.5 秒。超时只数事件循环给了的时间（437）。
+import net from "node:net";
 import { DOCTOR_FIX_UNKNOWN } from "@ergo/protocol";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { createDoctorChecks, DOCTOR_CHECK_TIMEOUT_MS, type DoctorCheck, type DoctorFinding, runDoctorCheck, validFinding } from "../../src/doctor/checks.ts";
+import { startedInRequest } from "../helpers/event-loop.ts";
 
 const ok: DoctorFinding = { level: "ok", fact: { key: "doctor.plugin.running" } };
 
@@ -78,6 +80,28 @@ describe("查一项", () => {
     expect(aborted).toBe(true);
     expect(Date.now() - started).toBeLessThan(2_000);
     expect(logs.join("\n")).toMatch(/slow 50 毫秒没查完/);
+  });
+
+  it("限时只数事件循环给了的时间（437）：在请求里起头、马上被别的项卡住 800 毫秒，连上本机端口的这一项照样查出来，不算到点没查完", async () => {
+    const server = net.createServer((socket) => socket.destroy());
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    onTestFinished(() => new Promise<void>((resolve) => server.close(() => resolve())));
+    const { port } = server.address() as net.AddressInfo;
+    // 这一项连一下本机端口（像语音合成那项探 /health）：连上了就是正常
+    const connects = check(
+      "connects",
+      () =>
+        new Promise<DoctorFinding>((resolve, reject) => {
+          const socket = net.connect({ host: "127.0.0.1", port });
+          socket.once("connect", () => {
+            socket.destroy();
+            resolve(ok);
+          });
+          socket.once("error", reject);
+        }),
+      { timeoutMs: 300 },
+    );
+    expect(await startedInRequest(() => runDoctorCheck(connects), 800)).toEqual(ok);
   });
 
   it("同步抛错、异步抛错：算没查出来，事实里带出错的原文（压成一行、截短）", async () => {
