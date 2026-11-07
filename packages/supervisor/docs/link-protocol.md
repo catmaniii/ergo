@@ -1,7 +1,8 @@
 # 接入协议 v1
 
 语言无关。项目实现它即成为 `linked` 服务。
-接入之后还可以经它管理**自己名下的服务**（§7）。
+接入之后还可以经它管理**自己名下的服务**（§7），问管理器**有哪些入口指向自己**（§8），
+以及用**管理指令**看、启停、重启别的服务——自己和自己的「命脉」不许停（§9）。
 
 ## 0. 铁律
 
@@ -308,3 +309,166 @@ Python 客户端（`lsm_link.py`）暂未加，它会忽略这些消息。
 
 **为什么要分 `wrongPort`**：对外端口和本机端口不是一回事。二狗的 8810 对本机请求自动信任，8811 才每个请求都要设备凭证；
 有东西把 8810 接到外面是要修的事故，不是一个能给手机用的地址。项目自己也要再核对一遍 `port`（管理器版本不同的时候别只靠这边筛）。
+
+## 9. 管理指令（2026-11-07）
+
+接入的项目经**自己那条带身份的连接**看、启停、重启**别的**服务（不只是名下的）。典型用法：二狗的秘书替你停掉一个吃显存的服务、
+重启一个卡住的服务、看它最后几十行日志。和 §7、§8 一样不升版本号，只加消息。
+
+**真正的防线在这里**：管理器按连接的身份（令牌在升级时验过）算出这个调用方的**命脉**，对命脉的停、杀、撤一律回 `protected`——
+不管请求是从对方哪个工具、哪种写法来的。调用方那边的工具应该先按列表里的 `protected` 挡一遍，但那只是体验，不是防线。
+
+### 9.1 声明
+
+```jsonc
+// 管理器 → 项目：welcome 里多一个
+{"type":"welcome", /* … */ "features":["services","entries","manage"]}   // 老管理器的 welcome 里没有：当它不支持，别发
+```
+
+`hello` 不用声明什么。没有 `manage` 就别发 `manage.*`：老管理器对不认识的消息一律不理，等不到回复。
+
+### 9.2 谁能用
+
+- 已经 `hello`、会话有效的项目（没 hello 就发 → `not-linked`）。
+- 注册表顶层的服务。**名下的服务不能用**（`not-allowed`）：名下只有一层，和 §7.2 一样。
+- 每个调用方只保护**它自己的命脉**：二狗发指令时二狗是命脉；别的项目发指令时，二狗对它不是命脉（除非标了 `lifeline: true`，见下）。
+
+### 9.3 命脉
+
+每条请求都按当时的注册表现算，不是写死的名单：
+
+| 谁 | 为什么（`why` 里的原话） |
+|---|---|
+| 调用方自己 | `调用方自己` |
+| 它的公网隧道：注册表里它的 `exposure.via` | `<调用方> 的公网隧道（exposure.via）` |
+| 它开着 tailnet 入口（`registry/tailnet.yaml` 里有它）时，`manager.yaml` 的 `tailnet.gateway` | `tailnet 网关（<调用方> 开着 tailnet 入口）` |
+| 上面这些**硬**依赖（`dependsOn` 里 `type: hard`）的服务，一层层往下（闭包）；软依赖不算 | `<谁> 硬依赖它` |
+| 注册表里标了 `lifeline: true` 的服务（对**所有**调用方都是命脉；`service-schema.md`） | `注册表里标了 lifeline: true` |
+| 探活端口就是管理器自己端口的服务（不该有；有就当命脉——管理器本身不在任何「停」的范围里） | `端口 N 是服务管家自己的` |
+
+一个服务可能同时有好几条原因，`why` 是数组。
+
+对命脉：
+
+| 能做 | 回 `protected` |
+|---|---|
+| 看列表、看日志、启动、取消等空闲再停、开机自启开、公网入口开、tailnet 开、认领孤儿、场景启动 | 停止（优雅、强制、等空闲）、重启（立刻、强制）、开机自启关、公网入口关、tailnet 关、裁决孤儿 kill、撤销、**场景停止只要会停到命脉**（场景停止会连成员的依赖一起停，按真正会停的那些算） |
+
+唯一例外：`manage.restartSelf`——调用方让管理器「等我空闲了重启我」，只接受 `mode: "when-idle"`（9.5）。
+
+**这条连接上不开放**（`not-allowed`，要人在 WebUI / CLI 上做）：`manage.reload`、`manage.detachTask`、`manage.vps*`、`manage.setPassword`、
+`manage.exposeCreate`（开通公网：生成隧道、改注册表）。管理器本身没有任何「停管理器」的指令。
+
+### 9.4 请求（项目 → 管理器）
+
+每条都带 `id`（项目自己编，回复原样带回）。`name` 一律写服务的**全名**（名下的服务也写全名，比如 `ergo-daemon--p-1-web`）。
+同一个服务的指令按到达顺序一次处理一个；`list`、`logs` 不排队。
+
+```jsonc
+{"type":"manage.list","id":"m-1"}
+{"type":"manage.logs","id":"m-2","name":"tts-engine","lines":100,"source":0}   // lines 默认 100、最多 500；source 是第几份日志，默认 0 = 命令行输出
+{"type":"manage.start","id":"m-3","name":"tts-engine"}                         // 等到就绪（或失败）才回
+{"type":"manage.stop","id":"m-4","name":"tts-engine","mode":"now","force":false}   // mode: now | when-idle；force 见 §7.3
+{"type":"manage.restart","id":"m-5","name":"tts-engine","force":false}        // 立刻重启；没有重启能力要 force（先强制停再起）
+{"type":"manage.cancelStop","id":"m-6","name":"tts-engine"}                   // 取消「等空闲再停」（两边都撤，§4）
+{"type":"manage.autostart","id":"m-7","name":"tts-engine","on":false}         // 开机自启名单，不起停任何东西
+{"type":"manage.profileStart","id":"m-8","profile":"gpu"}                     // 场景：按依赖分层起
+{"type":"manage.profileStop","id":"m-9","profile":"gpu","force":false}        // 场景：反着分层停（连成员的依赖一起停）
+{"type":"manage.exposeOn","id":"m-10","name":"web-server"}                    // 公网入口开 = 起它的 exposure.via 隧道
+{"type":"manage.exposeOff","id":"m-11","name":"web-server"}                   // 公网入口关 = 强制停那条隧道
+{"type":"manage.tailnetOpen","id":"m-12","name":"web-server","tailnetName":"web"}   // tailnetName 可省（按服务名）；要连 VPS 签证书，慢
+{"type":"manage.tailnetClose","id":"m-13","name":"web-server"}                // 撤的是最后一个入口时管理器顺手强制停网关——网关是命脉也拒
+{"type":"manage.remove","id":"m-14","name":"ergo-daemon--p-1-web"}            // 撤销名下的服务（谁名下的都行，命脉除外）：先强制停再拿掉登记，同 §7.3
+{"type":"manage.orphan","id":"m-15","name":"web-server","decision":"adopt"}   // 裁决孤儿：adopt 认领 / kill 杀掉占着端口的进程
+{"type":"manage.restartSelf","id":"m-16","mode":"when-idle"}                  // 等我空闲了重启我（9.5）；mode 可省，只能是 when-idle
+```
+
+回复可能要等很久（`start` 等就绪、场景按层起停、`tailnetOpen` 连 VPS 签证书、强制停要等 10 秒再杀）：客户端超时给足；
+**超时不代表没做**，以列表为准。
+
+### 9.5 restartSelf：等我空闲了重启我
+
+为什么单独一条：二狗的「忙」包括正在执行的有副作用的调用——秘书正在调的「重启自己」这个工具本身就算。
+要是工具等重启结果，就是等自己空闲，而自己要等工具返回才空闲：死锁。所以：
+
+1. 管理器**收下就回** `{"ok":true,"queued":true}`，不等；已经排着一次时回 `{"ok":true,"queued":true,"already":true}`，不重复排。
+2. 回复发出去**之后**，管理器经同一条连接发 §3 里的 `{"type":"restart","mode":"when-idle"}`——回复一定排在重启指令前面。
+   项目照 §4 处理：ack，忙就挂起，空闲了自己退出（和 `lsm restart --when-idle` 一样，项目这边不用新写什么）。
+3. 管理器看到连接断了、进程和端口都没了，按注册表的 start 钩子把它拉起来。连着的已经换了一个进程（被 `autoRestart` 抢先拉起来了）就不再起。
+4. **一小时**还在忙（等不到空闲）：管理器发 `cancel`（§4，两边都撤），这次重启作废，服务照常跑——不留一个
+   「哪天空闲了自己退、却没人拉它起来」的尾巴。
+5. 等待期间管理器重启了：这次排队在管理器这边丢了，项目那边的挂起还在——它空闲后照样退出，管理器靠 `desired: running` +
+   注册表里的 `autoRestart` 把它拉回来（二狗的登记示例开着 `autoRestart`）。没开 `autoRestart` 的服务这时会停在 FAILED。
+
+拒绝：`mode` 不是 `when-idle` → `protected`；现在没接入 → `not-linked`；`hello` 里没报 `restart` 能力 → `no-capability`。
+重启的进展不推给项目（它这时正在退出），只进管理器日志和审计（9.7）。
+
+### 9.6 回复（管理器 → 项目）
+
+```jsonc
+{"type":"manage.reply","id":"m-1","ok":true,"self":"ergo-daemon",
+ "services":[ /* 下面这样的一条 × 全部服务 */ ],
+ "profiles":{"gpu":["tts-engine","comfyui"]},
+ "lifeline":[{"id":"ergo-daemon","why":["调用方自己"]},{"id":"ergo-tunnel","why":["ergo-daemon 的公网隧道（exposure.via）"]}]}
+{"type":"manage.reply","id":"m-2","ok":true,"name":"tts-engine","source":0,"label":"命令行输出",
+ "lines":"……最后 N 行，过脱敏……","capped":false,"sources":[{"source":0,"label":"命令行输出"},{"source":1,"label":"server"}]}
+{"type":"manage.reply","id":"m-3","ok":true,"service":{ /* 一条 */ }}                 // start / stop / restart / cancelStop / autostart / orphan
+{"type":"manage.reply","id":"m-4","ok":true,"pending":true,"note":"服务正忙，停机已排队…","service":{...}}   // stop when-idle 排上了
+{"type":"manage.reply","id":"m-4","ok":true,"already":true,"service":{...}}           // 本来就停着 / 本来就在跑
+{"type":"manage.reply","id":"m-9","ok":true,"profile":"gpu","results":[{"id":"tts-engine","ok":true},{"id":"comfyui","ok":true,"already":true}]}
+{"type":"manage.reply","id":"m-10","ok":true,"tunnel":"web-server-tunnel","service":{...}}   // exposeOn / exposeOff：service 是被暴露的那个
+{"type":"manage.reply","id":"m-12","ok":true,"url":"https://web.tail.example.com/","note":"……","service":{...}}
+{"type":"manage.reply","id":"m-14","ok":true,"removed":{"id":"ergo-daemon--p-1-web","name":"p-1-web"}}
+{"type":"manage.reply","id":"m-15","ok":true,"killed":[1234],"service":{...}}       // orphan kill
+{"type":"manage.reply","id":"m-16","ok":true,"queued":true,"note":"已排队：……"}
+{"type":"manage.reply","id":"m-4","ok":false,
+ "error":{"code":"protected","message":"不能停止 ergo-daemon：ergo-daemon（调用方自己）是 ergo-daemon 的命脉……",
+          "details":[{"id":"ergo-daemon","why":["调用方自己"]}]}}
+```
+
+一条服务（`list` 里的、单个目标的回复里的 `service`）：
+
+```jsonc
+{
+  "id": "tts-engine", "title": "语音合成", "project": "tts", "kind": "managed", "role": null, "owner": null,   // owner：名下的服务是谁登记的
+  "port": 8090, "state": "RUNNING", "desired": "running", "up": true,
+  "listening": true, "health": "ok", "tier": "health", "pid": 1234, "since": 1760000000000,
+  "autostart": false, "linked": false, "busy": false, "busyReason": null, "pendingStop": false,
+  "capabilities": ["start", "health"],       // 没有 stop 就是没有：停 / 重启要带 force
+  "detail": "HTTP 200", "lastError": null,    // lastError：最后一次起不来、停不下的原因
+  "profiles": ["gpu"], "dependsOn": [{"id": "cuda-host", "type": "soft"}],
+  "exposure": null,                           // 有公网入口：{"via": "隧道 id", "publicUrl": "…" 或 null}
+  "tailnet": null,                            // 有 tailnet 入口：{"name": "tts", "url": "https://tts.<domain>/"}
+  "protected": false, "protectedWhy": []      // 对这个调用方是不是命脉、为什么（9.3）
+}
+```
+
+| `error.code` | 含义 |
+|---|---|
+| `not-linked` | 还没 `hello`，或者这条连接不是你的活跃会话；`restartSelf` 时你没接入 |
+| `bad-request` | 缺 `id` / `name` / `profile` / `on` / `decision`，`mode`、`lines` 不合规，不认识的 `manage.*` |
+| `not-allowed` | 你是别人名下的服务；或者这条指令不在接入层上开放（9.3） |
+| `not-found` | 没有这个服务 / 场景 / 这份日志；它没有公网入口（`exposure.via`）/ tailnet 入口 |
+| `protected` | 目标（或这条指令会停到的东西）是你的命脉；`details` 逐个列 `{id, why}` |
+| `no-capability` | 没有停机 / 重启能力又没带 `force:true`；`restartSelf` 而你没报 `restart` 能力 |
+| `in-use` | 撤销时还被别的东西用着（同 §7.5），`details` 列出来 |
+| `not-owner` | 撤销的不是名下的服务（手写在注册表里的不归撤销管） |
+| `registry` | 注册表 / 开机自启名单写不进去 |
+| `failed` | 启停本身失败，`message` 是管理器的原因；单个目标的带 `service`，场景的带 `results` |
+
+### 9.7 审计
+
+每条 `manage.*` 都写进 `logs/audit.log`（只读的 `list`、`logs` 也写），一行一条：
+
+```jsonc
+{"ts":"…","action":"link-manage","caller":"ergo-daemon","type":"manage.stop","target":"ergo-tunnel","force":true,
+ "ok":false,"code":"protected","why":"不能强制停止 ergo-tunnel：……"}
+{"ts":"…","action":"link-manage","caller":"ergo-daemon","type":"manage.restartSelf","target":null,"mode":"when-idle","ok":true,"queued":true}
+{"ts":"…","action":"link-manage-restart-self","caller":"ergo-daemon","phase":"started","ok":true,"why":null}   // phase：ack / gave-up / started / error
+```
+
+真的起停了的，supervisor 自己的那几条（`start`、`stop`、`restart`、`force-kill`……）照常也写，`reason` 是 `<调用方> 经接入层管理`。
+
+参考客户端 `clients/lsm-link.mjs` 有 `lsm.manage`（`ready()` / `list` / `logs` / `start` / `stop` / `restart` / `cancelStop` / `autostart` /
+`profileStart` / `profileStop` / `exposeOn` / `exposeOff` / `tailnetOpen` / `tailnetClose` / `remove` / `orphan` / `restartSelf`），
+同样不抛异常。Python 客户端暂未加。二狗自己的接入层在 `packages/daemon/src/lsm/link.ts`。

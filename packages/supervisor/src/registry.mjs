@@ -87,6 +87,9 @@ export function validate(svc, file, errors) {
   }
   if (svc.kind === 'managed' && !svc.hooks?.start && !svc.link?.enabled) at('managed 服务必须有 start 钩子');
   for (const m of exposureErrors(svc.exposure)) at(m);
+  // lifeline：接入层 manage 的「命脉」标记（link-protocol.md §9）。写错成别的值（字符串、yes）时宁可报错，
+  // 也不能被悄悄当成 false——那等于把保护静默撤掉
+  if (svc._rawLifeline != null && typeof svc._rawLifeline !== 'boolean') at(`lifeline 只能是 true / false，得到 ${JSON.stringify(svc._rawLifeline)}`);
   for (const [n, h] of Object.entries(svc.hooks || {})) {
     if (h && !h.cmd && !h.argv) at(`hooks.${n} 必须给 cmd（字符串）或 argv（数组）`);
     if (h?.argv && !Array.isArray(h.argv)) at(`hooks.${n}.argv 必须是数组`);
@@ -134,6 +137,9 @@ export function parseService(raw, file, owner = null) {
     dependsOn: (raw.dependsOn || []).map((d) => (typeof d === 'string' ? { id: d, type: 'hard' } : { type: 'hard', ...d })),
     autoRestart: { enabled: false, maxRetries: 5, backoffMs: [5000, 15000, 60000], ...raw.autoRestart },
     profiles: raw.profiles || [], onboarding: raw.onboarding || {},
+    // 命脉：经接入层 manage 谁都不许停它（link-protocol.md §9）；你在 WebUI / CLI 上照样能停
+    lifeline: raw.lifeline === true,
+    _rawLifeline: raw.lifeline ?? null,
     _file: file,
   };
   svc.capabilities = deriveCapabilities({ ...svc, capabilities: raw.capabilities });

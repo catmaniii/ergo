@@ -106,6 +106,11 @@ autoRestart:                      # 默认关（吃显存的服务盲目重拉�
 
 profiles: [my_app]
 
+lifeline: false                   # 命脉：true = 接入的项目经管理指令（link-protocol.md §9）谁都不许停、杀、撤它。
+                                  #   调用方自己、它的公网隧道、tailnet 网关、它硬依赖的服务本来就按身份算进它的命脉，
+                                  #   不用标；标这个是给「对谁都不许经接入层停」的服务。你在 WebUI / CLI 上照样能停。
+                                  #   只能写 true / false（写错报错，不会悄悄当成 false）。缺省 false
+
 onboarding:                       # 纳管留痕，供漂移检查参考
   removedScheduledTasks: [MyApp-TTS]
   verifiedAt: 2026-08-23

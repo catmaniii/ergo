@@ -6,18 +6,21 @@ import { WebSocketServer } from 'ws';
 import { info, warn, audit } from './log.mjs';
 import { FEATURE as OWNED_FEATURE, wireReply } from './owned.mjs';
 import { FEATURE as ENTRIES_FEATURE, entriesFor } from './entries.mjs';
+import { FEATURE as MANAGE_FEATURE, createManage } from './manage.mjs';
 
 const HEARTBEAT_GRACE_MS = 15000;   // 3 个心跳周期
 const PROTOCOL = 1;
 // 协议还是 v1：新能力只加消息，在 welcome.features 里声明（docs/link-protocol.md §7）。
 // 不升版本号是因为现有客户端见到 LSM_PROTOCOL 不是 1 就整个不接入——升了等于让所有老服务静默掉线。
-const FEATURES = [OWNED_FEATURE, ENTRIES_FEATURE];
+const FEATURES = [OWNED_FEATURE, ENTRIES_FEATURE, MANAGE_FEATURE];
 
 export function attachLink(sup) {
   const wss = new WebSocketServer({ noServer: true });
   const sessions = new Map();     // serviceId -> session
   const pending = new Map();      // cmdId -> {resolve, timer}
   const bus = new EventEmitter();
+  // 管理指令（docs/link-protocol.md §9）：按连接的身份算命脉，命脉一律不许停
+  const manage = createManage(sup);
 
   function tokenOwner(token) {
     if (!token) return null;
@@ -89,12 +92,34 @@ export function attachLink(sup) {
       });
   }
 
+  function onManage(ws, callerId, msg) {
+    // id 放最后：回复的内容里绝不能盖掉请求编号
+    const reply = (r) => send(ws, { type: 'manage.reply', ...wireReply(r), id: msg.id ?? null });
+    const reject = (code, why) => {
+      audit('link-manage', { caller: callerId, type: msg.type, target: msg.name ?? msg.profile ?? null, ok: false, code, why });
+      reply({ ok: false, code, why });
+    };
+    // 身份来自这条连接：令牌在升级时验过，这里再确认它就是这个服务的活跃会话
+    if (sessions.get(callerId)?.ws !== ws) return reject('not-linked', '先发 hello 接入，再发管理指令');
+    if (typeof msg.id !== 'string' && typeof msg.id !== 'number') return reject('bad-request', '缺少 id（请求编号，回复原样带回）');
+    manage.request(callerId, msg).then(({ after, ...r }) => {
+      reply(r);
+      // 回复先发出去，再开始要在回复之后才做的事（restartSelf：重启指令排在「已排队」后面）
+      after?.();
+      if (msg.type !== 'manage.list' && msg.type !== 'manage.logs') {
+        pushOwnedAll();
+        bus.emit('change');   // WebUI 立刻推一次，不等下一轮探活
+      }
+    });
+  }
+
   function onMessage(ws, raw, ctx) {
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
     if (!msg || typeof msg !== 'object') return;
 
     if (typeof msg.type === 'string' && msg.type.startsWith('services.')) return onServices(ws, ctx.serviceId, msg);
+    if (typeof msg.type === 'string' && msg.type.startsWith('manage.')) return onManage(ws, ctx.serviceId, msg);
 
     if (msg.type === 'hello') {
       if (msg.serviceId !== ctx.serviceId) {

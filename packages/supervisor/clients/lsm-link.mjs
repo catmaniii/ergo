@@ -48,6 +48,16 @@
  *   await lsm.services.stop('p-1-web', { force: true });
  *   await lsm.services.remove('p-1-web');    // 先停再撤销登记
  *
+ * ── 管理指令（docs/link-protocol.md §9）──────────────────────
+ * 接入之后可以看、启停、重启**别的**服务（全名）。管理器按你的身份算出你的「命脉」（你自己、你的公网隧道、
+ * 你开着 tailnet 入口时的网关、你硬依赖的服务、注册表里标了 lifeline: true 的），对它们的停、杀、撤一律回 protected。
+ *
+ *   if (await lsm.manage.ready()) {
+ *     const { services } = await lsm.manage.list();     // 每条带 protected / protectedWhy
+ *     await lsm.manage.stop('tts-engine');               // 命脉 → { ok: false, error: { code: 'protected', ... } }
+ *     await lsm.manage.restartSelf();                    // 等我空闲了重启我：立刻回 { ok: true, queued: true }
+ *   }
+ *
  * 所有方法都不抛异常，失败一律返回 { ok: false, error: { code, message } }。
  */
 
@@ -55,14 +65,17 @@ const RECONNECT_MIN = 1000;
 const RECONNECT_MAX = 30000;
 const REQUEST_TIMEOUT = 180000;   // 启动要等服务就绪（readyTimeoutMs 默认 60 秒），给足
 
+const notLinked = async () => ({ ok: false, error: { code: 'not-linked', message: '没有注入 LSM_* 身份，没接入管理器' } });
+
 /** 管理器不在、没接入时的 services：什么都做不了，但也绝不抛异常（铁律）。 */
-const NOOP_SERVICES = (() => {
-  const no = async () => ({ ok: false, error: { code: 'not-linked', message: '没有注入 LSM_* 身份，没接入管理器' } });
-  return {
-    supported: false, ready: async () => false, onStatus: () => () => {},
-    put: no, start: no, stop: no, restart: no, autostart: no, remove: no, list: no,
-  };
-})();
+const NOOP_SERVICES = {
+  supported: false, ready: async () => false, onStatus: () => () => {},
+  put: notLinked, start: notLinked, stop: notLinked, restart: notLinked, autostart: notLinked, remove: notLinked, list: notLinked,
+};
+
+const MANAGE_METHODS = ['list', 'logs', 'start', 'stop', 'restart', 'cancelStop', 'autostart', 'profileStart', 'profileStop',
+  'exposeOn', 'exposeOff', 'tailnetOpen', 'tailnetClose', 'remove', 'orphan', 'restartSelf'];
+const NOOP_MANAGE = { supported: false, ready: async () => false, ...Object.fromEntries(MANAGE_METHODS.map((m) => [m, notLinked])) };
 
 export function link(opts = {}) {
   const url = process.env.LSM_URL;
@@ -70,7 +83,7 @@ export function link(opts = {}) {
   const token = process.env.LSM_TOKEN;
   const protocol = Number(process.env.LSM_PROTOCOL || 0);
 
-  const noop = { enabled: false, close() {}, notifyBusy() {}, services: NOOP_SERVICES };
+  const noop = { enabled: false, close() {}, notifyBusy() {}, services: NOOP_SERVICES, manage: NOOP_MANAGE };
   if (!url || !serviceId || !token || protocol !== 1) return noop;      // 铁律：静默降级
   if (typeof globalThis.WebSocket !== 'function') return noop;
 
@@ -125,7 +138,7 @@ export function link(opts = {}) {
       settleReady();
       return;
     }
-    if (msg.type === 'services.reply') { const r = requests.get(msg.id); if (r) { requests.delete(msg.id); r(msg); } return; }
+    if (msg.type === 'services.reply' || msg.type === 'manage.reply') { const r = requests.get(msg.id); if (r) { requests.delete(msg.id); r(msg); } return; }
     if (msg.type === 'services.status') {
       for (const fn of statusListeners) { try { fn(msg); } catch (e) { log(`onStatus 回调出错：${e?.message || e}`); } }
       return;
@@ -199,9 +212,9 @@ export function link(opts = {}) {
     failRequests('disconnected', '和管理器的连接断了；结果以重连后推来的全量状态为准');
   }
 
-  function request(type, body = {}, { timeoutMs = REQUEST_TIMEOUT } = {}) {
+  function request(type, body = {}, { timeoutMs = REQUEST_TIMEOUT, feature = 'services' } = {}) {
     if (!features) return Promise.resolve({ ok: false, error: { code: 'not-connected', message: '还没接入管理器（或连接断了）' } });
-    if (!features.includes('services')) return Promise.resolve({ ok: false, error: { code: 'unsupported', message: '这个版本的管理器不支持名下的服务（welcome 里没有 services）' } });
+    if (!features.includes(feature)) return Promise.resolve({ ok: false, error: { code: 'unsupported', message: `这个版本的管理器不支持（welcome 里没有 ${feature}）` } });
     const id = `q-${++reqSeq}`;
     return new Promise((resolve) => {
       const timer = setTimeout(() => { requests.delete(id); resolve({ ok: false, error: { code: 'timeout', message: '管理器没有应答' } }); }, timeoutMs);
@@ -210,17 +223,20 @@ export function link(opts = {}) {
     });
   }
 
+  /** 等到接入（welcome）为止，返回管理器支不支持这个特性；超时返回 false。 */
+  function ready(feature, timeoutMs) {
+    if (features) return Promise.resolve(features.includes(feature));
+    return new Promise((resolve) => {
+      const t = setTimeout(() => resolve(false), timeoutMs);
+      readyWaiters.push(() => { clearTimeout(t); resolve(!!features?.includes(feature)); });
+    });
+  }
+
   const services = {
     /** 管理器支不支持名下的服务（接入之后才知道）。 */
     get supported() { return !!features?.includes('services'); },
     /** 等到接入（welcome）为止，返回支不支持；超时返回 false。 */
-    ready(timeoutMs = 10000) {
-      if (features) return Promise.resolve(features.includes('services'));
-      return new Promise((resolve) => {
-        const t = setTimeout(() => resolve(false), timeoutMs);
-        readyWaiters.push(() => { clearTimeout(t); resolve(!!features?.includes('services')); });
-      });
-    },
+    ready: (timeoutMs = 10000) => ready('services', timeoutMs),
     /** 登记 / 更新（整份定义，字段见 §7）。同一份定义反复发不会重写注册表。 */
     put: (def) => request('services.put', { service: def }),
     start: (name) => request('services.start', { name }),
@@ -231,6 +247,31 @@ export function link(opts = {}) {
     list: () => request('services.list'),
     /** 订阅状态推送；返回取消订阅的函数。 */
     onStatus(fn) { statusListeners.add(fn); return () => statusListeners.delete(fn); },
+  };
+
+  // 管理指令（§9）：name 写服务的全名（名下的服务也写全名），场景写 profile
+  const m = (type, body = {}) => request(`manage.${type}`, body, { feature: 'manage' });
+  const manage = {
+    /** 管理器支不支持管理指令（接入之后才知道）。 */
+    get supported() { return !!features?.includes('manage'); },
+    ready: (timeoutMs = 10000) => ready('manage', timeoutMs),
+    list: () => m('list'),
+    logs: (name, { lines, source } = {}) => m('logs', { name, ...(lines != null ? { lines } : {}), ...(source != null ? { source } : {}) }),
+    start: (name) => m('start', { name }),
+    stop: (name, { force = false, mode = 'now' } = {}) => m('stop', { name, force, mode }),
+    restart: (name, { force = false } = {}) => m('restart', { name, force }),
+    cancelStop: (name) => m('cancelStop', { name }),
+    autostart: (name, on) => m('autostart', { name, on: !!on }),
+    profileStart: (profile) => m('profileStart', { profile }),
+    profileStop: (profile, { force = false } = {}) => m('profileStop', { profile, force }),
+    exposeOn: (name) => m('exposeOn', { name }),
+    exposeOff: (name) => m('exposeOff', { name }),
+    tailnetOpen: (name, { tailnetName } = {}) => m('tailnetOpen', { name, ...(tailnetName ? { tailnetName } : {}) }),
+    tailnetClose: (name) => m('tailnetClose', { name }),
+    remove: (name) => m('remove', { name }),
+    orphan: (name, decision) => m('orphan', { name, decision }),
+    /** 等我空闲了重启我：立刻回 { ok: true, queued: true }，不等重启完（等就会和自己的「忙」死锁）。 */
+    restartSelf: () => m('restartSelf', { mode: 'when-idle' }),
   };
 
   function retry() {
@@ -246,6 +287,7 @@ export function link(opts = {}) {
     enabled: true,
     serviceId,
     services,
+    manage,
     /** 忙碌状态变化时可以主动推一次，不必等下一个心跳 */
     notifyBusy() {
       const { busy, reason } = readBusy();

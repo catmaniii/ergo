@@ -264,7 +264,7 @@ test('老的接入方：hello 不带 features 照样接入（welcome 只多一�
   await until(() => got.some((m) => m.type === 'welcome'));
   await sleep(500);
   const welcome = got.find((m) => m.type === 'welcome');
-  assert.deepEqual(welcome.features, ['services', 'entries']);
+  assert.deepEqual(welcome.features, ['services', 'entries', 'manage']);
   assert.equal(got.filter((m) => m.type === 'services.status').length, 1,
     'other-owner 名下有手写的 x，所以推一次全量；没有名下服务的老项目连这一条都不会收到（见下一条断言）');
   ws.close();

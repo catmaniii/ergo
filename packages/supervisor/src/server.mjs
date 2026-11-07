@@ -5,7 +5,7 @@ import path from 'node:path';
 import http from 'node:http';
 import { WebSocketServer } from 'ws';
 import { WEBUI_DIR, DATA_DIR, DATA_DIR_FROM } from './paths.mjs';
-import { tail, resolveLogPath, resolveLogFile, readRange, streamLog, INITIAL_BYTES } from './logs.mjs';
+import { tail, logEntries, resolveLogFile, readRange, streamLog, INITIAL_BYTES } from './logs.mjs';
 import { scan } from './sentinel.mjs';
 import { checkAll } from './exposure.mjs';
 import { attachLink } from './link.mjs';
@@ -218,14 +218,6 @@ export async function serve(sup, { lifeline = false } = {}) {
   await sup.adopt();
   await slowCycle();
   return server;
-}
-
-function logEntries(sup, svc) {
-  const out = (svc.logs || []).map((l) => ({ label: l.label || l.path, file: resolveLogPath(svc, l.path) }));
-  // 管理器托管的服务永远有「命令行输出」这一份：它 spawn 的进程的输出、各个钩子的输出都写在这里。
-  // 还没起过也列出来——日志页会等着它出现，起了之后自动开始滚动。
-  if (svc.kind !== 'external') out.unshift({ label: '命令行输出', file: sup.st(svc.id).managerLog || sup.outLog(svc.id) });
-  return out;
 }
 
 async function runAction(sup, body, rescan) {

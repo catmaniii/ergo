@@ -19,7 +19,7 @@
 - **场景**：一组服务一起起停（比如几个都吃 GPU 的服务不该同时开，所以有场景、没有「一键全开」）。
 - **开机自启名单**：开机只起管理器，由它按你勾选的名单拉起服务。
 - **接入协议**：服务可以用一个很薄的客户端（Node 版零依赖；Python 版只依赖 `websockets`）接入管理器，自报忙碌、实现优雅停机；
-  接入的项目还能替自己登记、启停、撤销「名下的服务」。
+  接入的项目还能替自己登记、启停、撤销「名下的服务」，并经管理指令看、启停、重启别的服务——它自己和它的「命脉」不许经这条连接停。
 - **哨兵**：发现「在跑但没纳管」的服务和「项目自带的自启计划任务」，提醒你纳管，但从不阻止你手动启动任何东西。
 - 可选：经 VPS 反向 ssh 隧道开公网入口；经 tailscale + 自建 headscale 开只在 tailnet 里能打开的 HTTPS 入口；
   阿里云 VPS 订阅到期提醒（WebUI 一条栏 + Windows 系统通知）；WebUI 口令（SCRAM-SHA-256）。
@@ -185,7 +185,7 @@ tailnet 网关的登记里也要给它的启动参数加上 `--data-dir <目录>
 
 - [CONTEXT.md](./CONTEXT.md) —— 术语表：服务 / 项目 / 托管服务 / 外部服务 / 钩子 / 注册表 / 纳管 / 重认领 / 孤儿 / 探活档位 / 场景 / 哨兵……
 - [docs/service-schema.md](./docs/service-schema.md) —— 注册表字段、钩子契约、状态机、启动编排
-- [docs/link-protocol.md](./docs/link-protocol.md) —— 接入协议 v1：身份注入、心跳、忙碌、停机时序、名下的服务（§7）
+- [docs/link-protocol.md](./docs/link-protocol.md) —— 接入协议 v1：身份注入、心跳、忙碌、停机时序、名下的服务（§7）、指向自己的入口（§8）、管理指令和命脉（§9）
 - [docs/webui.md](./docs/webui.md) —— WebUI 的显示原则与实时性取舍
 - [docs/onboarding-skill.md](./docs/onboarding-skill.md) —— 新项目怎么纳管进来
 - [docs/vps.md](./docs/vps.md) —— 一条命令搭 VPS：自建 tailnet（headscale）或隧道入口，每一步做了什么

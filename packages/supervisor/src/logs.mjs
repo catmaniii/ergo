@@ -75,6 +75,17 @@ export function resolveLogPath(svc, rel) {
   return path.isAbsolute(rel) ? rel : path.join(svc.root, rel);
 }
 
+/**
+ * 一个服务的各份日志：[{ label, file }]。WebUI 的日志页和接入层的 manage.logs 用同一份清单。
+ * 管理器托管的服务永远有「命令行输出」这一份：它 spawn 的进程的输出、各个钩子的输出都写在这里。
+ * 还没起过也列出来——日志页会等着它出现，起了之后自动开始滚动。
+ */
+export function logEntries(sup, svc) {
+  const out = (svc.logs || []).map((l) => ({ label: l.label || l.path, file: resolveLogPath(svc, l.path) }));
+  if (svc.kind !== 'external') out.unshift({ label: '命令行输出', file: sup.st(svc.id).managerLog || sup.outLog(svc.id) });
+  return out;
+}
+
 /** 有些项目的日志登记的是目录，取里面最新的那个文件。 */
 export function resolveLogFile(p) {
   let st;
