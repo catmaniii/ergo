@@ -541,7 +541,7 @@ See [On your phone](mobile.en.md) for more.
 
 **How to use it:** It checks as soon as you open it and has results within a few seconds. The top line is the overall status: how many items are broken and how many need attention, or **All good** if none; items that couldn't be checked this time get a separate grey line. Below that come the blocks:
 
-- **ergo itself**: the eight checks in the table below.
+- **ergo itself**: the eight checks in the table below, plus six more: main conversation, model calls lately, conversation length, managed services, plugins, and web page files.
 - **One block per plugin**, titled with the plugin's name; blocks with problems come first. The first line of each block is **The plugin itself**: running, or not loaded (with the reason). ergo also checks each data source and each agent runtime (Claude Code, Codex) that a plugin brings. Plugins can bring their own checks too: install a plugin and you get its block; disable it and the block goes away (disabled plugins are listed on the last line).
 
 Each item has a small dot in front, and there are five results:
@@ -554,7 +554,7 @@ Each item has a small dot in front, and there are five results:
 | Not checked (grey) | The check timed out or failed this time. That doesn't count as broken and doesn't lower the overall status. Press **Run again** |
 | Not applicable (hollow, faded) | The feature isn't on or the data source isn't connected, so it isn't checked; listed last in its block |
 
-Items that aren't OK show what was found, since when, and how to fix it. Where one click fixes it there's a button: **Take a look** jumps to the right page, **Compact now** compacts that conversation. After fixing, click **Run again** at the top right.
+Items that aren't OK show what was found, since when, and how to fix it. Where one click fixes it there's a button: **Take a look** jumps to the right page, **Compact now** compacts that conversation, **Open service manager** opens the service manager's web page in a new tab (only works on this computer). After fixing, click **Run again** at the top right.
 
 What ergo checks for each plugin:
 
@@ -571,20 +571,32 @@ ergo's own eight checks:
 | Ports | Something is listening on 8810 and 8811, and it's ergo itself | Close the program using the port, or change the port and restart ergo |
 | Node version | The running Node matches what's required | Install the Node that comes with ergo, or Node 22, then start ergo |
 | pi version | The version of pi, ergo's agent core, can be read | Without it ergo can't chat. For a one-line install, run `ergo uninstall --keep-data` first, then run the install command again; data isn't touched. For an npm install, reinstall with `npm i -g ergo-ai@latest`. If you run from the repository, run `npm ci` in the repository folder, then restart ergo |
-| Service manager | The service manager responds | Run `ergo start` to bring it up again; if that doesn't help, look at its log |
+| Service manager | The service manager responds; if it started ergo, ergo's link to it is up (down and reconnecting is a heads-up) | Run `ergo start` to bring it up again; if that doesn't help, look at its log. If only the link is down and the service manager just restarted, wait a few seconds and check again |
 | Model key | A key is set (no real request is sent) | Enter one in Settings · Models |
 | Components | Everything that should be installed by default is | Install what's missing in Settings · Components; **Install the default components** is the easiest |
-| Disk space | The drive holding the data folder has over 1 GB free | Clear old backups and logs, or move the data folder to a bigger drive |
-| Outside access | Any one of: an entry registered in the service manager, an address entered by hand, or a paired device | Ignore it if you only use this computer. If your phone can't connect, see [On your phone](mobile.en.md) |
+| Disk space | The drive holding the data folder has over 1 GB free; so must the drive holding the service manager's data and logs, if that's a different one | Clear old backups and logs, or move the data folder to a bigger drive |
+| Outside access | Any one of: an entry registered in the service manager, an entry it reports, an address entered by hand, or a paired device; and every entry the service manager tested from outside must be reachable | Ignore it if you only use this computer. If an entry can't be reached, check under **Managed services** whether the tunnel and the tailnet gateway are running, and whether Tailscale is signed in. If your phone can't connect, see [On your phone](mobile.en.md) |
+
+ergo itself has six more checks (they only read state that's already there; no extra requests):
+
+| Check | What it checks and how it's judged | If it's wrong |
+|---|---|---|
+| Main conversation | Whether the ergo you talk to is online; offline for over half a minute is broken, with how long and why | Wait a moment and check again; if it stays offline, look at **Model calls lately** and **Conversation length** first, then restart ergo in the service manager |
+| Model calls lately | How recent model calls went (succeeded, failed, timed out; turns you stopped don't count): the last 5 turns all failing is broken, 30% or more failing in the last 15 minutes is a heads-up; shows the gist of the errors (the provider is too busy, 500, rate-limited, wrong key…). Right after a restart with no calls yet it says **No model calls lately** | Usually the provider is busy: wait a while, or switch to another model in Settings · Models; for key or balance problems, check the key |
+| Conversation length | How many tokens the ergo you talk to and each working owner have used: past its own auto-compaction point without being compacted, or the last automatic compaction failed, is a heads-up; 90% of the model's window is broken. Agents run by Claude Code or Codex aren't checked (they manage this themselves) | Press **Compact now**; if that doesn't bring it down, clear the current conversation from its ⚙ |
+| Managed services | Services the service manager runs that ergo cares about: speech synthesis and recognition (when the voice plugin is on and the address is on this computer), the tunnel that gives ergo outside access, the tailnet gateway, and the project services registered by ergo. Something ergo needs being stopped or failed is broken; a project service failing is broken, and one set to start at boot but stopped is a heads-up. Shows the service name, its state and the last error the service manager recorded | Press **Open service manager** and start it; if it won't start, read the error and logs it recorded |
+| Plugins | Whether any enabled plugin failed to load (details are in that plugin's own block); one that failed is a heads-up | See the reason in Settings · Plugins |
+| Web page files | Whether ergo's web page files are there; missing is broken (if ergo's pages won't open, telling ergo "run a checkup on yourself" still shows this check) | Running from source: run `npm run build:web` in the repository root. Installed program: reinstall (`ergo uninstall --keep-data`, then run the install command again; your data stays) |
 
 **Good to know:**
 
 - The regular checkup only looks at this machine: it doesn't go online, call a model, or change any settings. It may connect to the ports of local services ergo uses (speech synthesis, for example).
-- When one of the eight is wrong: ports, pi, the model key and disk space count as broken; the Node version, the service manager, components and outside access count as heads-up.
+- When one of the eight is wrong: ports, pi, the model key and disk space count as broken; the Node version, the service manager, components and outside access count as heads-up — except that outside access with no entry reachable from outside counts as broken.
 - Tell ergo "run a checkup on yourself" and it reads this page too, then tells you what's wrong and how to fix it. It only looks; it doesn't fix things for you.
 - **Outside access** saying **No outside access is registered in the service manager; if your phone already connects, you can ignore this** doesn't mean it isn't set up.
 - Something the service manager doesn't know about, such as running `tailscale serve` by hand, counts as fine once a phone has paired.
 - An entry connected to local port 8810 counts as unhealthy for this check. Port 8810 automatically trusts local requests and must never be connected to the outside.
+- **Outside access** and **Managed services** read what the service manager has already tested; the checkup itself doesn't connect out. While ergo's link to the service manager is down, whether the entries work is from before it dropped.
 
 ### About ergo
 
