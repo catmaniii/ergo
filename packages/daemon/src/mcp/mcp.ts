@@ -68,6 +68,16 @@ export interface RegisteredMcp {
   auto?: McpOrigin;
 }
 
+/** 体检读的 MCP 的样子（411） */
+export interface McpDoctorFacts {
+  /** mcp.json 的路径 */
+  file: string;
+  /** mcp.json 读不出来、写错了的原因；没问题没有 */
+  problem?: string;
+  /** 缺凭据的 MCP：名字、给人看的名字、缺的环境变量 */
+  missingEnv: Array<{ server: string; title: string; variables: string[] }>;
+}
+
 export interface McpService {
   /** 现读的登记 */
   registrations(): McpRegistrationRead;
@@ -95,6 +105,11 @@ export interface McpService {
    * 不写原值）
    */
   injectedSecrets(server: string): Array<{ name: string; variable: string; value: string }>;
+  /**
+   * 体检读的（411）：mcp.json 读不出来的原因（这时文件里的 MCP 一个都用不了，以前只写在 skill 库页上）；
+   * 登记要从环境取、守护进程的环境里却没有的凭据（按 MCP，以前只在拉起时写一行日志）。只读文件和环境，不拉起服务进程
+   */
+  doctorFacts(): McpDoctorFacts;
   /** 现在活着的服务进程（闸门进程的 pid，服务进程是它的子进程） */
   live(): Array<{ server: string; pid: number }>;
   /** 结束这个 MCP 的服务进程（下次用到时再拉起；正调着的不收）：项目自动转的那个自检完就收，不白占内存 */
@@ -352,6 +367,15 @@ export function createMcpService(options: McpServiceOptions): McpService {
       allTools(registrations()).flatMap(({ server, serverReg, tool, reg }) =>
         reg.quickAction ? [{ server, tool, title: reg.quickAction.title, args: reg.quickAction.args, registration: reg, serverTitle: serverReg.title ?? server }] : [],
       ),
+    doctorFacts() {
+      const { read, computedEnv } = readAll();
+      const missingEnv = Object.entries(read.servers).flatMap(([server, registration]) => {
+        const extra = computedEnv[server];
+        const { missing } = serverEnv(registration, extra ? { ...options.parentEnv, ...extra } : options.parentEnv);
+        return missing.length > 0 ? [{ server, title: registration.title ?? server, variables: missing }] : [];
+      });
+      return { file: options.file, ...(read.problem === undefined ? {} : { problem: read.problem }), missingEnv };
+    },
     live: () => [...connections.entries()].flatMap(([server, c]) => (c.settled ? [{ server, pid: c.settled.pid }] : [])),
     release(server) {
       if (!calling.get(server)) closeConnection(server);

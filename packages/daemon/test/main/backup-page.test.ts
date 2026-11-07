@@ -1,5 +1,5 @@
 // 主切面：设置 · 备份单独一页要的接口——改另存的文件夹（真跑一次备份）、清掉、改时刻和谁来定时（不重启，内部作业跟着变）、
-// 选文件夹时校验、列快照、手动校验（和备份同一把锁）、在电脑上打开。数据目录和文件夹都是临时目录，端口系统挑，"打开"换成记下来。
+// 选文件夹时校验、列快照、手动校验（和备份同一把锁；411 起结果记进本机备份区，重启后还在、体检读它）、在电脑上打开。数据目录和文件夹都是临时目录，端口系统挑，"打开"换成记下来。
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -8,9 +8,10 @@ import { type BackupStatusView, nowIso } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { nodeSnapshotFiles, type SnapshotFiles } from "../../src/backup/files.ts";
 import { backupLockFile } from "../../src/backup/lock.ts";
+import { VERIFY_RECORD_FILE } from "../../src/backup/record.ts";
 import { listSnapshotDates, readSnapshot, verifySnapshot } from "../../src/backup/snapshot.ts";
 import { loadConfig } from "../../src/config/config.ts";
-import { type BackupDaemon, put, startBackupDaemon } from "../helpers/backup.ts";
+import { type BackupDaemon, put, restartBackupDaemon, startBackupDaemon } from "../helpers/backup.ts";
 import { backupApi } from "../helpers/http.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 import { NO_LSM_ENV, tempUserProfileEnv, withEnv } from "../helpers/user-profile.ts";
@@ -337,6 +338,29 @@ describe("手动校验最新的快照", () => {
     const local = done.lastVerify?.checks.find((c) => c.location === "local");
     expect(local?.problems.join("")).toContain("不见了");
     expect(test.daemon.inbox.list().filter((i) => i.kind === "notice" && i.notice === "snapshot_check_failed")).toHaveLength(1);
+  });
+
+  it("校验结果记进本机备份区（411）：重启之后设置 · 备份照样看得到，体检的备份那一项按它说没通过", async () => {
+    const test = await startBackupDaemon({ start: START });
+    const { url, layout } = test;
+    await backupNow(url);
+    const snapshot = readSnapshot(path.join(layout.backups, TODAY))!;
+    const [rel] = Object.keys(snapshot.manifest.files);
+    fs.rmSync(path.join(snapshot.dir, "data", ...rel!.split("/")), { force: true });
+    await backupApi.verify(url);
+    const verified = (await idle(url)).lastVerify;
+    expect(verified?.checks.find((c) => c.location === "local")?.problems.join("")).toContain("不见了");
+    expect(fs.existsSync(path.join(layout.backups, VERIFY_RECORD_FILE))).toBe(true);
+
+    const again = await restartBackupDaemon(test, at(10, 7, 22, 0));
+    expect((await backupApi.status(again.url)).body.lastVerify).toEqual(verified);
+    const facts = again.daemon.backup.doctorFacts();
+    expect(facts).toMatchObject({ schedule: "internal", lastVerify: verified, latestLocal: TODAY, running: false });
+    expect(facts.last).toMatchObject({ local: "created", sync: "copied" });
+    expect(Date.parse(facts.lastOkAt!)).toBeGreaterThanOrEqual(Date.parse(nowIso(START)));
+    const item = (await again.daemon.doctor.view()).groups.find((g) => g.kind === "core")?.items.find((i) => i.id === "backup");
+    expect(item).toMatchObject({ level: "warn", fact: { key: "doctor.backup.verifyFailed" }, action: { kind: "open", route: "#/more/backup" } });
+    expect(item?.text.fact).toContain("不见了");
   });
 
   it("另存的文件夹用不了：只校验本机，写明另存文件夹为什么没查", async () => {
