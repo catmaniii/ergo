@@ -155,8 +155,17 @@ describe("原型编的一份", () => {
     const levels = new Set(view.groups.flatMap((g) => g.items.map((i) => i.level)));
     expect([...levels].toSorted()).toEqual(["error", "na", "ok", "unknown", "warn"]);
     const core = view.groups[0]!.items;
-    expect(core.filter((i) => i.level === "warn").map((i) => i.id)).toEqual(["components", "external", "context"]);
+    expect(core.filter((i) => i.level === "warn").map((i) => i.id)).toEqual(["components", "external", "context", "backup", "log-size", "missing-skills"]);
     expect(core.find((i) => i.id === "context")!.action).toEqual({ kind: "compact", agentId: "secretary" });
+    // 411 的十项照今天的样子：备份 EBUSY、日志 265 MB、合集缺两个 skill；待办、旧手机是提示（正常，带事实和去看看）
+    const text = (id: string) => core.find((i) => i.id === id)!.text;
+    expect(text("backup").fact).toContain("EBUSY: resource busy or locked");
+    expect(text("backup").fix).toContain("立即备份");
+    expect(text("log-size").fact).toContain("ergo-daemon.out.log（服务管家的日志，265 MB）");
+    expect(text("missing-skills").fact).toBe("合集「matt-pocock」的清单里有、库里没有：handoff和to-questionnaire");
+    expect(core.find((i) => i.id === "pending")).toMatchObject({ level: "ok", action: { kind: "open", route: "#/inbox" } });
+    expect(text("pending").fact).toBe("待办 6 条，其中待审批 2 条");
+    expect(text("app-version").fact).toBe("1 台手机的 App 比要求的 0.4.1 旧：家里的平板（0.3.9）");
     const looki = view.groups.find((g) => g.id === "looki")!;
     expect(looki.items.find((i) => i.id === "source:looki")).toMatchObject({ level: "warn", since: "2026-11-04T02:30:00+08:00", action: { kind: "open", route: "#/more/data-sources/looki" } });
     expect(looki.items.find((i) => i.id === "source:looki")!.text.fact).toBe("85 小时没同步成功了（定期导入是每天 02:30）");
@@ -164,7 +173,7 @@ describe("原型编的一份", () => {
     // 坏了的插件块排在前面（语音），总状态是坏了
     expect(view.groups[1]!.id).toBe("voice");
     expect(view.level).toBe("error");
-    expect(view.counts).toEqual({ error: 1, warn: 4, unknown: 1 });
+    expect(view.counts).toEqual({ error: 1, warn: 7, unknown: 1 });
     expect(view.off).toEqual([]);
   });
 
@@ -185,6 +194,8 @@ describe("原型编的一份", () => {
     expect(html).toContain("No successful sync for 85 hours (scheduled import: Daily at 02:30)");
     expect(html).toContain("Compact now");
     expect(html).toContain("Take a look");
+    expect(html).toContain("In the list of the &quot;matt-pocock&quot; collection but not in the library: handoff and to-questionnaire");
+    expect(html).toContain("The app on 1 phone is older than the required 0.4.1: Home tablet (0.3.9)");
     expect(hasChinese(html)).toBe(false);
   });
 });

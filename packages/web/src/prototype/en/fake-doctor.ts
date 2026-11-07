@@ -14,4 +14,5 @@ export const EN_DOCTOR: Phrases = {
   "对话长度": "Conversation length",
   "主对话已经用了 935k token，过了自动压缩点 700k 还没压下去": "The main conversation is at 935k tokens, past its auto-compaction point of 700k, and hasn't been compacted",
   "点「现在压缩」；压完再查一遍": 'Press "Compact now", then run the checkup again once it\'s done',
+  "家里的平板": "Home tablet",
 };
