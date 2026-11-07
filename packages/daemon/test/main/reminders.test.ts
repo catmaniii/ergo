@@ -129,6 +129,8 @@ describe("秘书建提醒", () => {
       "[tool] suggest_project",
       // 只读工具
       "[tool] view_board",
+      // 只读的体检（和设置 · 体检同一份）
+      "[tool] check_health",
       "[tool] read_project_records",
       // 给出项目的服务的入口
       "[tool] open_service",

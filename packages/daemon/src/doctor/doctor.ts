@@ -1,11 +1,20 @@
-// 体检（319b）：设置 · 更多 · 体检一页的八项检查。网关的 GET /api/doctor 经这里现算一份（DoctorView）。
-// 八项是端口、Node 版本、pi 版本、服务管家、模型的 key、组件、磁盘空间、外网入口，形状在共享协议包的 doctor.ts。
+// 体检（319b、409）：设置 · 更多 · 体检一页。网关的 GET /api/doctor 经这里现算一份（DoctorView），秘书的只读体检工具（tool.ts）也读它。
+// 原来的八项是端口、Node 版本、pi 版本、服务管家、模型的 key、组件、磁盘空间、外网入口，形状在共享协议包的 doctor.ts；
+// 409 起页面按块显示："二狗本身"一块（八项，加上内核登记的检查），每个在跑或没装上的插件一块——插件在 setup 里
+// ctx.doctor.register 登记的检查项（checks.ts），加上二狗替它生成的插件本身、它的数据源、它的 agent 运行时（auto.ts）。
 //
 // 几条规矩：
-// - 只查本机：不联网（探二狗自己的两个端口算本机）、不调用模型、不写任何东西；
-// - 一项抛错只算这一项查不了（ok: false、fix 是 doctor.fix.retry、data 是这一项的空值），别的项照常——体检不能因为一个洞全挂；
-// - 事实是结构化的（端口号、版本号、剩多少 GB），给人看的那句话和"怎么修"由网页按当前语言拼，这里不写界面的字；
-// - 每项查什么由组合根注入（DoctorProbes），测试注入假的；这一份也提供正式用的那几个探测器（进程、文件系统那些）。
+// - 平时体检只查本机：不联网、不调用模型、不写任何东西；可以连这台电脑上二狗在用的服务的端口（cost: local，用户 11-07 同意的放宽：
+//   不然语音合成服务停了这种事查不出来）；
+// - 一项抛错、超时只算这一项"没查出来"（八项是 ok: false、fix 是 doctor.fix.retry、data 是这一项的空值；登记的检查是 unknown），
+//   别的项照常——体检不能因为一个洞全挂。所有项并行查；
+// - 结果五种：正常、注意、坏了、没查出来、不适用（DoctorLevel）；总状态取最差的，"没查出来""不适用"不拉低；
+// - 八项的事实是结构化的（端口号、版本号、剩多少 GB）；登记的检查交文案键 + 参数（插件的键在插件自己的语言文件里，网页拿不到，
+//   所以这里按当前语言把每项的几句话拼好放进 text，网页照着显示）；
+// - 每项查什么由组合根注入（DoctorProbes、登记表、插件 / 数据源 / 运行时的现状），测试注入假的；这一份也提供正式用的那几个探测器（进程、文件系统那些）。
+//
+// 八项不健康时算几级（BAD_LEVEL）：端口、pi、模型的 key、磁盘不到 1 GB 是坏了（聊不了天、手机连不上、写不进去）；
+// Node 版本、服务管家、组件、外网入口是注意（能用，但打了折扣）。
 //
 // 各项的 ok 判法：
 // - ports：两个端口都有人在听、而且听的是二狗自己（查得到占用者时按 pid 认；查不到时只按"有人在听"算，见 portsProbe）；
@@ -20,10 +29,37 @@ import { execFile } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
-import { DOCTOR_CHECKS, DOCTOR_FIX_UNKNOWN, type ComponentsView, type DoctorCheckData, type DoctorCheckDataById, type DoctorCheckId, type DoctorCheckView, type DoctorView, type RejectedConnectionAddress } from "@ergo/protocol";
+import {
+  type AgentRuntimeView,
+  coreDoctorItem,
+  DOCTOR_CHECKS,
+  DOCTOR_CORE_GROUP,
+  DOCTOR_FIX_UNKNOWN,
+  type ComponentsView,
+  type DoctorCheckData,
+  type DoctorCheckDataById,
+  type DoctorCheckId,
+  type DoctorCheckView,
+  doctorCounts,
+  type DoctorGroupView,
+  type DoctorItemView,
+  doctorItemText,
+  type DoctorLevel,
+  type DoctorOffPlugin,
+  type DoctorView,
+  type PluginInfo,
+  type RejectedConnectionAddress,
+  sortDoctorGroups,
+  sortDoctorItems,
+  t,
+  worstLevel,
+} from "@ergo/protocol";
 import { DAEMON_SERVICE_ID } from "../cli/service.ts";
+import type { DataSourceDoctorFacts } from "../data-sources/service.ts";
 import { listeningPids } from "../process/port-owner.ts";
 import type { InstallLayout } from "../release/layout.ts";
+import { type DoctorItemDraft, pluginItem, runtimeItem, sourceItem } from "./auto.ts";
+import { type DoctorCheckRegistry, type DoctorCost, type DoctorFinding, type RegisteredDoctorCheck, runDoctorCheck } from "./checks.ts";
 
 /** 二狗和 pi 用的 Node 大版本（ADR-0031：跟着 pi 的测试线走，现在是 22） */
 export const DOCTOR_NODE_MAJOR = 22;
@@ -37,9 +73,23 @@ export type DoctorProbe<Id extends DoctorCheckId> = () => DoctorCheckDataById[Id
 /** 八项的取值函数（组合根注入，测试换成假的） */
 export type DoctorProbes = { readonly [Id in DoctorCheckId]: DoctorProbe<Id> };
 
+/** 挑要查的项时看的：哪一块（DOCTOR_CORE_GROUP 或插件名）、哪一项、开销 */
+export interface DoctorCheckRef {
+  group: string;
+  id: string;
+  cost: DoctorCost;
+}
+
+export interface DoctorRunOptions {
+  /**
+   * 只查这些（后台盯着的那几项、以后的分档用）；不给是全部。挑掉的八项不在 checks 里，挑掉的别的项不在块里，没剩下一项的块不出现
+   */
+  include?(check: DoctorCheckRef): boolean;
+}
+
 export interface DoctorService {
-  /** 八项现在各自的样子（每次现算，互不影响） */
-  view(): Promise<DoctorView>;
+  /** 现在各项的样子（每次现算，互不影响，并行查） */
+  view(options?: DoctorRunOptions): Promise<DoctorView>;
 }
 
 export interface DoctorOptions {
@@ -48,6 +98,75 @@ export interface DoctorOptions {
   now?: () => number;
   /** 这份二狗是怎么装的（pi 缺了时修法不一样）；不给当仓库里直接跑的 */
   install?: Pick<InstallLayout, "kind" | "info">;
+  /** 登记着的体检项（插件的、内核的，checks.ts）；不给是没有 */
+  checks?: Pick<DoctorCheckRegistry, "list">;
+  /** 插件清单里每个插件现在的样子（插件宿主的 info()，按清单的先后）；不给是没有插件块 */
+  plugins?: () => readonly PluginInfo[];
+  /** 每个数据源（数据源服务的 doctorFacts）；不给是没有 */
+  dataSources?: () => readonly DataSourceDoctorFacts[];
+  /** 登记了的 agent 运行时（登记表的 view().runtimes）；只看插件登记的，pi 不在体检里 */
+  runtimes?: () => readonly AgentRuntimeView[];
+  /** 用着这个运行时、还没结束的任务和项目有几个（没装的运行时有人用才算坏）；不给当没有 */
+  runtimeUsers?: (runtimeId: string) => number;
+  /** 写日志（哪项没查出来、为什么；给开发者看的） */
+  log?: (line: string) => void;
+}
+
+/** 八项不健康时算几级（见文件头） */
+const BAD_LEVEL: { readonly [Id in DoctorCheckId]: "warn" | "error" } = {
+  ports: "error",
+  node: "warn",
+  pi: "error",
+  supervisor: "warn",
+  model: "error",
+  components: "warn",
+  disk: "error",
+  external: "warn",
+};
+
+/** 八项各自的开销：探端口、跑服务管家的命令行是 local，别的只读内存和文件 */
+const LEGACY_COST: { readonly [Id in DoctorCheckId]: DoctorCost } = {
+  ports: "local",
+  node: "passive",
+  pi: "passive",
+  supervisor: "local",
+  model: "passive",
+  components: "passive",
+  disk: "passive",
+  external: "passive",
+};
+
+/** 八项里一项算几级：好的正常，查不了的没查出来，坏的照 BAD_LEVEL */
+export function legacyLevel(check: DoctorCheckView): DoctorLevel {
+  if (check.ok) return "ok";
+  return check.fix === DOCTOR_FIX_UNKNOWN ? "unknown" : BAD_LEVEL[check.id];
+}
+
+/** 草稿拼上按当前语言的句子 */
+const rendered = (draft: DoctorItemDraft): DoctorItemView => ({ ...draft, text: doctorItemText(draft) });
+
+/** 登记的一项查出来的结果写成块里的一项 */
+function registeredItem(check: RegisteredDoctorCheck, finding: DoctorFinding): DoctorItemDraft {
+  return {
+    id: check.id,
+    level: finding.level,
+    title: typeof check.title === "string" ? { key: check.title } : check.title,
+    fact: finding.fact,
+    ...(finding.fix === undefined ? {} : { fix: finding.fix }),
+    ...(finding.since === undefined ? {} : { since: finding.since }),
+    ...(finding.action === undefined ? {} : { action: finding.action }),
+  };
+}
+
+/** 一块：标题、项排好（不适用的放最后）、块的结果取最差的 */
+function groupOf(id: string, kind: DoctorGroupView["kind"], title: string, items: readonly DoctorItemView[]): DoctorGroupView {
+  const sorted = sortDoctorItems(items);
+  return { id, kind, title, level: worstLevel(sorted.map((item) => item.level)), items: sorted };
+}
+
+/** 总状态：所有项里最差的，"没查出来""不适用"不算（一项都不算时是正常） */
+export function overallLevel(groups: readonly DoctorGroupView[]): DoctorLevel {
+  return worstLevel(groups.flatMap((group) => group.items.map((item) => item.level)).filter((level) => level !== "unknown" && level !== "na"));
 }
 
 /** 每一项的 ok 判法 */
@@ -96,25 +215,77 @@ function judge(id: DoctorCheckId, data: DoctorCheckData): boolean {
 }
 
 /**
- * 体检：每次 view() 现算八项（顺序照 DOCTOR_CHECKS），查的时刻取 now。
- * 八项各自在 try 里查：一项抛错只让这一项是"查不了"（ok: false、fix 是 doctor.fix.retry、data 是这一项的空值），别的项照常出结果
+ * 体检：每次 view() 现算（查的时刻取 now）——八项（顺序照 DOCTOR_CHECKS）和登记的检查项一起并行查，再读插件、数据源、运行时的现状
+ * 生成二狗替插件的那几项，按块拼好（二狗本身在最前，插件块有问题的在前），每项的句子按当前语言拼好。
+ * 八项各自在 try 里查：一项抛错只让这一项是"查不了"（ok: false、fix 是 doctor.fix.retry、data 是这一项的空值）；
+ * 登记的检查超时、抛错只算这一项"没查出来"（runDoctorCheck）；别的项照常出结果
  */
 export function createDoctor(options: DoctorOptions): DoctorService {
-  const view = async (): Promise<DoctorView> => {
+  const log = options.log ?? (() => {});
+
+  /** 八项里的一项 */
+  const legacy = async (id: DoctorCheckId): Promise<DoctorCheckView> => {
+    try {
+      const data = (await (options.probes[id] as DoctorProbe<DoctorCheckId>)()) as DoctorCheckData;
+      const ok = judge(id, data);
+      return { id, ok, data, ...(ok ? {} : { fix: fixOf(id, data, options.install) }) };
+    } catch {
+      return { id, ok: false, data: FALLBACK[id], fix: DOCTOR_FIX_UNKNOWN };
+    }
+  };
+
+  /** 读现状（插件、数据源、运行时）：读不出来记日志、当没有（不让整份体检失败） */
+  const read = <T>(what: string, get: (() => readonly T[]) | undefined): readonly T[] => {
+    if (!get) return [];
+    try {
+      return get();
+    } catch (err) {
+      log(`体检读 ${what} 出错，这一样当没有：${err instanceof Error ? err.message : String(err)}`); // @i18n-ignore log：给开发者看的
+      return [];
+    }
+  };
+
+  const view = async (run: DoctorRunOptions = {}): Promise<DoctorView> => {
     const at = new Date((options.now ?? Date.now)()).toISOString();
-    // 八项各查各的：一项抛错只算它自己查不了，不影响别的项，也不让整份体检失败
-    const checks = await Promise.all(
-      DOCTOR_CHECKS.map(async (id): Promise<DoctorCheckView> => {
-        try {
-          const data = (await (options.probes[id] as DoctorProbe<DoctorCheckId>)()) as DoctorCheckData;
-          const ok = judge(id, data);
-          return { id, ok, data, ...(ok ? {} : { fix: fixOf(id, data, options.install) }) };
-        } catch {
-          return { id, ok: false, data: FALLBACK[id], fix: DOCTOR_FIX_UNKNOWN };
-        }
-      }),
-    );
-    return { checks, at };
+    const wanted = (group: string, id: string, cost: DoctorCost) => run.include?.({ group, id, cost }) ?? true;
+    const legacyIds = DOCTOR_CHECKS.filter((id) => wanted(DOCTOR_CORE_GROUP, id, LEGACY_COST[id]));
+    const registered = (options.checks?.list() ?? []).filter((check) => wanted(check.plugin ?? DOCTOR_CORE_GROUP, check.id, check.cost));
+    // 八项和登记的检查一起并行查：一项抛错、超时只算它自己
+    const [checks, findings] = await Promise.all([Promise.all(legacyIds.map(legacy)), Promise.all(registered.map((check) => runDoctorCheck(check, log)))]);
+    const ofGroup = (group: string) => registered.flatMap((check, i) => ((check.plugin ?? DOCTOR_CORE_GROUP) === group ? [rendered(registeredItem(check, findings[i]!))] : []));
+
+    // 二狗本身：八项，加上内核登记的
+    const coreItems = [...checks.map((check) => coreDoctorItem(check, legacyLevel(check))), ...ofGroup(DOCTOR_CORE_GROUP)];
+    const groups: DoctorGroupView[] = coreItems.length > 0 ? [groupOf(DOCTOR_CORE_GROUP, "core", t("doctor.group.core"), coreItems)] : [];
+
+    // 插件块：在跑、没装上的各一块（二狗替它生成的几项在前，它自己登记的在后）；停用、移除了的只列名字
+    const now = Date.parse(at);
+    const sources = read("dataSources", options.dataSources);
+    const runtimes = read("runtimes", options.runtimes);
+    const off: DoctorOffPlugin[] = [];
+    const seen = new Set<string>();
+    const auto = (draft: DoctorItemDraft | undefined, group: string): DoctorItemView[] => (draft && wanted(group, draft.id, "passive") ? [rendered(draft)] : []);
+    for (const info of read("plugins", options.plugins)) {
+      seen.add(info.name);
+      if (info.state === "disabled" || info.state === "removed") {
+        off.push({ plugin: info.name, title: info.title, state: info.state });
+        continue;
+      }
+      const items = [
+        ...auto(pluginItem(info), info.name),
+        ...sources.filter((facts) => facts.view.plugin === info.name).flatMap((facts) => auto(sourceItem(facts, now), info.name)),
+        ...runtimes.filter((runtime) => runtime.plugin === info.name).flatMap((runtime) => auto(runtimeItem(runtime, options.runtimeUsers?.(runtime.id) ?? 0), info.name)),
+        ...ofGroup(info.name),
+      ];
+      if (items.length > 0) groups.push(groupOf(info.name, "plugin", info.title, items));
+    }
+    // 登记了检查、却不在插件清单里的（测试里只给了登记表）：照插件名单独一块
+    for (const plugin of new Set(registered.flatMap((check) => (check.plugin === undefined || seen.has(check.plugin) ? [] : [check.plugin])))) {
+      groups.push(groupOf(plugin, "plugin", plugin, ofGroup(plugin)));
+    }
+
+    const sorted = sortDoctorGroups(groups);
+    return { checks, groups: sorted, off, level: overallLevel(sorted), counts: doctorCounts(sorted), at };
   };
   return { view };
 }

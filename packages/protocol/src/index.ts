@@ -99,7 +99,8 @@
 // - setup.ts / setup-schema.ts：首次设置向导——网页上要走的五步、每步做完了没有（GET /api/setup 的样子）、
 //   标"以后再说"和"看过了"的请求体（POST /api/setup）的 schema。
 // - doctor.ts：体检（319b）——设置 · 更多 · 体检一页的八项检查（端口、Node、pi、服务管家、模型的 key、组件、磁盘、外网入口），
-//   每项查出来的结构化事实（GET /api/doctor 的样子）；给人看的那句话和"怎么修"由网页按当前语言拼。
+//   每项查出来的结构化事实（GET /api/doctor 的样子）；409 加了五种结果、分块（二狗本身 + 每个插件）、动作按钮、汇总的纯函数。
+// - doctor-text.ts：体检的话——八项的事实怎么拼成一句、一句话（文案键 + 参数）按当前语言拼，守护进程和网页共用。
 // - memory-interview.ts / memory-interview-schema.ts：了解你访谈——五个主题和先后、每月一次的"最近有什么变化"、
 //   素材上"来自访谈"的情境标签；约访卡的负载、GET / POST /api/memory/interview 的形状。
 // - ingested-materials.ts / ingested-materials-schema.ts：存下的外部信息——秘书按用户的要求存进素材的邮件、网页、日程、Looki 时刻、
@@ -220,6 +221,7 @@ export * from "./folder-grants-schema.ts";
 export * from "./setup.ts";
 export * from "./setup-schema.ts";
 export * from "./doctor.ts";
+export * from "./doctor-text.ts";
 export * from "./connection-addresses.ts";
 export * from "./connection-addresses-schema.ts";
 export * from "./memory-interview.ts";

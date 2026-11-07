@@ -20,6 +20,7 @@ import { CardTypeRegistry } from "../../src/cards/registry.ts";
 import { cardsView } from "../../src/cards/views.ts";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { createDataSourceRegistry, createDataSources, createDataSourceSecrets, createDataSourceSettings, registerDataSourceDeletion } from "../../src/data-sources/index.ts";
+import { createDoctorChecks } from "../../src/doctor/checks.ts";
 import { EventSubscriberRegistry } from "../../src/event-sources/index.ts";
 import { DeletionParticipants } from "../../src/deletion/participants.ts";
 import { createEphemeralBus } from "../../src/events/ephemeral.ts";
@@ -105,6 +106,8 @@ export async function startPluginKernel(options: PluginKernelOptions) {
   runtimes.register(piRuntime);
   // 数据源：插件在数据契约里登记的数据源进这里
   const dataSourceRegistry = createDataSourceRegistry();
+  // 体检项：插件在 setup 里登记的检查（停用时撤掉）
+  const doctorChecks = createDoctorChecks();
   const participants = new DeletionParticipants({ store, cards, rewriters: purge });
   registerDataSourceDeletion(participants, { imports: layout.imports, log });
   const openedFolders: string[] = [];
@@ -168,6 +171,7 @@ export async function startPluginKernel(options: PluginKernelOptions) {
       views: { detach: (name) => store.detachView(name), attach: (view) => store.attachView(view) },
       runtimes,
       dataSources: dataSourceRegistry,
+      doctor: doctorChecks,
     },
   });
   await plugins.start();
@@ -181,7 +185,7 @@ export async function startPluginKernel(options: PluginKernelOptions) {
   /** 数据目录配置文件里现在的 plugins（设置那一层写的） */
   const pluginsConfig = (): { disabled?: string[]; removed?: string[] } => (JSON.parse(fs.readFileSync(layout.configFile, "utf8")) as { plugins?: { disabled?: string[]; removed?: string[] } }).plugins ?? {};
 
-  return { dir, layout, clock, logs, store, host: plugins, settings, pluginsConfig, scheduler, cardTypes, cards, purge, quickActions, boardKinds, eventSubscribers, operationMeans, agent, apps, runtimes, dataSourceRegistry, dataSources, openedFolders, internalJobs, inbox, materials, close };
+  return { dir, layout, clock, logs, store, host: plugins, settings, pluginsConfig, scheduler, cardTypes, cards, purge, quickActions, boardKinds, eventSubscribers, operationMeans, agent, apps, runtimes, dataSourceRegistry, dataSources, doctorChecks, openedFolders, internalJobs, inbox, materials, close };
 }
 
 export type PluginKernel = Awaited<ReturnType<typeof startPluginKernel>>;

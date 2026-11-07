@@ -13,6 +13,7 @@ import { boardKind, BoardKindRegistry } from "../../src/board/kinds.ts";
 import { CardTypeRegistry } from "../../src/cards/registry.ts";
 import { cardsView } from "../../src/cards/views.ts";
 import { createDataSourceRegistry } from "../../src/data-sources/registry.ts";
+import { createDoctorChecks } from "../../src/doctor/checks.ts";
 import { RequestRejected } from "../../src/errors.ts";
 import { EventSubscriberRegistry } from "../../src/event-sources/index.ts";
 import { createEphemeralBus } from "../../src/events/ephemeral.ts";
@@ -77,6 +78,7 @@ async function kernel(host: PluginHost, options: { dir?: string } = {}) {
   const runtimes = createRuntimeRegistry({ log });
   runtimes.register(piRuntime);
   const dataSources = createDataSourceRegistry();
+  const doctor = createDoctorChecks();
   const internalJobs = createInternalJobs({ store, scheduler, clock, log, scheduleContext: () => ({ calendar: workdayCalendar([], { rules: [], marks: [] }) }) });
   const inbox = createInboxService({ store, notifications: createEphemeralBus(), now: () => clockIso(clock) });
   const materials = openMaterials({ store, dbDir: dir, materialsDir: path.join(dir, "materials"), log });
@@ -94,7 +96,7 @@ async function kernel(host: PluginHost, options: { dir?: string } = {}) {
     store.close();
   };
   onTestFinished(close);
-  const k = { dir, clock, logs, store, scheduler, cardTypes, purge, quickActions, boardKinds, eventSubscribers, operationMeans, agent, apps, runtimes, dataSources, internalJobs, materials, close };
+  const k = { dir, clock, logs, store, scheduler, cardTypes, purge, quickActions, boardKinds, eventSubscribers, operationMeans, agent, apps, runtimes, dataSources, doctor, internalJobs, materials, close };
   await host.setup({
     services: [bindService(STORE, store)],
     surfaces: {
@@ -111,6 +113,7 @@ async function kernel(host: PluginHost, options: { dir?: string } = {}) {
       views: { detach: (name) => store.detachView(name), attach: (view) => store.attachView(view) },
       runtimes,
       dataSources,
+      doctor,
     },
   });
   await host.start();

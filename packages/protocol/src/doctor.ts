@@ -1,10 +1,17 @@
-// 体检（319b）：设置 · 更多 · 体检一页的八项检查。守护进程的 GET /api/doctor 回这一份（DoctorView）。
-// - 每项查出来的是**结构化的事实**（端口号、版本号、剩多少 GB……），不是拼好的中文句子：给用户看的那句话由网页按当前语言拼
-//   （locales/*/doctor.json 的 doctor.fact.*），所以换语言不用重查、守护进程里也不写界面的字。
-// - ok 是"这一项健康"（判法写在每一项的注释里）；fix 是"怎么修"的文案键（网页按当前语言取 doctor.fix.*），健康时没有。
-// - 查不了（探测器抛错）的那一项 ok: false、fix 是 DOCTOR_FIX_UNKNOWN、data 是这一项的空值（能空就空、能 0 就 0），
-//   网页见到这个键就写"这次没查出来"，不拿 data 拼句子——别的项照常。
-// - 只查本机：不联网（除了探本机端口）、不调用模型、不改任何状态；每次查现算，不缓存。
+// 体检（319b）：设置 · 更多 · 体检一页。守护进程的 GET /api/doctor 回这一份（DoctorView）。
+// 两层（409 加了第二层）：
+// - checks：原来的八项（端口、Node、pi、服务管家、模型的 key、组件、磁盘、外网入口），每项是**结构化的事实**（端口号、版本号、
+//   剩多少 GB……）+ ok + fix（"怎么修"的文案键，doctor.fix.*）。id、事实的字段名定了不改（410 起在上面加东西）；
+//   查不了（探测器抛错）的那一项 ok: false、fix 是 DOCTOR_FIX_UNKNOWN、data 是这一项的空值。
+// - groups：页面按块显示的样子——"二狗本身"一块（八项在这里，加上以后内核自己登记的检查），每个在跑或没装上的插件一块
+//   （插件自己登记的体检项，加上二狗替它生成的：插件本身、它的数据源、它的 agent 运行时）。每项是五种结果之一（DoctorLevel），
+//   带事实、怎么修（文案键 + 参数，DoctorMessage）、可选的"从什么时候起"、可选的一个动作（DoctorAction），
+//   还有守护进程按当前语言拼好的那几句（text）：插件的文案键在插件自己的语言文件里（<插件>.doctor.*），网页的词典里没有
+//   这些区域（WEB_NAMESPACES），所以给人看的句子由守护进程拼；换了语言网页重新取一遍。
+// - 停用、移除了的插件那一块不显示（它的检查项跟着撤了），只在 off 里列一下。
+// - 总状态取最差的；"没查出来"（unknown）不拉低总状态、单独数；"不适用"（na）不算。
+// - 平时体检只读本机：不联网、不调模型、不改任何状态；可以连本机上二狗在用的服务的端口（cost: local，用户 11-07 同意）。
+//   每次查现算，不缓存。
 // 不引用 TypeBox：网页只用常量和类型。
 import type { RejectedConnectionAddress } from "./connection-addresses.ts";
 
@@ -46,11 +53,117 @@ export interface DoctorCheckView {
   fix?: string;
 }
 
-/** GET /api/doctor：八项检查（按 DOCTOR_CHECKS 的先后）和查的时刻 */
+/**
+ * 一项的结果（409），五种：
+ * - ok 正常；
+ * - warn 注意（黄）：能用，但打了折扣；
+ * - error 坏了（红）：相关的功能用不了；
+ * - unknown 没查出来（灰）：查的时候超时或出错，不算坏，不拉低总状态；
+ * - na 不适用：没开这个功能、没连这个数据源，就不查（页面上淡显、排在块的最后）
+ */
+export const DOCTOR_LEVELS = ["ok", "warn", "error", "unknown", "na"] as const;
+export type DoctorLevel = (typeof DOCTOR_LEVELS)[number];
+
+/** 一句话：文案键 + 参数（参数里的时间、数字由出这句话的一方先按当前语言写好） */
+export interface DoctorMessage {
+  key: string;
+  params?: Readonly<Record<string, string | number>>;
+}
+
+/**
+ * 一项可以带的一个动作按钮（网页认得这几种；不认得的不画）：
+ * - open：跳到二狗的某一页，route 是网页的地址（"#/more/data-sources/looki"）；
+ * - compact：现在压缩某个 agent 的对话（和会话 ⚙ 里"现在压缩"同一个接口，POST /api/agents/<agent id>/compact）
+ */
+export type DoctorAction = { kind: "open"; route: string } | { kind: "compact"; agentId: string };
+
+/** 动作的种类（网页按它挑按钮上的字） */
+export const DOCTOR_ACTION_KINDS = ["open", "compact"] as const;
+
+/** 分块里的一项 */
+export interface DoctorItemView {
+  /** 块里唯一：八项是 "ports" 这样的 id；二狗替插件生成的是 "plugin"、"source:<数据源 id>"、"runtime:<运行时 id>"；插件登记的是它自己起的 id */
+  id: string;
+  level: DoctorLevel;
+  /** 这一项的名字、查出来的事实、怎么修（健康时一般没有）：文案键 + 参数 */
+  title: DoctorMessage;
+  fact: DoctorMessage;
+  fix?: DoctorMessage;
+  /** 从什么时候起是这个样子（ISO）；不知道就没有 */
+  since?: string;
+  action?: DoctorAction;
+  /** 上面三句由守护进程按当前语言拼好的样子（网页照它显示） */
+  text: { title: string; fact: string; fix?: string };
+}
+
+/** 页面上的一块："二狗本身"（core），或者一个插件（plugin，id 是插件名） */
+export interface DoctorGroupView {
+  /** "二狗本身"是 DOCTOR_CORE_GROUP；插件块是插件名 */
+  id: string;
+  kind: "core" | "plugin";
+  /** 块的标题（按当前语言：插件给人看的名字） */
+  title: string;
+  /** 块里最差的（worstLevel） */
+  level: DoctorLevel;
+  items: DoctorItemView[];
+}
+
+/** "二狗本身"那一块的 id */
+export const DOCTOR_CORE_GROUP = "ergo";
+
+/** 停用、移除了的插件：它那块不显示，只列一下 */
+export interface DoctorOffPlugin {
+  plugin: string;
+  title: string;
+  state: "disabled" | "removed";
+}
+
+/** GET /api/doctor：原来的八项（按 DOCTOR_CHECKS 的先后）、分块的样子、总状态和查的时刻 */
 export interface DoctorView {
   checks: DoctorCheckView[];
+  /** 分块：二狗本身在最前，插件块按有问题的在前（坏了、注意、其余），同一档里按插件清单的先后 */
+  groups: DoctorGroupView[];
+  /** 停用、移除了的插件（按清单的先后） */
+  off: DoctorOffPlugin[];
+  /** 总状态：所有块里最差的（unknown、na 不算；什么都没有是 ok） */
+  level: DoctorLevel;
+  /** 坏了、要注意、没查出来的各几项 */
+  counts: { error: number; warn: number; unknown: number };
   /** 查的时刻（ISO） */
   at: string;
+}
+
+/** 五种结果的轻重：越大越差。unknown、na 不参与比较（排最低） */
+const LEVEL_RANK: Readonly<Record<DoctorLevel, number>> = { na: -2, unknown: -1, ok: 0, warn: 1, error: 2 };
+
+/**
+ * 一组结果里最差的：error > warn > ok；"没查出来"、"不适用"不拉低。
+ * 全是 unknown（或 unknown 和 na）时是 unknown，全是 na 时是 na，一项都没有是 ok
+ */
+export function worstLevel(levels: Iterable<DoctorLevel>): DoctorLevel {
+  let worst: DoctorLevel | undefined;
+  for (const level of levels) if (worst === undefined || LEVEL_RANK[level] > LEVEL_RANK[worst]) worst = level;
+  return worst ?? "ok";
+}
+
+/** 每一项各几项：坏了、要注意、没查出来 */
+export function doctorCounts(groups: readonly DoctorGroupView[]): DoctorView["counts"] {
+  const counts = { error: 0, warn: 0, unknown: 0 };
+  for (const group of groups) for (const item of group.items) if (item.level === "error" || item.level === "warn" || item.level === "unknown") counts[item.level] += 1;
+  return counts;
+}
+
+/**
+ * 块的先后：二狗本身在最前；插件块里坏了的在前、然后是要注意的、其余的（正常、没查出来、不适用）最后，同一档里照原来的先后（插件清单）
+ */
+export function sortDoctorGroups(groups: readonly DoctorGroupView[]): DoctorGroupView[] {
+  const rank = (group: DoctorGroupView) => (group.kind === "core" ? 3 : group.level === "error" ? 2 : group.level === "warn" ? 1 : 0);
+  return groups.map((group, at) => ({ group, at })).toSorted((a, b) => rank(b.group) - rank(a.group) || a.at - b.at).map(({ group }) => group);
+}
+
+/** 块里各项的先后：照原来的先后，"不适用"的挪到最后 */
+export function sortDoctorItems(items: readonly DoctorItemView[]): DoctorItemView[] {
+  return [...items.filter((item) => item.level !== "na"), ...items.filter((item) => item.level === "na")];
 }
 
 /** 查不了的那一项用的 fix（网页写"这次没查出来"）：别的 fix 说的是这一项坏了怎么修 */

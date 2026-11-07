@@ -88,6 +88,8 @@ const SECRETARY_TOOLS = [
   // 提交 skill（只出"skill 变更"卡，用户确认之后运行时才写 skill 区）
   "propose_skill",
   "view_board",
+  // 只读的体检（现查一遍，不对卡片做动作）
+  "check_health",
   "write",
   "write_task_brief",
   "ask_questions",

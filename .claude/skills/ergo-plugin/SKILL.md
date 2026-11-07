@@ -62,6 +62,7 @@ description: 写或改二狗（ergo）插件时用：新功能做成插件、改
 | `ctx.internalJobs` | 守护进程按时间表做的事 | 记忆 |
 | `ctx.operationMeans`、`ctx.apps` | 运营方案的手段、把 `/apps/<名字>/` 转到本机地址 | 手册第 3 节 |
 | `ctx.agent.*` | 给 agent 的，见下一步 | |
+| `ctx.doctor.register` | 体检项：设置 · 体检上这个插件那一块多一项（结果五种、文案键放 `<插件>.doctor.*`；插件本身、数据源、运行时那几项不用登记） | 手册第 3 节"体检项" |
 | `ctx.effect(fn)` | 定时器、订阅：`fn` 交回撤销函数 | 提醒 |
 | `ctx.lifecycle({ start, stop })` | 自己的起停 | 提醒、记忆 |
 

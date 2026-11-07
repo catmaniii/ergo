@@ -37,6 +37,7 @@ import { KERNEL } from "../../src/plugins/kernel.ts";
 import { QuickActionRegistry, type QuickActionService } from "../../src/quick-actions/index.ts";
 import { createRuntimeRegistry } from "../../src/runtime/index.ts";
 import { createDataSourceRegistry } from "../../src/data-sources/registry.ts";
+import { createDoctorChecks } from "../../src/doctor/checks.ts";
 import { clockIso } from "../../src/scheduler/clock.ts";
 import { createInternalJobs, type InternalJobs, INTERNAL_CHANNEL, internalJobsView } from "../../src/scheduler/internal-jobs.ts";
 import { createScheduler, type Scheduler } from "../../src/scheduler/scheduler.ts";
@@ -162,6 +163,7 @@ export async function createMemoryPluginHost(options: MemoryPluginHostOptions = 
       views: { detach: (name) => store.detachView(name), attach: (view) => store.attachView(view) },
       runtimes: createRuntimeRegistry({ log }),
       dataSources: createDataSourceRegistry(),
+      doctor: createDoctorChecks(),
     },
   });
   // 记忆插件的视图（每周整理的记录）装上：事件日志打开时没登记，这里补上；表不存在时建出来
