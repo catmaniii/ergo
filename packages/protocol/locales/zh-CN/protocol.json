@@ -944,6 +944,8 @@
   "protocol.timeline.kind.reverify": "重做后复验没过",
   "protocol.inboxAction.ignoreForNow": "先不管",
   "protocol.inboxAction.redoFailed": "把没过的阶段也重做",
+  "protocol.inboxAction.phoneCalendarCleared": "清空了，删掉",
+  "protocol.inboxAction.phoneCalendarKept": "没清空，留着",
   "protocol.personalFiles.field.selfName": "姓名",
   "protocol.personalFiles.field.idCard": "身份证号",
   "protocol.personalFiles.field.passport": "护照号",

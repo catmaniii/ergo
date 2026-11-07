@@ -6,7 +6,8 @@
 //     phone_contact_picked，交给个人档案的候选核对卡（逐条确认才写进档案，号码逐位核对）；不进记忆素材；
 //   - "手机 · 日历"（phone-calendar）：用户在 App 里点"连上手机日历"、系统弹窗授权后连着；App 开着时每隔一会儿交一次同步范围里的
 //     全部日程（push），写成增量 phone_calendar_event，交给日历插件当外部日历显示（calendar，标出来自手机）；不进记忆素材；
-//     授权被撤回时 App 交来原因，连接状态写明；断开时插件记下没连着（App 不再交）；
+//     授权被撤回时 App 交来原因，连接状态写明；断开时插件记下没连着（App 不再交）；原来不少、却交来 0 条的先不删，
+//     连着几次还是 0 条在待办里问用户（phone_calendar_empty），用户回了"清空了"才删（见 phone.ts）；
 //   - "手机 · 照片的时间地点"（phone-photos）：用户在 App 里点"连上相册"、系统弹窗授权后连着；App 开着时交最近几天拍的照片的
 //     拍摄时间和地点（push，不传照片本身），原始的时间地点存在插件自己的存储里（按天、能清掉，raw），按天整理成一条摘要写成
 //     phone_photos_day，采成素材（观察到的本人行为；地点放场景、不算整条是位置：sensitive 写空，位置没打开推断时证据里去掉地点）；
@@ -19,12 +20,14 @@
 //   档案候选里从通讯录来的、还没写进档案的跟着删（个人档案登记的删除参与方），照片、位置插件自己存储里的那一份整个删掉。
 // - 移除时"连数据删"：phone 频道上的全部记录（挑的人、日程、照片和位置的摘要、连接状况）和插件自己的存储（数据目录的 phone/）；
 //   已经写进档案的、还没处理的候选，摘要采成的素材不在这里删（写明了）。
-// - 依赖：内核的事件存储、时钟、数据目录（KERNEL.layout：插件自己的存储放在 phone/）、个人档案的收候选（KERNEL.personalFiles）；
+// - 依赖：内核的事件存储、时钟、数据目录（KERNEL.layout：插件自己的存储放在 phone/）、个人档案的收候选（KERNEL.personalFiles）、
+//   待办（KERNEL.inbox：问手机日历是不是真的清空了，监听用户回的哪一个）；
 //   日历插件是可选依赖（wants：不在时"手机 · 日历"写明日历插件没启用，照常收）。没有给 agent 的工具、上下文块。
 // - 数据源详情里看数据：已获取的——通讯录、日历不进素材，由 stored 列；照片、位置进素材的摘要内核按素材的出处列。
 //   都没有"现在能查到的"（live）：数据由手机交来，守护进程查不了上游。
 import {
   type EventType,
+  PHONE_CALENDAR_EMPTY_ACTIONS,
   PHONE_CALENDAR_SOURCE,
   PHONE_CONTACTS_SOURCE,
   PHONE_LOCATION_SOURCE,
@@ -46,6 +49,7 @@ import { clockIso } from "../scheduler/clock.ts";
 import { PHONE } from "./api.ts";
 import {
   PHONE_CALENDAR_EVENT,
+  PHONE_CALENDAR_HELD,
   PHONE_CALENDAR_STATUS,
   PHONE_CHANNEL,
   PHONE_CONTACT_PICKED,
@@ -55,7 +59,7 @@ import {
   PHONE_PHOTOS_STATUS,
   type PhoneDaySummaryPayload,
 } from "./events.ts";
-import { createPhoneService } from "./phone.ts";
+import { createPhoneService, PHONE_CALENDAR_EMPTY_NOTICE } from "./phone.ts";
 import { PHONE_DATA_DIR } from "./photos-location.ts";
 
 /** 移除时连数据删：phone 频道上的全部记录、插件自己的存储 */
@@ -70,11 +74,13 @@ const phoneRemoval: PluginDataRemoval = {
     { channel: PHONE_CHANNEL, type: PHONE_CONTACT_PICKED },
     { channel: PHONE_CHANNEL, type: PHONE_CALENDAR_EVENT },
     { channel: PHONE_CHANNEL, type: PHONE_CALENDAR_STATUS },
+    { channel: PHONE_CHANNEL, type: PHONE_CALENDAR_HELD },
     { channel: PHONE_CHANNEL, type: PHONE_PHOTOS_DAY },
     { channel: PHONE_CHANNEL, type: PHONE_PHOTOS_STATUS },
     { channel: PHONE_CHANNEL, type: PHONE_LOCATION_DAY },
     { channel: PHONE_CHANNEL, type: PHONE_LOCATION_STATUS },
   ],
+  notices: [PHONE_CALENDAR_EMPTY_NOTICE],
   files: [PHONE_DATA_DIR],
 };
 
@@ -86,7 +92,7 @@ export const phonePlugin: PluginDefinition = {
   get summary() {
     return t("phone.plugin.summary");
   },
-  needs: [KERNEL.store, KERNEL.clock, KERNEL.layout, KERNEL.personalFiles],
+  needs: [KERNEL.store, KERNEL.clock, KERNEL.layout, KERNEL.personalFiles, KERNEL.inbox],
   wants: [CALENDAR],
   provides: [PHONE],
   contracts(ctx) {
@@ -215,18 +221,22 @@ export const phonePlugin: PluginDefinition = {
   },
   setup(ctx) {
     const clock = ctx.use(KERNEL.clock);
-    ctx.provide(
-      PHONE,
-      createPhoneService({
-        store: ctx.use(KERNEL.store),
-        now: () => clockIso(clock),
-        personalFiles: ctx.use(KERNEL.personalFiles),
-        // 可选依赖：现取（日历插件没装、运行中停了是 undefined）
-        calendarOn: () => ctx.optional(CALENDAR) !== undefined,
-        nowMs: () => clock.now(),
-        dataDir: ctx.use(KERNEL.layout).root,
-        log: (line) => ctx.log(line),
-      }),
-    );
+    const inbox = ctx.use(KERNEL.inbox);
+    const phone = createPhoneService({
+      store: ctx.use(KERNEL.store),
+      now: () => clockIso(clock),
+      personalFiles: ctx.use(KERNEL.personalFiles),
+      inbox,
+      // 可选依赖：现取（日历插件没装、运行中停了是 undefined）
+      calendarOn: () => ctx.optional(CALENDAR) !== undefined,
+      nowMs: () => clock.now(),
+      dataDir: ctx.use(KERNEL.layout).root,
+      log: (line) => ctx.log(line),
+    });
+    ctx.provide(PHONE, phone);
+    // 待办里回了手机上的日程是不是真的清空了（停用时撤掉；停着时回的，下一次交来时按回的算）
+    const { clear, keep } = PHONE_CALENDAR_EMPTY_ACTIONS;
+    ctx.effect(() => inbox.onNoticeHandled(PHONE_CALENDAR_EMPTY_NOTICE, clear, (item) => phone.answerCalendarEmpty(item.id, true)));
+    ctx.effect(() => inbox.onNoticeHandled(PHONE_CALENDAR_EMPTY_NOTICE, keep, (item) => phone.answerCalendarEmpty(item.id, false)));
   },
 };

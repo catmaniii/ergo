@@ -1576,6 +1576,7 @@
   "ui.stageDetail.observed.other": "Also done on this computer: {list} (the execution log can't see which files these changed)",
   "ui.stageDetail.observed.note": "Compiled by the system from the execution log, not from what the owner says; files changed inside scripts or commands aren't recorded.",
   "ui.inboxNotice.kind.reverifyFailed": "Re-check failed after redo",
+  "ui.inboxNotice.kind.phoneCalendarEmpty": "Phone calendar came back empty",
   "ui.inboxNotice.reverifyRedo": "Redo {stage} too…",
   "ui.stageDrawer.card.observed": "System found",
   "ui.stageDrawer.card.observedMismatch_one": "⚠ 1 mismatch with the report",

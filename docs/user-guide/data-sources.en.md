@@ -255,6 +255,8 @@ Calendar, photos and location each pop up the system's permission box on the pho
 
 **Where you see it after authorizing:** **Other calendars** on [the Calendar page](calendar-reminders.en.md), marked as from the phone. It syncs every 30 minutes while the app is open. Read-only: it doesn't change or delete anything, and nothing goes into memory.
 
+**When the phone sends 0 events:** if plenty of events were synced before (20 or more) and this time none arrive, most likely the phone didn't manage to read its calendar just then (the app was in the background, or the system didn't allow it). Ergo doesn't delete anything; the line on the Data sources page says "0 events (most likely the phone didn't manage to read its calendar just then …)", and syncing carries on the next time the phone reads its events. If it's 0 three times in a row, or still 0 a day later, **Inbox** asks once: **Did you really clear the calendar on your phone?** If you did (or removed the calendar account, or switched phones), tap **Yes, delete them** and only then is ergo's copy deleted; if not, tap **No, keep them**. When there were only a few events, they're deleted along with the phone as usual.
+
 **How to disconnect:** Tap **Disconnect**. Synced events stop showing, and the phone's calendar is untouched. Choose **Delete what was imported too** and the records on ergo's side are deleted as well. You can also withdraw the permission in the phone's settings.
 
 ### Phone · Photo times and places

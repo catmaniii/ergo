@@ -70,6 +70,6 @@ describe("手机插件的边界", () => {
     ]);
     expect(materialSources).toEqual(["phone_photos_day", "phone_location_day"]);
     expect((phonePlugin.wants ?? []).map((k) => k.id)).toEqual(["calendar"]);
-    expect((phonePlugin.needs ?? []).map((k) => k.id)).toEqual(["store", "clock", "layout", "personalFiles"]);
+    expect((phonePlugin.needs ?? []).map((k) => k.id)).toEqual(["store", "clock", "layout", "personalFiles", "inbox"]);
   });
 });

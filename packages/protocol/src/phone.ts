@@ -26,6 +26,13 @@ export const PHONE_CONTACTS_MAX = 20;
 /** 一次同步最多交几条日程（重复的每一次算一条；守护进程收的请求最多 1 MB） */
 export const PHONE_CALENDAR_EVENTS_MAX = 2000;
 
+/**
+ * "手机日历交来的是空的"待办（通知 phone_calendar_empty）的两个动作，按字认（显示时 inboxActionText 换成当前语言）：
+ * 手机上真的清空了就删掉二狗这边留着的，没清空就接着留着
+ */
+// @i18n-ignore-next fixed：事项的动作按字认
+export const PHONE_CALENDAR_EMPTY_ACTIONS = { clear: "清空了，删掉", keep: "没清空，留着" } as const;
+
 /** App 开着时多久同步一次手机日历（毫秒）：打开、回到前台时也同步一次 */
 export const PHONE_CALENDAR_SYNC_EVERY_MS = 30 * 60_000;
 /** 同步手机日历的范围：从上个月一号起往后几个月（往前的不再改） */

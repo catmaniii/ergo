@@ -4,17 +4,41 @@
 //   合成候选核对卡，交回卡的编号；
 // - 手机日历：增量（新、改、范围里没了的删、范围外的不动）、状况（撤回、拒了、读不了，同样的不重复记）、条数、给日历的 [from, to)；
 //   断开时记下没连着；日历插件不在时写明；
+// - 手机日历交来 0 条：原来不少的不删（773 → 0 → 773 中间不删、不重加），少于门槛的照删；连着几次、隔了一天还是 0 条在待办里
+//   问一次，选"清空了"才删、选"没清空"接着留着不再问；手机又交来了、断开了，没回的那条作废；插件停着时回的下一次交来时照办；
 // - 停用、启用（记录还在、接着用），移除并连数据删（phone 频道整条换成标记）；
 // -照片、位置：没授权、撤回写明原因（同样的不重复记），没有读照片位置的授权时不带地点，拍摄时间在明天以后的不收，
 //   整理之后又交来那天的补一条；位置精度太差的点不用、零星几个点写明没待够；原始数据按天清掉，停用时不列、清不了；
 //   移除并连数据删时插件自己的存储整个删掉。
 import fs from "node:fs";
 import path from "node:path";
-import { isDeletedEventPayload, nowIso, PHONE_CALENDAR_SOURCE, PHONE_CONTACTS_SOURCE, PHONE_LOCATION_SOURCE, PHONE_PHOTOS_SOURCE, type PhoneCalendarEvent } from "@ergo/protocol";
+import {
+  isDeletedEventPayload,
+  type NoticeInboxItem,
+  nowIso,
+  PHONE_CALENDAR_EMPTY_ACTIONS,
+  PHONE_CALENDAR_SOURCE,
+  PHONE_CONTACTS_SOURCE,
+  PHONE_LOCATION_SOURCE,
+  PHONE_PHOTOS_SOURCE,
+  type PhoneCalendarEvent,
+} from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import type { CandidateInput } from "../../src/personal-files/index.ts";
-import { PHONE_CALENDAR_STATUS, PHONE_CHANNEL, PHONE_LOCATION_DAY, PHONE_PHOTOS_DAY, PHONE_PHOTOS_STATUS, type PhoneDaySummaryPayload } from "../../src/phone/events.ts";
+import {
+  calendarHeld,
+  currentCalendar,
+  PHONE_CALENDAR_EVENT,
+  PHONE_CALENDAR_STATUS,
+  PHONE_CHANNEL,
+  PHONE_LOCATION_DAY,
+  PHONE_PHOTOS_DAY,
+  PHONE_PHOTOS_STATUS,
+  type PhoneCalendarEventPayload,
+  type PhoneDaySummaryPayload,
+} from "../../src/phone/events.ts";
+import { PHONE_CALENDAR_ASK_AFTER_MS, PHONE_CALENDAR_HOLD_MIN } from "../../src/phone/phone.ts";
 import { phonePlugin } from "../../src/phone/plugin.ts";
 import { KERNEL } from "../../src/plugins/kernel.ts";
 import { extraService, type PluginKernel, startPluginKernel } from "../helpers/plugin-kernel.ts";
@@ -154,6 +178,149 @@ describe("手机插件：数据源", () => {
     expect(await pushTo(k, PHONE_CALENDAR_SOURCE, { state: "granted", ...WINDOW, events: [ev("a", 10), ev("b", 11)] })).toMatchObject({ added: 1 });
     await k.settings.act("phone", { action: "remove", purgeData: true, idempotencyKey: key() });
     expect(k.store.read(PHONE_CHANNEL).length).toBeGreaterThan(0);
+    expect(k.store.read(PHONE_CHANNEL).every((e) => isDeletedEventPayload(e.payload))).toBe(true);
+  });
+});
+
+/** n 条日程：c0、c1……，散在 10 月 1–28 日 */
+const many = (n: number) => Array.from({ length: n }, (_, i) => ev(`c${i}`, 1 + (i % 28)));
+/** 交一次手机日历（授权给着、同一个同步范围） */
+const calendarPush = (k: PluginKernel, events: PhoneCalendarEvent[], extra: { link?: true } = {}) => pushTo(k, PHONE_CALENDAR_SOURCE, { device: "Pura 90", state: "granted", ...extra, ...WINDOW, events });
+/** 手机日历写过的增量：新加、改的几条（put），删的几条（remove） */
+const calendarOps = (k: PluginKernel) => {
+  const ops = k.store.read(PHONE_CHANNEL, 0, PHONE_CALENDAR_EVENT).map((e) => (e.payload as PhoneCalendarEventPayload).op);
+  return { put: ops.filter((op) => op === "put").length, remove: ops.filter((op) => op === "remove").length };
+};
+/** 待办里问手机日历是不是真的清空了的那几条（没删掉的） */
+const emptyAsks = (k: PluginKernel) => k.inbox.list().filter((i): i is NoticeInboxItem => i.kind === "notice" && i.notice === "phone_calendar_empty");
+const answer = (k: PluginKernel, itemId: string, choice: string) => k.inbox.act({ itemIds: [itemId], action: "handle", choice, idempotencyKey: key() });
+
+describe("手机插件：手机日历交来 0 条", () => {
+  it("773 → 0 → 773：中间不删、不重加，记下这一段（连着几次、留着几条）；手机又交来了这一段就过去了", async () => {
+    const { k } = await start();
+    expect(await calendarPush(k, many(773), { link: true })).toMatchObject({ added: 773 });
+    const held = await calendarPush(k, []);
+    expect(held).toMatchObject({ added: 0, summary: "0 条日程（多半是手机这一下没读到日历，以前的 773 条先留着、没删）" });
+    expect(calendarOps(k)).toEqual({ put: 773, remove: 0 });
+    expect(sourceOf(k, PHONE_CALENDAR_SOURCE)).toMatchObject({ count: 773, lastSync: { summary: held.summary } });
+    expect(calendarHeld(k.store)).toMatchObject({ times: 1, count: 773, from: WINDOW.from, to: WINDOW.to });
+    expect(calendarHeld(k.store)?.itemId).toBeUndefined();
+    expect(k.logs.some((l) => l.includes("手机日历交来 0 条，范围里原有 773 条，当成这一下没读到、先不删（连着第 1 次）"))).toBe(true);
+    // 日历里照样看得到
+    const phone = k.dataSourceRegistry.get(PHONE_CALENDAR_SOURCE)!.source;
+    expect(phone.calendar!({ from: new Date(2026, 9, 1), to: new Date(2026, 10, 1) }, { secrets: undefined as never, log: () => {} })).toHaveLength(773);
+    // 又交来了：一条不加、一条不删，这一段过去了，没问过用户
+    expect(await calendarPush(k, many(773))).toMatchObject({ added: 0, summary: "773 条日程（新 0、改 0、删 0）" });
+    expect(calendarOps(k)).toEqual({ put: 773, remove: 0 });
+    expect(calendarHeld(k.store)).toBeUndefined();
+    expect(emptyAsks(k)).toEqual([]);
+  });
+
+  it("范围里原来少于门槛：3 条变 0 条照删；门槛正好的不删", async () => {
+    const { k } = await start();
+    await calendarPush(k, many(3), { link: true });
+    expect(await calendarPush(k, [])).toMatchObject({ added: 0, summary: "0 条日程（新 0、改 0、删 3）" });
+    expect(sourceOf(k, PHONE_CALENDAR_SOURCE).count).toBe(0);
+    expect(calendarHeld(k.store)).toBeUndefined();
+    // 删几条这种少量变化照旧
+    await calendarPush(k, many(PHONE_CALENDAR_HOLD_MIN));
+    expect(await calendarPush(k, many(PHONE_CALENDAR_HOLD_MIN - 2))).toMatchObject({ summary: `${PHONE_CALENDAR_HOLD_MIN - 2} 条日程（新 0、改 0、删 2）` });
+    await calendarPush(k, many(PHONE_CALENDAR_HOLD_MIN));
+    expect(await calendarPush(k, [])).toMatchObject({ summary: `0 条日程（多半是手机这一下没读到日历，以前的 ${PHONE_CALENDAR_HOLD_MIN} 条先留着、没删）` });
+    expect(sourceOf(k, PHONE_CALENDAR_SOURCE).count).toBe(PHONE_CALENDAR_HOLD_MIN);
+  });
+
+  it("连着 3 次 0 条：待办里问一次；选「清空了，删掉」才删，之后的 0 条照常", async () => {
+    const { k } = await start();
+    await calendarPush(k, many(773), { link: true });
+    await calendarPush(k, []);
+    await calendarPush(k, []);
+    expect(emptyAsks(k)).toEqual([]);
+    await calendarPush(k, []);
+    const [ask] = emptyAsks(k);
+    expect(ask).toMatchObject({
+      title: "手机上的日程是不是真的清空了？",
+      source: "手机 · 日历",
+      urgency: "non_blocking",
+      actions: [PHONE_CALENDAR_EMPTY_ACTIONS.clear, PHONE_CALENDAR_EMPTY_ACTIONS.keep],
+    });
+    expect(ask!.body).toBe(
+      "手机最近连着 3 次交来的日程都是 0 条。以前同步来的 773 条先留着，没删。\n要是你在手机上真的清空了日历（或者删了日历账号、换了手机），点「清空了，删掉」；没有的话点「没清空，留着」，等手机下次读到日程再接着同步。",
+    );
+    expect(ask!.body).not.toMatch(/秘书|待我处理/);
+    expect(calendarHeld(k.store)).toMatchObject({ times: 3, itemId: ask!.id });
+    // 再来一次 0 条：不再问
+    await calendarPush(k, []);
+    expect(emptyAsks(k)).toHaveLength(1);
+    expect(calendarHeld(k.store)).toMatchObject({ times: 4, itemId: ask!.id });
+    expect(calendarOps(k).remove).toBe(0);
+    // 用户确认清空了：删掉范围里的
+    answer(k, ask!.id, PHONE_CALENDAR_EMPTY_ACTIONS.clear);
+    expect(calendarOps(k)).toEqual({ put: 773, remove: 773 });
+    expect(sourceOf(k, PHONE_CALENDAR_SOURCE).count).toBe(0);
+    expect(calendarHeld(k.store)).toBeUndefined();
+    expect(k.logs.some((l) => l.includes("用户确认手机上的日程清空了，删掉 773 条"))).toBe(true);
+    expect(await calendarPush(k, [])).toMatchObject({ summary: "0 条日程（新 0、改 0、删 0）" });
+    expect(emptyAsks(k)).toHaveLength(1);
+  });
+
+  it("隔了一天还是 0 条也问；选「没清空，留着」接着留着、这一段不再问；手机又交来了照常", async () => {
+    // 两次、不到一天：不问
+    const { k } = await start();
+    await calendarPush(k, many(773), { link: true });
+    await calendarPush(k, []);
+    k.clock.advance(PHONE_CALENDAR_ASK_AFTER_MS - 60_000);
+    await calendarPush(k, []);
+    expect(emptyAsks(k)).toEqual([]);
+    // 两次、隔了一天
+    const { k: k2 } = await start();
+    await calendarPush(k2, many(773), { link: true });
+    await calendarPush(k2, []);
+    k2.clock.advance(PHONE_CALENDAR_ASK_AFTER_MS);
+    await calendarPush(k2, []);
+    const [ask2] = emptyAsks(k2);
+    expect(ask2?.body).toContain("连着 2 次");
+    answer(k2, ask2!.id, PHONE_CALENDAR_EMPTY_ACTIONS.keep);
+    expect(sourceOf(k2, PHONE_CALENDAR_SOURCE).count).toBe(773);
+    expect(k2.logs.some((l) => l.includes("用户说手机上的日程没清空"))).toBe(true);
+    await calendarPush(k2, []);
+    await calendarPush(k2, []);
+    expect(emptyAsks(k2)).toHaveLength(1);
+    expect(calendarHeld(k2.store)).toMatchObject({ times: 4 });
+    expect(calendarOps(k2).remove).toBe(0);
+    expect(await calendarPush(k2, many(774))).toMatchObject({ summary: "774 条日程（新 1、改 0、删 0）" });
+    expect(calendarHeld(k2.store)).toBeUndefined();
+  });
+
+  it("没回的那条：手机又交来了、断开了都记成作废，再点旧按钮回原因；插件停着时回的「清空了」下一次交来时照删", async () => {
+    const { k } = await start();
+    await calendarPush(k, many(773), { link: true });
+    for (let i = 0; i < 3; i += 1) await calendarPush(k, []);
+    const [first] = emptyAsks(k);
+    await calendarPush(k, many(773));
+    expect(k.inbox.get(first!.id)).toMatchObject({ handled: "已作废", handledNote: "手机后来又交来了日程，这条不用处理了", read: true });
+    expect(() => answer(k, first!.id, PHONE_CALENDAR_EMPTY_ACTIONS.clear)).toThrow("手机后来又交来了日程，这条不用处理了");
+    expect(sourceOf(k, PHONE_CALENDAR_SOURCE).count).toBe(773);
+    // 新的一段，又问一次；断开（留着已导入的）
+    for (let i = 0; i < 3; i += 1) await calendarPush(k, []);
+    const second = emptyAsks(k).find((i) => i.id !== first!.id)!;
+    expect(second.handled).toBeUndefined();
+    await k.dataSources.act(PHONE_CALENDAR_SOURCE, { action: "disconnect", purge: false, idempotencyKey: key() });
+    expect(k.inbox.get(second.id)).toMatchObject({ handled: "已作废", handledNote: "手机日历已经断开，这条不用处理了" });
+    expect(calendarHeld(k.store)).toBeUndefined();
+    // 再连上；插件停着时回的
+    await calendarPush(k, many(773), { link: true });
+    for (let i = 0; i < 3; i += 1) await calendarPush(k, []);
+    const third = emptyAsks(k).find((i) => i.handled === undefined)!;
+    await k.settings.act("phone", { action: "disable", idempotencyKey: key() });
+    answer(k, third.id, PHONE_CALENDAR_EMPTY_ACTIONS.clear);
+    expect(currentCalendar(k.store).size).toBe(773);
+    await k.settings.act("phone", { action: "enable", idempotencyKey: key() });
+    expect(await calendarPush(k, [])).toMatchObject({ summary: "0 条日程（新 0、改 0、删 773）" });
+    expect(calendarHeld(k.store)).toBeUndefined();
+    // 移除并连数据删：这种待办一起删掉
+    await k.settings.act("phone", { action: "remove", purgeData: true, idempotencyKey: key() });
+    expect(emptyAsks(k)).toEqual([]);
     expect(k.store.read(PHONE_CHANNEL).every((e) => isDeletedEventPayload(e.payload))).toBe(true);
   });
 });

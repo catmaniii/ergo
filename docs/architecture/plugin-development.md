@@ -740,6 +740,7 @@ export function createClaudeCodePlugin(
     };
 ```
 
+- **设备交全量时，一次空的别当成全删了**：手机日历每次交同步范围里的全部日程，范围里没交的算手机上删了。可手机偶尔那一下读不到（App 在后台、系统没给），交来的是 0 条——原来有不少条（`PHONE_CALENDAR_HOLD_MIN`）的不删，记下这一段（`phone_calendar_held`，体检看它）；连着几次、或者隔了一天还是 0 条，在待办里问一次（通知 `phone_calendar_empty`，插件经 `KERNEL.inbox` 的 `onNoticeHandled` 听用户回的哪一个，放在 `ctx.effect` 里让停用时撤掉），回了"清空了"才删。少量的变化照常删。别的设备交全量的数据源照这个写。
 - **不进素材也能接**：数据源只产素材是说"要进记忆就走素材"；通讯录挑的人走个人档案的候选（用户逐条确认才写进档案）、日历走日历插件，都不进素材。断开并删时 `records` 照删，别的模块里从它来的东西由那个模块登记删除参与方（个人档案的候选就是这么删的）。
 - **网页那一半**：`dataSources` 插槽画按钮（在手机 App 里才有用，不在 App 里写明；照片、位置两块另写耗电和隐私说明），`background` 插槽两个后台部件（App 开着时定时同步）。原生桥的方法见 `frontend/harmony/entry/src/main/ets/bridge/NativeBridge.ets`，网页一侧的包装在 `packages/web/src/app/native-app.ts`。
 - **插件自己的一块设置（`panel` + `configure`）**："手机 · 位置"下面的"常去的地方"——`status()` 带 `panel`（协议包 `phone.ts` 的 `PhonePlacesView`，没连着也带），起名、改名、删经 `configure` 交来（`values.places` 是哪一样，同 Looki 的 `values.archive`），做不成的原因写进 `panel.refused`，不让 `configure` 回"出错"——内核会把出错的状态当成"填设置没过"一直挂在那一行上，而这种设置跟连没连上无关。数据存在插件自己的存储里的，"断开并删"时由插件的 `disconnect`（`purge`）一起删，并在 `disconnectNote` 里说一句。

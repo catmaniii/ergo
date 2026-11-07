@@ -212,6 +212,9 @@ export const EN_DATA: Phrases = {
   "二狗 App 需要升级到 0.4.1": "The ergo app needs updating to 0.4.1",
   "「备用手机 · 二狗 App（Android 14）」上的 App 是 0.4.0，这版二狗要 0.4.1 或更新的。点“去升级”下载或看教程，升级后这条自动消失。": 'The app on "Spare phone · ergo app (Android 14)" is 0.4.0. This version of ergo needs 0.4.1 or newer. Tap "Update the app" to download it or see the guide. This goes away once it\'s updated.',
   "备用手机 · 二狗 App（Android 14）": "Spare phone · ergo app (Android 14)",
+  "手机上的日程是不是真的清空了？": "Did you really clear the calendar on your phone?",
+  "手机最近连着 3 次交来的日程都是 0 条。以前同步来的 312 条先留着，没删。\n要是你在手机上真的清空了日历（或者删了日历账号、换了手机），点「清空了，删掉」；没有的话点「没清空，留着」，等手机下次读到日程再接着同步。":
+    "The last 3 syncs from your phone all came back with 0 events. The 312 events synced earlier are kept for now, not deleted.\nIf you really cleared the calendar on your phone (or removed the calendar account, or switched phones), tap “Yes, delete them”. If not, tap “No, keep them”, and syncing picks up again the next time the phone reads its events.",
   "华为 MatePad · 浏览器（HarmonyOS 6）": "Huawei MatePad · Browser (HarmonyOS 6)",
   "经隧道 · 198.51.100.7": "Via tunnel · 198.51.100.7",
   "家里的旧手机 · Chrome（Android 14）": "Old phone at home · Chrome (Android 14)",

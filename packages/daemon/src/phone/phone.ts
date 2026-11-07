@@ -3,11 +3,17 @@
 //   当场合成候选核对卡（还没处理的那张接着往里加），交回卡的编号让网页领着去核对；
 // - 手机日历：连着（用户在 App 里点了"连上手机日历"）时收同步范围里的全部日程，和现在的样子比出增量（新、改、删）写成
 //   phone_calendar_event；没授权、撤回了、读不了的记下状况和原因（数据源页写明）；日历插件按月取时给 [from, to) 里的日程。
+//   授权给着却交来 0 条、范围里原来有不少条（PHONE_CALENDAR_HOLD_MIN）的，多半是手机那一下没读到（App 在后台、系统没给），
+//   不删，记下这一段（phone_calendar_held，体检看它）；连着几次、或者隔了一天还是 0 条，在待办里问一次手机上是不是真的清空了，
+//   用户选"清空了，删掉"才删。这一段里一直当没读到，手机又交来了日程就过去了（没回的那条记成作废）。少量的变化照常删。
 // 数据源页的"共几条"：通讯录是挑过几个人（按记录数），日历是现在有几条日程（count）。
 // 照片的时间地点、位置在 photos-location.ts（插件自己的存储、按天整理成摘要），这里合进同一个服务。
 import { randomUUID } from "node:crypto";
 import {
   formatList,
+  inboxActionText,
+  type NoticeType,
+  PHONE_CALENDAR_EMPTY_ACTIONS,
   type PhoneCalendarEvent,
   type PhoneCalendarPush,
   type PhoneContact,
@@ -19,26 +25,49 @@ import {
 import type { DataSourceCalendarEvent, DataSourcePushOutcome, DataSourceStatus, DataSourceStoredQuery, DataSourceStoredResult } from "../data-sources/api.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
+import type { InboxService } from "../inbox/inbox.ts";
 import type { CandidateInput, PersonalFilesForMemory } from "../personal-files/index.ts";
 import { createPhoneMediaService, type PhoneMediaService } from "./photos-location.ts";
 import {
+  calendarHeld,
   calendarStatus,
   currentCalendar,
   livePayloads,
   PHONE_CALENDAR_EVENT,
+  PHONE_CALENDAR_HELD,
   PHONE_CALENDAR_STATUS,
   PHONE_CHANNEL,
   PHONE_CONTACT_PICKED,
   type PhoneCalendarEventPayload,
+  type PhoneCalendarHeld,
+  type PhoneCalendarHeldPayload,
   type PhoneCalendarStatusPayload,
   type PhoneContactPickedPayload,
 } from "./events.ts";
+
+/** 同步范围里原来至少有这么多条、这次交来 0 条：当成手机这一下没读到，先不删（比这少的照常删） */
+export const PHONE_CALENDAR_HOLD_MIN = 20;
+/** 连着交来 0 条到这么多次，或者从头一次起过了这么久（至少交来两次）：在待办里问一次手机上是不是真的清空了 */
+export const PHONE_CALENDAR_ASK_TIMES = 3;
+export const PHONE_CALENDAR_ASK_AFTER_MS = 24 * 60 * 60_000;
+/** 问用户的那种待办 */
+export const PHONE_CALENDAR_EMPTY_NOTICE: NoticeType = "phone_calendar_empty";
+/** 那条待办没回、这一段就过去了时系统替用户记的处理结果（按字认） */
+const VOIDED = "已作废"; // @i18n-ignore fixed：事项的处理结果按字认
+
+/** 一条日程的开始在不在 [from, to)（毫秒）里 */
+const startsIn = (event: PhoneCalendarEvent, from: number, to: number) => {
+  const start = Date.parse(event.start);
+  return start >= from && start < to;
+};
 
 export interface PhoneServiceOptions {
   store: EventStore;
   now: () => string;
   /** 个人档案收候选、合成候选核对卡（内核的，KERNEL.personalFiles） */
   personalFiles: Pick<PersonalFilesForMemory, "addCandidates" | "composeCandidates">;
+  /** 待办（内核的，KERNEL.inbox）：手机日历连着交来 0 条时问用户 */
+  inbox: Pick<InboxService, "buildAdd" | "buildUpdate" | "get">;
   /** 日历插件在不在（不在时"手机 · 日历"写明同步来的日程暂时看不到） */
   calendarOn: () => boolean;
   /** 现在（毫秒，守护进程的时钟；照片、位置按它分"今天以前"） */
@@ -61,6 +90,10 @@ export interface PhoneService extends PhoneMediaService {
   calendarCount(): number;
   /** 在数据源页断开了"手机 · 日历" */
   unlinkCalendar(): void;
+  /** 手机交来 0 条、日程先留着没删的那一段（体检看它）；没有是 undefined */
+  calendarHeld(): PhoneCalendarHeld | undefined;
+  /** 用户在待办里回了手机上的日程是不是真的清空了：cleared 为真是清空了（删掉留着的），否则接着留着 */
+  answerCalendarEmpty(itemId: string, cleared: boolean): void;
   /** 挑过的人（数据源详情的"已获取的"）：后挑的在前 */
   contactsStored(query: DataSourceStoredQuery): DataSourceStoredResult;
   /** 手机日历现在的日程（数据源详情的"已获取的"）：开始时间晚的在前 */
@@ -86,7 +119,7 @@ function cleanContact(c: PhoneContact): PhoneContact {
 const validTime = (iso: string) => !Number.isNaN(Date.parse(iso));
 
 export function createPhoneService(options: PhoneServiceOptions): PhoneService {
-  const { store, now, personalFiles, log } = options;
+  const { store, now, personalFiles, inbox, log } = options;
 
   const receiveContacts = (push: PhoneContactsPush): DataSourcePushOutcome => {
     const contacts = push.contacts.map(cleanContact).filter((c) => c.name !== "");
@@ -121,8 +154,54 @@ export function createPhoneService(options: PhoneServiceOptions): PhoneService {
     return { added: contacts.length, summary: t("phone.contacts.synced", { count: contacts.length, names: formatList(names) }), reply };
   };
 
-  const appendStatus = (status: Omit<PhoneCalendarStatusPayload, "at">) =>
-    store.append({ channel: PHONE_CHANNEL, type: PHONE_CALENDAR_STATUS, payload: { at: now(), ...status } satisfies PhoneCalendarStatusPayload });
+  const statusEvent = (status: Omit<PhoneCalendarStatusPayload, "at">): NewEvent => ({ channel: PHONE_CHANNEL, type: PHONE_CALENDAR_STATUS, payload: { at: now(), ...status } satisfies PhoneCalendarStatusPayload });
+  const appendStatus = (status: Omit<PhoneCalendarStatusPayload, "at">) => store.append(statusEvent(status));
+  const removeEvent = (key: string): NewEvent => ({ channel: PHONE_CHANNEL, type: PHONE_CALENDAR_EVENT, payload: { op: "remove", key } satisfies PhoneCalendarEventPayload });
+  /** 交来 0 条先没删的这一段（不给是这一段过去了） */
+  const heldEvent = (held?: PhoneCalendarHeld): NewEvent => ({ channel: PHONE_CHANNEL, type: PHONE_CALENDAR_HELD, payload: { at: now(), ...(held === undefined ? {} : { held }) } satisfies PhoneCalendarHeldPayload });
+
+  /** 这一段过去了：记下；问用户的那条还没回的记成作废（再点旧按钮回 note） */
+  const endHeld = (held: PhoneCalendarHeld, note: string): NewEvent[] => {
+    const item = held.itemId === undefined ? undefined : inbox.get(held.itemId);
+    const voided = item?.kind === "notice" && item.handled === undefined && !item.deleted ? [inbox.buildUpdate(item, { handled: VOIDED, handledAt: now(), handledNote: note, read: true }).event] : [];
+    return [heldEvent(), ...voided];
+  };
+
+  /** 用户在待办里已经选了"清空了，删掉"（插件停着时选的，监听没收到：下一次交来时照删） */
+  const confirmedCleared = (held: PhoneCalendarHeld | undefined): boolean => {
+    const item = held?.itemId === undefined ? undefined : inbox.get(held.itemId);
+    return item?.kind === "notice" && item.handled === PHONE_CALENDAR_EMPTY_ACTIONS.clear;
+  };
+
+  /**
+   * 交来 0 条、范围里留着 count 条：先不删，记下这一段（连着第几次、从什么时候起）；连着 PHONE_CALENDAR_ASK_TIMES 次，或者
+   * 从头一次起过了 PHONE_CALENDAR_ASK_AFTER_MS，在待办里问一次（一段只问一次）。events 是要一起写的（连接状况变了的那一条）
+   */
+  const holdEmpty = (window: { from: string; to: string }, count: number, events: NewEvent[]): DataSourcePushOutcome => {
+    const at = now();
+    const before = calendarHeld(store);
+    const since = before?.since ?? at;
+    const times = (before?.times ?? 0) + 1;
+    let itemId = before?.itemId;
+    if (itemId === undefined && (times >= PHONE_CALENDAR_ASK_TIMES || Date.parse(at) - Date.parse(since) >= PHONE_CALENDAR_ASK_AFTER_MS)) {
+      const { clear, keep } = PHONE_CALENDAR_EMPTY_ACTIONS;
+      const { item, event } = inbox.buildAdd({
+        kind: "notice",
+        notice: PHONE_CALENDAR_EMPTY_NOTICE,
+        title: t("phone.calendar.empty.title"),
+        body: t("phone.calendar.empty.body", { times, count, clear: inboxActionText(clear), keep: inboxActionText(keep) }),
+        source: t("phone.calendar.title"),
+        urgency: "non_blocking",
+        actions: [clear, keep],
+      });
+      itemId = item.id;
+      events.push(event);
+    }
+    events.push(heldEvent({ since, times, count, from: window.from, to: window.to, ...(itemId === undefined ? {} : { itemId }) }));
+    store.appendBatch(events);
+    log(`手机：手机日历交来 0 条，范围里原有 ${count} 条，当成这一下没读到、先不删（连着第 ${times} 次${itemId === before?.itemId ? "" : "，在待办里问了是不是真的清空了"}）`);
+    return { added: 0, summary: t("phone.calendar.held", { count }) };
+  };
 
   const receiveCalendar = (push: PhoneCalendarPush): DataSourcePushOutcome => {
     const status = calendarStatus(store);
@@ -147,7 +226,13 @@ export function createPhoneService(options: PhoneServiceOptions): PhoneService {
     const incoming = new Map<string, PhoneCalendarEvent>(push.events.map((e) => [e.key, e]));
     const events: NewEvent[] = [];
     if (!linked || status?.state !== "granted" || (push.device !== undefined && status.device !== push.device)) {
-      events.push({ channel: PHONE_CHANNEL, type: PHONE_CALENDAR_STATUS, payload: { at: now(), linked: true, ...(push.device === undefined ? {} : { device: push.device }), state: "granted" } satisfies PhoneCalendarStatusPayload });
+      events.push(statusEvent({ linked: true, ...(push.device === undefined ? {} : { device: push.device }), state: "granted" }));
+    }
+    // 交来 0 条：范围里原来不少、或者已经在"先没删"的这一段里，当成这一下没读到；用户在待办里确认过清空了的照删
+    const held = calendarHeld(store);
+    const inWindow = [...current.values()].filter(({ event }) => startsIn(event, from, to)).length;
+    if (incoming.size === 0 && (held !== undefined || inWindow >= PHONE_CALENDAR_HOLD_MIN) && !confirmedCleared(held)) {
+      return holdEmpty({ from: push.from, to: push.to }, inWindow, events);
     }
     let added = 0;
     let changed = 0;
@@ -169,13 +254,14 @@ export function createPhoneService(options: PhoneServiceOptions): PhoneService {
     }
     // 范围里没交的：手机上删了
     for (const [key, { event }] of current) {
-      if (incoming.has(key)) continue;
-      const start = Date.parse(event.start);
-      if (start < from || start >= to) continue;
+      if (incoming.has(key) || !startsIn(event, from, to)) continue;
       removed += 1;
-      events.push({ channel: PHONE_CHANNEL, type: PHONE_CALENDAR_EVENT, payload: { op: "remove", key } satisfies PhoneCalendarEventPayload });
+      events.push(removeEvent(key));
     }
+    // 先没删的那一段过去了：手机又交来了日程（或者用户确认过清空了）
+    if (held !== undefined) events.push(...endHeld(held, t("phone.calendar.empty.voidedBack")));
     if (events.length > 0) store.appendBatch(events);
+    if (held !== undefined) log(`手机：手机日历先前连着 ${held.times} 次交来 0 条、没删，这次交来 ${incoming.size} 条，接着照常同步`);
     log(`手机：手机日历交来 ${incoming.size} 条（新 ${added}、改 ${changed}、删 ${removed}）`);
     return { added: added + changed, summary: t("phone.calendar.synced", { total: incoming.size, added, changed, removed }) };
   };
@@ -241,7 +327,26 @@ export function createPhoneService(options: PhoneServiceOptions): PhoneService {
       return { total: events.length, items };
     },
     unlinkCalendar() {
-      if (calendarStatus(store)?.linked) appendStatus({ linked: false });
+      const events: NewEvent[] = [];
+      if (calendarStatus(store)?.linked) events.push(statusEvent({ linked: false }));
+      const held = calendarHeld(store);
+      if (held !== undefined) events.push(...endHeld(held, t("phone.calendar.empty.voidedUnlinked")));
+      if (events.length > 0) store.appendBatch(events);
+    },
+    calendarHeld: () => calendarHeld(store),
+    answerCalendarEmpty(itemId, cleared) {
+      const held = calendarHeld(store);
+      // 这一段已经过去了（手机又交来了、断开了）：那条已经作废，不再动
+      if (held === undefined || held.itemId !== itemId) return;
+      if (!cleared) {
+        log(`手机：用户说手机上的日程没清空，先前的 ${held.count} 条接着留着，等手机下次读到`);
+        return;
+      }
+      const from = Date.parse(held.from);
+      const to = Date.parse(held.to);
+      const removes = [...currentCalendar(store)].filter(([, { event }]) => startsIn(event, from, to)).map(([key]) => removeEvent(key));
+      store.appendBatch([...removes, heldEvent()]);
+      log(`手机：用户确认手机上的日程清空了，删掉 ${removes.length} 条`);
     },
   };
 }

@@ -1515,6 +1515,7 @@
   "ui.stageDetail.observed.other": "另外在本机做了：{list}（它们改了哪些文件，执行记录里看不到）",
   "ui.stageDetail.observed.note": "结果是系统从执行记录里汇总的，不看负责人怎么说；脚本、命令里面改的文件记不到。",
   "ui.inboxNotice.kind.reverifyFailed": "重做后复验没过",
+  "ui.inboxNotice.kind.phoneCalendarEmpty": "手机日历交来 0 条",
   "ui.inboxNotice.reverifyRedo": "把{stage}也重做…",
   "ui.stageDrawer.card.observed": "系统查到",
   "ui.stageDrawer.card.observedMismatch": "⚠ {n} 处和自报对不上",

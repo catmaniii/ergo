@@ -4,6 +4,8 @@
 // - phone_calendar_event：手机日历的一条日程变了——put（新的、改了的，带整条）、remove（范围里没了）。增量记，现在的样子按先后归并；
 //   数据源"手机 · 日历"拥有它；
 // - phone_calendar_status：手机日历连没连着、授权怎么样（给了、拒了、撤回了、读不了和原因）、哪台设备交的。数据源页的连接状态按最后一条。
+// - phone_calendar_held：手机交来 0 条、范围里原来有不少条时没删（当成这一下没读到），记下这一段从什么时候起、连着几次、留着几条、
+//   问用户的那条待办；按最后一条，不带 held 的是这一段过去了（手机又交来了日程、用户确认清空了删掉了、断开了）。
 // 都不进记忆素材（日历只给日历插件显示；通讯录挑的人只进档案候选，号码、住址本来就不进整理）。
 // 照片的时间地点、位置：
 // - phone_photos_day / phone_location_day：一天的照片、位置整理成的一条摘要（插件按天整理好再写，原始的时间地点、坐标点在插件自己的
@@ -19,6 +21,7 @@ export const PHONE_CHANNEL = "phone";
 export const PHONE_CONTACT_PICKED = "phone_contact_picked";
 export const PHONE_CALENDAR_EVENT = "phone_calendar_event";
 export const PHONE_CALENDAR_STATUS = "phone_calendar_status";
+export const PHONE_CALENDAR_HELD = "phone_calendar_held";
 export const PHONE_PHOTOS_DAY = "phone_photos_day";
 export const PHONE_PHOTOS_STATUS = "phone_photos_status";
 export const PHONE_LOCATION_DAY = "phone_location_day";
@@ -42,6 +45,27 @@ export interface PhoneCalendarStatusPayload {
   state?: PhoneCalendarState;
   /** 没授权、撤回了、读不了时 App 交来的原因 */
   reason?: string;
+}
+
+/** 手机交来 0 条、日程先留着没删的这一段 */
+export interface PhoneCalendarHeld {
+  /** 这一段头一次交来 0 条的时刻 */
+  since: string;
+  /** 连着交来 0 条几次 */
+  times: number;
+  /** 最近一次交来 0 条时，它的同步范围里留着几条 */
+  count: number;
+  /** 最近一次交来 0 条的同步范围（协议时间）：用户确认清空了，删这一段里的 */
+  from: string;
+  to: string;
+  /** 问用户"是不是真的清空了"的那条待办（一段只问一次） */
+  itemId?: string;
+}
+
+export interface PhoneCalendarHeldPayload {
+  at: string;
+  /** 不带是这一段过去了 */
+  held?: PhoneCalendarHeld;
 }
 
 /**
@@ -98,6 +122,11 @@ export function currentCalendar(store: Pick<EventStore, "read">): Map<string, { 
 /** 手机日历最后的状况（没有过是没连着） */
 export function calendarStatus(store: Pick<EventStore, "read">): PhoneCalendarStatusPayload | undefined {
   return livePayloads<PhoneCalendarStatusPayload>(store, PHONE_CALENDAR_STATUS).at(-1);
+}
+
+/** 手机交来 0 条、日程先留着没删的那一段（没有、已经过去了是 undefined） */
+export function calendarHeld(store: Pick<EventStore, "read">): PhoneCalendarHeld | undefined {
+  return livePayloads<PhoneCalendarHeldPayload>(store, PHONE_CALENDAR_HELD).at(-1)?.held;
 }
 
 /** 照片、位置最后的状况（没有过是没连着） */

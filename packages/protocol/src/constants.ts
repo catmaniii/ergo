@@ -1054,6 +1054,12 @@ export const NOTICE_TYPES = [
    * data 是 FolderGrantExpiringData
    */
   "folder_grant_expiring",
+  /**
+   * 手机日历交来的是空的：以前有不少条，连着几次（或者隔了一天）都交来 0 条，日程先留着没删，问用户手机上是不是真的清空了。
+   * 不卡任务；动作"清空了，删掉""没清空，留着"（PHONE_CALENDAR_EMPTY_ACTIONS），选了"清空了"才删；手机后来又交来了日程、
+   * 手机日历断开了时系统记成"已作废"
+   */
+  "phone_calendar_empty",
 ] as const;
 
 // 待我处理事项的动作按字认（存进事件、点了按字找处理的），不跟着语言变；界面上显示时用 inboxActionText 换成当前语言
