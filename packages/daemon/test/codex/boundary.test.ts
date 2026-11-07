@@ -71,7 +71,8 @@ describe("Codex 插件的边界", () => {
 
   it("插件不拥有数据：没有视图；数据契约里只登记 Codex 运行时（能力清单逐项写明、子进程入口是 child/main）", () => {
     expect(codexPlugin.views ?? []).toEqual([]);
-    expect(codexPlugin.needs ?? []).toEqual([KERNEL.oneShot]);
+    // 415：深度体检跑 codex login status 要守护进程自己的环境（KERNEL.env，测试里是临时的一份）
+    expect(codexPlugin.needs ?? []).toEqual([KERNEL.oneShot, KERNEL.env]);
     const registered: AgentRuntime[] = [];
     const touched: string[] = [];
     const record = (name: string) => () => {

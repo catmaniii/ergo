@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import { createDoctorChecks, type DoctorFinding } from "../../src/doctor/checks.ts";
 import { createDeepDoctor, DEEP_DOCTOR_MIN_GAP_MS, DeepDoctorTooSoon } from "../../src/doctor/deep.ts";
 import { judgeDatabase, judgeModelProbe, judgeSourceProbe, MODEL_PROBE_SLOW_MS, modelProbeFailure, registerDeepDoctorChecks } from "../../src/doctor/deep-checks.ts";
+import type { DataSourceDoctorFacts } from "../../src/data-sources/service.ts";
 import { createDoctor, type DoctorDeepCheck, type DoctorProbes } from "../../src/doctor/doctor.ts";
 import { integrityCheck, openDatabase } from "../../src/storage/sqlite.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
@@ -113,6 +114,28 @@ describe("深度体检：数据源测一下", () => {
     expect(judgeSourceProbe("looki", true, { ok: false, failure: "rate_limit", reason: "限速了", ms: 100 })).toMatchObject({ level: "warn", fact: { key: "doctor.sourceProbe.rateLimit" }, fix: { key: "doctor.fix.sourceProbe.rateLimit" } });
     expect(judgeSourceProbe("looki", false, undefined)).toEqual({ level: "na", fact: { key: "doctor.sourceProbe.notConnected" } });
   });
+
+  it("二狗替登记了 probe 的数据源生成「连一下」：只给在跑的插件；数据源到点没接住中止、原样抛出来的算到点没回（不是没查出来）", async () => {
+    const source = (id: string, owner: string, connection: "connected" | "not_connected") =>
+      ({ view: { id, title: id, plugin: owner, connection } as unknown as DataSourceDoctorFacts["view"], probeable: true }) satisfies DataSourceDoctorFacts;
+    let calls = 0;
+    const doctor = createDoctor({
+      probes,
+      plugins: () => [plugin("hang", "挂着的"), plugin("off-src", "停着的", "disabled")],
+      dataSources: () => [source("slow", "hang", "connected"), source("idle", "hang", "not_connected"), source("never", "off-src", "connected")],
+      probeSource: (_id, signal) => {
+        calls += 1;
+        // 不理时限，只在中止时原样抛出来
+        return new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason as Error), { once: true }));
+      },
+    });
+    const plan = doctor.deepPlan();
+    expect(plan.map((c) => `${c.group}:${c.id}`)).toEqual(["hang:probe:slow", "hang:probe:idle"]);
+    const [slow, idle] = await Promise.all(plan.map((c) => c.run()));
+    expect(slow).toMatchObject({ level: "warn", fact: { key: "doctor.sourceProbe.timeout" } });
+    expect(idle).toEqual({ level: "na", fact: { key: "doctor.sourceProbe.notConnected" } });
+    expect(calls).toBe(1);
+  }, 20_000);
 });
 
 const GOOD: { [Id in DoctorCheckId]: DoctorCheckDataById[Id] } = {

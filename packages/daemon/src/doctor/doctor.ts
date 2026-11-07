@@ -361,7 +361,18 @@ export function createDoctor(options: DoctorOptions): DoctorService {
       title: { key: "doctor.check.sourceProbe.title", params: { name: source.title } },
       cost: "deep",
       timeoutMs: SOURCE_PROBE_TIMEOUT_MS + 2_000,
-      run: async (signal) => judgeSourceProbe(source.id, connected, connected ? await probe(source.id, AbortSignal.any([signal, AbortSignal.timeout(SOURCE_PROBE_TIMEOUT_MS)])) : undefined),
+      run: async (signal) => {
+        if (!connected) return judgeSourceProbe(source.id, false, undefined);
+        const deadline = AbortSignal.timeout(SOURCE_PROBE_TIMEOUT_MS);
+        const started = Date.now();
+        try {
+          return judgeSourceProbe(source.id, true, await probe(source.id, AbortSignal.any([signal, deadline])));
+        } catch (err) {
+          // 数据源到点没接住中止、原样抛出来的：算到点没回
+          if (deadline.aborted) return judgeSourceProbe(source.id, true, { ok: false, failure: "timeout", reason: "", ms: Date.now() - started });
+          throw err;
+        }
+      },
     };
     return deepOf(check);
   };
