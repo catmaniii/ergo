@@ -51,7 +51,7 @@ describe("地图插件（假瓦片、假高德走真实装配路径）", () => {
 
     // 设置 · 数据源里填高德的 Key：先测再存
     const view = (await dataSourcesApi.view(td.url)).body.sources.find((s) => s.id === AMAP_SOURCE_ID)!;
-    expect(view).toMatchObject({ title: "高德地图", plugin: MAP_PLUGIN, pluginTitle: "地图", connection: "not_connected", configurable: true, usages: [] });
+    expect(view).toMatchObject({ title: "高德地图", plugin: MAP_PLUGIN, pluginTitle: "地图", connection: "not_connected", configurable: true, usages: [{ usage: "query", on: true }] });
     const configured = await dataSourcesApi.act(td.url, AMAP_SOURCE_ID, {
       action: "configure",
       values: { jsKey: AMAP_TEST_JS_KEY, securityCode: AMAP_TEST_SECURITY_CODE, serviceKey: AMAP_TEST_SERVICE_KEY },

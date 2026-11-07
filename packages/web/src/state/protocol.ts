@@ -721,6 +721,9 @@ export type { MapDayPhoto, MapDayPlace, MapDayPoint, MapDayStay, MapDayView } fr
 // 聊天里的地图卡片（431）：负载、点开去地图页的哪里、标题；查地点和路线查到的能画的那一份
 export { MAP_CARD_ITEM, mapCardPath, mapCardTitle, parseMapCardPath } from "@ergo/protocol";
 export type { MapCardMark, MapCardPayload, MapCardShow, MapDrawing } from "@ergo/protocol";
+// 查地点、算路线（432）：设置 · 数据源 · 高德地图那一块要的（Web 服务 Key 填了没有、这个月的用量）、查到的能画的那一份
+export { isAmapSourcePanel, MAP_ROUTE_MODES } from "@ergo/protocol";
+export type { AmapSourcePanel, AmapUsageView, MapLookupDrawing, MapLookupLine, MapLookupMark, MapRouteMode } from "@ergo/protocol";
 // 负责人背后的 agent
 export type { BackgroundAgentEntry, BackgroundAgentList, BackgroundAgentRow, BackgroundAgentState, BackgroundAgentStep, BackgroundAgentsEventPayload, BackgroundAgentTranscript } from "@ergo/protocol";
 // 工具调用的完整参数和返回（详情页按调用 id 现取）

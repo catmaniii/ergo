@@ -125,6 +125,12 @@ const SECRETARY_TOOLS = [
   "browse_click",
   "browse_element_content",
   "browse_element_download",
+  // 查地点、算路线、看常去的地方（地图插件自己登记，插件在运行就有；只读，不对卡片做动作，433）
+  "map_search_places",
+  "map_route",
+  "map_geocode",
+  "map_reverse_geocode",
+  "map_my_places",
 ].toSorted();
 
 describe("待我处理", () => {

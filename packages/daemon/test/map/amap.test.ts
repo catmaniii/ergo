@@ -14,7 +14,7 @@ async function setup() {
   const store = createDataSourceSecrets({ dir, log: (l) => logs.push(l) });
   const secrets = store.forSource("amap");
   const amap = createAmap({ hosts: fake.hosts, timeoutMs: 5000, secrets: () => secrets, log: (l) => logs.push(l) });
-  const service = createMapService({ tileDir: makeTempDir("ergo-amap-tiles-"), amapHosts: fake.hosts, timeoutMs: 5000, now: () => Date.now(), secrets: () => secrets, log: (l) => logs.push(l) });
+  const service = createMapService({ tileDir: makeTempDir("ergo-amap-tiles-"), mapDir: makeTempDir("ergo-amap-data-"), amapHosts: fake.hosts, timeoutMs: 5000, now: () => Date.now(), secrets: () => secrets, log: (l) => logs.push(l) });
   return { fake, secrets, amap, service, logs };
 }
 const live = () => new AbortController().signal;

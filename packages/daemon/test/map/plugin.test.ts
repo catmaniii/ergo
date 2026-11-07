@@ -37,7 +37,7 @@ describe("地图插件", () => {
   it("装上：提供地图服务，设置 · 数据源里有没连的\"高德地图\"，填 Key 先测再存，页面要的设置跟着有了 Key", async () => {
     const { k } = await setup();
     expect(k.host.running(MAP_PLUGIN)).toBe(true);
-    expect(source(k)).toMatchObject({ title: "高德地图", connection: "not_connected", usages: [] });
+    expect(source(k)).toMatchObject({ title: "高德地图", connection: "not_connected", usages: [{ usage: "query", on: true }] });
     const map = k.host.service(MAP)!;
     expect(map.config()).toEqual({});
     await k.dataSources.act(AMAP_SOURCE_ID, { action: "configure", values: { jsKey: AMAP_TEST_JS_KEY, securityCode: AMAP_TEST_SECURITY_CODE }, idempotencyKey: key() });
@@ -77,13 +77,13 @@ describe("地图插件", () => {
     expect(source(k).connection).toBe("not_connected");
   });
 
-  it("移除并连数据删：密钥区那一格、瓦片缓存、地图卡片删掉；确认框写明删什么、删不掉什么；带给秘书一个工具、一种卡片（431）", async () => {
+  it("移除并连数据删：密钥区那一格、瓦片缓存、用量、地图卡片删掉；确认框写明删什么、删不掉什么；给秘书查地点、算路线那几个工具（432）和画在地图上（431）、一种卡片", async () => {
     const { k } = await setup();
     await k.dataSources.act(AMAP_SOURCE_ID, { action: "configure", values: { jsKey: AMAP_TEST_JS_KEY, securityCode: AMAP_TEST_SECURITY_CODE }, idempotencyKey: key() });
     await k.host.service(MAP)!.tile({ source: "osm", z: 0, x: 0, y: 0 }, live());
     const info = k.host.info().find((p) => p.name === MAP_PLUGIN)!;
-    expect(info.brings).toEqual({ tools: ["画在地图上"], cards: ["聊天里的地图卡片"], jobs: [] });
-    expect(info.removal?.deletes).toEqual(["填过的高德 Key 和安全密钥", "缓存在这台电脑上的地图瓦片", "聊天里的地图卡片（卡上的标题、点和路线）"]);
+    expect(info.brings).toEqual({ tools: ["查地点", "查路线", "查地址在哪", "查某处的地址", "看常去的地方", "画在地图上"], cards: ["聊天里的地图卡片"], jobs: [] });
+    expect(info.removal?.deletes).toEqual(["填过的高德 Key 和安全密钥", "缓存在这台电脑上的地图瓦片", "记下的每月查地点、算路线的次数", "聊天里的地图卡片（卡上的标题、点和路线）"]);
     expect(info.removal?.keeps.join("\n")).toContain("聊天里说到过的地点");
     const result = await k.settings.act(MAP_PLUGIN, { action: "remove", purgeData: true, idempotencyKey: key() });
     expect(result.purged).toMatchObject({ events: 0, files: 2 });

@@ -1522,6 +1522,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         bindService(KERNEL.elementFiles, { toRemember: (ref, call) => plugins.service(BROWSING)?.elementToRemember(ref, call) }),
         // 地图插件要的：密钥区里它自己那个数据源（高德地图）的那一格，转发高德的请求时现取安全密钥
         bindService(KERNEL.dataSourceSecrets, { forSource: (id) => dataSourceSecrets.forSource(id) }),
+        // 地图插件要的：数据源的按需查开没开（查国内的地点前看高德的开关；工具由地图插件自己给）。数据源的服务建在插件之后：现转给它
+        bindService(KERNEL.dataSourceUsage, { on: (id, usage) => wiring.dataSources?.usageOn(id, usage) ?? false }),
       ],
       surfaces: {
         cardTypes: registry,

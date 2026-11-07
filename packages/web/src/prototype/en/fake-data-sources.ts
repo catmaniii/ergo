@@ -3,7 +3,17 @@ import type { Phrases } from "./phrases.ts";
 
 export const EN_DATA_SOURCES: Phrases = {
   "高德地图": "AMap",
-  "填了 Key，地图页在国内用高德地图（以后查地点、算路线也用它）。Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给高德": "With a key, the map page uses AMap inside mainland China (later, looking up places and routes will use it too). The key stays on this computer; where you went each day and where your photos were taken are never sent to AMap",
+  "填了 Key，地图页在国内用高德地图，查国内的地点、路线也用它（只在你问的时候把起点、终点、\"附近\"的那一处发给高德；没填时国内也用 OpenStreetMap 查，店名和小路可能不全）。Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给高德":
+    "With a key, the map page uses AMap inside mainland China, and looking up places and routes there uses it too (only when you ask, the start, the destination or the \"nearby\" spot goes to AMap; without a key, lookups in China also use OpenStreetMap, which may miss some shops and small roads). The key stays on this computer; where you went each day and where your photos were taken are never sent to AMap",
+  "试查：在北京搜「天安门」（固定的词，不是你的位置）": "Test: search “Tiananmen” in Beijing (a fixed word, not your location)",
+  "示例广场": "Sample Square",
+  "北京市东城区 · 示例长安街 1 号 · 风景名胜": "Dongcheng, Beijing · 1 Sample Chang'an Ave · Scenic spot",
+  "示例广场（东地铁站）": "Sample Square (East subway station)",
+  "北京市东城区 · 地铁 1 号线 · 地铁站": "Dongcheng, Beijing · Subway Line 1 · Subway station",
+  "示例城楼": "Sample Gate Tower",
+  "北京市东城区 · 示例长安街 · 风景名胜": "Dongcheng, Beijing · Sample Chang'an Ave · Scenic spot",
+  "通了：查地点、算路线能用。数据来自高德，现查的，不存": "It works: place and route lookups are ready. Data from AMap, looked up just now, not saved",
+  "这个月已查：搜地点 38 / 5000 次，地址和路线 212 / 150000 次（高德个人认证档每月的免费量，以高德控制台为准）": "This month: place searches 38 / 5000, addresses and routes 212 / 150000 (AMap's free monthly quota for verified individuals; the AMap console has the real numbers)",
   "地图": "Map",
   "填过的 Key 和安全密钥从这台电脑上删掉，地图页在国内改用 OpenStreetMap": "The key and security code are deleted from this computer; the map page uses OpenStreetMap inside China instead",
   "地图：已填 · 查地点和路线：已填": "Map: set · Places and routes: set",

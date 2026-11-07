@@ -6285,6 +6285,19 @@ button.ds-item {
 .looki-archive > .source-usage {
   padding: 4px 0;
 }
+/* 高德地图那一块里的"试查一下"（plugins/map/AmapTry.tsx，432）：和上面填 Key 的隔一条线；说明、查到的几行挨紧一点 */
+.amap-try {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.amap-try .amap-try-hint {
+  margin-top: 0;
+}
 .looki-subtitle {
   font-size: var(--fs-s);
   font-weight: 600;

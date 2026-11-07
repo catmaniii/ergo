@@ -37,7 +37,8 @@ export function createDataSourceRegistry(): DataSourceRegistry {
       if (entries.some((e) => e.source.id === source.id)) throw new Error(`数据源 ${source.id} 已经登记过了`);
       const wrong = (source.sensitive ?? []).filter((c) => !(SENSITIVE_CATEGORIES as readonly string[]).includes(c));
       if (wrong.length > 0) throw new Error(`数据源 ${source.id} 的敏感类别写错了：${wrong.join("、")}（认得的：${SENSITIVE_CATEGORIES.join("、")}）`);
-      if (source.usages.query && !source.tools) throw new Error(`数据源 ${source.id} 说能按需查，却没给 tools()`);
+      if (source.usages.query && !source.usages.query.ownTools && !source.tools) throw new Error(`数据源 ${source.id} 说能按需查，却没给 tools()`);
+      if (source.usages.query?.ownTools && source.tools) throw new Error(`数据源 ${source.id} 的按需查工具由插件自己给（ownTools），就别再给 tools()`);
       if (source.usages.import && !source.sync && !source.push && !(source.files && source.files.length > 0)) throw new Error(`数据源 ${source.id} 说能导入，却 sync()、push、认的文件一样都没给`);
       if (source.push && !source.usages.import) throw new Error(`数据源 ${source.id} 收设备交来的（push），却没说能导入`);
       for (const file of source.files ?? []) {

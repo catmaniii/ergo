@@ -11,7 +11,7 @@
 // 为语音插件的体检项加了语音在这台电脑上是怎么配的（组件页的功能门、服务管家里登记在某端口的服务、服务管家的网页、有没有 N 卡）。
 // 为地图插件加了数据源密钥区里自己那一格（转发高德的请求时拼安全密钥）。
 import type { ChatModel } from "@ergo/memory";
-import type { CalendarExternalEntry, MemoryBriefInput, MemoryBriefResult, MemoryHealth, MemoryItem, MemoryProviderInfo, MemoryRememberInput } from "@ergo/protocol";
+import type { CalendarExternalEntry, DataSourceUsage, MemoryBriefInput, MemoryBriefResult, MemoryHealth, MemoryItem, MemoryProviderInfo, MemoryRememberInput } from "@ergo/protocol";
 import type { HostToolCall } from "../agent-manager/host-tools.ts";
 import type { AgentRoles } from "../agent-roles/index.ts";
 import type { ElementToRemember } from "../browsing/api.ts";
@@ -134,6 +134,15 @@ export interface DataSourcePreSync {
 }
 
 /**
+ * 数据源的两种用法（按需查、导入）现在开没开：用户在 设置 · 数据源 里开关的，没开关过的按数据源登记的默认。
+ * 给"工具由插件自己给"的数据源（DataSource.usages.query.ownTools：地图插件的高德，433）在调用时看按需查的开关；
+ * 不认得的数据源、它没有这种用法的是 false。数据源的服务建在插件装配之后，组合根现转给它（还没起来时也是 false）
+ */
+export interface DataSourceUsageSwitch {
+  on(id: string, usage: DataSourceUsage): boolean;
+}
+
+/**
  * 记忆整理用的模型工厂：正式运行不给（记忆插件按 DEEPSEEK_API_KEY 建 DeepSeekChat）；
  * 测试给假的，守护进程里永远不连真的 DeepSeek。每次整理现叫一次，拿到的模型只给这一次用
  */
@@ -243,6 +252,8 @@ export const KERNEL = {
    * 地图插件转发高德的请求时拼安全密钥。只取自己的；取到的是现读的（填设置、断开之后马上跟着变），不打印、不交给页面
    */
   dataSourceSecrets: serviceKey<Pick<DataSourceSecretStore, "forSource">>("dataSourceSecrets"),
+  /** 数据源的按需查、导入现在开没开（见 DataSourceUsageSwitch）：地图插件查国内的地点前看高德的按需查开着没有 */
+  dataSourceUsage: serviceKey<DataSourceUsageSwitch>("dataSourceUsage"),
 } as const;
 
 /** 内核提供的全部服务（建插件宿主时交给它，排依赖用） */

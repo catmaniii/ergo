@@ -99,6 +99,10 @@ export function defineHostTool<S extends TSchema>(definition: {
   timeoutMs?: number;
   /** 参数要打码：参数里套着别的接口的参数、可能带着密钥，给人看的参数摘要先擦掉密钥类的值（见工具注册表的 maskArgs） */
   maskArgs?: boolean;
+  /** 要联网（守护进程替它连外面的服务，比如查高德地图）：联网开关关着时守卫直接拒绝（见工具注册表的 network） */
+  network?: boolean;
+  /** 联网只为取回东西、不把内容往外送（见工具注册表的 pullOnly）；带出去的查询词登记成 content 参数，守卫照样查里面有没有密钥 */
+  pullOnly?: boolean;
   run(args: Static<S>, call: HostToolCall): HostToolOutput | Promise<HostToolOutput>;
 }): HostTool {
   const checker = schemaChecker(definition.parameters);
@@ -115,6 +119,8 @@ export function defineHostTool<S extends TSchema>(definition: {
       ...(definition.modifiesWith === undefined ? {} : { modifiesWith: definition.modifiesWith }),
       ...(definition.recoveredByController === undefined ? {} : { recoveredByController: definition.recoveredByController }),
       ...(definition.maskArgs === undefined ? {} : { maskArgs: definition.maskArgs }),
+      ...(definition.network === undefined ? {} : { network: definition.network }),
+      ...(definition.pullOnly === undefined ? {} : { pullOnly: definition.pullOnly }),
     },
     spec: {
       name: definition.name,

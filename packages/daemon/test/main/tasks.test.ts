@@ -185,6 +185,12 @@ describe("发起任务的三条路", () => {
       "[tool] remember_memory",
       // 存外部信息（用户要把读到的邮件、网页……存进素材时）
       "[tool] ingest_material",
+      // 查地点、算路线、看常去的地方（地图插件自己登记，插件在运行就有；国内高德、国外 OpenStreetMap，433）
+      "[tool] map_search_places",
+      "[tool] map_route",
+      "[tool] map_geocode",
+      "[tool] map_reverse_geocode",
+      "[tool] map_my_places",
       // 画在地图上（地图插件，431：某一天的足迹、几个点、一条路线、查到的结果画成聊天里的地图卡片）
       "[tool] show_on_map",
       // 带参调一个登记过的 MCP 工具（登记过就调、不出卡，守卫照常判这次调用）

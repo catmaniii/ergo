@@ -84,7 +84,7 @@ export async function startPluginKernel(options: PluginKernelOptions) {
 
   // 宿主先建（排顺序、定谁不装），再按它收齐的视图打开事件存储——和组合根 daemon.ts 一样
   const extras = options.services ?? [];
-  const kernelKeys = [KERNEL.store, KERNEL.clock, KERNEL.scheduler, KERNEL.cards, KERNEL.inbox, ...extras.map((s) => s.key)];
+  const kernelKeys = [KERNEL.store, KERNEL.clock, KERNEL.scheduler, KERNEL.cards, KERNEL.inbox, KERNEL.dataSourceUsage, ...extras.map((s) => s.key)];
   const plugins = createPluginHost({ plugins: options.plugins, disabled: config.disabled, removed: config.removed, kernel: kernelKeys, log });
   const store = openEventStore({ file: path.join(dir, "ergo.db"), views: [cardsView, inboxView, internalJobsView, dataSourceQuietView, ...plugins.views()], dormantViews: plugins.dormantViews(), now, log });
 
@@ -155,6 +155,8 @@ export async function startPluginKernel(options: PluginKernelOptions) {
       bindService(KERNEL.scheduler, scheduler),
       bindService(KERNEL.cards, cards),
       bindService(KERNEL.inbox, inbox),
+      // 数据源的用法开关（和组合根一样现转给数据源那一层）
+      bindService(KERNEL.dataSourceUsage, { on: (id, usage) => dataSources.usageOn(id, usage) }),
       ...extras.map((s) => ({ key: s.key, value: s.make({ store, clock, dir }) })),
     ],
     surfaces: {
