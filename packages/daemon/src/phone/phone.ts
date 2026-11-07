@@ -34,6 +34,23 @@ import {
   type PhoneContactPickedPayload,
 } from "./events.ts";
 
+/**
+ * 手机交来 0 条日程的那一段（体检读，414）：这一段头一次交来 0 条的时刻、连着几次、原来有几条；kept 是先留着没删（425 的做法），
+ * 不是的是跟着删了
+ */
+export interface PhoneCalendarEmpty {
+  since: string;
+  times: number;
+  count: number;
+  kept: boolean;
+}
+
+/**
+ * 交来 0 条、一下删了不少于这么多条，体检才提示（414）：日程本来就几条、真的删光了的不算。425 合并后同样的门槛是 PHONE_CALENDAR_HOLD_MIN
+ * （不少于它的不再删，这里就记不到了），到时这一段记法可以去掉
+ */
+export const PHONE_CALENDAR_DROP_MIN = 20;
+
 export interface PhoneServiceOptions {
   store: EventStore;
   now: () => string;
@@ -61,6 +78,8 @@ export interface PhoneService extends PhoneMediaService {
   calendarCount(): number;
   /** 在数据源页断开了"手机 · 日历" */
   unlinkCalendar(): void;
+  /** 手机最近交来 0 条、一下删了不少日程的那一段（只在内存里，重启就没；手机又交来日程、断开了就过去了）：体检读（414） */
+  calendarEmpty(): PhoneCalendarEmpty | undefined;
   /** 挑过的人（数据源详情的"已获取的"）：后挑的在前 */
   contactsStored(query: DataSourceStoredQuery): DataSourceStoredResult;
   /** 手机日历现在的日程（数据源详情的"已获取的"）：开始时间晚的在前 */
@@ -87,6 +106,14 @@ const validTime = (iso: string) => !Number.isNaN(Date.parse(iso));
 
 export function createPhoneService(options: PhoneServiceOptions): PhoneService {
   const { store, now, personalFiles, log } = options;
+  /** 手机交来 0 条、一下删了不少的那一段（体检读；只在内存里） */
+  let emptied: PhoneCalendarEmpty | undefined;
+  /** 交来一次日历之后记一下：0 条、一下删了不少的开始一段，这一段里再交来 0 条接着数；交来了日程这一段就过去了 */
+  const noteCalendarSize = (total: number, removed: number) => {
+    if (total > 0) emptied = undefined;
+    else if (emptied) emptied = { ...emptied, times: emptied.times + 1, count: emptied.count + removed };
+    else if (removed >= PHONE_CALENDAR_DROP_MIN) emptied = { since: now(), times: 1, count: removed, kept: false };
+  };
 
   const receiveContacts = (push: PhoneContactsPush): DataSourcePushOutcome => {
     const contacts = push.contacts.map(cleanContact).filter((c) => c.name !== "");
@@ -176,6 +203,7 @@ export function createPhoneService(options: PhoneServiceOptions): PhoneService {
       events.push({ channel: PHONE_CHANNEL, type: PHONE_CALENDAR_EVENT, payload: { op: "remove", key } satisfies PhoneCalendarEventPayload });
     }
     if (events.length > 0) store.appendBatch(events);
+    noteCalendarSize(incoming.size, removed);
     log(`手机：手机日历交来 ${incoming.size} 条（新 ${added}、改 ${changed}、删 ${removed}）`);
     return { added: added + changed, summary: t("phone.calendar.synced", { total: incoming.size, added, changed, removed }) };
   };
@@ -241,7 +269,9 @@ export function createPhoneService(options: PhoneServiceOptions): PhoneService {
       return { total: events.length, items };
     },
     unlinkCalendar() {
+      emptied = undefined;
       if (calendarStatus(store)?.linked) appendStatus({ linked: false });
     },
+    calendarEmpty: () => emptied,
   };
 }
