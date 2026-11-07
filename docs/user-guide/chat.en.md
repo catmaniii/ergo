@@ -601,6 +601,8 @@ ergo no longer remembers what was said before. It doesn't forget work in progres
 
 A change applies without waiting for a new session: it's checked as soon as this turn ends. A number above what this model allows (the window minus 16384) can't be saved; if a switch to a smaller model puts it over, that limit is used and a line says why. When the last auto-compaction failed, this block says why and when it will try again. For agents run by Claude Code or Codex it's greyed out, since they handle compaction themselves.
 
+**Which call the usage comes from:** the most recent model call that succeeded. Calls that hit a provider error, were stopped for not responding, or that you stopped don't count, so it never shows 0 because of them.
+
 ## Troubleshooting
 
 | What you see | What's going on | What to do |
@@ -615,6 +617,8 @@ A change applies without waiting for a new session: it's checked as soon as this
 | Rollback says **… didn't stop this turn, so the rollback didn't happen** | ergo hasn't stopped yet | Try again in a moment |
 | Can't delete or archive in the Inbox | It's holding up a task | Handle it on the card first, or cancel that task |
 | Browser notifications don't arrive | Not allowed, or refused earlier | See [Browser notifications](#browser-notifications) |
+| A line at the end of the chat: **The model service is busy. Retrying (attempt 2)…** | The model provider is busy or returned an error, and ergo is retrying automatically, up to 3 times. A call that gets nothing back for 90 seconds is retried early instead of waiting | Wait a moment. The line goes away once it gets through |
+| **… couldn't reply this time: The model provider is busy; retried 3 times and it still failed …** | The retries ran out | Wait a bit and ask again, or switch to another model in [Settings · Models](settings.en.md#models) |
 
 ## Related chapters
 

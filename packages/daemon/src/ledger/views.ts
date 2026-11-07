@@ -8,7 +8,7 @@ import { CONTEXT_USAGE_EVENT, type ContextUsagePayload, LEDGER_CHANNEL, type Led
 
 export const ledgerView: DerivedView = {
   name: "token_ledger",
-  create: (db) =>
+  create: (db) => {
     db.exec(`
       CREATE TABLE IF NOT EXISTS token_ledger (
         global_seq INTEGER PRIMARY KEY,
@@ -24,19 +24,23 @@ export const ledgerView: DerivedView = {
         model TEXT NOT NULL,
         cache_hit INTEGER NOT NULL,
         cache_miss INTEGER NOT NULL,
-        output INTEGER NOT NULL
+        output INTEGER NOT NULL,
+        failed INTEGER NOT NULL DEFAULT 0
       );
       CREATE INDEX IF NOT EXISTS token_ledger_by_owner ON token_ledger (owner_kind, owner_id, stage_id);
       CREATE INDEX IF NOT EXISTS token_ledger_by_day ON token_ledger (day);
       CREATE INDEX IF NOT EXISTS token_ledger_by_agent ON token_ledger (agent_id, global_seq);
-    `),
+    `);
+    // 出错、被中止的调用（421）：旧库补上这一列。以前的事件没记成败，按"成了"算（0），⚙ 取的时候另把输入是 0 的排除
+    if (!db.all<{ name: string }>("PRAGMA table_info(token_ledger)").some((c) => c.name === "failed")) db.exec("ALTER TABLE token_ledger ADD COLUMN failed INTEGER NOT NULL DEFAULT 0");
+  },
   clear: (db) => db.exec("DELETE FROM token_ledger"),
   apply(db, event) {
     if (event.channel !== LEDGER_CHANNEL || event.type !== TOKEN_USAGE_EVENT) return;
     const p = event.payload as TokenUsagePayload;
     db.run(
-      `INSERT INTO token_ledger (global_seq, time, day, owner_kind, owner_id, stage_id, purpose, agent_id, role, session_id, model, cache_hit, cache_miss, output)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO token_ledger (global_seq, time, day, owner_kind, owner_id, stage_id, purpose, agent_id, role, session_id, model, cache_hit, cache_miss, output, failed)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       event.globalSeq,
       p.time,
       dayOf(p.time),
@@ -51,6 +55,7 @@ export const ledgerView: DerivedView = {
       p.tokens.cacheHit,
       p.tokens.cacheMiss,
       p.tokens.output,
+      p.failed ? 1 : 0,
     );
   },
 };
@@ -74,6 +79,7 @@ interface EntryRow {
   cache_hit: number;
   cache_miss: number;
   output: number;
+  failed: number;
 }
 
 function toEntry(r: EntryRow): LedgerEntry {
@@ -88,6 +94,7 @@ function toEntry(r: EntryRow): LedgerEntry {
     sessionId: r.session_id,
     model: r.model,
     tokens: { cacheHit: Number(r.cache_hit), cacheMiss: Number(r.cache_miss), output: Number(r.output) },
+    ...(Number(r.failed) === 1 ? { failed: true as const } : {}),
   };
 }
 
@@ -101,10 +108,12 @@ export function listEntries(db: ReadonlyDatabase, owner?: LedgerOwner | null): L
 /**
  * 某个 agent 最近的一条（⚙ 里的上下文用量、上次压缩）：只看这几种用途、全局序号大于 afterSeq 的（这段会话里的）；没有是 undefined
  */
-export function lastEntryOf(db: ReadonlyDatabase, agentId: string, purposes: readonly LedgerPurpose[], afterSeq = 0): LedgerEntry | undefined {
+export function lastEntryOf(db: ReadonlyDatabase, agentId: string, purposes: readonly LedgerPurpose[], afterSeq = 0, succeeded = false): LedgerEntry | undefined {
   if (purposes.length === 0) return undefined;
+  // 只要成了的：出错、被中止的不算；以前没记成败的，输入是 0 的（出错的那几次多半是 0）也不算
+  const ok = succeeded ? " AND failed = 0 AND cache_hit + cache_miss > 0" : "";
   const row = db.get<EntryRow>(
-    `SELECT * FROM token_ledger WHERE agent_id = ? AND global_seq > ? AND purpose IN (${purposes.map(() => "?").join(", ")}) ORDER BY global_seq DESC LIMIT 1`,
+    `SELECT * FROM token_ledger WHERE agent_id = ? AND global_seq > ? AND purpose IN (${purposes.map(() => "?").join(", ")})${ok} ORDER BY global_seq DESC LIMIT 1`,
     agentId,
     afterSeq,
     ...purposes,

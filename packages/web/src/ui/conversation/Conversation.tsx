@@ -56,6 +56,8 @@ import {
   type ChatItem,
   chatItems,
   maskUnavailable,
+  modelRetryIn,
+  type ModelRetryLine,
   type ConnectionStatus,
   type ConversationId,
   conversationRuntime,
@@ -108,6 +110,20 @@ const REVEAL_SETTLE_MS = 300;
 
 /** 用语音回复时会话末尾的提示 */
 const VOICE_PHASE_LABEL = tTable({ replying: "ui.conversation.voicePhase.replying", synthesizing: "ui.conversation.voicePhase.synthesizing" });
+
+/** 模型出错、正在自动重试时会话末尾那一行（按出错的种类说）：第几次 */
+const MODEL_RETRY_KEY = { busy: "ui.conversation.modelRetry.busy", timeout: "ui.conversation.modelRetry.timeout", error: "ui.conversation.modelRetry.error" } as const;
+
+function ModelRetryNote({ retry }: { retry: ModelRetryLine }) {
+  return (
+    <div className="msg assistant zh-tail">
+      <div className="model-retry muted" role="status">
+        <Icon name="reload" />
+        <span>{t(MODEL_RETRY_KEY[retry.kind], { attempt: retry.attempt })}</span>
+      </div>
+    </div>
+  );
+}
 
 interface ConversationProps {
   conversation: ConversationId;
@@ -215,6 +231,7 @@ function ConversationView({
   const future = useMemo(() => (workflowTaskId === undefined ? undefined : workflowFuture(ui, workflowTaskId, items)), [ui, workflowTaskId, items]);
   const futureRun = workflowTaskId === undefined ? undefined : workflowProgress(ui, workflowTaskId)?.run?.no;
   const voicePhase = agentVoicePhase(ui, conversation);
+  const modelRetry = modelRetryIn(ui, conversation);
   const streamingVoices = streamingAgentVoices(ui, conversation);
   const toast = useToast();
   // 缩小着时挂一层返回：鸿蒙的返回键先放大回对话层
@@ -400,6 +417,8 @@ function ConversationView({
                 <div className="voice-synth muted">{VOICE_PHASE_LABEL[voicePhase]}</div>
               </div>
             )}
+            {/* 模型出错、正在自动重试：一行小字，接着回出字来、这一轮结束就收起 */}
+            {modelRetry && <ModelRetryNote retry={modelRetry} />}
           </>
         }
         footer={

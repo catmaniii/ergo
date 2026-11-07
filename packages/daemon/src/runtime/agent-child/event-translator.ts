@@ -2,10 +2,11 @@
 // pi 的词汇（stopReason 等）在这里换成二狗自己的。
 // 用量：每条模型回复定稿时报一条；压缩会话（手动或自动）生成摘要的那次模型调用，在压缩结束时报一条（purpose: compaction）。
 // 压缩结束：每次都报一条 compacted（压好了、没什么可压的、被中止、没压成），pi 的说法在这里换成二狗的。
+// 自动重试：pi 要重试一次出错的模型调用之前（auto_retry_start）报一条 model_retry；出错、被中止的那次调用的用量带 failed。
 import type { AssistantMessage, StopReason as PiStopReason, Usage } from "@earendil-works/pi-ai";
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import { t, type ToolResultMedia } from "@ergo/protocol";
-import type { AgentReport, CompactedReport, FinalPart, StopReason, UsagePurpose } from "../host-protocol.ts";
+import type { AgentReport, CompactedReport, FinalPart, StopReason, UsagePurpose, UsageReport } from "../host-protocol.ts";
 
 export class EventTranslator {
   private messageSeq = 0;
@@ -48,6 +49,9 @@ export class EventTranslator {
         return;
       case "tool_execution_start":
         this.emit({ type: "tool_call_start", toolCallId: event.toolCallId, toolName: event.toolName, args: event.args });
+        return;
+      case "auto_retry_start":
+        this.emit({ type: "model_retry", attempt: event.attempt, maxAttempts: event.maxAttempts, delayMs: event.delayMs, error: event.errorMessage });
         return;
       case "compaction_end":
         // 压缩生成摘要的那次模型调用（pi 给了用量才报；中止、出错没有结果的不报）
@@ -99,11 +103,12 @@ export class EventTranslator {
     });
     this.provider = message.provider;
     this.modelId = message.model;
-    this.emitUsage(messageId, message.usage);
+    this.emitUsage(messageId, message.usage, undefined, stopReason === "error" || stopReason === "aborted");
   }
 
-  private emitUsage(messageId: string, usage: Usage, purpose?: UsagePurpose): void {
-    this.emit(usageReport(messageId, usage, { provider: this.provider, modelId: this.modelId }, purpose));
+  private emitUsage(messageId: string, usage: Usage, purpose?: UsagePurpose, failed = false): void {
+    const report = usageReport(messageId, usage, { provider: this.provider, modelId: this.modelId }, purpose);
+    this.emit(failed ? { ...report, failed: true } : report);
   }
 
   private messageId(): string {
@@ -116,7 +121,7 @@ export class EventTranslator {
  * pi 的用量 → 宿主协议的 usage（三块输入原样：cacheRead 命中，input 和 cacheWrite 没命中）。
  * 会话里的回复、压缩那次在这里报；范围审视在会话之外另开的那一次（scope-review.ts）也用它
  */
-export function usageReport(messageId: string, usage: Usage, model: { provider: string; modelId: string }, purpose?: UsagePurpose): AgentReport {
+export function usageReport(messageId: string, usage: Usage, model: { provider: string; modelId: string }, purpose?: UsagePurpose): UsageReport {
   return {
     type: "usage",
     messageId,

@@ -1,5 +1,8 @@
 {
   "conversation.unknownError": "未知错误",
+  "conversation.modelFailed.busy": "模型服务商那边忙，自动重试了 {count} 次还是没成（{error}）。可以等一会儿再问，或者在设置 · 模型里换一个模型",
+  "conversation.modelFailed.timeout": "模型一直没有回应，自动重试了 {count} 次还是没成（{error}）。服务商那边可能忙，可以等一会儿再问，或者在设置 · 模型里换一个模型",
+  "conversation.modelFailed.error": "模型服务出错，自动重试了 {count} 次还是没成（{error}）。服务商那边可能忙或出了问题，可以等一会儿再问，或者在设置 · 模型里换一个模型",
   "conversation.stoppedTurn": "你停止了这一轮",
   "conversation.session.who": "{name}（{agentId}）",
   "conversation.session.stopped": "{who}的会话已经停了",

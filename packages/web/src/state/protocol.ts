@@ -545,6 +545,9 @@ export type {
   ToolNature,
   TurnEndEventPayload,
   TurnStartEventPayload,
+  // 模型出错、正在自动重试（421）
+  ModelErrorKind,
+  ModelRetryEventPayload,
   // 停止和排队
   MessageQueueEventPayload,
   QueueChange,

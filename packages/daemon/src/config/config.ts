@@ -142,7 +142,8 @@ export interface ErgoConfig {
   approvalWaitMs: number;
   /**
    * agent 子进程的资源限制。配置里写 agents：maxLive（同时存活的子进程上限，默认 8）、idleMinutes（负责人闲置多久退出，
-   * 默认 10）、modelCallMinutes（单次模型调用超时，默认 5）、toolCallMinutes（单次工具调用的默认超时，默认 10）、
+   * 默认 10）、modelCallMinutes（单次模型调用超时，默认 5）、modelSilenceSeconds（一次模型调用多久一个字都没回来就中止、交给 pi 重试，
+   * 默认 90）、toolCallMinutes（单次工具调用的默认超时，默认 10）、
    * orphanSweepSeconds（多久回收一次孤儿进程，默认 60）、browserIdleMinutes（agent 开的 agent-browser 闲置多久回收，默认 30）
    */
   agentLimits: AgentLimits;
@@ -1122,6 +1123,7 @@ function parseAgentLimits(value: unknown, file: string): AgentLimits {
     maxLive,
     idleMs: duration("idleMinutes", 60_000, d.idleMs),
     modelCallMs: duration("modelCallMinutes", 60_000, d.modelCallMs),
+    modelSilenceMs: duration("modelSilenceSeconds", 1000, d.modelSilenceMs),
     toolCallMs: duration("toolCallMinutes", 60_000, d.toolCallMs),
     orphanSweepMs: duration("orphanSweepSeconds", 1000, d.orphanSweepMs),
     browserIdleMs: duration("browserIdleMinutes", 60_000, d.browserIdleMs),

@@ -1,5 +1,11 @@
 {
   "conversation.unknownError": "unknown error",
+  "conversation.modelFailed.busy_one": "The model provider is busy; retried {count} time and it still failed ({error}). Wait a bit and ask again, or switch to another model in Settings · Models",
+  "conversation.modelFailed.busy_other": "The model provider is busy; retried {count} times and it still failed ({error}). Wait a bit and ask again, or switch to another model in Settings · Models",
+  "conversation.modelFailed.timeout_one": "The model never responded; retried {count} time and it still failed ({error}). The provider may be busy: wait a bit and ask again, or switch to another model in Settings · Models",
+  "conversation.modelFailed.timeout_other": "The model never responded; retried {count} times and it still failed ({error}). The provider may be busy: wait a bit and ask again, or switch to another model in Settings · Models",
+  "conversation.modelFailed.error_one": "The model service returned an error; retried {count} time and it still failed ({error}). The provider may be busy or having problems: wait a bit and ask again, or switch to another model in Settings · Models",
+  "conversation.modelFailed.error_other": "The model service returned an error; retried {count} times and it still failed ({error}). The provider may be busy or having problems: wait a bit and ask again, or switch to another model in Settings · Models",
   "conversation.stoppedTurn": "You stopped this turn",
   "conversation.session.who": "{name} ({agentId})",
   "conversation.session.stopped": "{who}'s session has stopped",

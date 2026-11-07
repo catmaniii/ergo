@@ -606,7 +606,7 @@ function makeTestWebRoot(tempDir: (prefix: string) => string): string {
 }
 
 /** faux 模型：按剧本回话，不连网 */
-export function fauxModel(script: FauxStep[], options: { tokensPerSecond?: number; contextWindow?: number } = {}): FauxModelSpec {
+export function fauxModel(script: FauxStep[], options: { tokensPerSecond?: number; contextWindow?: number; retryDelayMs?: number } = {}): FauxModelSpec {
   return { kind: "faux", thinkingLevel: "off", script, ...options };
 }
 

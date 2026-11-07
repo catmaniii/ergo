@@ -139,6 +139,7 @@ import {
   type RuntimeSwitchState,
   type SeqRange,
   type SessionModelView,
+  type ModelRetryEventPayload,
   type TurnEndEventPayload,
   type TurnStartEventPayload,
   turnFailedNote,
@@ -159,6 +160,7 @@ import {
   type AgentReport,
   type CompactedReport,
   type InterruptedToolResult,
+  type ModelRetryReport,
   type ModelSpec,
   type NavigateTarget,
   REINJECTION_BLOCK_ID,
@@ -175,6 +177,7 @@ import { type InputGate, unattendedInputGate } from "./input-gate.ts";
 import { finalParts, quoteMessage } from "./agent-replies.ts";
 import { recordedSegment, recordedTranscript, unreviewedRanges } from "./recorded-transcript.ts";
 import { modelSwitchedNote, modelSwitchFailedNote, sameModel } from "./model-switch.ts";
+import { clipModelError, modelErrorKind, modelFailedReason } from "./model-errors.ts";
 import type { SkillCommand } from "../skills/skill-command.ts";
 import { ergoCommandsIn, type SlashConversationKind } from "../slash-commands/commands.ts";
 import { appendMessage, buildMessage, buildTimelineRecord, type MessageScope, newMessageId } from "./messages.ts";
@@ -546,6 +549,11 @@ export class AgentSession {
   private turnParts: { input: string; parts: MessagePart[] } | undefined;
   /** 正在生成的回复：子进程里的消息 id → 定稿后的消息 id（流式增量和定稿消息共用它） */
   private reply: { agentMessageId: string; messageId: string } | undefined;
+  /**
+   * 这一轮里模型调用出错、正在自动重试（421）：重试了几次（最近一条 model_retry 的 attempt）。接着回出字来、有一次调用成了就清掉；
+   * 这一轮以出错结束时还在，会话里那条说明写清是服务商那边的情况
+   */
+  private modelRetry: { attempt: number } | undefined;
   private spawns = 0;
   private crashes = 0;
   private retryTimer: NodeJS.Timeout | undefined;
@@ -1183,6 +1191,7 @@ export class AgentSession {
     const last = batch.at(-1)!;
     this.current = message.id;
     this.currentMore = batch.slice(1).map((m) => m.id);
+    this.modelRetry = undefined;
     this.inputScope = next.scope;
     this.setStatus("busy");
     // 工具包在 agent 闲着、休眠时变过：那句"工具包已变更"跟在这条输入后面
@@ -1679,13 +1688,18 @@ export class AgentSession {
         return;
       case "stream_delta":
         if (this.current === undefined || this.asking) return;
+        // 重试之后回出字来了：不再算在重试
+        this.modelRetry = undefined;
         options.streams.delta(options.conversation, this.replyIdFor(report.messageId), report.part === "thinking" ? "reasoning" : "text", report.delta);
         return;
+      case "model_retry":
+        return this.onModelRetry(report);
       case "message_final": {
         // 追问时它说的不进会话
         if (this.current === undefined || this.asking) return;
         const messageId = this.replyIdFor(report.messageId);
         this.endReply();
+        if (report.message.stopReason !== "error" && report.message.stopReason !== "aborted") this.modelRetry = undefined;
         const said = finalParts(report.message.parts);
         // 插件给这一轮回话的 part（记忆简报的结构化部分）放进这一轮有内容的第一条回话
         const extra = said.length > 0 && this.turnParts?.input === this.current ? this.takeTurnParts() : [];
@@ -1723,7 +1737,7 @@ export class AgentSession {
           this.yieldNotice = undefined;
         }
         // 没配模型 key 时 pi 报的是英文的"No API key found…/login…"，换成给人看的"还没配模型、去哪配"
-        if (report.outcome === "error") this.systemNote(turnFailedNote(options.displayName ?? options.label, this.missingKeyReason() ?? report.errorMessage ?? t("conversation.unknownError")));
+        if (report.outcome === "error") this.systemNote(turnFailedNote(options.displayName ?? options.label, this.missingKeyReason() ?? this.retriedReason(report.errorMessage) ?? report.errorMessage ?? t("conversation.unknownError")));
         const input = this.current;
         this.finishTurn(input, report.outcome, report.errorMessage);
         // 这一轮的回复交出去了：过了自动压缩点就记下要压（追问之后、下一条输入之前压）
@@ -1741,8 +1755,8 @@ export class AgentSession {
       case "compacted":
         return this.onCompacted(report);
       case "usage":
-        // 干活的那次调用的上下文（压缩、审视、交接摘要、分支摘要那几次不算）：每轮结束时拿它比自动压缩点
-        if (report.purpose === undefined) this.contextTokens = report.input + report.cacheRead + report.cacheWrite + report.output;
+        // 干活的那次调用的上下文（压缩、审视、交接摘要、分支摘要那几次不算；出错、被中止的不算，用量多半是 0）：每轮结束时拿它比自动压缩点
+        if (report.purpose === undefined && !report.failed) this.contextTokens = report.input + report.cacheRead + report.cacheWrite + report.output;
         return;
       case "session_navigated": {
         const waiting = this.navigations.get(report.requestId);
@@ -2160,6 +2174,34 @@ export class AgentSession {
     this.current = undefined;
     this.currentMore = [];
     this.turnParts = undefined;
+    this.modelRetry = undefined;
+  }
+
+  /**
+   * 模型调用出错、子进程要自动重试（421）：会话频道上记一条 model_retry（聊天里这一轮显示"正在重试（第 N 次）"的那行小字），
+   * 记下重试了几次。追问时的不记（它说的本来就不进会话）
+   */
+  private onModelRetry(report: ModelRetryReport): void {
+    const { options } = this;
+    const input = this.current;
+    if (input === undefined || this.asking) return;
+    this.modelRetry = { attempt: report.attempt };
+    const payload: ModelRetryEventPayload = {
+      inputMessageId: input,
+      attempt: report.attempt,
+      maxAttempts: Math.max(report.maxAttempts, report.attempt),
+      kind: modelErrorKind(report.error),
+      delayMs: Math.max(0, Math.round(report.delayMs)),
+      error: clipModelError(report.error, 300),
+    };
+    options.store.append({ channel: options.conversation, type: EVENT_TYPES.modelRetry, payload });
+    options.log(`${options.label}（${options.agentId}）模型调用出错，${Math.round(report.delayMs / 1000)} 秒后第 ${report.attempt} 次重试（最多 ${report.maxAttempts} 次）：${clipModelError(report.error)}`);
+  }
+
+  /** 这一轮自动重试过、最后还是出错结束：说明写清是服务商那边的情况、可以怎么办；没重试过的照旧写原文 */
+  private retriedReason(error: string | undefined): string | undefined {
+    if (!this.modelRetry || error === undefined) return undefined;
+    return modelFailedReason(error, this.modelRetry.attempt);
   }
 
   /**

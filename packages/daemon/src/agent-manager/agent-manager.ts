@@ -189,6 +189,11 @@ export interface AgentLimits {
   idleMs: number;
   /** 单次模型调用超时（毫秒） */
   modelCallMs: number;
+  /**
+   * 一次模型调用发出去多久一个字都没回来就提前重试（毫秒）：交给子进程（装配参数 silenceMs），子进程中止这一次、按出错交给 pi 重试；
+   * 中途收到内容就重新计时，慢慢输出的不砍。单次模型调用的超时照旧另算
+   */
+  modelSilenceMs: number;
   /** 单次工具调用的默认超时（毫秒）；工具可以声明更长（SpawnAgentRequest.toolTimeouts） */
   toolCallMs: number;
   /** 多久回收一次孤儿进程（毫秒） */
@@ -204,6 +209,7 @@ export const DEFAULT_AGENT_LIMITS: Readonly<AgentLimits> = Object.freeze({
   maxLive: 8,
   idleMs: 10 * 60_000,
   modelCallMs: 5 * 60_000,
+  modelSilenceMs: 90_000,
   toolCallMs: 10 * 60_000,
   orphanSweepMs: 60_000,
   browserIdleMs: 30 * 60_000,
@@ -666,6 +672,10 @@ class Entry implements ManagedAgent {
         // 要调用工具：等工具调用结束后才是下一次模型调用；一个工具都没列出的，下一次模型调用马上开始
         if (report.message.stopReason === "tool_calls" && !report.message.parts.some((p) => p.type === "tool_call")) this.armModel();
         break;
+      case "model_retry":
+        // 出错的那次定稿时计时停了：重试的这一次照样按单次模型调用的超时计（含重试前等的那几秒）
+        if (this.turnOpen && this.toolTimers.size === 0 && !this.timedOut) this.armModel();
+        break;
       case "tool_call_start":
         this.toolStarts.set(report.toolCallId, Date.now());
         this.lastToolActivity = Date.now();
@@ -1003,6 +1013,8 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         },
         ...(request.tempDir === undefined ? {} : { shellTempDir: request.tempDir }),
         heartbeatIntervalMs: request.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_MS,
+        // 太久没回应就提前重试（pi 跑的会话看它）
+        silenceMs: limits.modelSilenceMs,
         ...(request.scopeReview === undefined ? {} : { scopeReview: request.scopeReview }),
         // 写交接摘要也是一次模型调用：最多等单次模型调用的超时
         ...(request.handoff === undefined ? {} : { handoff: { instructions: request.handoff.instructions, timeoutMs: limits.modelCallMs } }),
