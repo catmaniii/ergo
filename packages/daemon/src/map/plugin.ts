@@ -10,6 +10,9 @@
 // - 停用时：页面、接口写"地图插件没启用"，排队等着取的瓦片不取了；Key 留在密钥区，启用后接着用。
 // - 我的足迹（430，day.ts）：GET /api/map/day 某一天的点、停留、照片地点、常去的地方，经"手机"插件的服务现算（可选依赖 wants：
 //   手机插件没启用时那一句写"手机插件没启用"，地图照样能看）；只在二狗里画，不发给任何地图服务。
+// - 聊天里的地图卡片（431）：给秘书的"画在地图上"（show-on-map.ts：某一天的足迹、一组点、一条路线、查地点和路线的结果），
+//   画成卡片类型 map（card.ts，数据契约：停用也认得）；查地点、算路线的结果按编号经 GET /api/map/drawing 取（drawing.ts，只在内存里）。
+//   移除并连数据删时地图卡片的每个版本也删掉。
 import path from "node:path";
 import { AMAP_SOURCE_ID, t } from "@ergo/protocol";
 import type { DataSource } from "../data-sources/api.ts";
@@ -17,9 +20,12 @@ import { PHONE } from "../phone/api.ts";
 import { type PluginDefinition, serviceKey } from "../plugins/host.ts";
 import { KERNEL } from "../plugins/kernel.ts";
 import type { AmapHosts } from "./amap.ts";
-import { MAP, MAP_DAY, MAP_PLUGIN } from "./api.ts";
+import { MAP, MAP_DAY, MAP_DRAWING, MAP_PLUGIN } from "./api.ts";
+import { mapCardType } from "./card.ts";
 import { createMapDay } from "./day.ts";
+import { createMapDrawings } from "./drawing.ts";
 import { createMapService, type MapPluginService } from "./service.ts";
+import { type MapLookups, showOnMapTool } from "./show-on-map.ts";
 
 /** 插件内部的服务（数据源的函数经它现取） */
 const MAP_INTERNAL = serviceKey<MapPluginService>("map-internal");
@@ -33,6 +39,11 @@ export interface MapPluginOptions {
   timeoutMs?: number;
   /** 瓦片缓存上限（字节） */
   tileCacheBytes?: number;
+  /**
+   * 查地点、算路线查到的能画的那几份（现取）：432 合进来以后换成它的 service.lookups（内存里那一份）；
+   * 在那之前只有测试经它给（"画在地图上"的 lookup、GET /api/map/drawing）
+   */
+  lookups?: () => MapLookups | undefined;
 }
 
 /** 移除并连数据删时删掉的：密钥区里高德那一格（和 data-dir.ts 的 dataSourceSecrets 一致）、瓦片缓存（和 mapTiles 一致） */
@@ -49,12 +60,12 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
       return t("map.plugin.summary");
     },
     get brings() {
-      return { tools: [], cards: [], jobs: [] };
+      return { tools: [t("map.tool.show")], cards: [t("map.plugin.card")], jobs: [] };
     },
-    needs: [KERNEL.clock, KERNEL.layout, KERNEL.dataSourceSecrets],
+    needs: [KERNEL.clock, KERNEL.layout, KERNEL.dataSourceSecrets, KERNEL.cards],
     // 我的足迹的数据在手机插件那里（可选：没有它地图照样能看）
     wants: [PHONE],
-    provides: [MAP, MAP_INTERNAL, MAP_DAY],
+    provides: [MAP, MAP_INTERNAL, MAP_DAY, MAP_DRAWING],
     contracts(ctx) {
       const source: DataSource = {
         id: AMAP_SOURCE_ID,
@@ -76,14 +87,17 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
         },
       };
       ctx.dataSources.register(source);
+      // 聊天里的地图卡片（431）：出来就是已处理、没有动作，停用了也照样显示
+      ctx.cardTypes.register(mapCardType());
       ctx.removal.declare({
         get deletes() {
-          return [t("map.plugin.purge.keys"), t("map.plugin.purge.tiles")];
+          return [t("map.plugin.purge.keys"), t("map.plugin.purge.tiles"), t("map.plugin.purge.cards")];
         },
         get keeps() {
           return [t("map.plugin.keep.chat")];
         },
         files: [SECRET_FILE, TILE_CACHE],
+        cardTypes: ["map"],
       });
     },
     setup(ctx) {
@@ -102,7 +116,18 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
       });
       ctx.provide(MAP, service);
       ctx.provide(MAP_INTERNAL, service);
-      ctx.provide(MAP_DAY, { day: createMapDay(() => ctx.optional(PHONE)) });
+      const day = createMapDay(() => ctx.optional(PHONE));
+      ctx.provide(MAP_DAY, { day });
+      // 聊天里的地图卡片（431）：查地点、算路线查到的那一份按编号取；秘书的"画在地图上"
+      const lookups = () => options.lookups?.();
+      ctx.provide(MAP_DRAWING, createMapDrawings(lookups));
+      // 插件停了、秘书还没按新的贡献重新装配的那一会儿再调：回"地图插件没启用"，不出卡
+      let running = true;
+      ctx.effect(() => () => {
+        running = false;
+      });
+      const tool = showOnMapTool({ running: () => running, day, lookups, cards: ctx.use(KERNEL.cards) });
+      ctx.agent.tools.register({ to: { agents: ["secretary"] }, tools: () => [tool] });
       // 停用时：排队等着取的瓦片不取了
       ctx.lifecycle({ stop: () => service.stop() });
     },

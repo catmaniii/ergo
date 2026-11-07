@@ -997,5 +997,12 @@
   "protocol.connectionAddress.invalid.credentials": "Don't put a user name or password in the address",
   "protocol.connectionAddress.invalid.httpsOnly": "It must be an https address: the phone app only accepts https",
   "protocol.connectionAddress.invalid.lan": "That address only works on this computer or your local network, so a phone outside can't use it. Enter an https address that opens from outside",
-  "protocol.mapDay.badDate": "The date must look like YYYY-MM-DD; got \"{date}\""
+  "protocol.mapDay.badDate": "The date must look like YYYY-MM-DD; got \"{date}\"",
+  "protocol.mapCard.title.day": "Where you went on {month}/{day}",
+  "protocol.mapCard.title.points_one": "{count} place marked",
+  "protocol.mapCard.title.points_other": "{count} places marked",
+  "protocol.mapCard.title.route": "A route",
+  "protocol.mapCard.title.places": "Places found",
+  "protocol.mapCard.title.lookupRoute": "Route found",
+  "protocol.mapCard.title.address": "Address found"
 }

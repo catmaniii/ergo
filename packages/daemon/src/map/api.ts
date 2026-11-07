@@ -4,8 +4,9 @@
 // - 网关的 /tiles/<源>/<z>/<x>/<y>：转发 OpenStreetMap 的瓦片（带缓存）；
 // - 网关的 /_AMapService/…：高德 JS API 的安全密钥代理（拼上安全密钥再转给高德）；
 // - GET /api/map/config：地图页现在能用什么（高德 Web 端的 Key；安全密钥不给）。
-// 另一个服务（430）"我的足迹"给 GET /api/map/day（和以后秘书的"画在地图上"）：某一天的点、停留、照片地点、常去的地方。
-import type { MapConfigView, MapDayView, MapTileAddress } from "@ergo/protocol";
+// 另一个服务（430）"我的足迹"给 GET /api/map/day（和秘书的"画在地图上"）：某一天的点、停留、照片地点、常去的地方。
+// 第三个（431）给 GET /api/map/drawing：聊天里的地图卡片按编号取查地点、算路线（432）查到的点和线。
+import type { MapConfigView, MapDayView, MapDrawing, MapTileAddress } from "@ergo/protocol";
 import { serviceKey } from "../plugins/host.ts";
 
 /** 插件名（配置 plugins.disabled 里写的、网页插件的名字） */
@@ -48,3 +49,15 @@ export interface MapDayService {
 
 /** 地图插件提供的"我的足迹"服务 */
 export const MAP_DAY = serviceKey<MapDayService>("map-day");
+
+/** 聊天里的地图卡片（431）：GET /api/map/drawing 用 */
+export interface MapDrawingService {
+  /**
+   * 查地点、算路线（432）那一次查到的能画的那一份（点、线，WGS-84）：只在内存里留一会儿（高德的协议不许存），
+   * 过期了、二狗重启过、没有这个编号抛 RequestRejected("not_found")（接口回 404 带这句）
+   */
+  drawing(lookup: string): MapDrawing;
+}
+
+/** 地图插件提供的"查到的能画的那一份"服务 */
+export const MAP_DRAWING = serviceKey<MapDrawingService>("map-drawing");

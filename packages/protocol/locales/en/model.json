@@ -113,5 +113,6 @@
   "model.cards.type.personalFileSuggest": "File suggestions",
   "model.cards.type.runtimeQuestion": "Runtime question",
   "model.cards.type.scheduleTask": "Scheduled task",
-  "model.cards.type.skillChange": "Skill change"
+  "model.cards.type.skillChange": "Skill change",
+  "model.cards.type.map": "Map"
 }

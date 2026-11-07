@@ -50,7 +50,7 @@ import { type BackupService, createBackupService } from "./backup/backup.ts";
 import type { SnapshotFiles } from "./backup/files.ts";
 import { BoardKindRegistry, type BoardKinds } from "./board/kinds.ts";
 import { CALENDAR } from "./calendar/api.ts";
-import { MAP, MAP_DAY } from "./map/api.ts";
+import { MAP, MAP_DAY, MAP_DRAWING } from "./map/api.ts";
 import { cardPurge, type CardService, createCardService } from "./cards/cards.ts";
 import { createRuntimeQuestions, runtimeQuestionCardType } from "./conversation/runtime-questions.ts";
 import { createSessionRollbacks, type RollbackSession, type SessionRollbackHook } from "./conversation/rollback.ts";
@@ -2834,6 +2834,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         map: { config: () => plugins.active(MAP).config() },
         // 我的足迹：同样是地图插件的服务、现取（它再现取手机插件的）；不联网
         mapDay: { day: (date) => plugins.active(MAP_DAY).day(date) },
+        // 地图卡片按编号取查地点、算路线查到的那一份：同样现取（只在地图插件的内存里）
+        mapDrawing: { drawing: (lookup) => plugins.active(MAP_DRAWING).drawing(lookup) },
         ledger,
         // 设置 · 语音（参考音色、两个模型的状态）、分段合成的段、Debug 工具集的语音组（经语音插件的服务现取）
         voice: () => plugins.service(VOICE),
