@@ -19,6 +19,7 @@
   "conversation.compaction.manual": "You tapped \"Compact now\"",
   "conversation.compaction.threshold": "The context was nearly at the model's limit, so it was compacted automatically",
   "conversation.compaction.overflow": "The context exceeded the model's limit, so it was compacted automatically and continued",
+  "conversation.compaction.auto": "The conversation passed its auto-compact point ({at} tokens), so it was compacted after the reply",
   "conversation.compaction.tokensUnit": "1000",
   "conversation.compaction.tokensLarge": "{n}K",
   "conversation.compaction.failed": "Compaction failed",

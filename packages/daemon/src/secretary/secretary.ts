@@ -34,7 +34,8 @@
 // 几件差不多同时做完的并成一条，秘书闲着才交——忙时排在这一轮后面、没起来时起来后再交），秘书在主线里说一声、问要不要念出来。
 // 负责人来信：负责人用 tell_secretary 发来的话（letters.ts）照同一套交给秘书（task-done.ts），秘书在主线里转告用户。
 // 主线靠自动压缩控制长度，压缩时用秘书专用的压缩指令（system-prompt.ts 的 secretaryCompactionInstructions）；
-// 压缩后还是同一条主线会话，看板变化照常追加。
+// 压缩后还是同一条主线会话，看板变化照常追加。自动压缩的点（420）是设置 · 模型里的默认（70 万）或秘书的 ⚙ 里单独设的：
+// 每轮回复交出去之后过了就压（AgentSession 的 autoCompact），pi 自己"窗口 − 16384"的那一道照旧兜底。
 //
 // 联网工具的说明跟着设置里的联网搜索队列写：设置改了，手头这一条处理完就按新的重新装配（秘书有 bash，说明里写 agent-browser 的位置）。
 //
@@ -59,7 +60,7 @@
 // 秘书会话的 ⚙（agent-settings/）：单独的提示词（追加在秘书的通用模板后面，或整份自己写）和改了系统提示一样，
 // 手头这一条处理完就按新的重新拉起（接着同一条主线会话），直接改了数据目录里那个文件也一样（revision 算上它）；
 // 清空当前对话是新开一条主线会话（AgentSession.clear：旧的聊天不删，看板变化照常追加，秘书照常能查看板）；"现在压缩"照旧用秘书专用的压缩指令。
-import { ASSISTANT_NAME_MARK, CHANNELS, defaultAssistantName, type MessagesPurgedEventPayload, type SessionModelView, t } from "@ergo/protocol";
+import { ASSISTANT_NAME_MARK, type AutoCompactSetting, CHANNELS, defaultAssistantName, type MessagesPurgedEventPayload, type SessionModelView, t } from "@ergo/protocol";
 import type { AgentContributions, ContributionTarget } from "../agent-host/contributions.ts";
 import type { AgentHandle } from "../agent-settings/index.ts";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
@@ -208,6 +209,11 @@ export interface SecretaryOptions {
   taskDone?: { clock: Clock; settleMs: number; outputsDir: string };
   /** 回复中用户发的话排的队（conversation/message-queue.ts）：这一轮结束时一起交出去；不给就没有 */
   queue?: QueueDelivery;
+  /**
+   * 秘书的自动压缩点（420，设置 · 模型里的默认、它的 ⚙ 里单独设的）：每轮结束时现取，过了就在回复交出去之后压缩（照带秘书的压缩指令）。
+   * 不给就只有 pi 自己"窗口 − 16384"的那一道
+   */
+  autoCompact?: () => AutoCompactSetting;
   log: (line: string) => void;
 }
 
@@ -315,6 +321,8 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     sessionRewriteFor: options.sessionRewriteFor,
     // 回复中用户发的话排的队：这一轮结束时一起交出去
     ...(options.queue ? { queue: options.queue } : {}),
+    // 自动压缩点：每轮结束时现取，过了就在回复交出去之后压缩
+    ...(options.autoCompact ? { autoCompact: options.autoCompact } : {}),
     // 语音回复、输入队列的挡板（语音插件在运行时由它回答）
     ...sessionVoice(options.sessionTools, true),
     inputContext: (message) => (message.speaker === "user" ? board.changesForInput() : undefined),

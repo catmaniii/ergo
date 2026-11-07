@@ -748,6 +748,9 @@ export type {
 } from "@ergo/protocol";
 // 每个 agent 的会话里的 ⚙：单独的提示词两种写法、怎么查（和守护进程同一个函数）、面板的样子
 export { AGENT_PROMPT_MODES, AGENT_PROMPT_STATE_LABEL, agentPromptProblem, PI_COMPACTION_DEFAULTS } from "@ergo/protocol";
+// 自动压缩点（420）：设置 · 模型里的默认、⚙ 里单独设的，生效的点怎么算、范围怎么查（和守护进程同一个函数）
+export { AUTO_COMPACT_DEFAULT, AUTO_COMPACT_MAX, AUTO_COMPACT_MIN, autoCompactDefaultOf, autoCompactLimit, autoCompactProblem, effectiveAutoCompact } from "@ergo/protocol";
+export type { AgentAutoCompactBody, AgentAutoCompactResult, AgentAutoCompactView, AutoCompactPoint, AutoCompactSetting, AutoCompactSource, ModelAutoCompactView } from "@ergo/protocol";
 export type {
   AgentClearKind,
   AgentCompactResult,

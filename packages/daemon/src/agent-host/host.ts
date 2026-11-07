@@ -33,7 +33,7 @@
 // 也不收插件的贡献（子 agent 的工具从负责人此刻的装配收窄）。
 import path from "node:path";
 import fs from "node:fs";
-import { maintainerChannel, type MessageScope, type MessagesPurgedEventPayload, PI_RUNTIME_ID, type PlanToolkit, type RuntimeChoice, t, type Task } from "@ergo/protocol";
+import { type AutoCompactSetting, maintainerChannel, type MessageScope, type MessagesPurgedEventPayload, PI_RUNTIME_ID, type PlanToolkit, type RuntimeChoice, t, type Task } from "@ergo/protocol";
 import type { AgentHandle } from "../agent-settings/index.ts";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
@@ -170,6 +170,11 @@ export interface AgentHostOptions {
    * 拉起时接上，卡上写它的运行时的名字。不给就不建提问卡（收到的 ask_user 没人回，子进程等到这一轮结束）
    */
   questions?: RuntimeQuestions;
+  /**
+   * 负责人的自动压缩点（420，设置 · 模型里的默认、它的 ⚙ 里单独设的）：会话每轮结束时按 agent id 现取，过了就在回复交出去之后压缩
+   * （pi 跑的才这样；Claude Code、Codex 自己管压缩）。不给就只有 pi 自己"窗口 − 16384"的那一道
+   */
+  autoCompact?: (agentId: string) => AutoCompactSetting;
   log: (line: string) => void;
 }
 
@@ -490,6 +495,8 @@ function hostedSession(options: AgentHostOptions, config: HostedSessionConfig, o
       : {}),
     // 换模型就新开会话、附交接摘要：交接摘要的写法照 prompts/handoff-summary.md
     ...(switchModel ? { modelSwitch: { instructions: () => handoffInstructions(options.prompts), allowed: switchModel, wanted: () => model(spawns) } } : {}),
+    // 自动压缩点：每轮结束时按 agent id 现取（子进程跑的不是 pi 时会话自己不管）
+    ...(options.autoCompact ? { autoCompact: () => options.autoCompact!(config.agentId) } : {}),
     // 斜杠命令原样转交：子进程的运行时能力清单里 slash_passthrough 是 true 的（Claude Code）
     ...(gate ? { slashPassthrough: (runtime: string) => gate.supports(runtime, "slash_passthrough") } : {}),
     // 撤回时的分支摘要：能力清单里 branch_summary 是 false 的运行时（Claude Code）由二狗按自己记下的事件、用负责人的二狗模型写

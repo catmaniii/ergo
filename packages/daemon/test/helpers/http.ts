@@ -393,6 +393,9 @@ export const agentSettingsApi = {
   /** 用哪个运行时、给它选的值 */
   runtime: (baseUrl: string, agentId: string, body: AgentRuntimeBody | Record<string, unknown>) =>
     requestJson<AgentSettingsView & HttpErrorBody>(baseUrl, HTTP_PATHS.agentRuntime(agentId), { method: "PUT", body }),
+  /** 单独设自动压缩点（420）：给 undefined 是恢复跟随设置 · 模型里的默认；给对象原样发 */
+  autoCompact: (baseUrl: string, agentId: string, at: number | Record<string, unknown> | undefined) =>
+    requestJson<AgentSettingsView & HttpErrorBody>(baseUrl, HTTP_PATHS.agentAutoCompact(agentId), at === undefined ? { method: "DELETE" } : { method: "PUT", body: typeof at === "number" ? { at } : at }),
   /** 接管来的会话交还 / 收回 */
   takeover: (baseUrl: string, agentId: string, action: TakeoverAction) =>
     requestJson<AgentSettingsView & HttpErrorBody>(baseUrl, HTTP_PATHS.agentTakeover(agentId), { method: "POST", body: { action } }),

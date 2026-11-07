@@ -87,6 +87,11 @@
 //   - 现在压缩（compactNow）：手头这一条处理完（没有子进程先拉起）送 compact，压缩时不交新的输入、不闲置退出，压完（compacted）记下结果；
 //   - 每次压缩压好了（自动的、手动的都算），时间线上记一笔"这里压缩过一次"（timeline_record，种类 compaction）；
 //   - 子进程就绪时报的上下文窗口和压缩设置记着（context），⚙ 里的上下文用量按它算。
+// -（自动压缩点，420，给了 autoCompact 时）：pi 跑的会话每轮结束（turn_end 已经追加、回复已经交出去）后，拿这段会话最近一次干活的
+//   模型调用报的上下文（用量报告：缓存命中 + 未命中 + 输出）比这个 agent 此刻的压缩点（现取，按窗口夹过），超过就压缩——和"现在压缩"
+//   同一条路（送 compact，秘书的压缩指令照带），排在这一轮的追问之后、下一条输入之前，压完再交下一条。不靠改 pi 的 reserveTokens
+//   （它还管摘要能写多长），pi 自己"窗口 − 16384"的自动压缩照旧是最后一道。没压成不连环重试：记下结果，等一段时间（auto-compact.ts）
+//   之后到了某一轮结束才再试；压缩时子进程退出（超时被结束）也算没压成。上次自动压缩的结果（二狗起的、pi 自己起的）给 ⚙ 和体检看。
 // -（会话回退）：navigateSession——先停稳手头这一轮（照 stopTurn：abort 再等它结束），
 //   拦着不交排队的消息、不开始下一条输入，子进程在会话树上挪（宿主协议的 navigate_session：回到某条输入之前、写分支摘要、叶子落盘），
 //   挪成了由调用方（rollback.ts）在同一段里把分支事件写进事件日志，然后放开：排着的消息交给新分支。休眠的、正在重新拉起的先拉起来再挪。
@@ -114,9 +119,12 @@
 //     写法（runtimeSlash：Claude Code 的 /ergo:<目录名>，agent-input.ts）。
 import { randomUUID } from "node:crypto";
 import {
+  type AgentAutoCompactResult,
   type AgentCompactionState,
   type AgentCompactResult,
+  type AutoCompactSetting,
   type BranchFilesRewind,
+  effectiveAutoCompact,
   type ConversationId,
   EVENT_TYPES,
   type LedgerOwner,
@@ -162,6 +170,7 @@ import {
 import { RequestRejected } from "../errors.ts";
 import { providerOf } from "../model-settings/providers.ts";
 import { type AgentInputContext, prepareAgentInput } from "./agent-input.ts";
+import { afterAutoCompact, autoCompactDue, type AutoCompactState } from "./auto-compact.ts";
 import { type InputGate, unattendedInputGate } from "./input-gate.ts";
 import { finalParts, quoteMessage } from "./agent-replies.ts";
 import { recordedSegment, recordedTranscript, unreviewedRanges } from "./recorded-transcript.ts";
@@ -218,6 +227,8 @@ export interface AgentSessionPanel {
   model: SessionModelView | undefined;
   /** 正在换运行时：换成哪个、到哪了；没在换是 undefined */
   runtimeSwitch: { to: string; state: RuntimeSwitchState } | undefined;
+  /** 自动压缩（420）：上次的结果、连续没压成几次、没压成之后下次最早什么时候再试（守护进程这次起来以后的） */
+  autoCompact: { last?: AgentAutoCompactResult; failures: number; retryAt?: string };
 }
 
 /**
@@ -419,6 +430,11 @@ export interface AgentSessionOptions {
    */
   recordedScopeReview?(runtime: string): boolean;
   /**
+   * 自动压缩点（420，见文件开头）：这个 agent 此刻设的压缩点（设置 · 模型里的默认、⚙ 里单独设的），每轮结束时现取——改了从这一轮结束起
+   * 就按新的判断，不等新会话。不给就只有 pi 自己"窗口 − 16384"的那一道
+   */
+  autoCompact?(): AutoCompactSetting;
+  /**
    * 斜杠命令原样转交的运行时里二狗 skill 的写法：skillCommands 给这次装配的 skill 目录在运行时里的命令名（不带 /，一一对应；Claude Code 是
    * ergo:<目录名>），commands 是运行时自己的命令名（同名时运行时的优先，不换）。拉起时按子进程的运行时问一句；不给、回 undefined 是不换
    */
@@ -595,6 +611,17 @@ export class AgentSession {
   /** 送了 compact、还没压完：放开不闲置退出 */
   private compacting: (() => void) | undefined;
   private lastCompact: AgentCompactResult | undefined;
+  /** 过了自动压缩点（420）：这一轮的追问之后、下一条输入之前压；at 是那时的压缩点、used 是那时的用量（时间线、日志里写） */
+  private autoCompactWanted: { at: number; used: number } | undefined;
+  /** 正在压的这一次是自动压缩（不是"现在压缩"）：压完记进 autoCompactState，不记 lastCompact */
+  private compactingAuto: { at: number; used: number } | undefined;
+  /** 自动压缩：上次的结果、连续没压成几次、下次最早什么时候再试 */
+  private autoCompactState: AutoCompactState = { failures: 0 };
+  /**
+   * 这段会话最近一次干活的模型调用的上下文（子进程报的用量：缓存命中 + 未命中 + 输出，和 pi 算的、⚙ 上显示的一样）；
+   * 换了子进程、压好了之后还没调用过模型时是 undefined
+   */
+  private contextTokens: number | undefined;
   /** 最近一次就绪时报的上下文窗口和压缩设置 */
   private contextInfo: SessionContextInfo | undefined;
   /** 现在的子进程手里通用贡献清单里插件那几项的文字（id → 文字）：交每条输入之前比一比，变了先送 */
@@ -683,6 +710,11 @@ export class AgentSession {
       context: this.contextInfo,
       model: this.model,
       runtimeSwitch: this.runtimeWanted && { to: this.runtimeWanted.to, state: this.runtimeWanted.state },
+      autoCompact: {
+        ...(this.autoCompactState.last ? { last: { ...this.autoCompactState.last } } : {}),
+        failures: this.autoCompactState.failures,
+        ...(this.autoCompactState.retryAt === undefined ? {} : { retryAt: nowIso(new Date(this.autoCompactState.retryAt)) }),
+      },
     };
   }
 
@@ -1118,6 +1150,8 @@ export class AgentSession {
     if (this.compactWanted) return this.compactWhenIdle();
     if (this.options.canProcess && !this.options.canProcess()) return this.dropFollowUp();
     if (this.followUp) return this.askFollowUp(this.followUp);
+    // 过了自动压缩点（420）：这一轮的回复已经交出去、追问也做完了，下一条输入之前压
+    if (this.autoCompactWanted) return this.compactWhenIdle();
     const { store, conversation } = this.options;
     const next = this.nextInput();
     if (!this.proc) {
@@ -1381,18 +1415,31 @@ export class AgentSession {
     this.options.log(`${this.options.label}（${this.options.agentId}）清空了当前对话：新开一段会话 ${this.freshSession}`);
     this.pendingNotice = undefined;
     this.compactWanted = false;
+    this.autoCompactWanted = undefined;
     this.switchTriedFor = undefined;
     this.dropFollowUp();
     this.stale = true;
     this.restartWhenIdle();
   }
 
-  /** 闲着时现在压缩：没有子进程先拉起，就绪了送 compact；压缩时拿着不闲置退出，压完（compacted）放开 */
+  /**
+   * 闲着时压缩（"现在压缩"、过了自动压缩点）：没有子进程先拉起，就绪了送 compact；压缩时拿着不闲置退出，压完（compacted）放开。
+   * 两个都要时按"现在压缩"压一次（结果记在 lastCompact）。自动的不为它拉起子进程：子进程已经没了（闲置退出、被结束）就不压，
+   * 下一轮结束时再看
+   */
   private compactWhenIdle(): void {
     if (this.reviews?.inFlight) return;
-    if (!this.proc) return this.spawn();
+    const auto = this.compactWanted ? undefined : this.autoCompactWanted;
+    if (!this.proc) {
+      if (auto === undefined) return this.spawn();
+      this.autoCompactWanted = undefined;
+      return this.pump();
+    }
     if (!this.ready || this.proc.state !== "running") return;
     this.compactWanted = false;
+    this.autoCompactWanted = undefined;
+    this.compactingAuto = auto;
+    if (auto) this.options.log(`${this.options.label}（${this.options.agentId}）这段对话用到 ${auto.used} token，过了自动压缩点 ${auto.at}：这一轮的回复已经交出去，接着压缩`);
     const proc = this.proc;
     this.compacting = proc.holdAwake("compact");
     this.setStatus("busy");
@@ -1403,18 +1450,31 @@ export class AgentSession {
     }
   }
 
-  /** 压缩结束了：压好了在时间线上记一笔；是"现在压缩"要的就记下结果、接着处理排着的输入 */
+  /**
+   * 压缩结束了：压好了在时间线上记一笔、用量等下一次调用；自动压缩（二狗按压缩点起的、pi 自己到了窗口边上起的）记下结果；
+   * 是这边送的 compact 要的（"现在压缩"、自动压缩）就放开、接着处理排着的输入
+   */
   private onCompacted(report: CompactedReport): void {
+    // 这边送的 compact 子进程报的都是 manual：二狗按压缩点起的另记
+    const auto = report.reason === "manual" && this.compacting ? this.compactingAuto : undefined;
     if (report.outcome === "done") {
-      const detail =
-        report.tokensBefore === undefined
-          ? t("conversation.compaction.detail", { why: COMPACTION_REASON_TEXT[report.reason] })
-          : t("conversation.compaction.detailWithTokens", { why: COMPACTION_REASON_TEXT[report.reason], tokens: tokensText(report.tokensBefore) });
+      this.contextTokens = undefined;
+      const why = auto ? t("conversation.compaction.auto", { at: tokensText(auto.at) }) : COMPACTION_REASON_TEXT[report.reason];
+      const detail = report.tokensBefore === undefined ? t("conversation.compaction.detail", { why }) : t("conversation.compaction.detailWithTokens", { why, tokens: tokensText(report.tokensBefore) });
       const { event } = buildTimelineRecord(this.options.conversation, { kind: "compaction", summary: t("conversation.compaction.summary"), detail }, this.scope());
       this.options.store.append(event);
     }
+    if (auto || report.reason !== "manual") {
+      this.recordAutoCompact({
+        outcome: report.outcome,
+        by: auto ? "ergo" : "pi",
+        ...(report.tokensBefore === undefined ? {} : { tokensBefore: report.tokensBefore }),
+        ...(report.outcome === "failed" ? { message: report.error ?? t("conversation.compaction.failed") } : report.outcome === "aborted" ? { message: t("conversation.compaction.aborted") } : {}),
+      });
+    }
     if (report.reason !== "manual" || !this.compacting) return;
-    this.endCompaction({ outcome: report.outcome === "done" ? "done" : report.outcome === "nothing" ? "nothing" : "failed", at: nowIso(), ...(report.outcome === "failed" ? { message: report.error ?? t("conversation.compaction.failed") } : report.outcome === "aborted" ? { message: t("conversation.compaction.aborted") } : {}) });
+    if (auto) this.endAutoCompaction();
+    else this.endCompaction({ outcome: report.outcome === "done" ? "done" : report.outcome === "nothing" ? "nothing" : "failed", at: nowIso(), ...(report.outcome === "failed" ? { message: report.error ?? t("conversation.compaction.failed") } : report.outcome === "aborted" ? { message: t("conversation.compaction.aborted") } : {}) });
     this.setStatus("idle");
     this.pump();
   }
@@ -1423,7 +1483,40 @@ export class AgentSession {
   private endCompaction(result: AgentCompactResult): void {
     this.compacting?.();
     this.compacting = undefined;
+    this.compactingAuto = undefined;
     this.lastCompact = result;
+  }
+
+  /** 二狗起的自动压缩结束：放开不闲置退出（结果已经记在 autoCompactState） */
+  private endAutoCompaction(): void {
+    this.compacting?.();
+    this.compacting = undefined;
+    this.compactingAuto = undefined;
+  }
+
+  /** 记下一次自动压缩的结果；没压成的往后推下次再试的时间、记一行日志（不连环重试） */
+  private recordAutoCompact(result: Parameters<typeof afterAutoCompact>[1]): void {
+    const now = Date.now();
+    this.autoCompactState = afterAutoCompact(this.autoCompactState, result, now, nowIso(new Date(now)));
+    const { retryAt, failures } = this.autoCompactState;
+    const who = `${this.options.label}（${this.options.agentId}）`; // @i18n-ignore log：只进日志
+    if (result.outcome === "failed") {
+      this.options.log(`${who}的自动压缩没成（${result.by === "ergo" ? "二狗按压缩点起的" : "pi 自己到了窗口边上起的"}，连续第 ${failures} 次）：${result.message ?? ""}；${retryAt === undefined ? "" : `${nowIso(new Date(retryAt))} 之前不再试，之后到了某一轮结束再看`}`);
+    } else if (result.outcome === "nothing") {
+      this.options.log(`${who}过了自动压缩点，但没什么可压的；${retryAt === undefined ? "" : `${nowIso(new Date(retryAt))} 之后再看`}`);
+    }
+  }
+
+  /**
+   * 这一轮结束了（turn_end 已经追加、回复已经交出去）：pi 跑的会话比一下最近一次调用的上下文和这个 agent 此刻的压缩点（现取，按窗口夹过），
+   * 超过了、又不在没压成之后等着再试的时间里，就记下"要压"（pump 在追问之后、下一条输入之前压）
+   */
+  private checkAutoCompact(): void {
+    const setting = this.options.autoCompact?.();
+    if (setting === undefined || this.spawnedRuntime !== PI_RUNTIME_ID || this.compacting || this.compactWanted || this.autoCompactWanted) return;
+    const point = effectiveAutoCompact({ ...setting, window: this.contextInfo?.window, reserveTokens: this.contextInfo?.reserveTokens });
+    if (!autoCompactDue(this.autoCompactState, this.contextTokens, point.at, Date.now())) return;
+    this.autoCompactWanted = { at: point.at, used: this.contextTokens! };
   }
 
   /** 插件的上下文块、钩子订阅此刻的文字和子进程手里的不一样的，按 id 送过去 */
@@ -1454,6 +1547,8 @@ export class AgentSession {
     this.spawnedModel = request.model;
     this.spawnedCredentials = { ...request.credentials };
     this.spawnedRuntime = request.runtime ?? PI_RUNTIME_ID;
+    // 新的子进程：上下文多大等它下一次调用模型报上来（重启后秘书的第一轮说完就能比自动压缩点）
+    this.contextTokens = undefined;
     this.modelDiffers = false;
     this.switching = handoff !== undefined;
     const hostTools = options.hostTools();
@@ -1631,6 +1726,8 @@ export class AgentSession {
         if (report.outcome === "error") this.systemNote(turnFailedNote(options.displayName ?? options.label, this.missingKeyReason() ?? report.errorMessage ?? t("conversation.unknownError")));
         const input = this.current;
         this.finishTurn(input, report.outcome, report.errorMessage);
+        // 这一轮的回复交出去了：过了自动压缩点就记下要压（追问之后、下一条输入之前压）
+        this.checkAutoCompact();
         // 这一轮结束了：排队的消息马上交出去，排在"闲下来"时才交的通知（秘书的任务做完）前面
         this.deliverQueued();
         // 回复长、又没写口语总结：在下一条输入之前追问一句
@@ -1643,6 +1740,10 @@ export class AgentSession {
       }
       case "compacted":
         return this.onCompacted(report);
+      case "usage":
+        // 干活的那次调用的上下文（压缩、审视、交接摘要、分支摘要那几次不算）：每轮结束时拿它比自动压缩点
+        if (report.purpose === undefined) this.contextTokens = report.input + report.cacheRead + report.cacheWrite + report.output;
+        return;
       case "session_navigated": {
         const waiting = this.navigations.get(report.requestId);
         this.navigations.delete(report.requestId);
@@ -1664,7 +1765,7 @@ export class AgentSession {
         if (report.code === "unsupported" && this.proc) this.failHandoffs(this.proc, new Error(t("conversation.runtimeSwitch.unsupported")));
         return;
       default:
-        // 心跳不处理；用量由 agent 管家交给账本（归属是上面的 usageAttribution）；代为执行的工具由 serveHostTools 处理，
+        // 心跳不处理；用量由 agent 管家交给账本（归属是上面的 usageAttribution，这里只记上下文多大）；代为执行的工具由 serveHostTools 处理，
         // 范围审视的结果由 SessionScopeReviews 处理，
         // 守卫判定和工具调用的记录由守卫接入处理
         return;
@@ -1686,11 +1787,17 @@ export class AgentSession {
     this.ready = false;
     // 写交接摘要时退出了：这一条不再试换（重新拉起时不带 handoff），下一条能换的输入再试
     this.switching = false;
-    // 压缩到一半退出了：按没压成收尾
+    // 压缩到一半退出了（压缩那次模型调用超时被结束……）：按没压成收尾；自动压缩的记一次失败，等一段时间才再试
     if (this.compacting) {
       const message = t(exit.reason === "unresponsive" ? "conversation.compaction.timeout" : "conversation.compaction.childExited");
-      this.endCompaction({ outcome: "failed", at: nowIso(), message });
+      if (this.compactingAuto) {
+        this.recordAutoCompact({ outcome: "failed", by: "ergo", message });
+        this.endAutoCompaction();
+      } else {
+        this.endCompaction({ outcome: "failed", at: nowIso(), message });
+      }
     }
+    this.autoCompactWanted = undefined;
     this.endReply();
     if (this.stopped) {
       // 守护进程在停：排队的消息不交，重启后会话起来时交

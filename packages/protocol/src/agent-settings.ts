@@ -40,9 +40,17 @@ export type AgentCompactionState = (typeof AGENT_COMPACTION_STATES)[number];
 export const AGENT_COMPACT_OUTCOMES = ["done", "nothing", "failed"] as const;
 export type AgentCompactOutcome = (typeof AGENT_COMPACT_OUTCOMES)[number];
 
+/** 一次自动压缩（420）的结果：压好了、没什么可压的、没压成、被中止 */
+export const AGENT_AUTO_COMPACT_OUTCOMES = ["done", "nothing", "failed", "aborted"] as const;
+export type AgentAutoCompactOutcome = (typeof AGENT_AUTO_COMPACT_OUTCOMES)[number];
+
+/** 自动压缩是谁起的：二狗按这个 agent 的压缩点（ergo，每轮结束后比）、pi 自己到了窗口边上（pi，最后一道） */
+export const AGENT_AUTO_COMPACT_TRIGGERS = ["ergo", "pi"] as const;
+export type AgentAutoCompactTrigger = (typeof AGENT_AUTO_COMPACT_TRIGGERS)[number];
+
 /**
- * pi 的压缩规矩（自动压缩的时机）：上下文用量超过"窗口减 reserveTokens"时自动压缩，最近约 keepRecentTokens 原样保留。
- * 子进程就绪时报回这次会话实际的数（模型的窗口、pi 的压缩设置），这里的只在还不知道时给界面写说明用
+ * pi 的压缩规矩：上下文用量超过"窗口减 reserveTokens"时 pi 自己自动压缩（420 起是最后一道：二狗按每个 agent 的压缩点先压，见 auto-compact.ts），
+ * 最近约 keepRecentTokens 原样保留。子进程就绪时报回这次会话实际的数（模型的窗口、pi 的压缩设置），这里的只在还不知道时给界面写说明用
  */
 export const PI_COMPACTION_DEFAULTS = { reserveTokens: 16_384, keepRecentTokens: 20_000 } as const;
 

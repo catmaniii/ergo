@@ -1902,17 +1902,25 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       now: () => clock.now(),
     });
     const agentModel = (agent: ModelAgent) => modelSettings.modelFor(agent);
-    // 项目归档（含放弃）、删除，任务归档：这个负责人单独配的模型一起清掉。任务转为项目后原任务的负责人成了项目的负责人，
-    // 原任务归档时不清（它单独配的模型跟着项目走）
+    // 项目归档（含放弃）、删除，任务归档：这个负责人单独配的模型、单独设的自动压缩点一起清掉。任务转为项目后原任务的负责人成了项目的负责人，
+    // 原任务归档时不清（它单独配的跟着项目走）
     teardown.push(
       store.onAppend((event) => {
         if (event.channel === CHANNELS.projects && event.type === EVENT_TYPES.project) {
           const { project, change } = event.payload as ProjectEventPayload;
-          // @i18n-ignore-next log：改回跟随的原因只进日志
-          if (change === "archived" || change === "abandoned" || change === "deleted") modelSettings.followRole(project.maintainerId, `项目「${project.name}」${change === "deleted" ? "删除了" : "归档了"}`);
+          if (change === "archived" || change === "abandoned" || change === "deleted") {
+            const why = `项目「${project.name}」${change === "deleted" ? "删除了" : "归档了"}`; // @i18n-ignore log：改回跟随的原因只进日志
+            modelSettings.followRole(project.maintainerId, why);
+            // 单独设的自动压缩点（420）同样清掉
+            modelSettings.followAutoCompact(project.maintainerId, why);
+          }
         } else if (event.channel === CHANNELS.board && event.type === EVENT_TYPES.task) {
           const { task, change } = event.payload as TaskEventPayload;
-          if (change === "archived" && !projectDirectory.maintainedBy(task.maintainerId)) modelSettings.followRole(task.maintainerId, `任务 ${task.id}「${task.title}」归档了`); // @i18n-ignore log：改回跟随的原因只进日志
+          if (change === "archived" && !projectDirectory.maintainedBy(task.maintainerId)) {
+            const why = `任务 ${task.id}「${task.title}」归档了`; // @i18n-ignore log：改回跟随的原因只进日志
+            modelSettings.followRole(task.maintainerId, why);
+            modelSettings.followAutoCompact(task.maintainerId, why);
+          }
         }
       }),
     );
@@ -2070,6 +2078,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       // 任务做完、定时 / 事件触发的任务每运行完一次告诉秘书：交付的文件在任务的产出区里找
       taskDone: { clock, settleMs: options.taskDoneSettleMs ?? TASK_DONE_SETTLE_MS, outputsDir: realLayout.outputs },
       queue: queueDelivery,
+      // 自动压缩点（420）：设置 · 模型里的默认（70 万）、秘书的 ⚙ 里单独设的，每轮结束时现取
+      autoCompact: () => modelSettings.autoCompactOf(SECRETARY_AGENT_ID),
       log,
       ...(options.secretaryDownThresholdMs === undefined ? {} : { downThresholdMs: options.secretaryDownThresholdMs }),
     });
@@ -2128,6 +2138,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
             alwaysAsk: true,
           }),
         sessionTools,
+        // 自动压缩点（420）：设置 · 模型里的默认、它的 ⚙ 里单独设的，每轮结束时现取
+        autoCompact: () => modelSettings.autoCompactOf(MEMORY_CURATOR_AGENT_ID),
         log,
       });
     const stopCurator = () => {
@@ -2341,6 +2353,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       },
       handoffTimeoutMs: config.agentLimits.modelCallMs,
       questions: runtimeQuestions,
+      // 自动压缩点（420）：设置 · 模型里的默认、负责人的 ⚙ 里单独设的，每轮结束时现取
+      autoCompact: (agentId) => modelSettings.autoCompactOf(agentId),
       log,
     });
     wiring.agentHost = agentHost;

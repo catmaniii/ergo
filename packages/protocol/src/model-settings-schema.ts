@@ -1,9 +1,20 @@
 // 设置里的"模型"：设置文件和设置接口的 schema。名字、纯函数和响应的样子在 model-settings.ts（不引用 TypeBox）。
 //
-// 数据目录配置区的 model-settings.json 是真相，只由运行时写（设置接口）；没有这个文件时全按默认（deepseek-flash、思考档位高）。
+// 数据目录配置区的 model-settings.json 是真相，只由运行时写（设置接口）；没有这个文件时全按默认（deepseek-flash、思考档位高、
+// 自动压缩点 70 万）。
 // 设置接口是整份替换（幂等：同样的再存一次没有变化），所以不带幂等键。请求体里没有、也放不进 API key（多出来的字段一律拒绝）。
 import { type Static, Type } from "typebox";
+import { AUTO_COMPACT_MAX, AUTO_COMPACT_MIN } from "./auto-compact.ts";
 import { CUSTOM_PROVIDER_APIS, MODEL_THINKING_LEVELS, type ModelAgent } from "./model-settings.ts";
+
+/** 存进设置文件的压缩点：整数，在范围里（按模型窗口的上限在用的时候夹） */
+const AutoCompactAt = Type.Integer({ minimum: AUTO_COMPACT_MIN, maximum: AUTO_COMPACT_MAX });
+
+/**
+ * 请求体里的压缩点：只要是整数，范围由守护进程按 autoCompactProblem 查（说清最少、最多多少，⚙ 里还按这个模型的上限），
+ * 和网页边改边查的是同一个函数
+ */
+const AutoCompactRequest = Type.Integer();
 
 /** 模型 id：字母、数字和 . _ - :（DeepSeek 的 id 都是这样），最长 100 */
 const ModelId = Type.String({ minLength: 1, maxLength: 100, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" });
@@ -62,6 +73,8 @@ export const ModelSettingsBody = Type.Object(
     vision: VisionOverrides,
     /** 自定义（OpenAI 兼容）服务商：选了 provider: custom 时必须有（checkModelCustom 查） */
     custom: Type.Optional(CustomProviderSchema),
+    /** 自动压缩点的默认值（420）：没带就留着设置里原来的（旧的网页、首次设置向导整份存时不会把它弄丢） */
+    autoCompactAt: Type.Optional(AutoCompactRequest),
   },
   { additionalProperties: false },
 );
@@ -73,7 +86,16 @@ export type ModelSettingsBody = Static<typeof ModelSettingsBody>;
  */
 const MaintainerModels = Type.Record(Type.String({ pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$" }), ModelChoiceSchema, { additionalProperties: false });
 
-/** 设置在数据目录配置区里的文件（config/model-settings.json）：多一个格式版本；多一项单独配了模型的负责人（没有就不写） */
+/**
+ * 在 ⚙ 里单独设了自动压缩点的 agent（420）：键是 agent id（秘书 secretary、负责人 tm-<n> / pm-<n>、记忆管理员 memory-curator……），
+ * 值是它的压缩点。只经这个 agent 的 ⚙ 改（PUT / DELETE /api/agents/<agent id>/auto-compact），设置页整份存时原样留着
+ */
+const AgentAutoCompacts = Type.Record(Type.String({ pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$" }), AutoCompactAt, { additionalProperties: false });
+
+/**
+ * 设置在数据目录配置区里的文件（config/model-settings.json）：多一个格式版本；多一项单独配了模型的负责人、一项单独设了自动压缩点的 agent
+ * （没有就不写）
+ */
 export const ModelSettingsFile = Type.Object(
   {
     format: Type.Literal(1),
@@ -84,6 +106,9 @@ export const ModelSettingsFile = Type.Object(
     maintainers: Type.Optional(MaintainerModels),
     /** 自定义（OpenAI 兼容）服务商（自定义服务商这一步）：旧设置文件没有这一项，照样合规 */
     custom: Type.Optional(CustomProviderSchema),
+    /** 自动压缩点的默认值（420）：旧设置文件没有这一项，照样合规，按内置的 70 万 */
+    autoCompactAt: Type.Optional(AutoCompactAt),
+    agentAutoCompact: Type.Optional(AgentAutoCompacts),
   },
   { additionalProperties: false },
 );
@@ -92,6 +117,10 @@ export type ModelSettingsFile = Static<typeof ModelSettingsFile>;
 /** 某个负责人单独配模型（PUT /api/agents/<agent id>/model）：选定的模型和思考档位；改回跟随那一行是 DELETE */
 export const AgentModelBody = ModelChoiceSchema;
 export type AgentModelBody = Static<typeof AgentModelBody>;
+
+/** 某个 agent 单独设自动压缩点（PUT /api/agents/<agent id>/auto-compact）；恢复跟随设置 · 模型里的默认是 DELETE */
+export const AgentAutoCompactBody = Type.Object({ at: AutoCompactRequest }, { additionalProperties: false });
+export type AgentAutoCompactBody = Static<typeof AgentAutoCompactBody>;
 
 /**
  * 连通测试（POST /api/model-settings/test）：测哪个模型；不给是默认模型。

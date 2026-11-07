@@ -10,6 +10,7 @@ export const EN_AGENT_SETTINGS: Phrases = {
   "个人助理一直用 pi": "The personal assistant always uses pi",
   "没有运行时「{}」": "No runtime “{}”",
   "{}没有模型「{}」": "{} has no model “{}”",
+  "{}自己管压缩，这里设的压缩点对它不起作用": "{} handles compaction on its own; the auto-compact point set here doesn't apply to it",
   "它用的运行时不能交给官方 App": "Its runtime can't be handed to the official app",
   "它不是从已有的会话接管来的": "It wasn't taken over from an existing session",
   "没有这个参考音色：{}": "No such reference voice: {}",

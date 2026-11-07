@@ -9,6 +9,10 @@
 //   （缓存命中 + 未命中 + 输出，和 pi 自己算的一样），压缩之后还没调用过的不写；窗口和 pi 的压缩设置是子进程就绪时报的
 //   （agent 没在跑时用这个模型上一次报的）。"现在压缩"经宿主协议的 compact（秘书照旧用它专用的压缩指令，负责人照旧在压缩时做范围审视、
 //   压缩后重注入固定上下文），压缩那次的用量照常记账（用途"压缩"）。
+// - 自动压缩点（420，协议包的 auto-compact.ts）：跟随设置 · 模型里的默认，或者在这里单独设（存在模型设置文件里，按 agent id），
+//   能恢复跟随默认；面板上写现在用的点（按模型窗口夹过：设的比窗口 − 16384 大就按它算，写明为什么）、从哪来、上次自动压缩怎样
+//   （会话记着的，没压成的写下次什么时候再试）。context.autoCompactAt 就是这个生效的点（体检读它）。Claude Code、Codex 跑的
+//   自己管压缩：这一项灰掉、写"由它自己管"，autoCompactAt 照旧是窗口减它报的 reserveTokens。
 // - 模型（只有项目、任务的负责人有）：跟随它那一行（设置 · 模型里的项目负责人 / 任务负责人），或者单独选定模型和思考档位；
 //   存在模型设置里（model-settings/ 的 maintainers），拉起时按 agent id 现取，下一个新会话生效、长会话换时写交接摘要。
 //   面板上写它那一行现在用的、单独配的、下一个新会话用的、最近一次在跑的会话实际用的，配的模型用不了时的原因。
@@ -33,8 +37,12 @@ import type {
 import type { AgentRoles, RoleDocument } from "../agent-roles/index.ts";
 import type { RollbackSession } from "../conversation/rollback.ts";
 import {
+  type AgentAutoCompactBody,
+  type AgentAutoCompactView,
   type AgentModelBody,
   type AgentModelView,
+  effectiveAutoCompact,
+  PI_RUNTIME_ID,
   type AgentRuntimeBody,
   type AgentRuntimeStateView,
   type RuntimeChoice,
@@ -57,7 +65,7 @@ import { RequestRejected } from "../errors.ts";
 import type { TokenLedger } from "../ledger/index.ts";
 import type { ModelSettingsService } from "../model-settings/index.ts";
 import type { PromptId, PromptLibrary } from "../prompts/index.ts";
-import type { RuntimeRegistry } from "../runtime/index.ts";
+import type { RuntimeRegistry, SessionContextInfo } from "../runtime/index.ts";
 import type { TakeoverService } from "../takeover/index.ts";
 
 /** 一个有 ⚙ 的 agent：各模块给出它是谁、通用模板是哪份、怎么清空、怎么压缩 */
@@ -118,8 +126,8 @@ export interface AgentSettingsOptions {
   prompts: Pick<PromptLibrary, "agentPrompt" | "saveAgentPrompt" | "resetAgentPrompt" | "detail" | "withPrefix">;
   ledger: Pick<TokenLedger, "lastOf">;
   agents: Pick<AgentManager, "contextOf">;
-  /** 负责人单独配的模型；不给时面板上没有模型一块 */
-  models?: Pick<ModelSettingsService, "maintainerModel" | "setMaintainerModel" | "followRole">;
+  /** 负责人单独配的模型；每个 agent 的自动压缩点（420）。不给时面板上没有模型一块、也没有自动压缩点 */
+  models?: Pick<ModelSettingsService, "maintainerModel" | "setMaintainerModel" | "followRole" | "autoCompactOf" | "setAutoCompact" | "followAutoCompact">;
   /** 角色：名字和音色从 agent 用的角色来；没指定角色就跟默认角色 */
   roles: Pick<AgentRoles, "document" | "defaultRoleId" | "defaultRole" | "roleOf" | "voiceIdOf" | "voices" | "create" | "update" | "remove" | "setDefault" | "assign">;
   /** 全局的名字：默认角色的名字，也是旧的 GET /api/agent-profiles 里秘书跟默认时的名字 */
@@ -146,6 +154,12 @@ export interface AgentSettings {
   setModel(agentId: string, body: AgentModelBody): Promise<AgentSettingsView>;
   /** 改回跟随它那一行 */
   followRoleModel(agentId: string): AgentSettingsView;
+  /**
+   * 单独设自动压缩点（420）：范围不对的（少于最少、多于这个模型的上限）、自己管压缩的运行时、只读的都拒绝；从这一轮结束起按新的判断
+   */
+  setAutoCompact(agentId: string, body: AgentAutoCompactBody): AgentSettingsView;
+  /** 恢复跟随设置 · 模型里的默认 */
+  followAutoCompact(agentId: string): AgentSettingsView;
   /**
    * 用哪个运行时、给它选的值（PUT /api/agents/<id>/runtime）：换运行时的等手头这一条做完、原来的写好交接摘要才换；
    * 不认得的运行时、没启用的、不在列表里的模型、不认得的设置项和值、只读的、不能选运行时的都拒绝
@@ -214,8 +228,16 @@ export function createAgentSettings(options: AgentSettingsOptions): AgentSetting
     return { models: options.models, agent: handle.model.agent };
   };
 
+  /** 能设自动压缩点才往下走：接了模型设置、跑的是 pi（Claude Code、Codex 自己管压缩） */
+  const autoCompactOf = (handle: AgentHandle): NonNullable<AgentSettingsOptions["models"]> => {
+    if (!options.models) throw new RequestRejected("not_allowed", t("agentSettings.noAgent", { agentId: handle.agentId }));
+    const managed = managedBy(handle);
+    if (managed !== undefined) throw new RequestRejected("not_allowed", t("agentSettings.autoCompact.managed", { runtime: managed }));
+    return options.models;
+  };
+
   /** 模型一块 */
-  const modelView = (handle: AgentHandle, panel: AgentSessionPanel | undefined): AgentModelView | undefined => {
+  const modelView =(handle: AgentHandle, panel: AgentSessionPanel | undefined): AgentModelView | undefined => {
     if (!handle.model || !options.models) return undefined;
     const m = options.models.maintainerModel(handle.agentId, handle.model.agent);
     return {
@@ -226,6 +248,43 @@ export function createAgentSettings(options: AgentSettingsOptions): AgentSetting
       next: m.next,
       ...(panel?.model ? { session: { ...panel.model } } : {}),
       switchAt: handle.model.switchAt,
+    };
+  };
+
+  /** 自己管压缩的运行时（不是 pi 的：Claude Code、Codex）的名字；pi 跑的是 undefined */
+  const managedBy = (handle: AgentHandle): string | undefined => {
+    const id = handle.runtime?.current().id ?? PI_RUNTIME_ID;
+    if (id === PI_RUNTIME_ID) return undefined;
+    return options.runtimes?.view().runtimes.find((r) => r.id === id)?.title ?? id;
+  };
+
+  /**
+   * 这个 agent 的上下文窗口和压缩设置：会话最近一次就绪时报的；没在跑过就用这个模型上一次报的（agent 管家记着，按账本里最近一次调用的模型）
+   */
+  const contextOf = (handle: AgentHandle, panel: AgentSessionPanel | undefined, since: number): SessionContextInfo | undefined => {
+    if (panel?.context) return panel.context;
+    const lastModel = (ledger.lastOf(handle.agentId, ["work"], since) ?? ledger.lastOf(handle.agentId, ["work", "compaction"]))?.model;
+    return lastModel === undefined ? undefined : options.agents.contextOf(lastModel);
+  };
+
+  /** 自动压缩点一块（420）：没接模型设置时没有 */
+  const autoCompactView = (handle: AgentHandle, panel: AgentSessionPanel | undefined, context: SessionContextInfo | undefined): AgentAutoCompactView | undefined => {
+    if (!options.models) return undefined;
+    const setting = options.models.autoCompactOf(handle.agentId);
+    const managed = managedBy(handle);
+    const point = effectiveAutoCompact({ ...setting, window: context?.window, reserveTokens: context?.reserveTokens });
+    const state = panel?.autoCompact;
+    return {
+      source: point.source,
+      defaultAt: setting.defaultAt,
+      ...(setting.own === undefined ? {} : { own: setting.own }),
+      // 自己管压缩的运行时报的 reserveTokens 是 0：上限对它没意义，不写
+      ...(point.limit === undefined || managed !== undefined ? {} : { limit: point.limit }),
+      ...(point.clamped && managed === undefined ? { clamped: true as const } : {}),
+      ...(managed === undefined ? {} : { managedBy: managed }),
+      ...(state?.last ? { last: state.last } : {}),
+      ...(state && state.failures > 0 ? { failures: state.failures } : {}),
+      ...(state?.retryAt === undefined ? {} : { retryAt: state.retryAt }),
     };
   };
 
@@ -388,9 +447,15 @@ export function createAgentSettings(options: AgentSettingsOptions): AgentSetting
     const work = ledger.lastOf(agentId, ["work"], since.seq);
     const compacted = ledger.lastOf(agentId, ["compaction"], since.seq);
     const used = work && (!compacted || compacted.seq < work.seq) ? work : undefined;
-    // 窗口：会话最近一次就绪时报的；没在跑过就用这个模型上一次报的（agent 管家记着，按账本里最近一次调用的模型）
-    const lastModel = (work ?? ledger.lastOf(agentId, ["work", "compaction"]))?.model;
-    const context = panel?.context ?? (lastModel === undefined ? undefined : options.agents.contextOf(lastModel));
+    const context = contextOf(handle, panel, since.seq);
+    const autoCompact = autoCompactView(handle, panel, context);
+    // 自动压缩点：pi 跑的是它的压缩点（按窗口夹过）；自己管压缩的运行时照旧是窗口减它报的 reserveTokens
+    const autoCompactAt =
+      autoCompact !== undefined && autoCompact.managedBy === undefined
+        ? effectiveAutoCompact({ ...options.models!.autoCompactOf(agentId), window: context?.window, reserveTokens: context?.reserveTokens }).at
+        : context
+          ? Math.max(0, context.window - context.reserveTokens)
+          : undefined;
     const cannotCompact = handle.cannotCompact();
     const model = modelView(handle, panel);
     const runtime = runtimeView(handle, panel);
@@ -421,7 +486,9 @@ export function createAgentSettings(options: AgentSettingsOptions): AgentSetting
         busy: panel?.busy ?? false,
         // 其中缓存命中的单给一个数（Claude Code 的大半是缓存命中）
         ...(used ? { usedTokens: tokenTotal(used.tokens), ...(used.tokens.cacheHit > 0 ? { cacheHitTokens: used.tokens.cacheHit } : {}), measuredAt: used.time } : {}),
-        ...(context ? { window: context.window, autoCompactAt: Math.max(0, context.window - context.reserveTokens), keepRecentTokens: context.keepRecentTokens } : {}),
+        ...(context ? { window: context.window, keepRecentTokens: context.keepRecentTokens } : {}),
+        ...(autoCompactAt === undefined ? {} : { autoCompactAt }),
+        ...(autoCompact ? { autoCompact } : {}),
         ...(compacted ? { lastCompactedAt: compacted.time } : {}),
         compaction: panel?.compaction ?? "idle",
         ...(panel?.lastCompact ? { lastCompact: panel.lastCompact } : {}),
@@ -465,6 +532,19 @@ export function createAgentSettings(options: AgentSettingsOptions): AgentSetting
     followRoleModel(agentId) {
       const handle = writable(agentId);
       modelOf(handle).models.followRole(agentId, "在它的 ⚙ 里改回跟随"); // @i18n-ignore log：只进日志
+      return view(handle);
+    },
+    setAutoCompact(agentId, body) {
+      const handle = writable(agentId);
+      const models = autoCompactOf(handle);
+      // 窗口知道时按这个模型的上限查（设的比它大没用：到那里 pi 自己就压了）
+      const context = contextOf(handle, handle.panel(), handle.since().seq);
+      models.setAutoCompact(agentId, body.at, context ? { window: context.window, reserveTokens: context.reserveTokens } : undefined);
+      return view(handle);
+    },
+    followAutoCompact(agentId) {
+      const handle = writable(agentId);
+      autoCompactOf(handle).followAutoCompact(agentId, "在它的 ⚙ 里恢复默认"); // @i18n-ignore log：只进日志
       return view(handle);
     },
     async takeoverAction(agentId, action) {

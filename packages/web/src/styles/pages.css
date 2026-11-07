@@ -4374,6 +4374,43 @@ a.att-icon:hover {
 .agent-actions {
   margin-top: 0;
 }
+/*
+ * 自动压缩点（420）：⚙ 的上下文一块、设置 · 模型的"自动压缩"共用一行"输入框 + token + 保存 + 恢复默认"，窄屏折成两行。只用 token
+ */
+.auto-compact-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.auto-compact-row .input {
+  flex: 1 1 140px;
+  min-width: 0;
+  max-width: 220px;
+  font-family: var(--font-num);
+}
+.auto-compact-unit {
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.agent-auto-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0 2px;
+  border-top: 1px dashed var(--border);
+}
+.agent-auto-compact-title {
+  font-size: var(--fs-s);
+  font-weight: 600;
+}
+.agent-auto-compact-source,
+.model-auto-compact-current {
+  font-weight: 600;
+}
+.agent-auto-compact-clamped {
+  color: var(--high-fg);
+}
 /* 清空当前对话的分隔线：上面一行小字"更早的对话"，下面借工单分隔线的样子 */
 .cleared-divider {
   display: flex;

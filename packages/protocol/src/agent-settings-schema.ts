@@ -7,12 +7,23 @@
 // POST /api/agents/<agent id>/clear 清空当前对话（AgentClearBody，带幂等键）：在处理一条时等它说完再清；
 // POST /api/agents/<agent id>/compact 现在压缩：在处理一条时等它说完，没在跑的先拉起再压；不等压完，面板按 compaction 的状态再取；
 // PUT /api/agents/<agent id>/model 项目、任务的负责人单独配模型（AgentModelBody），DELETE 改回跟随它那一行；
-// PUT /api/agents/<agent id>/runtime 项目、任务的负责人用哪个运行时、给它选的模型和设置项（AgentRuntimeBody）。
-// 都回 AgentSettingsView。只读的（任务结束了、项目归档了）存、清、压、配模型都回 400，写明原因。
+// PUT /api/agents/<agent id>/runtime 项目、任务的负责人用哪个运行时、给它选的模型和设置项（AgentRuntimeBody）；
+// PUT /api/agents/<agent id>/auto-compact 单独设这个 agent 的自动压缩点（AgentAutoCompactBody，420），DELETE 恢复跟随设置 · 模型里的默认。
+// 都回 AgentSettingsView。只读的（任务结束了、项目归档了）存、清、压、配模型、设压缩点都回 400，写明原因。
 import { type Static, Type } from "typebox";
 import { AgentIdentityView } from "./agent-profiles-schema.ts";
 import { AgentRoleOption } from "./agent-roles-schema.ts";
-import { AGENT_CLEAR_KINDS, AGENT_COMPACT_OUTCOMES, AGENT_COMPACTION_STATES, AGENT_PROMPT_MODES, AGENT_PROMPT_STATES, AGENT_SETTINGS_KINDS } from "./agent-settings.ts";
+import {
+  AGENT_AUTO_COMPACT_OUTCOMES,
+  AGENT_AUTO_COMPACT_TRIGGERS,
+  AGENT_CLEAR_KINDS,
+  AGENT_COMPACT_OUTCOMES,
+  AGENT_COMPACTION_STATES,
+  AGENT_PROMPT_MODES,
+  AGENT_PROMPT_STATES,
+  AGENT_SETTINGS_KINDS,
+} from "./agent-settings.ts";
+import { AUTO_COMPACT_SOURCES } from "./auto-compact.ts";
 import { MAINTAINER_MODEL_AGENTS, MODEL_SWITCH_AT, MODEL_THINKING_LEVELS } from "./model-settings.ts";
 import { AgentRuntimeStateView } from "./runtime-schema.ts";
 import { SystemPromptPlaceholder } from "./system-prompt-schema.ts";
@@ -63,6 +74,44 @@ export const AgentCompactResult = Type.Object({
 });
 export type AgentCompactResult = Static<typeof AgentCompactResult>;
 
+/** 一次自动压缩（420）的结果（守护进程这次起来以后的） */
+export const AgentAutoCompactResult = Type.Object({
+  outcome: Type.Enum(AGENT_AUTO_COMPACT_OUTCOMES),
+  /** 二狗按压缩点起的、pi 自己到了窗口边上起的 */
+  by: Type.Enum(AGENT_AUTO_COMPACT_TRIGGERS),
+  at: Type.String(),
+  /** 压缩前上下文约多少 token（压好了才有） */
+  tokensBefore: Type.Optional(Type.Integer({ minimum: 0 })),
+  /** 没压成的原因 */
+  message: Type.Optional(Type.String()),
+});
+export type AgentAutoCompactResult = Static<typeof AgentAutoCompactResult>;
+
+/**
+ * 这个 agent 的自动压缩点（420，auto-compact.ts）：跟随设置 · 模型里的默认还是在 ⚙ 里单独设的，按模型窗口夹过没有；
+ * Claude Code、Codex 跑的写 managedBy（它们自己管压缩，这一项不起作用）；上次自动压缩的结果、没压成之后下次最早什么时候再试
+ */
+export const AgentAutoCompactView = Type.Object({
+  source: Type.Enum(AUTO_COMPACT_SOURCES),
+  /** 设置 · 模型里的默认值 */
+  defaultAt: Type.Integer({ minimum: 0 }),
+  /** 在 ⚙ 里单独设的；跟随默认时没有 */
+  own: Type.Optional(Type.Integer({ minimum: 0 })),
+  /** 这个模型最多能到多少（窗口减 16384，pi 自己的压缩点）；窗口还不知道时没有 */
+  limit: Type.Optional(Type.Integer({ minimum: 0 })),
+  /** 设的（单独设的或者默认的）比 limit 大，按 limit 算了 */
+  clamped: Type.Optional(Type.Literal(true)),
+  /** 自己管压缩的运行时的名字（Claude Code、Codex）：这时这一项不起作用、⚙ 里灰掉 */
+  managedBy: Type.Optional(Type.String()),
+  /** 上次自动压缩的结果（守护进程这次起来以后的；二狗按压缩点起的、pi 自己起的都算） */
+  last: Type.Optional(AgentAutoCompactResult),
+  /** 连续没压成几次（压好了清零） */
+  failures: Type.Optional(Type.Integer({ minimum: 1 })),
+  /** 没压成之后下次最早什么时候再试（这之前每轮结束不再试，到了时间下一轮结束时再看） */
+  retryAt: Type.Optional(Type.String()),
+});
+export type AgentAutoCompactView = Static<typeof AgentAutoCompactView>;
+
 /**
  * 上下文用量和压缩：数都从子进程每次模型调用报的 usage 来（token 账本，不另数一套）；agent 没在跑时是上一次的。
  * 用量是这段会话（清空、重置之后的这一段）里最近一次模型调用的上下文（缓存命中 + 未命中 + 输出）；压缩之后、清空之后还没调用过模型时没有
@@ -79,8 +128,13 @@ export const AgentContextView = Type.Object({
   measuredAt: Type.Optional(Type.String()),
   /** 模型的上下文窗口；还不知道（守护进程起来以后这个模型还没跑过）时没有 */
   window: Type.Optional(Type.Integer({ minimum: 0 })),
-  /** 用量超过它就自动压缩（窗口减 pi 的 reserveTokens） */
+  /**
+   * 用量超过它就自动压缩：pi 跑的 agent 是它的压缩点（autoCompact：设置 · 模型的默认或 ⚙ 里单独设的，按模型窗口夹过）；
+   * 自己管压缩的运行时（Claude Code、Codex）是窗口减它报的 reserveTokens。都不知道时没有
+   */
   autoCompactAt: Type.Optional(Type.Integer({ minimum: 0 })),
+  /** 自动压缩点从哪来、能不能改、上次自动压缩怎样（420）；守护进程没接模型设置时没有 */
+  autoCompact: Type.Optional(AgentAutoCompactView),
   /** 压缩时最近约这么多 token 原样保留 */
   keepRecentTokens: Type.Optional(Type.Integer({ minimum: 0 })),
   /** 这段会话里上次压缩的时间（自动、手动都算） */

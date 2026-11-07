@@ -107,6 +107,7 @@
   "gateway.http.badAgentPrompt": "Bad parameters for saving the agent's own prompt: {message}",
   "gateway.http.badClear": "Bad parameters for clearing the conversation: {message}",
   "gateway.http.badAgentModel": "Bad parameters for the agent's own model: {message}",
+  "gateway.http.badAutoCompact": "Bad parameters for the auto-compact point: {message}",
   "gateway.http.badAgentProfile": "Bad parameters for the agent's name or voice: {message}",
   "gateway.http.agentProfileGone": "Names and voices are roles now: pick a role for this agent under Settings · Roles & voices (PUT /api/agent-roles/assignments/<agent id>)",
   "gateway.http.badAgentRole": "Bad parameters for the role: {message}",

@@ -5,6 +5,8 @@
 // 那一行（项目负责人 / 任务负责人）取原型的模型设置（fake-http.ts，设置 · 模型里改了这里跟着变）。
 // 项目、任务的负责人的"运行时"一块。编的：个人博客的负责人用 Claude Code（选了 Opus、自动接受改文件、思考高）；
 // 换运行时假装写一会儿交接摘要（1.5 秒）再换，只改选的值的马上记下。
+// 自动压缩点（420）：默认取原型的模型设置（设置 · 模型里改了这里跟着变），记账本的负责人单独设了 30 万；
+// 用 Claude Code 的个人博客的负责人这一项灰着（它自己管压缩）。范围照守护进程同一个函数查。
 import {
   type AgentCompactResult,
   type AgentIdentityView,
@@ -22,7 +24,10 @@ import {
   type AgentSettingsKind,
   type AgentSettingsView,
   ASSISTANT_NAME_MARK,
+  autoCompactDefaultOf,
+  autoCompactProblem,
   checkAgentPromptDraft,
+  effectiveAutoCompact,
   checkAssistantName,
   defaultAssistantName,
   effectiveModelChoice,
@@ -51,8 +56,11 @@ import { FAKE_BOARD, FAKE_PROJECTS, FAKE_TASK_DETAILS } from "./fake-data.ts";
 import { FAKE_CLAUDE_CODE, fakeRuntimes } from "./fake-runtimes.ts";
 import type { FakeSystemPrompts } from "./fake-system-prompts.ts";
 
-/** 原型里模型的上下文窗口（编的：12.8 万） */
-const WINDOW = 128_000;
+/** 原型里模型的上下文窗口（编的：100 万，和 DeepSeek 的一样） */
+const WINDOW = 1_000_000;
+
+/** 编的：单独设了自动压缩点的（记账本的负责人设了 30 万） */
+const SEEDED_AUTO_COMPACT: ReadonlyArray<[string, number]> = [["project-ledger", 300_000]];
 
 interface FakeAgent {
   own?: { mode: AgentPromptMode; content: string };
@@ -109,6 +117,8 @@ export class FakeAgentSettings {
   private readonly voices: () => ReferenceVoiceList;
   /** 单独配了模型的负责人，只在内存里 */
   private readonly ownModels = new Map<string, ModelChoice>(SEEDED_MODELS);
+  /** 单独设了自动压缩点的 agent，只在内存里 */
+  private readonly ownAutoCompact = new Map<string, number>(SEEDED_AUTO_COMPACT);
   /** 负责人用的运行时和选的值，只在内存里；没有的是 pi */
   private readonly runtimes = new Map<string, { id: string; options?: RuntimeChoice }>(SEEDED_RUNTIMES);
   /** 正在换运行时的：换成哪个 */
@@ -219,6 +229,29 @@ export class FakeAgentSettings {
     const view = this.view(agentId);
     if (view.readOnly) throw new Error(view.readOnly);
     this.ownModels.delete(agentId);
+    return this.view(agentId);
+  }
+
+  /** 设置 · 模型页上"有几个 agent 单独设了自动压缩点" */
+  autoCompactOwnCount(): number {
+    return this.ownAutoCompact.size;
+  }
+
+  /** 单独设自动压缩点：只读的、自己管压缩的不行，范围照守护进程同一个函数查 */
+  setAutoCompact(agentId: string, point: number): AgentSettingsView {
+    const view = this.view(agentId);
+    if (view.readOnly) throw new Error(view.readOnly);
+    if (view.context.autoCompact?.managedBy !== undefined) throw new Error(`${view.context.autoCompact.managedBy}自己管压缩，这里设的压缩点对它不起作用`);
+    const problem = autoCompactProblem(point, { window: WINDOW, reserveTokens: PI_COMPACTION_DEFAULTS.reserveTokens });
+    if (problem !== undefined) throw new Error(problem);
+    this.ownAutoCompact.set(agentId, point);
+    return this.view(agentId);
+  }
+
+  followAutoCompact(agentId: string): AgentSettingsView {
+    const view = this.view(agentId);
+    if (view.readOnly) throw new Error(view.readOnly);
+    this.ownAutoCompact.delete(agentId);
     return this.view(agentId);
   }
 
@@ -363,9 +396,14 @@ export class FakeAgentSettings {
     const own = state.own;
     const base = renderFake(template, template.content, who.values, this.prompts);
     const effective = !own ? base : own.mode === "replace" ? renderFake(template, own.content, who.values, this.prompts) : `${base}\n\n${renderFake(template, own.content, who.values, this.prompts)}`;
-    const autoCompactAt = WINDOW - PI_COMPACTION_DEFAULTS.reserveTokens;
     const model = this.modelView(agentId, who.kind);
     const runtime = this.runtimeView(agentId, who.kind);
+    // 自动压缩点：跟随设置 · 模型里的默认或者单独设的，按窗口夹过；Claude Code 跑的它自己管（照旧是窗口减它的预留，原型里按 0）
+    const ownAt = this.ownAutoCompact.get(agentId);
+    const setting = { defaultAt: autoCompactDefaultOf(this.modelSettings()), ...(ownAt === undefined ? {} : { own: ownAt }) };
+    const point = effectiveAutoCompact({ ...setting, window: WINDOW });
+    const managedBy = runtime !== undefined && runtime.id !== PI_RUNTIME_ID ? runtime.title : undefined;
+    const autoCompactAt = managedBy === undefined ? point.at : WINDOW;
     const list = this.voices();
     const fallback = list.voices.find((v) => v.id === list.currentId);
     return {
@@ -391,6 +429,13 @@ export class FakeAgentSettings {
         ...(state.measuredAt ? { measuredAt: state.measuredAt } : {}),
         window: WINDOW,
         autoCompactAt,
+        autoCompact: {
+          source: point.source,
+          defaultAt: setting.defaultAt,
+          ...(ownAt === undefined ? {} : { own: ownAt }),
+          ...(managedBy === undefined ? { limit: point.limit! } : { managedBy }),
+          ...(point.clamped && managedBy === undefined ? { clamped: true as const } : {}),
+        },
         keepRecentTokens: PI_COMPACTION_DEFAULTS.keepRecentTokens,
         ...(state.lastCompactedAt ? { lastCompactedAt: state.lastCompactedAt } : {}),
         compaction: state.compacting ? "running" : "idle",

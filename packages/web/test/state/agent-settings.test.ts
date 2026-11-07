@@ -1,10 +1,11 @@
 // 每个 agent 的会话里的 ⚙的状态层：单独的提示词两种写法（编辑框的初始内容、边改边查，和守护进程同一个检查）、
 // 上下文用量写成的话（"8.2 万 / 12.8 万 token"、离自动压缩还有多少、上次压缩、"现在压缩"的样子）、清空那一块的话；
-// 会话里清空的分隔线（"以下是新对话 · 10-13 14:02 清空"）。
+// 会话里清空的分隔线（"以下是新对话 · 10-13 14:02 清空"）；自动压缩点那一小块（420）。
 import { MessageEventPayload as MessageEventPayloadSchema, schemaChecker } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import {
   AGENT_CLEAR_COPY,
+  agentAutoCompactLines,
   agentClearText,
   type AgentContextView,
   agentContextLines,
@@ -14,6 +15,7 @@ import {
   type AgentSettingsView,
   chatItems,
   checkAgentPromptDraft,
+  checkAutoCompactDraft,
   type MessageEventPayload,
   replay,
   tokensText,
@@ -163,5 +165,46 @@ describe("清空当前对话", () => {
     );
     expect(items.map((item) => item.kind)).toEqual(["user", "divider", "user"]);
     expect(items[1]).toMatchObject({ kind: "divider", keyLine: "以下是新对话 · 10-13 14:02 清空", divider: { type: "conversation_cleared" } });
+  });
+});
+
+// 420：⚙ 里的自动压缩点——跟随默认还是单独设的、设的比这个模型的上限大时按上限算（写明为什么）、自己管压缩的灰掉、
+// 上次自动压缩没压成写什么时候再试；改的时候边改边查（和守护进程同一个函数）
+describe("自动压缩点", () => {
+  const WINDOW = 1_000_000;
+  const auto = (over: Partial<NonNullable<AgentContextView["autoCompact"]>> = {}) =>
+    view({ context: { window: WINDOW, autoCompactAt: 700_000, autoCompact: { source: "default", defaultAt: 700_000, limit: WINDOW - 16_384, ...over } } });
+
+  it("跟随默认：输入框是默认值，能改不能恢复默认；单独设的：写默认是多少，能恢复默认", () => {
+    expect(agentAutoCompactLines(auto())).toEqual({ value: 700_000, source: "跟随设置 · 模型里的默认：70 万 token", clamped: undefined, managed: undefined, failed: undefined, canEdit: true, canReset: false });
+    expect(agentAutoCompactLines(auto({ source: "own", own: 300_000 }))).toMatchObject({ value: 300_000, source: "单独设的：30 万 token（默认是 70 万）", canEdit: true, canReset: true });
+    // 没接模型设置（没有这一块）
+    expect(agentAutoCompactLines(view())).toBeUndefined();
+  });
+
+  it("设的比这个模型的上限大：写按多少算、为什么；只读的、自己管压缩的（Claude Code）不能改", () => {
+    const clamped = view({ context: { window: 128_000, autoCompactAt: 111_616, autoCompact: { source: "own", own: 900_000, defaultAt: 700_000, limit: 111_616, clamped: true } } });
+    expect(agentAutoCompactLines(clamped)?.clamped).toBe("设的 90 万 比这个模型的上限大（窗口 12.8 万 减 16384，到那里 pi 自己就压了），现在按 11.2 万 算");
+    expect(agentAutoCompactLines(view({ readOnly: "任务已经结束", context: { autoCompact: { source: "own", own: 300_000, defaultAt: 700_000 } } }))).toMatchObject({ canEdit: false, canReset: false });
+    expect(agentAutoCompactLines(view({ context: { autoCompact: { source: "default", defaultAt: 700_000, managedBy: "Claude Code" } } }))).toMatchObject({
+      managed: "由 Claude Code 自己管压缩，这里设的压缩点对它不起作用",
+      canEdit: false,
+    });
+  });
+
+  it("上次自动压缩没压成：什么时候、为什么、什么时候再试；压好了的不写", () => {
+    const failed = auto({ last: { outcome: "failed", by: "ergo", at: "2026-11-07T14:02:00.000+08:00", message: "服务商忙（500）" }, failures: 1, retryAt: "2026-11-07T14:17:00.000+08:00" });
+    expect(agentAutoCompactLines(failed)?.failed).toBe("上次自动压缩没压成（11-07 14:02）：服务商忙（500）。11-07 14:17 之前不再试，之后过了压缩点、说完一轮再试");
+    expect(agentAutoCompactLines(auto({ last: { outcome: "done", by: "ergo", at: "2026-11-07T14:02:00.000+08:00" } }))?.failed).toBeUndefined();
+  });
+
+  it("边改边查：认整数（可以带空格、逗号）、最少 5 万、不超过这个模型的上限；和现在设的一样算没改", () => {
+    expect(checkAutoCompactDraft("500000", 700_000)).toEqual({ at: 500_000, problem: undefined, changed: true });
+    expect(checkAutoCompactDraft("500,000", 700_000).at).toBe(500_000);
+    expect(checkAutoCompactDraft("700000", 700_000).changed).toBe(false);
+    expect(checkAutoCompactDraft("40000", 700_000).problem).toBe("最少 50,000 token：再小压完马上又满");
+    expect(checkAutoCompactDraft("990000", 700_000, { window: WINDOW, limit: WINDOW - 16_384 }).problem).toBe("这个模型最多设到 983,616 token（窗口 1,000,000 减 16,384，再往上就是 pi 自己压缩的点了）");
+    expect(checkAutoCompactDraft("七十万", 700_000)).toMatchObject({ at: undefined, problem: "要填一个整数（token 数）", changed: true });
+    expect(checkAutoCompactDraft("", 700_000).changed).toBe(false);
   });
 });

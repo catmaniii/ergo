@@ -31,6 +31,7 @@ import {
   APP_PACKAGE_HEADERS,
   AgentClearBody,
   AgentDefaultRoleBody,
+  AgentAutoCompactBody,
   AgentModelBody,
   AgentRuntimeBody,
   TakeoverActionBody,
@@ -1321,6 +1322,19 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
           // 改回跟随它那一行（设置 · 模型里的项目负责人 / 任务负责人）
           DELETE(_req, res) {
             sendJson(res, 200, agentSettings().followRoleModel(route.agentId));
+          },
+        };
+      case "agent_auto_compact":
+        return {
+          // 单独设这个 agent 的自动压缩点（420）：范围不对的、自己管压缩的运行时、只读的拒收（400）；从这一轮结束起按新的判断
+          async PUT(req, res) {
+            const body = checkHttpBody(AgentAutoCompactBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badAutoCompact", { message: body.message }));
+            sendJson(res, 200, agentSettings().setAutoCompact(route.agentId, body.value));
+          },
+          // 恢复跟随设置 · 模型里的默认
+          DELETE(_req, res) {
+            sendJson(res, 200, agentSettings().followAutoCompact(route.agentId));
           },
         };
       case "agent_runtime":
