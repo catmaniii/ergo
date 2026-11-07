@@ -1,5 +1,5 @@
 // OpenStreetMap 的免费服务（433）：查地点、算路线，照 lookup.ts 的 LookupProvider。不用 Key、不用注册。哪儿都管：国外一直用它；
-// 国内没有高德（没填 Key、关了、Key 坏了，或者高德那套整个不在）时也用它，结果里提一句国内的店名和小路可能不全。
+// 国内没有高德（没填 Key、关了按需查、Key 坏了）时也用它，结果里提一句国内的店名和小路可能不全。
 // - 查地点、地址 → 位置、某处 → 地址：Nominatim 公共实例（nominatim.openstreetmap.org 的 /search、/reverse，format=jsonv2，
 //   addressdetails=1，accept-language 跟着界面的语言再加英文）。"附近"是在中心点四周的方框里找（viewbox + bounded=1），
 //   二狗自己算距离、按近的排、去掉圈外的；按名字找时知道这一问的另一头在哪的，用它做 viewbox（不限死，只让近的排前面）。
