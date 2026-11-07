@@ -8,7 +8,7 @@
 // 不太健康（DEGRADED）、端口被不归服务管家管的进程占着（ORPHAN）→ 注意。事实写服务名、状态、服务管家记的最后一次出错。
 // 动作：跳到服务管家的网页（只在这台电脑上打得开；418 做好后换成"开起来"）。
 // 快照拿不到（服务管家没回应）算"没查出来"；一个和二狗有关的都没有算"不适用"。纯函数，句子由 doctor.ts 拼。
-import { DOCTOR_FIX_UNKNOWN, type DoctorMessage, formatList, t, tTable } from "@ergo/protocol";
+import { DOCTOR_FIX_UNKNOWN, type DoctorMessage, doctorOpensUrl, formatList, t, tTable } from "@ergo/protocol";
 import { DAEMON_SERVICE_ID } from "../cli/service.ts";
 import type { DoctorFinding } from "./checks.ts";
 
@@ -173,9 +173,10 @@ function serviceText(related: Related, withError: boolean): string {
 
 /**
  * 判一次：snapshot 是服务管家那一项拿到的快照（没回应是 undefined），inUse 是二狗在用的语音服务的端口，
- * managerUrl 是服务管家的网页（没接入是 undefined，就不给动作）
+ * managerPage 是服务管家的网页（没接入是 undefined，就不给动作；不是本机的网址也不给——体检的 open 只认本机，doctorOpensUrl）
  */
-export function judgeServices(snapshot: SupervisorSnapshot | undefined, inUse: ServicesInUse, managerUrl: string | undefined): DoctorFinding {
+export function judgeServices(snapshot: SupervisorSnapshot | undefined, inUse: ServicesInUse, managerPage: string | undefined): DoctorFinding {
+  const managerUrl = managerPage !== undefined && doctorOpensUrl(managerPage) ? managerPage : undefined;
   if (!snapshot) return { level: "unknown", fact: { key: "doctor.services.noSnapshot" }, fix: { key: DOCTOR_FIX_UNKNOWN } };
   const related = relatedOf(snapshot, inUse);
   if (related.length === 0) return { level: "na", fact: { key: "doctor.services.none" } };

@@ -63,6 +63,8 @@ import { modelConfigKey } from "./config/model-key.ts";
 import { createSafetySettings, type SafetySettingsService, withLiveBudgetControl } from "./config/safety-settings.ts";
 import { createSetupState, type SetupStateService } from "./config/setup-state.ts";
 import { defaultSvcDataDir } from "./cli/context.ts";
+import { managerAddress } from "./cli/service.ts";
+import { registeredServiceOnPort } from "./lsm/registered.ts";
 import { type AutostartSwitch, createAutostartSwitch } from "./lsm/autostart-switch.ts";
 import { detectLayout, type InstallLayout, readInstallState } from "./release/layout.ts";
 import { releasePublicKey } from "./release/public-key.ts";
@@ -1438,6 +1440,17 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
           recognizerRetryMs: options.recognizerRetryMs,
           recognizerStableMs: options.recognizerStableMs,
           sendVoiceWaitMs: options.sendVoiceWaitMs,
+        }),
+        // 语音插件的体检项要的（413）：组件页的两个功能门、服务管家里登记在某个端口上的服务（读它的注册表文件，不连它）、
+        // 服务管家的网页、有没有 N 卡。组件、组件的检测、服务管家的目录都在后面才有，体检时才问：现转给它
+        bindService(KERNEL.voiceSetup, {
+          featureReady: (feature) => components.view().features.some((gate) => gate.feature === feature && gate.ready),
+          registeredOn: (port) => registeredServiceOnPort(svcDataDir, port),
+          managerUrl: () => {
+            const { bind, port } = managerAddress({ svcDataDir, env: options.env });
+            return `http://${bind === "0.0.0.0" || bind === "::" ? "127.0.0.1" : bind}:${port}/`;
+          },
+          gpu: () => componentProbes.gpu(),
         }),
         // 浏览插件要的：媒体库、数据目录（同上）、授权的文件夹；后面两样建在插件之后（agent 管家、联网设置），用到时现转
         bindService(KERNEL.localFolders, localFolders),

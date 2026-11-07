@@ -2,7 +2,7 @@
 // 最上面一句说明，然后是总状态（坏了几项、要注意几项、都正常；没查出来的另起一句灰字）和查的时刻；下面按块显示——
 // "二狗本身"一块在最前，每个在跑或没装上的插件一块（有问题的在前），块头是名字和这一块最差的结果；
 // 每项一行：结果的小圆点、名字（不正常的带结果的小签）、查出来的事实、"从什么时候起"、怎么修，带动作的有一个按钮
-// （去看看：跳到那一页；打开服务管家：本机的网址在新标签页里打开，410；现在压缩：和会话 ⚙ 里同一个接口）；不适用的淡显、排在块的最后。
+// （去看看：跳到那一页；打开服务管家：本机的网址画成新开一页的链接，410、413；现在压缩：和会话 ⚙ 里同一个接口）；不适用的淡显、排在块的最后。
 // 停用了的插件最底下一行列名字。
 // 右上"再查一遍"（重新请求 GET /api/doctor）。演示页用原型编的一份（prototype/fake-doctor.ts）。
 // 每项查什么、几级怎么判、句子怎么拼都在守护进程（packages/daemon/src/doctor/）；形状在共享协议包的 doctor.ts；
@@ -45,9 +45,16 @@ export function DoctorItemRow({ item, onAction, busy }: { item: DoctorItemView }
         {item.text.fix !== undefined && <span className="doctor-fix">{item.text.fix}</span>}
         {action && (
           <span className="doctor-action">
-            <button type="button" className="btn ghost small" data-action={action.kind} disabled={doing || onAction === undefined} onClick={() => onAction?.(action)}>
-              {doctorActionText(action, doing)}
-            </button>
+            {action.kind === "open" && doctorOpensUrl(action.route) ? (
+              // 本机的网址（服务管家的网页）：新开一页，和设备配对页"打开服务管家"一样是个链接
+              <a className="btn ghost small" data-action={action.kind} href={action.route} target="_blank" rel="noreferrer">
+                {doctorActionText(action)}
+              </a>
+            ) : (
+              <button type="button" className="btn ghost small" data-action={action.kind} disabled={doing || onAction === undefined} onClick={() => onAction?.(action)}>
+                {doctorActionText(action, doing)}
+              </button>
+            )}
           </span>
         )}
       </div>
@@ -101,7 +108,7 @@ export function DoctorPage({ title, onBack, navigate }: { title: string; onBack:
   const [busy, setBusy] = useState<DoctorAction | undefined>();
   const act = (action: DoctorAction) => {
     if (action.kind === "open") {
-      // 本机的网址（服务管家的网页）：新标签页打开，只在这台电脑上打得开
+      // 本机的网址在行里画成链接，不走这里；别处调来的照样新开一页
       if (doctorOpensUrl(action.route)) window.open(action.route, "_blank", "noopener");
       else navigate(parseHash(action.route));
       return;

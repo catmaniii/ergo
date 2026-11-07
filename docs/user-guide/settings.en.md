@@ -554,7 +554,7 @@ Each item has a small dot in front, and there are five results:
 | Not checked (grey) | The check timed out or failed this time. That doesn't count as broken and doesn't lower the overall status. Press **Run again** |
 | Not applicable (hollow, faded) | The feature isn't on or the data source isn't connected, so it isn't checked; listed last in its block |
 
-Items that aren't OK show what was found, since when, and how to fix it. Where one click fixes it there's a button: **Take a look** jumps to the right page, **Compact now** compacts that conversation, **Open service manager** opens the service manager's web page in a new tab (only works on this computer). After fixing, click **Run again** at the top right.
+Items that aren't OK show what was found, since when, and how to fix it. Where one click fixes it there's a button: **Take a look** jumps to the right page, **Compact now** compacts that conversation, **Open service manager** opens the service manager's web page in a new tab (managed services and speech synthesis being down both come with it; it only works on the computer running ergo). After fixing, click **Run again** at the top right.
 
 What ergo checks for each plugin:
 
@@ -574,6 +574,16 @@ The memory plugin brings six checks of its own (they only read the state already
 | Memory brief | Since ergo started, within the last 24 hours, asked at least 5 times with timeouts plus errors at three in ten or more: heads-up (a turn over 3 seconds goes without memory). Briefs turned off on the Memory page: not checked |
 | Nightly consolidation | The latest one failing, being skipped for lack of a DeepSeek key, or needing the reasoning DB rebuilt, or no success for over 36 hours: broken (**Take a look** goes to the consolidation records on the memory curator's page). Succeeded but timed out along the way: heads-up. Consolidation turned off on this computer: not checked |
 | Data source import before consolidation | A data source not imported before consolidating (error, can't connect, still importing at the time limit): heads-up. No data sources to import first: not checked |
+
+The voice plugin brings five checks of its own. Voice replies count as on when speech synthesis is installed in Settings · Components, or a service is registered on the synthesis port in the service manager (an audio.cpp you registered by hand counts too); voice input counts as on when speech recognition is installed in Settings · Components or you've configured your own. Checks for what isn't on are skipped.
+
+| Check | How it's judged | If it's wrong |
+|---|---|---|
+| Speech synthesis | The synthesis service (audio.cpp) can be reached. ergo already probes it every minute; the checkup reads that result and probes right away if it's been too long | Can't reach it, or the trial synthesis failed: broken. On the computer running ergo, open the service manager and start the service the fix names (press **Open service manager**). The GPU being busy with another program is a heads-up |
+| Speech recognition | Recognition can be used. The process ergo starts itself is judged by its status; a service run by the service manager or on audio.cpp gets its port probed | Follow the fix: check that service in the service manager, or the Python in the config |
+| Reference voices | There's at least one | None at all is a heads-up: import some clean speech in Settings · Voice |
+| ffmpeg | It's on PATH | Not found is a heads-up: without it reference voices can only be imported as WAV. Install ffmpeg and restart ergo |
+| NVIDIA GPU | There is one | None is just a hint (not applicable): synthesis and recognition run on the CPU and will be slow |
 
 ergo's own eight checks:
 

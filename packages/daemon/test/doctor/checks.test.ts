@@ -93,11 +93,15 @@ describe("查一项", () => {
   });
 
   it("交回的东西不像样（结果不是五种之一、没有事实、动作不认得、时间不是时间）：算没查出来", async () => {
-    for (const bad of [undefined, "ok", { level: "fine", fact: { key: "x" } }, { level: "ok" }, { level: "ok", fact: { key: "" } }, { level: "ok", fact: { key: "x" }, action: { kind: "restart" } }, { level: "ok", fact: { key: "x" }, action: { kind: "open", route: "http://x" } }, { level: "ok", fact: { key: "x" }, since: "昨天" }]) {
+    for (const bad of [undefined, "ok", { level: "fine", fact: { key: "x" } }, { level: "ok" }, { level: "ok", fact: { key: "" } }, { level: "ok", fact: { key: "x" }, action: { kind: "restart" } }, { level: "ok", fact: { key: "x" }, action: { kind: "open", route: "more/doctor" } }, { level: "ok", fact: { key: "x" }, action: { kind: "open", route: "javascript:alert(1)" } }, { level: "ok", fact: { key: "x" }, action: { kind: "open", route: "http://x" } }, { level: "ok", fact: { key: "x" }, action: { kind: "open", route: "https://example.com/" } }, { level: "ok", fact: { key: "x" }, action: { kind: "open", route: "http://localhost.example.com/" } }, { level: "ok", fact: { key: "x" }, since: "昨天" }]) {
       expect(validFinding(bad)).toBeUndefined();
       expect((await runDoctorCheck(check("bad", () => bad as unknown as DoctorFinding))).fact).toEqual({ key: "doctor.unknown.bad" });
     }
     expect(validFinding({ level: "error", fact: { key: "x" }, action: { kind: "compact", agentId: "secretary" } })).toEqual({ level: "error", fact: { key: "x" }, action: { kind: "compact", agentId: "secretary" } });
+    // 410、413：去看看也可以跳这台电脑上别的网页（服务管家），只认本机（127.0.0.1、localhost、[::1]）的 http(s)；外面的网站上面算不像样
+    for (const route of ["http://127.0.0.1:7420/", "http://localhost:7420", "https://[::1]:7420/"]) {
+      expect(validFinding({ level: "error", fact: { key: "x" }, action: { kind: "open", route } })?.action).toEqual({ kind: "open", route });
+    }
   });
 
   it("不给超时用默认的 1.5 秒", () => {

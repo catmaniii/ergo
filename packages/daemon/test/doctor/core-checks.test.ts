@@ -321,6 +321,11 @@ describe("托管的服务", () => {
     const noLink = judgeServices(parseSupervisorSnapshot(snapshotJson([audiocpp]))!, { speechPort: 8090 }, undefined);
     expect(noLink.action).toBeUndefined();
     expect(noLink.fix).toEqual({ key: "doctor.fix.servicesNoLink" });
+    // 服务管家的网页不是本机网址（体检的 open 只认本机）：照样坏了，不给动作，不会因为动作不像样变成"没查出来"
+    const remote = judgeServices(parseSupervisorSnapshot(snapshotJson([audiocpp]))!, { speechPort: 8090 }, "http://192.168.1.5:7420/");
+    expect(remote.level).toBe("error");
+    expect(remote.action).toBeUndefined();
+    expect(remote.fix).toEqual({ key: "doctor.fix.servicesNoLink" });
   });
 
   it("快照解析：形状不对的服务丢掉，不像快照是 undefined；本机地址才取端口", () => {

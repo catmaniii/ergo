@@ -94,8 +94,9 @@ export interface DoctorMessage {
 
 /**
  * 一项可以带的一个动作按钮（网页认得这几种；不认得的不画）：
- * - open：跳到二狗的某一页，route 是网页的地址（"#/more/data-sources/looki"）；也可以是本机的一个网址（410：服务管家的网页
- *   "http://127.0.0.1:7420/"，网页在新标签页里打开，只在这台电脑上打得开）；
+ * - open：跳到二狗的某一页，route 是网页的地址（"#/more/data-sources/looki"）；也可以是本机的一个网址（只认 127.0.0.1、localhost、
+ *   [::1] 的 http(s)，见 doctorOpensUrl）：服务管家的网页 "http://127.0.0.1:7420/"——410 托管的服务、413 语音合成 / 识别停了
+ *   都跳它；网页画成新开一页的链接，按钮写"打开服务管家"，只在这台电脑上打得开；
  * - compact：现在压缩某个 agent 的对话（和会话 ⚙ 里"现在压缩"同一个接口，POST /api/agents/<agent id>/compact）
  */
 export type DoctorAction = { kind: "open"; route: string } | { kind: "compact"; agentId: string };
@@ -104,8 +105,9 @@ export type DoctorAction = { kind: "open"; route: string } | { kind: "compact"; 
 export const DOCTOR_ACTION_KINDS = ["open", "compact"] as const;
 
 /**
- * open 的 route 是不是本机的一个网址（服务管家的网页）：是的话网页在新标签页里打开，不是二狗的页。
- * 只认本机（127.0.0.1、localhost、[::1]）：体检项（插件也能登记）不能把人带到外面的网站去
+ * open 的 route 是不是本机的一个网址（服务管家的网页）：是的话网页画成新开一页的链接，不是二狗的页。
+ * 只认本机（127.0.0.1、localhost、[::1]）的 http(s)：体检项（插件也能登记）不能把人带到外面的网站去。
+ * 守护进程校验动作（doctor/checks.ts）和网页挑怎么画都用这一个；open 的 route 要么是它认的，要么是 "#/" 开头的二狗地址
  */
 export function doctorOpensUrl(route: string): boolean {
   return /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(route);

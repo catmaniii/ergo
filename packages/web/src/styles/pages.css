@@ -5363,6 +5363,10 @@ a.att-icon:hover {
 .doctor-action {
   margin-top: 2px;
 }
+/* 去看看跳二狗之外的网页（服务管家）是个链接：和按钮一个样子，不画下划线 */
+.doctor-action a.btn {
+  text-decoration: none;
+}
 /* 结果的小圆点：正常绿、注意橙、坏了红、没查出来灰、不适用空心 */
 .doctor-mark {
   flex: none;

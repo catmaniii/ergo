@@ -147,6 +147,18 @@ describe("按块显示", () => {
     const manager = item("services", "error", "托管的服务", "语音合成停着", { action: { kind: "open", route: "http://127.0.0.1:7420/" } });
     expect(renderToStaticMarkup(createElement(DoctorItemRow, { item: manager, onAction: noop }))).toContain("打开服务管家");
   });
+
+  test("跳本机的网页（服务管家，410、413）：画成新开一页的链接，写\"打开服务管家\"，不经页面的跳转", () => {
+    const speech = item("speech", "error", "语音合成", "连不上", { action: { kind: "open", route: "http://127.0.0.1:7420/" } });
+    let clicked = 0;
+    const html = renderToStaticMarkup(createElement(DoctorItemRow, { item: speech, onAction: () => (clicked += 1) }));
+    expect(html).toContain('<a class="btn ghost small" data-action="open" href="http://127.0.0.1:7420/" target="_blank" rel="noreferrer">打开服务管家</a>');
+    expect(html).not.toContain("<button");
+    expect(clicked).toBe(0);
+    // 二狗自己的地址照旧是按钮
+    const inside = renderToStaticMarkup(createElement(DoctorItemRow, { item: { ...speech, action: { kind: "open", route: "#/more/voice" } }, onAction: noop }));
+    expect(inside).toContain('<button type="button" class="btn ghost small" data-action="open"');
+  });
 });
 
 /** 原型的插件清单（off 里的停用了） */
@@ -179,7 +191,8 @@ describe("原型编的一份", () => {
     const looki = view.groups.find((g) => g.id === "looki")!;
     expect(looki.items.find((i) => i.id === "source:looki")).toMatchObject({ level: "warn", since: "2026-11-04T02:30:00+08:00", action: { kind: "open", route: "#/more/data-sources/looki" } });
     expect(looki.items.find((i) => i.id === "source:looki")!.text.fact).toBe("85 小时没同步成功了（定期导入是每天 02:30）");
-    expect(view.groups.find((g) => g.id === "voice")!.items.find((i) => i.id === "recognizer")!.text.fact).toBe("这次没查出来：1.5 秒内没查完");
+    // 没查出来的示例（412 挪到语音那一块；413 之后是 N 卡：第一次问要跑 nvidia-smi）
+    expect(view.groups.find((g) => g.id === "voice")!.items.find((i) => i.id === "gpu")!.text.fact).toBe("这次没查出来：1.5 秒内没查完");
     // 记忆那一块（412 的六项）：记忆简报注意、每晚整理坏了（从上次跑成起，跳记忆管理员），别的正常
     const memory = view.groups.find((g) => g.id === "memory")!;
     expect(memory.items.map((i) => [i.id, i.level])).toEqual([
@@ -194,6 +207,21 @@ describe("原型编的一份", () => {
     expect(memory.items.find((i) => i.id === "nightly")).toMatchObject({ since: "2026-11-05T03:14:00+08:00", action: { kind: "open", route: "#/more/memory/curator" } });
     // 坏了的插件块排在前面（记忆、语音，照插件清单的先后），总状态是坏了
     expect(view.groups.slice(1, 3).map((g) => g.id)).toEqual(["memory", "voice"]);
+    // 语音那一块是 413 的五项：合成服务坏了（从 15:42 起，打开服务管家），N 卡这次没查出来，别的正常
+    const voice = view.groups.find((g) => g.id === "voice")!.items;
+    expect(voice.map((i) => [i.id, i.level])).toEqual([
+      ["plugin", "ok"],
+      ["speech", "error"],
+      ["recognizer", "ok"],
+      ["references", "ok"],
+      ["ffmpeg", "ok"],
+      ["gpu", "unknown"],
+    ]);
+    expect(voice[1]).toMatchObject({ since: "2026-11-07T15:42:00+08:00", action: { kind: "open", route: "http://127.0.0.1:7420/" } });
+    expect(voice[1]!.text.fix).toContain("服务管家");
+    // 和二狗本身的"托管的服务"说的是同一个停着的服务（audiocpp），一个从服务管家看、一个从语音看
+    expect(voice[1]!.text.fix).toContain("audiocpp");
+    expect(view.groups[0]!.items.find((i) => i.id === "services")!.text.fact).toContain("audiocpp");
     expect(view.level).toBe("error");
     expect(view.counts).toEqual({ error: 5, warn: 7, unknown: 1 });
     expect(view.off).toEqual([]);
