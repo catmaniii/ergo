@@ -3,7 +3,8 @@
 //
 // 记忆管理员的工具：尽量复用已有的实现，别自己造一套。
 // - run_memory_consolidation：现在整理一次。走的是同一份作业（runNow / 03:00 那一夜作业给的 run）——同一个引擎、
-//   同一份 memory.maxModelCalls、同一条整理记录；管理员只是外面那层壳，不改整理出来的结论；
+//   同一份 memory.maxModelCalls、同一条整理记录；管理员只是外面那层壳，不改整理出来的结论。它声明了比整理自己的墙钟上限
+//   还长的超时（consolidateTimeoutMs），不被工具调用默认的 10 分钟砍掉；这一夜已经在跑、已经跑成时作业交回那一次，不起第二遍；
 // - inspect_memory：看一条结论的来龙去脉（只读视图，memory/graph.ts 的 claim）；
 // - review_memory_claim：用户对一条结论表态——对（改回成立）、不对（撤回）、拿不准（标成待复核）。走 @ergo/memory 引擎的
 //   recordClaimVerdict（记一条本人的表态证据，再走 confirmClaim / rejectClaim / markClaimForReview），不直接改库：
@@ -254,6 +255,11 @@ export interface CuratorToolDeps {
   materialOptions: MaterialToolOptions;
   /** 现在整理一次（03:00 唤醒时是这一夜作业给的 run；平时是立即整理一次的 runNow） */
   consolidate(): Promise<MemoryNightlyRecord | undefined>;
+  /**
+   * 整理一次那个工具最多等多久（毫秒）：要比整理自己的墙钟上限长，整理到点会自己中止、记一条失败收尾，
+   * 不能先被 agent 管家按工具调用的默认超时（10 分钟）砍掉（curator.ts 按 memory.nightlyTimeoutMinutes 算）。不给按默认
+   */
+  consolidateTimeoutMs?: number;
   /** 现在能不能整理（已经翻成用户的语言）；能是 undefined */
   blocked(): string | undefined;
   log?: (line: string) => void;
@@ -342,6 +348,8 @@ export function curatorTools(deps: CuratorToolDeps): HostTool[] {
       parameters: Type.Object({}, { additionalProperties: false }),
       readOnlyOrIdempotent: false,
       nature: "modify",
+      // 一次整理要十几分钟（423：连着几夜被默认的 10 分钟砍掉，作业又补跑了一遍）
+      ...(deps.consolidateTimeoutMs === undefined ? {} : { timeoutMs: deps.consolidateTimeoutMs }),
       async run() {
         const blocked = deps.blocked();
         if (blocked !== undefined) return { text: `现在整理不了：${blocked}` };

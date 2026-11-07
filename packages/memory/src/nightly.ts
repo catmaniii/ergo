@@ -277,6 +277,14 @@ function readState(engine: MemoryEngine, key: string): { ranAt: string | null; d
   return { ranAt: row?.ran_at ?? null, deferrals: Number(row?.deferrals ?? 0) };
 }
 
+/**
+ * 这一夜（本地日期）定时的那一次整理什么时候跑成的；还没跑成是 null。手动整理不算（它记在自己的键上，不动这一夜的定时水位）。
+ * 调用的人据此在花钱的准备步骤之前就知道"这一夜已经整理过了"，不用等 runNightly 走到推后规则那一步
+ */
+export function nightlyRanAt(engine: MemoryEngine, night: string): string | null {
+  return readState(engine, night).ranAt;
+}
+
 function writeState(engine: MemoryEngine, night: string, patch: { deferrals: number; at: string; ranAt?: string; report?: unknown }): void {
   engine.store.db.run(
     `INSERT INTO nightly_runs (night, deferrals, last_check_at, ran_at, report) VALUES (?, ?, ?, ?, ?)

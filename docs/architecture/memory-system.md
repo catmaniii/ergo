@@ -260,7 +260,10 @@ flowchart TB
 
 **每晚整理**（`packages/daemon/src/memory/nightly-job.ts`）：
 
-- 记忆插件登记的内部作业 `memory-nightly`，每天 03:00。到点不自己整理，先唤醒记忆管理员，由它调 `run_memory_consolidation` 跑同一份作业；它这一夜没跑成，作业自己补跑一次。开机补跑错过的那次（`catch_up`）赶在管理员挂上之前，走老路径。
+- 记忆插件登记的内部作业 `memory-nightly`，每天 03:00。到点不自己整理，先唤醒记忆管理员，由它调 `run_memory_consolidation` 跑同一份作业；它这一夜没调成，作业自己补跑一次。开机补跑错过的那次（`catch_up`）赶在管理员挂上之前，走老路径。
+- **同一个日期只整理一次**（定时的那一次；手动整理一次有自己的键，不算）：这一夜已经在跑，再叫 `run`（管理员又调了一次工具、开机补跑）就等那一次跑完、交回同一条记录；已经跑成就直接交回那一条，不再整理、不再记。重启、插件重装后内存里没有，打开推理库之后、同步和判"回的是什么"之前看 rg.db 里这一夜的定时水位（@ergo/memory 的 `nightlyRanAt`），跑成了就停，也不记（免得把视图里跑成的那条盖成"推后"）。失败、推后、被中止的那一夜照常再跑。
+- **管理员那一轮里起的那一次**：整理记录先不记，那一轮结束后补上管理员调了几次模型（`curatorModelCalls`）再记——一夜一条、日志里一行"ran"。那一轮先结束了（工具调用超时、被停下）而整理还在跑：作业等它跑完，不补跑第二遍，记录上写 `timedOut: "curator"`。`run_memory_consolidation` 声明了自己的超时（墙钟上限再加 5 分钟，默认 65 分钟），不被工具调用默认的 10 分钟砍掉；agent 已经结束这次调用以后工具才做完的，结果不再送回子进程（`serveHostTools`）。起因（423）：11-03 到 11-06 连着四夜整理要十几分钟，10 分钟时工具调用被砍，作业以为管理员没跑、又起一遍，两份整理同时开着 rg.db、每晚记两次"ran"，先跑完的那份送结果时报"没有在等结果的工具调用"（bad_command）或者"送不回去"。
+- 整理记录记下这一次用了多久（`durationMs`）和中途超时过没有（`timedOut`：`consolidation` 是到了墙钟上限、这一夜记失败，`curator` 是上面那种），体检读它。
 - **整理之前同步一遍**（`packages/daemon/src/memory/nightly-sync.ts`，内核那一半是数据源服务的 `syncPullable`，经 `KERNEL.dataSourceSync`）：打开推理库之后、判"回的是什么"和读新素材之前，能由电脑拉的（数据源有 `sync`）、插件在运行、导入开着、连着的数据源各同步一次，触发方式记成定期的那种（`scheduled`）；正在同步的等同一次；10 分钟内（`NIGHTLY_SYNC_FRESH_MS`）成功同步过的不再同步；连接出错的不在这里试（数据源每小时再试那一套管）；手机这类设备交来的、只靠导入文件夹的、没连的不在里面。一起开始，每个最多等 3 分钟（`NIGHTLY_SYNC_WAIT_MS`，按时钟算），超了不等、照常整理，那一次在后台接着同步完、导进来的下一次整理读；同步出错只记原因。结果进整理记录的 `sourceSync`（各新增几条、刚同步过的、没同步上的和为什么），记忆页"最近一次整理"下面一行写它，管理员的整理日记照实说。排在判"回的是什么"前面：同步只等网络、不花模型的钱，先做完，判完紧接着读素材。手动整理一次同样先同步；推后再试的那几轮不再同步。开机补跑的那一夜在数据源服务起来之前就开始了，组合根等它起来再转过去。
 - 跑一次：把素材库里的新素材读成证据（只读，按素材 id 跳过进过库的；数据源的素材同一个数据源、同一种、同一天超过 3 条合成一条证据，当天的等这一天过完再读，一夜最多读进 12 条数据源的证据——见第 6 节）→ 补算向量 → @ergo/memory 的 `runNightly`（推后、最晚 05:00、判回答、编策略、出问题，见 4.4）→ 整理记录写进事件日志和 `memory_nightly` 视图，失败进待我处理。
 - 模型：推理 `LlmReasoner`、抽事实默认 `LlmFactExtractor`（`memory.extractor` 写 `rule` 换回规则版 `RelationalFactExtractor`），模型是 `DeepSeekChat`，key 只从环境变量 `DEEPSEEK_API_KEY` 读，没配就跳过这一夜。预算 `memory.maxModelCalls`（默认 200，抽事实、整理、判预测共用；是一夜的总数，判完回答再整理的那一次只用剩下的），墙钟上限 `memory.nightlyTimeoutMinutes`（默认 60 分钟）。
@@ -274,7 +277,7 @@ flowchart TB
 - 一个**按需拉起**的 agent（守护进程起来时只建壳，不占 `agents.maxLive` 的名额；有人跟它说话、或者 03:00 唤醒时才拉起，闲置到 `agents.idleMinutes` 退出）。会话频道 `maintainer:memory-curator`，网页上记忆管理员的整页对话（从记忆页顶上"和记忆管理员聊"那张卡进）直接订阅、发消息；⚙ 里能改它的提示词、清空、看上下文用量，模型先跟随秘书。
 - 12 个工具：整理一次、看一条结论、记下用户对结论的表态（对 / 不对 / 拿不准）、忘掉、别推断、看问题箱，加复用的 `search_materials`、`read_material`；加了了解你访谈的四个（开一次、收尾、"这个别记"、档案信息出核对卡，见下面"了解你访谈"）（工具表见 3.4）。没有 bash、联网、改配置、删素材库的工具。语音插件开着时另有口语总结、发语音两个（接上语音回复，用户按住说话时回话合成语音）。
 - **记下用户的表态**：`review_memory_claim` 不直接改库，走 @ergo/memory 引擎的 `recordClaimVerdict`——记一条本人的表态证据（原文是固定的一句"用户经记忆管理员说这条结论对：「……」"，出处 `verdict:<结论编号>`，不抽事实），说对的走 `confirmClaim`（标"你确认过"、决定性支持），说不对的走 `rejectClaim`（决定性反证，撤回、墓碑指向这句表态），说拿不准的走 `markClaimForReview`（加复核标记、真值状态不动，下一次整理按证据重判）。整理计分认决定性的支持和反证，所以下一次整理不会改回去；用户改主意时先前的表态按"被纠正"收回。用户自己明说的结论撤不掉（它跟着那句话走），工具交回那句话的素材编号，让管理员用别推断或忘掉；因为依据不在了才撤回的不能直接改回已验证。这一路也经唯一写入口（记成"用户的表态 · 经记忆管理员"），写入口拒了时什么都没写，工具把原因逐条交回。
-- 03:00 那一轮：会话里追加一条"【记忆整理】"消息（一夜一条）→ 它调 `run_memory_consolidation` → 照结果写一段**整理日记**。它自己每夜额外最多调 `memory.curator.maxModelCalls` 次模型（默认 8），次数记进同一条整理记录（`curatorModelCalls`）。
+- 03:00 那一轮：会话里追加一条"【记忆整理】"消息（一夜一条）→ 它调 `run_memory_consolidation` → 照结果写一段**整理日记**。它自己每夜额外最多调 `memory.curator.maxModelCalls` 次模型（默认 8），次数记进同一条整理记录（`curatorModelCalls`）。这个工具一次最多等 `memory.nightlyTimeoutMinutes`（0 是不限，按 60 算）再加 5 分钟，作业等这一轮最多再加 10 分钟。
 - 和秘书的分工写在两边的系统提示里：轻问题秘书自己 `ask_memory`；深聊来龙去脉、要改、要忘的，秘书用 `ask_curator` 转给管理员，等它答完（最多 90 秒）再转述。
 
 **了解你访谈**（`packages/daemon/src/memory/interview.ts`、`interview-tools.ts`、`interview-guide.ts`，网页 `packages/web/src/plugins/memory/InterviewCard.tsx`、`InterviewFilesCard.tsx`；CONTEXT.md"了解你访谈"）：
@@ -636,8 +639,8 @@ flowchart LR
 | ✅ | `ReasoningManifest` | `packages/daemon/src/memory/rg-db.ts` | 格式版本、表版本、引擎、模型、向量模型、抽取器、建库和更新时间 | 类型 |
 | ✅ | `RG_DB_SCHEMA_VERSION` | `packages/daemon/src/memory/rg-db.ts` | 守护进程这一侧的 manifest 版本，现在是 1 | 常量 |
 | ✅ | `createMemoryNightlyJob` | `packages/daemon/src/memory/nightly-job.ts` | 推理库路径、素材库、时钟、事件存储、待我处理、`memory` 配置、向量函数、环境、模型工厂（测试给假的）、会话（`conversations`：判顺口问的回答时按会话取用户之后的话；不给按本人证据的时间取） | `MemoryNightlyJob` |
-| ✅ | `MemoryNightlyJob.job` | `packages/daemon/src/memory/nightly-job.ts` | 名字 `memory-nightly`、时间表每天 03:00；挂了委派先唤醒管理员，没跑成补跑 | `InternalJob` |
-| ✅ | `MemoryNightlyJob.run` | `packages/daemon/src/memory/nightly-job.ts` | `trigger`、`signal`；读新素材、补向量、`runNightly`、写整理记录；墙钟上限到点记失败 | 整理记录；被中止抛 `AbortError` |
+| ✅ | `MemoryNightlyJob.job` | `packages/daemon/src/memory/nightly-job.ts` | 名字 `memory-nightly`、时间表每天 03:00；挂了委派先唤醒管理员，它没调整理时补跑；它起的那次还在跑时等它跑完、不补跑；这一夜已经在跑、已经跑成时不再叫管理员 | `InternalJob` |
+| ✅ | `MemoryNightlyJob.run` | `packages/daemon/src/memory/nightly-job.ts` | `trigger`、`signal`；读新素材、补向量、`runNightly`、写整理记录；墙钟上限到点记失败；同一个日期只整理一次（在跑的等它、跑成的交回那一条，重启后看 rg.db 的定时水位） | 整理记录；被中止抛 `AbortError` |
 | ✅ | `MemoryNightlyJob.runNow` | `packages/daemon/src/memory/nightly-job.ts` | 无；立即整理一次，正在跑时不叠着开 | 整理记录 |
 | ✅ | `MemoryNightlyJob.wakeWith` | `packages/daemon/src/memory/nightly-job.ts` | 03:00 交给谁来跑 | 取消挂上的函数 |
 | ✅ | `MemoryNightlyJob.abort`、`MemoryNightlyJob.whenIdle` | `packages/daemon/src/memory/nightly-job.ts` | 插件停用、守护进程停止时调 | 无；等正在跑的那一次停下 |
@@ -650,6 +653,7 @@ flowchart LR
 | ✅ | `MemoryNightlyRecord.processedEvidence`、`MemoryNightlyRecord.pendingEvidence` | `packages/daemon/src/memory/nightly-record.ts` | 这一夜整理完几条证据、跑完还剩几条（首次建库看几夜做完；整理完一条算一条，积压的按时间先后接着做） | 数 |
 | ✅ | `MemoryNightlyRecord.spend` | `packages/daemon/src/memory/nightly-record.ts` | 这一夜的调用按道分：新证据、重跑旧追问、往上抽、判预测、编策略、对抗复核，加上限；以前的记录没有 | `MemoryNightlySpend` |
 | ✅ | `MemoryNightlyRecord.curatorModelCalls` | `packages/daemon/src/memory/nightly-record.ts` | 记忆管理员这一夜额外调了几次模型 | 数 |
+| ✅ | `MemoryNightlyRecord.durationMs`、`MemoryNightlyRecord.timedOut` | `packages/daemon/src/memory/nightly-record.ts` | 这一次整理用了多久（毫秒，按作业的时钟）；中途超时过没有：`consolidation` 到了墙钟上限（这一夜记失败），`curator` 管理员那一轮没等整理跑完就结束了（整理照常跑完、只跑一遍）；以前的记录没有，体检读它 | 数；`MemoryNightlyTimeout` |
 | ✅ | `MemoryNightlyRecord.sourceSync` | `packages/daemon/src/memory/nightly-record.ts` | 整理之前同步了哪几个数据源：每个的结局（同步完和新增几条、刚同步过、等到上限没完、这次出错、连接出错没同步）和原因、等的上限几分钟；同步之后记的记录都带，以前的记录没有 | `MemoryNightlySourceSync`（协议包） |
 | ✅ | `syncBeforeNightly`、`NIGHTLY_SYNC_WAIT_MS`、`NIGHTLY_SYNC_FRESH_MS` | `packages/daemon/src/memory/nightly-sync.ts` | 内核的整理前同步（`KERNEL.dataSourceSync`）、时钟、中止信号；一起开始、每个最多等 3 分钟，10 分钟内成功同步过的不再同步 | 各数据源的结局；中止抛 `AbortError`，内核那一半出错交回 undefined |
 | ✅ | `MemoryNightlyRecord.people` | `packages/daemon/src/memory/nightly-record.ts` | 认人物信息问了几次模型、看了几条话、认出几个人、攒了几条候选、候选核对卡、旧值到期的事实几条；没接档案的记录没有 | `MemoryNightlyPeople` |
@@ -1068,6 +1072,7 @@ flowchart LR
 | ✅ | `migrateToRules`、`RulesMigrationReport` | `packages/memory/src/rg/migrate-rules.ts` | 引擎、`at`（R16 ①）：老库照新规矩迁移一次——待复核改成复核标记、恢复改过的身份、用户确认过的改挂依据、照铁律降回猜测、悬空的加复核标记；写操作 `migrate`，一条一次写；跑两遍结果一样。没接进守护进程，先在副本上跑 | 每一步动了哪几条、被拒的、改没改 |
 | ✅ | `exportReasoningTemplate` | `packages/memory/src/rg/template-export.ts` | 只读的库连接、层、条数、全部事实、问题、证据层、`now`（267 从 `dump-template.ts` 挪来，映射不变；只给 `memory:dump-template` 用） | 节点和依赖的 YAML 和各类条数 |
 | ✅ | `manualRunKey` | `packages/memory/src/nightly.ts` | 哪一夜、时间；手动整理在 `nightly_runs` 里自己的键，不动那一夜的定时水位 | 键 |
+| ✅ | `nightlyRanAt` | `packages/memory/src/nightly.ts` | 引擎、哪一夜；这一夜定时的那一次什么时候跑成的（手动的不算）；守护进程的作业在花钱的准备步骤之前看它，同一个日期只整理一次 | 时间；没跑成是 null |
 | ✅ | `nightlyDecision` | `packages/memory/src/nightly.ts` | 时间、这一夜跑过没有和推了几次、配置、用户在不在用；纯函数 | 跑、不跑（没到点、跑过了、推后）和下次几点 |
 | 🧪 | `SimClock` | `packages/memory/src/nightly.ts` | 起始时间；`set`、`advanceMinutes` | 模拟时钟 |
 | ✅ | `formatNightlyReport` | `packages/memory/src/nightly.ts` | 整理报告 | 拼好的一段 |
@@ -1327,10 +1332,13 @@ sequenceDiagram
   E->>E: 每晚校验：图谱自检把整张推理图谱查一遍，违反铁律的降回猜测，别的加复核标记
   E-->>T: 整理报告
   T->>T: 档案里换过的值对一遍，认人物信息攒候选，合成第二天的候选核对卡
-  T->>L: 整理记录 memory_nightly，失败进待我处理
+  T->>L: 失败进待我处理（整理记录等这一轮结束再记）
   T-->>C: 新出、变了、问题箱、调了几次模型，对抗复核和判预测的结果
   C->>C: 写整理日记，额外调用最多 8 次
-  alt 管理员这一夜没跑成
+  J->>L: 那一轮结束后记这一夜唯一的一条，补上管理员调了几次
+  alt 管理员那一轮先结束了，整理还在跑
+    J->>E: 等它跑完，不补跑第二遍，记 timedOut curator
+  else 管理员这一夜没调整理
     J->>E: 作业自己补跑一次
   end
 ```

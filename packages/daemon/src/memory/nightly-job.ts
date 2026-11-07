@@ -58,7 +58,18 @@
 // 墙钟上限（config.memory.nightlyTimeoutMinutes，默认 60 分钟）：每一夜到点就 abort（抛 AbortError），
 // 记一条 failed（原因写"整理超时"）+ 待我处理一条，下一夜照常；whenIdle() 照样会返回。
 // 注意能停下来的只有能回到事件循环的点（等模型、等 IO、等推后的 sleepUntil）：卡在本地同步死循环里时 abort
-// 也没用（p2 建库那次就是同步死循环，根子在 llm/robust.ts 的宽松解析，修掉了）。
+// 也没用（p2 建库那次就是同步死循环，根子在 llm/robust.ts 的宽松解析，修掉了）。整理记录记下这一次用了多久（durationMs），
+// 到了墙钟上限的记 timedOut: "consolidation"。
+//
+// 同一个日期只整理一次（定时的那一次；手动整理一次不算，它有自己的键）：
+// - 这一夜已经在跑：再叫 run（管理员又调了一次工具、作业要补跑）就等那一次跑完、交回同一条记录，不起第二遍；
+// - 这一夜已经跑成：直接交回那一条，不再整理、不再记；守护进程重启、插件重装后（内存里没有）在打开推理库之后、
+//   花钱的准备步骤（同步、判"回的是什么"）之前看 rg.db 里这一夜的定时水位（@ergo/memory 的 nightlyRanAt），跑成了就停，
+//   也不记整理记录（免得把视图里那一夜跑成的那条盖成"推后"）；
+// - 失败、推后、中止的那一夜，再叫照常再跑。
+// 03:00 交给记忆管理员时：它那一轮里起的那一次，整理记录先不记，等那一轮结束、补上管理员自己调了几次模型再记——一夜一条、
+// 日志里一行"ran"。那一轮先结束了（它那次工具调用超时、被停下）而整理还在跑：作业等它跑完（不再补跑第二遍），
+// 记录上写 timedOut: "curator"。423 之前这里补跑了第二遍：两份整理同时开着同一个 rg.db，每晚记两次"ran"。
 import {
   type ChatModel,
   type ChatRequest,
@@ -82,6 +93,7 @@ import {
   MeteredChat,
   type MeterReport,
   type NightlyConfig,
+  nightlyRanAt,
   type NightlyReport,
   type NightlyResult,
   RelationalFactExtractor,
@@ -194,7 +206,8 @@ export interface MemoryNightlyJob {
   runNow(): Promise<MemoryNightlyRecord | undefined>;
   /**
    * 挂上"03:00 交给记忆管理员来跑"的委派（记忆管理员被唤醒、自己调 run）。作业这一夜不自己调 runNightly；
-   * 管理员那一轮没调（起不来、没听明白）时照旧补跑一次，保证整理这条确定性路径一定走。返回取消挂上的函数
+   * 管理员那一轮没调（起不来、没听明白）时照旧补跑一次，保证整理这条确定性路径一定走；调了但那一轮先结束了
+   * （工具调用超时、被停下）时等它起的那一次跑完，不补跑第二遍。返回取消挂上的函数
    */
   wakeWith(wake: (info: MemoryNightlyWake) => Promise<MemoryNightlyWakeResult | undefined>): () => void;
   /**
@@ -232,7 +245,10 @@ export function rejudgeSpendOf(r: MeterReport): FullRejudgeSpend {
 export interface MemoryNightlyWake {
   readonly trigger: JobTrigger;
   readonly signal: AbortSignal;
-  /** 跑一次整理（同一份作业） */
+  /**
+   * 跑一次整理（同一份作业）。这一夜已经在跑就等它、已经跑成就交回那一条（同一个日期只整理一次）。
+   * 交回的整理记录这时还没记：那一轮结束后作业补上管理员的调用次数再记（一夜一条）
+   */
   run(trigger: JobTrigger, signal: AbortSignal): Promise<MemoryNightlyRecord | undefined>;
 }
 
@@ -244,6 +260,15 @@ export interface MemoryNightlyWakeResult {
   readonly record?: MemoryNightlyRecord | undefined;
   /** 预算跑满、管理员被停下 */
   readonly budgetExhausted?: boolean;
+}
+
+/** 一夜定时的那一次整理（手动的不在这里）：同一个日期只整理一次靠它 */
+interface NightRun {
+  readonly promise: Promise<MemoryNightlyRecord | undefined>;
+  /** 跑完了（跑成、失败、推后都算；中止的那一次直接从表里拿掉，下次照常再跑） */
+  settled: boolean;
+  /** 跑完的整理记录（管理员那一轮里起的，记下时换成补上管理员调用次数的那一条） */
+  record?: MemoryNightlyRecord | undefined;
 }
 
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -517,13 +542,31 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
   let running: Promise<MemoryNightlyRecord | undefined> | undefined;
   /** 这一夜交给谁跑（记忆管理员；没挂上就自己跑） */
   let wake: ((info: MemoryNightlyWake) => Promise<MemoryNightlyWakeResult | undefined>) | undefined;
-  /** 已经追加了几条整理记录：管理员那一轮里调没调 run（没调就补跑一次）看它 */
-  let appended = 0;
+  /** 定时的那一次按夜（本地日期）记着：同一个日期只整理一次（只留最近这一夜和还在跑的） */
+  const nights = new Map<string, NightRun>();
+  /** 管理员那一轮里跑完、还没记的整理记录：那一轮结束后补上管理员的调用次数再记（release） */
+  const unrecorded = new WeakSet<MemoryNightlyRecord>();
 
   const append = (record: MemoryNightlyRecord): MemoryNightlyRecord => {
     appendNightlyRecord(options.store, record);
-    appended += 1;
     log(`记忆整理 ${record.night}：${record.state}${record.reason === undefined ? "" : `（${record.reason}）`}`);
+    return record;
+  };
+
+  /** 管理员那一轮里跑完的那一条：补上 extra 记下（这一夜唯一的一条）；记过了、不用记的原样交回 */
+  const release = (entry: NightRun, record: MemoryNightlyRecord | undefined, extra: Partial<MemoryNightlyRecord>): MemoryNightlyRecord | undefined => {
+    if (record === undefined || !unrecorded.has(record)) return entry.record ?? record;
+    unrecorded.delete(record);
+    const merged = append({ ...record, ...extra });
+    entry.record = merged;
+    return merged;
+  };
+
+  /** 这一夜已经整理过了：交回一条说明（不记——视图里那一夜跑成的那条不能被盖成"推后"） */
+  const alreadyRan = (night: string, at: string, trigger: JobTrigger, ranAt: string): MemoryNightlyRecord => {
+    log(`记忆整理 ${night} 这一夜已经整理过了（${ranAt}），这次不再整理`);
+    const record = blankRecord(night, at, "deferred", trigger);
+    record.reason = t("memory.nightly.reason.alreadyRan", { night, ranAt });
     return record;
   };
 
@@ -543,17 +586,28 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
       ...(options.embedder === undefined ? {} : { embedder: options.embedder }),
     });
 
-  const execute = async (trigger: JobTrigger, outerSignal: AbortSignal, manual = false): Promise<MemoryNightlyRecord | undefined> => {
+  /**
+   * 跑一次。hold：记忆管理员那一轮里起的——最后那条整理记录先不记，由 runMaybeThroughWake 在那一轮结束后补上管理员的
+   * 调用次数再记（一夜一条）；推后再试时那几条"推后"照常马上记
+   */
+  const execute = async (trigger: JobTrigger, outerSignal: AbortSignal, manual = false, hold = false): Promise<MemoryNightlyRecord | undefined> => {
     throwIfAborted(outerSignal);
     const at = clockIso(options.clock);
     const night = localDate(at);
+    /** 收尾的那一条：记下这一次用了多久，再记（hold 的先不记） */
+    const finish = (record: MemoryNightlyRecord): MemoryNightlyRecord => {
+      record.durationMs = Math.max(0, toMs(clockIso(options.clock)) - toMs(at));
+      if (!hold) return append(record);
+      unrecorded.add(record);
+      return record;
+    };
 
     // 模型在不在：没配 key 就跳过（不建库、不调模型），下一夜照常
     const key = (env[DEEPSEEK_KEY_ENV] ?? "").trim();
     if (options.chat === undefined && key.length === 0) {
       const record = blankRecord(night, at, "skipped", trigger);
       record.reason = t("memory.nightly.reason.noKey");
-      return append(record);
+      return finish(record);
     }
 
     // 这一夜自己的中止信号（守护进程停止 + 墙钟上限）；到点 abort，能回到事件循环的点都停得下来
@@ -588,12 +642,19 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
         const reason = reasoningIssueText(opened.issue);
         const record = blankRecord(night, at, "rebuild_needed", trigger);
         record.reason = reason;
-        append(record);
+        finish(record);
         announceRebuildNeeded(options.inbox, reason);
         return record;
       }
       engine = opened.engine;
       if (opened.created) log(`记忆整理建好了推理库 ${options.file}`);
+
+      // 同一个日期只整理一次：这一夜定时的那一次已经跑成了（重启、插件重装后又被叫到，内存里没有），
+      // 在花钱的准备步骤（同步、判"回的是什么"）之前就停
+      if (!manual) {
+        const ranAt = nightlyRanAt(engine, night);
+        if (ranAt !== null) return alreadyRan(night, at, trigger, ranAt);
+      }
 
       // 整理之前先让能由电脑拉的数据源各同步一次、等导完再读（每个最多等一会儿，超了照常整理；中止照旧往上抛）
       const presync = options.sourceSync?.sync();
@@ -666,7 +727,15 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
         result = await runNightly(engine, nightlyOptions);
       }
       const atNow = clockIso(options.clock);
-      if (!result.ran) return append(withSync(recordOfDeferral(result, trigger, atNow)));
+      if (!result.ran) {
+        const record = withSync(recordOfDeferral(result, trigger, atNow));
+        // 这一夜已经跑成了（上面那一步之后才跑成的）：同样不记，不盖掉那一夜跑成的那条
+        if (result.reason === "already_ran") {
+          log(`记忆整理 ${night}：${result.detail}`);
+          return record;
+        }
+        return finish(record);
+      }
       const record = withSync(recordOfReport(result.report, trigger, atNow, pendingEvidenceOf(engine)));
       if (replies !== undefined && replies.calls + replies.first + replies.pending > 0) {
         record.replyContext = { ...replies };
@@ -683,7 +752,7 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
           log(`记忆整理 ${record.night}：个人档案的联动出错（整理照常算跑成）：${messageOf(err)}`);
         }
       }
-      return append(record);
+      return finish(record);
     } catch (err) {
       // 超时：记一条 failed（原因写"整理超时"）+ 待我处理一条，下一夜照常（不是 AbortError 往上抛，
       // 内部作业不会把它当"没跑过"再补一次）
@@ -691,7 +760,8 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
         const reason = timeoutReason();
         const record = withSync(blankRecord(night, at, "failed", trigger));
         record.reason = reason;
-        append(record);
+        record.timedOut = "consolidation";
+        finish(record);
         addFailedNotice(options.inbox, night, reason);
         log(`记忆整理 ${night} 超时（${timeoutMinutes} 分钟），这一夜放弃：${reason}`);
         return record;
@@ -700,7 +770,7 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
       const reason = messageOf(err);
       const record = withSync(blankRecord(night, at, "failed", trigger));
       record.reason = reason;
-      append(record);
+      finish(record);
       addFailedNotice(options.inbox, night, reason);
       log(`记忆整理 ${night} 出错：${reason}`);
       return record;
@@ -710,12 +780,45 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
     }
   };
 
-  const start = (trigger: JobTrigger, signal: AbortSignal, manual = false): Promise<MemoryNightlyRecord | undefined> => {
+  /**
+   * 起一次。定时的那一次同一个日期只整理一次：这一夜已经在跑就等它（交回同一条记录），已经跑成就直接交回那一条；
+   * 失败、推后的那一夜照常再跑。手动整理一次不看这些（它有自己的键，正在跑时 runNow 自己回"正在整理"）
+   */
+  const start = (trigger: JobTrigger, signal: AbortSignal, manual = false, hold = false): Promise<MemoryNightlyRecord | undefined> => {
+    const night = localDate(clockIso(options.clock));
+    if (!manual) {
+      const existing = nights.get(night);
+      if (existing !== undefined && !existing.settled) {
+        log(`记忆整理 ${night} 已经在跑，这次不再起第二遍，等它跑完`);
+        return existing.promise;
+      }
+      if (existing?.record?.state === "ran") {
+        log(`记忆整理 ${night} 这一夜已经整理过了，这次不再整理`);
+        return Promise.resolve(existing.record);
+      }
+    }
     const combined = AbortSignal.any([signal, controller.signal]);
-    const task = execute(trigger, combined, manual).finally(() => {
+    const task = execute(trigger, combined, manual, hold).finally(() => {
       if (running === task) running = undefined;
     });
     running = task;
+    if (!manual) {
+      const entry: NightRun = { promise: task, settled: false };
+      for (const [other, run] of nights) if (other !== night && run.settled) nights.delete(other);
+      nights.set(night, entry);
+      // 先于调用的人挂上：调用的人拿到结果时这里已经记好了
+      task.then(
+        (record) => {
+          entry.settled = true;
+          entry.record = record;
+        },
+        () => {
+          // 中止了：不算跑过，下次照常再跑
+          entry.settled = true;
+          if (nights.get(night) === entry) nights.delete(night);
+        },
+      );
+    }
     return task;
   };
 
@@ -754,31 +857,51 @@ export function createMemoryNightlyJob(options: MemoryNightlyJobOptions): Memory
 
   /**
    * 到点时作业不自己调 runNightly，先叫挂上的那个（记忆管理员被唤醒、在它那一轮里调 run）。
-   * 管理员那一轮没调成（起不来、没听明白）时照旧自己补跑一次——整理这条确定性路径一定走，不能因为管理员出问题就整夜不整理。
+   * - 管理员那一轮里起了这一夜的整理：等它跑完（那一轮可能先结束了——它那次工具调用超时、被停下——整理还在后台跑），
+   *   补上管理员这一夜调了几次模型，记下这一夜唯一的一条；不补跑第二遍；
+   * - 管理员那一轮没调成（起不来、没听明白）：照旧自己补跑一次——整理这条确定性路径一定走，不能因为管理员出问题就整夜不整理；
+   * - 这一夜已经在跑、已经跑成：不再叫管理员，交回那一次（同一个日期只整理一次）。
    * 管理员那一轮里抛错只记日志，不把作业弄崩；中止（守护进程停止）照旧往上抛，内部作业当没跑过
    */
   const runMaybeThroughWake = async (trigger: JobTrigger, signal: AbortSignal): Promise<MemoryNightlyRecord | undefined> => {
-    if (wake === undefined) return start(trigger, signal);
-    const before = appended;
+    const night = localDate(clockIso(options.clock));
+    const before = nights.get(night);
+    if (wake === undefined || (before !== undefined && (!before.settled || before.record?.state === "ran"))) return start(trigger, signal);
+    /** 管理员那一轮里起的那一次（没起是 undefined） */
+    const startedByCurator = (): NightRun | undefined => {
+      const now = nights.get(night);
+      return now !== undefined && now !== before ? now : undefined;
+    };
     let result: MemoryNightlyWakeResult | undefined;
     try {
-      result = await wake({ trigger, signal, run: (t, s) => start(t, s) });
-    } catch (err) {
-      if (isAbort(err)) throw err;
-      log(`记忆管理员的唤醒出错，这一夜照旧整理：${messageOf(err)}`);
-    }
-    throwIfAborted(signal);
-    if (appended !== before) {
-      // 管理员那一轮自己跑了整理：把管理员额外花的调用次数补进同一条整理记录（一夜还是一条，后写的覆盖先前的）
-      if (result?.record !== undefined && result.modelCalls > 0) {
-        append({
-          ...result.record,
-          curatorModelCalls: result.modelCalls,
-          ...(result.budgetExhausted === true ? { curatorBudgetExhausted: true } : {}),
+      try {
+        result = await wake({ trigger, signal, run: (why, stop) => start(why, stop, false, true) });
+      } catch (err) {
+        if (isAbort(err)) throw err;
+        log(`记忆管理员的唤醒出错，这一夜照旧整理：${messageOf(err)}`);
+      }
+      const woke = startedByCurator();
+      if (woke !== undefined) {
+        const cutOff = !woke.settled;
+        if (cutOff) log(`记忆管理员那一轮已经结束，它起的整理 ${night} 还在跑：等它跑完，不再起第二遍`);
+        const record = await woke.promise;
+        return release(woke, record, {
+          ...(result !== undefined && result.modelCalls > 0 ? { curatorModelCalls: result.modelCalls } : {}),
+          ...(result?.budgetExhausted === true ? { curatorBudgetExhausted: true } : {}),
+          ...(cutOff && record?.timedOut === undefined ? { timedOut: "curator" as const } : {}),
         });
       }
-      return result?.record;
+    } finally {
+      // 中止、出错也不丢管理员那一轮跑完的那一条：跑完了的马上记，还在跑的跑完再记（被中止的那次没有记录）；记过了的不再记
+      const woke = startedByCurator();
+      if (woke !== undefined) {
+        void woke.promise.then(
+          (record) => release(woke, record, {}),
+          () => {},
+        );
+      }
     }
+    throwIfAborted(signal);
     if (result !== undefined && result.modelCalls > 0) log(`记忆管理员这一夜调了 ${result.modelCalls} 次模型，但没有自己跑整理：作业补跑一次`);
     else log("记忆管理员这一夜没有自己跑整理，作业补跑一次");
     return start(trigger, signal);

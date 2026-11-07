@@ -5,7 +5,11 @@
 //   工具白名单是空的（秘书没有 pi 的内置工具）时，宿主工具照样可用；一次一个、按模型给出的顺序执行。
 //   调用时带上这一轮已经进了上下文的插话（宿主协议 16：发语音工具据此认出用户在说话的那一轮）。
 // - 图片输入：用户输入带图片时，模型调用的上下文里有这张图片。
+// - 管家按超时中止了一次还在等结果的调用：子进程那边按"回合已中止"收尾；守护进程的工具之后才做完时不再送结果，
+//   子进程不报"没有在等结果的工具调用"（bad_command，423：记忆管理员的整理被砍掉以后连着几夜这样报错）。
+import { Type } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
+import { defineHostTool, serveHostTools } from "../../src/agent-manager/host-tools.ts";
 import type { HostToolSpec } from "../../src/runtime/index.ts";
 import { fauxModel, spawnTestAgent, startTestDaemon } from "../helpers/daemon.ts";
 
@@ -138,6 +142,52 @@ describe("pi 契约：守护进程代为执行的工具", () => {
     agent.send({ type: "user_input", inputId: "in-3", text: "再记一条" });
     expect(await answer("四")).not.toHaveProperty("interjected");
     expect((await log.next("turn_end")).outcome).toBe("completed");
+  });
+
+  it("管家按超时中止了还在等结果的调用：子进程按中止收尾；工具之后才做完时不再送结果，子进程不报 bad_command", async () => {
+    const { daemon } = await startTestDaemon();
+    let finish: () => void = () => {};
+    const done = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    let ended: AbortSignal | undefined;
+    // 一个慢工具（像一次要跑十几分钟的整理）：调用到了以后等 finish 才交回
+    const slow = defineHostTool({
+      name: "slow_consolidate",
+      title: "慢工具",
+      description: "测试用：要跑很久",
+      parameters: Type.Object({}, { additionalProperties: false }),
+      readOnlyOrIdempotent: false,
+      async run(_args, call) {
+        ended = call.signal;
+        await done;
+        return { text: "整理完了" };
+      },
+    });
+    const { agent, log } = spawnTestAgent(daemon, {
+      agentId: "contract-host-tool-timeout",
+      model: fauxModel([{ kind: "reply", toolCalls: [{ name: "slow_consolidate", arguments: {} }] }, { kind: "reply", text: "（不会走到这里）" }]),
+      tools: [],
+      hostTools: [slow.spec],
+      // 它的调用 300 毫秒就算超时（代表原来的 10 分钟）
+      toolTimeouts: { slow_consolidate: 300 },
+    });
+    const served: string[] = [];
+    serveHostTools(agent, [slow], { log: (line) => served.push(line) });
+    await log.next("ready");
+    agent.send({ type: "user_input", inputId: "in-1", text: "整理一次" });
+    await log.next("host_tool_call");
+    // 到点：管家中止这一轮，子进程那边这次调用按出错结束、这一轮以出错结束
+    expect(await log.next("tool_call_end")).toMatchObject({ toolName: "slow_consolidate", isError: true });
+    expect((await log.next("turn_end")).outcome).toBe("error");
+    expect(ended?.aborted).toBe(true);
+
+    // 工具这才做完：结果不再送回，子进程那边也就没有"没有在等结果的工具调用"
+    finish();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(log.ofType("error")).toEqual([]);
+    expect(served.join("\n")).toContain("结果不再送回");
+    expect(served.join("\n")).not.toContain("送不回去");
   });
 });
 

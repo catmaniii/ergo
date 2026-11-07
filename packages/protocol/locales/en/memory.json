@@ -35,6 +35,7 @@
   "memory.nightly.rebuild.body": "The reasoning DB (memory/subtext/rg.db in the data directory) doesn't match this version of ergo: {reason}. It was not migrated automatically; no material was lost, and rebuilding the reasoning DB loses no originals.",
   "memory.nightly.reason.noKey": "No DeepSeek key (environment variable DEEPSEEK_API_KEY) is configured, so this consolidation is skipped",
   "memory.nightly.reason.busy": "The previous consolidation is still running, so this one doesn't start on top of it: check the consolidation record when it finishes",
+  "memory.nightly.reason.alreadyRan": "The night of {night} was already consolidated (finished at {ranAt}), so it isn't consolidated again",
   "memory.nightly.manual.title": "Consolidate memory now",
   "memory.nightly.manual.done": "Consolidated: {newClaims} new conclusions, {changedClaims} changed, {open} questions open; {modelCalls} model calls this time",
   "memory.nightly.manual.budget": " (budget used up; the next consolidation continues)",

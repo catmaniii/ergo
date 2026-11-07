@@ -24,6 +24,9 @@ export const MEMORY_NIGHTLY_EVENT = "memory_nightly";
  */
 export type MemoryNightlyState = "ran" | "deferred" | "skipped" | "failed" | "rebuild_needed";
 
+/** 这一夜哪儿超时过：整理自己到了墙钟上限，或者记忆管理员那一轮先结束了（见 MemoryNightlyRecord.timedOut） */
+export type MemoryNightlyTimeout = "consolidation" | "curator";
+
 /** 问题箱的变化（这一夜）：新出、判了、不用问、过期、问了没答、跳过两次退下、整理完还开着几个 */
 export interface MemoryNightlyQuestions {
   added: number;
@@ -193,6 +196,15 @@ export interface MemoryNightlyRecord {
   curatorModelCalls?: number;
   /** 管理员这一夜自己的预算跑满、被停下了（下一夜照常） */
   curatorBudgetExhausted?: boolean;
+  /** 这一次整理从开始到收尾用了多久（毫秒，按作业的时钟算；以前的记录没有） */
+  durationMs?: number;
+  /**
+   * 这一夜中途超时过（体检读它；以前的记录、没超时的没有）：
+   * - consolidation：整理自己到了墙钟上限（memory.nightlyTimeoutMinutes），这一夜记 failed；
+   * - curator：记忆管理员那一轮没等整理跑完就结束了（它那次工具调用超时、被停下，或者等它的那一轮到了上限）——
+   *   整理照常在后台跑完，作业等它跑完，不再起第二遍，这一夜还是这一条
+   */
+  timedOut?: MemoryNightlyTimeout;
   /** 整理报告拼好的一段（只在 ran 时有） */
   text?: string;
 }

@@ -30,6 +30,7 @@
   "memory.nightly.rebuild.body": "推理库（数据目录的 memory/subtext/rg.db）和这个版本的程序对不上：{reason}。没有自动迁移；素材一条没少，重建推理库不会丢原文。",
   "memory.nightly.reason.noKey": "没配 DeepSeek 的 key（环境变量 DEEPSEEK_API_KEY），这次不整理",
   "memory.nightly.reason.busy": "上一次整理还在跑，这次不叠着跑：等它跑完再看整理记录",
+  "memory.nightly.reason.alreadyRan": "{night} 这一夜已经整理过了（{ranAt} 跑成的），这次不再整理",
   "memory.nightly.manual.title": "整理一次记忆",
   "memory.nightly.manual.done": "整理完了：新出 {newClaims} 条结论、改了 {changedClaims} 条，问题箱里开着 {open} 个；这次调了 {modelCalls} 次模型",
   "memory.nightly.manual.budget": "（预算用完了，剩下的下一次整理接着做）",

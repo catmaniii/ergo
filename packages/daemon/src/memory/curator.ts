@@ -8,6 +8,8 @@
 // - **整理还是同一条确定性路径**（评测跑的就是 runNightly）：管理员只是外面那层壳。03:00 的内部作业不自己调 runNightly，
 //   改成唤醒管理员；管理员调 run_memory_consolidation（就是那个"立即整理一次"的内核：同一个引擎、同一份
 //   memory.maxModelCalls、同一条整理记录）。管理员这一轮没调成（模型坏了、没听明白）时作业照旧补跑一次，整夜不空转；
+//   调了但这一轮先结束了（工具调用超时、被停下）时，作业等它起的那一次跑完，不补跑第二遍（同一个日期只整理一次）；
+//   这个工具声明了比整理的墙钟上限还长的超时，不被工具调用默认的 10 分钟砍掉（423）；
 //   开机时补跑错过的 03:00 那一次（catch_up）赶在管理员挂上之前，直接按老路径整理（那一夜没有日记，整理照常）；
 // - 引擎那 200 次照旧是硬上限；管理员自己每夜额外最多 memory.curator.maxModelCalls 次（默认 8，只做叙述和判断）：
 //   从 token 账本里数它这一夜调了几次，跑满就停下这一轮，下一夜照常；次数补进那一夜的整理记录（curatorModelCalls）；
@@ -72,6 +74,16 @@ export const CURATOR_WAKE_KEY_PREFIX = "memory-curator-wake:";
 
 /** 它这一轮最多等多久（毫秒）：一次整理本身有 memory.nightlyTimeoutMinutes 的墙钟上限，这里再多给 10 分钟收尾 */
 const WAKE_MARGIN_MS = 10 * 60_000;
+
+/**
+ * run_memory_consolidation 一次调用比整理的墙钟上限多等多久（毫秒）：整理到点会自己中止、记一条失败收尾，工具不能比它先被
+ * agent 管家砍掉（423：工具调用默认 10 分钟，整理要十几分钟，连着几夜被砍、作业又补跑一遍）。比 WAKE_MARGIN_MS 短：
+ * 整理拖到上限时，工具交回之后它还有几分钟写整理日记
+ */
+const CONSOLIDATE_MARGIN_MS = 5 * 60_000;
+
+/** 一次整理的墙钟上限（分钟）：memory.nightlyTimeoutMinutes，0（不限）时按 60 等 */
+const nightlyMinutes = (config: MemoryConfig): number => (config.nightlyTimeoutMinutes > 0 ? config.nightlyTimeoutMinutes : 60);
 
 /** 等不到这一轮结束时，多久看一次会话还在不在（毫秒） */
 const WAIT_TICK_MS = 1_000;
@@ -189,6 +201,7 @@ export function startMemoryCurator(options: MemoryCuratorOptions): MemoryCurator
     materials: options.materials,
     materialOptions: options.materialOptions,
     consolidate,
+    consolidateTimeoutMs: nightlyMinutes(options.config) * 60_000 + CONSOLIDATE_MARGIN_MS,
     blocked: () => options.nightly.blocked(),
     log,
   });
@@ -352,8 +365,7 @@ export function startMemoryCurator(options: MemoryCuratorOptions): MemoryCurator
       }
       // 这一夜那一轮已经处理完了（重启后补跑）：不再等，交回让作业补跑
       if (existing === undefined || turnEndOf(message.id) === undefined) {
-        const minutes = options.config.nightlyTimeoutMinutes > 0 ? options.config.nightlyTimeoutMinutes : 60;
-        await waitForTurn(message.id, info.signal, minutes * 60_000 + WAKE_MARGIN_MS);
+        await waitForTurn(message.id, info.signal, nightlyMinutes(options.config) * 60_000 + WAKE_MARGIN_MS);
       } else {
         log("记忆管理员这一夜的唤醒已经处理过（同一个幂等键），作业照旧整理");
       }
