@@ -35,6 +35,23 @@ export const BACKUP_SYNC_RESULTS = ["copied", "replaced", "kept", "not_configure
 export const BACKUP_SCHEDULES = ["internal", "external"] as const;
 export type BackupSchedule = (typeof BACKUP_SCHEDULES)[number];
 
+/** 快照里没收进去的一个文件：相对数据目录的路径（用 / 分隔；读不了的目录以 / 结尾），读不了的原因（错误原文） */
+export const BackupSkippedFile = Type.Object({
+  path: Type.String(),
+  reason: Type.String(),
+});
+export type BackupSkippedFile = Static<typeof BackupSkippedFile>;
+
+/**
+ * 这次做快照时跳过的文件：被别的程序占着（EBUSY / EPERM / EACCES），短间隔重试了几次还读不了。一共几个，列前若干个。
+ * 数据库、配置这类关键文件不跳过（读不了整份算失败），所以有跳过的这次照样算做成了，只是"成功但有跳过"
+ */
+export const BackupSkipped = Type.Object({
+  count: Type.Integer({ minimum: 1 }),
+  files: Type.Array(BackupSkippedFile),
+});
+export type BackupSkipped = Static<typeof BackupSkipped>;
+
 /** 一次备份的结果 */
 export const BackupResult = Type.Object({
   /** 快照的日期 YYYY-MM-DD（本地日期） */
@@ -43,6 +60,8 @@ export const BackupResult = Type.Object({
   sync: Type.Enum(BACKUP_SYNC_RESULTS),
   /** 失败的原因（给人看） */
   error: Type.Optional(Type.String()),
+  /** 这次新做的本机快照里跳过了的文件；没跳过的不带 */
+  skipped: Type.Optional(BackupSkipped),
 });
 export type BackupResult = Static<typeof BackupResult>;
 
@@ -57,6 +76,8 @@ export const BackupRunRecord = Type.Object({
   local: Type.Enum(BACKUP_LOCAL_RESULTS),
   sync: Type.Enum(BACKUP_SYNC_RESULTS),
   error: Type.Optional(Type.String()),
+  /** 跳过了的文件（"成功但有跳过"）；没跳过的不带 */
+  skipped: Type.Optional(BackupSkipped),
 });
 export type BackupRunRecord = Static<typeof BackupRunRecord>;
 

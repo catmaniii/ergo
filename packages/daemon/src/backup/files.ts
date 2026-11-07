@@ -8,8 +8,12 @@ import { pipeline } from "node:stream/promises";
 import { t } from "@ergo/protocol";
 import { renameRetryingAsync } from "../util/atomic-file.ts";
 
+/** 数据目录里的关键文件（数据库、配置）被别的程序占着、读不了：不能跳过，整份快照算失败；message 已经是给人看的原因 */
+export class UnreadableSource extends Error {}
+
 /** 写入出错的原因，给人看（备份写不进去、选文件夹时试写不进去，共用） */
 export function describeWriteError(err: unknown): string {
+  if (err instanceof UnreadableSource) return err.message;
   const code = (err as NodeJS.ErrnoException).code;
   // SQLite 写满时（VACUUM INTO）没有 errno，只有这句话
   if (code === "ENOSPC" || /disk is full/i.test(err instanceof Error ? err.message : "")) return t("backup.error.noSpace");

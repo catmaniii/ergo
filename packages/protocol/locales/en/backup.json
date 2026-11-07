@@ -2,6 +2,7 @@
   "backup.error.noSpace": "not enough disk space",
   "backup.error.noPermission": "no write permission ({message})",
   "backup.error.copy": "copy failed ({message})",
+  "backup.error.criticalUnreadable": "couldn't read {file} ({message}); key files such as databases and settings can't be skipped",
   "backup.source": "Backup",
   "backup.sundayFailed.title": "Backup failed: Sunday's snapshot wasn't added to the sync folder",
   "backup.sundayFailed.body": "The snapshot from {date} (Sunday) didn't make it into the sync folder at the time, and this retry failed too: {reason}.",

@@ -2,6 +2,7 @@
   "backup.error.noSpace": "空间不够",
   "backup.error.noPermission": "没有写入权限（{message}）",
   "backup.error.copy": "复制出错（{message}）",
+  "backup.error.criticalUnreadable": "{file} 读不了（{message}）；数据库、配置这类关键文件不能跳过",
   "backup.source": "备份",
   "backup.sundayFailed.title": "备份失败：周日的快照没补进同步目录",
   "backup.sundayFailed.body": "{date}（周日）的快照当时没写进同步目录，这次补写也没成功：{reason}。",

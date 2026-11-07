@@ -1205,6 +1205,8 @@
   "state.backup.outcome.kept": "当天的快照都已经有了，没重做",
   "state.backup.outcome.localFailed": "没做成：{reason}",
   "state.backup.outcome.syncFailed": "本机做好了，没写进同步目录：{reason}",
+  "state.backup.outcome.skippedOne": "；{file} 被别的程序占着，没收进去",
+  "state.backup.outcome.skippedMany": "；{n} 个被别的程序占着的文件没收进去（{file} 等）",
   "state.backup.next.internal": "每天 {time} 自动备份，下次 {when}",
   "state.backup.next.daily": "每天 {time} 自动备份",
   "state.backup.next.external": "交给外部定时器（守护进程不自己定时；连着两天没跑会提醒）",

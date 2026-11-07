@@ -28,14 +28,22 @@ function whenLabel(iso: string): string {
 /** 这一次没做成：本机快照没做成，或者没写进同步目录 */
 export const backupFailed = (record: Pick<BackupRunRecord, "local" | "sync">): boolean => record.local === "failed" || record.sync === "failed";
 
-/** 一次备份的结果怎么说 */
-export function backupOutcomeText(record: Pick<BackupRunRecord, "local" | "sync" | "error">): string {
+/** 跳过了被占着的文件时接在后面的一句：一个的写是哪个，几个的写第一个"等" */
+function skippedText(skipped: BackupRunRecord["skipped"]): string {
+  if (!skipped) return "";
+  const file = skipped.files[0]?.path ?? "";
+  return skipped.count === 1 ? t("state.backup.outcome.skippedOne", { file }) : t("state.backup.outcome.skippedMany", { n: skipped.count, file });
+}
+
+/** 一次备份的结果怎么说（做成了但跳过了被占着的文件的，后面接一句） */
+export function backupOutcomeText(record: Pick<BackupRunRecord, "local" | "sync" | "error" | "skipped">): string {
   const reason = record.error ?? t("state.backup.unknownReason");
   if (record.local === "failed") return t("state.backup.outcome.localFailed", { reason });
-  if (record.sync === "failed") return t("state.backup.outcome.syncFailed", { reason });
-  if (record.sync === "not_configured") return t("state.backup.outcome.localOnly");
+  const skipped = skippedText(record.skipped);
+  if (record.sync === "failed") return `${t("state.backup.outcome.syncFailed", { reason })}${skipped}`;
+  if (record.sync === "not_configured") return `${t("state.backup.outcome.localOnly")}${skipped}`;
   if (record.local === "kept" && record.sync === "kept") return t("state.backup.outcome.kept");
-  return t("state.backup.outcome.done");
+  return `${t("state.backup.outcome.done")}${skipped}`;
 }
 
 export function backupText(view: BackupStatusView): BackupText {

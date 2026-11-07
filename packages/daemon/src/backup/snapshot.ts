@@ -20,15 +20,26 @@
 //
 // 两层都一样的：
 // - pi 会话的 JSONL 是追加写：复制到最后一个换行为止，最后半行（正在写的）不要，恢复后的文件每一行都完整。
-// - 不进备份：nonBackupEntries（密钥区、临时区、本机备份区、pid 文件、模型区、缓存区、导入文件夹）；符号链接和目录联接一律不跟进（外部工作目录进不来）。
+// - 不进备份：nonBackupEntries（密钥区、临时区、本机备份区、pid 文件、模型区、缓存区、导入文件夹）；任何一层名叫 .ergo-tmp 的目录
+//   （NON_BACKUP_DIR_NAMES：agent 的 bash 临时目录，比如任务产出区里的 outputs/<任务>/.ergo-tmp/，浏览器配置、下载的中间文件都在里面）；
+//   符号链接和目录联接一律不跟进（外部工作目录进不来）。
 // - 先写进同一备份区里的 .<日期>.partial，清单最后写，整个改名成日期目录（writeDated）：日期目录只要在，就是完整的。
+//   改名被占着（同步客户端、杀毒正扫着刚写完的目录）：files.rename 自己约 5 秒的重试之外，再隔几秒试几次（DATED_RENAME_RETRY）。
+//
+// 本机快照读源文件碰上被别的程序占着（EBUSY / EPERM / EACCES，比如浏览器开着的 Cookies）：短间隔再试几次（LOCKED_READ_RETRY），
+// 还读不了就跳过这一个、记下来（takeSnapshot 交回 skipped，备份记录里写着），这一份照样做完。关键文件不跳过：数据库区、配置区里的，
+// 和别处的数据库文件（*.db、*.sqlite 和它们的 -wal、-shm、-journal，比如推理库 rg.db）——读不了整份快照算失败。
+// 列目录时读不了的子目录（不是刚被删掉）同样记成跳过（路径以 / 结尾），在关键区里的照样整份失败。
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { t } from "@ergo/protocol";
+import { setTimeout as sleep } from "node:timers/promises";
+import { type BackupSkippedFile, t } from "@ergo/protocol";
 import { type DataDirLayout, nonBackupEntries } from "../config/data-dir.ts";
+import { WORK_TEMP_DIR } from "../guard/index.ts";
 import { integrityCheck, vacuumInto } from "../storage/sqlite.ts";
-import type { SnapshotFiles } from "./files.ts";
+import { isBusy } from "../util/atomic-file.ts";
+import { type SnapshotFiles, UnreadableSource } from "./files.ts";
 
 export const MANIFEST_FILE = "manifest.json";
 export const DATA_DIR = "data";
@@ -40,6 +51,55 @@ export const SNAPSHOT_FORMAT = 1;
  * 同步目录里才放进公共池
  */
 export const LARGE_FILE_BYTES = 64 * 1024;
+
+/** 任何一层都不进备份的目录名（小写）：agent 的 bash 临时目录（工作目录里的 .ergo-tmp，agent-manager/work-temp.ts） */
+export const NON_BACKUP_DIR_NAMES: ReadonlySet<string> = new Set([WORK_TEMP_DIR.toLowerCase()]);
+
+/** 别处的数据库文件（数据库区以外的，比如推理库 rg.db）：关键文件，读不了不跳过 */
+const DATABASE_FILE = /\.(db|sqlite3?)(-wal|-shm|-journal)?$/i;
+/** 名字像数据库、其实不是的（资源管理器的缩略图缓存） */
+const NOT_DATABASES: ReadonlySet<string> = new Set(["thumbs.db"]);
+
+/** 碰上"正被占着"（util/atomic-file.ts 的 isBusy：EBUSY / EPERM / EACCES）时再试几次、每次隔多久（毫秒） */
+export interface BusyRetry {
+  retries: number;
+  delayMs: number;
+}
+/** 读被别的程序占着的源文件：短间隔再试几次，还读不了就跳过（关键文件整份失败） */
+export const LOCKED_READ_RETRY: BusyRetry = { retries: 3, delayMs: 500 };
+/** 日期目录改名（.partial → 日期、换掉当天已有的）、公共池的临时文件改名被占着：files.rename 自己约 5 秒的重试之外，隔几秒再试几次 */
+export const DATED_RENAME_RETRY: BusyRetry = { retries: 4, delayMs: 3_000 };
+
+/** 读源文件、改名各怎么重试；测试调短 */
+export interface SnapshotRetry {
+  read: BusyRetry;
+  rename: BusyRetry;
+}
+const retryOf = (retry: Partial<SnapshotRetry> | undefined): SnapshotRetry => ({ read: retry?.read ?? LOCKED_READ_RETRY, rename: retry?.rename ?? DATED_RENAME_RETRY });
+
+/** 被占着时隔一会儿再试；别的错误、试完了照旧抛出最后一次的。等的时候能被中止 */
+async function retryBusy<T>(retry: BusyRetry, signal: AbortSignal, attempt: () => Promise<T>, onRetry?: (err: unknown, n: number) => void | Promise<void>): Promise<T> {
+  for (let n = 1; ; n++) {
+    try {
+      return await attempt();
+    } catch (err) {
+      if (n > retry.retries || !isBusy(err)) throw err;
+      await onRetry?.(err, n);
+      await sleep(retry.delayMs, undefined, { signal });
+    }
+  }
+}
+
+const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+const errorCode = (err: unknown) => (err as NodeJS.ErrnoException).code ?? "";
+
+/** 改名（被占着时按 retry 隔几秒再试，每次记一行日志） */
+function patientRename(files: SnapshotFiles, retry: BusyRetry, signal: AbortSignal, log: (line: string) => void) {
+  return (from: string, to: string) =>
+    retryBusy(retry, signal, () => files.rename(from, to), (err, n) => {
+      log(`备份：${from} 改名成 ${path.basename(to)} 被占着（${errorCode(err)}），${retry.delayMs / 1000} 秒后再试（第 ${n} 次，最多 ${retry.retries} 次）`);
+    });
+}
 
 /** 快照里一个普通文件 */
 export interface SnapshotFile {
@@ -195,26 +255,44 @@ export async function removeLeftovers(root: string, files: SnapshotFiles): Promi
   }
 }
 
+interface WriteDatedOptions {
+  files: SnapshotFiles;
+  /** 清单也设成只读（本机备份区） */
+  protect: boolean;
+  signal: AbortSignal;
+  /** 改名被占着时怎么再试 */
+  renameRetry: BusyRetry;
+  log: (line: string) => void;
+}
+
 /**
  * 写一个日期目录的整套流程：先写进 .<日期>.partial，fill 往里放内容并给出清单，清单最后写，
- * 再整个改名成日期目录（当天已有的换掉）。中途出错删掉半成品。protect 时清单也设成只读（本机备份区）。
+ * 再整个改名成日期目录（当天已有的换掉）。改名被占着时隔几秒再试几次；还不成时把挪开的当天那份挪回去。中途出错删掉半成品。
  */
-async function writeDated(root: string, date: string, files: SnapshotFiles, protect: boolean, fill: (dir: string) => Promise<Manifest>): Promise<Snapshot> {
+async function writeDated<T extends { manifest: Manifest }>(root: string, date: string, options: WriteDatedOptions, fill: (dir: string) => Promise<T>): Promise<T & Snapshot> {
+  const { files, protect, signal } = options;
+  const rename = patientRename(files, options.renameRetry, signal, options.log);
   const partial = path.join(root, `.${date}.partial`);
   await files.remove(partial);
   await files.mkdir(path.join(partial, DATA_DIR));
   try {
-    const manifest = await fill(partial);
+    const filled = await fill(partial);
     const manifestFile = path.join(partial, MANIFEST_FILE);
-    await files.writeFile(manifestFile, `${JSON.stringify(manifest, null, 1)}\n`);
+    await files.writeFile(manifestFile, `${JSON.stringify(filled.manifest, null, 1)}\n`);
     if (protect) await files.protect(manifestFile);
     const final = path.join(root, date);
     const old = path.join(root, `.${date}.old`);
     const replacing = fs.existsSync(final);
-    if (replacing) await files.rename(final, old);
-    await files.rename(partial, final);
+    if (replacing) await rename(final, old);
+    try {
+      await rename(partial, final);
+    } catch (err) {
+      // 当天原来那份挪回去：别因为这次没换成，连原来的也没了
+      if (replacing) await files.rename(old, final).catch(() => {});
+      throw err;
+    }
     if (replacing) await files.remove(old);
-    return { date, dir: final, manifest };
+    return { ...filled, date, dir: final };
   } catch (err) {
     await files.remove(partial).catch(() => {});
     throw err;
@@ -243,20 +321,32 @@ interface SourceFile {
   mtimeMs: number;
   /** 没有写权限（Windows 上是"只读"属性） */
   readOnly: boolean;
+  /** 关键文件（数据库、配置）：读不了不跳过，整份失败 */
+  critical: boolean;
 }
 
-/** 数据目录里要进备份的东西：数据库和其余文件 */
-async function collect(layout: DataDirLayout): Promise<{ databases: SourceFile[]; files: SourceFile[] }> {
+/** 数据目录里要进备份的东西：数据库和其余文件；读不了的子目录、文件（不是刚被删掉的）记在 unreadable 里 */
+async function collect(layout: DataDirLayout): Promise<{ databases: SourceFile[]; files: SourceFile[]; unreadable: BackupSkippedFile[] }> {
   const excluded = nonBackupEntries(layout);
   const dbDir = path.relative(layout.root, layout.db).toLowerCase();
+  const criticalAreas = new Set([dbDir, path.relative(layout.root, layout.config).toLowerCase()]);
+  const inCriticalArea = (rel: string) => criticalAreas.has(rel.split("/")[0]!.toLowerCase());
   const databases: SourceFile[] = [];
   const files: SourceFile[] = [];
+  const unreadable: BackupSkippedFile[] = [];
+  /** 读不了：刚被删掉的不管；关键区里的整份失败；别的记下来跳过 */
+  const cannotRead = (rel: string, err: unknown) => {
+    if (errorCode(err) === "ENOENT") return;
+    if (rel === "" || inCriticalArea(rel)) throw new UnreadableSource(t("backup.error.criticalUnreadable", { file: rel || layout.root, message: errorText(err) }));
+    unreadable.push({ path: rel, reason: errorText(err) });
+  };
   const walk = async (dir: string, rel: string) => {
     let entries: fs.Dirent[];
     try {
       entries = await fs.promises.readdir(dir, { withFileTypes: true });
-    } catch {
-      return; // 刚被删掉的目录
+    } catch (err) {
+      cannotRead(rel === "" ? "" : `${rel}/`, err);
+      return;
     }
     for (const entry of entries) {
       const entryRel = rel ? `${rel}/${entry.name}` : entry.name;
@@ -265,6 +355,8 @@ async function collect(layout: DataDirLayout): Promise<{ databases: SourceFile[]
       // 符号链接、目录联接不跟进：外部工作目录、别处的文件不进备份
       if (entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) {
+        // agent 的 bash 临时目录：哪一层都不收
+        if (NON_BACKUP_DIR_NAMES.has(entry.name.toLowerCase())) continue;
         await walk(abs, entryRel);
         continue;
       }
@@ -275,16 +367,18 @@ async function collect(layout: DataDirLayout): Promise<{ databases: SourceFile[]
       let stat: fs.Stats;
       try {
         stat = await fs.promises.lstat(abs);
-      } catch {
+      } catch (err) {
+        cannotRead(entryRel, err);
         continue;
       }
-      const source = { rel: entryRel, abs, size: stat.size, mtimeMs: stat.mtimeMs, readOnly: (stat.mode & 0o200) === 0 };
+      const critical = inCriticalArea(entryRel) || (DATABASE_FILE.test(entry.name) && !NOT_DATABASES.has(entry.name.toLowerCase()));
+      const source = { rel: entryRel, abs, size: stat.size, mtimeMs: stat.mtimeMs, readOnly: (stat.mode & 0o200) === 0, critical };
       if (inDbDir && /\.db$/i.test(entry.name)) databases.push(source);
       else files.push(source);
     }
   };
   await walk(layout.root, "");
-  return { databases, files };
+  return { databases, files, unreadable };
 }
 
 /** 追加写的 JSONL 到最后一个换行为止的长度：最后半行（还在写）不要 */
@@ -316,12 +410,20 @@ export interface TakeSnapshotOptions {
   files: SnapshotFiles;
   signal: AbortSignal;
   log: (line: string) => void;
+  /** 读被占着的源文件、改名被占着时怎么再试；不给用 LOCKED_READ_RETRY、DATED_RENAME_RETRY */
+  retry?: Partial<SnapshotRetry>;
+}
+
+/** 一份新做的本机快照，和这次跳过了的文件（被别的程序占着、读不了的；按碰到的先后） */
+export interface TakenSnapshot extends Snapshot {
+  skipped: BackupSkippedFile[];
 }
 
 /** 给数据目录做一份快照，放进本机备份区的日期目录（当天已有的换掉） */
-export function takeSnapshot(options: TakeSnapshotOptions): Promise<Snapshot> {
+export function takeSnapshot(options: TakeSnapshotOptions): Promise<TakenSnapshot> {
   const { layout, root, date, previous, files, signal, log } = options;
-  return writeDated(root, date, files, true, async (dir) => {
+  const retry = retryOf(options.retry);
+  return writeDated(root, date, { files, protect: true, signal, renameRetry: retry.rename, log }, async (dir) => {
     const target = parentMaker(dir, files);
     // 内容（sha256）→ 已经在这里或上一份里的较大文件：一样的换成硬链接
     const byHash = new Map<string, string>();
@@ -335,6 +437,7 @@ export function takeSnapshot(options: TakeSnapshotOptions): Promise<Snapshot> {
     };
 
     const sources = await collect(layout);
+    const skipped: BackupSkippedFile[] = [...sources.unreadable];
     const manifest: Manifest = { format: SNAPSHOT_FORMAT, date, createdAt: options.createdAt, databases: {}, files: {} };
     // 先做数据库：快照的时间点以它为准
     for (const db of sources.databases) {
@@ -356,12 +459,28 @@ export function takeSnapshot(options: TakeSnapshotOptions): Promise<Snapshot> {
       }
       let copied;
       try {
-        const length = file.rel.toLowerCase().endsWith(".jsonl") ? await completeLinesLength(file.abs, file.size) : file.size;
-        copied = await files.copy(file.abs, dest, length);
+        // 被占着时短间隔再试：复制到一半出错可能已经建了 dest，再试之前删掉
+        copied = await retryBusy(
+          retry.read,
+          signal,
+          async () => {
+            const length = file.rel.toLowerCase().endsWith(".jsonl") ? await completeLinesLength(file.abs, file.size) : file.size;
+            return await files.copy(file.abs, dest, length);
+          },
+          () => files.remove(dest),
+        );
       } catch (err) {
+        if (signal.aborted) throw err;
         // 列出来之后又被删掉的文件：跳过
-        if ((err as NodeJS.ErrnoException).code === "ENOENT" && !fs.existsSync(file.abs)) {
+        if (errorCode(err) === "ENOENT" && !fs.existsSync(file.abs)) {
           await files.remove(dest);
+          continue;
+        }
+        // 源文件被别的程序占着（出错的不是往备份区写的那一头）：关键文件整份失败，别的跳过、记下来
+        if (isBusy(err) && (err as NodeJS.ErrnoException).path !== dest) {
+          if (file.critical) throw new UnreadableSource(t("backup.error.criticalUnreadable", { file: file.rel, message: errorText(err) }));
+          await files.remove(dest);
+          skipped.push({ path: file.rel, reason: errorText(err) });
           continue;
         }
         throw err;
@@ -378,7 +497,7 @@ export function takeSnapshot(options: TakeSnapshotOptions): Promise<Snapshot> {
     }
     signal.throwIfAborted();
     if (fallbacks.length > 0) log(`备份：${date} 的快照里有 ${fallbacks.length} 个文件没能硬链接，整份复制了（${fallbacks[0]}）`);
-    return manifest;
+    return { manifest, skipped };
   });
 }
 
@@ -389,11 +508,16 @@ export interface CopySnapshotOptions {
   root: string;
   files: SnapshotFiles;
   signal: AbortSignal;
+  log: (line: string) => void;
+  /** 改名被占着时怎么再试；不给用 DATED_RENAME_RETRY（只用 rename 这一项） */
+  retry?: Partial<SnapshotRetry>;
 }
 
 /** 把一份快照复制到同步目录的同一日期目录（已有的换掉）：较大的文件放进公共池，池里已经有的不再复制 */
 export async function copySnapshot(options: CopySnapshotOptions): Promise<Snapshot> {
-  const { snapshot, root, files, signal } = options;
+  const { snapshot, root, files, signal, log } = options;
+  const { rename: renameRetry } = retryOf(options.retry);
+  const rename = patientRename(files, renameRetry, signal, log);
   const pool = path.join(root, POOL_DIR);
   await files.mkdir(pool);
 
@@ -404,7 +528,7 @@ export async function copySnapshot(options: CopySnapshotOptions): Promise<Snapsh
     try {
       const { sha256 } = await files.copy(src, temp, size);
       if (fs.existsSync(path.join(pool, sha256))) await files.remove(temp);
-      else await files.rename(temp, path.join(pool, sha256));
+      else await rename(temp, path.join(pool, sha256));
       return sha256;
     } catch (err) {
       await files.remove(temp).catch(() => {});
@@ -412,7 +536,7 @@ export async function copySnapshot(options: CopySnapshotOptions): Promise<Snapsh
     }
   };
 
-  return writeDated(root, snapshot.date, files, false, async (dir) => {
+  return writeDated(root, snapshot.date, { files, protect: false, signal, renameRetry, log }, async (dir) => {
     const target = parentMaker(dir, files);
     const manifest: Manifest = { ...snapshot.manifest, databases: {}, files: {} };
     for (const [rel, db] of Object.entries(snapshot.manifest.databases)) {
@@ -437,7 +561,7 @@ export async function copySnapshot(options: CopySnapshotOptions): Promise<Snapsh
       }
     }
     signal.throwIfAborted();
-    return manifest;
+    return { manifest };
   });
 }
 

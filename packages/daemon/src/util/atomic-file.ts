@@ -23,7 +23,8 @@ export interface RenameRetryOptions {
   delayMs?: number;
 }
 
-const isBusy = (err: unknown): boolean => BUSY_CODES.has((err as NodeJS.ErrnoException).code ?? "");
+/** 是不是"正被占着"（EPERM / EBUSY / EACCES）：备份读被占着的源文件、改名被占着的目录也按这一份认 */
+export const isBusy = (err: unknown): boolean => BUSY_CODES.has((err as NodeJS.ErrnoException).code ?? "");
 
 /** 同步地等 ms 毫秒（挡住当前线程；Node 的主线程上也能用） */
 const sleepSync = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
