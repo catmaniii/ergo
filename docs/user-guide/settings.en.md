@@ -564,6 +564,17 @@ What ergo checks for each plugin:
 | Data sources | Not connected, or both uses off: not checked. Needs authorizing again, or can't connect: broken. Scheduled import with no successful sync for over 3 times its interval counts as stale (heads-up); the last sync failing is also a heads-up |
 | Runtimes | Usable is OK; not installed and no task or project uses it is just a hint; not installed while a task or project uses it is broken |
 
+The memory plugin brings six checks of its own (they only read the state already at hand: they don't open the reasoning DB or call a model):
+
+| Item | How it's judged |
+|---|---|
+| Vector index | Computing vectors failing is broken; the vector model missing is a heads-up (materials can only be found by keyword; **Take a look** goes to Settings · Components); more than a tenth, and at least 100, still without vectors is also a heads-up |
+| Reasoning DB | Needing a rebuild (doesn't match this version of ergo), not opening, or missing while consolidation is on: broken. Consolidation turned off on this computer and no DB yet: not checked |
+| Memory system | The one in use (Subtext) running is OK, with how much evidence it holds and when it last consolidated; it reporting a problem is a heads-up; none running is broken |
+| Memory brief | Since ergo started, within the last 24 hours, asked at least 5 times with timeouts plus errors at three in ten or more: heads-up (a turn over 3 seconds goes without memory). Briefs turned off on the Memory page: not checked |
+| Nightly consolidation | The latest one failing, being skipped for lack of a DeepSeek key, or needing the reasoning DB rebuilt, or no success for over 36 hours: broken (**Take a look** goes to the consolidation records on the memory curator's page). Succeeded but timed out along the way: heads-up. Consolidation turned off on this computer: not checked |
+| Data source import before consolidation | A data source not imported before consolidating (error, can't connect, still importing at the time limit): heads-up. No data sources to import first: not checked |
+
 ergo's own eight checks:
 
 | Check | What it checks | If it's wrong |

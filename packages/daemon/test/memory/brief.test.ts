@@ -184,8 +184,12 @@ describe("ask_memory 工具", () => {
     const file = path.join(makeTempDir("ergo-brief-"), "db", "rg.db");
     const provider = createMemoryEngineProvider({ file, clock: () => clockIso(new ManualClock(NOW)), model: "deepseek-flash" });
     onTestFinished(() => provider.close());
+    // 还没用过：没认定什么（issue 只读内存，不去开库）
+    expect(provider.issue()).toBeUndefined();
     expect(provider.get()).toBeUndefined();
     expect(fs.existsSync(file)).toBe(false);
+    // 认定"还没建库"，从这一刻起（412：体检的推理库那一项读它）
+    expect(provider.issue()).toEqual({ reason: { code: "not_built" }, since: clockIso(new ManualClock(NOW)) });
     const output = await askMemoryTool(provider).run({ question: "我最看重什么？" }, { toolCallId: "call-ask" });
     expect(output.text).toBe(ASK_MEMORY_NOT_READY);
     expect(output.isError ?? false).toBe(false);
@@ -210,6 +214,8 @@ describe("ask_memory 工具", () => {
     const provider = createMemoryEngineProvider({ file, clock: () => clockIso(clock), model: "deepseek-flash" });
     onTestFinished(() => provider.close());
     expect(provider.get()).toBeUndefined();
+    // 认定的原因露出来：格式版本对不上（体检据此报"要重建推理库"）
+    expect(provider.issue()?.reason).toEqual({ code: "schema_mismatch", found: "99", expected: 1 });
     expect(wakeBriefText(provider.get())).toBe("");
     const asked = await askMemoryTool(provider).run({ question: "我最看重什么？" }, { toolCallId: "call-ask" });
     expect(asked.text).toBe(ASK_MEMORY_NOT_READY);

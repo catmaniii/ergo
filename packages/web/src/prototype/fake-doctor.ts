@@ -1,15 +1,16 @@
-// 原型里的设置 · 体检（409、410、411）：编的一份体检结果，五种结果都有——
+// 原型里的设置 · 体检（409–412）：编的一份体检结果，五种结果都有——
 // - 二狗本身：八项（组件缺记忆的向量模型是注意；外网入口登记了 tailnet，可服务管家从外面打不通，是坏了；句子由协议包的八项拼句按当前语言拼），
 //   加上内核登记的几项（410），照 2026-11-07 那天的样子编：主对话在线在干活；模型近况坏了（最近 5 轮服务商报 503 / 500）；
 //   对话长度要注意（93.5 万 token，过了自动压缩点 70 万，带"现在压缩"）；托管的服务坏了（8090 的语音合成停着，带"打开服务管家"）；
 //   插件、网页文件正常。句子照守护进程的文案键拼（和真的一样）；再加 411 的十项（备份 EBUSY、日志 265 MB、
 //   合集缺两个 skill 是注意，待办、旧手机、预写日志是提示，别的正常；文案键和守护进程的一样）；
-// - 插件块：每个在跑的插件一块（插件本身在跑）；记忆多两项（推理库正常、记忆简报这次没查出来），Looki 的数据源过期（跳到数据源详情），
-//   语音合成服务坏了（跳到设置 · 语音），Codex 要的外部程序没装（插件本身和运行时都是不适用），手机、Google 的数据源正常，
-//   Claude Code 的运行时正常；
+// - 插件块：每个在跑的插件一块（插件本身在跑）；记忆是 412 的六项（句子照守护进程 memory.doctor.* 的中文写：向量索引、推理库、
+//   记忆系统、整理前导入数据源正常，记忆简报超时多是注意，每晚整理 60 小时没跑成是坏了、跳记忆管理员），Looki 的数据源过期（跳到数据源详情），
+//   语音合成服务坏了（跳到设置 · 语音）、语音识别服务这次没查出来，Codex 要的外部程序没装（插件本身和运行时都是不适用），
+//   手机、Google 的数据源正常，Claude Code 的运行时正常；
 // - 停用、移除了的插件（地址带 ?demo-plugins-off=…）不成块，只列名字。
-// 二狗替插件生成的那几项照守护进程的文案键拼（doctorItemText，和真的一样）；插件自己的检查项（412、413 才做）是编好的中文，
-// 英文在 en/fake-doctor.ts（假 HTTP 照表换）。
+// 二狗替插件生成的那几项照守护进程的文案键拼（doctorItemText，和真的一样）；插件自己的检查项是编好的中文（文案键在插件自己的
+// 语言文件里，网页取不到；记忆那几句照 412 守护进程拼出来的样子写，语音的等 413），英文在 en/fake-doctor.ts（假 HTTP 照表换）。
 import {
   coreDoctorItem,
   defaultAssistantName,
@@ -65,28 +66,54 @@ function keyed(id: string, level: DoctorLevel, title: DoctorMessage, fact: Docto
   return { id, level, ...shape, ...(extra.since ? { since: extra.since } : {}), ...(extra.action ? { action: extra.action } : {}), text: doctorItemText(shape) };
 }
 
-/** 编好句子的一项（插件自己的检查项：文案键在插件的语言文件里，412、413 才有，这里直接写句子） */
-function said(id: string, level: DoctorLevel, title: string, fact: string, extra: { fix?: string; action?: DoctorAction } = {}): DoctorItemView {
+/** 编好句子的一项（插件自己的检查项：文案键在插件的语言文件里，网页取不到，这里直接写句子） */
+function said(id: string, level: DoctorLevel, title: string, fact: string, extra: { fix?: string; since?: string; action?: DoctorAction } = {}): DoctorItemView {
   const demo: DoctorMessage = { key: "demo" };
-  return { id, level, title: demo, fact: demo, ...(extra.fix ? { fix: demo } : {}), ...(extra.action ? { action: extra.action } : {}), text: { title, fact, ...(extra.fix ? { fix: extra.fix } : {}) } };
+  return {
+    id,
+    level,
+    title: demo,
+    fact: demo,
+    ...(extra.fix ? { fix: demo } : {}),
+    ...(extra.since ? { since: extra.since } : {}),
+    ...(extra.action ? { action: extra.action } : {}),
+    text: { title, fact, ...(extra.fix ? { fix: extra.fix } : {}) },
+  };
 }
 
 /** 时间写成"11/7 14:30"这样（和守护进程一样） */
 const time = (iso: string) => formatDate(iso, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 const running = () => keyed("plugin", "ok", { key: "doctor.plugin.title" }, { key: "doctor.plugin.running" });
+
+/** 记忆上次整理跑成的时间（每晚整理那一项坏了：60 小时前） */
+const LAST_NIGHTLY = "2026-11-05T03:14:00+08:00";
 const source = (title: string): DoctorMessage => ({ key: "doctor.source.title", params: { name: fakeText(title) } });
 
 /** 每个插件那一块除了"插件本身"之外的几项 */
 function extras(name: string): DoctorItemView[] {
   switch (name) {
     case "memory":
-      // 记忆简报这次没查出来：事实和修法是体检自己的那两句
-      return [said("graph", "ok", "推理库", "能打开；昨晚 03:12 整理过"), said("brief", "unknown", "记忆简报", t("doctor.unknown.timeout", { seconds: 1.5 }), { fix: t("doctor.fix.retry") })];
+      // 412 的六项：记忆简报超时多（注意），每晚整理 60 小时没跑成（坏了，跳记忆管理员那页看整理记录），别的正常
+      return [
+        said("index", "ok", "向量索引", "1284 条素材都算好了向量"),
+        said("graph", "ok", "推理库", "能用，问记忆和记忆简报在用（12.4 MB）"),
+        said("system", "ok", "记忆系统", `会意在跑：523 条有效证据，上次整理完是 ${time(LAST_NIGHTLY)}，占 12.4 MB`),
+        said("brief", "warn", "记忆简报", `${time("2026-11-06T15:30:00+08:00")} 以来问了 30 次，超时 12 次、出错 0 次（占 40%）；最近一次用了 3 秒`, {
+          fix: "超过 3 秒的那一轮就不带记忆了。多半是向量模型算得慢、推理库太大：重启二狗后再看；一直这样就把这句反馈给我们",
+        }),
+        said("nightly", "error", "每晚整理", `上次跑成是 60 小时前（${time(LAST_NIGHTLY)}），之后一直没跑成`, {
+          fix: "夜里 03:00 二狗要开着；去记忆管理员那页看整理记录，找没跑成的原因",
+          since: LAST_NIGHTLY,
+          action: { kind: "open", route: "#/more/memory/curator" },
+        }),
+        said("presync", "ok", "整理前导入数据源", `${time("2026-11-07T03:01:00+08:00")} 整理之前都导好了：Google · 日历（新进来 3 条）`),
+      ];
     case "voice":
+      // 语音识别服务这次没查出来：事实和修法是体检自己的那两句
       return [
         said("speech", "error", "语音合成服务", "连不上 127.0.0.1:8090（从 15:42 起），语音回复都没合成", { fix: "在服务管家里把语音合成服务开起来，再查一遍", action: { kind: "open", route: "#/more/voice" } }),
-        said("recognizer", "ok", "语音识别服务", "在听（127.0.0.1:8091）"),
+        said("recognizer", "unknown", "语音识别服务", t("doctor.unknown.timeout", { seconds: 1.5 }), { fix: t("doctor.fix.retry") }),
       ];
     case "looki":
       return [
