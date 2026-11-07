@@ -708,7 +708,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await page.reload();
       await page.evaluate(`window.location.hash = "#/more/map/1.29%2C103.85%2C13"`);
       await page.locator('.map-canvas[data-basemap="osm"]').waitFor({ timeout: 5000 });
-      expect(await page.locator(".map-osm.dark .map-tiles").evaluate((el) => getComputedStyle(el).filter)).toContain("invert");
+      expect(await page.evaluate(`getComputedStyle(document.querySelector(".map-osm.dark .map-tiles")).filter`)).toContain("invert");
       await page.evaluate(`localStorage.removeItem("ergo-theme")`);
       await page.close();
       expect(outside).toEqual([]);

@@ -165,6 +165,7 @@ function amapSource(extra: Partial<DataSourceView> = {}): DataSourceView {
     title: "高德地图",
     plugin: "map",
     pluginTitle: "地图",
+    summary: "填了 Key，地图页在国内用高德地图",
     available: true,
     connection: "not_connected",
     usages: [],
