@@ -52,7 +52,8 @@ describe("体检页上的 Claude Code 一块", () => {
       plugins: [plugin],
       services: [extraService(KERNEL.oneShot, () => (() => Promise.reject(new Error("测试里不起子进程"))) as never), extraService(KERNEL.env, () => ({ PATH: makeTempDir("ergo-empty-path-") }))],
     });
-    expect(k.doctorChecks.list().map((c) => `${c.plugin}:${c.id}`)).toEqual(["claude-code:sdk"]);
+    // 415 的深度体检"登录"也登记在这一块（cost deep，平时体检不跑）
+    expect(k.doctorChecks.list().map((c) => `${c.plugin}:${c.id}`)).toEqual(["claude-code:sdk", "claude-code:login"]);
     expect(itemOf(await kernelDoctor(k).view(), "claude-code", "sdk")).toMatchObject({ level: "ok", text: { title: "Agent SDK", fact: expect.stringContaining("本机没找到 claude.exe") } });
     sdk = false;
     expect(itemOf(await kernelDoctor(k).view(), "claude-code", "sdk")).toMatchObject({ level: "error", text: { fact: "找不到 Claude Code 的 Agent SDK 了（开机时还在）：用 Claude Code 的任务、项目起不来" } });

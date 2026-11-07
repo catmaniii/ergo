@@ -323,13 +323,17 @@ export interface ModelKeyWriteResult {
   apiKey: ModelApiKeyStatus;
 }
 
-/** 连通测试的结果：通不通、首 token 延迟（毫秒）、整次多久；不通时 error 是原因（不含 key 的内容） */
+/**
+ * 连通测试的结果：通不通、首 token 延迟（毫秒）、整次多久；不通时 error 是原因（不含 key 的内容）。
+ * timedOut：给了时限（深度体检的 8 秒，415）、到点还没回完，中止了这次请求
+ */
 export interface ModelTestResult {
   ok: boolean;
   modelId: string;
   firstTokenMs?: number;
   totalMs: number;
   error?: string;
+  timedOut?: boolean;
 }
 
 /** 自定义服务商的 /models 列出来的一个模型 */

@@ -8,6 +8,7 @@
 // - 不拥有数据：没有视图、事件、卡片、改写函数，设置里移除时没有"连数据删"的勾。Claude Code 自己的会话记录是 Claude Code 的，不是二狗的；
 //   接管记录（哪个任务、项目接管了哪个会话，也是写入锁）记在任务、项目上（内核的 Task.takeover、Project.takeover），不是插件的数据。
 // - 网页这一张不加界面（新建任务、项目时选运行时，⚙ 按它显示）；GET /api/runtimes 里照常列出它。
+// - 深度体检（415，deep-doctor.ts）：体检页上点了"深度体检"才跑一次 claude auth status，看本机的 Claude Code 登录了没有。
 // -SDK 是可选依赖（Anthropic 自己的许可，不随二狗分发，sdk-installed.ts）。没装时插件不装配（定义里的 missing）：设置 · 插件里写"没装"
 //   和怎么装、启用不了；运行时写同一句（新建任务、项目时 Claude Code 那一项、用它的负责人不拉起）；别的插件和功能不受影响。装好后点启用就装上。
 // - 体检（414，doctor.ts）：登记"Agent SDK"一项——开机以后 SDK 没了、换成旧的，这一项变红、变黄；顺带说本机有没有 claude.exe。
@@ -16,6 +17,7 @@ import type { PluginDefinition } from "../plugins/host.ts";
 import { KERNEL } from "../plugins/kernel.ts";
 import { CLAUDE_CODE_PLUGIN } from "./api.ts";
 import { type ClaudeCli, detachedClaudeCli } from "./cli.ts";
+import { claudeLoginCheck } from "./deep-doctor.ts";
 import type { RemoteTiming } from "./remote-control.ts";
 import { claudeCodeRuntime } from "./runtime.ts";
 import { claudeSdkCheck, probeClaudeSdk } from "./doctor.ts";
@@ -86,6 +88,13 @@ export function createClaudeCodePlugin(
       });
       // 体检（414）：Agent SDK 现在还在不在、版本够不够，本机有没有 claude.exe（开机时的样子由插件本身、运行时那两项写）
       ctx.doctor.register(claudeSdkCheck(() => probeClaudeSdk({ env, ...(componentsDir === undefined ? {} : { componentsDir }), ...(options.sdkInstalled ? { installed: options.sdkInstalled } : {}) })));
+      // 深度体检（415）：登录了没有（跑一次 claude auth status；点了"深度体检"才跑）
+      ctx.doctor.register(
+        claudeLoginCheck(() => {
+          if (!cli) throw new Error(t("plugins.notEnabled", { title: t("claudeCode.plugin.title") }));
+          return cli;
+        }),
+      );
     },
   };
 }

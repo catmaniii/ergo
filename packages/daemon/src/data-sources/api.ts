@@ -99,6 +99,15 @@ export interface DataSourceRecheckContext extends DataSourceContext {
   readonly signal: AbortSignal;
 }
 
+/**
+ * 深度体检"测一下"没通的种类（415）：Key 不认（auth）、限速（rate_limit）、连不上（network）、到点没回（timeout）、
+ * 那边出错（server，5xx）、回的不对（response）、没填设置（unconfigured）
+ */
+export type DataSourceProbeFailure = "auth" | "rate_limit" | "network" | "timeout" | "server" | "response" | "unconfigured";
+
+/** 深度体检"测一下"的结果：通了（account 是打了码的账号，可以不给）；没通（种类、给人看的原因，走 t()，不带密钥） */
+export type DataSourceProbeResult = { ok: true; account?: string } | { ok: false; failure: DataSourceProbeFailure; reason: string };
+
 /** 同步、导入一个文件的结果：新进来几条（写进了几条它拥有的记录）；summary 是这次进来的是什么（给人看的一句，走 t()） */
 export interface DataSourceSyncResult {
   added: number;
@@ -269,6 +278,12 @@ export interface DataSource {
    * 不给的、导入开着的照同步那样同步一次
    */
   recheck?(ctx: DataSourceRecheckContext): Promise<void>;
+  /**
+   * 深度体检（415）"测一下"：用存着的设置调一次上游最轻的只读接口（Looki 是 /me），交回通没通、没通是哪一种。
+   * 只读：不写记录、不改自己记着的状态（体检不改东西）。ctx.signal 在时限到了、守护进程停时置位。
+   * 只有用户在体检页上点了"深度体检"才叫；平时体检、秘书都不叫。不给的数据源深度体检里没有它这一项
+   */
+  probe?(ctx: DataSourceRecheckContext): Promise<DataSourceProbeResult>;
   /** 断开时插件自己的清理（停掉它自己开的、purge 时删它自己存储里的原始数据）；密钥区那一格、它拥有的记录由内核删 */
   disconnect?(ctx: DataSourceContext & { readonly purge: boolean }): void | Promise<void>;
   /**

@@ -86,7 +86,7 @@ import type { EventStore, StoredEvent } from "../events/event-store.ts";
 import type { Materials } from "../materials/materials.ts";
 import { type InternalJobs, isInterval } from "../scheduler/internal-jobs.ts";
 import type { Scheduler } from "../scheduler/scheduler.ts";
-import type { DataSourceContext, DataSourceFileType, DataSourceSchedule, DataSourceStatus } from "./api.ts";
+import type { DataSourceContext, DataSourceFileType, DataSourceProbeResult, DataSourceSchedule, DataSourceStatus } from "./api.ts";
 import { disconnectedBefore, recordDisconnect } from "./deletion.ts";
 import { DATA_SOURCE_QUIET_SYNC, DATA_SOURCE_SYNCED, DATA_SOURCES_CHANNEL, DATA_SOURCES_QUIET_CHANNEL, dataSourceRecords, type DataSourceSyncedPayload, quietSyncs } from "./events.ts";
 import { fileTypeMatches, listImportFiles, moveInto, readHead } from "./import-folder.ts";
@@ -169,6 +169,8 @@ export interface DataSourceDoctorFacts {
   readonly everyMs?: number;
   /** 多久没同步成功算过期（毫秒，414）：数据源登记了 usages.import.staleAfterMs 的才有，不然体检按间隔的 3 倍算 */
   readonly staleMs?: number;
+  /** 数据源登记了"测一下"（probe），深度体检（415）里有它一项 */
+  readonly probeable?: true;
 }
 
 const DAY_MS = 86_400_000;
@@ -211,6 +213,11 @@ export interface DataSources {
   view(): DataSourcesView;
   /** 体检要的（409）：整页视图里的每一项，加上上次成功同步的时间、定期导入大约多久一次 */
   doctorFacts(): DataSourceDoctorFacts[];
+  /**
+   * 深度体检（415）"测一下"一个数据源：叫它的 probe（用存着的设置调上游最轻的只读接口），交回通没通和用了多久（毫秒）；
+   * 原因里的密钥换成 ***。不认得的、没登记 probe 的、插件没在运行的抛 RequestRejected；probe 抛错算"回的不对"
+   */
+  probe(id: string, signal: AbortSignal): Promise<DataSourceProbeResult & { ms: number }>;
   /** 对一个数据源做的事 */
   act(id: string, body: DataSourceActionBody): Promise<DataSourceActionResult>;
   /** 对导入文件夹做的事 */
@@ -1059,12 +1066,36 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
       const everyMs = entry && schedule && usageOn(entry, "import") ? scheduleEveryMs(schedule) : undefined;
       const staleMs = everyMs === undefined ? undefined : entry?.source.usages.import?.staleAfterMs;
       const lastOkAt = lastSyncAt(source.id);
-      return { view: source, ...(lastOkAt === undefined ? {} : { lastOkAt }), ...(everyMs === undefined ? {} : { everyMs }), ...(staleMs === undefined ? {} : { staleMs }) };
+      return {
+        view: source,
+        ...(lastOkAt === undefined ? {} : { lastOkAt }),
+        ...(everyMs === undefined ? {} : { everyMs }),
+        ...(staleMs === undefined ? {} : { staleMs }),
+        ...(entry?.source.probe ? { probeable: true as const } : {}),
+      };
     });
+
+  /** 深度体检"测一下"（415）：只读，不写同步记录、不动连接状态 */
+  const probe = async (id: string, signal: AbortSignal): Promise<DataSourceProbeResult & { ms: number }> => {
+    const entry = entryOf(id);
+    const { source } = entry;
+    if (!source.probe) throw new RequestRejected("not_allowed", t("dataSources.noProbe", { title: source.title }));
+    if (!entry.owner.running()) throw new RequestRejected("not_allowed", pluginOff(entry));
+    const started = Date.now();
+    try {
+      const result = await source.probe({ ...contextOf(entry), signal });
+      const ms = Date.now() - started;
+      return result.ok ? { ...result, ms } : { ...result, reason: redact(entry, result.reason), ms };
+    } catch (err) {
+      if (signal.aborted) throw err;
+      return { ok: false, failure: "response", reason: redact(entry, describe(err)), ms: Date.now() - started };
+    }
+  };
 
   return {
     view,
     doctorFacts,
+    probe,
     act,
     folder,
     push,

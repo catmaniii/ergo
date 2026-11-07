@@ -70,6 +70,8 @@ import { detectLayout, type InstallLayout, readInstallState } from "./release/la
 import { releasePublicKey } from "./release/public-key.ts";
 import { createDoctorChecks, type DoctorCheckRegistry } from "./doctor/checks.ts";
 import { registerCoreDoctorChecks } from "./doctor/core.ts";
+import { createDeepDoctor, type DeepDoctorService } from "./doctor/deep.ts";
+import { registerDeepDoctorChecks } from "./doctor/deep-checks.ts";
 import { type DoctorService, createDoctor, diskProbe, externalProbe, missingDefaultFeatures, nodeProbe, piVersionProbe, portsProbe, supervisorProbe, supervisorStatus } from "./doctor/doctor.ts";
 import { localPortOf } from "./doctor/services.ts";
 import { type AgentLabel, housekeepingChecks } from "./doctor/housekeeping.ts";
@@ -253,6 +255,7 @@ import { parallelDecisionPurge, parallelDecisionSource } from "./sub-agents/mate
 import { registerSubAgentDeletion } from "./sub-agents/deletion.ts";
 import { createSubAgents, type SubAgents } from "./sub-agents/sub-agents.ts";
 import { subAgentsView } from "./sub-agents/views.ts";
+import { integrityCheck } from "./storage/sqlite.ts";
 import { planProjectsCheck } from "./tasks/plan-projects.ts";
 import { createTaskService, type TaskService } from "./tasks/tasks.ts";
 import { tasksView } from "./tasks/views.ts";
@@ -596,6 +599,8 @@ export interface Daemon {
   readonly doctor: DoctorService;
   /** 体检项的登记表：插件经 ctx.doctor 登记的、内核自己登记的（"二狗本身"那一块） */
   readonly doctorChecks: DoctorCheckRegistry;
+  /** 深度体检（415，GET / POST /api/doctor/deep）：点了才跑，结果留在内存里；秘书的 check_health 只读上一次的 */
+  readonly doctorDeep: DeepDoctorService;
   /** 设置 · 组件：模型、语音这些大件按需下载——装、删、更新、暂停、继续、取消、离线导入 */
   readonly components: Components;
   /** 组件每晚查更新：测试直接叫它的 nightly */
@@ -1958,9 +1963,21 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       runtimeUsers: (runtimeId) =>
         tasks.list().filter((task) => task.runtime === runtimeId && UNFINISHED_TASK_STATES.includes(task.state)).length +
         projectDirectory.list().filter((project) => project.runtime === runtimeId && project.state !== "archived").length,
+      // 415：深度体检里登记了 probe 的数据源"测一下"（Looki 调 /me）
+      probeSource: (sourceId, signal) => dataSources.probe(sourceId, signal),
       log,
       now: () => clock.now(),
     });
+    // 深度体检（415）：二狗本身的两项——用默认模型真发一句（带 8 秒时限、不重试；没配 Key 不发）、ergo.db 的只读完整性检查（工作线程里）；
+    // 插件的（Claude Code、Codex 的登录）由插件在 setup 里登记。点了才跑（createDeepDoctor），平时体检、秘书都不跑
+    teardown.push(
+      registerDeepDoctorChecks(doctorChecks, {
+        probeModel: async (timeoutMs) => (modelSettings.keyView().apiKey.configured ? modelSettings.probeDefault({ timeoutMs }) : undefined),
+        integrity: () => integrityCheck(layout.eventsDb),
+        eventsDb: layout.eventsDb,
+      }),
+    );
+    const doctorDeep = createDeepDoctor({ doctor, now: () => clock.now(), log });
     const agentModel = (agent: ModelAgent) => modelSettings.modelFor(agent);
     // 项目归档（含放弃）、删除，任务归档：这个负责人单独配的模型、单独设的自动压缩点一起清掉。任务转为项目后原任务的负责人成了项目的负责人，
     // 原任务归档时不清（它单独配的跟着项目走）
@@ -2067,8 +2084,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       boardKinds,
       // 秘书建任务时写的运行时：现在能用的才行
       runtimeRefusal,
-      // 只读的体检工具（check_health）：和设置 · 体检同一份
+      // 只读的体检工具（check_health）：和设置 · 体检同一份；末尾附最近一次深度体检的结果（只读，不跑）
       doctor,
+      doctorDeep,
       // 提议定时任务：接下来几次按守护进程的时钟和工作日历算；pi 跑的写任务负责人那一行现在的模型；每次大概花多少按同类运行的历史用量
       scheduling: {
         now: () => new Date(clock.now()),
@@ -2983,6 +3001,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         autostart,
         // 体检：八项检查现在的样子（GET /api/doctor）
         doctor,
+        // 深度体检（415）：GET 取上一次的，POST 开测（GET / POST /api/doctor/deep）
+        doctorDeep,
         // 手机 App 的更新：程序目录里带的安卓安装包（GET /api/app-update、/api/app-update/android.apk，票 399）
         appPackages: createAppPackages({ programDir, log }),
         // 连接地址：设备配对页的二维码界面用（GET / POST /api/connection-addresses）
@@ -3201,6 +3221,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       dataSources,
       doctor,
       doctorChecks,
+      doctorDeep,
       components,
       pairing,
       approvals,

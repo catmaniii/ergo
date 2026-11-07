@@ -12,6 +12,7 @@
   "runtime.probe.aborted": "Aborted",
   "runtime.probe.failed": "Something went wrong",
   "runtime.probe.empty": "The model returned nothing",
+  "runtime.probe.timeout": "Timed out (no full reply within {seconds} s); the request was aborted",
   "runtime.compactFailed": "Compaction failed",
   "runtime.navigate.empty": "The session is empty, nothing to roll back",
   "runtime.navigate.alreadyHere": "Already here, nothing to roll back",

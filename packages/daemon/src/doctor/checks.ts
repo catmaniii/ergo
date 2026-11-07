@@ -3,7 +3,9 @@
 //   同一套，plugins/host.ts）——插件停用了，体检页上它那一块就没了，再启用是新的一次 setup、检查项跟着回来。
 //   内核自己的检查（410 起）由组合根不带插件名登记，放在"二狗本身"那一块。
 // - 每项声明 cost：passive（只读内存、文件、事件）或 local（连本机端口、起本机进程）。平时体检两种都跑：不联网、不调模型、
-//   不改东西，但可以连这台电脑上二狗在用的服务的端口（用户 11-07 同意的放宽）。以后的深度体检（415）再加一档。
+//   不改东西，但可以连这台电脑上二狗在用的服务的端口（用户 11-07 同意的放宽）。
+//   第三档 deep（415 深度体检）：真试一遍——真发一句话测模型、连外网、跑本机命令看登录、整库完整性检查。平时体检不跑它，
+//   只有用户在体检页上点了"深度体检"才跑（deep.ts），秘书也不跑；超时照样只算这一项"没查出来"。
 // - 跑：每项有超时（默认 DOCTOR_CHECK_TIMEOUT_MS），到点了置中止信号；超时、抛错、交回的东西不像样都只算这一项"没查出来"（unknown），
 //   不影响别的项。同步的死循环拦不住——run 要快，重活先在后台算好、这里只读结果（Jenkins 的 isActivated 也这么要求）。
 // - 结果（DoctorFinding）是结构化的：五种结果之一、事实和怎么修（文案键 + 参数，键放插件自己的语言文件 <插件>.doctor.*）、
@@ -12,8 +14,8 @@
 import { DOCTOR_FIX_UNKNOWN, DOCTOR_LEVELS, type DoctorAction, type DoctorLevel, type DoctorMessage, doctorOpensUrl } from "@ergo/protocol";
 import { oneLine } from "../util/text.ts";
 
-/** 一项检查的开销：passive 只读内存、文件、事件；local 连本机端口、起本机进程 */
-export const DOCTOR_COSTS = ["passive", "local"] as const;
+/** 一项检查的开销：passive 只读内存、文件、事件；local 连本机端口、起本机进程；deep 深度体检才跑（真调模型、连外网、慢活，415） */
+export const DOCTOR_COSTS = ["passive", "local", "deep"] as const;
 export type DoctorCost = (typeof DOCTOR_COSTS)[number];
 
 /** 一项检查默认最多等多久（毫秒）：超了算"没查出来" */

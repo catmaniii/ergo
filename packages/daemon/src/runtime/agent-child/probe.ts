@@ -34,33 +34,53 @@ export async function probeModels(request: ModelProbeRequest): Promise<ModelProb
     }));
     return { type: "catalog", models };
   }
-  return ping(modelRuntime, request.model, request.credentials);
+  return ping(modelRuntime, request.model, request.credentials, { ...(request.timeoutMs === undefined ? {} : { timeoutMs: request.timeoutMs }), ...(request.maxRetries === undefined ? {} : { maxRetries: request.maxRetries }) });
 }
 
-async function ping(modelRuntime: ModelRuntime, spec: ModelSpec, credentials: Record<string, string>): Promise<ModelProbeResult> {
+/**
+ * 连通测试。limits（深度体检，415）：timeoutMs 到点中止这次请求、结果写 timedOut；maxRetries 0 是服务商回 5xx、429 时不重试
+ * （不然 SDK 默认重试两次，忙的时候原样的出错被藏起来、也拖过时限）
+ */
+async function ping(modelRuntime: ModelRuntime, spec: ModelSpec, credentials: Record<string, string>, limits: { timeoutMs?: number; maxRetries?: number } = {}): Promise<ModelProbeResult> {
   const started = performance.now();
   const elapsed = () => Math.round(performance.now() - started);
-  const failed = (error: string): ModelProbeResult => ({ type: "ping", ok: false, totalMs: elapsed(), error: redactApiKeys(error, Object.values(credentials)) });
+  const deadline = new AbortController();
+  const failed = (error: string): ModelProbeResult => ({
+    type: "ping",
+    ok: false,
+    totalMs: elapsed(),
+    ...(deadline.signal.aborted ? { timedOut: true, error: t("runtime.probe.timeout", { seconds: (limits.timeoutMs ?? 0) / 1000 }) } : { error: redactApiKeys(error, Object.values(credentials)) }),
+  });
   for (const [provider, apiKey] of Object.entries(credentials)) await modelRuntime.setRuntimeApiKey(provider, apiKey);
   const model = spec.kind === "faux" ? registerFauxModel(spec, modelRuntime) : modelRuntime.getModel(spec.provider, spec.modelId);
   if (!model) return failed(spec.kind === "catalog" ? t("runtime.probe.noModel", { model: modelKeyOf(spec.provider, spec.modelId) }) : t("runtime.probe.noThisModel"));
   const target = spec.kind === "catalog" && spec.baseUrl !== undefined ? { ...model, baseUrl: spec.baseUrl } : model;
   let firstTokenMs: number | undefined;
+  const timer = limits.timeoutMs === undefined ? undefined : setTimeout(() => deadline.abort(), limits.timeoutMs);
   try {
     // 不开思考（不给 reasoning）：只量通不通、多久出第一个字
     const stream = modelRuntime.streamSimple(
       target,
       { messages: [{ role: "user", content: [{ type: "text", text: PING_TEXT }], timestamp: Date.now() }] },
-      { maxTokens: PING_MAX_TOKENS, cacheRetention: "none" },
+      {
+        maxTokens: PING_MAX_TOKENS,
+        cacheRetention: "none",
+        ...(timer === undefined ? {} : { signal: deadline.signal }),
+        ...(limits.maxRetries === undefined ? {} : { maxRetries: limits.maxRetries }),
+      },
     );
     for await (const event of stream) {
+      if (deadline.signal.aborted) return failed("");
       if (firstTokenMs === undefined && (event.type === "text_delta" || event.type === "thinking_delta" || event.type === "toolcall_delta")) firstTokenMs = elapsed();
       if (event.type === "error") return failed(event.error.errorMessage ?? (event.reason === "aborted" ? t("runtime.probe.aborted") : t("runtime.probe.failed")));
       if (event.type === "done") break;
     }
   } catch (err) {
     return failed(err instanceof Error ? err.message : String(err));
+  } finally {
+    clearTimeout(timer);
   }
+  if (deadline.signal.aborted) return failed("");
   if (firstTokenMs === undefined) return failed(t("runtime.probe.empty"));
   return { type: "ping", ok: true, firstTokenMs, totalMs: elapsed() };
 }

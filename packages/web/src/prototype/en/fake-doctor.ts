@@ -54,4 +54,6 @@ export const EN_DOCTOR: Phrases = {
   "这次开机以来缩了 12 批图，都没出错": "Shrank 12 batches of images since ergo started, no errors",
   "Agent SDK 0.3.296；本机装了 Claude Code（claude.exe），会话、接管、交给官方 App 都用它":
     "Agent SDK 0.3.296; Claude Code (claude.exe) is installed on this computer and is used for sessions, takeovers and handing off to the official app",
+  "登录": "Sign-in",
+  "登录了（Claude Max 订阅）": "Signed in (Claude Max subscription)",
 };

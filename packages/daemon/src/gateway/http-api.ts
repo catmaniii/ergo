@@ -160,6 +160,7 @@ import type { ModelSettingsService } from "../model-settings/index.ts";
 import type { SafetySettingsService } from "../config/safety-settings.ts";
 import type { AutostartSwitch } from "../lsm/autostart-switch.ts";
 import type { SetupStateService } from "../config/setup-state.ts";
+import { type DeepDoctorService, DeepDoctorTooSoon } from "../doctor/deep.ts";
 import type { DoctorService } from "../doctor/doctor.ts";
 import type { ConnectionAddressesService } from "../pairing/addresses.ts";
 import type { AppPackages } from "../pairing/app-package.ts";
@@ -278,6 +279,8 @@ export interface HttpApiOptions {
   setup?: Pick<SetupStateService, "view" | "mark">;
   /** 体检（319b）：GET /api/doctor（八项检查现在的样子，每次现算）；不给就没有这个接口 */
   doctor?: Pick<DoctorService, "view">;
+  /** 深度体检（415）：GET /api/doctor/deep 取上一次的（不跑），POST 开测；不给就没有这个接口 */
+  doctorDeep?: Pick<DeepDoctorService, "view" | "start">;
   /**
    * 二狗带着的手机 App 安装包（票 399）：GET /api/app-update（哪一版）、GET /api/app-update/android.apk（安装包本身）。
    * 外网端口上和别的接口一样要设备凭证（网关挡），没配对的拿不到。不给就没有这两个接口
@@ -1193,6 +1196,24 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
           async GET(_req, res) {
             if (!options.doctor) throw new HttpError("not_found", t("gateway.http.noDoctor"));
             sendJson(res, 200, await options.doctor.view());
+          },
+        };
+      case "doctor_deep":
+        return {
+          // 深度体检（415）：GET 只取上一次的结果（打开体检页时，不跑）
+          GET(_req, res) {
+            if (!options.doctorDeep) throw new HttpError("not_found", t("gateway.http.noDoctor"));
+            sendJson(res, 200, options.doctorDeep.view());
+          },
+          // 点了才跑：正在测时回正在测的那一份；离上一次测完太近回 429（防连点）
+          POST(_req, res) {
+            if (!options.doctorDeep) throw new HttpError("not_found", t("gateway.http.noDoctor"));
+            try {
+              sendJson(res, 200, options.doctorDeep.start());
+            } catch (err) {
+              if (err instanceof DeepDoctorTooSoon) throw new HttpError("too_many_requests", err.message);
+              throw err;
+            }
           },
         };
       case "connection_addresses":

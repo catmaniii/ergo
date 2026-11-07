@@ -5,16 +5,18 @@
 // - 原型编的一份（prototype/fake-doctor.ts）：五种结果都有、有插件块、有过期的数据源、有没查出来的、两种动作；英文里一个中文字都没有；
 //   停用了的插件不成块、列进"停用的插件"；
 // - 八项的事实拼句（挪进了协议包 doctor-text.ts，守护进程和演示页共用）：端口号、版本号、剩多少 GB 按当前语言；查不了的写"这次没查出来"；
-// - "再查一遍"每次重新取（loadDoctor 经 DaemonHttp）；页面右上的按钮；界面上不出现"秘书""待我处理"。
+// - "再查一遍"每次重新取（loadDoctor 经 DaemonHttp）；页面右上的按钮；界面上不出现"秘书""待我处理"；
+// - 415 深度体检那一块：还没做过、正在测（逐项出结果、还在测的写"正在测…"）、测完了（"几分钟前测的"、总状态、按块）、
+//   刚测过（按钮倒数）；"几分钟前"按守护进程的时钟走；原型编的一份和点了以后的样子；英文里没有中文。
 // 设置列表里的位置见 settings-groups.test.ts；页面打得开见 page-opens.test.ts。
 import { type ComponentProps, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { Connection } from "../../src/app/connection.ts";
 import type { DaemonHttp } from "../../src/app/daemon-http.ts";
-import { doctorActionText, doctorSinceText, doctorSummary, knownDoctorAction, loadDoctor } from "../../src/app/doctor.ts";
+import { doctorActionText, doctorDeepAgoText, doctorDeepButtonText, doctorDeepNow, doctorDeepWaitSeconds, doctorSinceText, doctorSummary, knownDoctorAction, loadDoctor } from "../../src/app/doctor.ts";
 import { StoreProvider } from "../../src/app/store.tsx";
-import { DoctorGroups, DoctorItemRow, DoctorPage } from "../../src/pages/more/DoctorPage.tsx";
+import { DoctorDeepBlock, DoctorGroups, DoctorItemRow, DoctorPage } from "../../src/pages/more/DoctorPage.tsx";
 import { hasChinese, localizedFake } from "../../src/prototype/fake-content.ts";
 import { FakeConnection } from "../../src/prototype/fake-connection.ts";
 import { fakeDoctorView } from "../../src/prototype/fake-doctor.ts";
@@ -30,6 +32,8 @@ import {
   type DoctorCheckDataById,
   type DoctorCheckId,
   type DoctorCheckView,
+  type DoctorDeepItemView,
+  type DoctorDeepView,
   doctorFactText,
   doctorFixText,
   type DoctorItemView,
@@ -333,5 +337,119 @@ describe("再查一遍、页面", () => {
   test("界面上不出现\"秘书\"\"待我处理\"", () => {
     const html = render(fakeDoctorView(plugins())) + render(sample());
     expect(html).not.toMatch(/秘书|待我处理/);
+  });
+});
+
+// ───────── 深度体检（415）：点了才跑、逐项出结果、"几分钟前测的"、防连点 ─────────
+
+/** 深度体检测完的一项 */
+function deepDone(group: string, groupTitle: string, id: string, level: DoctorItemView["level"], title: string, factText: string): DoctorDeepItemView {
+  return { group, groupTitle, id, title, state: "done", item: item(id, level, title, factText), ms: 600 };
+}
+
+const DEEP_AT = Date.parse("2026-11-07T07:30:00.000Z");
+
+/** 一份测完的：模型那项坏了（服务商忙），别的正常 */
+function deepSample(extra: Partial<DoctorDeepView> = {}): DoctorDeepView {
+  return {
+    state: "done",
+    startedAt: "2026-11-07T07:29:56.000Z",
+    finishedAt: "2026-11-07T07:30:00.000Z",
+    items: [
+      deepDone(DOCTOR_CORE_GROUP, "二狗本身", "model-probe", "error", "模型（真发一句）", "deepseek-flash 没回成：服务商忙（503）（用了 0.6 秒）"),
+      deepDone(DOCTOR_CORE_GROUP, "二狗本身", "database", "ok", "数据库完整性", "ergo.db 完整（312 MB，查了 2.4 秒）"),
+      deepDone("looki", "Looki", "probe:looki", "ok", "连一下：Looki", "连上了，账号认得：d***@example.com（0.7 秒）"),
+    ],
+    counts: { error: 1, warn: 0, unknown: 0 },
+    now: "2026-11-07T07:33:00.000Z",
+    ...extra,
+  };
+}
+
+const renderDeep = (view: DoctorDeepView | undefined, now: number, extra: { starting?: boolean; error?: string } = {}) =>
+  renderToStaticMarkup(createElement(DoctorDeepBlock, { view, now, onStart: noop, onAction: noop, ...extra }));
+
+describe("深度体检（415）", () => {
+  test("还没做过：按钮写「深度体检」、旁边一句会真发请求测模型、会连外网、要一点时间；状态写还没做过", () => {
+    const html = renderDeep({ state: "never", items: [], counts: { error: 0, warn: 0, unknown: 0 }, now: "2026-11-07T07:30:00.000Z" }, DEEP_AT);
+    expect(html).toContain('data-action="deep"');
+    expect(html).toContain(">深度体检</button>");
+    expect(html).toContain("会真发一个很短的请求测模型（花不到一分钱）、会连外网、要一点时间");
+    expect(html).toContain("还没做过深度体检");
+    expect(html).not.toContain("disabled");
+  });
+
+  test("正在测：按钮灰着写「正在测…」，测完的照常一行、还在测的写「正在测…」，状态写几项里测完了几项", () => {
+    const { finishedAt: _done, ...base } = deepSample();
+    const running: DoctorDeepView = {
+      ...base,
+      state: "running",
+      counts: { error: 0, warn: 0, unknown: 0 },
+      items: [base.items[1]!, { group: "looki", groupTitle: "Looki", id: "probe:looki", title: "连一下：Looki", state: "pending" }],
+    };
+    const html = renderDeep(running, DEEP_AT);
+    expect(html).toMatch(/<button[^>]*data-action="deep"[^>]*disabled=""[^>]*>正在测…<\/button>/);
+    expect(html).toContain("正在测：2 项里测完了 1 项");
+    expect(html).toContain('data-item="probe:looki" data-level="pending"');
+    expect(html).toContain("ergo.db 完整（312 MB，查了 2.4 秒）");
+  });
+
+  test("测完了：写「几分钟前测的」、总状态、按块（二狗本身在前）各项一行；按钮写「再测一遍」", () => {
+    const html = renderDeep(deepSample(), DEEP_AT + 3 * 60_000);
+    expect(html).toContain("3 分钟前测的");
+    expect(html).toContain("1 项坏了");
+    expect(html.indexOf("二狗本身")).toBeLessThan(html.indexOf("Looki"));
+    expect(html).toContain('data-group="ergo" data-level="error"');
+    expect(html).toContain("deepseek-flash 没回成：服务商忙（503）（用了 0.6 秒）");
+    expect(html).toContain(">再测一遍</button>");
+  });
+
+  test("刚测过：按钮灰着倒数「刚测过，N 秒后能再测」；开测没开成写原因", () => {
+    const view = deepSample({ nextAt: "2026-11-07T07:31:00.000Z" });
+    const html = renderDeep(view, DEEP_AT + 15_000);
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>刚测过，45 秒后能再测<\/button>/);
+    expect(html).toContain("刚测的");
+    expect(renderDeep(view, DEEP_AT + 15_000, { error: "刚测过，45 秒后再测" })).toContain("没开始测：刚测过，45 秒后再测");
+  });
+
+  test("「几分钟前」按守护进程的时钟走（取到时它报的 now 加上本机走过的时间）；一小时以上写小时、一天以上写日期；英文分单复数", () => {
+    expect(doctorDeepNow({ now: "2026-11-07T07:33:00.000Z" }, 1_000, 31_000)).toBe(Date.parse("2026-11-07T07:33:30.000Z"));
+    expect(doctorDeepAgoText("2026-11-07T07:30:00.000Z", DEEP_AT + 30_000)).toBe("刚测的");
+    expect(doctorDeepAgoText("2026-11-07T07:30:00.000Z", DEEP_AT + 2 * 3_600_000 + 60_000)).toBe("2 小时前测的");
+    expect(doctorDeepAgoText("2026-11-07T07:30:00.000Z", DEEP_AT + 2 * 86_400_000)).toMatch(/测的$/);
+    expect(doctorDeepWaitSeconds({ nextAt: "2026-11-07T07:31:00.000Z" }, DEEP_AT + 61_000)).toBe(0);
+    inEnglish();
+    expect(doctorDeepAgoText("2026-11-07T07:30:00.000Z", DEEP_AT + 60_000)).toBe("Tested 1 minute ago");
+    expect(doctorDeepAgoText("2026-11-07T07:30:00.000Z", DEEP_AT + 5 * 60_000)).toBe("Tested 5 minutes ago");
+    expect(doctorDeepButtonText(undefined, DEEP_AT)).toBe("Run deep checkup");
+  });
+
+  test("原型：打开是 3 分钟前测完的一份（模型那项服务商忙、数据库完整、Claude Code 登录着、Looki 认得），点了逐项出结果；英文里一个中文字都没有", async () => {
+    const http = new FakeDaemonHttp(new FakeConnection());
+    const first = await http.doctorDeep();
+    expect(first.state).toBe("done");
+    const ago = Date.parse(first.now) - Date.parse(first.finishedAt!);
+    expect(ago).toBeGreaterThanOrEqual(3 * 60_000 - 1_000);
+    expect(ago).toBeLessThan(4 * 60_000);
+    expect(first.items.map((entry) => `${entry.group}:${entry.id}:${entry.item?.level}`)).toEqual(["ergo:model-probe:error", "ergo:database:ok", "claude-code:login:ok", "looki:probe:looki:ok"]);
+    expect(first.items[0]!.item!.text.fact).toBe("deepseek-flash 没回成：服务商忙（503）（用了 0.6 秒）");
+    const started = await http.startDoctorDeep();
+    expect(started.state).toBe("running");
+    expect(started.items.every((entry) => entry.state === "pending")).toBe(true);
+    await expect(http.startDoctorDeep()).resolves.toMatchObject({ state: "running" });
+
+    inEnglish();
+    const en = await localizedFake(new FakeDaemonHttp(new FakeConnection())).doctorDeep();
+    const texts = en.items.flatMap((entry) => [entry.groupTitle, entry.title, entry.item?.text.fact ?? "", entry.item?.text.fix ?? ""]);
+    expect(texts.filter(hasChinese)).toEqual([]);
+    const html = renderDeep(en, Date.parse(en.now));
+    expect(html).toContain("Deep checkup");
+    expect(html).toContain("Tested 3 minutes ago");
+    expect(html).toContain("the provider is busy (503)");
+    expect(hasChinese(html)).toBe(false);
+  });
+
+  test("界面上不出现「秘书」「待我处理」", () => {
+    expect(renderDeep(deepSample(), DEEP_AT)).not.toMatch(/秘书|待我处理/);
   });
 });

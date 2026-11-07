@@ -25,15 +25,17 @@ export const LOOKI_FILES_PAGE = 100;
 /** 出错的种类：还没填 Key、Key 不认、限速、连不上、那边出错、回的不对 */
 export type LookiFailure = "no_key" | "key" | "rate_limit" | "network" | "server" | "response";
 
-/** 调 Looki 出的错：种类、给人看的原因；限速的带着要等多久 */
+/** 调 Looki 出的错：种类、给人看的原因；限速的带着要等多久；连不上里头是到点没回的标 timedOut（深度体检分得开超时和连不上，415） */
 export class LookiError extends Error {
   readonly failure: LookiFailure;
   readonly retryAfterMs: number | undefined;
-  constructor(failure: LookiFailure, message: string, retryAfterMs?: number) {
+  readonly timedOut: boolean;
+  constructor(failure: LookiFailure, message: string, retryAfterMs?: number, timedOut = false) {
     super(message);
     this.name = "LookiError";
     this.failure = failure;
     this.retryAfterMs = retryAfterMs;
+    this.timedOut = timedOut;
   }
 }
 
@@ -103,7 +105,7 @@ async function getJson(url: URL, headers: Record<string, string>, options: { sig
     res = await globalThis.fetch(url, { headers: { accept: "application/json", ...headers }, signal });
   } catch (err) {
     if (options.signal?.aborted) throw err;
-    throw new LookiError("network", t("looki.error.network", { host: url.host, reason: timeout.aborted ? t("looki.error.timeout") : networkReason(err) }));
+    throw new LookiError("network", t("looki.error.network", { host: url.host, reason: timeout.aborted ? t("looki.error.timeout") : networkReason(err) }), undefined, timeout.aborted);
   }
   const text = await res.text().catch(() => "");
   if (res.status === 401 || res.status === 403) throw new LookiError("key", t("looki.error.key"));

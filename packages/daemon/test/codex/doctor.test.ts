@@ -69,9 +69,15 @@ describe("读版本", () => {
 describe("体检页上的 Codex 一块", () => {
   it("插件在跑时有这一项：开机以后 codex 没了是坏了；停用后跟着没了", async () => {
     let program: { found: boolean; version?: string } = { found: true, version: "0.170.0" };
-    const plugin = createCodexPlugin({ missing: () => undefined, sessions: {} as never, program: async () => program });
-    const k = await startPluginKernel({ plugins: [plugin], services: [extraService(KERNEL.oneShot, () => (() => Promise.reject(new Error("测试里不起子进程"))) as never)] });
-    expect(k.doctorChecks.list().map((c) => `${c.plugin}:${c.id}`)).toEqual(["codex:program"]);
+    // 深度体检的登录（415）也换成假的：平时体检不跑它，这里只看登记上了
+    const loginStatus = () => Promise.resolve({ code: 0, stdout: "", stderr: "Logged in using ChatGPT" });
+    const plugin = createCodexPlugin({ missing: () => undefined, sessions: {} as never, program: async () => program, loginStatus });
+    // 415 起插件要 KERNEL.env（跑 codex 用守护进程的环境）
+    const k = await startPluginKernel({
+      plugins: [plugin],
+      services: [extraService(KERNEL.oneShot, () => (() => Promise.reject(new Error("测试里不起子进程"))) as never), extraService(KERNEL.env, () => ({ PATH: makeTempDir("ergo-empty-path-") }))],
+    });
+    expect(k.doctorChecks.list().map((c) => `${c.plugin}:${c.id}`)).toEqual(["codex:program", "codex:login"]);
     expect(itemOf(await kernelDoctor(k).view(), "codex", "program")).toMatchObject({ level: "ok", text: { title: "程序和版本", fact: `Codex 0.170.0（要 ${CODEX_MIN_VERSION} 或更新的）` } });
     program = { found: false };
     const gone = await kernelDoctor(k).view();

@@ -526,12 +526,14 @@ export interface SessionRewriteResult {
 /**
  * 模型探查的请求：
  * - catalog：列出模型目录里这个服务商的模型（不连网、不要凭据）；
- * - ping：连通测试——用这个模型发一条极短的请求（不开思考），量首 token 延迟。credentials 经 stdin 送达、只放进内存
+ * - ping：连通测试——用这个模型发一条极短的请求（不开思考），量首 token 延迟。credentials 经 stdin 送达、只放进内存。
+ *   深度体检（415）另给 timeoutMs（这次请求最多等多久，到点中止、结果 timedOut）和 maxRetries（0：服务商回 5xx、429 不重试，
+ *   原样报出来，也不拖过时限）；设置页的连通测试不给，照旧
  * 自定义（OpenAI 兼容）服务商的模型目录里没有它：要列它、测它都得先在子进程里登记，所以两种请求都可以带 custom
  */
 export type ModelProbeRequest =
   | { type: "catalog"; provider: string; custom?: ModelCustomProvider }
-  | { type: "ping"; model: ModelSpec; credentials: Record<string, string>; custom?: ModelCustomProvider };
+  | { type: "ping"; model: ModelSpec; credentials: Record<string, string>; custom?: ModelCustomProvider; timeoutMs?: number; maxRetries?: number };
 
 /** 模型目录里的一个模型 */
 export interface CatalogModel {
@@ -543,8 +545,11 @@ export interface CatalogModel {
   thinkingLevels: ThinkingLevel[];
 }
 
-/** 模型探查的结果：catalog 回模型列表；ping 回通不通、首 token 延迟、整次多久，不通时 error 是原因（凭据的内容已经去掉） */
-export type ModelProbeResult = { type: "catalog"; models: CatalogModel[] } | { type: "ping"; ok: boolean; firstTokenMs?: number; totalMs: number; error?: string };
+/**
+ * 模型探查的结果：catalog 回模型列表；ping 回通不通、首 token 延迟、整次多久，不通时 error 是原因（凭据的内容已经去掉）；
+ * timedOut 是给了 timeoutMs、到点没回完被中止了
+ */
+export type ModelProbeResult = { type: "catalog"; models: CatalogModel[] } | { type: "ping"; ok: boolean; firstTokenMs?: number; totalMs: number; error?: string; timedOut?: boolean };
 
 // ───────────────────────── 按二狗自己的事件记录另起一次生成 ─────────────────────────
 //

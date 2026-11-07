@@ -22,6 +22,7 @@ import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { BoardKinds } from "../board/kinds.ts";
 import { viewBoardTool } from "../board/tool.ts";
 import type { CardService } from "../cards/cards.ts";
+import type { DeepDoctorService } from "../doctor/deep.ts";
 import type { DoctorService } from "../doctor/doctor.ts";
 import { checkHealthTool } from "../doctor/tool.ts";
 import { type PersonalFilesService, readPersonalFileTool } from "../personal-files/index.ts";
@@ -56,6 +57,8 @@ export interface SecretaryToolDeps {
   runtimeRefusal?: (runtime: string) => string | undefined;
   /** 体检（设置 · 体检同一份）：只读的 check_health；不给就没有这个工具 */
   doctor?: Pick<DoctorService, "view">;
+  /** 最近一次深度体检（415）：体检工具末尾只读它，不跑 */
+  doctorDeep?: Pick<DeepDoctorService, "view">;
   /** 提议定时任务：守护进程的时钟、工作日历、任务负责人的模型、同类运行的用量 */
   scheduling: Omit<ScheduleTaskToolDeps, "cards" | "runtimeRefusal">;
   now: () => string;
@@ -79,7 +82,7 @@ export function secretaryToolList(deps: SecretaryToolDeps): HostTool[] {
     // 查看板，多一节"项目的服务"
     viewBoardTool(store, boardKinds, () => projects.boardSection()),
     // 只读的体检：现查一遍，交回不正常的项和怎么修
-    ...(deps.doctor ? [checkHealthTool(deps.doctor)] : []),
+    ...(deps.doctor ? [checkHealthTool(deps.doctor, deps.doctorDeep)] : []),
     // 读项目档案、给出服务入口、启停项目的服务、调使用中的项目的操作、提转入使用（只出确认卡）
     ...projects.tools(),
     // 提交一个 skill（只出"skill 变更"卡，用户确认了运行时才写 skill 区）

@@ -68,6 +68,7 @@ import {
   type SafetySettingsView,
   type SetupMarkBody,
   type SetupView,
+  type DoctorDeepView,
   type DoctorView,
   type ModelTestResult,
   type ToolCallCleanupResult,
@@ -345,6 +346,10 @@ export const setupApi = {
 /** 体检（319b）：八项检查现在的样子 */
 export const doctorApi = {
   view: (baseUrl: string) => requestJson<DoctorView & HttpErrorBody>(baseUrl, HTTP_PATHS.doctor),
+  /** 深度体检（415）：取上一次的（不跑） */
+  deep: (baseUrl: string) => requestJson<DoctorDeepView & HttpErrorBody>(baseUrl, HTTP_PATHS.doctorDeep),
+  /** 深度体检：开测 */
+  deepStart: (baseUrl: string) => requestJson<DoctorDeepView & HttpErrorBody>(baseUrl, HTTP_PATHS.doctorDeep, { method: "POST", body: {} }),
 };
 
 /** 设置里 agent 的联网搜索、读网页：取、整份存 */

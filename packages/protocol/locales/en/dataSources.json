@@ -1,6 +1,7 @@
 {
   "dataSources.unknown": "No data source {id}",
   "dataSources.noSync": "{title} has nothing to sync",
+  "dataSources.noProbe": "{title} can't be tested on its own",
   "dataSources.importOff": "Import is off for {title}",
   "dataSources.notConnected": "{title} isn't connected yet",
   "dataSources.noQuery": "{title} has no on-demand lookup",
