@@ -246,7 +246,7 @@ expect(listNotes(k.store.reader)).toEqual([]);
 
 网页的词典里没有插件的区域，句子由守护进程按当前语言拼好（`DoctorItemView.text`）交给网页；秘书的只读工具 `check_health` 读的也是这一份。
 
-别重复二狗已经替它生成的：数据源要重新授权（`needsAuth`）、连接出错、过期、上次同步出错，运行时没装，都已经在那几项里。插件登记的是那几项看不出来的（414 的例子）：Looki 的"存一份到本地"停下了（`looki/doctor.ts`）、手机 App 很久没交来东西和手机日历交来 0 条（`phone/doctor.ts`）、Google 每个日历地址连着拉不到（`google/doctor.ts`）、日历拿不到数据源的日程（`calendar/doctor.ts`）、内置浏览器的缩略图子进程出错（`browsing/doctor.ts`）、提醒的时区和电脑不一致（`reminders/doctor.ts`）、Codex 和 Claude Code 的程序还在不在、版本够不够（`codex/doctor.ts`、`claude-code/doctor.ts`）。原来只记日志的失败，要报就先在插件的服务里记个数或者标记，体检只读它。
+别重复二狗已经替它生成的：数据源要重新授权（`needsAuth`）、连接出错、过期、上次同步出错，运行时没装，都已经在那几项里。插件登记的是那几项看不出来的（414 的例子）：Looki 的"存一份到本地"出了问题（`looki/doctor.ts`）、手机 App 很久没交来东西和手机日历交来 0 条（`phone/doctor.ts`）、Google 每个日历地址连着拉不到（`google/doctor.ts`）、日历拿不到数据源的日程（`calendar/doctor.ts`）、内置浏览器的缩略图子进程出错（`browsing/doctor.ts`）、提醒的时区和电脑不一致（`reminders/doctor.ts`）、Codex 和 Claude Code 的程序还在不在、版本够不够（`codex/doctor.ts`、`claude-code/doctor.ts`）。原来只记日志的失败，要报就先在插件的服务里记个数或者标记，体检只读它。
 
 **前端请求**：插件经数据契约登记网关请求里**可选的**那些（`ctx.requests.register(名字, 处理函数)`，名字是网关 `RequestHandlers` 里写成可选的；一个请求只能一个插件登记），处理函数里用 `ctx.active` 现取服务，插件没在运行时自动回"X插件没启用"。要新的请求先在网关的 `RequestHandlers` 里加一项可选的。HTTP 接口留在内核、经 `plugins.active(KEY)` 现取服务（日历的按月取）：
 
