@@ -11,7 +11,6 @@ export const EN_DOCTOR: Phrases = {
   "语音识别服务": "Speech recognition service",
   "在听（127.0.0.1:8091）": "Listening (127.0.0.1:8091)",
   "没装 Codex：在终端里跑 npm i -g @openai/codex，装好后在设置 · 插件里启用": "Codex isn't installed: run npm i -g @openai/codex in a terminal, then enable it in Settings · Plugins",
-  "对话长度": "Conversation length",
-  "主对话已经用了 935k token，过了自动压缩点 700k 还没压下去": "The main conversation is at 935k tokens, past its auto-compaction point of 700k, and hasn't been compacted",
-  "点「现在压缩」；压完再查一遍": 'Press "Compact now", then run the checkup again once it\'s done',
+  "tailnet 节点离线": "tailnet node offline",
+  "进程退出（代码 3221225477）": "process exited (code 3221225477)",
 };

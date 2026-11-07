@@ -1,6 +1,8 @@
-// 原型里的设置 · 体检（409）：编的一份体检结果，五种结果都有——
-// - 二狗本身：八项（组件缺记忆的向量模型、外网入口没查到依据，都是注意，各带修法；句子由协议包的八项拼句按当前语言拼），
-//   加一项编的"对话长度"（主对话过了自动压缩点，带"现在压缩"按钮；410 做的那种）；
+// 原型里的设置 · 体检（409、410）：编的一份体检结果，五种结果都有——
+// - 二狗本身：八项（组件缺记忆的向量模型是注意；外网入口登记了 tailnet，可服务管家从外面打不通，是坏了；句子由协议包的八项拼句按当前语言拼），
+//   加上内核登记的几项（410），照 2026-11-07 那天的样子编：主对话在线在干活；模型近况坏了（最近 5 轮服务商报 503 / 500）；
+//   对话长度要注意（93.5 万 token，过了自动压缩点 70 万，带"现在压缩"）；托管的服务坏了（8090 的语音合成停着，带"打开服务管家"）；
+//   插件、网页文件正常。句子照守护进程的文案键拼（和真的一样）；
 // - 插件块：每个在跑的插件一块（插件本身在跑）；记忆多两项（推理库正常、记忆简报这次没查出来），Looki 的数据源过期（跳到数据源详情），
 //   语音合成服务坏了（跳到设置 · 语音），Codex 要的外部程序没装（插件本身和运行时都是不适用），手机、Google 的数据源正常，
 //   Claude Code 的运行时正常；
@@ -9,6 +11,7 @@
 // 英文在 en/fake-doctor.ts（假 HTTP 照表换）。
 import {
   coreDoctorItem,
+  defaultAssistantName,
   DOCTOR_CHECKS,
   DOCTOR_CORE_GROUP,
   type DoctorAction,
@@ -22,6 +25,8 @@ import {
   type DoctorMessage,
   type DoctorView,
   formatDate,
+  formatList,
+  formatNumber,
   type PluginsView,
   sortDoctorGroups,
   sortDoctorItems,
@@ -30,20 +35,25 @@ import {
 } from "../state/index.ts";
 import { fakeText } from "./fake-content.ts";
 
-/** 八项编的事实：六项好的，组件缺记忆的向量模型、外网入口没查到依据 */
-const CORE_DATA: { [Id in DoctorCheckId]: DoctorCheckDataById[Id] } = {
-  ports: { local: 8810, external: 8811, localUp: true, externalUp: true },
-  node: { running: "22.23.4", expected: "22" },
-  pi: { version: "1.0.4" },
-  supervisor: { running: true, port: 7420 },
-  model: { configured: true },
-  components: { missing: ["memory.semantic"] },
-  disk: { freeGb: 42.3, totalGb: 476.8, path: "C:\\Users\\demo\\.ergo" },
-  external: { configured: false },
-};
+/** 八项编的事实：六项好的，组件缺记忆的向量模型；外网入口登记了 tailnet，服务管家从外面打不通（入口不通的原因是编的，按语言换） */
+function coreData(): { [Id in DoctorCheckId]: DoctorCheckDataById[Id] } {
+  return {
+    ports: { local: 8810, external: 8811, localUp: true, externalUp: true },
+    node: { running: "22.23.4", expected: "22" },
+    pi: { version: "1.0.4" },
+    supervisor: { running: true, port: 7420, link: "connected" },
+    model: { configured: true },
+    components: { missing: ["memory.semantic"] },
+    disk: { freeGb: 42.3, totalGb: 476.8, path: "C:\\Users\\demo\\.ergo" },
+    external: { configured: true, kind: "tailscale", entries: [{ kind: "tailnet", url: "https://ergo.demo-tailnet.ts.net/", reachable: false, why: fakeText("tailnet 节点离线") }] },
+  };
+}
 
-/** 坏的那两项算注意 */
-const CORE_BAD: Partial<Record<DoctorCheckId, DoctorLevel>> = { components: "warn", external: "warn" };
+/** 坏的那两项：组件是注意，外网入口唯一的入口打不通是坏了 */
+const CORE_BAD: Partial<Record<DoctorCheckId, { level: DoctorLevel; fix: string }>> = {
+  components: { level: "warn", fix: "doctor.fix.components" },
+  external: { level: "error", fix: "doctor.fix.externalUnreachable" },
+};
 
 /** 查的时刻 */
 const AT = "2026-11-07T07:30:00.000Z";
@@ -108,9 +118,42 @@ function codexItems(): DoctorItemView[] {
   ];
 }
 
-/** 编的"对话长度"（410 做的那种）：主对话过了自动压缩点，带"现在压缩" */
-const contextItem = () =>
-  said("context", "warn", "对话长度", "主对话已经用了 935k token，过了自动压缩点 700k 还没压下去", { fix: "点「现在压缩」；压完再查一遍", action: { kind: "compact", agentId: "secretary" } });
+/** token 数写成"93.5 万"（和守护进程一样） */
+const tokens = (n: number) => t("doctor.tokens.n", { n: formatNumber(n / (Number(t("doctor.tokens.unit")) || 10_000), { maximumFractionDigits: 1 }) });
+
+/** 内核登记的几项（410），照 11-07 那天的样子：模型近况坏了、对话长度要注意、托管的服务坏了，别的正常 */
+function kernelItems(): DoctorItemView[] {
+  const name = defaultAssistantName();
+  const gists = formatList([t("doctor.modelCalls.gist.busy"), t("doctor.modelCalls.gist.server", { code: "500" })]);
+  const stopped = t("doctor.services.stateWithError", { state: t("doctor.services.state.stopped"), error: fakeText("进程退出（代码 3221225477）") });
+  const services = t("doctor.services.one", { uses: t("doctor.services.use.speech"), name: "audiocpp", state: stopped });
+  return [
+    keyed("assistant", "ok", { key: "doctor.check.assistant.title" }, { key: "doctor.assistant.busy", params: { name } }),
+    keyed(
+      "model-calls",
+      "error",
+      { key: "doctor.check.modelCalls.title" },
+      { key: "doctor.modelCalls.allFailed", params: { n: 5, gists, time: time("2026-11-07T15:26:00+08:00"), model: "deepseek/deepseek-chat" } },
+      { fix: { key: "doctor.fix.modelCalls" }, since: "2026-11-07T15:02:00+08:00", action: { kind: "open", route: "#/more/models" } },
+    ),
+    keyed(
+      "context",
+      "warn",
+      { key: "doctor.check.context.title" },
+      { key: "doctor.context.over", params: { name, used: tokens(935_000), at: tokens(700_000), window: tokens(1_048_576) } },
+      { fix: { key: "doctor.fix.context" }, action: { kind: "compact", agentId: "secretary" } },
+    ),
+    keyed(
+      "services",
+      "error",
+      { key: "doctor.check.services.title" },
+      { key: "doctor.services.badSome", params: { list: services, fine: 2 } },
+      { fix: { key: "doctor.fix.services" }, action: { kind: "open", route: "http://127.0.0.1:7420/" } },
+    ),
+    keyed("plugins", "ok", { key: "doctor.check.plugins.title" }, { key: "doctor.plugins.fine", params: { running: 9 } }),
+    keyed("web", "ok", { key: "doctor.check.web.title" }, { key: "doctor.web.fine" }),
+  ];
+}
 
 /** 一块：项排好（不适用的放最后），块的结果取最差的 */
 function group(id: string, kind: DoctorGroupView["kind"], title: string, items: readonly DoctorItemView[]): DoctorGroupView {
@@ -122,11 +165,12 @@ function group(id: string, kind: DoctorGroupView["kind"], title: string, items: 
  * 编的体检结果：plugins 是原型的插件清单（停用、移除了的进"停用的插件"）；不给是全部在跑
  */
 export function fakeDoctorView(plugins?: PluginsView): DoctorView {
+  const data = coreData();
   const checks = DOCTOR_CHECKS.map((id) => {
-    const ok = CORE_BAD[id] === undefined;
-    return { id, ok, data: CORE_DATA[id], ...(ok ? {} : { fix: `doctor.fix.${id}` }) };
+    const bad = CORE_BAD[id];
+    return { id, ok: bad === undefined, data: data[id], ...(bad === undefined ? {} : { fix: bad.fix }) };
   });
-  const core = group(DOCTOR_CORE_GROUP, "core", t("doctor.group.core"), [...checks.map((check) => coreDoctorItem(check, CORE_BAD[check.id] ?? "ok")), contextItem()]);
+  const core = group(DOCTOR_CORE_GROUP, "core", t("doctor.group.core"), [...checks.map((check) => coreDoctorItem(check, CORE_BAD[check.id]?.level ?? "ok")), ...kernelItems()]);
   const list = plugins?.plugins ?? [];
   const groups: DoctorGroupView[] = [core];
   const off: DoctorView["off"] = [];

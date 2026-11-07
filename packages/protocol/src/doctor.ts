@@ -103,9 +103,12 @@ export type DoctorAction = { kind: "open"; route: string } | { kind: "compact"; 
 /** 动作的种类（网页按它挑按钮上的字） */
 export const DOCTOR_ACTION_KINDS = ["open", "compact"] as const;
 
-/** open 的 route 是不是网页外面的网址（服务管家的网页）：是的话新标签页打开，不是二狗的页 */
+/**
+ * open 的 route 是不是本机的一个网址（服务管家的网页）：是的话网页在新标签页里打开，不是二狗的页。
+ * 只认本机（127.0.0.1、localhost、[::1]）：体检项（插件也能登记）不能把人带到外面的网站去
+ */
 export function doctorOpensUrl(route: string): boolean {
-  return /^https?:\/\//i.test(route);
+  return /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(route);
 }
 
 /** 分块里的一项 */
