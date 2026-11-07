@@ -57,6 +57,7 @@ const NOTICE_LABEL: Readonly<Record<NoticeType, string>> = tTable({
   component_update_available: "ui.inboxNotice.kind.componentUpdateAvailable",
   app_outdated: "ui.inboxNotice.kind.appOutdated",
   folder_grant_expiring: "ui.inboxNotice.kind.folderGrantExpiring",
+  phone_calendar_empty: "ui.inboxNotice.kind.phoneCalendarEmpty",
 });
 
 /**

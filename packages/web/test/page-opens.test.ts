@@ -122,6 +122,7 @@ const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boo
   { hash: "#/inbox/i-sjob", selector: ".auth-actions" },
   { hash: "#/inbox/i-backup", selector: ".auth-actions" },
   { hash: "#/inbox/i-app-outdated", selector: ".auth-actions" },
+  { hash: "#/inbox/i-phone-calendar", selector: ".auth-actions" },
   // pages/ 里的字——各页的标题栏、分节标题、说明（名字标签是用户起的名字）。从状态层、ui/ 来的字（状态名、阶段名、标签、
   // 外观与风格的副标题、时间日期……）不算，原型的演示数据（任务名、项目名、素材……）是内容，这几处选得避开它们
   { hash: "#/browse", selector: ".chat-col" },

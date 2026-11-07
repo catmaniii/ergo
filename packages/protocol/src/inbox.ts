@@ -69,5 +69,7 @@ const INBOX_ACTION_TEXT_KEYS: Readonly<Record<string, string>> = {
   "阶段改成自动验收，交给评审了": "protocol.inboxAction.handedToReview",
   先不管: "protocol.inboxAction.ignoreForNow",
   把没过的阶段也重做: "protocol.inboxAction.redoFailed",
+  "清空了，删掉": "protocol.inboxAction.phoneCalendarCleared",
+  "没清空，留着": "protocol.inboxAction.phoneCalendarKept",
 };
 // @i18n-ignore-end

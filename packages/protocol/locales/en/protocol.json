@@ -956,6 +956,8 @@
   "protocol.timeline.kind.reverify": "Re-check failed after redo",
   "protocol.inboxAction.ignoreForNow": "Leave it for now",
   "protocol.inboxAction.redoFailed": "Redo the failed stages too",
+  "protocol.inboxAction.phoneCalendarCleared": "Yes, delete them",
+  "protocol.inboxAction.phoneCalendarKept": "No, keep them",
   "protocol.personalFiles.field.selfName": "Name",
   "protocol.personalFiles.field.idCard": "ID card number",
   "protocol.personalFiles.field.passport": "Passport number",
