@@ -122,6 +122,34 @@ describe("命令行备份（npm run backup）", () => {
     expect(fs.existsSync(backupLockFile(test.layout))).toBe(false);
   });
 
+  it.runIf(process.platform === "win32")("有文件被别的程序独占打开着：跳过它，退出码照样 0，最后一行注明跳过了几个，记录里写着；任务的 .ergo-tmp 不进快照", async () => {
+    const test = await startBackupDaemon({ start: new Date() });
+    await test.daemon.stop();
+    const today = localDate(Date.now());
+    const cookies = path.join(test.dataDir, "outputs", "t-9", "browser", "Cookies");
+    fs.mkdirSync(path.dirname(cookies), { recursive: true });
+    fs.writeFileSync(cookies, "x".repeat(100));
+    const tmp = path.join(test.dataDir, "outputs", "t-9", ".ergo-tmp", "sgac-profile", "Cookies");
+    fs.mkdirSync(path.dirname(tmp), { recursive: true });
+    fs.writeFileSync(tmp, "临时目录里的");
+    // libuv 的 UV_FS_O_EXLOCK：独占打开，别的进程打开读会 EBUSY（就像浏览器开着它的 Cookies）
+    const fd = fs.openSync(cookies, fs.constants.O_RDWR | 0x10000000);
+    let run;
+    try {
+      run = runScript(envOf(test));
+    } finally {
+      fs.closeSync(fd);
+    }
+    expect(run.status).toBe(0);
+    expect(lastLine(run.stdout)).toBe(`备份完成：${today}，已写进同步目录；跳过了 1 个被别的程序占着的文件（见上面）`);
+    expect(run.stdout).toContain("1 个文件被别的程序占着、读不了，没收进这份快照");
+    expect(readBackupRecord(test.layout)).toMatchObject({ by: "script", local: "created", sync: "copied", skipped: { count: 1, files: [{ path: "outputs/t-9/browser/Cookies" }] } });
+    for (const root of [test.layout.backups, test.syncDir]) {
+      expect(await verifySnapshot(path.join(root, today))).toEqual([]);
+      expect(() => snapshotFile(root, today, "outputs/t-9/.ergo-tmp/sgac-profile/Cookies")).toThrow(/没有/);
+    }
+  });
+
   it("没做成退出码 1、最后一行写原因：同步目录不在时本机快照照样做好；参数不认得退出码 2", async () => {
     const syncDir = path.join(makeTempDir("ergo-sync-parent-"), "missing");
     const test = await startBackupDaemon({ start: new Date(), syncDir });

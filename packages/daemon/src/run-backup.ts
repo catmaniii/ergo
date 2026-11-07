@@ -75,13 +75,14 @@ function finish(code: number, conclusion: string): never {
   process.exit(code);
 }
 
-/** 最后一行：做成了还是没做成，一眼看得出 */
+/** 最后一行：做成了还是没做成，一眼看得出；有跳过的文件（被占着读不了）照样算做成了，末尾注一句 */
 function conclusionOf(result: BackupResult): { ok: boolean; line: string } {
   if (result.local === "failed") return { ok: false, line: `备份失败：本机快照没做成：${result.error ?? "原因不明"}` };
   if (result.sync === "failed") return { ok: false, line: `备份失败：本机快照做好了（${result.date}），但没写进同步目录：${result.error ?? "原因不明"}` };
-  if (result.sync === "not_configured") return { ok: true, line: `备份完成：${result.date}，只在本机（没配同步目录 backup.syncDir）` };
+  const skipped = result.skipped ? `；跳过了 ${result.skipped.count} 个被别的程序占着的文件（见上面）` : "";
+  if (result.sync === "not_configured") return { ok: true, line: `备份完成：${result.date}，只在本机（没配同步目录 backup.syncDir）${skipped}` };
   if (result.local === "kept" && result.sync === "kept") return { ok: true, line: `备份完成：${result.date} 的快照本机和同步目录里都已经有了，没重做` };
-  return { ok: true, line: `备份完成：${result.date}，已写进同步目录` };
+  return { ok: true, line: `备份完成：${result.date}，已写进同步目录${skipped}` };
 }
 
 const config = (() => {

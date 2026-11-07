@@ -520,10 +520,11 @@ After restoring:
 
 **Good to know:**
 
-- **These aren't backed up:** keys (model keys, Gmail passwords and so on), models and components, the import folder, temporary files and caches. Restoring leaves them in place. On a new computer, re-enter keys and reinstall components.
+- **These aren't backed up:** keys (model keys, Gmail passwords and so on), models and components, the import folder, temporary files and caches. Neither are the `.ergo-tmp` folders where agents keep temporary files for tasks and projects (browser profiles, half-finished downloads and so on). Restoring leaves them in place. On a new computer, re-enter keys and reinstall components.
+- **Files in use are skipped and noted:** If a file is open in another program and can't be read during a backup (say, the Cookies file of a running browser), ergo tries again a few times, and if that still fails it skips that file and finishes the snapshot, which counts as a success. **Last backup** then ends with "N files in use by other programs were left out", and the full list is in the log. Key files such as databases and settings are never skipped: if one can't be read, the backup fails.
 - The service manager's own data isn't in this backup.
 - The restore command refuses to run while ergo is running. It also refuses if the snapshot fails its check.
-- Writing to the sync folder counts as success. Whether the cloud drive client has finished uploading, ergo doesn't know and doesn't wait.
+- Writing to the sync folder counts as success. Whether the cloud drive client has finished uploading, ergo doesn't know and doesn't wait. If the client is holding the folder so it can't be renamed right away, ergo waits a few seconds and tries again a few times before calling it a failure.
 - When a backup fails there's a **Backup failed** item in the Inbox saying why; click **Retry** to try again right away. The local snapshot is kept regardless.
 - The log is at `logs\backup.log` in the data folder.
 - If you run from source, or your data folder isn't the default, the commands differ. Follow what **How to restore** on the page says; it's worked out for your install. If you run from source, you can also see the [development docs](../architecture/development.en.md#backup-and-restore).

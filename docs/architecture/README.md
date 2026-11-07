@@ -247,7 +247,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 ### 数据目录和配置
 
-- 模块只从 `config/data-dir.ts` 的 `dataDirLayout()` 取路径，不自己拼。db 区里两个库（`ergo.db`、`materials.db`）随每晚的快照走（`VACUUM INTO` 出一致副本），推理库 `memory/subtext/rg.db` 在插件自己的数据目录里、跟着整个数据目录进快照；`secrets`、`tmp`、`backups`、`models`、`cache`、`components`、`imports` 不进备份。
+- 模块只从 `config/data-dir.ts` 的 `dataDirLayout()` 取路径，不自己拼。db 区里两个库（`ergo.db`、`materials.db`）随每晚的快照走（`VACUUM INTO` 出一致副本），推理库 `memory/subtext/rg.db` 在插件自己的数据目录里、跟着整个数据目录进快照；`secrets`、`tmp`、`backups`、`models`、`cache`、`components`、`imports` 不进备份，任何一层的 `.ergo-tmp`（agent 的 bash 临时目录，比如 `outputs/<任务>/.ergo-tmp/`）也不进。做快照时被别的程序占着读不了的文件（EBUSY / EPERM / EACCES）短间隔重试几次，还不行就跳过、记进这次备份的记录（`skipped`：总数和前 20 个），算"成功但有跳过"；数据库区、配置区和别处的数据库文件（`*.db` 及其 `-wal` 这类）是关键文件，读不了整份失败（`backup/snapshot.ts`）。
 - 配置只读，缺的项取默认值；**每个阈值的默认值只在它自己的模块里定一次**（`tasks/thresholds.ts`、`reminders/thresholds.ts`、`scheduled-jobs/thresholds.ts`、`event-sources/thresholds.ts`……），配置里只写要改的几项。
 - 写文件一律先写临时文件再改名，走 `util/atomic-file.ts`（[写代码的约定](development.md#写代码的约定)）。
 

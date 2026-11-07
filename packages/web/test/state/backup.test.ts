@@ -129,6 +129,14 @@ describe("设置里的备份", () => {
     expect(backupDoneText(record({ sync: "failed", error: "空间不够" }))).toBe("备份：本机做好了，没写进同步目录：空间不够");
   });
 
+  test("成功但跳过了被占着的文件：照样算做成了（不标红），后面接一句跳过了哪个、几个", () => {
+    const reason = "EBUSY: resource busy or locked, open 'C:\\Users\\me\\.ergo\\outputs\\t-9\\Cookies'";
+    const one = backupText(view({ last: record({ skipped: { count: 1, files: [{ path: "outputs/t-9/Cookies", reason }] } }) }));
+    expect(one).toMatchObject({ last: "最近一次：10-28 03:31（守护进程） · 本机和同步目录都写好了；outputs/t-9/Cookies 被别的程序占着，没收进去", lastFailed: false });
+    const many = record({ sync: "not_configured", skipped: { count: 3, files: [{ path: "outputs/t-9/Cookies", reason }] } });
+    expect(backupDoneText(many)).toBe("备份完成：2026-10-28，只在本机（没配同步目录）；3 个被别的程序占着的文件没收进去（outputs/t-9/Cookies 等）");
+  });
+
   test("界面文字里没有“秘书”“待我处理”这两个字面词", () => {
     const all = [
       backupText(view()),
@@ -152,6 +160,11 @@ describe("英文", () => {
     });
     expect(text.next).toMatch(/^Left to an external timer/);
     expect(backupDoneText(record())).toBe("Backup done for 2026-10-28: saved on this computer and in the sync folder");
+    const files = [{ path: "outputs/t-9/Cookies", reason: "EBUSY" }];
+    expect(backupDoneText(record({ skipped: { count: 1, files } }))).toBe("Backup done for 2026-10-28: saved on this computer and in the sync folder; outputs/t-9/Cookies was in use by another program and left out");
+    expect(backupDoneText(record({ skipped: { count: 2, files } }))).toBe(
+      "Backup done for 2026-10-28: saved on this computer and in the sync folder; 2 files in use by other programs were left out (outputs/t-9/Cookies and others)",
+    );
     for (const s of [text.syncDir, text.last, text.next, text.busy ?? ""]) expect(s).not.toMatch(/[　-〿㐀-䶿一-鿿豈-﫿！-｠]/);
   });
 });

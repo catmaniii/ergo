@@ -1276,6 +1276,8 @@
   "state.backup.outcome.kept": "today's snapshots were already there, nothing redone",
   "state.backup.outcome.localFailed": "failed: {reason}",
   "state.backup.outcome.syncFailed": "saved on this computer but not in the sync folder: {reason}",
+  "state.backup.outcome.skippedOne": "; {file} was in use by another program and left out",
+  "state.backup.outcome.skippedMany": "; {n} files in use by other programs were left out ({file} and others)",
   "state.backup.next.internal": "Backs up automatically every day at {time}; next at {when}",
   "state.backup.next.daily": "Backs up automatically every day at {time}",
   "state.backup.next.external": "Left to an external timer (the daemon doesn't schedule backups itself; you get a reminder if none runs for two days in a row)",

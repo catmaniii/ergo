@@ -20,6 +20,8 @@
 // - 每天清理临时区（04:00）：删 7 天前的文件。
 // 这几件在守护进程里排成一条队列依次做；"立即备份"也排在这条队列里。
 //
+// 做本机快照时被别的程序占着、读不了的文件（不是数据库、配置）跳过，这次照样算做成了（"成功但有跳过"）：结果和"最近一次"的记录里
+// 写着跳过了几个、前 SKIPPED_LIST_MAX 个是哪些和原因，日志里一行，不放事项（体检据记录提示）。任何一层的 .ergo-tmp 不进快照（snapshot.ts）。
 // 写入失败（同步目录不在、空间不够、复制出错）在守护进程里放一条"备份失败"（不卡任务），本机快照照样留着；
 // 用户在这条上点"重试"就马上手动备份一次。校验没通过放一条"快照校验失败"。命令行脚本只打出来、写进日志，退出码非 0。
 // 守护进程停止时中止正在做的（AbortSignal），半成品删掉。
@@ -38,6 +40,7 @@ import {
   type BackupPlace,
   type BackupResult,
   type BackupRunner,
+  type BackupSkippedFile,
   type BackupSnapshotPlace,
   type BackupSnapshotsView,
   type BackupStatusView,
@@ -72,6 +75,7 @@ import {
   readSnapshot,
   removeLeftovers,
   type Snapshot,
+  type SnapshotRetry,
   takeSnapshot,
   verifySnapshot,
 } from "./snapshot.ts";
@@ -95,6 +99,8 @@ export const OVERDUE_CHECK_TIME = "12:00";
 /** 最近一次备份开始之后这么久还没有下一次，算连着两天没人备份 */
 export const OVERDUE_AFTER_MS = 48 * 60 * 60_000;
 const DAY_MS = 24 * 60 * 60_000;
+/** 跳过的文件在结果、记录和日志里最多列这么多个（另记总数） */
+export const SKIPPED_LIST_MAX = 20;
 
 /** "备份失败"事项上的"重试"：马上再备份一次 */
 export const RETRY = "重试"; // @i18n-ignore fixed：事项的动作按字认
@@ -126,6 +132,13 @@ export interface RunBackupOptions {
   /** 一步一行（守护进程进日志；命令行打到屏幕上、写进 logs/backup.log） */
   log: (line: string) => void;
   report: (failure: BackupFailure) => void;
+  /** 读被占着的源文件、改名被占着时怎么再试（snapshot.ts 的 LOCKED_READ_RETRY、DATED_RENAME_RETRY）；测试调短 */
+  retry?: Partial<SnapshotRetry>;
+}
+
+/** 结果里"跳过了哪些"那一项：没跳过的不带 */
+function skippedPart(skipped: readonly BackupSkippedFile[]): Pick<BackupResult, "skipped"> {
+  return skipped.length > 0 ? { skipped: { count: skipped.length, files: skipped.slice(0, SKIPPED_LIST_MAX) } } : {};
 }
 
 /** 是不是因为停止（守护进程停了、命令行被中断）被中止的 */
@@ -142,7 +155,7 @@ const LOCAL_WORDS: Record<Exclude<BackupResult["local"], "failed">, string> = {
 
 /** 做一次备份（不拿锁、不写记录；守护进程和命令行都经 backupWithLock 调它） */
 export async function runBackup(options: RunBackupOptions): Promise<BackupResult> {
-  const { layout, clock, files, mode, signal, log, report } = options;
+  const { layout, clock, files, mode, signal, log, report, retry } = options;
   // 开始时取一份（已经拿到锁了）：这一次中途在页面上改了位置，这一份照样写到原来的文件夹，做完才生效
   const config = { ...options.config };
   const now = clock.now();
@@ -171,7 +184,7 @@ export async function runBackup(options: RunBackupOptions): Promise<BackupResult
       .at(-1);
     if (!sunday || readSnapshot(path.join(root, sunday.date))) return;
     try {
-      await copySnapshot({ snapshot: sunday, root, files, signal });
+      await copySnapshot({ snapshot: sunday, root, files, signal, log, ...(retry ? { retry } : {}) });
       log(`备份：${sunday.date}（周日）的快照当时没写进同步目录，这次从本机补上了`);
     } catch (err) {
       if (aborted(err, signal)) throw err;
@@ -184,6 +197,8 @@ export async function runBackup(options: RunBackupOptions): Promise<BackupResult
   // 1. 本机快照
   let snapshot: Snapshot;
   let local: BackupResult["local"];
+  /** 这次做本机快照时跳过的文件（被别的程序占着、读不了的） */
+  let skipped: BackupSkippedFile[] = [];
   try {
     await files.mkdir(layout.backups);
     await removeLeftovers(layout.backups, files);
@@ -194,7 +209,9 @@ export async function runBackup(options: RunBackupOptions): Promise<BackupResult
     } else {
       log(`备份：开始做 ${date} 的本机快照`);
       const previous = listSnapshots(layout.backups).at(-1);
-      snapshot = await takeSnapshot({ layout, root: layout.backups, date, createdAt: clockIso(clock), previous, files, signal, log });
+      const taken = await takeSnapshot({ layout, root: layout.backups, date, createdAt: clockIso(clock), previous, files, signal, log, ...(retry ? { retry } : {}) });
+      snapshot = taken;
+      skipped = taken.skipped;
       local = existing ? "replaced" : "created";
     }
   } catch (err) {
@@ -205,13 +222,18 @@ export async function runBackup(options: RunBackupOptions): Promise<BackupResult
     return { date, local: "failed", sync: "skipped", error: reason };
   }
   log(`备份：本机快照 ${date} ${LOCAL_WORDS[local]}（${snapshot.dir}）`);
+  if (skipped.length > 0) {
+    const listed = skipped.slice(0, SKIPPED_LIST_MAX).map((s) => `${s.path}（${s.reason}）`); // @i18n-ignore log：只进日志
+    log(`备份：${skipped.length} 个文件被别的程序占着、读不了，没收进这份快照（不是数据库、配置，这次照样算做成了）：${listed.join("；")}${skipped.length > listed.length ? "……" : ""}`);
+  }
+  const withSkipped = skippedPart(skipped);
   await prune(layout.backups, keepLocal);
 
   // 2. 复制到同步目录
   const sync = syncDirOf(config);
   if (sync.kind === "none") {
     log(`备份：${date} 的快照做好了；没有配置同步目录（backup.syncDir），只留在本机`);
-    return { date, local, sync: "not_configured" };
+    return { date, local, sync: "not_configured", ...withSkipped };
   }
   try {
     if (sync.kind === "unusable") throw new BackupFailureError(sync.reason);
@@ -221,7 +243,7 @@ export async function runBackup(options: RunBackupOptions): Promise<BackupResult
     let status: BackupResult["sync"] = "kept";
     if (mode === "manual" || !existing) {
       log(`备份：开始写进同步目录 ${root}`);
-      await copySnapshot({ snapshot, root, files, signal });
+      await copySnapshot({ snapshot, root, files, signal, log, ...(retry ? { retry } : {}) });
       status = existing ? "replaced" : "copied";
     } else {
       log(`备份：同步目录里当天的快照已经有了，没动（${path.join(root, date)}）`);
@@ -230,13 +252,13 @@ export async function runBackup(options: RunBackupOptions): Promise<BackupResult
     await prune(root, keepSync);
     await collectPool(root, files, log);
     log(`备份：${date} 的快照做好了，已写进同步目录 ${root}`);
-    return { date, local, sync: status };
+    return { date, local, sync: status, ...withSkipped };
   } catch (err) {
     if (aborted(err, signal)) throw err;
     const reason = err instanceof BackupFailureError ? err.message : describeWriteError(err);
     log(`备份失败（同步目录）：${reason}`);
     report({ title: t("backup.syncFailed.title"), body: t("backup.syncFailed.body", { when, date, reason }), data: { date, stage: "sync", reason } });
-    return { date, local, sync: "failed", error: reason };
+    return { date, local, sync: "failed", error: reason, ...withSkipped };
   }
 }
 
