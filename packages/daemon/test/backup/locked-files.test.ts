@@ -9,6 +9,7 @@ import { nodeSnapshotFiles, type SnapshotFiles } from "../../src/backup/files.ts
 import { readBackupRecord } from "../../src/backup/record.ts";
 import { listSnapshotDates, readSnapshot, type SnapshotRetry, verifySnapshot } from "../../src/backup/snapshot.ts";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
+import { backupFinding } from "../../src/doctor/housekeeping.ts";
 import { put } from "../helpers/backup.ts";
 import { ManualClock } from "../helpers/clock.ts";
 import { listTree, snapshotFile, snapshotRels } from "../helpers/snapshots.ts";
@@ -99,6 +100,10 @@ describe("被别的程序占着的文件", () => {
 
     expect(result).toEqual({ date: DATE, local: "created", sync: "copied", skipped: { count: 1, files: [{ path: "outputs/t-9/browser/Network/Cookies", reason: expect.stringMatching(/^EBUSY/) }] } });
     expect(readBackupRecord(layout)).toMatchObject({ by: "script", mode: "manual", local: "created", sync: "copied", skipped: result.skipped });
+    // 体检的备份那一项（411）读的就是这份记录：成功但有跳过 → 注意，列出跳过的文件
+    const last = readBackupRecord(layout)!;
+    const finding = backupFinding({ schedule: "internal", last, lastOkAt: last.finishedAt, running: false }, Date.parse(last.finishedAt));
+    expect(finding).toMatchObject({ level: "warn", fact: { key: "doctor.backup.skipped", params: { count: 1, files: expect.stringContaining("outputs/t-9/browser/Network/Cookies") } } });
     expect(failures).toEqual([]);
     expect(lines.some((l) => l.includes("1 个文件被别的程序占着") && l.includes("outputs/t-9/browser/Network/Cookies"))).toBe(true);
     for (const root of [layout.backups, syncDir]) {

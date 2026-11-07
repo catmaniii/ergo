@@ -5,7 +5,7 @@
 // 判法（几级、事实、怎么修），每条一个纯函数，测试直接喂假的状态：
 // - 备份（backupFinding）：一次都没成过——最近一次失败了、或者等第一次已经超过 48 小时——坏了；最近一次失败（本机快照没做成，
 //   或者写进另存的文件夹失败）注意，事实写失败原因原文；超过 48 小时没成功（OVERDUE_AFTER_MS，和"连着两天没人备份"的提醒同一个数）
-//   注意，从上次成功起；最近一次做成了但跳过了被占着的文件（422 加的 skipped，有就算）注意；最近一次校验没通过注意；
+//   注意，从上次成功起；最近一次做成了但跳过了被占着的文件（422 的 BackupRunRecord.skipped）注意；最近一次校验没通过注意；
 //   还没备份过、第一次还没到点的正常。
 // - 定时触发的任务（triggersFinding）：连续失败被自动暂停、还没恢复的；运行中超过 TRIGGER_RUN_STUCK_MS、排队超过
 //   TRIGGER_QUEUE_STUCK_MS 的运行——有就注意，事实逐个列，动作跳到第一个。
@@ -93,20 +93,6 @@ const joined = (lines: readonly string[]) => lines.join(t("doctor.list.sep"));
 
 // ───────── 备份 ─────────
 
-/** 422 起记录里可能有的"跳过了哪些被占着的文件"（这边不依赖它的类型：字段不在时照常） */
-interface SkippedPart {
-  count: number;
-  files: ReadonlyArray<{ path: string; reason?: string }>;
-}
-
-function skippedOf(record: BackupRunRecord | undefined): SkippedPart | undefined {
-  const skipped = (record as { skipped?: unknown } | undefined)?.skipped;
-  if (typeof skipped !== "object" || skipped === null) return undefined;
-  const { count, files } = skipped as Partial<SkippedPart>;
-  if (typeof count !== "number" || count <= 0) return undefined;
-  return { count, files: Array.isArray(files) ? files.filter((f) => typeof f?.path === "string") : [] };
-}
-
 const recordFailed = (record: BackupRunRecord) => record.local === "failed" || record.sync === "failed";
 
 /** 备份那一项（now：此刻的毫秒时间戳） */
@@ -137,8 +123,8 @@ export function backupFinding(facts: BackupDoctorFacts, now: number): DoctorFind
   if (!facts.running && sinceOk > OVERDUE_AFTER_MS) {
     return { level: "warn", fact: msg("doctor.backup.stale", { duration: durationText(sinceOk), time: doctorTime(lastOkAt) }), fix: msg("doctor.fix.backupStale"), since: lastOkAt, action };
   }
-  // 做成了，但有被占着的文件没收进去（422）
-  const skipped = skippedOf(last);
+  // 做成了，但有被占着的文件没收进去（422 记在记录的 skipped 上：count ≥ 1、前 20 个文件；读记录时按协议的 schema 核过）
+  const skipped = last?.skipped;
   if (last && skipped) {
     const files = skipped.files.map((f) => f.path);
     const fact = files.length > 0 ? msg("doctor.backup.skipped", { time: lastTime, count: skipped.count, files: listOf(files) }) : msg("doctor.backup.skippedNoList", { time: lastTime, count: skipped.count });

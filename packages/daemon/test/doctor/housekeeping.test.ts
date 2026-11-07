@@ -91,9 +91,9 @@ describe("备份", () => {
     expect(backupFinding(backupFacts({ last: record({ finishedAt: recent }), lastOkAt: recent }), NOW)).toMatchObject({ level: "ok", fact: { key: "doctor.backup.ok" } });
   });
 
-  it("做成了但跳过了被占着的文件（422 的 skipped，有就算）：注意，列出跳过了哪些；记录里没有这一项的照常正常", () => {
+  it("做成了但跳过了被占着的文件（422 的 skipped）：注意，列出跳过了哪些；记录里没有这一项的照常正常", () => {
     const skipped = { count: 2, files: [{ path: "outputs/t-47/browser/Cookies", reason: "EBUSY" }, { path: "outputs/t-47/browser/History", reason: "EBUSY" }] };
-    const last = { ...record(), skipped } as BackupRunRecord;
+    const last: BackupRunRecord = { ...record(), skipped };
     const finding = backupFinding(backupFacts({ last, lastOkAt: last.finishedAt }), NOW);
     expect(finding).toMatchObject({ level: "warn", fact: { key: "doctor.backup.skipped", params: { count: 2 } }, fix: { key: "doctor.fix.backupSkipped" } });
     expect(say(finding.fact)).toContain("outputs/t-47/browser/Cookies");
