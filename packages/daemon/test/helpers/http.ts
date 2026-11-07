@@ -69,6 +69,7 @@ import {
   type SetupMarkBody,
   type SetupView,
   type DoctorView,
+  type DoctorWatchView,
   type ModelTestResult,
   type ToolCallCleanupResult,
   type ToolCallDetail,
@@ -345,6 +346,8 @@ export const setupApi = {
 /** 体检（319b）：八项检查现在的样子 */
 export const doctorApi = {
   view: (baseUrl: string) => requestJson<DoctorView & HttpErrorBody>(baseUrl, HTTP_PATHS.doctor),
+  /** 体检页上"恢复提醒"（416） */
+  unmute: (baseUrl: string, body: unknown) => requestJson<DoctorWatchView & HttpErrorBody>(baseUrl, HTTP_PATHS.doctorUnmute, { method: "POST", body }),
 };
 
 /** 设置里 agent 的联网搜索、读网页：取、整份存 */
