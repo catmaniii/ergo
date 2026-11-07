@@ -80,4 +80,33 @@ describe("工作线程里的向量函数", () => {
       await e.close();
     }
   });
+
+  test("loaded：拿回过向量才算加载好，线程闲置结束后又不算；warm 先拉起线程把模型加载好（427：简报据此判断这一轮要不要等模型）", async () => {
+    const e = embedder({}, 100);
+    try {
+      expect(e.loaded?.()).toBe(false);
+      // 同时叫两次只交一批
+      await Promise.all([e.warm?.(), e.warm?.()]);
+      expect(e.loaded?.()).toBe(true);
+      // 已经好了：马上回来
+      await e.warm?.();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(e.loaded?.()).toBe(false);
+      expect(await e.embed(["又来"])).toHaveLength(1);
+      expect(e.loaded?.()).toBe(true);
+    } finally {
+      await e.close();
+    }
+  });
+
+  test("模型加载失败：warm 以出错结束，loaded 还是 false；下次再 warm 重新拉起", async () => {
+    const e = embedder({ failLoad: "模型文件坏了" });
+    try {
+      await expect(e.warm?.()).rejects.toThrow("模型文件坏了");
+      expect(e.loaded?.()).toBe(false);
+      await expect(e.warm?.()).rejects.toThrow("模型文件坏了");
+    } finally {
+      await e.close();
+    }
+  });
 });

@@ -141,7 +141,7 @@ import {
   startPurgedMediaCleanup,
 } from "./memory/index.ts";
 import { startMemoryCurator, MEMORY_CURATOR_AGENT_ID, MEMORY_CURATOR_CONVERSATION, type MemoryCurator } from "./memory/curator.ts";
-import { kernelEmbedderAdapter } from "./memory/embedder-adapter.ts";
+import { kernelEmbedderAdapter, secretaryEmbedder } from "./memory/embedder-adapter.ts";
 import { MEMORY, MEMORY_INTERVIEWS, MEMORY_NIGHTLY, type MemoryNightlyService } from "./memory/api.ts";
 import { latestNightlyRecord } from "./memory/nightly-record.ts";
 import { migrateReasoningDb } from "./memory/migrate-rg.ts";
@@ -1793,7 +1793,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 组合根只 import memory/provider/ 这个槽（memory/ 里插件内部的那些文件只有插件清单 import，见 test/memory/boundary.test.ts）。
     // 插件的数据目录 <数据目录>/memory/subtext/ 由宿主在 activate 时建好；会意的推理库也在里面
     // （启动时从 db/rg.db 搬过去的，见上面那一段），素材库 materials.db 和事件日志仍归内核、留在 db 区。
-    const subtextRuntime = createSubtextRuntime({ file: layout.rgDb, clock, model: DEEPSEEK_DEFAULT_MODEL, embedder: kernelEmbedderAdapter(memoryEmbedder), config: config.memory, store, materials, log });
+    // 简报那份引擎用秘书那一侧共用的向量函数（和记忆插件里 ask_memory 那份是同一个实例：查询向量只算一次、背景语料向量起来时预热的就是它）
+    const subtextRuntime = createSubtextRuntime({ file: layout.rgDb, clock, model: DEEPSEEK_DEFAULT_MODEL, embedder: secretaryEmbedder(memoryEmbedder), config: config.memory, store, materials, log });
     teardown.push(() => subtextRuntime.close());
     const memoryProviderRegistry = createMemoryProviderRegistry();
     memoryProviderRegistry.register(subtextProviderFactory(subtextRuntime.deps));

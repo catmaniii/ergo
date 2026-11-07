@@ -99,3 +99,39 @@ describe("每条消息的记忆简报：有相关的才带", () => {
     expect(b.items.filter((i) => i.kind !== "strategy" && i.claimIds.length === 0)).toEqual([]);
   });
 });
+
+describe("各步耗时（427）", () => {
+  it("onStep 按先后报每一步用了多久：检索、往上走的起点、三条路、向量门槛、挑结论、拼正文；任务题多一步任务建议；不相关的也报到拼正文", async () => {
+    const engine = await story();
+    const steps: string[] = [];
+    const b = await messageBrief(engine, WEEKEND, { at: NOW, onStep: (step, ms) => (expect(ms).toBeGreaterThanOrEqual(0), steps.push(step)) });
+    expect(b.text).not.toBe("");
+    expect(steps).toEqual(["search", "base", "userModel", "vectorGate", "profile", "render"]);
+
+    const task: string[] = [];
+    await messageBrief(engine, "帮我安排一下下周六的聚餐", { at: NOW, onStep: (step) => task.push(step) });
+    expect(task).toEqual(["search", "base", "userModel", "vectorGate", "advice", "profile", "render"]);
+
+    const none: string[] = [];
+    const weather = await messageBrief(engine, WEATHER, { at: NOW, onStep: (step) => none.push(step) });
+    expect(weather.text).toBe("");
+    expect(none.at(-1)).toBe("render");
+  });
+
+  it("问题里没说时间段：往上走的起点直接从排名次那一份截前 20 条，一份简报只检索一次，带出来的和另搜一遍一模一样；说了时间段的照旧另搜", async () => {
+    const engine = await story();
+    const original = engine.search.bind(engine);
+    let searches = 0;
+    engine.search = (query, options) => ((searches += 1), original(query, options));
+    const once = await messageBrief(engine, WEEKEND, { at: NOW });
+    expect(searches).toBe(1);
+    // 截出来的和另搜一遍的一样：同一个查询、同样的设置只差条数
+    const ranked = await original(WEEKEND, { mode: "hybrid_kg", layers: "both", limit: 200, at: NOW });
+    const base = await engine.rg.baseSearch(WEEKEND, { at: NOW, limit: 20 });
+    expect(ranked.slice(0, 20)).toEqual(base);
+    searches = 0;
+    await messageBrief(engine, "去年三月周末被排满的时候我说过什么", { at: NOW });
+    expect(searches).toBe(2);
+    expect(once.text).not.toBe("");
+  });
+});

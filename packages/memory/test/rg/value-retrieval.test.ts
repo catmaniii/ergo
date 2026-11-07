@@ -1,10 +1,14 @@
 // 为任务调出相关的用户模型（往上走、结论索引、领域三条路）。例子都是自己写的（test/rg/task-helpers.ts）。
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeEmbedder } from "../../src/embedding/fake.ts";
+import { MemoryEngine } from "../../src/engine.ts";
 import { domainsOfTags, domainsOfText, taskDomains } from "../../src/rg/domains.ts";
 import type { RelevantUserModel } from "../../src/rg/value-retrieval.ts";
 import { closeEngines, say } from "./helpers.ts";
-import { ids, member, NEED, statedOf, storyEngine, VALUE, WEEKEND_GROUP, WORKDAY_GROUP } from "./task-helpers.ts";
+import { autonomyStory, ids, member, NEED, NOW, statedOf, storyEngine, VALUE, WEEKEND_GROUP, WORKDAY_GROUP } from "./task-helpers.ts";
 
 afterEach(closeEngines);
 
@@ -182,5 +186,38 @@ describe("只要成立的：不成立、过期的不返回，还拿不准的单�
     const { engine } = await storyEngine({}, [say("ev-late", "下周六的露营我不去了", "2026-10-20T10:00:00+08:00", { context: ["weekend"] })]);
     const m = await engine.relevantUserModel("下周六的露营", { routes: ["upward"], at: "2026-10-12T12:00:00+08:00" });
     expect(m.needs.flatMap((e) => e.routes.flatMap((r) => r.hitEvidenceIds ?? []))).not.toContain("ev-late");
+  });
+});
+
+describe("结论的索引：库没变就不再对一遍（427）", () => {
+  it("两次之间库没动过：sync 直接回空的、不拿写锁（别的连接正握着写锁也不等）；别的连接改了、自己写了都会再对", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "memory-claim-index-"));
+    const file = path.join(dir, "rg.db");
+    const writer = MemoryEngine.open({ file, clock: () => NOW });
+    const reader = MemoryEngine.open({ file, clock: () => NOW });
+    try {
+      for (const e of autonomyStory()) writer.ingestEvidence(e);
+      await writer.reflect();
+      // 第一次：对一遍，全部建起来
+      expect(reader.claimIndex.sync().reindexed.length).toBeGreaterThan(0);
+      // 别的连接正握着写锁：没变就不用对，马上回来（要是去拿写锁，得等 busy_timeout 5 秒再报错）
+      writer.store.db.exec("BEGIN IMMEDIATE");
+      const started = performance.now();
+      expect(reader.claimIndex.sync()).toEqual({ reindexed: [], removed: [], domainsChanged: [] });
+      expect(performance.now() - started).toBeLessThan(1000);
+      writer.store.db.exec("COMMIT");
+      // 别的连接改了一条结论的说法：再对，换掉它的关键词
+      const stated = statedOf(writer, "ev-w3", "dislikes");
+      writer.store.updateClaim(stated.id, { statement: "周末不想被排满" }, { reason: "测试：说法改了" });
+      expect(reader.claimIndex.sync().reindexed).toEqual([stated.id]);
+      expect(reader.claimIndex.sync().reindexed).toEqual([]);
+      // 这条连接自己写的也算
+      reader.store.updateClaim(stated.id, { statement: "周末别排得太满" }, { reason: "测试：又改了" });
+      expect(reader.claimIndex.sync().reindexed).toEqual([stated.id]);
+    } finally {
+      writer.close();
+      reader.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

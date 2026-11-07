@@ -24,7 +24,12 @@
 // （插件据此不重复带没变的），items / hits 就是回话上那份结构化部分。只回字符串的插件（老实现）也收：等于没有键——不去重，
 // 每一轮都带，结构化那两样是空的。还没接插件时（只有引擎的装配、老测试）走 engine 直接问引擎，用的是和会意插件里同一个算法
 // （engineMessageBrief），算出来的东西一模一样。
-import { type Embedder, estimateTokens, type MemoryEngine } from "@ergo/memory";
+//
+// 各步耗时（427）：问插件时带上 onStep，插件每做完一步报一次（会意报：等向量模型、打开推理库、检索、往上走的起点、三条路找结论、
+// 向量门槛、任务建议、挑结论和原话、拼正文、对回素材；这边自己记"往回认带过的"）。每算一次记一笔（MessageBriefRun：结果、总耗时、
+// 做完的各步），日志一行带各步毫秒；超时的那一份不扔，后来算完再记一行它一共用了多久。最近 MESSAGE_BRIEF_RECENT 次和累计次数由
+// stats() 交出去（体检用）。用户发来一句话时先叫 prewarm 把向量模型拉起来（不等），省得模型闲置卸掉以后这一条再从头加载。
+import { estimateTokens, type MemoryEngine } from "@ergo/memory";
 import {
   agentSessionStart,
   CHANNELS,
@@ -54,8 +59,17 @@ export const MESSAGE_BRIEF_HEAD = "【记忆简报】";
 /** 交给秘书的那块的第一行：这是什么、怎么用 */
 const INTRO = `${MESSAGE_BRIEF_HEAD}和用户这句话相关的记忆（二狗自动带上的，这些不用再 ask_memory 查；"推断的"是二狗推出来的、不是用户说的，引用时说清是推断的、带把握；只引用下面出现的编号）`;
 
-/** 算一份简报最多等多久（毫秒）：实测线上一条约 0.3 秒，超过这个这一轮就不带 */
+/** 算一份简报最多等多久（毫秒）：超过这个这一轮就不带 */
 export const MESSAGE_BRIEF_TIMEOUT_MS = 3000;
+
+/**
+ * 向量模型还没加载好（闲置卸掉了、刚起来）时简报最多等它多久（毫秒）：等到了照常算，等不到这一轮不算向量、只走关键词
+ * （先带拿得到的，不让整份简报跟着模型加载一起超时）。要比 MESSAGE_BRIEF_TIMEOUT_MS 小得多，给后面的检索留出时间
+ */
+export const BRIEF_MODEL_WAIT_MS = 1200;
+
+/** stats() 留最近几次 */
+export const MESSAGE_BRIEF_RECENT = 50;
 
 /** 记住算过的输入最多几条 */
 const MEMO_LIMIT = 50;
@@ -75,30 +89,6 @@ export function isShortReply(text: string): boolean {
 }
 
 /**
- * 查询向量记住最近几句（一份简报里几处检索、相关门槛都要算同一句话的查询向量，bge-m3 每次约 25 毫秒）：
- * 同一句话只算一次。文档向量照常算。向量是确定的，记住不影响结果
- */
-export function queryMemoEmbedder(inner: Embedder, size = 16): Embedder {
-  const memo = new Map<string, Float32Array>();
-  return {
-    model: inner.model,
-    available: () => inner.available(),
-    unavailableHint: () => inner.unavailableHint(),
-    embedDocuments: (texts) => inner.embedDocuments(texts),
-    async embedQueries(texts) {
-      const missing = [...new Set(texts.filter((t) => !memo.has(t)))];
-      if (missing.length > 0) {
-        const vectors = await inner.embedQueries(missing);
-        missing.forEach((t, i) => memo.set(t, vectors[i]!));
-        while (memo.size > size) memo.delete(memo.keys().next().value!);
-      }
-      return texts.map((t) => memo.get(t)!);
-    },
-    close: () => inner.close(),
-  };
-}
-
-/**
  * 引擎那一份每条消息的简报包成插件回来的形状：
  * - 会意插件的 brief 用它（插件只包一层，算法还是这一份）；
  * - 还没接记忆插件时（只有引擎的装配、老测试）createMessageBriefs 也用它，所以两条路算出来的东西一模一样。
@@ -106,10 +96,16 @@ export function queryMemoEmbedder(inner: Embedder, size = 16): Embedder {
  */
 export async function engineMessageBrief(engine: MemoryEngine, input: MemoryBriefInput, materials?: Pick<Materials, "get">): Promise<MemoryBriefResult | undefined> {
   const known = input.known === undefined ? undefined : new Map(Object.entries(input.known));
-  const brief = await engine.messageBrief(input.text, { at: engine.store.now(), ...(known === undefined || known.size === 0 ? {} : { known }) });
+  const brief = await engine.messageBrief(input.text, {
+    at: engine.store.now(),
+    ...(known === undefined || known.size === 0 ? {} : { known }),
+    ...(input.onStep === undefined ? {} : { onStep: input.onStep }),
+  });
   if (brief.text === "") return undefined;
+  const started = performance.now();
   const items: MemoryBriefItem[] = brief.items.map((item) => ({ key: item.key, kind: item.kind, reason: item.reason, claimIds: [...item.claimIds], routes: [...item.routes] }));
   const hits: MemoryRecallHit[] = materials === undefined ? [] : briefRecallHits(engine, brief, materials);
+  input.onStep?.("hits", Math.round(performance.now() - started));
   return { text: brief.text, keys: { ...brief.brought }, items, hits };
 }
 
@@ -151,6 +147,60 @@ export interface MessageBriefUsage {
   tokens: number;
 }
 
+/** 一步：名字（插件定，会意报的见 STEP_LABELS）、用了多少毫秒 */
+export interface MessageBriefStepTiming {
+  step: string;
+  ms: number;
+}
+
+/** 算一次简报的记录（stats() 里最近几次就是它） */
+export interface MessageBriefRun {
+  /** 开始算的时间（ISO） */
+  at: string;
+  /** brought 带了；empty 没带（不相关、相关的都带过了、库用不了）；timeout 超过上限这一轮没带；error 出错没带 */
+  outcome: "brought" | "empty" | "timeout" | "error";
+  /** 从开始到有结果用了多少毫秒（超时的是到上限那一刻；含往回认带过的） */
+  ms: number;
+  /** 做完的各步，按先后（超时的先记到上限那一刻做完的，后来算完了补全） */
+  steps: MessageBriefStepTiming[];
+  /** 带了几条（brought 才有） */
+  items?: number;
+  /** 超时的那一份后来一共用了多少毫秒（算完或出错为止）；还没回来是 undefined */
+  lateMs?: number;
+}
+
+/** 体检要的统计（stats()） */
+export interface MessageBriefStats {
+  /** 从什么时候开始数的（这一份建起来的时候：守护进程起来、记忆插件启用） */
+  since: string;
+  /** 从 since 起一共算了几次（asked；短应答、简报关着、同一条输入再取的不算），各种结果各几次 */
+  counts: { asked: number; brought: number; empty: number; timeout: number; error: number };
+  /** 最近 MESSAGE_BRIEF_RECENT 次，旧的在前 */
+  recent: MessageBriefRun[];
+}
+
+/** 日志里各步的叫法（会意报的那几步；不认识的照原名写） */
+const STEP_LABELS: Readonly<Record<string, string>> = {
+  recall: "往回认带过的",
+  modelLoad: "等向量模型加载",
+  modelCold: "向量模型没等到、这一轮不算向量",
+  open: "打开推理库",
+  search: "检索",
+  base: "往上走的起点",
+  userModel: "三条路找结论",
+  vectorGate: "向量门槛",
+  advice: "任务建议",
+  profile: "挑结论和原话",
+  render: "拼正文",
+  hits: "对回素材",
+};
+
+/** 日志里的各步：用了时间的（和"没等到模型"这一步）按先后写 */
+function stepsText(steps: readonly MessageBriefStepTiming[]): string {
+  const shown = steps.filter((s) => s.ms > 0 || s.step === "modelCold").map((s) => `${STEP_LABELS[s.step] ?? s.step} ${s.ms}`);
+  return shown.length === 0 ? "" : `；各步：${shown.join("、")}`;
+}
+
 export interface MessageBriefsOptions {
   /**
    * 问记忆要这一段简报：组合根传记忆插件宿主的 host.brief——插件声明了 capabilities.brief 就用它的，
@@ -173,6 +223,13 @@ export interface MessageBriefsOptions {
   record?: (usage: MessageBriefUsage) => void;
   /** 最多等多久（毫秒），默认 MESSAGE_BRIEF_TIMEOUT_MS */
   timeoutMs?: number;
+  /**
+   * 用户在秘书这边发来一句话（事件日志里一出现就叫，不等秘书开始处理）：把向量模型拉起来、不等它（插件给 secretaryEmbedder.warm(0)）。
+   * 语音要先识别，等秘书开始算简报时模型多半已经加载好了。简报关着不叫；不给就不叫
+   */
+  prewarm?: () => void;
+  /** 现在（ISO），记录里的 at 用；默认机器时间 */
+  now?: () => string;
   log: (line: string) => void;
 }
 
@@ -181,21 +238,33 @@ export interface MessageBriefs {
   inputText(message: MessageEnvelope, target: { agentId: string }): Promise<string | undefined> | undefined;
   /** 这条输入的回话要带上的结构化部分（算好了才有，取一次就没了） */
   replyParts(message: MessageEnvelope): MessagePart[] | undefined;
-  /** 事件日志的订阅（store.onAppend）：秘书的会话到了新的一段（压缩、清空、换模型、回退），前面带过的作废 */
+  /** 事件日志的订阅（store.onAppend）：秘书的会话到了新的一段（压缩、清空、换模型、回退），前面带过的作废；用户发来一句话时预热 */
   onEvent(event: StoredEvent): void;
+  /** 算过几次、各是什么结果、最近几次各步用了多久（体检用；交出去的是拷贝） */
+  stats(): MessageBriefStats;
 }
 
 const TIMED_OUT = Symbol("timeout");
 
+/** 用户本人在秘书主会话里发的一句（简报只管这种；秘书转达、网页指令不算） */
+function isUserInput(message: MessageEnvelope): boolean {
+  return message.speaker === "user" && message.relayedBy === undefined && message.pageCommand === undefined && message.conversation === CHANNELS.secretary;
+}
+
 export function createMessageBriefs(options: MessageBriefsOptions): MessageBriefs {
   const { store, log } = options;
   const timeoutMs = options.timeoutMs ?? MESSAGE_BRIEF_TIMEOUT_MS;
+  const now = options.now ?? (() => new Date().toISOString());
   /** 这一段对话里带过的：键 → 指纹；undefined 是还没从会话里认过 */
   let known: Map<string, string> | undefined;
   /** 算过的输入：消息 id → 那块（不带是 undefined） */
   const memo = new Map<string, Promise<string | undefined>>();
   /** 算好了、等这一轮的回话带上的 */
   const pending = new Map<string, MemoryBriefPart>();
+  /** 统计（stats()） */
+  const since = now();
+  const counts: MessageBriefStats["counts"] = { asked: 0, brought: 0, empty: 0, timeout: 0, error: 0 };
+  const recent: MessageBriefRun[] = [];
 
   /** 问谁要这一段简报：注入的 brief（记忆插件）优先；没注入就回头问引擎（和会意插件里同一份算法） */
   const ask = (input: MemoryBriefInput): Promise<MemoryBriefReturn | undefined> => {
@@ -224,24 +293,64 @@ export function createMessageBriefs(options: MessageBriefsOptions): MessageBrief
     return map;
   };
 
+  /** 这一次算完了（或超时、出错）：记进统计 */
+  const finish = (run: MessageBriefRun, outcome: MessageBriefRun["outcome"], ms: number, steps: readonly MessageBriefStepTiming[]) => {
+    run.outcome = outcome;
+    run.ms = ms;
+    run.steps = [...steps];
+    counts[outcome] += 1;
+    recent.push(run);
+    while (recent.length > MESSAGE_BRIEF_RECENT) recent.shift();
+  };
+
   async function compute(message: MessageEnvelope, text: string, agentId: string): Promise<string | undefined> {
-    known ??= recall();
-    const started = Date.now();
+    counts.asked += 1;
+    const run: MessageBriefRun = { at: now(), outcome: "empty", ms: 0, steps: [] };
+    const started = performance.now();
+    const elapsed = () => Math.round(performance.now() - started);
+    // 插件每做完一步报一次；超时以后还在报的照样记下（后来那一行日志用）
+    const steps: MessageBriefStepTiming[] = [];
+    const onStep = (step: string, ms: number) => {
+      steps.push({ step, ms });
+    };
+    if (known === undefined) {
+      known = recall();
+      onStep("recall", elapsed());
+    }
+    const segment = known;
     let timer: NodeJS.Timeout | undefined;
     const timeout = new Promise<typeof TIMED_OUT>((resolve) => {
       timer = setTimeout(() => resolve(TIMED_OUT), timeoutMs);
     });
     try {
       // 这一段带过的（键 → 指纹）交回给插件：指纹没变的不再带。插件不做去重（keys 空）时它就是空的 —— 每一轮都带
-      const asked = await Promise.race([ask({ text, conversation: { id: message.conversation, agentId }, known: Object.fromEntries(known) }), timeout]);
+      const asking = ask({ text, conversation: { id: message.conversation, agentId }, known: Object.fromEntries(segment), onStep });
+      const asked = await Promise.race([asking, timeout]);
       if (asked === TIMED_OUT) {
-        log(`记忆简报超时（超过 ${timeoutMs} 毫秒），这一轮不带`);
+        finish(run, "timeout", elapsed(), steps);
+        log(`记忆简报超时（超过 ${timeoutMs} 毫秒），这一轮不带${steps.length === 0 ? "；一步都没做完" : stepsText(steps)}`);
+        // 超时的那一份接着算完（不扔、也不再用）：记一行它一共用了多久、各步多久——看清慢在哪一步
+        asking.then(
+          () => {
+            run.lateMs = elapsed();
+            run.steps = [...steps];
+            log(`记忆简报：超时的那一份后来算完了，一共 ${run.lateMs} 毫秒${stepsText(steps)}`);
+          },
+          (err: unknown) => {
+            run.lateMs = elapsed();
+            run.steps = [...steps];
+            log(`记忆简报：超时的那一份后来出错了（${run.lateMs} 毫秒）：${err instanceof Error ? err.message : String(err)}`);
+          },
+        );
         return undefined;
       }
-      if (asked === undefined) return undefined;
       // 只回字符串的是老实现：只有正文，没有键（不去重），也没有结构化那两样
-      const brief: MemoryBriefResult = typeof asked === "string" ? { text: asked } : asked;
-      if (brief.text === "") return undefined;
+      const brief: MemoryBriefResult | undefined = typeof asked === "string" ? { text: asked } : asked;
+      if (brief === undefined || brief.text === "") {
+        finish(run, "empty", elapsed(), steps);
+        log(`记忆简报：没有要带的（${run.ms} 毫秒${stepsText(steps)}）`);
+        return undefined;
+      }
       const block = `${INTRO}\n${brief.text}`;
       const tokens = estimateTokens(block);
       const items = brief.items ?? [];
@@ -254,13 +363,16 @@ export function createMessageBriefs(options: MessageBriefsOptions): MessageBrief
         tokens,
         chars: block.length,
       };
-      for (const [key, print] of Object.entries(brought)) known.set(key, print);
+      for (const [key, print] of Object.entries(brought)) segment.set(key, print);
       pending.set(message.id, part);
       options.record?.({ agentId, kind: "memory_brief", chars: block.length, tokens });
-      log(`记忆简报：带了 ${items.length} 条（约 ${tokens} token，${Date.now() - started} 毫秒）`);
+      run.items = items.length;
+      finish(run, "brought", elapsed(), steps);
+      log(`记忆简报：带了 ${items.length} 条（约 ${tokens} token，${run.ms} 毫秒${stepsText(steps)}）`);
       return block;
     } catch (err) {
-      log(`记忆简报出错，这一轮不带：${err instanceof Error ? err.message : String(err)}`);
+      finish(run, "error", elapsed(), steps);
+      log(`记忆简报出错，这一轮不带：${err instanceof Error ? err.message : String(err)}（${run.ms} 毫秒${stepsText(steps)}）`);
       return undefined;
     } finally {
       clearTimeout(timer);
@@ -270,7 +382,7 @@ export function createMessageBriefs(options: MessageBriefsOptions): MessageBrief
   return {
     inputText(message, target) {
       // 只管秘书主会话里用户本人发的（秘书转达、网页指令、系统通知不算）
-      if (message.speaker !== "user" || message.relayedBy !== undefined || message.pageCommand !== undefined || message.conversation !== CHANNELS.secretary) return undefined;
+      if (!isUserInput(message)) return undefined;
       const computed = memo.get(message.id);
       if (computed) return computed;
       if (!options.enabled()) return undefined;
@@ -288,7 +400,17 @@ export function createMessageBriefs(options: MessageBriefsOptions): MessageBrief
       return [part];
     },
     onEvent(event) {
-      if (event.channel === CHANNELS.secretary && isSegmentStart(event)) known = new Map();
+      if (event.channel !== CHANNELS.secretary) return;
+      if (isSegmentStart(event)) {
+        known = new Map();
+        return;
+      }
+      // 用户发来一句：先把向量模型拉起来（不等），秘书开始算简报时多半已经加载好了
+      if (options.prewarm === undefined || event.type !== EVENT_TYPES.message || isDeletedEventPayload(event.payload)) return;
+      if (isUserInput((event.payload as MessageEventPayload).message) && options.enabled()) options.prewarm();
+    },
+    stats() {
+      return { since, counts: { ...counts }, recent: recent.map((run) => ({ ...run, steps: run.steps.map((s) => ({ ...s })) })) };
     },
   };
 }

@@ -313,14 +313,18 @@ export async function relevantUserModel(rg: ReasoningGraph, index: ClaimIndex, e
   };
   const uncertainCount: Record<ClaimTier, number> = { state: 0, preference: 0, need: 0, value: 0 };
   const allDomains = index.allDomains();
+  // 每层只留 k 条：先看这一层满没满，满了的不再去查它的支持证据、来路（fused 可能有几百条，领域那条路对上的都在里面）
+  const detailsOf = (id: string) => ({
+    routesOf: (traces.get(id) ?? []).toSorted((a, b) => ROUTES.indexOf(a.route) - ROUTES.indexOf(b.route)),
+    evidenceIds: supportEvidence(store, id, view),
+    claimDomainList: allDomains.get(id) ?? [],
+  });
   for (const [id, f] of fused) {
     const claim = store.getClaim(id)!;
-    const routesOf = (traces.get(id) ?? []).toSorted((a, b) => ROUTES.indexOf(a.route) - ROUTES.indexOf(b.route));
-    const evidenceIds = supportEvidence(store, id, view);
-    const claimDomainList = allDomains.get(id) ?? [];
     if (claim.status === "contested" || (claim.status === "active" && isThin(claim))) {
       if (uncertainCount[claim.tier] >= k) continue;
       uncertainCount[claim.tier] += 1;
+      const { routesOf, evidenceIds, claimDomainList } = detailsOf(id);
       const competitors = claim.competesWith
         .map((cid) => store.getClaim(cid))
         .filter((c): c is Claim => c !== undefined && c.status !== "retracted")
@@ -345,6 +349,7 @@ export async function relevantUserModel(rg: ReasoningGraph, index: ClaimIndex, e
     }
     const bucket = claim.tier === "state" ? model.state : claim.tier === "preference" ? model.preferences : claim.tier === "need" ? model.needs : model.values;
     if (bucket.length >= k) continue;
+    const { routesOf, evidenceIds, claimDomainList } = detailsOf(id);
     const entry: RelevantEntry = {
       claimId: id,
       statement: claim.statement,

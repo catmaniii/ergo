@@ -480,6 +480,31 @@ function probeOf(engine: MemoryEngine, key: string): string | null {
  */
 export type BriefScope = "all" | "relevant";
 
+/** 每条消息简报里的几步（按先后）：messageBrief 的 onStep 按这些名字报每一步用了多久 */
+export type MessageBriefStep = "search" | "base" | "userModel" | "vectorGate" | "advice" | "profile" | "render";
+
+/** 记一步做完了：从上一步做完（或开始）到现在用了多久，报给 onStep */
+type Mark = (step: MessageBriefStep) => void;
+
+function stepMarks(onStep: ((step: MessageBriefStep, ms: number) => void) | undefined): Mark {
+  if (onStep === undefined) return () => {};
+  let last = performance.now();
+  return (step) => {
+    const now = performance.now();
+    onStep(step, Math.round(now - last));
+    last = now;
+  };
+}
+
+/**
+ * 往上走的起点（C 组检索前 UPWARD_HITS 条）能不能直接从排名次那一份（同一个查询往深里搜的）截出来：
+ * 问题里没说时间段时两次检索的设置只差条数（各路先各取前 DEPTH 条再融合，条数只截最后的结果），截前几条和重新搜一模一样，
+ * 不用再搜一遍（再算一遍各路的余弦、关键词、图扩展）；说了时间段的排名次那份带着时间范围，起点不带，照旧另搜
+ */
+function baseFromRanked(question: string, at: string, ranked: readonly Hit[]): Hit[] | undefined {
+  return planQuery(question, at).eventRange === undefined ? ranked.slice(0, UPWARD_HITS) : undefined;
+}
+
 async function buildProfile(
   engine: MemoryEngine,
   question: string,
@@ -488,15 +513,19 @@ async function buildProfile(
   rank: ReadonlyMap<string, number>,
   limits: BriefLimits,
   scope: BriefScope = "all",
+  steps: { mark?: Mark; base?: readonly Hit[] } = {},
 ): Promise<{ profile: BriefProfile; duplicates: number; gated: readonly GatedClaim[] }> {
   const rg = engine.rg;
   const store = engine.store;
   const view = rg.view(viewAt);
+  const mark = steps.mark ?? (() => {});
   // 同模板回答的推理那条路：C 组的检索（前 20 条）当往上走的起点，三条路找结论、过相关门槛
-  const base = await rg.baseSearch(question, { at: viewAt, context, limit: UPWARD_HITS });
-  const relevance = await relevantForQuestion(rg, question, { at: viewAt, context }, base);
+  const base = steps.base ?? (await rg.baseSearch(question, { at: viewAt, context, limit: UPWARD_HITS }));
+  mark("base");
+  const relevance = await relevantForQuestion(rg, question, { at: viewAt, context, mark }, base);
   const isTask = classifyQuestion(question) === "task";
   const advice = isTask ? await engine.adviseTask(question, { at: viewAt, context }) : undefined;
+  if (isTask) mark("advice");
   const hard = advice ? advice.hardConstraints.map((h) => store.getClaim(h.claimId)!).filter((c) => c !== undefined) : hardConstraintClaims(rg, viewAt, relevance.model.context);
   const hardIds = new Set(hard.map((c) => c.id));
 
@@ -552,17 +581,15 @@ async function buildProfile(
   }
   const picked = dedupeClaims(orderClaims(claims.map(({ claim, reason }) => briefClaim(engine, claim, view, reason)), rank, scores), winners);
 
-  return {
-    profile: {
-      claims: picked.claims.map((c) => ({ ...c, quotes: quotesOf(engine, c, rank, limits) })),
-      groups,
-      requirements: advice ? [...advice.explicit.requirements] : [],
-      hardConstraints: hard.map((c) => briefClaim(engine, c, view, "direct")),
-      strategies: (advice?.strategies ?? []).map((s) => ({ strategyId: s.strategyId, use: s.use, text: s.text, onGuess: s.onGuess, basisGone: s.basisGone })),
-    },
-    duplicates: picked.dropped,
-    gated: relevance.gated,
+  const profile: BriefProfile = {
+    claims: picked.claims.map((c) => ({ ...c, quotes: quotesOf(engine, c, rank, limits) })),
+    groups,
+    requirements: advice ? [...advice.explicit.requirements] : [],
+    hardConstraints: hard.map((c) => briefClaim(engine, c, view, "direct")),
+    strategies: (advice?.strategies ?? []).map((s) => ({ strategyId: s.strategyId, use: s.use, text: s.text, onGuess: s.onGuess, basisGone: s.basisGone })),
   };
+  mark("profile");
+  return { profile, duplicates: picked.dropped, gated: relevance.gated };
 }
 
 /** 组胜出、组里排除了几条的说明（结论那一行后面） */
@@ -753,7 +780,8 @@ export async function memoryBrief(engine: MemoryEngine, question: string, option
     // 219：结论下面的原话按和问题的相关程度挑——C 组检索（记录那节的设置）往深里搜的名次
     const ranked = await engine.search(question, { ...briefSearchOptions("hybrid_kg", question, at, options.context), limit: BRIEF_RANK_DEPTH });
     const rank = new Map(ranked.map((h, i) => [h.evidenceId, i]));
-    const built = await buildProfile(engine, question, viewAt, options.context, rank, limits);
+    const base = baseFromRanked(question, at, ranked);
+    const built = await buildProfile(engine, question, viewAt, options.context, rank, limits, "all", base === undefined ? {} : { base });
     const rendered = renderProfile(engine, built.profile, view, limits, new Set(records.map((r) => r.evidenceId)), built.duplicates);
     profile = rendered.profile;
     profileText = rendered.text;
@@ -809,6 +837,11 @@ export interface MessageBriefOptions {
   limits?: Partial<BriefLimits>;
   /** 这段对话里已经带过的：键 → 指纹（上一次 MessageBrief.brought 攒起来的）；指纹没变的不再带 */
   known?: ReadonlyMap<string, string>;
+  /**
+   * 每做完一步报一次这一步用了多少毫秒（按 MessageBriefStep 的先后；问题不是任务题时没有 advice）。
+   * 守护进程拿它记各步耗时（日志一行、体检的统计）；不给就不报
+   */
+  onStep?: (step: MessageBriefStep, ms: number) => void;
 }
 
 export interface MessageBrief {
@@ -857,14 +890,20 @@ const nothing = (relevant: boolean, repeated: string[] = []): MessageBrief => ({
 /** 每条消息的记忆简报（见上面）。不调模型，只查询和检索 */
 export async function messageBrief(engine: MemoryEngine, text: string, options: MessageBriefOptions = {}): Promise<MessageBrief> {
   const limits: BriefLimits = { ...BRIEF_LIMITS, ...options.limits };
+  const mark = stepMarks(options.onStep);
   const at = options.at ?? engine.store.now();
   const viewAt = planQuery(text, at).at ?? at;
   const view = engine.rg.view(viewAt);
   // 原话按和这句话的相关程度挑：C 组检索往深里搜的名次（同 memoryBrief 的 D 组）
   const ranked = await engine.search(text, { ...briefSearchOptions("hybrid_kg", text, at, options.context), limit: BRIEF_RANK_DEPTH });
   const rank = new Map(ranked.map((h, i) => [h.evidenceId, i]));
-  const built = await buildProfile(engine, text, viewAt, options.context, rank, limits, "relevant");
-  if (!built.gated.some((g) => g.direct)) return nothing(false);
+  mark("search");
+  const base = baseFromRanked(text, at, ranked);
+  const built = await buildProfile(engine, text, viewAt, options.context, rank, limits, "relevant", base === undefined ? { mark } : { mark, base });
+  if (!built.gated.some((g) => g.direct)) {
+    mark("render");
+    return nothing(false);
+  }
 
   // 带过、没变的不再带
   const known = options.known ?? new Map<string, string>();
@@ -880,7 +919,10 @@ export async function messageBrief(engine: MemoryEngine, text: string, options: 
   const hard = fresh(p.hardConstraints, (c) => `claim:${c.claimId}`, claimPrint, (c) => [c.claimId]);
   const groups = fresh(p.groups, (g) => `group:${g.key}`, groupPrint, (g) => g.members.map((m) => m.claimId));
   const strategies = fresh(p.strategies, (s) => `strategy:${s.strategyId}`, strategyPrint, () => []);
-  if (claims.length + hard.length + groups.length + strategies.length === 0) return nothing(true, [...repeated]);
+  if (claims.length + hard.length + groups.length + strategies.length === 0) {
+    mark("render");
+    return nothing(true, [...repeated]);
+  }
 
   const again = [...repeated];
   const note =
@@ -910,6 +952,7 @@ export async function messageBrief(engine: MemoryEngine, text: string, options: 
   for (const g of kept.groups) brought[`group:${g.key}`] = groupPrint(g);
   for (const c of kept.hardConstraints) brought[`claim:${c.claimId}`] = claimPrint(c);
   for (const s of kept.strategies) brought[`strategy:${s.strategyId}`] = strategyPrint(s);
+  mark("render");
   return {
     text: note === "" ? rendered.text : `${rendered.text}\n${note}`,
     relevant: true,

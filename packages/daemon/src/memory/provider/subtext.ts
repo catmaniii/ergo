@@ -23,6 +23,7 @@
 //   brief    → 现成的每条消息简报（engine.messageBrief，和秘书那条路同一份实现）：回正文和这次带上了哪几条
 //             （keys 就是 engine.messageBrief 回来的 brought：键 → 指纹，宿主下一轮当 known 交回来，没变的不再带）；
 //             结构化那两样（为什么带、命中的素材）一起回，宿主写进"回忆了 N 条记忆"。不带是 undefined。
+//             各步耗时经 onStep 报给宿主；向量模型闲置卸掉了先等一小会儿，等不到这一轮不算向量（deps.vectors，427）。
 //   observe  → 这一步回 skipped：现有管道自己摄取（素材库采集 + 每晚整理读成证据），插件不重复收。
 //   start/stop → 只记上下文、拿引擎引用；引擎不是它建的（engine-provider.ts 那份缓存的只读引擎由组合根持有），stop 什么都不用关。
 //
@@ -54,6 +55,7 @@ import { RequestRejected } from "../../errors.ts";
 import type { Material, Materials } from "../../materials/index.ts";
 import { materialIdsOfRef } from "../data-source-evidence.ts";
 import { engineMessageBrief } from "../message-brief.ts";
+import type { ModelReadiness } from "../embedder-adapter.ts";
 import type { MemoryProviderFactory } from "./host.ts";
 
 /** 插件自己说的版本：跟着仓库走（packages/daemon/package.json，和 DAEMON_VERSION 同一个文件） */
@@ -90,6 +92,16 @@ export interface SubtextProviderDeps {
   lastConsolidatedAt?: () => string | undefined;
   /** 会意的数据现在占多少字节（推理库 rg.db）；数据搬进插件自己的数据目录是后面的迁移步骤 */
   bytes?: () => number | undefined;
+  /**
+   * 向量模型的冷启动（每条消息的简报用，427）：ready() 看一眼模型加载好没有，没好就拉起来、最多等一小会儿
+   * （message-brief.ts 的 BRIEF_MODEL_WAIT_MS）——warm 是本来就好了，loaded 是等着加载好了，cold 是没等到；
+   * without(fn) 让 fn 这条调用链不算向量（只走关键词、事实图谱、结论索引的关键词）。没等到时这一轮简报照常算、只是不算向量，
+   * 不让整份简报跟着模型加载一起超时。不给就当一直是好的
+   */
+  vectors?: {
+    ready(): Promise<ModelReadiness>;
+    without<T>(fn: () => Promise<T>): Promise<T>;
+  };
 }
 
 /** 要按原话记的一条：原话本身和它从哪来（哪条会话、哪条消息、哪次工具调用），外加一个防重复的幂等键 */
@@ -380,13 +392,25 @@ export function createSubtextProvider(deps: SubtextProviderDeps): SubtextProvide
 
     async brief(context: MemoryBriefInput): Promise<MemoryBriefResult | undefined> {
       running();
+      // 各步耗时报给宿主（等向量模型、打开推理库；检索往后的几步由引擎报，见 engineMessageBrief）
+      let last = performance.now();
+      const lap = (step: string) => {
+        const now = performance.now();
+        context.onStep?.(step, Math.round(now - last));
+        last = now;
+      };
+      // 向量模型闲置卸掉了：拉起来等一小会儿；等不到这一轮就不算向量（先带拿得到的）
+      const readiness: ModelReadiness = deps.vectors === undefined ? "warm" : await deps.vectors.ready();
+      if (readiness !== "warm") lap(readiness === "loaded" ? "modelLoad" : "modelCold");
       const engine = deps.engine();
+      lap("open");
       // 库用不了就不带（和秘书那条路一样：这一轮照常回话）
       if (engine === undefined) return undefined;
       try {
         // 现成的每条消息简报：本机检索 + 相关门槛，不调模型；不相关、都带过了是 undefined。
         // known（这一段带过的键和指纹）交回引擎，没变的不再带；brought 当 keys 交给宿主
-        return await engineMessageBrief(engine, context, deps.materials);
+        const compute = () => engineMessageBrief(engine, context, deps.materials);
+        return await (readiness === "cold" && deps.vectors !== undefined ? deps.vectors.without(compute) : compute());
       } catch (err) {
         // 检索、渲染出错：这一轮不带，记一行（宿主那边也当作"没有简报"）
         log(`会意简报出错，这一轮不带：${messageOf(err)}`);

@@ -9,16 +9,20 @@
 // -按原话记一条（用户说"帮我记一句"）——落在现有的"显式记忆命令"那条链上，不另造写库路径：
 //   追加一条 memory_command（from.kind 是 secretary，带会话/消息/工具调用）→ 素材库照旧把它采成"显式记忆命令"素材 →
 //   立刻用每晚整理同一个 evidenceDraftOf 读成证据、经推理库的唯一写入口入库（整理时按出处跳过，不会重复读）。
+// - 简报那份引擎用秘书那一侧共用的向量函数（embedder-adapter.ts 的 secretaryEmbedder：查询向量只算一次、背景语料向量
+//   和记忆插件起来时预热的是同一份），向量模型闲置卸掉了时简报最多等它 BRIEF_MODEL_WAIT_MS、等不到这一轮不算向量（427）。
 // 插件自己不带引擎、也不关它：引擎是这一份建、这一份关（组合根的 teardown 里）。
 import fs from "node:fs";
-import { DEEPSEEK_DEFAULT_MODEL, type Embedder } from "@ergo/memory";
+import { DEEPSEEK_DEFAULT_MODEL } from "@ergo/memory";
 import type { MemoryConfig } from "../../config/config.ts";
 import type { EventStore } from "../../events/event-store.ts";
 import { materialId, MEMORY_COMMAND_SOURCE, type Materials } from "../../materials/index.ts";
 import { clockIso, type Clock } from "../../scheduler/clock.ts";
 import { memoryCommandEvent } from "../deletion.ts";
+import type { SecretaryEmbedder } from "../embedder-adapter.ts";
 import { createMemoryEngineProvider, createWritableEngineUse } from "../engine-provider.ts";
 import { evidenceDraftOf } from "../evidence-source.ts";
+import { BRIEF_MODEL_WAIT_MS } from "../message-brief.ts";
 import { latestNightlyRecord } from "../nightly-record.ts";
 import { createReasoningPurge } from "../purge-rg.ts";
 import type { SubtextProviderDeps, SubtextRememberCommand, SubtextRememberRecord } from "./subtext.ts";
@@ -33,8 +37,10 @@ export interface SubtextRuntimeOptions {
   clock: Clock;
   /** manifest 里记着的整理模型名（默认和每晚整理一致） */
   model?: string;
-  /** 向量函数（不给时检索只有关键词；manifest 里也记不上名字） */
-  embedder?: Embedder;
+  /** 向量函数：秘书那一侧共用的那一份（secretaryEmbedder）。不给时检索只有关键词；manifest 里也记不上名字 */
+  embedder?: SecretaryEmbedder;
+  /** 简报等向量模型加载最多等多久（毫秒），默认 BRIEF_MODEL_WAIT_MS */
+  modelWaitMs?: number;
   /** 配置的 memory 一节（彻底删除要用的敏感类别和整理记录） */
   config: MemoryConfig;
   /**
@@ -56,6 +62,7 @@ export interface SubtextRuntime {
 
 export function createSubtextRuntime(options: SubtextRuntimeOptions): SubtextRuntime {
   const model = options.model ?? DEEPSEEK_DEFAULT_MODEL;
+  const embedder = options.embedder;
   const engine = createMemoryEngineProvider({
     file: options.file,
     clock: () => clockIso(options.clock),
@@ -143,6 +150,9 @@ export function createSubtextRuntime(options: SubtextRuntimeOptions): SubtextRun
     close: () => engine.close(),
     deps: {
       engine: () => engine.get(),
+      ...(embedder === undefined
+        ? {}
+        : { vectors: { ready: () => embedder.warm(options.modelWaitMs ?? BRIEF_MODEL_WAIT_MS), without: <T>(fn: () => Promise<T>) => embedder.withoutVectors(fn) } }),
       materials: options.materials,
       remember,
       deleteMaterials: (materialIds) => purge.purgeMaterials(materialIds),
