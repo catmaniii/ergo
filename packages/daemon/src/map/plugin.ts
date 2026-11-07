@@ -16,6 +16,11 @@
 // - 结果只现查、不存、不进记忆素材；能画的那一份只在内存里留一会儿（lookup-results.ts，给 431）；
 // - 每月的用量记在插件自己的存储（数据目录的 map/amap-usage.json），体检里接近个人档的免费量时提示（doctor.ts，接 409）；
 // - 移除时"连数据删"多删插件自己的存储（用量）。
+// 433 加了国外的查地点、算路线（OpenStreetMap 的免费服务：Nominatim、OSRM，不用 Key，osm-lookup.ts）：
+// - 工具改成插件自己经 ctx.agent.tools.register 给秘书（插件在运行就有）：国内的点用高德、国外的用 OpenStreetMap，按点自动挑；
+//   没填高德的 Key、高德断开、Key 不认时国外照样能查，国内的照实说"国内要填高德 Key"；
+// - 高德的"按需查"开关照样在数据源页上（usages.query.ownTools：内核不替它给工具），查国内的点之前经 KERNEL.dataSourceUsage 看它开没开；
+// - OpenStreetMap 的规矩：每秒最多 1 次、带能认出二狗的 User-Agent、结果只在内存里缓存一天（停用时扔掉）、不做输入联想。
 import path from "node:path";
 import { AMAP_SOURCE_ID, t } from "@ergo/protocol";
 import type { DataSource } from "../data-sources/api.ts";
@@ -23,6 +28,7 @@ import { PHONE } from "../phone/api.ts";
 import { type PluginDefinition, serviceKey } from "../plugins/host.ts";
 import { KERNEL } from "../plugins/kernel.ts";
 import type { AmapHosts } from "./amap.ts";
+import type { OsmHosts } from "./osm-lookup.ts";
 import { MAP, MAP_PLUGIN } from "./api.ts";
 import { registerAmapDoctor } from "./doctor.ts";
 import { createMapService, type MapPluginService } from "./service.ts";
@@ -39,6 +45,10 @@ export interface MapPluginOptions {
   timeoutMs?: number;
   /** 瓦片缓存上限（字节） */
   tileCacheBytes?: number;
+  /** OpenStreetMap 的 Nominatim、OSRM 的地址（测试换成本机的假服务） */
+  osmHosts?: Partial<OsmHosts>;
+  /** 去 Nominatim、OSRM 时两次之间至少隔多久（毫秒；默认每秒最多 1 次，测试可以调小） */
+  osmIntervalMs?: number;
 }
 
 /** 移除并连数据删时删掉的：密钥区里高德那一格（和 data-dir.ts 的 dataSourceSecrets 一致）、瓦片缓存（和 mapTiles 一致）、插件自己的存储 */
@@ -60,8 +70,9 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
       return { tools: [t("map.tool.search"), t("map.tool.route"), t("map.tool.geocode"), t("map.tool.reverse"), t("map.tool.places")], cards: [], jobs: [] };
     },
     needs: [KERNEL.clock, KERNEL.layout, KERNEL.dataSourceSecrets],
-    // 常去的地方、手机最近的位置（432 查"从家到公司""附近"）：手机插件没启用时工具如实说用不了
-    wants: [PHONE],
+    // 常去的地方、手机最近的位置（432 查"从家到公司""附近"）：手机插件没启用时工具如实说用不了。
+    // 数据源的用法开关（433）：查国内的点之前看高德的按需查开没开（没有这项服务时当开着）
+    wants: [PHONE, KERNEL.dataSourceUsage],
     provides: [MAP, MAP_INTERNAL],
     contracts(ctx) {
       const source: DataSource = {
@@ -73,14 +84,13 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
           return t("map.source.summary");
         },
         sensitive: [],
-        // 按需查（432）：给秘书查地点、算路线的工具；不导入
-        usages: { query: { default: true } },
+        // 按需查（432）：让秘书用高德查国内的地点、路线；不导入。工具由插件自己给（433：国外不用高德也能查），这里只是开关
+        usages: { query: { default: true, ownTools: true } },
         status: (c) => ctx.active(MAP_INTERNAL).amapStatus(c.secrets),
         configure: (values, c) => ctx.active(MAP_INTERNAL).configureAmap(values, c.secrets),
         // Key 不认（出错）后内核每小时叫一次，拿存着的再测
         recheck: (c) => ctx.active(MAP_INTERNAL).recheckAmap(c.secrets, c.signal),
         disconnect: () => ctx.active(MAP_INTERNAL).resetAmap(),
-        tools: () => ctx.active(MAP_INTERNAL).lookupTools(),
         // 试查一下（设置里那一块、数据源详情的"现在能查到的"）：搜一个固定的地点
         live: (_query, c) => ctx.active(MAP_INTERNAL).tryAmap(c.signal),
         get disconnectNote() {
@@ -108,6 +118,8 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
         ...(options.amapHosts === undefined ? {} : { amapHosts: options.amapHosts }),
         ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
         ...(options.tileCacheBytes === undefined ? {} : { tileCacheBytes: options.tileCacheBytes }),
+        ...(options.osmHosts === undefined ? {} : { osmHosts: options.osmHosts }),
+        ...(options.osmIntervalMs === undefined ? {} : { osmIntervalMs: options.osmIntervalMs }),
         now: () => clock.now(),
         secrets: () => secrets.forSource(AMAP_SOURCE_ID),
         mapDir: path.join(layout.root, MAP_DATA_DIR),
@@ -116,10 +128,14 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
           const phone = ctx.optional(PHONE);
           return phone === undefined ? undefined : { named: () => phone.namedPlaces(), latest: () => phone.latestPoint() };
         },
+        // 高德的按需查开没开（现取：用户随时在数据源页上开关）
+        amapQueryOn: () => ctx.optional(KERNEL.dataSourceUsage)?.on(AMAP_SOURCE_ID, "query") ?? true,
         log: (line) => ctx.log(line),
       });
       ctx.provide(MAP, service);
       ctx.provide(MAP_INTERNAL, service);
+      // 查地点、算路线的五个工具给秘书（433：插件在运行就有；国内的点没填高德 Key 时工具照实说）
+      ctx.agent.tools.register({ to: { agents: ["secretary"] }, tools: () => service.lookupTools() });
       // 体检：高德的用量（409 的插件体检项；插件宿主没有 ctx.doctor 时不登记）
       registerAmapDoctor(ctx, () => service.amapUsageFinding());
       // 停用时：排队等着取的瓦片不取了

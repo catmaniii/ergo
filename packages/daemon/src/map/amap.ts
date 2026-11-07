@@ -81,6 +81,8 @@ export interface Amap {
   mapKey(): string | undefined;
   /** 高德说地图那一组不对时给人看的一句 */
   mapProblem(): string | undefined;
+  /** 高德说 Web 服务 Key 不对（要重新填）时给人看的一句：查国内的地点、路线前看它（433：只看查询那一组，地图那一组坏了不耽误查） */
+  serviceProblem(): string | undefined;
   /** 安全密钥代理 */
   proxy(path: string, search: string, signal: AbortSignal, userAgent?: string): Promise<MapReply>;
   /**
@@ -263,6 +265,10 @@ export function createAmap(options: AmapOptions): Amap {
 
     mapProblem() {
       return problems.js?.kind === "key" && filled(options.secrets()).js ? problems.js.text : undefined;
+    },
+
+    serviceProblem() {
+      return problems.service?.kind === "key" && filled(options.secrets()).service ? problems.service.text : undefined;
     },
 
     async proxy(subPath, search, signal, userAgent) {

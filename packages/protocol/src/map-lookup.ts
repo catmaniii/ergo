@@ -1,12 +1,13 @@
-// 查地点、算路线（432：国内用高德 Web 服务；433 再接国外的 OpenStreetMap）在守护进程和网页之间共用的形状。不引用 TypeBox。
+// 查地点、算路线（432：国内用高德 Web 服务；433：国外用免费的 OpenStreetMap——Nominatim 查地点、OSRM 算路线）在守护进程和网页之间
+// 共用的形状。不引用 TypeBox。
 // - 查到的能画在地图上的那一份（MapLookupDrawing）：坐标一律 WGS-84，点、线的样子照网页地图页的 MapScene（plugins/map/scene.ts）
 //   ——点的 kind 是 search（搜到的）/ place（常去的地方）/ here（现在在哪），线的 kind 是 route；431 的"画在地图上"工具、
-//   聊天里的地图卡片拿它画。守护进程只在内存里留一会儿（不落盘、不进记忆素材：高德的协议不许存、不许缓存）；
+//   聊天里的地图卡片拿它画。守护进程只在内存里留一会儿（不落盘、不进记忆素材：高德的协议不许存、不许缓存；OpenStreetMap 的照同样办）；
 // - 设置 · 数据源 · 高德地图那一块要的（AmapSourcePanel）：Web 服务 Key 填了没有（"试查一下"能不能点）、这个月查了几次。
 import type { LatLon } from "./geo.ts";
 
-/** 查地点、算路线的数据从哪来：432 只有高德（433 加 OpenStreetMap） */
-export const MAP_LOOKUP_SOURCES = ["amap"] as const;
+/** 查地点、算路线的数据从哪来：高德（中国大陆，432）、OpenStreetMap（大陆以外，433） */
+export const MAP_LOOKUP_SOURCES = ["amap", "osm"] as const;
 export type MapLookupSource = (typeof MAP_LOOKUP_SOURCES)[number];
 
 /** 算路线的几种走法：开车、公交（含地铁）、步行 */
@@ -31,7 +32,7 @@ export interface MapLookupLine {
 }
 
 /**
- * 一次查询能画出来的东西：编号（工具结果里写给模型的那个，"amap-r1"）、查的是什么（地点 / 路线 / 地址）、数据从哪来、
+ * 一次查询能画出来的东西：编号（工具结果里写给模型的那个，"amap-r1""osm-p2"）、查的是什么（地点 / 路线 / 地址）、数据从哪来、
  * 一句标题（"从家到公司"）、什么时候查的，点和线
  */
 export interface MapLookupDrawing {

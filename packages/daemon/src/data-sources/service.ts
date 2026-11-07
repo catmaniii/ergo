@@ -162,6 +162,11 @@ export interface DataSources {
   live(id: string, body: DataSourceLiveBody): Promise<DataSourceLiveResult>;
   /** 外部日历：插件在运行的数据源交给日历插件显示的 [from, to) 里的日程（出错的那个数据源跳过、记日志） */
   calendarEvents(from: Date, to: Date): CalendarExternalEntry[];
+  /**
+   * 这个数据源的这种用法现在开没开（用户开关的，没开关过的按登记的默认）；不认得的、没有这种用法的是 false。
+   * 经 KERNEL.dataSourceUsage 给工具由插件自己给的数据源（地图插件的高德）在调用时看
+   */
+  usageOn(id: string, usage: DataSourceUsage): boolean;
   /** 外部日历现在的版本：交给日历的日程变了就往上加（只增不减，毫秒时间起步） */
   calendarVersion(): number;
   /** 外部日历变了（交来新版本）；返回取消订阅 */
@@ -293,6 +298,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
    * 插件在同步、按需查时碰到 Key 失效记在内存里），装配时不等网络；没连、出错（Key 失效、地址失效）的不给
    */
   const queryReady = (entry: DataSourceEntry) => entry.source.tools !== undefined && entry.owner.running() && usageOn(entry, "query") && connected(entry);
+  // 工具由插件自己给的（usages.query.ownTools，地图插件的高德）没有 tools()：这里不替它给，插件调用时经 usageOn 看开关
 
   /** 它导入的记录现在有几条（还没删掉的）；插件在运行、自己会数的由它数 */
   const countOf = (entry: DataSourceEntry): number => {
@@ -979,6 +985,10 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     stored,
     live,
     calendarEvents,
+    usageOn(id, usage) {
+      const entry = registry.get(id);
+      return entry !== undefined && usageOn(entry, usage);
+    },
     calendarVersion: () => calendarVersion,
     onCalendarChange(listener) {
       calendarListeners.add(listener);

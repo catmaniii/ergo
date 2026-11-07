@@ -6,6 +6,8 @@
 //   哪段路堵、公交怎么换乘，写明数据来自高德；
 // - 查到的不进事件（除了这次工具调用本身的记录）、不进素材；Key 不出现在日志、事件、数据源页、工具结果里；
 // - 试查一下（数据源的 live）走得通。
+// 433：没填高德的 Key 也有工具；新加坡"酒店附近的 hawker centre"走本机的假 OpenStreetMap（helpers/fake-osm-lookup.ts），不发给高德，
+//   结果写明数据来自 OpenStreetMap、带二狗的 User-Agent。
 import { AMAP_SOURCE_ID, CHANNELS, EVENT_TYPES, type MessageEventPayload, PHONE_LOCATION_SOURCE, type ToolCallDetail } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { amapLocation } from "../../src/map/amap-lookup.ts";
@@ -14,6 +16,7 @@ import { createMapPlugin } from "../../src/map/plugin.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
 import { startFakeAmapLookup } from "../helpers/fake-amap-lookup.ts";
+import { startFakeOsmLookup } from "../helpers/fake-osm-lookup.ts";
 import { AMAP_TEST_SERVICE_KEY } from "../helpers/fake-map.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { dataSourcesApi, toolCallDetail } from "../helpers/http.ts";
@@ -89,6 +92,36 @@ describe("地图插件：查地点、算路线（假高德走真实装配路径�
     expect(everyEventText(td)).not.toContain(AMAP_TEST_SERVICE_KEY);
     expect(JSON.stringify((await dataSourcesApi.view(td.url)).body)).not.toContain(AMAP_TEST_SERVICE_KEY);
     expect(result).not.toContain(AMAP_TEST_SERVICE_KEY);
+    expect(td.daemon.store.readGlobal(0, 1_000_000).filter((e) => e.channel.startsWith("map"))).toEqual([]);
+  });
+
+  it("没填高德的 Key：新加坡酒店附近的 hawker centre 走 OpenStreetMap，近的在前、写明署名；不发给高德、不记事件", { timeout: 90_000 }, async () => {
+    const fake = await startFakeAmapLookup();
+    const osm = await startFakeOsmLookup();
+    const td = await startTestDaemon({
+      extraPlugins: [createMapPlugin({ amapHosts: fake.hosts, osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 })],
+      secretary: [call(MAP_TOOL.search, { near: "酒店", keyword: "hawker centre" }), say("酒店走过去最近的是 Maxwell Food Centre，不到 100 米。")],
+    });
+    // 新加坡的酒店起名"酒店"（手机 · 位置下面的常去的地方）
+    const added = await dataSourcesApi.act(td.url, PHONE_LOCATION_SOURCE, { action: "configure", values: { places: "add", name: "酒店", lat: "1.2805", lon: "103.845" }, idempotencyKey: key() });
+    expect(added.status).toBe(200);
+    const frontend = await TestFrontend.connect(td.url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    await frontend.sendText("酒店附近有什么 hawker centre");
+    await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
+    const part = frontend
+      .events({ channel: SECRETARY, type: EVENT_TYPES.message })
+      .flatMap((f) => (f.payload as MessageEventPayload).message.parts)
+      .findLast((p) => p.type === "tool_call" && p.tool === MAP_TOOL.search);
+    if (part?.type !== "tool_call") throw new Error("秘书没调 map_search_places");
+    expect(part.outcome).toBe("done");
+    const result = ((await toolCallDetail(td.url, part.callId)).body as ToolCallDetail).result;
+    expect(result).toContain("在「酒店」（常去的地方）附近 1 公里内找「hawker centre」，OpenStreetMap找到 4 个（近的在前）");
+    expect(result).toContain("1. Maxwell Food Centre");
+    expect(result).toContain("数据来自 OpenStreetMap（© OpenStreetMap 贡献者");
+    expect(fake.requests).toEqual([]);
+    expect(osm.requests).toHaveLength(1);
+    expect(osm.requests[0]!.ua).toMatch(/^ergo\//);
     expect(td.daemon.store.readGlobal(0, 1_000_000).filter((e) => e.channel.startsWith("map"))).toEqual([]);
   });
 });

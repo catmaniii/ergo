@@ -10,7 +10,7 @@
 // 为记忆插件加了整理前同步一遍（数据源的服务把能由电脑拉的各同步一次）。
 // 为地图插件加了数据源密钥区里自己那一格（转发高德的请求时拼安全密钥）。
 import type { ChatModel } from "@ergo/memory";
-import type { CalendarExternalEntry, MemoryBriefInput, MemoryBriefResult, MemoryItem, MemoryRememberInput } from "@ergo/protocol";
+import type { CalendarExternalEntry, DataSourceUsage, MemoryBriefInput, MemoryBriefResult, MemoryItem, MemoryRememberInput } from "@ergo/protocol";
 import type { HostToolCall } from "../agent-manager/host-tools.ts";
 import type { AgentRoles } from "../agent-roles/index.ts";
 import type { ElementToRemember } from "../browsing/api.ts";
@@ -106,6 +106,15 @@ export interface ExternalCalendars {
  */
 export interface DataSourcePreSync {
   syncPullable(options: { freshMs: number; signal: AbortSignal }): Promise<readonly PullableSync[]>;
+}
+
+/**
+ * 数据源的两种用法（按需查、导入）现在开没开：用户在 设置 · 数据源 里开关的，没开关过的按数据源登记的默认。
+ * 给"工具由插件自己给"的数据源（DataSource.usages.query.ownTools：地图插件的高德，433）在调用时看按需查的开关；
+ * 不认得的数据源、它没有这种用法的是 false。数据源的服务建在插件装配之后，组合根现转给它（还没起来时也是 false）
+ */
+export interface DataSourceUsageSwitch {
+  on(id: string, usage: DataSourceUsage): boolean;
 }
 
 /**
@@ -216,6 +225,8 @@ export const KERNEL = {
    * 地图插件转发高德的请求时拼安全密钥。只取自己的；取到的是现读的（填设置、断开之后马上跟着变），不打印、不交给页面
    */
   dataSourceSecrets: serviceKey<Pick<DataSourceSecretStore, "forSource">>("dataSourceSecrets"),
+  /** 数据源的按需查、导入现在开没开（见 DataSourceUsageSwitch）：地图插件查国内的地点前看高德的按需查开着没有 */
+  dataSourceUsage: serviceKey<DataSourceUsageSwitch>("dataSourceUsage"),
 } as const;
 
 /** 内核提供的全部服务（建插件宿主时交给它，排依赖用） */

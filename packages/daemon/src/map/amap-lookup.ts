@@ -17,7 +17,7 @@ import { gcjToWgs, inMainlandChina, type LatLon, t, wgsToGcj } from "@ergo/proto
 import type { DataSourceSecrets } from "../data-sources/api.ts";
 import { AMAP_HOSTS, AMAP_SECRET, AMAP_TIMEOUT_MS, type AmapHosts } from "./amap.ts";
 import type { AmapUsage, AmapUsageKind } from "./amap-usage.ts";
-import { type LookupProvider, MapLookupError, type MapLookupFailure, type PlaceHit, type RouteAnswer, type RouteEnd, type TrafficJam, type TransitLeg, type TransitPlan } from "./lookup.ts";
+import { type LookupProvider, MapLookupError, type MapLookupFailure, type PlaceHit, type RouteAnswer, type RouteEnd, thinLine, type TrafficJam, type TransitLeg, type TransitPlan } from "./lookup.ts";
 
 export interface AmapLookupOptions {
   hosts?: Partial<AmapHosts>;
@@ -34,9 +34,6 @@ export interface AmapLookup extends LookupProvider {
   /** 存着 Web 服务 Key 没有 */
   hasKey(): boolean;
 }
-
-/** 一条折线最多留多少个点（再多的均匀抽掉：画在小卡片、地图页上足够了） */
-const MAX_LINE_POINTS = 2_000;
 
 /** infocode → 哪一种出错（没列的看 info，再没有算 other） */
 const FAILURES: Readonly<Record<string, MapLookupFailure>> = {
@@ -125,13 +122,6 @@ export function parseAmapPolyline(text: string): LatLon[] {
     }
   }
   return out;
-}
-
-/** 点太多时均匀抽掉一些（头尾留着） */
-export function thinLine(points: readonly LatLon[], max = MAX_LINE_POINTS): LatLon[] {
-  if (points.length <= max) return [...points];
-  const step = (points.length - 1) / (max - 1);
-  return Array.from({ length: max }, (_, i) => points[Math.round(i * step)]!);
 }
 
 /** 省市区连成一段（直辖市的 city 是空的；重复的去掉） */
@@ -373,7 +363,31 @@ export function createAmapLookup(options: AmapLookupOptions): AmapLookup {
   return {
     id: "amap",
     name: "高德", // @i18n-ignore model：工具结果里"数据来自高德"（给人看的来源名走 t("map.lookup.source.amap")）
+    credit: "数据来自高德，现查的，没存", // @i18n-ignore model：工具结果末尾的那句
+    routeModes: ["driving", "transit", "walking"],
+    defaultModes: ["driving", "transit"],
+    liveTraffic: true,
+    browsesNearby: true,
     covers: inMainlandChina,
+    // @i18n-ignore-start model：出错时给模型的话（高德自己的：去哪重新填 Key、到上限）
+    explain(err) {
+      const detail = err.detail === "" ? "" : `（${err.detail}${err.code === undefined ? "" : `，${err.code}`}）`;
+      switch (err.failure) {
+        case "no_key":
+          return "高德的 Web 服务 Key 还没填（设置 · 数据源 · 高德地图），查不了。";
+        case "key":
+          return `高德不认填的 Web 服务 Key${detail}：如实告诉用户，请用户去 设置 · 数据源 · 高德地图 重新填。`;
+        case "denied":
+          return `高德说这个 Key 没有这项服务的权限${detail}：请用户在高德的控制台看看这个 Key 开了哪些服务。`;
+        case "quota":
+          return `高德说用量到上限了${detail}：今天先查不了（也可能是这个月的免费量用完了）。如实告诉用户，明天再试，或者请用户到高德的控制台看看用量。`;
+        case "abroad":
+          return "这个地方在中国大陆以外，高德查不了。";
+        default:
+          return undefined;
+      }
+    },
+    // @i18n-ignore-end
     hasKey: () => options.secrets().has(AMAP_SECRET.serviceKey),
 
     async searchText(q, signal) {

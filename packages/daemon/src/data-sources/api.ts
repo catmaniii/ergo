@@ -235,7 +235,15 @@ export interface DataSource {
    * 点"立即同步"、放文件时导入）。用户在数据源页上开关，存在配置区的 data-sources.json
    */
   readonly usages: {
-    readonly query?: { readonly default: boolean };
+    readonly query?: {
+      readonly default: boolean;
+      /**
+       * 工具由插件自己经 ctx.agent.tools.register 给，内核不替它给（不写 tools()）：几家共用一套工具、这一家没连也照样有工具时
+       * （地图插件：查地点、算路线的工具国内用高德、国外用 OpenStreetMap，没填高德的 Key 国外照样能查，433）。
+       * 这个开关照样在数据源页上，插件调用时经 KERNEL.dataSourceUsage 看它开没开、自己看连没连着
+       */
+      readonly ownTools?: true;
+    };
     readonly import?: {
       readonly default: boolean;
       readonly schedule?: DataSourceSchedule;
@@ -279,7 +287,7 @@ export interface DataSource {
   migrate?(ctx: DataSourceContext): void;
   /**
    * 按需查的工具（给秘书）：按需查开着、插件在运行、连着（status() 报的最近一次已知的连接状态）时才给；关掉、没连上了以后
-   * 正在跑的一轮里再调回"关着""没连上 / 出错了"
+   * 正在跑的一轮里再调回"关着""没连上 / 出错了"。usages.query.ownTools 的不写（工具由插件自己给）
    */
   tools?(ctx: DataSourceContext): readonly HostTool[];
   /** 设备交来的（手机上的二狗 App）：算"导入"这种用法，导入关着时不收 */

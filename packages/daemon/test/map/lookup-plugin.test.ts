@@ -1,8 +1,11 @@
-// 地图插件的查地点、算路线（432）在假内核里（startPluginKernel：真的插件宿主、数据源那一层、设置 · 插件那一层），高德指向本机的假高德
-// （helpers/fake-amap-lookup.ts），手机插件换成只给常去的地方、最近一个位置点的假服务。查：
-// - 数据源"高德地图"有按需查（默认开）：填了 Web 服务 Key、连着时秘书拿到五个工具，按需查关掉就没有；
+// 地图插件的查地点、算路线（432、433）在假内核里（startPluginKernel：真的插件宿主、数据源那一层、设置 · 插件那一层），高德指向本机的假高德
+// （helpers/fake-amap-lookup.ts），OpenStreetMap 指向本机的假 Nominatim、OSRM（helpers/fake-osm-lookup.ts），手机插件换成只给常去的地方、
+// 最近一个位置点的假服务。查：
+// - 工具由插件自己登记（433）：插件在运行秘书就有五个工具，不跟着高德连没连着走；没填高德的 Key 时国外照样能查、国内走 OpenStreetMap；
+// - 数据源"高德地图"的按需查（默认开）照样在：开着、填了 Web 服务 Key 时国内走高德，关掉国内改走 OpenStreetMap；内核不替它给工具；
 // - 查一次：用量记在插件自己的存储里、数据源那一块带着这个月的用量；不写任何事件、不落别的盘（结果只现查）；Key 不进结果、日志、页面；
-// - 查的时候高德说 Key 不认：连接状态变成出错（要重新填），秘书再调回"出错了"；
+// - 查的时候高德说 Key 不认：连接状态变成出错（要重新填），之后国内改走 OpenStreetMap；
+// - 插件停用：工具跟着没了（已经装配的那一份再调回"地图插件没启用"）；
 // - 试查一下（数据源的 live）：搜固定的地点，列出来、写明数据来自高德和这个月的用量；没填 Web 服务 Key 时说先填；
 // - 体检项：插件宿主有 ctx.doctor 时登记"高德的用量"（409 合进来以后）；
 // - 移除并连数据删：插件自己的存储（用量）一起删。
@@ -20,6 +23,7 @@ import { PHONE, type PhoneService } from "../../src/phone/api.ts";
 import { KERNEL } from "../../src/plugins/kernel.ts";
 import { SECRETARY_TARGET } from "../../src/secretary/secretary.ts";
 import { startFakeAmapLookup } from "../helpers/fake-amap-lookup.ts";
+import { SG_HERE, startFakeOsmLookup } from "../helpers/fake-osm-lookup.ts";
 import { AMAP_TEST_JS_KEY, AMAP_TEST_SECURITY_CODE, AMAP_TEST_SERVICE_KEY } from "../helpers/fake-map.ts";
 import { extraService, type PluginKernel, startPluginKernel } from "../helpers/plugin-kernel.ts";
 
@@ -38,8 +42,9 @@ const fakePhone = {
 
 async function setup() {
   const fake = await startFakeAmapLookup();
+  const osm = await startFakeOsmLookup();
   const k = await startPluginKernel({
-    plugins: [createMapPlugin({ amapHosts: fake.hosts, timeoutMs: 5000 })],
+    plugins: [createMapPlugin({ amapHosts: fake.hosts, osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 })],
     at: AT,
     services: [
       extraService(KERNEL.layout, ({ dir }) => dataDirLayout(dir)),
@@ -47,7 +52,7 @@ async function setup() {
       extraService(PHONE, () => fakePhone),
     ],
   });
-  return { fake, k };
+  return { fake, osm, k };
 }
 const source = (k: PluginKernel) => k.dataSources.view().sources.find((s) => s.id === AMAP_SOURCE_ID)!;
 const mapTools = (k: PluginKernel) => k.agent.toolsFor(SECRETARY_TARGET).filter((t) => t.spec.name.startsWith("map_"));
@@ -55,27 +60,61 @@ const configure = (k: PluginKernel, values: Record<string, string>) => k.dataSou
 const run = (k: PluginKernel, name: string, args: Record<string, unknown>) => mapTools(k).find((t) => t.spec.name === name)!.run(args as never, { toolCallId: key() });
 
 describe("地图插件：查地点、算路线", () => {
-  it("填了 Web 服务 Key、连着、按需查开着：秘书有五个工具；按需查关掉就没有", async () => {
-    const { k } = await setup();
-    expect(mapTools(k)).toEqual([]);
-    await configure(k, { serviceKey: AMAP_TEST_SERVICE_KEY });
-    expect(source(k)).toMatchObject({ connection: "connected", usages: [{ usage: "query", on: true }], hasLive: true });
+  it("没填高德的 Key：秘书照样有五个工具；国外用 OpenStreetMap 照样能查，国内也走 OpenStreetMap（提一句不全），都不发给高德", async () => {
+    const { fake, osm, k } = await setup();
+    expect(source(k)).toMatchObject({ connection: "not_connected", usages: [{ usage: "query", on: true }] });
     expect(mapTools(k).map((t) => t.spec.name)).toEqual([MAP_TOOL.search, MAP_TOOL.route, MAP_TOOL.geocode, MAP_TOOL.reverse, MAP_TOOL.places]);
     expect(mapTools(k)[1]!.descriptor).toMatchObject({ network: true, pullOnly: true });
-    await k.dataSources.act(AMAP_SOURCE_ID, { action: "usage", usage: "query", on: false, idempotencyKey: key() });
-    expect(mapTools(k)).toEqual([]);
+    const abroad = await run(k, MAP_TOOL.search, { near: `${SG_HERE.lat},${SG_HERE.lon}`, keyword: "hawker centre" });
+    expect(abroad.text).toContain("OpenStreetMap找到 4 个");
+    expect(abroad.text).not.toContain("店名和小路可能不全");
+    const home = await run(k, MAP_TOOL.route, { from: "家", to: "公司" });
+    expect(home.isError).toBeUndefined();
+    expect(home.text).toContain("（国内的地点用 OpenStreetMap 查，店名和小路可能不全。）");
+    expect(home.text).not.toContain("Key");
+    expect(fake.requests).toEqual([]);
+    expect(osm.requests.map((r) => r.service)).toEqual(["nominatim", "osrm", "osrm"]);
   });
 
-  it("只填了地图那一组：工具在，查的时候说先填 Web 服务 Key；看常去的地方照样能用", async () => {
+  it("填了 Web 服务 Key、按需查开着：国内走高德、国外走 OpenStreetMap；按需查关掉国内改走 OpenStreetMap，工具一直在、内核不替高德另给", async () => {
+    const { fake, osm, k } = await setup();
+    await configure(k, { serviceKey: AMAP_TEST_SERVICE_KEY });
+    expect(source(k)).toMatchObject({ connection: "connected", usages: [{ usage: "query", on: true }], hasLive: true });
+    expect(mapTools(k)).toHaveLength(5);
+    const before = fake.requests.length;
+    expect((await run(k, MAP_TOOL.route, { from: "家", to: "公司" })).text).toContain("- 开车：约 35 分钟（高德估的用时）");
+    expect(fake.requests.length).toBeGreaterThan(before);
+    expect((await run(k, MAP_TOOL.route, { from: "1.2805,103.845", to: "1.2834,103.8607", modes: ["walking"] })).text).toContain("数据来自 OpenStreetMap");
+    await k.dataSources.act(AMAP_SOURCE_ID, { action: "usage", usage: "query", on: false, idempotencyKey: key() });
+    expect(mapTools(k)).toHaveLength(5);
+    const amapBefore = fake.requests.length;
+    const osmBefore = osm.requests.length;
+    const off = await run(k, MAP_TOOL.route, { from: "家", to: "公司", modes: ["driving"] });
+    expect(off.text).toContain("OpenStreetMap按道路限速估的");
+    expect(fake.requests.length).toBe(amapBefore);
+    expect(osm.requests.length).toBe(osmBefore + 1);
+  });
+
+  it("只填了地图那一组：国内走 OpenStreetMap；看常去的地方照样能用", async () => {
     const { fake, k } = await setup();
     await configure(k, { jsKey: AMAP_TEST_JS_KEY, securityCode: AMAP_TEST_SECURITY_CODE });
     const before = fake.requests.length;
     const out = await run(k, MAP_TOOL.route, { from: "家", to: "公司" });
-    expect(out).toMatchObject({ isError: true });
-    expect(out.text).toContain("还没在 设置 · 数据源 · 高德地图 里填「Web 服务 Key」");
+    expect(out.text).toContain("数据来自 OpenStreetMap");
     expect(fake.requests.length).toBe(before);
     expect((await run(k, MAP_TOOL.places, {})).text).toContain("- 家（范围 200 米）");
     expect((source(k).panel as AmapSourcePanel).lookup).toBe(false);
+  });
+
+  it("插件停用：工具跟着没了；已经装配的那一份再调回\"地图插件没启用\"", async () => {
+    const { osm, k } = await setup();
+    const search = mapTools(k).find((t) => t.spec.name === MAP_TOOL.search)!;
+    await k.settings.act(MAP_PLUGIN, { action: "disable", idempotencyKey: key() });
+    expect(mapTools(k)).toEqual([]);
+    const out = await search.run({ near: `${SG_HERE.lat},${SG_HERE.lon}`, keyword: "hawker centre" } as never, { toolCallId: key() });
+    expect(out).toMatchObject({ isError: true });
+    expect(out.text).toContain("地图插件没启用");
+    expect(osm.requests).toEqual([]);
   });
 
   it("查一次：用量记下、数据源那一块带着；不写事件、只落用量文件；Key 不进结果、日志、页面", async () => {
@@ -97,20 +136,22 @@ describe("地图插件：查地点、算路线", () => {
     for (const text of [out.text, k.logs.join("\n"), JSON.stringify(k.dataSources.view())]) expect(text).not.toContain(AMAP_TEST_SERVICE_KEY);
   });
 
-  it("查的时候高德说 Key 不认：连接状态变成出错（要重新填），秘书再调回\"出错了\"", async () => {
+  it("查的时候高德说 Key 不认：连接状态变成出错（要重新填）；之后国内改走 OpenStreetMap，不再发给高德", async () => {
     const { fake, k } = await setup();
     await configure(k, { serviceKey: AMAP_TEST_SERVICE_KEY });
     // 秘书已经装配好的那一份
-    const search = mapTools(k).find((t) => t.spec.name === MAP_TOOL.search)!;
+    const route = mapTools(k).find((t) => t.spec.name === MAP_TOOL.route)!;
     fake.state.fail = { infocode: "10001", info: "INVALID_USER_KEY" };
-    const out = await search.run({ keyword: "咖啡" } as never, { toolCallId: key() });
+    const out = await route.run({ from: "家", to: "公司" } as never, { toolCallId: key() });
     expect(out.text).toContain("高德不认填的 Web 服务 Key");
     expect(source(k)).toMatchObject({ connection: "error", needsAuth: true });
     expect(source(k).problem).toContain("查地点和路线：高德不认这个 Key");
-    // 再装配就没有这几个工具了；已经装配的那一份再调：内核回"出错了"
-    expect(mapTools(k)).toEqual([]);
-    const again = await search.run({ keyword: "咖啡" } as never, { toolCallId: key() });
-    expect(again.text).toContain("高德地图出错了");
+    // 工具还在；再查国内的走 OpenStreetMap
+    expect(mapTools(k)).toHaveLength(5);
+    const before = fake.requests.length;
+    const again = await route.run({ from: "家", to: "公司", modes: ["driving"] } as never, { toolCallId: key() });
+    expect(again.text).toContain("数据来自 OpenStreetMap");
+    expect(fake.requests.length).toBe(before);
   });
 
   it("试查一下：搜固定的地点（不是你的位置），列出来、写明数据来自高德和这个月的用量", async () => {

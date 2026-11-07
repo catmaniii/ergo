@@ -167,6 +167,20 @@ describe("登记后在设置 · 数据源里一处列出", () => {
     await expect(startPluginKernel({ plugins: [bad({ id: "Bad Id" })] })).rejects.toThrow(/数据源的 id/);
     await expect(startPluginKernel({ plugins: [fakeDataSourcePlugin, bad({ id: FAKE_SOURCE_ID })] })).rejects.toThrow(/已经登记过了/);
   });
+
+  it("按需查：要么给 tools()，要么写明工具由插件自己给（ownTools，433 地图的高德），两样都写也是写错了；开关照样能看、能开关", async () => {
+    await expect(startPluginKernel({ plugins: [bad({ usages: { query: { default: true } } })] })).rejects.toThrow(/却没给 tools/);
+    await expect(startPluginKernel({ plugins: [bad({ usages: { query: { default: true, ownTools: true } }, tools: () => [] })] })).rejects.toThrow(/就别再给 tools/);
+    const k = await startPluginKernel({ plugins: [bad({ usages: { query: { default: true, ownTools: true } } })] });
+    expect(k.dataSources.view().sources[0]).toMatchObject({ id: "x", usages: [{ usage: "query", on: true }] });
+    expect(k.dataSources.usageOn("x", "query")).toBe(true);
+    await k.dataSources.act("x", { action: "usage", usage: "query", on: false, idempotencyKey: key() });
+    expect(k.dataSources.usageOn("x", "query")).toBe(false);
+    expect(k.dataSources.usageOn("x", "import")).toBe(false);
+    expect(k.dataSources.usageOn("nope", "query")).toBe(false);
+    // 内核不替它给秘书工具
+    expect(k.agent.toolsFor(SECRETARY_TARGET)).toEqual([]);
+  });
 });
 
 describe("填设置、立即同步", () => {
