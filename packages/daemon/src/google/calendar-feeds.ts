@@ -13,6 +13,8 @@
 //   不写事件），拉到了就回到连着；重新填一遍地址（或者删掉坏的、加新的）也好。一时拉不到（超时、连不上）的照样连着、也把"连着几次"
 //   清零。同步、按需查现拉、再试时都记下（拉到了就清掉）；
 // - "共几条"（数据源的 count()）：同步来的事件按最后一版数。
+// - 体检（414，doctor.ts）：每个日历拉不到时还记下连着拉不到几次（不分一时的、一直的）、从什么时候起、名字，这次开机后拉过哪几个
+//   （feedHealth）；都在内存里，重启就没（从下一次同步重新算），断开、删掉日历时清掉。
 // 事件不采成素材（日历的事件给日历插件显示）。
 import { createHash } from "node:crypto";
 import { nowIso, t } from "@ergo/protocol";
@@ -77,6 +79,23 @@ export interface GoogleCalendarOptions {
 /** 一个日历连着几次"一直不行"（地址失效、没权限）才算它坏了（偶尔一次 404 不该让日历停下） */
 export const FEED_LASTING_AFTER = 3;
 
+/** 一个日历现在拉不到（体检读，414）：名字、原因、连着拉不到几次（不分一时的、一直的）、最近一次是不是"一直不行"、连着几次一直不行、从什么时候起 */
+export interface FeedTrouble {
+  readonly id: string;
+  readonly name: string;
+  readonly problem: string;
+  readonly failures: number;
+  readonly lasting: boolean;
+  readonly streak: number;
+  readonly since: string;
+}
+
+/** 几个日历拉得怎么样（体检读）：这次开机后拉过几个（拉到、拉不到都算），哪几个现在拉不到 */
+export interface FeedHealth {
+  readonly tried: number;
+  readonly failing: readonly FeedTrouble[];
+}
+
 export interface GoogleCalendarService {
   /** 今天（本地日期 YYYY-MM-DD，按守护进程的时钟） */
   today(): string;
@@ -102,6 +121,8 @@ export interface GoogleCalendarService {
   calendarEvents(ctx: DataSourceContext, from: Date, to: Date): DataSourceCalendarEvent[];
   /** 同步来的事件现在有几个（按最后一版：改过的算一个、删掉的不算） */
   count(): number;
+  /** 几个日历拉得怎么样（体检读，414；只在内存里，不用密钥区） */
+  feedHealth(): FeedHealth;
 }
 
 const describe = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -117,11 +138,30 @@ const failed = (problem: string): DataSourceStatus => ({ connection: "error", pr
 export function createGoogleCalendar(options: GoogleCalendarOptions): GoogleCalendarService {
   const { store, log } = options;
   const now = () => nowIso(new Date(options.clock.now()));
-  /** 哪个日历上次拉不到、原因、连着几次"一直不行"（地址失效、没权限；一时拉不到的是 0）（重启就没了；页面上那个日历下面写着） */
-  const problems = new Map<string, { text: string; streak: number }>();
-  const noteProblem = (id: string, err: unknown) => {
+  /**
+   * 哪个日历上次拉不到、原因、连着几次"一直不行"（地址失效、没权限；一时拉不到的是 0）（重启就没了；页面上那个日历下面写着）；
+   * 体检还要的（414）：连着拉不到几次（不分哪种）、最近一次是不是一直不行、从什么时候起、名字
+   */
+  const problems = new Map<string, { text: string; streak: number; failures: number; lasting: boolean; since: string; name: string }>();
+  /** 这次开机后拉过的日历（拉到、拉不到都算；体检分"还没拉过"和"都拉得到"） */
+  const tried = new Set<string>();
+  const noteProblem = (id: string, err: unknown, name: string) => {
     const lasting = err instanceof FeedProblem && err.lasting;
-    problems.set(id, { text: err instanceof FeedProblem ? err.message : describe(err), streak: lasting ? (problems.get(id)?.streak ?? 0) + 1 : 0 });
+    const before = problems.get(id);
+    tried.add(id);
+    problems.set(id, {
+      text: err instanceof FeedProblem ? err.message : describe(err),
+      streak: lasting ? (before?.streak ?? 0) + 1 : 0,
+      failures: (before?.failures ?? 0) + 1,
+      lasting,
+      since: before?.since ?? now(),
+      name,
+    });
+  };
+  /** 拉到了：清掉这个日历的出错 */
+  const noteFetched = (id: string) => {
+    tried.add(id);
+    problems.delete(id);
   };
   /** 重复规则认不得、只给了第一次的事件：每个只记一次日志 */
   const approximateLogged = new Set<string>();
@@ -236,6 +276,7 @@ export function createGoogleCalendar(options: GoogleCalendarOptions): GoogleCale
       if (rest.length > 0) ctx.secrets.set(FEEDS_KEY, rest.join(","));
       else ctx.secrets.delete(FEEDS_KEY);
       problems.delete(id);
+      tried.delete(id);
       removeFeed(id);
       ctx.log(`删掉了一个日历 ${id}`);
       return status(ctx);
@@ -259,7 +300,7 @@ export function createGoogleCalendar(options: GoogleCalendarOptions): GoogleCale
     for (const { id, address, calendar } of fetched) {
       ctx.secrets.set(feedKey(id), address);
       if (!ids.includes(id)) ids.push(id);
-      problems.delete(id);
+      noteFetched(id);
       // 日历的名字、时区、用户起的名字（事件等同步时写）
       const meta = feedEvent(id, calendar, label);
       if (meta) events.push(meta);
@@ -287,11 +328,12 @@ export function createGoogleCalendar(options: GoogleCalendarOptions): GoogleCale
     const state = feeds();
     for (const [index, result] of results.entries()) {
       if (result.calendar) {
-        problems.delete(result.id);
+        noteFetched(result.id);
         added += apply(result.id, result.calendar);
       } else {
-        noteProblem(result.id, result.error);
-        failures.push(t("google.calendar.feedFailed", { name: nameOf(state.get(result.id), index), reason: problems.get(result.id)!.text }));
+        const name = nameOf(state.get(result.id), index);
+        noteProblem(result.id, result.error, name);
+        failures.push(t("google.calendar.feedFailed", { name, reason: problems.get(result.id)!.text }));
       }
     }
     if (failures.length > 0) throw new Error(failures.join(t("google.calendar.problemSep")));
@@ -306,13 +348,13 @@ export function createGoogleCalendar(options: GoogleCalendarOptions): GoogleCale
         const synced = state.get(id);
         try {
           const calendar = await fetchOne(address, signal);
-          problems.delete(id);
+          noteFetched(id);
           const feed: FeedState = { id, ...(synced?.label === undefined ? {} : { label: synced.label }), ...(calendar.name === undefined ? {} : { name: calendar.name }), ...(calendar.timeZone === undefined ? {} : { timeZone: calendar.timeZone }), items: new Map() };
           return { occurrences: expandFeed(feed, calendar.events, index, from, to) };
         } catch (err) {
           if (signal?.aborted) throw err;
           // 按需查现拉时发现地址失效也记下（查完内核比一比，都不行了就不再给秘书这个工具）
-          noteProblem(id, err);
+          noteProblem(id, err, nameOf(synced, index));
           const reason = err instanceof FeedProblem ? err.message : describe(err);
           return { failed: { id, name: nameOf(synced, index), reason, fallback: synced !== undefined }, occurrences: synced ? expandFeed(synced, [...synced.items.values()], index, from, to) : [] };
         }
@@ -341,13 +383,14 @@ export function createGoogleCalendar(options: GoogleCalendarOptions): GoogleCale
   };
 
   const recheck = async (ctx: DataSourceRecheckContext): Promise<void> => {
-    for (const { id, address } of configuredFeeds(ctx.secrets)) {
+    const state = feeds();
+    for (const [index, { id, address }] of configuredFeeds(ctx.secrets).entries()) {
       try {
         await fetchOne(address, ctx.signal);
-        problems.delete(id);
+        noteFetched(id);
       } catch (err) {
         if (ctx.signal.aborted) throw err;
-        noteProblem(id, err);
+        noteProblem(id, err, nameOf(state.get(id), index));
       }
     }
   };
@@ -360,11 +403,18 @@ export function createGoogleCalendar(options: GoogleCalendarOptions): GoogleCale
     configure,
     sync,
     recheck,
-    disconnect: () => problems.clear(),
+    disconnect: () => {
+      problems.clear();
+      tried.clear();
+    },
     occurrences,
     live,
     calendarEvents,
     count: () => [...feeds().values()].reduce((n, feed) => n + feed.items.size, 0),
+    feedHealth: () => ({
+      tried: tried.size,
+      failing: [...problems].map(([id, p]) => ({ id, name: p.name, problem: p.text, failures: p.failures, lasting: p.lasting, streak: p.streak, since: p.since })),
+    }),
   };
 }
 
