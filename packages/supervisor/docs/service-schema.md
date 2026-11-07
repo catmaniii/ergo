@@ -111,6 +111,11 @@ lifeline: false                   # 命脉：true = 接入的项目经管理指�
                                   #   不用标；标这个是给「对谁都不许经接入层停」的服务。你在 WebUI / CLI 上照样能停。
                                   #   只能写 true / false（写错报错，不会悄悄当成 false）。缺省 false
 
+ergo: false                       # 和二狗有关：true = 二狗的「服务」页（和体检）也列出它。二狗自己认得出的
+                                  #   （ergo-daemon、名下的、语音地址按端口对上的、它的隧道 / 网关 / 依赖）不用标；
+                                  #   标这个是给二狗认不出用途、又想在二狗里看和开关的服务。只是显示，不管保护（保护看 lifeline）。
+                                  #   只能写 true / false（写错报错）。缺省 false
+
 onboarding:                       # 纳管留痕，供漂移检查参考
   removedScheduledTasks: [MyApp-TTS]
   verifiedAt: 2026-08-23

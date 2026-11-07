@@ -1194,6 +1194,8 @@ export class Supervisor extends EventEmitter {
           pendingStop: !!st.pendingStop,
           orphanWhy: st.orphanWhy, logs: svc.logs, profiles: svc.profiles,
           dependsOn: svc.dependsOn,
+          // 注册表里标了 ergo: true（二狗的「服务」页、体检也列出它）
+          ergo: svc.ergo === true,
         };
       }),
     };
