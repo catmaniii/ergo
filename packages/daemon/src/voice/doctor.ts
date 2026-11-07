@@ -17,6 +17,8 @@
 // 4. ffmpeg：PATH 上找不到 → 注意（参考音色只能导入 WAV；audio.cpp 识别收到不是 WAV 的录音会失败）。
 // 5. N 卡：有是正常；没有是"提示"——体检没有单独的提示一级，照 409 落成不适用，句子写"合成、识别会很慢"。
 // 语音完全没开（回复、输入都没开）时 ffmpeg、N 卡也不适用。
+// 刚起来的头一分钟（VOICE_STARTUP_GRACE_MS，437）：合成、识别探不通算"没查出来"，不报坏了——刚重启时事件循环忙，
+// 2026-11-08 重启后 20 秒那一眼报了"连不上 127.0.0.1:8090（1.5 秒没回应）"，一分钟后再查就好了。探的限时也只数事件循环给了的时间。
 //
 // 平时体检的规矩：只读状态、不改任何东西（当场探的结果不写回预热的状态）；只连本机（地址不是本机的不探，照状态说）。
 // 句子是文案键 + 参数（键在 voice.json 的 voice.doctor.*），参数里的小句、时间先按当前语言拼好（体检每次现查，换了语言重新拼）。
@@ -25,6 +27,7 @@ import { COMPONENT_FEATURES, type DoctorAction, type DoctorMessage, doctorServic
 import { findOnPath } from "../components/probes.ts";
 import type { RecognizeMode } from "../config/config.ts";
 import type { DoctorCheck, DoctorFinding } from "../doctor/checks.ts";
+import { loopTimeoutSignal } from "../util/loop-time.ts";
 import type { RegisteredService } from "../lsm/registered.ts";
 import type { VoiceSetup } from "../plugins/kernel.ts";
 
@@ -36,6 +39,12 @@ export const VOICE_PROBE_CHECK_TIMEOUT_MS = 2_500;
 
 /** 识别的状态是这么久以内变的才算新的（毫秒）：再旧的、又是服务那两种，当场探一次 */
 export const RECOGNIZER_FRESH_MS = 2 * 60_000;
+
+/**
+ * 语音插件起来后这么久以内（毫秒）合成、识别探不通算"没查出来"，不报坏了（437）：刚启动时事件循环忙、服务管家可能也在一起拉起服务，
+ * 这一眼不作数；过了这段照常报。后台盯着（416）头 5 分钟本来就不查，这条只管页面上、秘书现查的那一眼
+ */
+export const VOICE_STARTUP_GRACE_MS = 60_000;
 
 /** 当场探一次 /health 的结局：连得上（带回的 JSON，识别服务的那份说模型加载没有）、连不上（原因，按当前语言） */
 export type HealthProbe = { reachable: true; body?: Record<string, unknown> } | { reachable: false; reason: string };
@@ -68,6 +77,8 @@ export interface VoiceDoctorFacts {
   probe?(url: string, signal: AbortSignal): Promise<HealthProbe>;
   /** 此刻（毫秒）；不给是 Date.now（预热记的也是墙上的时间） */
   now?(): number;
+  /** 语音插件起来多久了（毫秒，按守护进程的时钟，测试拨得动）：VOICE_STARTUP_GRACE_MS 以内探不通算没查出来；不给是早就起来了 */
+  upMs?(): number | undefined;
 }
 
 /** 地址是不是这台电脑（平时体检只连本机） */
@@ -100,20 +111,26 @@ function hostOf(url: string): string {
   }
 }
 
-/** 当场探一次 <地址>/health（只连本机）：2xx 算连得上，连不上、超时、别的状态码写原因 */
+/**
+ * 当场探一次 <地址>/health（只连本机）：2xx 算连得上，连不上、超时、别的状态码写原因。
+ * 限时只数事件循环给了的时间（437，loop-time.ts）：体检、刚启动时事件循环被卡住的那一段不算——不然回应早到了、还没轮到处理，
+ * 就先报"1.5 秒没回应"
+ */
 export async function probeHealth(url: string, signal: AbortSignal, timeoutMs = VOICE_PROBE_TIMEOUT_MS): Promise<HealthProbe> {
-  const timer = AbortSignal.timeout(timeoutMs);
+  const timer = loopTimeoutSignal(timeoutMs);
   try {
-    const res = await fetch(`${url.replace(/\/+$/, "")}/health`, { signal: AbortSignal.any([signal, timer]) });
+    const res = await fetch(`${url.replace(/\/+$/, "")}/health`, { signal: AbortSignal.any([signal, timer.signal]) });
     const text = await res.text();
     if (!res.ok) return { reachable: false, reason: t("voice.doctor.probe.status", { status: res.status }) };
     const body = jsonObject(text);
     return { reachable: true, ...(body === undefined ? {} : { body }) };
   } catch (err) {
-    if (timer.aborted) return { reachable: false, reason: t("voice.doctor.probe.timeout", { seconds: timeoutMs / 1000 }) };
+    if (timer.signal.aborted) return { reachable: false, reason: t("voice.doctor.probe.timeout", { seconds: timeoutMs / 1000 }) };
     const cause = (err as { cause?: { code?: string } }).cause;
     if (cause?.code === "ECONNREFUSED") return { reachable: false, reason: t("voice.doctor.probe.refused") };
     return { reachable: false, reason: t("voice.doctor.probe.failed", { error: messageOf(cause ?? err) }) };
+  } finally {
+    timer.clear();
   }
 }
 
@@ -176,6 +193,9 @@ export function voiceInputOn(setup: VoiceSetup): boolean {
   return setup.featureReady(COMPONENT_FEATURES.voiceInput);
 }
 
+/** 刚起来时探不通（437）：没查出来（不是坏了），写探到的原因，修法是过一会儿再查 */
+const startingFinding = (fact: DoctorMessage): DoctorFinding => ({ level: "unknown", fact, fix: { key: "voice.doctor.fixStarting" } });
+
 /** 语音合成、识别这五项（见文件头）；登记进体检由 plugin.ts 做 */
 export function voiceDoctorChecks(facts: VoiceDoctorFacts): DoctorCheck[] {
   const { setup } = facts;
@@ -183,6 +203,11 @@ export function voiceDoctorChecks(facts: VoiceDoctorFacts): DoctorCheck[] {
   const probe = (url: string, signal: AbortSignal) => (facts.probe ?? probeHealth)(url, signal);
   const replyOn = () => voiceReplyOn(setup, facts.speech.url);
   const inputOn = () => voiceInputOn(setup);
+  /** 刚起来（VOICE_STARTUP_GRACE_MS 以内）：探不通这一眼不作数 */
+  const starting = (): boolean => {
+    const up = facts.upMs?.();
+    return up !== undefined && Number.isFinite(up) && up < VOICE_STARTUP_GRACE_MS;
+  };
 
   /** 这台电脑上有服务管家、里面登记在这个地址的端口上的那条（没有的不给按钮，修法照样写） */
   const managed = (url: string | undefined): RegisteredService | undefined => (url === undefined || setup.managerUrl() === undefined ? undefined : registeredAt(setup, url));
@@ -221,16 +246,21 @@ export function voiceDoctorChecks(facts: VoiceDoctorFacts): DoctorCheck[] {
       // 预热刚看过（或者地址不在这台电脑上、不去连它）：照它说的；不然当场探一次
       // 连不上时的事实：预热记的原因已经写明了地址（"语音合成服务没开（http://…）"），照它；当场探的写"连不上 <地址>（为什么）"
       const where = hostOf(url);
-      let down: { fact: DoctorMessage; since?: string } | undefined;
+      // why：刚起来时那一句（预热记的原因已经写明了地址；当场探的写"<地址> 为什么"）
+      let down: { fact: DoctorMessage; why: string; since?: string } | undefined;
       if (fresh || !isLocalUrl(url)) {
         if (state.status === "off") {
           const fact: DoctorMessage = state.reason ? { key: "voice.doctor.speech.downState", params: { reason: state.reason } } : { key: "voice.doctor.speech.down", params: { url: where, reason: t("voice.doctor.probe.refused") } };
-          down = { fact, since: state.since };
+          down = { fact, why: state.reason || t("voice.doctor.probe.at", { url: where, reason: t("voice.doctor.probe.refused") }), since: state.since };
         }
       } else {
         const result = await probe(url, signal);
-        if (!result.reachable) down = { fact: { key: "voice.doctor.speech.down", params: { url: where, reason: result.reason } }, ...(state.status === "off" ? { since: state.since } : {}) };
+        if (!result.reachable) {
+          down = { fact: { key: "voice.doctor.speech.down", params: { url: where, reason: result.reason } }, why: t("voice.doctor.probe.at", { url: where, reason: result.reason }), ...(state.status === "off" ? { since: state.since } : {}) };
+        }
       }
+      // 437：刚起来的这一眼探不通不作数（没查出来），过一会儿再查才照常报坏了
+      if (down && starting()) return startingFinding({ key: "voice.doctor.speech.starting", params: { reason: down.why } });
       if (down) return { level: "error", fact: down.fact, ...startFix(url), ...(down.since === undefined ? {} : { since: down.since }) };
       switch (state.status) {
         case "busy":
@@ -282,6 +312,8 @@ export function voiceDoctorChecks(facts: VoiceDoctorFacts): DoctorCheck[] {
 
       // 不新：当场探一次
       const result = await probe(url, signal);
+      // 437：刚起来的这一眼探不通不作数（没查出来）
+      if (!result.reachable && starting()) return startingFinding({ key: "voice.doctor.recognizer.starting", params: { source, reason: result.reason } });
       if (!result.reachable) {
         return {
           level: "error",

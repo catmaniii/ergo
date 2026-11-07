@@ -14,10 +14,12 @@
 // - 每项查什么由组合根注入（DoctorProbes、登记表、插件 / 数据源 / 运行时的现状），测试注入假的；这一份也提供正式用的那几个探测器（进程、文件系统那些）。
 //
 // 八项不健康时算几级（BAD_LEVEL）：端口、pi、模型的 key、磁盘不到 1 GB 是坏了（聊不了天、手机连不上、写不进去）；
-// Node 版本、服务管家、组件、外网入口是注意（能用，但打了折扣）——外网入口有一个例外（410）：服务管家给的入口全都从外面打不通，算坏了。
+// Node 版本、服务管家、组件、外网入口是注意（能用，但打了折扣）——外网入口有一个例外（410）：服务管家给的入口全都从外面打不通，算坏了；
+// 端口也有一个例外（437）：两个都连得上、只是查到的占用者不是二狗自己，算注意。
 //
 // 各项的 ok 判法：
 // - ports：两个端口都有人在听、而且听的是二狗自己（查得到占用者时按 pid 认；查不到时只按"有人在听"算，见 portsProbe）；
+//   437：连得上、查到的占用者里却没有自己时不判"没人在听"，算注意（netstat 靠不住）；
 // - node：跑着的 Node 大版本对得上 ADR-0031 那条线（pi 测过的，现在是 22）；
 // - pi：读得到 pi-coding-agent 的版本；
 // - supervisor：服务管家的命令行有回应（lsm status --json 回得出来），而且二狗是它拉起的话，二狗和它的连接连着（410：断着在重连算注意）；
@@ -74,6 +76,7 @@ import { type DoctorItemDraft, pluginItem, runtimeItem, sourceItem } from "./aut
 import type { DataSourceProbeResult } from "../data-sources/api.ts";
 import { type DoctorCheckRegistry, type DoctorCost, type DoctorFinding, type RegisteredDoctorCheck, runDoctorCheck } from "./checks.ts";
 import { judgeSourceProbe, SOURCE_PROBE_TIMEOUT_MS } from "./deep-checks.ts";
+import { afterLoopTime } from "../util/loop-time.ts";
 import { parseSupervisorSnapshot, type SupervisorSnapshot } from "./services.ts";
 
 /** 二狗和 pi 用的 Node 大版本（ADR-0031：跟着 pi 的测试线走，现在是 22） */
@@ -172,6 +175,8 @@ const LEGACY_COST: { readonly [Id in DoctorCheckId]: DoctorCost } = {
 export function legacyLevel(check: DoctorCheckView): DoctorLevel {
   if (check.ok) return "ok";
   if (check.fix === DOCTOR_FIX_UNKNOWN) return "unknown";
+  // 437：两个端口都连得上、只是查到的占用者里没有二狗自己——netstat 靠不住，最多算注意
+  if (check.id === "ports" && portsListening(check.data as DoctorCheckDataById["ports"])) return "warn";
   if (check.id === "external") {
     const data = check.data as DoctorCheckDataById["external"];
     const entries = data.entries ?? [];
@@ -210,9 +215,15 @@ export function overallLevel(groups: readonly DoctorGroupView[]): DoctorLevel {
 /** 服务管家推来的入口里有从外面打不通的 */
 const unreachableOf = (data: DoctorCheckDataById["external"]) => (data.entries ?? []).filter((entry) => entry.reachable === false);
 
+/** 两个端口都连得上（有人在听；是不是二狗自己另说） */
+const portsListening = (data: DoctorCheckDataById["ports"]) => data.localUp && data.externalUp;
+
+/** 查到的占用者里没有二狗自己的端口（查不到占用者的不算：只报通不通） */
+const portsHeldByOthers = (data: DoctorCheckDataById["ports"]) => (data.unverified ?? []).filter((entry) => entry.pids.length > 0);
+
 /** 每一项的 ok 判法 */
 const OK: { readonly [Id in DoctorCheckId]: (data: DoctorCheckDataById[Id]) => boolean } = {
-  ports: (data) => data.localUp && data.externalUp,
+  ports: (data) => portsListening(data) && portsHeldByOthers(data).length === 0,
   node: (data) => data.running.split(".")[0] === data.expected,
   pi: (data) => data.version !== undefined,
   supervisor: (data) => data.running && data.link !== "waiting",
@@ -249,6 +260,8 @@ function piFix(install: DoctorOptions["install"]): string {
  */
 function fixOf(id: DoctorCheckId, data: DoctorCheckData, install: DoctorOptions["install"]): string {
   if (id === "pi") return piFix(install);
+  // 437：都连得上、只是核不出是不是二狗自己：多半是 netstat 一时报错，过一会儿再查
+  if (id === "ports" && portsListening(data as DoctorCheckDataById["ports"])) return "doctor.fix.portsUnverified";
   if (id === "supervisor") {
     const supervisor = data as DoctorCheckDataById["supervisor"];
     return supervisor.running && supervisor.link === "waiting" ? "doctor.fix.supervisorLink" : "doctor.fix.supervisor";
@@ -408,39 +421,63 @@ export function nodeProbe(): DoctorCheckDataById["node"] {
   return { running: process.version.replace(/^v/, ""), expected: String(DOCTOR_NODE_MAJOR) };
 }
 
+/** 端口那一项核占用者用的（测试换成假的） */
+export interface PortsProbeOptions {
+  /** 在这个端口上听的进程号；不给是 listeningPids(port, { known: true })（netstat 看几眼，再问系统的连接表）。空的是查不到 */
+  owners?: (port: number) => Promise<readonly number[]>;
+  /** 二狗自己的进程号；不给是 process.pid */
+  pid?: number;
+}
+
 /**
  * 两个端口上是不是二狗自己在听（端口号由网关给：生产里就是配置里的 ports，测试里是系统挑的）。
- * 先连一下 127.0.0.1:port 看有没有人在听；在听的话再核占用它的进程号是不是自己（Windows 上 netstat 查得到）。
- * 查不到占用者（不是 Windows、netstat 跑不了）时只按"有人在听"算——这一点做不到就只报通不通
+ * 先连一下 127.0.0.1:port 看有没有人在听（连不上再连一次；限时只数事件循环给了的时间，loop-time.ts）——连不上才是"没人在听"。
+ * 连得上再核占用它的进程号是不是自己（Windows 上 netstat、系统的连接表查得到）：核出来是自己就是好的；
+ * 查不到占用者、或者查到的里没有自己，不判"没人在听"（437：netstat 靠不住，连得上就是有人在听），记进 unverified——
+ * 查不到的照样算好（只报通不通，句子里说没核）；查到的是别的进程算注意（legacyLevel）
  */
-export function portsProbe(ports: () => { local: number; external: number }): () => Promise<DoctorCheckDataById["ports"]> {
+export function portsProbe(ports: () => { local: number; external: number }, options: PortsProbeOptions = {}): () => Promise<DoctorCheckDataById["ports"]> {
+  const owners = options.owners ?? ((port: number) => listeningPids(port, { known: true }));
+  const self = options.pid ?? process.pid;
+
+  /** 连得上吗；连得上时核出来不是自己的话，交回查到的进程号（查不到是空的） */
+  const portState = async (port: number): Promise<{ up: boolean; others?: number[] }> => {
+    if (!(Number.isInteger(port) && port > 0)) return { up: false };
+    if (!(await portListening(port)) && !(await portListening(port))) return { up: false };
+    let pids: readonly number[];
+    try {
+      pids = await owners(port);
+    } catch {
+      pids = [];
+    }
+    return pids.includes(self) ? { up: true } : { up: true, others: [...pids] };
+  };
+
   return async () => {
     const { local, external } = ports();
-    const [localUp, externalUp] = await Promise.all([portIsOurs(local), portIsOurs(external)]);
-    return { local, external, localUp, externalUp };
+    const [localState, externalState] = await Promise.all([portState(local), portState(external)]);
+    const unverified = [
+      { port: local, state: localState },
+      { port: external, state: externalState },
+    ].flatMap(({ port, state }) => (state.others === undefined ? [] : [{ port, pids: state.others }]));
+    return { local, external, localUp: localState.up, externalUp: externalState.up, ...(unverified.length > 0 ? { unverified } : {}) };
   };
 }
 
-/** 连一下 127.0.0.1 的这个端口：在听、而且占着它的是这个进程（查不到占用者时按在听算） */
-async function portIsOurs(port: number): Promise<boolean> {
-  if (!(Number.isInteger(port) && port > 0)) return false;
-  if (!(await portListening(port))) return false;
-  // 连得上，已知有人在听：netstat 这一眼没有、状态乱报也再找找
-  const owners = await listeningPids(port, { known: true });
-  return owners.length === 0 || owners.includes(process.pid);
-}
-
-/** 探活最多等这么久（毫秒）：本机端口不该等太久，体检不能被一个端口拖住 */
+/** 探活最多等这么久（毫秒，只数事件循环给了的时间）：本机端口不该等太久，体检不能被一个端口拖住 */
 const PORT_PROBE_TIMEOUT_MS = 500;
 
+/** 连一下 127.0.0.1 的这个端口：连上了是在听；被拒、到点没连上是没在听 */
 function portListening(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = net.connect({ host: "127.0.0.1", port });
+    let cancel: (() => void) | undefined;
     const done = (up: boolean) => {
+      cancel?.();
       socket.destroy();
       resolve(up);
     };
-    socket.setTimeout(PORT_PROBE_TIMEOUT_MS, () => done(false));
+    cancel = afterLoopTime(PORT_PROBE_TIMEOUT_MS, () => done(false));
     socket.once("connect", () => done(true));
     socket.once("error", () => done(false));
   });

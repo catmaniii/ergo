@@ -583,8 +583,8 @@ The voice plugin brings five checks of its own. Voice replies count as on when s
 
 | Check | How it's judged | If it's wrong |
 |---|---|---|
-| Speech synthesis | The synthesis service (audio.cpp) can be reached. ergo already probes it every minute; the checkup reads that result and probes right away if it's been too long | Can't reach it, or the trial synthesis failed: broken. If it can't be reached, press **Start it** (or start the service the fix names in Settings · Services); if the trial failed, press **Take a look** to restart it and read its log in Settings · Services. The GPU being busy with another program is a heads-up |
-| Speech recognition | Recognition can be used. The process ergo starts itself is judged by its status; a service run by the service manager or on audio.cpp gets its port probed | Follow the fix: check that service in the service manager, or the Python in the config |
+| Speech synthesis | The synthesis service (audio.cpp) can be reached. ergo already probes it every minute; the checkup reads that result and probes right away if it's been too long. In the first minute after ergo starts, not reaching it counts as not checked, not broken | Can't reach it, or the trial synthesis failed: broken. If it can't be reached, press **Start it** (or start the service the fix names in Settings · Services); if the trial failed, press **Take a look** to restart it and read its log in Settings · Services. The GPU being busy with another program is a heads-up |
+| Speech recognition | Recognition can be used. The process ergo starts itself is judged by its status; a service run by the service manager or on audio.cpp gets its port probed (in the first minute after a start, not reaching it counts as not checked) | Follow the fix: check that service in the service manager, or the Python in the config |
 | Reference voices | There's at least one | None at all is a heads-up: import some clean speech in Settings · Voice |
 | ffmpeg | It's on PATH | Not found is a heads-up: without it reference voices can only be imported as WAV. Install ffmpeg and restart ergo |
 | NVIDIA GPU | There is one | None is just a hint (not applicable): synthesis and recognition run on the CPU and will be slow |
@@ -607,7 +607,7 @@ ergo's own eight checks:
 
 | Check | What it checks | If it's wrong |
 |---|---|---|
-| Ports | Something is listening on 8810 and 8811, and it's ergo itself | Close the program using the port, or change the port and restart ergo |
+| Ports | Something is listening on 8810 and 8811, and it's ergo itself (answering a connection counts as listening; if it can't tell which program is listening, it just says so and stays OK) | Can't connect: broken — close the program using the port, or change the port and restart ergo. Connects but the program found on it isn't ergo: a heads-up — most likely the system's port table was briefly wrong, check again in a moment |
 | Node version | The running Node matches what's required | Install the Node that comes with ergo, or Node 22, then start ergo |
 | pi version | The version of pi, ergo's agent core, can be read | Without it ergo can't chat. For a one-line install, run `ergo uninstall --keep-data` first, then run the install command again; data isn't touched. For an npm install, reinstall with `npm i -g ergo-ai@latest`. If you run from the repository, run `npm ci` in the repository folder, then restart ergo |
 | Service manager | The service manager responds; if it started ergo, ergo's link to it is up (down and reconnecting is a heads-up) | Run `ergo start` to bring it up again; if that doesn't help, look at its log. If only the link is down and the service manager just restarted, wait a few seconds and check again |
