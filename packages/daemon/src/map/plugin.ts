@@ -18,7 +18,7 @@
 // - 移除时"连数据删"多删插件自己的存储（用量）。
 // 433 加了国外的查地点、算路线（OpenStreetMap 的免费服务：Nominatim、OSRM，不用 Key，osm-lookup.ts）：
 // - 工具改成插件自己经 ctx.agent.tools.register 给秘书（插件在运行就有）：国内的点用高德、国外的用 OpenStreetMap，按点自动挑；
-//   没填高德的 Key、高德断开、Key 不认时国外照样能查，国内的照实说"国内要填高德 Key"；
+//   没填高德的 Key、关了它的按需查、Key 不认时国外照样能查，国内也改用 OpenStreetMap（结果里提一句店名和小路可能不全）；
 // - 高德的"按需查"开关照样在数据源页上（usages.query.ownTools：内核不替它给工具），查国内的点之前经 KERNEL.dataSourceUsage 看它开没开；
 // - OpenStreetMap 的规矩：每秒最多 1 次、带能认出二狗的 User-Agent、结果只在内存里缓存一天（停用时扔掉）、不做输入联想。
 import path from "node:path";
@@ -134,7 +134,7 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
       });
       ctx.provide(MAP, service);
       ctx.provide(MAP_INTERNAL, service);
-      // 查地点、算路线的五个工具给秘书（433：插件在运行就有；国内的点没填高德 Key 时工具照实说）
+      // 查地点、算路线的五个工具给秘书（433：插件在运行就有；高德能不能用每次查时现看，不能用时国内也走 OpenStreetMap）
       ctx.agent.tools.register({ to: { agents: ["secretary"] }, tools: () => service.lookupTools() });
       // 体检：高德的用量（409 的插件体检项；插件宿主没有 ctx.doctor 时不登记）
       registerAmapDoctor(ctx, () => service.amapUsageFinding());
