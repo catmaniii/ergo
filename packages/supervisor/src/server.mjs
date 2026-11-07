@@ -5,7 +5,7 @@ import path from 'node:path';
 import http from 'node:http';
 import { WebSocketServer } from 'ws';
 import { WEBUI_DIR, DATA_DIR, DATA_DIR_FROM } from './paths.mjs';
-import { tail, logEntries, resolveLogFile, readRange, streamLog, INITIAL_BYTES } from './logs.mjs';
+import { tail, logEntries, entryFile, readSpan, streamLog, INITIAL_BYTES } from './logs.mjs';
 import { scan } from './sentinel.mjs';
 import { checkAll } from './exposure.mjs';
 import { attachLink } from './link.mjs';
@@ -67,14 +67,14 @@ export async function serve(sup, { lifeline = false } = {}) {
         const entries = logEntries(sup, svc);
         const entry = entries[idx];
         if (!entry) return send(res, 404, { ok: false, why: '这个服务没有登记日志' });
-        return send(res, 200, { ok: true, label: entry.label, ...tail(entry.file, { lines: Number(url.searchParams.get('lines') || 200) }) });
+        return send(res, 200, { ok: true, label: entry.label, ...tail(entry.file, { lines: Number(url.searchParams.get('lines') || 200), rotated: entry.rotated }) });
       }
       // ---- 日志页（logs.html）：只读，整份可往前翻，新输出实时推（SSE）
       if (p === '/api/logs/sources') {
         const svc = sup.services.get(url.searchParams.get('id'));
         if (!svc) return send(res, 404, { ok: false, why: '没有这个服务' });
         const sources = logEntries(sup, svc).map((e, i) => {
-          const file = resolveLogFile(e.file);
+          const file = entryFile(e);
           let size = null;
           try { if (file) size = fs.statSync(file).size; } catch {}
           return { i, label: e.label, path: e.file, file, size };
@@ -85,21 +85,23 @@ export async function serve(sup, { lifeline = false } = {}) {
         const svc = sup.services.get(url.searchParams.get('id'));
         const idx = Number(url.searchParams.get('i') || 0);
         if (!svc || !logEntries(sup, svc)[idx]) return send(res, 404, { ok: false, why: '没有这个服务或这份日志' });
-        // 断线重连时浏览器自动带上 Last-Event-ID（= 上次读到的字节位置），从那里续，不重放、不漏
+        // 断线重连时浏览器自动带上 Last-Event-ID（= 上次读到的位置），从那里续，不重放、不漏。
+        // 命令行输出是管理器切的（rotated）：位置可能是负的（在切下来的 .1 .2 … 里），见 logs.mjs 文件头
         const last = Number(req.headers['last-event-id']);
-        return streamLog(req, res, () => {
-          const e = logEntries(sup, svc)[idx];
-          return e ? resolveLogFile(e.file) : null;
-        }, { from: Number.isFinite(last) && req.headers['last-event-id'] !== '' ? last : null });
+        return streamLog(req, res, () => entryFile(logEntries(sup, svc)[idx]), {
+          from: Number.isFinite(last) && req.headers['last-event-id'] !== '' ? last : null,
+          rotated: !!logEntries(sup, svc)[idx].rotated,
+        });
       }
       if (p === '/api/logs/range') {
         const svc = sup.services.get(url.searchParams.get('id'));
         const entry = svc && logEntries(sup, svc)[Number(url.searchParams.get('i') || 0)];
-        const file = entry && resolveLogFile(entry.file);
+        const file = entryFile(entry);
         if (!file) return send(res, 404, { ok: false, why: '没有这份日志' });
-        const end = Math.max(0, Number(url.searchParams.get('end')) || 0);
+        // 管理器切的命令行输出：end 可以是负的（往前翻进了 .1 .2 …），跨过切开的地方时接起来、标一行
+        const end = entry.rotated ? Number(url.searchParams.get('end')) || 0 : Math.max(0, Number(url.searchParams.get('end')) || 0);
         const bytes = Math.min(8 * 1048576, Math.max(65536, Number(url.searchParams.get('bytes')) || INITIAL_BYTES));
-        return send(res, 200, { ...readRange(file, Math.max(0, end - bytes), end), file });
+        return send(res, 200, { ...readSpan(file, end - bytes, end, { rotated: entry.rotated }), file });
       }
 
       if (p === '/api/action' && req.method === 'POST') {
@@ -166,6 +168,8 @@ export async function serve(sup, { lifeline = false } = {}) {
     if (scanning) return;
     scanning = true;
     try {
+      // 命令行输出超了上限的：没人占着的当场切，正被服务占着的等它下次启动（rotate.mjs）
+      try { sup.rotateLogs(); } catch (e) { warn('切日志出错', { error: String(e) }); }
       try { lastScan = await scan(sup); } catch {}
       try { sup.exposureChecks = await checkAll(sup); } catch {}
       try { await sup.refreshTailnet(); } catch (e) { warn('tailnet 巡检出错', { error: String(e) }); }

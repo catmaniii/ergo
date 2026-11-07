@@ -262,7 +262,7 @@ Set-Content -NoNewline -Encoding ascii "$env:USERPROFILE\.ergo\secrets\deepseek-
    ```
 
 - Once linked, the daemon reports its own health and whether it is busy: while a task is executing it shows **busy**, and **stop when idle** waits for it.
-- The daemon's output is in `logs\ergo-daemon.out.log` under the supervisor's data directory, and live in the supervisor's web UI.
+- The daemon's output is in `logs\ergo-daemon.out.log` under the supervisor's data directory, and live in the supervisor's web UI. Once it passes 20 MB it is split before the daemon's next start: older output moves to `.1`, `.2`, `.3` next to it (only 3 are kept), and the web UI keeps scrolling back into them.
 - If it is killed or crashes, the supervisor restarts it with backoff; work in progress resumes by its rules, and any operation that may or may not have completed is handed to you to confirm instead of being silently redone.
 
 ### Updating from source

@@ -104,7 +104,7 @@ node bin\lsm.mjs uninstall-autostart   # 不想要了就删掉
 |---|---|
 | `registry\` | 你的服务清单：`manager.yaml`、`services\*.yaml`、开机自启名单、tailnet 入口清单 |
 | `state.json` | 账本：各服务的 PID、link token |
-| `logs\` | 管理器日志、审计、各服务的命令行输出 |
+| `logs\` | 管理器日志、审计、各服务的命令行输出（单个超过 20 MB 就切开，留最近 3 份，`manager.yaml` 的 `logs:` 能改，见 [docs/service-schema.md](./docs/service-schema.md) 的「日志切分」） |
 | `.secrets\` | 密钥：WebUI 口令、tailnet 证书、云账号的只读 AccessKey |
 | `tailnet-routes.json` | tailnet 网关的路由表（管理器生成） |
 | `vps-setup.json`、`vps-scripts\` | `lsm vps setup` / `site add` 搭的 VPS：装了什么、走到哪一步、`scan` 认领的站点；最近显示给你看的脚本（用到才有，专用钥匙在 `.secrets\vps-setup\`） |

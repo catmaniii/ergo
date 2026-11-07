@@ -307,7 +307,8 @@ export function createManage(sup, { restartSelfWaitMs = RESTART_SELF_WAIT_MS } =
         if (!Number.isInteger(i) || !sources[i]) return fail('not-found', `${t.id} 没有第 ${i} 份日志（有 ${sources.length} 份）`);
         const n = Math.min(lines, LOG_LINES_MAX);
         // 多要一行：文件以换行结尾时 tail 的最后一「行」是空的，不能让它占掉一个名额
-        const r = tail(sources[i].file, { lines: n + 1, maxBytes: LOG_MAX_BYTES });
+        // 命令行输出刚切过、现在这份很短时，接着给切下来的 .1 的尾巴（中间标一行）
+        const r = tail(sources[i].file, { lines: n + 1, maxBytes: LOG_MAX_BYTES, rotated: sources[i].rotated });
         if (!r.ok) return fail('not-found', r.why);
         const got = r.lines.split(/\r?\n/);
         if (got.at(-1) === '') got.pop();
