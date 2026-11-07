@@ -486,9 +486,11 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 Gmail 可以连几个账号（`google/gmail-accounts.ts`）。密钥区 `secrets/data-sources/google-gmail.json` 的 `values` 里是 `accounts`（几个账号的 id，逗号分开）和每个账号的 `account.<id>.address`、`.password`、`.enabled`（`on` / `off`）；id 是地址（小写）的哈希前 10 位，同一个地址断开再加还是它，事件里记 id（推不回地址）。一个值一格，不拼成一段 JSON：内核按格把出错原因里的密钥换成 `***`。邮件编号带账号（`<账号 id>.<邮箱>-<UIDVALIDITY>-<UID>`），几个账号的 UID 会撞。页面上是完整邮箱，日志和给模型的内容是打了码的；内核会把这一格里的完整邮箱从出错原因里换掉，所以插件写出错原因时用打码的。
 
-地图插件（`map/`，[ADR-0051](adr/0051-map-amap-js-and-osm-tiles.md)）：数据源 `amap`"高德地图"只用来填 Key（Web 端 Key、安全密钥、Web 服务 Key，先测再存），不导入、现在不给秘书工具；转发高德请求时插件经内核服务 `KERNEL.dataSourceSecrets` 现取自己那一格。坐标在 `packages/protocol/src/geo.ts`（WGS-84 和 GCJ-02 互转、在不在大陆），二狗里一律存、传 WGS-84，只在跟高德来回时转。
+地图插件（`map/`，[ADR-0051](adr/0051-map-amap-js-and-osm-tiles.md)）：数据源 `amap`"高德地图"只用来填 Key（Web 端 Key、安全密钥、Web 服务 Key，先测再存），不导入，数据源本身不给秘书工具（地图插件另给秘书"画在地图上"，见下面的地图卡片）；转发高德请求时插件经内核服务 `KERNEL.dataSourceSecrets` 现取自己那一格。坐标在 `packages/protocol/src/geo.ts`（WGS-84 和 GCJ-02 互转、在不在大陆），二狗里一律存、传 WGS-84，只在跟高德来回时转。
 
 我的足迹（[ADR-0052](adr/0052-map-footprints-local-only.md)）：`GET /api/map/day?date=YYYY-MM-DD` 经地图插件的服务 `MAP_DAY`（`map/day.ts`）现取"手机"插件的 `footprints(date)`（纯函数在 `phone/footprints.ts`）——那一天的点、停留、有地点的照片、起了名的常去的地方、有足迹的日子。手机插件是地图插件的可选依赖（`wants`），没启用时回"数据源-手机插件没启用"。停留的参数和记忆里的位置摘要同一套（`phone/summaries.ts`，只在那里定一次）。算的时候不联网，点只在页面里画（`plugins/map/footprints.ts` 整理成 `MapScene`，编号 `fp-` 开头），不发给任何地图服务。
+
+聊天里的地图卡片（[ADR-0054](adr/0054-map-chat-cards.md)）：秘书的 `show_on_map`（`map/show-on-map.ts`，只给秘书）把某一天的足迹、一组点、一条路线、查地点和路线的结果画成卡片类型 `map`（`map/card.ts`，出来就是已处理）。卡上只存日期、编号或秘书给的点；查到的那一份按编号经 `GET /api/map/drawing?lookup=`（服务 `MAP_DRAWING`，`map/drawing.ts`）从地图插件的内存里取，过期了 404。网页的缩略图（`plugins/map/MapThumb.tsx`）用地图页那一套 OpenStreetMap 引擎自己画，聊天页不加载高德的脚本；底图一律经 `scene.ts` 的 `chooseBasemap` 挑，画着足迹时一律 OpenStreetMap（`AMAP_WITH_FOOTPRINTS`）。高德查来的只画在高德地图上（`plugins/map/amap-results.ts`：卡上不画缩略图，地图页经 `MapCanvas` 的 `amapScene` 只在底图是高德时画）。卡片点开去 `#/more/map/<日期>` 或 `#/more/map/card/<卡片编号>`。
 
 ### 网页插件
 
