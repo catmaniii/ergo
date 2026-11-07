@@ -298,5 +298,17 @@
   "doctor.dbWal.ok": "不大（最大的 {size}）",
   "doctor.dbWal.big": "偏大（超过 {limit}）：{files}",
   "doctor.dbWal.file": "{db} 的 {size}",
-  "doctor.fix.dbWal": "二狗重启时会把它并回数据库；重启后还这么大，把这条告诉开发者"
+  "doctor.fix.dbWal": "二狗重启时会把它并回数据库；重启后还这么大，把这条告诉开发者",
+  "doctor.watch.title.error": "{name}坏了",
+  "doctor.watch.title.warn": "{name}有问题",
+  "doctor.watch.source": "体检",
+  "doctor.watch.fix": "怎么修：{fix}",
+  "doctor.watch.note": "二狗在后台每 {minutes} 分钟看一眼，连着几次都这样才放进待办；修好了这条会自动收起。",
+  "doctor.watch.intro": "后台盯着：每 {minutes} 分钟看一眼备份、夜里整理记忆、语音合成和识别（开了的才看）、模型近况、对话长度，连着几次不正常就放进待办，修好了自动收起。",
+  "doctor.watch.muted": "这几件点了「不再提醒这件事」，再不正常也不放进待办：",
+  "doctor.watch.mutedAt": "{time} 起不再提醒",
+  "doctor.watch.unmute": "恢复提醒",
+  "doctor.watch.unmuting": "正在恢复…",
+  "doctor.watch.unmuted": "恢复了：{name}再不正常会放进待办",
+  "doctor.watch.unmuteFailed": "没恢复成：{error}"
 }

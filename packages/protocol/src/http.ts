@@ -306,6 +306,8 @@ const SERVICE_EVENTS = "service-events";
 const PROJECT_OPS_MCP = "project-ops-mcp";
 const SETUP = "setup";
 const DOCTOR = "doctor";
+/** 体检页上"恢复提醒"（416）：/api/doctor/unmute */
+const UNMUTE = "unmute";
 const APP_UPDATE = "app-update";
 /** 安卓安装包在 /api/app-update/ 下的名字：.apk 结尾，按地址猜文件名的下载器也存成 .apk */
 const ANDROID_APK = "android.apk";
@@ -554,6 +556,11 @@ export const HTTP_PATHS = {
    */
   doctor: api(DOCTOR),
   /**
+   * 体检后台盯着（416）：POST 把一项从"不再提醒"里拿掉（DoctorUnmuteBody：块、项 → DoctorWatchView），再坏了照常放进待办。
+   * 体检页上"恢复提醒"用；"不再提醒"是在待办里点的（事项的动作）
+   */
+  doctorUnmute: api(DOCTOR, UNMUTE),
+  /**
    * 手机 App 的更新（票 399）：GET 二狗带着哪一版安卓安装包（AppUpdateView：版本、versionCode、SHA-256、大小），
    * 设置里"有新版"、提示条的"更新"看它。和别的接口一样，外网端口要设备凭证
    */
@@ -764,6 +771,7 @@ export type HttpRoute =
   | { route: "project_ops_mcp" }
   | { route: "setup" }
   | { route: "doctor" }
+  | { route: "doctor_unmute" }
   | { route: "app_update" }
   | { route: "android_app_package" }
   | { route: "connection_addresses" }
@@ -917,6 +925,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === PROJECT_OPS_MCP && id === undefined) return { route: "project_ops_mcp" };
   if (head === SETUP && id === undefined) return { route: "setup" };
   if (head === DOCTOR && id === undefined) return { route: "doctor" };
+  if (head === DOCTOR && id === UNMUTE && tail === undefined) return { route: "doctor_unmute" };
   if (head === APP_UPDATE && tail === undefined) {
     if (id === undefined) return { route: "app_update" };
     if (id === ANDROID_APK) return { route: "android_app_package" };

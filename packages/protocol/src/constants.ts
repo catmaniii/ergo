@@ -1054,6 +1054,12 @@ export const NOTICE_TYPES = [
    * data 是 FolderGrantExpiringData
    */
   "folder_grant_expiring",
+  /**
+   * 体检后台盯着的几项（416，daemon/src/doctor/watch.ts）连着几次都不正常：哪一项、从什么时候起、怎么修。不卡任务；
+   * 动作"去体检页看看"由前端带到设置 · 体检（不算处理），"不再提醒这件事"记住不再放这一项（体检页上能恢复）。
+   * 同一项只放一条；修好了系统替你记成处理过（DOCTOR_WATCH_FIXED）并归档。data 是 DoctorProblemNoticeData
+   */
+  "doctor_problem",
 ] as const;
 
 // 待我处理事项的动作按字认（存进事件、点了按字找处理的），不跟着语言变；界面上显示时用 inboxActionText 换成当前语言
@@ -1077,6 +1083,15 @@ export const HOLIDAY_UPDATE_ACTION = "发起更新任务"; // @i18n-ignore fixed
 
 /** "交给我做"事项的处理动作 */
 export const HAND_OVER_DONE = "已完成"; // @i18n-ignore fixed：事项的动作按字认
+
+/** 体检后台发现问题的事项（doctor_problem）的动作：去设置 · 体检看（不算处理；修好后自动收起） */
+export const DOCTOR_OPEN_ACTION = "去体检页看看"; // @i18n-ignore fixed：事项的动作按字认
+
+/** 体检后台发现问题的事项的动作：这一项以后不再放进待办（记住，直到在体检页点"恢复提醒"） */
+export const DOCTOR_MUTE_ACTION = "不再提醒这件事"; // @i18n-ignore fixed：事项的动作按字认
+
+/** 体检后台发现问题的事项修好了：系统替你记成处理过的那一项（不是按钮，界面上显示"✓ 已经好了"） */
+export const DOCTOR_WATCH_FIXED = "已经好了"; // @i18n-ignore fixed：事项的处理结果按字认
 
 export type NoticeType = (typeof NOTICE_TYPES)[number];
 

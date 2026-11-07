@@ -61,6 +61,7 @@ import {
   type FolderGrantsView,
   type FolderGrantUsesView,
   ConnectionAddressesBody,
+  DoctorUnmuteBody,
   CompleteUploadBody,
   BackupConfigBody,
   BackupFolderCheckBody,
@@ -160,6 +161,7 @@ import type { SafetySettingsService } from "../config/safety-settings.ts";
 import type { AutostartSwitch } from "../lsm/autostart-switch.ts";
 import type { SetupStateService } from "../config/setup-state.ts";
 import type { DoctorService } from "../doctor/doctor.ts";
+import type { DoctorWatch } from "../doctor/watch.ts";
 import type { ConnectionAddressesService } from "../pairing/addresses.ts";
 import type { AppPackages } from "../pairing/app-package.ts";
 import type { WebSettingsService } from "../web/index.ts";
@@ -277,6 +279,11 @@ export interface HttpApiOptions {
   setup?: Pick<SetupStateService, "view" | "mark">;
   /** 体检（319b）：GET /api/doctor（八项检查现在的样子，每次现算）；不给就没有这个接口 */
   doctor?: Pick<DoctorService, "view">;
+  /**
+   * 体检后台盯着（416）：GET /api/doctor 带上它的 view()（多久看一眼、哪几项点了"不再提醒"），POST /api/doctor/unmute 是体检页上的
+   * "恢复提醒"；不给就不带、没有这个接口
+   */
+  doctorWatch?: Pick<DoctorWatch, "view" | "unmute">;
   /**
    * 二狗带着的手机 App 安装包（票 399）：GET /api/app-update（哪一版）、GET /api/app-update/android.apk（安装包本身）。
    * 外网端口上和别的接口一样要设备凭证（网关挡），没配对的拿不到。不给就没有这两个接口
@@ -1191,7 +1198,18 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
           // 体检（319b）：八项检查现在的样子，每次现算；只查本机（除探本机端口外不联网、不调用模型、不改状态）
           async GET(_req, res) {
             if (!options.doctor) throw new HttpError("not_found", t("gateway.http.noDoctor"));
-            sendJson(res, 200, await options.doctor.view());
+            const view = await options.doctor.view();
+            sendJson(res, 200, options.doctorWatch ? { ...view, watch: options.doctorWatch.view() } : view);
+          },
+        };
+      case "doctor_unmute":
+        return {
+          // 体检页上"恢复提醒"（416）：把一项从"不再提醒"里拿掉，回后台盯着那一段的新样子
+          async POST(req, res) {
+            if (!options.doctorWatch) throw new HttpError("not_found", t("gateway.http.noDoctor"));
+            const body = checkHttpBody(DoctorUnmuteBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badDoctorUnmute", { message: body.message }));
+            sendJson(res, 200, options.doctorWatch.unmute(body.value));
           },
         };
       case "connection_addresses":

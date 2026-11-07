@@ -164,7 +164,42 @@ export interface DoctorView {
   counts: { error: number; warn: number; unknown: number };
   /** 查的时刻（ISO） */
   at: string;
+  /** 后台盯着（416）：多久看一眼、哪几项点了"不再提醒"。GET /api/doctor 才带（秘书的体检工具读的那份没有） */
+  watch?: DoctorWatchView;
 }
+
+/**
+ * 体检后台盯着（416）：每隔一段时间只查几项（备份、夜里整理记忆、语音合成和识别、模型近况、对话长度），连着几次不正常就在待办里放一条
+ * （notice doctor_problem）。哪一项用"块 + 项"认：块是 DOCTOR_CORE_GROUP 或插件名，项是块里的 id
+ */
+export interface DoctorWatchKey {
+  group: string;
+  id: string;
+}
+
+/** 点了"不再提醒这件事"的一项：名字按当前语言（守护进程拼好）、从什么时候起不再提醒（ISO） */
+export interface DoctorWatchMutedView extends DoctorWatchKey {
+  title: string;
+  at: string;
+}
+
+/** 体检页上"后台盯着"那一段要的 */
+export interface DoctorWatchView {
+  /** 多久看一眼（分钟） */
+  everyMinutes: number;
+  /** 不再提醒的（按点的先后） */
+  muted: DoctorWatchMutedView[];
+}
+
+/** 待办里"体检发现"事项（notice doctor_problem）的 data：哪一项、当时几级、名字（文案键 + 参数）、从什么时候起 */
+export interface DoctorProblemNoticeData extends DoctorWatchKey {
+  level: "warn" | "error";
+  title: DoctorMessage;
+  since?: string;
+}
+
+/** 一件事的键（"块/项"）：存"不再提醒"、认同一件事用 */
+export const doctorWatchKey = (key: DoctorWatchKey): string => `${key.group}/${key.id}`;
 
 /** 五种结果的轻重：越大越差。unknown、na 不参与比较（排最低） */
 const LEVEL_RANK: Readonly<Record<DoctorLevel, number>> = { na: -2, unknown: -1, ok: 0, warn: 1, error: 2 };

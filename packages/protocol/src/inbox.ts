@@ -69,5 +69,8 @@ const INBOX_ACTION_TEXT_KEYS: Readonly<Record<string, string>> = {
   "阶段改成自动验收，交给评审了": "protocol.inboxAction.handedToReview",
   先不管: "protocol.inboxAction.ignoreForNow",
   把没过的阶段也重做: "protocol.inboxAction.redoFailed",
+  去体检页看看: "protocol.inboxAction.openDoctor",
+  不再提醒这件事: "protocol.inboxAction.muteDoctor",
+  已经好了: "protocol.inboxAction.doctorFixed",
 };
 // @i18n-ignore-end

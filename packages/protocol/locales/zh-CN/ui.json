@@ -1161,6 +1161,7 @@
   "ui.inboxNotice.kind.componentUpdateAvailable": "组件有新版本",
   "ui.inboxNotice.kind.appOutdated": "App 需要升级",
   "ui.inboxNotice.kind.folderGrantExpiring": "目录授权快到期",
+  "ui.inboxNotice.kind.doctorProblem": "体检发现",
   "ui.inboxNotice.kind.handOver": "交给我做",
   "ui.inboxNotice.kind.holidayDataMissing": "节假日数据缺失",
   "ui.inboxNotice.kind.watchCategoriesBroken": "关注类别设置有问题",
