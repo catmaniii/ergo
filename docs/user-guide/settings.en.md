@@ -626,6 +626,13 @@ ergo itself has ten more checks, all based on what this computer has on record:
 
 The three hints always count as OK and don't lower the overall status; they just show the numbers.
 
+**Watching in the background:** you don't have to open this page. Every 5 minutes ergo looks at a few checks on its own: backups, the nightly memory tidy-up, speech synthesis and speech recognition (only if you use them), recent model calls and conversation length. When one is heads-up or broken 3 times in a row (or twice, more than a quarter of an hour apart), ergo puts a **Checkup found** item in the Inbox: what it is, what the check found, since when, and how to fix it, with **Open the checkup** and **Don't remind me about this**. Nothing is checked in the first 5 minutes after ergo starts, and a single blip doesn't count.
+
+- One item per problem. If you archive or delete it, ergo doesn't add it again this time round. If ergo already put a notice about the same thing in the Inbox (such as **Backup failed**) and you haven't handled it, no extra item is added.
+- Once it's fixed (back to OK or not applicable, or the plugin was disabled), the item closes by itself and says **Fixed now**; if it breaks again later you get a new one.
+- **Don't remind me about this** keeps that check out of the Inbox from then on. The **Watching in the background** part at the bottom of this page lists those checks; press **Remind me again** to turn reminders back on.
+- The background checks are the same regular checks: no network, no model calls. When the service manager decides whether to restart ergo it only looks at whether ergo itself is up and its plugins are loaded, not at these checks, so a busy model provider never gets ergo restarted.
+
 **Good to know:**
 
 - The regular checkup only looks at this machine: it doesn't go online, call a model, or change any settings. It may connect to the ports of local services ergo uses (speech synthesis, for example).
