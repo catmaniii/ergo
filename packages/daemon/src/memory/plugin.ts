@@ -40,7 +40,7 @@
 // 记录（card_stale）、记忆删除卡的每个版本；素材库不动（素材属于内核，设置里写明去成批删除删），删除类的记忆命令不碰（它是删除记录，
 // 改写了重建时被删的素材会回来，ADR-0008）。
 // 体检（412，doctor.ts）：setup 里经 ctx.doctor.register 登记自己的六项（向量索引、推理库、记忆系统、记忆简报、每晚整理、整理前导入数据源），
-// 停用时跟着撤；记忆简报的统计在 brief-stats.ts（message-brief.ts 每问完一次记一笔）。
+// 停用时跟着撤；记忆简报那一项读简报自己的统计（message-brief.ts 的 stats()，427）。
 // 了解你访谈，interview.ts：数据契约里登记约访卡（卡片类型 interview，动作现取服务）、移除时连数据删访谈的记录；
 // 装配：访谈的服务（MEMORY_INTERVIEWS：记忆管理员的访谈工具、组合根给访谈里的话标编号、网关的 /api/memory/interview 用它）、
 // 每周六 10:00 约访的内部作业、秘书开访谈的快速动作 start_interview。访谈本身在记忆管理员的会话里（它是内核建的，curator.ts）。
@@ -87,7 +87,6 @@ import { readMaterialTool, searchMaterialsTool } from "./search-tool.ts";
 import { createProfileFactExpiry, learnedAbout } from "./personal-files-link.ts";
 import { createWovenQuestions } from "./woven-questions.ts";
 import { createMessageBriefs } from "./message-brief.ts";
-import { createBriefStats } from "./brief-stats.ts";
 import { memoryDoctorChecks } from "./doctor.ts";
 import type { ReasoningDbIssue } from "./rg-db.ts";
 import { inAbandonedBranch } from "../conversation/session-branches.ts";
@@ -284,8 +283,7 @@ export const memoryPlugin: PluginDefinition = {
     // 每带一次账本记一笔估的 token（用量页的"记忆简报"）。记忆页的设置里关掉就不带。
     // 这段正文不再直接问引擎，问记忆插件槽（宿主的 brief：插件声明了 brief 就用它的、没有拿 search 拼；插件没起来就不带）。
     // 登记在顺口问前面：两块都跟在输入后面，简报在前（背景），顺口问在后（回话末尾要带的那一句）
-    // 每问完一次记一笔（问了几次、超时几次、出错几次、最近一次用了多久；只在内存里），体检的"记忆简报"那一项读它
-    const briefStats = createBriefStats({ now: () => clock.now() });
+    // 简报自己记着每次的结局和各步用时（briefs.stats()，只在内存里），体检的"记忆简报"那一项读它
     const briefEnabled = () => ctx.optional(KERNEL.memorySettings)?.current().memoryBrief ?? DEFAULT_MEMORY_SETTINGS.memoryBrief;
     const briefs = createMessageBriefs({
       brief: (input) => (memorySlot === undefined ? Promise.resolve(undefined) : memorySlot.brief(input)),
@@ -303,7 +301,6 @@ export const memoryPlugin: PluginDefinition = {
         });
       },
       now: () => clockIso(clock),
-      stats: briefStats,
       log,
     });
     ctx.agent.context.register({
@@ -415,7 +412,7 @@ export const memoryPlugin: PluginDefinition = {
       },
       ...(memorySlot === undefined ? {} : { system: { info: () => memorySlot.info(), health: () => memorySlot.health() } }),
       briefEnabled,
-      briefStats: () => briefStats.snapshot(),
+      briefStats: () => briefs.stats(),
       enabled: () => config.memory.enabled,
       store,
       now: () => clock.now(),

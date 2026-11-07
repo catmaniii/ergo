@@ -728,8 +728,8 @@ flowchart LR
 | ✅ | `createMessageBriefs` | `packages/daemon/src/memory/message-brief.ts` | 读者引擎（醒来简报、问记忆那一份）、事件存储、素材库、开没开（现取设置）、记账（可选，插件里接 `KERNEL.usage`）、上限毫秒数（默认 3000） | `MessageBriefs` |
 | ✅ | `MessageBriefs.inputText` | `packages/daemon/src/memory/message-brief.ts` | 秘书主会话里用户本人发的一句、给谁；短应答、关着、没有引擎不带；第一次用时从会话里找回这一段带过的；按消息 id 记住 | 跟在这条输入后面的【记忆简报】块（Promise）；不带是 undefined |
 | ✅ | `MessageBriefs.replyParts` | `packages/daemon/src/memory/message-brief.ts` | 这条输入；取一次就没了 | `[MemoryBriefPart]`；没带是 undefined |
-| ✅ | `createBriefStats`、`BriefStats.record`、`BriefStats.snapshot` | `packages/daemon/src/memory/brief-stats.ts` | 时钟、窗口（默认 24 小时）、上限条数；`createMessageBriefs` 的 `stats` 每问完一次记一笔结局（带上了、没相关的、超时、出错）和用时；只在内存里，重启清零（412） | 窗口里问了几次、超时几次、出错几次、最近一次（时刻、毫秒、结局）、从什么时候起算 |
-| ✅ | `memoryDoctorChecks` | `packages/daemon/src/memory/doctor.ts` | 向量状态、推理库现状、记忆插件槽的 `info`/`health`（可选）、简报开没开和统计、`memory.enabled`、事件日志、时钟；记忆插件在 setup 里逐项 `ctx.doctor.register`（412） | 六项体检（`index`、`graph`、`system`、`brief`、`nightly`、`presync`，都是 passive）；判法是同一文件里的纯函数 `indexFinding`……`presyncFinding` |
+| ✅ | `briefWindow`、`BRIEF_WINDOW_MS` | `packages/daemon/src/memory/doctor.ts` | 简报自己的统计（`MessageBriefs.stats()`，427）、此刻；只取最近 24 小时的（412 的体检"记忆简报"读它，不另数一份） | `BriefWindow`：从什么时候起算（统计建起来的时刻、窗口起点、统计只留最近几次时留下的最早那次，取最晚的）、窗口里的几次 `MessageBriefRun` |
+| ✅ | `memoryDoctorChecks` | `packages/daemon/src/memory/doctor.ts` | 向量状态、推理库现状、记忆插件槽的 `info`/`health`（可选）、简报开没开和简报自己的统计（`MessageBriefs.stats()`）、`memory.enabled`、事件日志、时钟；记忆插件在 setup 里逐项 `ctx.doctor.register`（412） | 六项体检（`index`、`graph`、`system`、`brief`、`nightly`、`presync`，都是 passive）；判法是同一文件里的纯函数 `indexFinding`……`presyncFinding` |
 | ✅ | `MessageBriefs.onEvent` | `packages/daemon/src/memory/message-brief.ts` | 事件日志的一条（`store.onAppend`）；秘书会话的分界（压缩、清空、换模型、回退切换分支）清掉"带过的" | 无 |
 | ✅ | `isShortReply` | `packages/daemon/src/memory/message-brief.ts` | 一句话；"好的""谢谢""嗯"这类（可带语气词、标点、表情），带了正事的不算 | 是不是短应答 |
 | ✅ | `queryMemoEmbedder` | `packages/daemon/src/memory/embedder-adapter.ts` | 向量函数、记几句（默认 16）；查询向量按句子记住（记的是算的那个承诺，同时问同一句也只算一次，算失败的不留），文档向量照算（一句话的几处检索、相关门槛只算一次） | 包了一层的向量函数 |

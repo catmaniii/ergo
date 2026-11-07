@@ -1,4 +1,4 @@
-// 记忆插件自己的体检项（412，src/memory/doctor.ts）的判法，和记忆简报的统计（src/memory/brief-stats.ts）。
+// 记忆插件自己的体检项（412，src/memory/doctor.ts）的判法；记忆简报那一项读 427 的简报统计（MessageBriefs.stats()）里最近 24 小时的。
 // 都是纯函数：造假的向量状态、假的推理库现状、假的记忆系统健康、假的简报统计、假的整理记录，看判成几级、事实和修法的键、
 // "从什么时候起"、动作按钮；每项再按当前语言拼一遍句子，确认键都在语言文件里（拼出来的不是键名本身）。
 // 插件装上、停用时这一块跟着出现、消失的那一半在 doctor-plugin.test.ts。
@@ -7,10 +7,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { DoctorFinding } from "../../src/doctor/checks.ts";
 import { doctorTime } from "../../src/doctor/auto.ts";
 import { builtinCatalogs } from "../../src/i18n/index.ts";
-import { createBriefStats } from "../../src/memory/brief-stats.ts";
 import {
   BRIEF_MIN_ASKED,
+  BRIEF_WINDOW_MS,
   briefFinding,
+  briefWindow,
   type GraphFacts,
   graphFinding,
   indexFinding,
@@ -21,6 +22,7 @@ import {
   systemFinding,
   type VectorFacts,
 } from "../../src/memory/doctor.ts";
+import { MESSAGE_BRIEF_RECENT, type MessageBriefRun, type MessageBriefStats } from "../../src/memory/message-brief.ts";
 
 const HOUR = 3_600_000;
 /** 此刻：2026-11-07 15:30（北京时间） */
@@ -157,65 +159,72 @@ describe("记忆系统（槽里在跑的那一套自己报的健康）", () => {
 
 // ───────── 4. 记忆简报 ─────────
 
-describe("记忆简报的统计", () => {
-  it("记下每次的结局和用时；问了几次是四种加起来，超时、出错各数各的；最近一次是最后记的那一笔", () => {
-    let now = NOW;
-    const stats = createBriefStats({ now: () => now });
-    expect(stats.snapshot()).toEqual({ from: NOW, asked: 0, timedOut: 0, failed: 0 });
-    stats.record("brought", 320.4);
-    now += 60_000;
-    stats.record("empty", 90);
-    now += 60_000;
-    stats.record("timeout", 3000);
-    now += 60_000;
-    stats.record("error", 15);
-    expect(stats.snapshot()).toEqual({ from: NOW, asked: 4, timedOut: 1, failed: 1, last: { at: NOW + 180_000, ms: 15, outcome: "error" } });
+const iso = (ms: number) => new Date(ms).toISOString();
+/** 一次简报（427 的 MessageBriefRun，只填判法看的几样） */
+const run = (at: number, outcome: MessageBriefRun["outcome"], ms = 300): MessageBriefRun => ({ at: iso(at), outcome, ms, steps: [] });
+/** 427 的简报统计：since 起算，recent 里早的在前；counts 按 recent 数（另给 extra 表示更早的已经丢了） */
+function stats(since: number, recent: MessageBriefRun[], extra = 0): MessageBriefStats {
+  const counts = { asked: recent.length + extra, brought: extra, empty: 0, timeout: 0, error: 0 };
+  for (const r of recent) counts[r.outcome] += 1;
+  return { since: iso(since), counts, recent };
+}
+
+describe("记忆简报：从 427 的统计里取最近 24 小时", () => {
+  it("统计建起来以后的都算，from 是建起来的时刻", () => {
+    const window = briefWindow(stats(NOW - HOUR, [run(NOW - 30 * 60_000, "brought"), run(NOW - 60_000, "timeout", 3001)]), NOW);
+    expect(window.from).toBe(NOW - HOUR);
+    expect(window.runs.map((r) => r.outcome)).toEqual(["brought", "timeout"]);
   });
 
-  it("只看最近 24 小时：窗口外的丢掉，from 跟着往后挪；超过上限丢最早的", () => {
-    let now = NOW;
-    const stats = createBriefStats({ now: () => now, limit: 3 });
-    stats.record("timeout", 3000);
-    now += 25 * HOUR;
-    stats.record("brought", 300);
-    expect(stats.snapshot()).toMatchObject({ from: now - 24 * HOUR, asked: 1, timedOut: 0 });
-    stats.record("brought", 300);
-    stats.record("brought", 300);
-    stats.record("error", 10);
-    // 上限 3 次：最早那次丢了
-    expect(stats.snapshot()).toMatchObject({ asked: 3, failed: 1 });
+  it("超过 24 小时的不算，from 是窗口起点；统计只留了最近几次时从留下的最早那次起算", () => {
+    const old = briefWindow(stats(NOW - 30 * HOUR, [run(NOW - 25 * HOUR, "timeout"), run(NOW - HOUR, "brought")]), NOW);
+    expect(old.from).toBe(NOW - BRIEF_WINDOW_MS);
+    expect(old.runs.map((r) => r.outcome)).toEqual(["brought"]);
+    const recent = Array.from({ length: MESSAGE_BRIEF_RECENT }, (_, i) => run(NOW - (MESSAGE_BRIEF_RECENT - i) * 60_000, "brought"));
+    const capped = briefWindow(stats(NOW - 2 * HOUR, recent, 7), NOW);
+    expect(capped.from).toBe(NOW - MESSAGE_BRIEF_RECENT * 60_000);
+    expect(capped.runs).toHaveLength(MESSAGE_BRIEF_RECENT);
   });
 });
 
-/** 简报统计：最近 24 小时问了几次、超时几次、出错几次，最近一次用了多少毫秒 */
-const snap = (asked: number, timedOut: number, failed: number, ms = 3000) => ({ from: NOW - 24 * HOUR, asked, timedOut, failed, last: { at: NOW - 60_000, ms, outcome: "timeout" as const } });
+/** 最近 24 小时里问了 asked 次：超时 timedOut 次、出错 failed 次，别的带上了；最近一次（最后那次）用了 ms 毫秒、是超时 */
+function snap(asked: number, timedOut: number, failed: number, ms = 3000): MessageBriefStats {
+  const outcomes: MessageBriefRun["outcome"][] = [
+    ...Array.from({ length: asked - timedOut - failed }, () => "brought" as const),
+    ...Array.from({ length: failed }, () => "error" as const),
+    ...Array.from({ length: timedOut }, () => "timeout" as const),
+  ];
+  const runs = outcomes.map((outcome, i) => run(NOW - (asked - i) * 60_000, outcome));
+  if (runs.length > 0) runs[runs.length - 1] = { ...runs.at(-1)!, ms };
+  return stats(NOW - 24 * HOUR, runs);
+}
 
 describe("记忆简报那一项", () => {
 
   it("记忆页关了简报：不适用；还没问过：正常", () => {
-    expect(briefFinding(false, snap(30, 30, 0))).toEqual({ level: "na", fact: { key: "memory.doctor.brief.off" } });
-    const idle = briefFinding(true, { from: NOW - HOUR, asked: 0, timedOut: 0, failed: 0 });
+    expect(briefFinding(false, snap(30, 30, 0), NOW)).toEqual({ level: "na", fact: { key: "memory.doctor.brief.off" } });
+    const idle = briefFinding(true, stats(NOW - HOUR, []), NOW);
     expect(idle).toMatchObject({ level: "ok", fact: { key: "memory.doctor.brief.idle" } });
     expect(expectRendered(idle).fact).toContain(doctorTime(new Date(NOW - HOUR).toISOString()));
   });
 
   it("超时加出错占三成以上：注意，事实写比例和最近一次用时，修法写多少秒就不带", () => {
-    const slow = briefFinding(true, snap(30, 10, 2));
+    const slow = briefFinding(true, snap(30, 10, 2), NOW);
     expect(slow).toMatchObject({ level: "warn", fact: { key: "memory.doctor.brief.slow", params: { asked: 30, timedOut: 10, failed: 2, last: "3" } }, fix: { key: "memory.doctor.fix.briefSlow", params: { seconds: "3" } } });
     const text = expectRendered(slow);
     expect(text.fact).toContain("40%");
     expect(text.fact).toContain("3 秒");
     expect(text.fix).toContain("3 秒");
     // 正好三成也算
-    expect(briefFinding(true, snap(10, 3, 0)).level).toBe("warn");
+    expect(briefFinding(true, snap(10, 3, 0), NOW).level).toBe("warn");
   });
 
   it("不到三成、问得太少（不到 BRIEF_MIN_ASKED 次）：正常", () => {
-    const ok = briefFinding(true, snap(30, 2, 1, 420));
+    const ok = briefFinding(true, snap(30, 2, 1, 420), NOW);
     expect(ok).toMatchObject({ level: "ok", fact: { key: "memory.doctor.brief.ok", params: { asked: 30, last: "0.4" } } });
     expectRendered(ok);
-    expect(briefFinding(true, snap(BRIEF_MIN_ASKED - 1, BRIEF_MIN_ASKED - 1, 0)).level).toBe("ok");
-    expect(briefFinding(true, snap(BRIEF_MIN_ASKED, 2, 0)).level).toBe("warn");
+    expect(briefFinding(true, snap(BRIEF_MIN_ASKED - 1, BRIEF_MIN_ASKED - 1, 0), NOW).level).toBe("ok");
+    expect(briefFinding(true, snap(BRIEF_MIN_ASKED, 2, 0), NOW).level).toBe("warn");
   });
 });
 
@@ -379,7 +388,7 @@ describe("英文", () => {
         indexFinding(vectors({ indexed: 900, pending: 300, state: "running" })),
         graphFinding(graph({ setupIssue: { code: "schema_mismatch", found: "2", expected: 1 } })),
         systemFinding(SUBTEXT, { items: 3, lastConsolidatedAt: "2026-11-07T03:12:00+08:00", bytes: 1024 * 1024 }),
-        briefFinding(true, { from: NOW - HOUR, asked: 30, timedOut: 10, failed: 2, last: { at: NOW, ms: 3000, outcome: "timeout" } }),
+        briefFinding(true, snap(30, 10, 2), NOW),
         nightlyFinding(nightly([record("2026-11-07", "ran", "2026-11-07T03:15:00+08:00", { timedOut: "curator", durationMs: 15 * 60_000 })]), NOW),
         presyncFinding(nightly([record("2026-11-07", "ran", "2026-11-07T03:14:00+08:00", { sourceSync: sync([{ id: "looki", title: "Looki", state: "broken", reason: "bad key" }]) })])),
       ];

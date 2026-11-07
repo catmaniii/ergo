@@ -16,8 +16,8 @@
 // 运行中跟着事件日志，碰到分界就清空。
 //
 // 一条输入可能被算几次（子进程崩了重新交、读附件慢）：按消息 id 记住算过的结果。算得太慢（超过 MESSAGE_BRIEF_TIMEOUT_MS）这一轮就不带、
-// 记一行日志，不拖住回话；推理库用不了、出错也不带。每问完一次（带上、没相关的、超时、出错）给 stats 记一笔结局和用时
-// （brief-stats.ts，412：体检的"记忆简报"那一项看最近 24 小时超时加出错占几成）。
+// 记一行日志，不拖住回话；推理库用不了、出错也不带。每问完一次（带上、没相关的、超时、出错）记一笔结局和用时
+// （stats()，427；体检的"记忆简报"那一项看最近 24 小时超时加出错占几成，412）。
 //
 // 这一段简报不再直接问引擎，改成问**记忆插件**（注入进来的 brief，组合根传记忆插件宿主的 host.brief：插件声明了
 // capabilities.brief 就用它的，没有就宿主拿 search 拼），行为一样——抬头、INTRO、"带过没变的不再带"、3 秒上限、记账都没动。
@@ -53,7 +53,6 @@ import type { EventStore, StoredEvent } from "../events/event-store.ts";
 import type { Materials } from "../materials/index.ts";
 import { getVoice } from "../voice-records/views.ts";
 import { briefRecallHits } from "./ask-tool.ts";
-import type { BriefStats } from "./brief-stats.ts";
 
 /** 上下文块的抬头（秘书认它；测试也认它） */
 export const MESSAGE_BRIEF_HEAD = "【记忆简报】";
@@ -232,8 +231,6 @@ export interface MessageBriefsOptions {
   prewarm?: () => void;
   /** 现在（ISO），记录里的 at 用；默认机器时间 */
   now?: () => string;
-  /** 每问完一次记一笔（结局、用了多久；体检读，brief-stats.ts）；不给就不记 */
-  stats?: Pick<BriefStats, "record">;
   log: (line: string) => void;
 }
 
@@ -303,7 +300,6 @@ export function createMessageBriefs(options: MessageBriefsOptions): MessageBrief
     run.ms = ms;
     run.steps = [...steps];
     counts[outcome] += 1;
-    options.stats?.record(outcome, outcome === "timeout" ? timeoutMs : ms);
     recent.push(run);
     while (recent.length > MESSAGE_BRIEF_RECENT) recent.shift();
   };

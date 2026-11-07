@@ -12,7 +12,8 @@
 // 3. system 记忆系统：记忆插件槽里在跑的那一套（会意）自己报的健康——协议里早就有的 health()（注释写着"体检页显示"，
 //    会意实现了、以前没人调）。没有在跑的 → 坏了（简报、记一句都用不了）；它报了问题 → 注意（原话照写）；别的正常
 //    （有效证据几条、上次整理完的时间、占多大）。槽没接上（只有插件的测试）就不登记这一项。
-// 4. brief 记忆简报：brief-stats.ts 的统计（最近 24 小时问了几次、超时几次、出错几次、最近一次用了多久；只在内存里，重启清零）。
+// 4. brief 记忆简报：427 的简报统计（message-brief.ts 的 MessageBriefs.stats()：起来以后的累计次数、最近 MESSAGE_BRIEF_RECENT 次
+//    各自的结局和用时；只在内存里，重启清零），取最近 BRIEF_WINDOW_MS（24 小时）里的几次：问了几次、超时几次、出错几次、最近一次用了多久。
 //    记忆页关了简报 → 不适用；问够 BRIEF_MIN_ASKED 次、超时加出错占 BRIEF_BAD_RATIO（三成）以上 → 注意；别的正常。
 // 5. nightly 每晚整理：事件日志里最近的整理记录（不读视图：视图一夜一条，后写的会盖掉先写的）和内部作业记着的时间（第一次见到）。
 //    memory.enabled 关着 → 不适用；最近一条有结果的记录（不算推后）是失败、没 Key 跳过、要重建 → 坏了（从这一串没跑成的第一条起）；
@@ -40,9 +41,8 @@ import type { DoctorCheck, DoctorFinding } from "../doctor/checks.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { Materials } from "../materials/index.ts";
 import { getJobState, INTERNAL_CHANNEL, type InternalJobState } from "../scheduler/internal-jobs.ts";
-import type { BriefStatsSnapshot } from "./brief-stats.ts";
 import type { MemoryEngineIssue } from "./engine-provider.ts";
-import { MESSAGE_BRIEF_TIMEOUT_MS } from "./message-brief.ts";
+import { MESSAGE_BRIEF_TIMEOUT_MS, type MessageBriefRun, type MessageBriefStats } from "./message-brief.ts";
 import { MEMORY_NIGHTLY_JOB, reasoningIssueText } from "./nightly-job.ts";
 import { MEMORY_NIGHTLY_EVENT, type MemoryNightlyRecord } from "./nightly-record.ts";
 import type { ReasoningDbIssue } from "./rg-db.ts";
@@ -55,6 +55,8 @@ export const INDEX_LAG_MIN = 100;
 export const BRIEF_BAD_RATIO = 0.3;
 /** 记忆简报问够这么多次才判比例（一两次超时说明不了什么） */
 export const BRIEF_MIN_ASKED = 5;
+/** 记忆简报看最近多久的（毫秒）：24 小时 */
+export const BRIEF_WINDOW_MS = 24 * 60 * 60 * 1000;
 /** 最近一次整理跑成距今超过这么多小时算坏了（每晚一次，留出一夜推后、跑得慢的余量） */
 export const NIGHTLY_STALE_HOURS = 36;
 /** 往回读多少条整理记录（一夜一两条，够看一个月） */
@@ -162,22 +164,44 @@ export function systemFinding(info: MemoryProviderInfo | undefined, health: Memo
 
 // ───────── 4. 记忆简报 ─────────
 
-/** enabled：记忆页里记忆简报开着没有；stats：brief-stats.ts 的统计 */
-export function briefFinding(enabled: boolean, stats: BriefStatsSnapshot): DoctorFinding {
+/** 简报统计落在窗口里的那几次 */
+export interface BriefWindow {
+  /** 从什么时候起算（毫秒时间戳）：统计建起来的时刻（守护进程起来、插件启用）、窗口的起点、统计只留最近几次时留下的最早那次，取最晚的 */
+  from: number;
+  /** 窗口里的每一次，早的在前 */
+  runs: MessageBriefRun[];
+}
+
+/** 427 的简报统计里最近 BRIEF_WINDOW_MS 的那几次（now：此刻，毫秒时间戳） */
+export function briefWindow(stats: MessageBriefStats, now: number): BriefWindow {
+  const { brought, empty, timeout, error } = stats.counts;
+  // 统计只留最近 MESSAGE_BRIEF_RECENT 次：更早的丢了，就从留下的最早那次起算（不然"以来"的次数对不上）
+  const dropped = brought + empty + timeout + error > stats.recent.length && stats.recent.length > 0;
+  const floor = Date.parse(dropped ? stats.recent[0]!.at : stats.since);
+  const from = Math.max(Number.isNaN(floor) ? 0 : floor, now - BRIEF_WINDOW_MS);
+  return { from, runs: stats.recent.filter((run) => Date.parse(run.at) >= from) };
+}
+
+/** enabled：记忆页里记忆简报开着没有；stats：427 的简报统计（MessageBriefs.stats()）；now：此刻（毫秒时间戳） */
+export function briefFinding(enabled: boolean, stats: MessageBriefStats, now: number): DoctorFinding {
   if (!enabled) return { level: "na", fact: { key: "memory.doctor.brief.off" } };
-  const from = doctorTime(new Date(stats.from).toISOString());
-  if (stats.asked === 0 || stats.last === undefined) return { level: "ok", fact: { key: "memory.doctor.brief.idle", params: { from } } };
-  const bad = stats.timedOut + stats.failed;
-  const ratio = bad / stats.asked;
+  const window = briefWindow(stats, now);
+  const from = doctorTime(new Date(window.from).toISOString());
+  const last = window.runs.at(-1);
+  if (last === undefined) return { level: "ok", fact: { key: "memory.doctor.brief.idle", params: { from } } };
+  const asked = window.runs.length;
+  const timedOut = window.runs.filter((run) => run.outcome === "timeout").length;
+  const failed = window.runs.filter((run) => run.outcome === "error").length;
+  const ratio = (timedOut + failed) / asked;
   const params = {
     from,
-    asked: stats.asked,
-    timedOut: stats.timedOut,
-    failed: stats.failed,
+    asked,
+    timedOut,
+    failed,
     ratio: formatNumber(ratio, { style: "percent", maximumFractionDigits: 0 }),
-    last: seconds(stats.last.ms),
+    last: seconds(last.ms),
   };
-  if (stats.asked >= BRIEF_MIN_ASKED && ratio >= BRIEF_BAD_RATIO) {
+  if (asked >= BRIEF_MIN_ASKED && ratio >= BRIEF_BAD_RATIO) {
     return { level: "warn", fact: { key: "memory.doctor.brief.slow", params }, fix: { key: "memory.doctor.fix.briefSlow", params: { seconds: seconds(MESSAGE_BRIEF_TIMEOUT_MS) } } };
   }
   return { level: "ok", fact: { key: "memory.doctor.brief.ok", params } };
@@ -322,8 +346,8 @@ export interface MemoryDoctorDeps {
   system?: { info: () => MemoryProviderInfo | undefined; health: () => Promise<MemoryHealth> };
   /** 记忆页里记忆简报开着没有 */
   briefEnabled: () => boolean;
-  /** 记忆简报的统计 */
-  briefStats: () => BriefStatsSnapshot;
+  /** 记忆简报的统计（427 的 MessageBriefs.stats()） */
+  briefStats: () => MessageBriefStats;
   /** 这台机器上整理开着没有（配置 memory.enabled） */
   enabled: () => boolean;
   /** 事件日志：读整理记录、内部作业的时间 */
@@ -360,7 +384,7 @@ export function memoryDoctorChecks(deps: MemoryDoctorDeps): DoctorCheck[] {
             },
           },
         ]),
-    { id: "brief", title: title("brief"), cost: "passive", run: () => briefFinding(deps.briefEnabled(), deps.briefStats()) },
+    { id: "brief", title: title("brief"), cost: "passive", run: () => briefFinding(deps.briefEnabled(), deps.briefStats(), deps.now()) },
     { id: "nightly", title: title("nightly"), cost: "passive", run: () => nightlyFinding(nightlyFacts(deps), deps.now()) },
     { id: "presync", title: title("presync"), cost: "passive", run: () => presyncFinding(nightlyFacts(deps)) },
   ];

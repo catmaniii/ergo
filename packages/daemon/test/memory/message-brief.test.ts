@@ -12,7 +12,6 @@ import { openEventStore, type EventStore } from "../../src/events/event-store.ts
 import type { Materials } from "../../src/materials/index.ts";
 import { sessionRewriteFor } from "../../src/memory/after-purge.ts";
 import { kernelEmbedderAdapter, queryMemoEmbedder } from "../../src/memory/embedder-adapter.ts";
-import { createBriefStats } from "../../src/memory/brief-stats.ts";
 import { createMemoryEngineProvider } from "../../src/memory/engine-provider.ts";
 import { createMessageBriefs, isShortReply, MESSAGE_BRIEF_HEAD, type MessageBriefs, type MessageBriefsOptions } from "../../src/memory/message-brief.ts";
 import { openReasoningDb } from "../../src/memory/rg-db.ts";
@@ -380,13 +379,12 @@ describe("简报问记忆插件要（注入的 brief）", () => {
     expect(slow.usage).toEqual([]);
   });
 
-  it("每问完一次给统计记一笔（412，体检读）：带上了、没相关的、出错、超时各算各的；短应答、关了简报不问也不记", async () => {
+  it("每问完一次记进统计（427 的 stats()，412 的体检读它）：带上了、没相关的、出错、超时各算各的；短应答、关了简报不问也不记", async () => {
     const store = eventStore();
     let now = Date.parse("2026-11-07T10:00:00+08:00");
-    const stats = createBriefStats({ now: () => now });
     let reply: () => Promise<MemoryBriefResult | undefined> = async () => ({ text: "甲的结论：周末别排满" });
     let enabled = true;
-    const { briefs: b } = injecting(store, () => reply(), { stats, timeoutMs: 50, enabled: () => enabled });
+    const { briefs: b } = injecting(store, () => reply(), { now: () => new Date(now).toISOString(), timeoutMs: 50, enabled: () => enabled });
 
     expect((await turn(store, b, TALK)).block).toBeDefined();
     reply = async () => undefined;
@@ -403,9 +401,12 @@ describe("简报问记忆插件要（注入的 brief）", () => {
     enabled = false;
     await turn(store, b, "关了简报以后说的");
 
-    const snapshot = stats.snapshot();
-    expect(snapshot).toMatchObject({ asked: 4, timedOut: 1, failed: 1 });
-    // 超时的那次记的是等到上限的那么久
-    expect(snapshot.last).toEqual({ at: now, ms: 50, outcome: "timeout" });
+    const stats = b.stats();
+    expect(stats.counts).toEqual({ asked: 4, brought: 1, empty: 1, timeout: 1, error: 1 });
+    expect(stats.recent.map((run) => run.outcome)).toEqual(["brought", "empty", "error", "timeout"]);
+    // 超时的那次记的是等到上限那一刻（不比上限短）
+    const last = stats.recent.at(-1)!;
+    expect(last.at).toBe(new Date(now).toISOString());
+    expect(last.ms).toBeGreaterThanOrEqual(45);
   });
 });
