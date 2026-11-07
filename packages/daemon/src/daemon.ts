@@ -1452,7 +1452,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         }),
         // 记忆插件要的：记忆插件槽——用户说"帮我记一句"时把原话交给在跑的那个记忆插件，每条消息的简报问它要。
         // 宿主建在插件之后：现转给它
-        bindService(KERNEL.memorySlot, { remember: (input) => wired("memorySlot").remember(input), brief: (input) => wired("memorySlot").brief(input) }),
+        bindService(KERNEL.memorySlot, {
+          remember: (input) => wired("memorySlot").remember(input),
+          brief: (input) => wired("memorySlot").brief(input),
+          // 体检（412）：在跑的是哪一套、它自己报的健康
+          info: () => wiring.memorySlot?.info(),
+          health: () => wired("memorySlot").health(),
+        }),
         // 记忆插件要的：用户说"这张图记下来"时能带上的文件，现转给浏览插件（没在运行就只能记文字）
         bindService(KERNEL.elementFiles, { toRemember: (ref, call) => plugins.service(BROWSING)?.elementToRemember(ref, call) }),
       ],

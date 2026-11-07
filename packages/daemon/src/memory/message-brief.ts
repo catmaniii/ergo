@@ -16,7 +16,8 @@
 // 运行中跟着事件日志，碰到分界就清空。
 //
 // 一条输入可能被算几次（子进程崩了重新交、读附件慢）：按消息 id 记住算过的结果。算得太慢（超过 MESSAGE_BRIEF_TIMEOUT_MS）这一轮就不带、
-// 记一行日志，不拖住回话；推理库用不了、出错也不带。
+// 记一行日志，不拖住回话；推理库用不了、出错也不带。每问完一次（带上、没相关的、超时、出错）给 stats 记一笔结局和用时
+// （brief-stats.ts，412：体检的"记忆简报"那一项看最近 24 小时超时加出错占几成）。
 //
 // 这一段简报不再直接问引擎，改成问**记忆插件**（注入进来的 brief，组合根传记忆插件宿主的 host.brief：插件声明了
 // capabilities.brief 就用它的，没有就宿主拿 search 拼），行为一样——抬头、INTRO、"带过没变的不再带"、3 秒上限、记账都没动。
@@ -47,6 +48,7 @@ import type { EventStore, StoredEvent } from "../events/event-store.ts";
 import type { Materials } from "../materials/index.ts";
 import { getVoice } from "../voice-records/views.ts";
 import { briefRecallHits } from "./ask-tool.ts";
+import type { BriefStats } from "./brief-stats.ts";
 
 /** 上下文块的抬头（秘书认它；测试也认它） */
 export const MESSAGE_BRIEF_HEAD = "【记忆简报】";
@@ -173,6 +175,8 @@ export interface MessageBriefsOptions {
   record?: (usage: MessageBriefUsage) => void;
   /** 最多等多久（毫秒），默认 MESSAGE_BRIEF_TIMEOUT_MS */
   timeoutMs?: number;
+  /** 每问完一次记一笔（结局、用了多久；体检读，brief-stats.ts）；不给就不记 */
+  stats?: Pick<BriefStats, "record">;
   log: (line: string) => void;
 }
 
@@ -235,13 +239,16 @@ export function createMessageBriefs(options: MessageBriefsOptions): MessageBrief
       // 这一段带过的（键 → 指纹）交回给插件：指纹没变的不再带。插件不做去重（keys 空）时它就是空的 —— 每一轮都带
       const asked = await Promise.race([ask({ text, conversation: { id: message.conversation, agentId }, known: Object.fromEntries(known) }), timeout]);
       if (asked === TIMED_OUT) {
+        options.stats?.record("timeout", timeoutMs);
         log(`记忆简报超时（超过 ${timeoutMs} 毫秒），这一轮不带`);
         return undefined;
       }
-      if (asked === undefined) return undefined;
       // 只回字符串的是老实现：只有正文，没有键（不去重），也没有结构化那两样
-      const brief: MemoryBriefResult = typeof asked === "string" ? { text: asked } : asked;
-      if (brief.text === "") return undefined;
+      const brief: MemoryBriefResult | undefined = asked === undefined ? undefined : typeof asked === "string" ? { text: asked } : asked;
+      if (brief === undefined || brief.text === "") {
+        options.stats?.record("empty", Date.now() - started);
+        return undefined;
+      }
       const block = `${INTRO}\n${brief.text}`;
       const tokens = estimateTokens(block);
       const items = brief.items ?? [];
@@ -257,9 +264,12 @@ export function createMessageBriefs(options: MessageBriefsOptions): MessageBrief
       for (const [key, print] of Object.entries(brought)) known.set(key, print);
       pending.set(message.id, part);
       options.record?.({ agentId, kind: "memory_brief", chars: block.length, tokens });
-      log(`记忆简报：带了 ${items.length} 条（约 ${tokens} token，${Date.now() - started} 毫秒）`);
+      const ms = Date.now() - started;
+      options.stats?.record("brought", ms);
+      log(`记忆简报：带了 ${items.length} 条（约 ${tokens} token，${ms} 毫秒）`);
       return block;
     } catch (err) {
+      options.stats?.record("error", Date.now() - started);
       log(`记忆简报出错，这一轮不带：${err instanceof Error ? err.message : String(err)}`);
       return undefined;
     } finally {

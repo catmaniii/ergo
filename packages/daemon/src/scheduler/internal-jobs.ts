@@ -115,7 +115,8 @@ const keyOf = (job: InternalJob) => `internal:${job.name}`;
 const describe = (err: unknown) => (err instanceof Error ? (err.stack ?? err.message) : String(err));
 const isAbort = (err: unknown) => err instanceof Error && err.name === "AbortError";
 
-function getJobState(db: ReadonlyDatabase, job: string): InternalJobState | undefined {
+/** 一个作业记下的状态（第一次见到、上一次开始跑的时间），直接读视图；体检这种只读内存和库的也用（记忆插件的每晚整理那一项） */
+export function getJobState(db: ReadonlyDatabase, job: string): InternalJobState | undefined {
   const row = db.get<{ state: string }>("SELECT state FROM internal_jobs WHERE job = ?", job);
   return row && (JSON.parse(row.state) as InternalJobState);
 }

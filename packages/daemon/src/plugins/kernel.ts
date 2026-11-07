@@ -9,7 +9,7 @@
 // 为记忆插件加了记忆插件槽（按原话记一条、每条消息的简报，转给在跑的那个记忆插件）。
 // 为记忆插件加了整理前同步一遍（数据源的服务把能由电脑拉的各同步一次）。
 import type { ChatModel } from "@ergo/memory";
-import type { CalendarExternalEntry, MemoryBriefInput, MemoryBriefResult, MemoryItem, MemoryRememberInput } from "@ergo/protocol";
+import type { CalendarExternalEntry, MemoryBriefInput, MemoryBriefResult, MemoryHealth, MemoryItem, MemoryProviderInfo, MemoryRememberInput } from "@ergo/protocol";
 import type { HostToolCall } from "../agent-manager/host-tools.ts";
 import type { AgentRoles } from "../agent-roles/index.ts";
 import type { ElementToRemember } from "../browsing/api.ts";
@@ -69,11 +69,14 @@ export interface WebSearchNotes {
  * 记忆插件槽：按原话记一条（`remember`）和每条消息的简报（`brief`），都转给此刻在跑的那个记忆插件
  * （宿主的 `MemoryHost.remember` / `MemoryHost.brief`——有 brief 能力用插件的，没有宿主拿 search 拼）。
  * 记忆插件的"记一句"工具和记忆简报（message-brief.ts）经它走，插件停用时工具跟着没了、简报不带；
- * 宿主建在插件装配之后，组合根现转给它
+ * 宿主建在插件装配之后，组合根现转给它。
+ * 体检（412）也经它看在跑的是哪一套（`info`，没有在跑是 undefined）、它自己报的健康（`health`，协议里给体检页的那个接口；没有在跑时抛错）
  */
 export interface MemorySlot {
   remember(input: MemoryRememberInput): Promise<MemoryItem>;
   brief(input: MemoryBriefInput): Promise<MemoryBriefResult | undefined>;
+  info(): MemoryProviderInfo | undefined;
+  health(): Promise<MemoryHealth>;
 }
 
 /**

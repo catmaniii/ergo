@@ -7,13 +7,14 @@
 //   简报是空串；库**不顺手建**（还没建库就是还没建库）；
 // - 和每晚整理的并发：两边各自一个连接，靠 SQLite 的 WAL 和 busy_timeout（5 秒）各走各的；这里不握事务，更不长期握写锁；
 //   碰巧撞上写（busy / locked）的那一次不当成永久失败，下次再试；
-// - 插件停用（运行中或者守护进程停止）时 close()：关掉连接，之后 get() 回 undefined。
+// - 插件停用（运行中或者守护进程停止）时 close()：关掉连接，之后 get() 回 undefined；
+// - 认定"一直用不了"的原因（还没建库、版本对不上、打不开）由 issue() 露出来（412：体检的"推理库"那一项读它，以前只在私有变量里、只记日志）。
 // 这一份的唯一写入口开成只读（reader），写一律被拒。要写的（顺口问：记问过、跳过、别问这个、回答回写）
 // 用 createWritableEngineUse 随用随开一份可写的、用完关掉（和管理员的工具、删除登记一样）。
 import fs from "node:fs";
 import { DEEPSEEK_DEFAULT_MODEL, type Embedder, type MemoryEngine } from "@ergo/memory";
 import { reasoningIssueText } from "./nightly-job.ts";
-import { openReasoningDb } from "./rg-db.ts";
+import { openReasoningDb, type ReasoningDbIssue } from "./rg-db.ts";
 
 export interface MemoryEngineProviderOptions {
   /** rg.db 的路径（是 <数据目录>/memory/subtext/rg.db；以前在 db 区） */
@@ -31,11 +32,28 @@ export interface MemoryEngineProviderOptions {
   log?: (line: string) => void;
 }
 
+/**
+ * 引擎认定一直用不了的原因：还没建库（not_built），或者打开推理库时的那几种（rg-db.ts 的 ReasoningDbIssue：
+ * manifest 没有、版本对不上、打开出错；查文件、打开时抛出来的也算 open_failed）
+ */
+export type MemoryEngineIssueReason = { code: "not_built" } | ReasoningDbIssue;
+
+/** 认定一直用不了：原因、从什么时候起（引擎的时钟） */
+export interface MemoryEngineIssue {
+  reason: MemoryEngineIssueReason;
+  since: string;
+}
+
 export interface MemoryEngineProvider {
   /** 此刻能用的引擎；没有（还没建库、版本对不上、打不开、已经关掉）是 undefined */
   get(): MemoryEngine | undefined;
   /** 打开过没有（测试、日志用；开了之后一直是 true，直到 close） */
   readonly opened: boolean;
+  /**
+   * 认定一直用不了的原因（之后 get() 不再试）；没认定（还没用过、用得好好的、只是这一次撞上写）是 undefined。
+   * 只读内存，不去开库
+   */
+  issue(): MemoryEngineIssue | undefined;
   /** 关掉连接：插件停用、守护进程停止时调，之后 get() 回 undefined */
   close(): void;
 }
@@ -91,29 +109,30 @@ export function createMemoryEngineProvider(options: MemoryEngineProviderOptions)
   const model = options.model ?? DEEPSEEK_DEFAULT_MODEL;
   let engine: MemoryEngine | undefined;
   /** 认定一直用不了的原因（只记一次日志，之后不再试） */
-  let unusable: string | undefined;
+  let unusable: MemoryEngineIssue | undefined;
   let closed = false;
 
-  const giveUp = (reason: string) => {
-    if (unusable === undefined) log(`记忆简报和 ask_memory 用不了推理库：${reason}`);
-    unusable = reason;
+  const giveUp = (reason: MemoryEngineIssueReason) => {
+    if (unusable === undefined) log(`记忆简报和 ask_memory 用不了推理库：${reason.code === "not_built" ? "还没建库" : reasoningIssueText(reason)}`);
+    unusable = { reason, since: options.clock() };
   };
 
   return {
     get opened() {
       return engine !== undefined;
     },
+    issue: () => (unusable === undefined ? undefined : { reason: { ...unusable.reason }, since: unusable.since }),
     get() {
       if (engine) return engine;
       if (closed || unusable !== undefined) return undefined;
       // 还没建库：不顺手建（装配、每晚整理会建）；空文件也当没有
       try {
         if (!fs.existsSync(options.file) || fs.statSync(options.file).size === 0) {
-          giveUp("还没建库");
+          giveUp({ code: "not_built" });
           return undefined;
         }
       } catch (err) {
-        giveUp(messageOf(err));
+        giveUp({ code: "open_failed", detail: messageOf(err) });
         return undefined;
       }
       let result: ReturnType<typeof openReasoningDb>;
@@ -128,14 +147,14 @@ export function createMemoryEngineProvider(options: MemoryEngineProviderOptions)
         });
       } catch (err) {
         // 打开的时候抛出来的（磁盘、权限这类）：记一次，之后不再试
-        giveUp(`打开出错：${messageOf(err)}`);
+        giveUp({ code: "open_failed", detail: messageOf(err) });
         return undefined;
       }
       if (!result.ok) {
         // 正好撞上写（busy / locked）：这次当没有，下次再来，不记成"一直用不了"
         if (result.issue.code === "open_failed" && RETRYABLE.test(result.issue.detail)) return undefined;
         // 版本对不上、里面没有 manifest：不自动迁移，等重新建库；下次不再试（省得每轮都开一遍）
-        giveUp(reasoningIssueText(result.issue));
+        giveUp(result.issue);
         return undefined;
       }
       engine = result.engine;
