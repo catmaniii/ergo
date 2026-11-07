@@ -230,8 +230,10 @@ export const voicePlugin: PluginDefinition = {
     // Debug 工具集的语音组：录一段送识别、用当前参考音色合成念一句，都不经会话
     const debug = createDebugVoice({ recognizer, recognition, speech: warmup.speech, references: referenceVoices, pace: voiceConfig.reply, tmpDir: layout.tmp, log });
 
-    // 体检（413）：语音那一块的五项。合成读预热每个探活间隔看一次的状态（两个间隔没看过就当场探），识别读现成的状态（服务那两种不新就当场探）
+    // 体检（413）：语音那一块的五项。合成读预热每个探活间隔看一次的状态（两个间隔没看过就当场探），识别读现成的状态（服务那两种不新就当场探）；
+    // 预热起来的头一分钟探不通算没查出来（437）
     for (const check of voiceDoctorChecks({
+      startedAt: () => Date.parse(warmup.view().startedAt),
       setup: ctx.use(KERNEL.voiceSetup),
       speech: { url: speechUrl, state: () => warmup.view().speech, checkedAt: () => warmup.speechCheckedAt(), freshMs: 2 * voiceConfig.speech.probeMs },
       recognizer: { mode: () => recognizerMode, state: () => recognizer.state, lsmUrl: recognizerConfig.url },
