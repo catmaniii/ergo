@@ -4,7 +4,8 @@
 // - 网关的 /tiles/<源>/<z>/<x>/<y>：转发 OpenStreetMap 的瓦片（带缓存）；
 // - 网关的 /_AMapService/…：高德 JS API 的安全密钥代理（拼上安全密钥再转给高德）；
 // - GET /api/map/config：地图页现在能用什么（高德 Web 端的 Key；安全密钥不给）。
-import type { MapConfigView, MapTileAddress } from "@ergo/protocol";
+// 另一个服务（430）"我的足迹"给 GET /api/map/day（和以后秘书的"画在地图上"）：某一天的点、停留、照片地点、常去的地方。
+import type { MapConfigView, MapDayView, MapTileAddress } from "@ergo/protocol";
 import { serviceKey } from "../plugins/host.ts";
 
 /** 插件名（配置 plugins.disabled 里写的、网页插件的名字） */
@@ -35,3 +36,15 @@ export interface MapService {
 
 /** 地图插件提供的服务 */
 export const MAP = serviceKey<MapService>("map");
+
+/** 我的足迹（430）：GET /api/map/day 和以后秘书的"画在地图上"（431）用 */
+export interface MapDayService {
+  /**
+   * 某一天（YYYY-MM-DD）的足迹：位置点、停留、有地点的照片、起了名的常去的地方（经手机插件现算，只读它自己的存储，
+   * 不联网、不调任何地图服务）。日期写法不对、手机插件没启用抛 RequestRejected（接口回 400 带这句）
+   */
+  day(date: string): MapDayView;
+}
+
+/** 地图插件提供的"我的足迹"服务 */
+export const MAP_DAY = serviceKey<MapDayService>("map-day");

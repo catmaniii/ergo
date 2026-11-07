@@ -980,5 +980,6 @@
   "protocol.connectionAddress.invalid.noHost": "地址里没有主机名",
   "protocol.connectionAddress.invalid.credentials": "地址里不要带用户名和密码",
   "protocol.connectionAddress.invalid.httpsOnly": "必须是 https 地址：手机 App 只认 https",
-  "protocol.connectionAddress.invalid.lan": "这是这台电脑或局域网里才连得到的地址，手机在外面用不了。填一个从外面能打开的 https 地址"
+  "protocol.connectionAddress.invalid.lan": "这是这台电脑或局域网里才连得到的地址，手机在外面用不了。填一个从外面能打开的 https 地址",
+  "protocol.mapDay.badDate": "日期要写成 YYYY-MM-DD（年-月-日），收到的是「{date}」"
 }

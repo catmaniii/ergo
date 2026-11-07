@@ -996,5 +996,6 @@
   "protocol.connectionAddress.invalid.noHost": "The address has no host name",
   "protocol.connectionAddress.invalid.credentials": "Don't put a user name or password in the address",
   "protocol.connectionAddress.invalid.httpsOnly": "It must be an https address: the phone app only accepts https",
-  "protocol.connectionAddress.invalid.lan": "That address only works on this computer or your local network, so a phone outside can't use it. Enter an https address that opens from outside"
+  "protocol.connectionAddress.invalid.lan": "That address only works on this computer or your local network, so a phone outside can't use it. Enter an https address that opens from outside",
+  "protocol.mapDay.badDate": "The date must look like YYYY-MM-DD; got \"{date}\""
 }

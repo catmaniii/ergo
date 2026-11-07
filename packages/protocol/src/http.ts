@@ -51,6 +51,8 @@
 //
 // 地图页（429 地图插件）：GET /api/map/config 现在能用什么——高德 Web 端的 Key（填了 Key 和安全密钥才有，安全密钥不给）。
 // 瓦片转发 /tiles/、高德安全密钥代理 /_AMapService/ 不在 /api/ 下面，地址在 map.ts。
+// 我的足迹（430）：GET /api/map/day?date=2026-11-06 那一天的位置点、停留、有地点的照片、起了名的常去的地方（地图插件经手机插件现算，
+// 不发给任何地图服务）。
 //
 // 消耗页：GET /api/usage?from=2026-10-01&to=2026-10-08 选定范围（含两头）按天、按 agent 的 token 汇总，
 // 秘书单列为系统开销，成本是用量乘配置里的单价（每次现读配置，粗估）。
@@ -223,6 +225,8 @@ export const HTTP_QUERY = {
   limit: "limit",
   /** 工作日历、日历：哪个月（YYYY-MM） */
   month: "month",
+  /** 地图上的足迹：哪一天（YYYY-MM-DD） */
+  date: "date",
   /** 消耗页：范围从哪天起（YYYY-MM-DD，含） */
   from: "from",
   /** 消耗页：范围到哪天（YYYY-MM-DD，含） */
@@ -274,6 +278,7 @@ const WORKDAY_CALENDAR = "workday-calendar";
 const CALENDAR = "calendar";
 const MAP = "map";
 const MAP_CONFIG = "config";
+const MAP_DAY = "day";
 const USAGE = "usage";
 const REFERENCE_VOICES = "reference-voices";
 const SELECT = "select";
@@ -449,6 +454,8 @@ export const HTTP_PATHS = {
   calendarMonth: (month: string) => `${api(CALENDAR)}${query({ [HTTP_QUERY.month]: month })}`,
   /** 地图页现在能用什么：高德 Web 端的 Key（填了 Key 和安全密钥才有；安全密钥不给）（GET，响应 MapConfigView；地图插件没启用时 400） */
   mapConfig: api(MAP, MAP_CONFIG),
+  /** 地图上的"我的足迹"：某一天（YYYY-MM-DD）的点、停留、照片地点、常去的地方（GET，响应 MapDayView；日期不对、手机或地图插件没启用时 400） */
+  mapDay: (date: string) => `${api(MAP, MAP_DAY)}${query({ [HTTP_QUERY.date]: date })}`,
   /** 消耗页：from 到 to（YYYY-MM-DD，含两头）的用量汇总和粗估成本（GET，响应 UsageSummary） */
   usage: (range: { from: string; to: string }) => `${api(USAGE)}${query({ [HTTP_QUERY.from]: range.from, [HTTP_QUERY.to]: range.to })}`,
   /** 参考音色：GET 列出（ReferenceVoiceList），POST 导入一个（ImportReferenceVoiceBody → ReferenceVoice） */
@@ -731,6 +738,7 @@ export type HttpRoute =
   | { route: "workday_calendar" }
   | { route: "calendar" }
   | { route: "map_config" }
+  | { route: "map_day" }
   | { route: "usage" }
   | { route: "reference_voices" }
   | { route: "reference_voice"; voiceId: string }
@@ -868,6 +876,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === WORKDAY_CALENDAR && id === undefined) return { route: "workday_calendar" };
   if (head === CALENDAR && id === undefined) return { route: "calendar" };
   if (head === MAP && id === MAP_CONFIG && tail === undefined) return { route: "map_config" };
+  if (head === MAP && id === MAP_DAY && tail === undefined) return { route: "map_day" };
   if (head === USAGE && id === undefined) return { route: "usage" };
   if (head === REFERENCE_VOICES) {
     if (id === undefined) return { route: "reference_voices" };

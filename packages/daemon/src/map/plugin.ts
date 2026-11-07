@@ -8,13 +8,17 @@
 // - 网页那一半（packages/web/src/plugins/map/）：地图页（#/more/map）和设置 · 数据源里高德地图的填 Key 那一块。
 // - 隐私：浏览器不直接连地图服务（瓦片、高德的请求都经这台电脑），地图服务看到的是电脑的 IP；这一票不往外发任何你自己的点。
 // - 停用时：页面、接口写"地图插件没启用"，排队等着取的瓦片不取了；Key 留在密钥区，启用后接着用。
+// - 我的足迹（430，day.ts）：GET /api/map/day 某一天的点、停留、照片地点、常去的地方，经"手机"插件的服务现算（可选依赖 wants：
+//   手机插件没启用时那一句写"手机插件没启用"，地图照样能看）；只在二狗里画，不发给任何地图服务。
 import path from "node:path";
 import { AMAP_SOURCE_ID, t } from "@ergo/protocol";
 import type { DataSource } from "../data-sources/api.ts";
+import { PHONE } from "../phone/api.ts";
 import { type PluginDefinition, serviceKey } from "../plugins/host.ts";
 import { KERNEL } from "../plugins/kernel.ts";
 import type { AmapHosts } from "./amap.ts";
-import { MAP, MAP_PLUGIN } from "./api.ts";
+import { MAP, MAP_DAY, MAP_PLUGIN } from "./api.ts";
+import { createMapDay } from "./day.ts";
 import { createMapService, type MapPluginService } from "./service.ts";
 
 /** 插件内部的服务（数据源的函数经它现取） */
@@ -48,7 +52,9 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
       return { tools: [], cards: [], jobs: [] };
     },
     needs: [KERNEL.clock, KERNEL.layout, KERNEL.dataSourceSecrets],
-    provides: [MAP, MAP_INTERNAL],
+    // 我的足迹的数据在手机插件那里（可选：没有它地图照样能看）
+    wants: [PHONE],
+    provides: [MAP, MAP_INTERNAL, MAP_DAY],
     contracts(ctx) {
       const source: DataSource = {
         id: AMAP_SOURCE_ID,
@@ -96,6 +102,7 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
       });
       ctx.provide(MAP, service);
       ctx.provide(MAP_INTERNAL, service);
+      ctx.provide(MAP_DAY, { day: createMapDay(() => ctx.optional(PHONE)) });
       // 停用时：排队等着取的瓦片不取了
       ctx.lifecycle({ stop: () => service.stop() });
     },
