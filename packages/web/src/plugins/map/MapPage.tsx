@@ -119,8 +119,9 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
     [base, showCard, cardContent, fp.shown, fp.day],
   );
   const amapScene = cardContent?.amapOnly ? cardContent.scene : undefined;
-  // "足迹"开着就当画着足迹（还没取到、这一天空着也算）：底图一律 OpenStreetMap，也不为它加载高德的脚本（scene.ts 的 AMAP_WITH_FOOTPRINTS）
-  const footprintsDrawn = showCard ? cardContent?.footprints === true : fp.shown;
+  // "足迹"开着就当画着足迹（还没取到、这一天空着也算）：底图一律 OpenStreetMap，也不为它加载高德的脚本（scene.ts 的 AMAP_WITH_FOOTPRINTS）；
+  // 看的是足迹卡也一样（按卡上写的认，不等取到）
+  const footprintsDrawn = showCard ? cardPayload?.show.kind === "day" : fp.shown;
   const cardTitle = cardPayload ? mapCardTitle(cardPayload) : undefined;
   const cardNote = cardId === undefined ? undefined : cardState === undefined ? t("ui.plugins.map.card.missing") : cardData ? contentSummary(cardData) : undefined;
 
