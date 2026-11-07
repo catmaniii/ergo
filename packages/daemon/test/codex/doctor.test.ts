@@ -86,4 +86,18 @@ describe("体检页上的 Codex 一块", () => {
     await k.host.disable("codex");
     expect(k.doctorChecks.list()).toEqual([]);
   });
+
+  it("不给 program 时按守护进程的环境（KERNEL.env，和深度体检的登录一样）找 codex：那个 PATH 里 npm 装的读 package.json，不跑程序", async () => {
+    const env = { PATH: npmInstall("0.170.2") };
+    const loginStatus = () => Promise.resolve({ code: 0, stdout: "", stderr: "Logged in using ChatGPT" });
+    const plugin = createCodexPlugin({ missing: () => undefined, sessions: {} as never, loginStatus });
+    const k = await startPluginKernel({
+      plugins: [plugin],
+      services: [extraService(KERNEL.oneShot, () => (() => Promise.reject(new Error("测试里不起子进程"))) as never), extraService(KERNEL.env, () => env)],
+    });
+    expect(itemOf(await kernelDoctor(k).view(), "codex", "program")).toMatchObject({ level: "ok", text: { fact: `Codex 0.170.2（要 ${CODEX_MIN_VERSION} 或更新的）` } });
+    // 守护进程的 PATH 里没有了：找不到（不看跑测试的这台机器装没装）
+    env.PATH = makeTempDir("ergo-empty-path-");
+    expect(itemOf(await kernelDoctor(k).view(), "codex", "program")).toMatchObject({ level: "error" });
+  });
 });

@@ -5,12 +5,13 @@
 // - 不拥有数据：没有视图、事件、卡片、改写函数，移除时没有"连数据删"的勾。Codex 自己的会话是 Codex 的；接管记录记在任务、项目上（内核的）。
 // - Codex 不随二狗分发：没装、版本太低时插件不装配（定义里的 missing）：设置 · 插件和运行时都写这一句，别的功能不受影响，装好后点启用就装上。
 // - 体检（414，doctor.ts）：登记"程序和版本"一项——开机以后 codex 被卸了、降了版本，这一项变红（版本读缓存，没缓存异步跑一次 --version）。
+//   找 codex 用守护进程的环境（KERNEL.env，415 为登录检查加的），和深度体检的登录看同一个程序。
 // - 深度体检（415，deep-doctor.ts）：体检页上点了"深度体检"才跑一次 codex login status，看本机的 Codex 登录了没有。
 import { t } from "@ergo/protocol";
 import type { PluginDefinition } from "../plugins/host.ts";
 import { KERNEL } from "../plugins/kernel.ts";
 import { CODEX_PLUGIN } from "./api.ts";
-import { type CodexProgram, codexProgramCheck } from "./doctor.ts";
+import { type CodexProgram, codexProgramCheck, probeCodexProgram } from "./doctor.ts";
 import { type CodexLoginStatus, codexLoginCheck, codexLoginStatus } from "./deep-doctor.ts";
 import { codexMissing } from "./install.ts";
 import { codexRuntime } from "./runtime.ts";
@@ -55,8 +56,9 @@ export function createCodexPlugin(
           sessions = undefined;
         };
       });
-      // 体检（414）：本机的 codex 还在不在、版本够不够（开机时的样子由插件本身、运行时那两项写）
-      ctx.doctor.register(codexProgramCheck(options.program));
+      // 体检（414）：本机的 codex 还在不在、版本够不够（开机时的样子由插件本身、运行时那两项写）。
+      // 和深度体检的登录（415）一样按守护进程的环境（KERNEL.env）找 codex，两项看的是同一个程序
+      ctx.doctor.register(codexProgramCheck(options.program ?? (() => probeCodexProgram(env))));
       // 深度体检（415）：登录了没有（跑一次 codex login status；点了"深度体检"才跑）
       ctx.doctor.register(codexLoginCheck(options.loginStatus ?? codexLoginStatus(() => env)));
     },

@@ -35,7 +35,7 @@ export function codexProgramFinding(program: CodexProgram): DoctorFinding {
   return { level: "ok", fact: { key: "codex.doctor.program.ok", params: { version: program.version, min: CODEX_MIN_VERSION } } };
 }
 
-/** "程序和版本"那一项：probe 不给是看本机真的 codex（测试换成假的） */
+/** "程序和版本"那一项：probe 不给是按本进程的环境看本机真的 codex（插件里传按 KERNEL.env 找的那个；测试换成假的） */
 export function codexProgramCheck(probe: () => Promise<CodexProgram> = () => probeCodexProgram()): DoctorCheck {
   return { id: "program", title: "codex.doctor.program.title", cost: "local", timeoutMs: CODEX_VERSION_TIMEOUT_MS + 1_000, run: async () => codexProgramFinding(await probe()) };
 }
