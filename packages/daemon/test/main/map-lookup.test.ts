@@ -8,18 +8,21 @@
 // - 试查一下（数据源的 live）走得通。
 // 433：没填高德的 Key 也有工具；新加坡"酒店附近的 hawker centre"走本机的假 OpenStreetMap（helpers/fake-osm-lookup.ts），不发给高德，
 //   结果写明数据来自 OpenStreetMap、带二狗的 User-Agent。
-import { AMAP_SOURCE_ID, CHANNELS, EVENT_TYPES, type MessageEventPayload, PHONE_LOCATION_SOURCE, type ToolCallDetail } from "@ergo/protocol";
+// 436（合并时接上 431 的卡片）：查完路线照工具结果末尾的编号调 show_on_map(lookup)，聊天里出一张路线卡；卡上只存编号，
+//   点和线按编号从地图插件内存里那一份（查的时候放进去的）现取，画卡、取点线都不再问高德。
+import { AMAP_SOURCE_ID, type CardEventPayload, CHANNELS, EVENT_TYPES, type MessageEventPayload, PHONE_LOCATION_SOURCE, type ToolCallDetail } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { amapLocation } from "../../src/map/amap-lookup.ts";
 import { MAP_TOOL } from "../../src/map/lookup-tools.ts";
 import { createMapPlugin } from "../../src/map/plugin.ts";
+import { SHOW_ON_MAP_TOOL } from "../../src/map/show-on-map.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
 import { startFakeAmapLookup } from "../helpers/fake-amap-lookup.ts";
 import { startFakeOsmLookup } from "../helpers/fake-osm-lookup.ts";
 import { AMAP_TEST_SERVICE_KEY } from "../helpers/fake-map.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
-import { dataSourcesApi, toolCallDetail } from "../helpers/http.ts";
+import { dataSourcesApi, mapApi, toolCallDetail } from "../helpers/http.ts";
 
 const { secretary: SECRETARY } = CHANNELS;
 const call = (name: string, args: Record<string, unknown>): FauxStep => ({ kind: "reply", toolCalls: [{ name, arguments: args as never }] });
@@ -123,5 +126,62 @@ describe("地图插件：查地点、算路线（假高德走真实装配路径�
     expect(osm.requests).toHaveLength(1);
     expect(osm.requests[0]!.ua).toMatch(/^ergo\//);
     expect(td.daemon.store.readGlobal(0, 1_000_000).filter((e) => e.channel.startsWith("map"))).toEqual([]);
+  });
+
+  it("查路线再画成卡片：秘书调 map_route，照结果末尾的编号调 show_on_map(lookup)，聊天里出一张路线卡；卡上只存编号，点线按编号现取，不再问高德", { timeout: 90_000 }, async () => {
+    const fake = await startFakeAmapLookup();
+    const td = await startTestDaemon({
+      // 没有 lookups 这一项：卡片取的就是查路线时放进插件内存的那一份
+      extraPlugins: [createMapPlugin({ amapHosts: fake.hosts, timeoutMs: 5000 })],
+      secretary: [
+        call(MAP_TOOL.route, { from: "家", to: "公司" }),
+        // 假模型从 map_route 的结果里抄编号（"编号 amap-r1"），当 show_on_map 的 lookup
+        { kind: "call_with_matches", toolCall: { name: SHOW_ON_MAP_TOOL, arguments: {} }, argument: "lookup", pattern: "amap-r\\d+", first: true },
+        say("开车约 35 分钟，坐地铁约 52 分钟，路线放在卡片上了。"),
+      ],
+    });
+    expect((await dataSourcesApi.act(td.url, AMAP_SOURCE_ID, { action: "configure", values: { serviceKey: AMAP_TEST_SERVICE_KEY }, idempotencyKey: key() })).status).toBe(200);
+    for (const [name, p] of [["家", HOME], ["公司", OFFICE]] as const) {
+      const added = await dataSourcesApi.act(td.url, PHONE_LOCATION_SOURCE, { action: "configure", values: { places: "add", name, lat: String(p.lat), lon: String(p.lon) }, idempotencyKey: key() });
+      expect(added.status).toBe(200);
+    }
+
+    const frontend = await TestFrontend.connect(td.url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    await frontend.sendText("从家到公司多久，画在地图上");
+    await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
+    const asked = fake.requests.length;
+    expect(asked).toBeGreaterThan(0);
+
+    const parts = frontend.events({ channel: SECRETARY, type: EVENT_TYPES.message }).flatMap((f) => (f.payload as MessageEventPayload).message.parts);
+    const routeCall = parts.find((p) => p.type === "tool_call" && p.tool === MAP_TOOL.route);
+    const showCall = parts.find((p) => p.type === "tool_call" && p.tool === SHOW_ON_MAP_TOOL);
+    if (routeCall?.type !== "tool_call" || showCall?.type !== "tool_call") throw new Error("秘书没调 map_route 和 show_on_map");
+    expect([routeCall.outcome, showCall.outcome]).toEqual(["done", "done"]);
+    // 查路线的结果末尾写着编号和怎么画
+    const routed = ((await toolCallDetail(td.url, routeCall.callId)).body as ToolCallDetail).result;
+    const id = /编号 (amap-r\d+)（要画在地图上时调 show_on_map，lookup 写它）/.exec(routed)?.[1];
+    expect(id).toBe("amap-r1");
+    const shown = ((await toolCallDetail(td.url, showCall.callId)).body as ToolCallDetail).result;
+    expect(shown).toContain("已在聊天里放了一张地图卡片「从家到公司」（2 个点、2 条路线；卡上写着数据来自哪家）");
+
+    // 一张已处理的地图卡：只存编号、种类、哪家查的和标题，不存点、线；聊天里有它的引用，排在秘书的回复前面
+    const cards = td.daemon.store.read(CHANNELS.cards, 0, EVENT_TYPES.card).map((e) => (e.payload as CardEventPayload).card).filter((c) => c.type === "map");
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toMatchObject({ status: "handled", payload: { title: "从家到公司", show: { kind: "lookup", lookup: "amap-r1", what: "route", source: "amap" } } });
+    for (const c of [HOME.lat, HOME.lon, OFFICE.lat, OFFICE.lon]) expect(JSON.stringify(cards[0])).not.toContain(String(c));
+    const refAt = parts.findIndex((p) => p.type === "card_ref" && p.cardId === cards[0]!.id);
+    const replyAt = parts.findIndex((p) => p.type === "text" && p.text.includes("路线放在卡片上了"));
+    expect(refAt).toBeGreaterThanOrEqual(0);
+    expect(replyAt).toBeGreaterThan(refAt);
+
+    // 网页按编号取：两头的点（常去的地方，WGS-84 原样）、开车和公交两条线，就是查的时候那一份
+    const drawn = await mapApi.drawing(td.url, "amap-r1");
+    expect(drawn.status).toBe(200);
+    expect(drawn.body).toMatchObject({ id: "amap-r1", kind: "route", source: "amap", title: "从家到公司", marks: [{ label: "家", lat: HOME.lat, lon: HOME.lon }, { label: "公司", lat: OFFICE.lat, lon: OFFICE.lon }] });
+    expect(drawn.body.lines.map((l) => l.mode)).toEqual(["driving", "transit"]);
+    // 画卡、取点线都不再问高德
+    expect(fake.requests).toHaveLength(asked);
+    await frontend.close();
   });
 });

@@ -150,7 +150,7 @@ describe("画在地图上（show_on_map）", () => {
     expect(gone).toMatchObject({ isError: true });
     expect(gone.text).toContain("没有编号是 amap-r9 的查询结果");
     expect(made).toHaveLength(1);
-    // 查地点、算路线还没有（432 没合进来、插件停着）：一样回错
+    // 取不到查地点、算路线的那几份（插件停着）：一样回错
     expect(await setup().run({ lookup: "amap-r1" })).toMatchObject({ isError: true });
   });
 

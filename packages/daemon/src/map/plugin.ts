@@ -55,8 +55,8 @@ export interface MapPluginOptions {
   /** 瓦片缓存上限（字节） */
   tileCacheBytes?: number;
   /**
-   * 查地点、算路线查到的能画的那几份（现取）：432 合进来以后换成它的 service.lookups（内存里那一份）；
-   * 在那之前只有测试经它给（"画在地图上"的 lookup、GET /api/map/drawing）
+   * 只给测试：换掉"画在地图上"的 lookup、GET /api/map/drawing 取的那几份（现取）。不写就是插件自己内存里的那一份
+   * （查地点、算路线时放进去的 service.lookups，432 的 lookup-results.ts）
    */
   lookups?: () => MapLookups | undefined;
   /** OpenStreetMap 的 Nominatim、OSRM 的地址（测试换成本机的假服务） */
@@ -157,8 +157,8 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
       registerAmapDoctor(ctx, () => service.amapUsageFinding());
       const day = createMapDay(() => ctx.optional(PHONE));
       ctx.provide(MAP_DAY, { day });
-      // 聊天里的地图卡片（431）：查地点、算路线查到的那一份按编号取；秘书的"画在地图上"
-      const lookups = () => options.lookups?.();
+      // 聊天里的地图卡片（431）：查地点、算路线（432 高德、433 OpenStreetMap）放在内存里的那一份按编号取；秘书的"画在地图上"
+      const lookups = options.lookups ?? (() => service.lookups);
       ctx.provide(MAP_DRAWING, createMapDrawings(lookups));
       // 插件停了、秘书还没按新的贡献重新装配的那一会儿再调：插件宿主替它回"地图插件没启用"，不出卡
       const tool = showOnMapTool({ day, lookups, cards: ctx.use(KERNEL.cards) });

@@ -23,6 +23,7 @@ import { distanceMeters, type LatLon, MAP_ROUTE_MODES, type MapLookupLine, type 
 import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import { type LookupProvider, MapLookupError, type MapLookupFailure, type PlaceHit, type RouteAnswer, type TransitLeg, type TransitPlan } from "./lookup.ts";
 import type { LookupResults } from "./lookup-results.ts";
+import { SHOW_ON_MAP_TOOL } from "./show-on-map.ts";
 
 /** 工具名 */
 export const MAP_TOOL = {
@@ -300,8 +301,8 @@ async function ask<T>(provider: LookupProvider, run: () => Promise<T>): Promise<
 
 /** 一处画成地图上的一个点 */
 const markOf = (id: string, w: Where): MapLookupMark => ({ id, lat: w.point.lat, lon: w.point.lon, label: w.shown, kind: w.mark });
-/** 结果末尾的编号（431 的 show_on_map 拿它画） */
-const drawHint = (id: string) => `编号 ${id}（要画在地图上时用它）。`;
+/** 结果末尾的编号（431 的 show_on_map 拿它画）：写明调哪个工具、填哪一项，秘书查完能顺手画成卡片 */
+const drawHint = (id: string) => `编号 ${id}（要画在地图上时调 ${SHOW_ON_MAP_TOOL}，lookup 写它）。`;
 /** 某一家没问成的几句，接在结果后面 */
 const skippedLine = (skipped: readonly ProviderProblem[]) => (skipped.length === 0 ? [] : [`（${skipped.map((p) => skippedText(p.err, p.provider)).join("；")}）`]);
 

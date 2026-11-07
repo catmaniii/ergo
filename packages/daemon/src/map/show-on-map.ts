@@ -3,8 +3,9 @@
 //   几点到几点）和照片张数，让秘书先说结论（"去了 3 个地方：公司、西湖边、家"）。这一天什么都没有就不出卡，说最近有足迹的是哪天；
 // - points：一组点（秘书自己给的坐标，WGS-84，每个点写个名字）；
 // - route：一条路线（按先后的点连成线；起点、终点总标出来，途经的写了名字才标）；
-// - lookup：查地点、算路线（432：map_search_places、map_route、map_geocode 的结果末尾"编号 amap-r1"）那一次查到的点和线——
-//   从地图插件的内存里按编号取（lookups，432 合进来时接上），卡上只存编号、种类和标题（高德的协议不许存它的结果），
+// - lookup：查地点、算路线（432 高德、433 OpenStreetMap：map_search_places、map_route、map_geocode、map_reverse_geocode 的结果末尾
+//   "编号 amap-r1""编号 osm-p1"）那一次查到的点和线——从地图插件的内存里按编号取（lookups，就是查的时候放进去的 service.lookups），
+//   卡上只存编号、种类、哪家查的和标题（高德的协议不许存它的结果），
 //   网页按编号现取来画；取不到（过期了、二狗重启过、编号不对）回错，让秘书再查一次。
 // 只读：不改任何东西、不往外发（足迹只在二狗里算，lookup 取的是已经查到的）；每调一次多一张卡，所以不算幂等。
 // 用户自己的坐标不写进工具结果（模型那边也是外面的服务）：只写名字和时间。
@@ -17,7 +18,7 @@ import { RequestRejected } from "../errors.ts";
 /** 工具名 */
 export const SHOW_ON_MAP_TOOL = "show_on_map";
 
-/** 查地点、算路线（432）查到的能画的那几份：按编号取，过期、挤掉了、没有是 undefined（432 的 LookupResults 就是这个形状） */
+/** 查地点、算路线（432、433）查到的能画的那几份：按编号取，过期、挤掉了、没有是 undefined（432 的 LookupResults 就是这个形状） */
 export interface MapLookups {
   get(id: string): MapDrawing | undefined;
 }
@@ -25,7 +26,7 @@ export interface MapLookups {
 export interface ShowOnMapDeps {
   /** 某一天的足迹（MAP_DAY：经手机插件现算，不联网）；日期不对、手机插件没启用抛 RequestRejected */
   day(date: string): MapDayView;
-  /** 查地点、算路线留在内存里的那几份（现取）；没有查地点、算路线（432 还没合进来，或者地图插件停着）是 undefined */
+  /** 查地点、算路线留在内存里的那几份（现取：地图插件的 service.lookups）；取不到是 undefined，当作没有那个编号 */
   lookups(): MapLookups | undefined;
   cards: Pick<CardService, "create">;
 }
