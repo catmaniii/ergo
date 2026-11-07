@@ -486,7 +486,9 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 Gmail 可以连几个账号（`google/gmail-accounts.ts`）。密钥区 `secrets/data-sources/google-gmail.json` 的 `values` 里是 `accounts`（几个账号的 id，逗号分开）和每个账号的 `account.<id>.address`、`.password`、`.enabled`（`on` / `off`）；id 是地址（小写）的哈希前 10 位，同一个地址断开再加还是它，事件里记 id（推不回地址）。一个值一格，不拼成一段 JSON：内核按格把出错原因里的密钥换成 `***`。邮件编号带账号（`<账号 id>.<邮箱>-<UIDVALIDITY>-<UID>`），几个账号的 UID 会撞。页面上是完整邮箱，日志和给模型的内容是打了码的；内核会把这一格里的完整邮箱从出错原因里换掉，所以插件写出错原因时用打码的。
 
-地图插件（`map/`，[ADR-0051](adr/0051-map-amap-js-and-osm-tiles.md)）：数据源 `amap`"高德地图"只用来填 Key（Web 端 Key、安全密钥、Web 服务 Key，先测再存），不导入、现在不给秘书工具；转发高德请求时插件经内核服务 `KERNEL.dataSourceSecrets` 现取自己那一格。坐标在 `packages/protocol/src/geo.ts`（WGS-84 和 GCJ-02 互转、在不在大陆），二狗里一律存、传 WGS-84，只在跟高德来回时转。
+地图插件（`map/`，[ADR-0051](adr/0051-map-amap-js-and-osm-tiles.md)）：数据源 `amap`"高德地图"填 Key（Web 端 Key、安全密钥、Web 服务 Key，先测再存），不导入；转发高德请求时插件经内核服务 `KERNEL.dataSourceSecrets` 现取自己那一格。坐标在 `packages/protocol/src/geo.ts`（WGS-84 和 GCJ-02 互转、在不在大陆），二狗里一律存、传 WGS-84，只在跟高德来回时转。
+
+查地点、算路线（[ADR-0053](adr/0053-map-lookup-on-demand.md)）是 `amap` 的按需查（默认开）：内核只在按需查开着、插件在运行、连着时把五个工具给秘书（`map/lookup-tools.ts`：`map_search_places`、`map_route`、`map_geocode`、`map_reverse_geocode` 联网、只往下拉，`map_my_places` 不联网）。工具只认 `map/lookup.ts` 的 `LookupProvider`（高德是 `map/amap-lookup.ts`，按点在不在大陆挑，国外的以后加一家）；"家""公司"取手机插件的常去的地方、"附近"取手机最近一个位置点（`wants: [PHONE]`，`namedPlaces`、`latestPoint`），坐标不写进给模型的结果。查到的不落盘、不进素材；能画的那一份只在内存里留两小时（`map/lookup-results.ts`，编号写进工具结果）。每月的用量记在插件自己的存储 `map/amap-usage.json`（只有次数），体检项"高德的用量"经 409 的 `ctx.doctor` 登记（`map/doctor.ts`）。`defineHostTool` 能写 `network`、`pullOnly`，联网开关照登记走。
 
 ### 网页插件
 

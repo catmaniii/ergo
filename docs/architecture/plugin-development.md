@@ -770,6 +770,13 @@ export function createClaudeCodePlugin(
 - **外部协议自己写、不加依赖**：只读的 IMAP 客户端（`imap.ts`：命令口只放行只读的几条，写操作在客户端就拒绝）、邮件解析（`mime.ts`，Node 自带的 `tls` 和 `TextDecoder`）。
 - **测**：本机起假 IMAP 服务（`packages/daemon/test/helpers/fake-imap.ts` 的 `startFakeImapServer`：TLS 测试自签证书、照 Gmail 的样子回应、写操作和会标已读的取信都记下来），`createGooglePlugin({ imap: server.endpoint })` 接上；假内核 `packages/daemon/test/google/gmail.test.ts`，主切面 `packages/daemon/test/main/google-gmail.test.ts`（经 `extraPlugins` 换掉清单里的 Google 插件）。
 
+**按需查、要联网、结果不许存**的数据源照地图插件的"高德地图"（432，`packages/daemon/src/map/`）写：
+
+- **工具登记联网**：`defineHostTool` 写 `network: true`（联网开关关着时守卫直接拒绝），只为取回东西的再写 `pullOnly: true`；带出去的查询词登记成 `content` 参数（`args`），守卫照样查里面有没有密钥。
+- **工具只认一个统一外形**（`map/lookup.ts` 的 `LookupProvider`），接哪家服务是另一个文件；以后换一家、按地区挑一家，工具不用改。
+- **查到的不落盘、不写事件**：要给别的功能接着用的（画在地图上）只在内存里留一会儿，编号写进工具结果；用户自己的坐标不写进给模型的结果。用量这种只记次数的放插件自己的存储（`KERNEL.layout` 的数据目录下 `map/`），移除时列进 `files`。
+- **查的时候 Key 失效**：每个回应交给记着连接状态的那一层（`amap.ts` 的 `serviceReply`），下一次 `status` 报出错；"试查一下"做成 `live`。
+
 **真的例子：Google · 联系人**（同一个插件的第三个数据源）：只靠导入文件夹、导入的东西进个人档案候选（不进素材）的数据源照它写：
 
 <!-- 摘自 packages/daemon/src/google/contacts-source.ts -->

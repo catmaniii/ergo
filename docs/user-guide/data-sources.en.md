@@ -48,7 +48,7 @@ Tap a card to open its own page, which has three parts:
 | Google · Gmail | Enter your address and an app password | Ask the secretary, **Available now**; with import on, in Memory · Materials | **Disconnect** next to the account, or **Disconnect all** |
 | Google · Contacts | No authorization; put the exported file in the import folder | A review card in the Inbox; once confirmed, in Memory · Files | **Delete imported data** |
 | Looki | Pick a region, enter an API key | Ask the secretary, Memory · Materials; photos and journals in a local folder | **Disconnect** |
-| AMap | Enter the Web key and its security code (Web service key optional) | The map page uses AMap inside China; see [Maps](map.en.md) | **Disconnect** |
+| AMap | Enter the Web key and its security code (Web service key optional) | The map page uses AMap inside China; with the Web service key, ask ergo to look up places and routes (**Run a test lookup** checks it works); see [Maps](map.en.md) | **Disconnect** |
 | Phone · Pick contacts | Tap **Pick from phone contacts** in the HarmonyOS app | A review card in the Inbox; once confirmed, in Memory · Files | **Delete imported data** |
 | Phone · Calendar | Tap **Connect phone calendar** in the HarmonyOS app | **Other calendars** on the Calendar page | **Disconnect** |
 | Phone · Photo times and places | Tap **Connect album** in the HarmonyOS app | One summary a day in Memory · Materials | **Disconnect** |
