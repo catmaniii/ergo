@@ -47,10 +47,20 @@
 .map-osm.dragging {
   cursor: grabbing;
 }
+/* 三层各自一个层叠上下文：瓦片（换级别时上下两级各有 z-index）压不到线圈和点上 */
 .map-tiles,
 .map-marks {
   position: absolute;
   inset: 0;
+}
+.map-tiles {
+  z-index: 0;
+}
+.map-shapes {
+  z-index: 1;
+}
+.map-marks {
+  z-index: 2;
 }
 .map-tiles img {
   position: absolute;
