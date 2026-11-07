@@ -116,6 +116,7 @@
   "memory.doctor.index.running": "正在补算",
   "memory.doctor.index.idle": "等着补算",
   "memory.doctor.index.behind": "还差 {pending} 条没算向量（一共 {total} 条，{state}）：这些素材只能按关键词找到",
+  "memory.doctor.index.empty": "还没有要算向量的素材",
   "memory.doctor.index.ok": "{indexed} 条素材都算好了向量",
   "memory.doctor.index.okPending": "已算 {indexed} 条，还差 {pending} 条（{state}）",
   "memory.doctor.fix.indexError": "看日志里算向量出错的那一行；一直这样就重启二狗",

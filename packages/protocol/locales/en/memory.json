@@ -123,6 +123,7 @@
   "memory.doctor.index.running": "catching up now",
   "memory.doctor.index.idle": "waiting to catch up",
   "memory.doctor.index.behind": "{pending} of {total} materials still have no vectors ({state}); those can only be found by keyword",
+  "memory.doctor.index.empty": "No materials need vectors yet",
   "memory.doctor.index.ok": "Vectors are ready for all {indexed} materials",
   "memory.doctor.index.okPending": "{indexed} done, {pending} to go ({state})",
   "memory.doctor.fix.indexError": "Look for the vector error in the log; if it keeps happening, restart ergo",

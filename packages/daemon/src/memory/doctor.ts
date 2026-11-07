@@ -94,6 +94,7 @@ export function indexFinding(status: VectorFacts): DoctorFinding {
   if (status.pending >= INDEX_LAG_MIN && status.pending > total * INDEX_LAG_RATIO) {
     return { level: "warn", fact: { key: "memory.doctor.index.behind", params: { ...params, state } }, fix: { key: "memory.doctor.fix.indexBehind" } };
   }
+  if (total === 0) return { level: "ok", fact: { key: "memory.doctor.index.empty" } };
   if (status.pending === 0) return { level: "ok", fact: { key: "memory.doctor.index.ok", params } };
   return { level: "ok", fact: { key: "memory.doctor.index.okPending", params: { ...params, state } } };
 }

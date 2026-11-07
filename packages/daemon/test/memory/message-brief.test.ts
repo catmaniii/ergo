@@ -12,6 +12,7 @@ import { openEventStore, type EventStore } from "../../src/events/event-store.ts
 import type { Materials } from "../../src/materials/index.ts";
 import { sessionRewriteFor } from "../../src/memory/after-purge.ts";
 import { kernelEmbedderAdapter } from "../../src/memory/embedder-adapter.ts";
+import { createBriefStats } from "../../src/memory/brief-stats.ts";
 import { createMemoryEngineProvider } from "../../src/memory/engine-provider.ts";
 import { createMessageBriefs, isShortReply, MESSAGE_BRIEF_HEAD, type MessageBriefs, type MessageBriefsOptions, queryMemoEmbedder } from "../../src/memory/message-brief.ts";
 import { openReasoningDb } from "../../src/memory/rg-db.ts";
@@ -377,5 +378,34 @@ describe("简报问记忆插件要（注入的 brief）", () => {
     expect((await turn(store, slow.briefs, TALK)).block).toBeUndefined();
     expect(slow.logs.some((line) => line.includes("记忆简报超时"))).toBe(true);
     expect(slow.usage).toEqual([]);
+  });
+
+  it("每问完一次给统计记一笔（412，体检读）：带上了、没相关的、出错、超时各算各的；短应答、关了简报不问也不记", async () => {
+    const store = eventStore();
+    let now = Date.parse("2026-11-07T10:00:00+08:00");
+    const stats = createBriefStats({ now: () => now });
+    let reply: () => Promise<MemoryBriefResult | undefined> = async () => ({ text: "甲的结论：周末别排满" });
+    let enabled = true;
+    const { briefs: b } = injecting(store, () => reply(), { stats, timeoutMs: 50, enabled: () => enabled });
+
+    expect((await turn(store, b, TALK)).block).toBeDefined();
+    reply = async () => undefined;
+    await turn(store, b, "说点没相关记忆的事");
+    reply = async () => {
+      throw new Error("插件炸了");
+    };
+    await turn(store, b, "再说一句别的");
+    reply = () => new Promise<never>(() => {});
+    now += 60_000;
+    await turn(store, b, "这句会超时");
+    // 短应答、关了简报：压根不问，不算一次
+    await turn(store, b, "好的");
+    enabled = false;
+    await turn(store, b, "关了简报以后说的");
+
+    const snapshot = stats.snapshot();
+    expect(snapshot).toMatchObject({ asked: 4, timedOut: 1, failed: 1 });
+    // 超时的那次记的是等到上限的那么久
+    expect(snapshot.last).toEqual({ at: now, ms: 50, outcome: "timeout" });
   });
 });
