@@ -77,7 +77,7 @@
   "looki.doctor.archive.off": "Off, not checked",
   "looki.doctor.archive.never": "On, nothing saved yet",
   "looki.doctor.archive.ok": "On, last saved something at {time}",
-  "looki.doctor.archive.problem": "Stopped: {problem}",
+  "looki.doctor.archive.problem": "Ran into a problem: {problem}",
   "looki.doctor.archive.failed_one": "{count} moment couldn't be saved after several tries",
   "looki.doctor.archive.failed_other": "{count} moments couldn't be saved after several tries",
   "looki.doctor.archive.fixProblem": "Open the \"Keep a local copy\" panel in Settings · Data sources · Looki to see why: fix folder, disk or permission problems as it says; if Looki answered something unexpected (say, it changed its API), wait for an Ergo update — photos and journals keep saving",

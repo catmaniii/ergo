@@ -15,8 +15,8 @@ export const EN_DOCTOR: Phrases = {
   "主对话已经用了 935k token，过了自动压缩点 700k 还没压下去": "The main conversation is at 935k tokens, past its auto-compaction point of 700k, and hasn't been compacted",
   "点「现在压缩」；压完再查一遍": 'Press "Compact now", then run the checkup again once it\'s done',
   "存一份到本地": "Keep a local copy",
-  "停下了：vlog 没存：Looki 换了接口：这个接口停用了（HTTP 400：This endpoint is deprecated）。照片、日记照常存，二狗跟着改好之前 vlog 先存不了":
-    "Stopped: Vlogs not saved: Looki changed its API: this endpoint has been retired (HTTP 400: This endpoint is deprecated). Photos and journals still save; vlogs wait until ergo catches up",
+  "出了问题：vlog 没存：Looki 换了接口：这个接口停用了（HTTP 400：This endpoint is deprecated）。照片、日记照常存，二狗跟着改好之前 vlog 先存不了":
+    "Ran into a problem: Vlogs not saved: Looki changed its API: this endpoint has been retired (HTTP 400: This endpoint is deprecated). Photos and journals still save; vlogs wait until ergo catches up",
   "去设置 · 数据源 · Looki 的「存一份到本地」那一块看原因：位置、磁盘、权限的问题照它说的改；写着 Looki 回的不对（比如换了接口）的，等二狗更新，照片、日记照常存":
     'Open the "Keep a local copy" panel in Settings · Data sources · Looki to see why: fix folder, disk or permission problems as it says; if Looki answered something unexpected (say, it changed its API), wait for an Ergo update — photos and journals keep saving',
   "「工作」：地址失效了（Google 回了 404）": '"Work": the address no longer works (Google returned 404)',

@@ -91,7 +91,7 @@ function extras(name: string): DoctorItemView[] {
       // 数据源那一项正常；"存一份到本地"停下了：列 vlog 时 Looki 回"接口停用了"（424 写在那一块上的原因，体检照抄）
       return [
         keyed("source:looki", "ok", source("Looki"), { key: "doctor.source.synced", params: { time: time("2026-11-07T02:31:00+08:00") } }),
-        said("archive", "warn", "存一份到本地", "停下了：vlog 没存：Looki 换了接口：这个接口停用了（HTTP 400：This endpoint is deprecated）。照片、日记照常存，二狗跟着改好之前 vlog 先存不了", {
+        said("archive", "warn", "存一份到本地", "出了问题：vlog 没存：Looki 换了接口：这个接口停用了（HTTP 400：This endpoint is deprecated）。照片、日记照常存，二狗跟着改好之前 vlog 先存不了", {
           fix: "去设置 · 数据源 · Looki 的「存一份到本地」那一块看原因：位置、磁盘、权限的问题照它说的改；写着 Looki 回的不对（比如换了接口）的，等二狗更新，照片、日记照常存",
           action: { kind: "open", route: "#/more/data-sources/looki" },
         }),

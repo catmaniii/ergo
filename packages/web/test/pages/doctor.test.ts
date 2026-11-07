@@ -188,7 +188,7 @@ describe("原型编的一份", () => {
     expect(texts.filter(hasChinese)).toEqual([]);
     const html = render(view);
     expect(html).toContain("ergo itself");
-    expect(html).toContain("Stopped: Vlogs not saved: Looki changed its API");
+    expect(html).toContain("Ran into a problem: Vlogs not saved: Looki changed its API");
     expect(html).toContain("&quot;Work&quot; failed 2 times in a row");
     expect(html).toContain("Compact now");
     expect(html).toContain("Take a look");
