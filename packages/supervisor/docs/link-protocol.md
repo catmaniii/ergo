@@ -471,4 +471,5 @@ Python 客户端（`lsm_link.py`）暂未加，它会忽略这些消息。
 
 参考客户端 `clients/lsm-link.mjs` 有 `lsm.manage`（`ready()` / `list` / `logs` / `start` / `stop` / `restart` / `cancelStop` / `autostart` /
 `profileStart` / `profileStop` / `exposeOn` / `exposeOff` / `tailnetOpen` / `tailnetClose` / `remove` / `orphan` / `restartSelf`），
-同样不抛异常。Python 客户端暂未加。二狗自己的接入层在 `packages/daemon/src/lsm/link.ts`。
+同样不抛异常。Python 客户端暂未加。二狗自己的接入层在 `packages/daemon/src/lsm/link.ts`（`manage`），秘书用它的六个工具在
+`packages/daemon/src/lsm/secretary-tools.ts`（看列表和日志、开关服务直接做；强制停、撤、外网入口、重启自己出审批卡；先按列表的 `protected` 本地拒一遍）。

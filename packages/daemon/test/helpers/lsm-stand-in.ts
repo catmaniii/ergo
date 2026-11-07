@@ -8,6 +8,8 @@
 // owned.reboot 扮演"电脑重启了、LSM 没按开机自启拉"（名下的服务全停、不推送）；drop 断开现在的连接（服务端照开着），
 // 守护进程按退避重连，重连后照常 welcome、推全量（扮演 LSM 重启了、二狗重新接上）。
 // entries 给了时扮演支持"指向自己的入口"的管理器（协议 §8）——welcome 里带 "entries"、接入时推一次，setEntries 改了再推。不给时 welcome 里没有（老管理器）。
+// manage 给了时扮演支持管理指令的管理器（协议 §9）——welcome 里带 "manage"，收到的 manage.* 交给它回（回 undefined 就不回，测超时、断线用）；
+// 回复在它交回之后马上发，它里面用 setTimeout 再 send 的（restartSelf 之后的 restart）排在回复后面。不给时 welcome 里没有（老管理器）。
 import { randomUUID } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import { onTestFinished } from "vitest";
@@ -75,8 +77,20 @@ export interface LsmStandIn {
   close(): Promise<void>;
 }
 
+/** 管理指令（协议 §9）的替身：一条 manage.* → 回复的内容（不带 type、id）；undefined 是不回 */
+export type StandInManage = (message: LinkMessage) => Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined>;
+
 export async function startLsmStandIn(
-  options: { heartbeatIntervalMs?: number; conflict?: boolean; port?: number; token?: string; serviceId?: string; owned?: boolean; entries?: StandInEntries } = {},
+  options: {
+    heartbeatIntervalMs?: number;
+    conflict?: boolean;
+    port?: number;
+    token?: string;
+    serviceId?: string;
+    owned?: boolean;
+    entries?: StandInEntries;
+    manage?: StandInManage;
+  } = {},
 ): Promise<LsmStandIn> {
   const token = options.token ?? randomUUID();
   const serviceId = options.serviceId ?? "ergo-daemon";
@@ -203,9 +217,16 @@ export async function startLsmStandIn(
       const message = JSON.parse(data.toString()) as LinkMessage;
       messages.push({ message, at: Date.now() });
       if (options.owned && message.type.startsWith("services.")) return handleService(message);
+      if (options.manage && message.type.startsWith("manage.")) {
+        const manage = options.manage;
+        return void Promise.resolve(manage(message)).then((answer) => {
+          if (answer !== undefined) ws.send(JSON.stringify({ type: "manage.reply", id: message.id, ...answer }));
+        });
+      }
       if (message.type !== "hello") return;
       if (options.conflict) return ws.send(JSON.stringify({ type: "conflict", reason: "该 serviceId 已有活跃会话" }));
-      ws.send(JSON.stringify({ type: "welcome", sessionId: "s-test", heartbeatIntervalMs: options.heartbeatIntervalMs ?? 5000, ...(options.owned || entries ? { features: [...(options.owned ? ["services"] : []), ...(entries ? ["entries"] : [])] } : {}) }));
+      const welcomeFeatures = [...(options.owned ? ["services"] : []), ...(entries ? ["entries"] : []), ...(options.manage ? ["manage"] : [])];
+      ws.send(JSON.stringify({ type: "welcome", sessionId: "s-test", heartbeatIntervalMs: options.heartbeatIntervalMs ?? 5000, ...(welcomeFeatures.length > 0 ? { features: welcomeFeatures } : {}) }));
       // 新管理器：hello 里声明了要用名下的服务，welcome 之后推一次全量
       const features = message.features;
       if (options.owned && Array.isArray(features) && features.includes("services")) {

@@ -149,6 +149,7 @@ Each row below is something it can do for you. Click the text on the left to see
 | [Have Claude Code write code](claude-code.en.md) | Claude Code is an AI tool for writing code. If it's installed on your computer, owners can work through it, using your own subscription quota |
 | [Have Codex write code](codex.en.md) | Codex is a similar tool. If it's installed on your computer, owners can work through it too; what the guard covers is spelled out |
 | [Teach it new skills](skills-mcp-plugins.en.md) | Write a guide telling it how to do your weekly report; switch off whole features you don't want |
+| [Have ergo switch services in the service manager on and off](install.en.md#have-ergo-switch-services-for-you) | "Stop audiocpp for now"; "Why won't comfyui start?"; "Restart yourself". Serious ones show an approval card; what ergo depends on can't be stopped |
 | [Change settings, see what you've spent](settings.en.md) | Switch models, change the interface style and language, set up backups; see usage by day |
 
 ## What you need

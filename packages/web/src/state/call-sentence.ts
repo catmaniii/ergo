@@ -117,6 +117,13 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = labelTable(
     // 提交 skill
     request_skill_change: "state.callSentence.tool.request_skill_change",
     propose_skill: "state.callSentence.tool.propose_skill",
+    // 秘书指挥服务管家（daemon 的 lsm/secretary-tools.ts）
+    lsm_status: "state.callSentence.tool.lsm_status",
+    lsm_logs: "state.callSentence.tool.lsm_logs",
+    lsm_control: "state.callSentence.tool.lsm_control",
+    lsm_force: "state.callSentence.tool.lsm_force",
+    lsm_entries: "state.callSentence.tool.lsm_entries",
+    lsm_restart_self: "state.callSentence.tool.lsm_restart_self",
   },
   // 给秘书发消息（写名字占位，界面上显示用户起的名字）；协议包的常量，现取
   { tell_secretary: () => TELL_SECRETARY_CAPABILITY },
@@ -345,6 +352,41 @@ const PROJECT_DOC_LABEL: Readonly<Record<string, string>> = tTable({
 /** 路径里的文件夹名（末尾的斜杠不算；盘的根写原样） */
 function folderName(path: string): string {
   return path.split(/[\\/]/u).findLast((part) => part !== "" && !part.endsWith(":")) ?? path;
+}
+
+/**
+ * 秘书指挥服务管家的几个工具（daemon 的 lsm/secretary-tools.ts）：动作 → 一句话的 key（对象是服务名，场景的是场景名）。
+ * 参数摘要是 `action=stop service=audiocpp`（场景的写 profile）
+ */
+const LSM_ACTION_KEY: Readonly<Record<string, string>> = {
+  start: "state.callSentence.lsm.start",
+  stop: "state.callSentence.lsm.stop",
+  stop_when_idle: "state.callSentence.lsm.stopWhenIdle",
+  cancel_stop: "state.callSentence.lsm.cancelStop",
+  restart: "state.callSentence.lsm.restart",
+  autostart_on: "state.callSentence.lsm.autostartOn",
+  profile_start: "state.callSentence.lsm.profileStart",
+  force_stop: "state.callSentence.lsm.forceStop",
+  force_restart: "state.callSentence.lsm.forceRestart",
+  autostart_off: "state.callSentence.lsm.autostartOff",
+  profile_stop: "state.callSentence.lsm.profileStop",
+  remove: "state.callSentence.lsm.remove",
+  orphan_adopt: "state.callSentence.lsm.orphanAdopt",
+  orphan_kill: "state.callSentence.lsm.orphanKill",
+  expose_on: "state.callSentence.lsm.exposeOn",
+  expose_off: "state.callSentence.lsm.exposeOff",
+  tailnet_open: "state.callSentence.lsm.tailnetOpen",
+  tailnet_close: "state.callSentence.lsm.tailnetClose",
+};
+const LSM_ARG_KEYS = ["action", "service", "profile", "tailnetName"];
+
+/** 服务管家的一个动作说成一句；动作不认识、缺了对象的退回 */
+function lsmLine(summary: string): string | undefined {
+  const a = summaryArgs(summary, LSM_ARG_KEYS);
+  const key = a.action === undefined ? undefined : own(LSM_ACTION_KEY, a.action);
+  if (!key) return undefined;
+  const target = a.action === "profile_start" || a.action === "profile_stop" ? a.profile : a.service;
+  return target ? t(key, { service: target, profile: target }) : undefined;
 }
 
 /** 快速动作（quick-actions/tool.ts）：按动作类型说做什么；任务写编号的换成"t-3「整理发票」" */
@@ -604,5 +646,22 @@ const TEMPLATES: Readonly<Record<string, Template>> = {
   write_task_brief: (s, named) => {
     const a = summaryArgs(s, ["taskId", "goal", "acceptanceCriteria", "constraints", "dataSources", "projects", "memoryScope"]);
     return a.taskId && t(a.goal ? "state.callSentence.writeBriefGoal" : "state.callSentence.writeBrief", { task: named(a.taskId), goal: a.goal });
+  },
+
+  // 秘书指挥服务管家：看列表（写了服务的看那一个）、看日志、开关（三个工具按动作说）、等空闲后重启二狗（写了为什么的带上）
+  lsm_status: (s) => {
+    const service = summaryArgs(s, ["service"]).service;
+    return service ? t("state.callSentence.lsm.statusOf", { service }) : t("state.callSentence.lsm.status");
+  },
+  lsm_logs: (s) => {
+    const service = summaryArgs(s, ["service", "lines", "source"]).service;
+    return service && t("state.callSentence.lsm.logs", { service });
+  },
+  lsm_control: lsmLine,
+  lsm_force: lsmLine,
+  lsm_entries: lsmLine,
+  lsm_restart_self: (s) => {
+    const reason = summaryArgs(s, ["reason"]).reason;
+    return reason ? t("state.callSentence.lsm.restartSelfWhy", { reason }) : t("state.callSentence.lsm.restartSelf");
   },
 };

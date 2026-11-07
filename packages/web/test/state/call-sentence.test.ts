@@ -144,6 +144,22 @@ describe("每个模板（动词加对象，不带“了”）", () => {
     ["schedule_task", 'title=收邮件 instructions=收邮件 when={"kind":"cron"} time=08:10', "提议定时任务「收邮件」"],
     ["ask_questions", 'taskId=t-1 questions=[{"question":"调研给谁看？","options":["自己","团队"],"recommended":"自己"}]', "向你提问：调研给谁看？"],
     ["write_task_brief", 'taskId=t-1 goal=整理一份 X 的调研 acceptanceCriteria=["覆盖三种主流方案"]', "写任务书 t-1：整理一份 X 的调研"],
+    // 指挥服务管家：看列表、看一个、看日志；开关按动作说（参数先后不定）；场景的写场景名；等空闲后重启二狗带上为什么
+    ["lsm_status", "", "看服务管家里的服务"],
+    ["lsm_status", "service=audiocpp", "看服务管家里「audiocpp」的状态"],
+    ["lsm_logs", "service=comfyui lines=80", "看「comfyui」的日志"],
+    ["lsm_control", "action=stop service=audiocpp", "停止「audiocpp」"],
+    ["lsm_control", "service=画图 action=restart", "重启「画图」"],
+    ["lsm_control", "action=stop_when_idle service=comfyui", "等「comfyui」空闲了停止"],
+    ["lsm_control", "action=profile_start profile=gpu", "按场景「gpu」启动"],
+    ["lsm_force", "action=force_stop service=audiocpp", "强制停止「audiocpp」"],
+    ["lsm_force", "action=autostart_off service=comfyui", "把「comfyui」移出开机自启"],
+    ["lsm_force", "action=profile_stop profile=gpu", "按场景「gpu」停止"],
+    ["lsm_force", "action=orphan_kill service=web-server", "杀掉占着「web-server」端口的进程"],
+    ["lsm_entries", "action=tailnet_open service=web-server tailnetName=brief", "给「web-server」开 tailnet 入口"],
+    ["lsm_entries", "action=expose_off service=web-server", "关掉「web-server」的公网入口"],
+    ["lsm_restart_self", "", "等空闲后重启二狗"],
+    ["lsm_restart_self", "reason=改了配置要生效", "等空闲后重启二狗：改了配置要生效"],
   ])("%s「%s」→ %s", (tool, summary, expected) => {
     expect(callSentence({ tool, argsSummary: summary })).toEqual({ text: expected, said: true });
   });
@@ -164,6 +180,10 @@ describe("每个模板（动词加对象，不带“了”）", () => {
     expect(say("read", "（这条内容已彻底删除）")).toBe("读文件 · （这条内容已彻底删除）");
     // 旧写法（不是"参数名=值"）的摘要不硬拆
     expect(say("git_commit", "rules: 外卖单独成类")).toBe("git 提交 · rules: 外卖单独成类");
+    // 服务管家：不认识的动作、缺了对象的退回
+    expect(say("lsm_control", "action=explode service=x")).toBe("开关服务 · explode · x");
+    expect(say("lsm_force", "action=force_stop")).toBe("服务管家里要批准的操作 · force_stop");
+    expect(say("lsm_logs", "")).toBe("看服务的日志");
   });
 });
 

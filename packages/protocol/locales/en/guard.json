@@ -132,7 +132,7 @@
   "guard.review.failed": "The review failed: {error}",
   "guard.review.ruleFailed": "Rule error: {error}",
   "guard.sep": "; ",
-  "guard.judge.secretaryAsksNote": "an especially sensitive action for the secretary, so it needs your approval even with chat approvals off",
+  "guard.judge.secretaryAsksNote": "an especially sensitive action, so it needs your approval even with chat approvals off",
   "guard.judge.nearBottomLineNote": "the guard can't tell for sure and it might touch a protected area or secrets, so it still asks even with chat approvals off",
   "guard.judge.beyondGrantNote": "the task agent is beyond its grant; let through for now and flagged as usual",
   "guard.judge.approvalsOffNote": "chat approvals are off, so it just runs",

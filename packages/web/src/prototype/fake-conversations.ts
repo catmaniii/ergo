@@ -703,6 +703,21 @@ export const FAKE_CARDS: Card[] = [
     } satisfies ApprovalPayload,
     { urgency: "blocking_deadline", createdAt: at("10-07", "09:20") },
   ),
+  // 秘书要重启二狗自己（等空闲后）：对话审批关着也出的审批卡
+  card(
+    "c-appr-restart",
+    "approval",
+    {
+      approvalId: "a-proto-restart",
+      source: `${ASSISTANT_NAME_MARK}对话`,
+      tool: "lsm_restart_self",
+      toolTitle: "等空闲后重启二狗",
+      argsSummary: "reason=改了配置要生效",
+      categoryTitles: ["不可逆的提交"],
+      reason: "先问用户：等空闲后重启二狗（lsm_restart_self），命中关注类别「不可逆的提交」（对话里为\"先问我\"）；特别敏感的操作，对话审批关着也要用户授权。守护进程会请用户审批，批准后才执行；不要换个写法绕过。",
+    } satisfies ApprovalPayload,
+    { urgency: "non_blocking", createdAt: at("10-07", "10:52") },
+  ),
   // 第 1 阶段验收通过、第 2 阶段第一次交上来被退回（缩小后的书脊一段绿、一段橙，接着做的那一轮在做）
   // 第 1 阶段第一次交上来评审没过（说明记在评审的那条上），卡上记着负责人宣布完成时写的那句
   card(
@@ -1253,6 +1268,37 @@ const SECRETARY: MessageEnvelope[] = [
       "照你存的那篇《秋季跑步入门》：第一周每次 3 公里、跑走结合，心率别超过 150；天凉了跑前多热身五分钟。\n\n另外几件事：你左膝盖有旧伤，先在平路上跑、别冲坡；下周三上午你要体检，前一天别跑太猛；你说过对芒果过敏，路上补给别买芒果味的能量胶。",
     ),
   ),
+  // 指挥服务管家（418）：用户说了就停（工具卡片写着停了谁、现在怎样）；重启二狗自己只能等空闲、要批准，对话审批关着也出审批卡
+  // （id 写死，不经 msg() 编号，前面消息的 id 不变）
+  { id: "msg-lsm-demo-1", conversation: S, speaker: "user", time: at("10-07", "10:50"), parts: [text("audiocpp 先停一下，显存不够用了")] },
+  {
+    id: "msg-lsm-demo-2",
+    conversation: S,
+    speaker: "agent",
+    time: at("10-07", "10:50"),
+    parts: [
+      toolAs("call-lsm-demo-1", "lsm_control", "action=stop service=audiocpp", { result: "已停止「audiocpp」（语音合成）。 现在：「audiocpp」（语音合成）：停着，端口 18090，开机自启" }),
+      text("停好了，语音合成先关着，显存腾出来了。要用的时候说一声，我再把它开起来。"),
+    ],
+  },
+  { id: "msg-lsm-demo-3", conversation: S, speaker: "user", time: at("10-07", "10:52"), parts: [text("你也重启一下吧，刚改了配置")] },
+  {
+    id: "msg-lsm-demo-4",
+    conversation: S,
+    speaker: "agent",
+    time: at("10-07", "10:52"),
+    parts: [
+      toolAs("call-lsm-demo-2", "lsm_restart_self", "reason=改了配置要生效", {
+        categories: ["不可逆的提交"],
+        disposition: "ask_first",
+        // 挂起等审批的调用守护进程记成没执行（blocked、没有 blockedBy），会话里算"等你批准"
+        outcome: "blocked",
+        result: "等你批准",
+      }),
+      text("重启要你点一下批准：等手上的事做完、我说完这句再重启，重启后这段对话接着在。"),
+      cardRef("c-appr-restart"),
+    ],
+  },
 ];
 
 // ---------- 任务「家庭照片整理与去重」的负责人 ----------
