@@ -232,10 +232,17 @@ export function explicitSameMatter(
   return { same: false, by: null };
 }
 
+/** 相关门槛里的两步：三条路找结论、算两道向量门槛 */
+export type RelevanceStep = "userModel" | "vectorGate";
+
 export async function relevantForQuestion(
   rg: ReasoningGraph,
   question: string,
-  options: Pick<RelevantUserModelOptions, "at" | "context" | "k"> & { gate?: Partial<RelevanceGate> },
+  options: Pick<RelevantUserModelOptions, "at" | "context" | "k"> & {
+    gate?: Partial<RelevanceGate>;
+    /** 每做完一步叫一次（记各步耗时用，见 llm/brief.ts 的 messageBrief）；不给就不叫 */
+    mark?: (step: RelevanceStep) => void;
+  },
   base: readonly Hit[],
 ): Promise<QuestionRelevance> {
   const at = options.at ?? rg.store.now();
@@ -243,7 +250,9 @@ export async function relevantForQuestion(
   const topic = topicTerms(question);
   const gate = resolveGate(rg.relevanceGate, options.gate);
   const model = await rg.relevantUserModel(question, { at, context: options.context, k: options.k, hits: base });
+  options.mark?.("userModel");
   const vectorGate = await questionVectorGate(rg, question, options.at, gate);
+  options.mark?.("vectorGate");
   const supported = (h: Hit) => hitSupported(h, topic, view, vectorGate);
   const gated = gateClaims(model, base, supported, topic, (id) => rg.store.getClaim(id)?.statement ?? "", gate, vectorGate);
   return { model, topic, gated, supportedHitIds: base.filter(supported).map((h) => h.evidenceId), vectorThreshold: vectorGate.background, vectorGate };

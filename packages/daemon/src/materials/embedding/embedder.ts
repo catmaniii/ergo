@@ -9,6 +9,13 @@ export interface Embedder {
   unavailableHint(): string;
   /** 算一批文字的向量（顺序和输入一致） */
   embed(texts: readonly string[]): Promise<Float32Array[]>;
+  /**
+   * 可选：模型此刻已经加载好了没有（下一次算不用等加载）。工作线程里的 bge-m3 闲置一阵会结束线程、把模型卸掉，
+   * 下次要算时重新加载要好几秒；没有这个方法的（假的、不用加载的）当作一直是好的
+   */
+  loaded?(): boolean;
+  /** 可选：先把模型加载好（不算什么，加载好了回来）；已经好了马上回来。和 loaded 一起有 */
+  warm?(): Promise<void>;
   /** 释放资源（结束工作线程） */
   close(): Promise<void>;
 }

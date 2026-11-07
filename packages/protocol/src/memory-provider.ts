@@ -240,6 +240,11 @@ export interface MemoryBriefInput {
    * 插件自己认这套键：指纹没变的不再带；认不出就当没有——不给就是每一轮都带（不去重）
    */
   known?: Record<string, string>;
+  /**
+   * 可选：插件每做完一步报一次这一步用了多少毫秒（步骤名插件自己定，按先后）。宿主拿它记各步耗时：日志一行、体检的统计；
+   * 超时了宿主也知道做到了哪一步。不给就不报，插件不报也行
+   */
+  onStep?: (step: string, ms: number) => void;
 }
 
 /**

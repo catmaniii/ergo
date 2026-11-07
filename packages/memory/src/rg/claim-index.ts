@@ -37,6 +37,8 @@ export interface ClaimVectorReport {
 
 export class ClaimIndex {
   private readonly store: MemoryStore;
+  /** 上一次对完时库的版本（version()）；库没变过就不用再对 */
+  private syncedVersion: string | undefined;
 
   constructor(store: MemoryStore) {
     this.store = store;
@@ -46,8 +48,30 @@ export class ClaimIndex {
     return this.store.db;
   }
 
-  /** 把索引和现有断言对一遍（见文件开头）；幂等 */
+  /**
+   * 库现在的版本：别的连接提交过改动 data_version 就变（SQLite 的 PRAGMA data_version），这条连接自己写过 total_changes() 就变。
+   * 两样都没变就是断言、证据、事实、关联一样都没动过——领域、陈述都推不出新的，sync 不用再对一遍
+   */
+  private version(): string {
+    const data = this.db.get<{ data_version: number }>("PRAGMA data_version")?.data_version ?? 0;
+    const own = this.db.get<{ n: number }>("SELECT total_changes() AS n")?.n ?? 0;
+    return `${data}:${own}`;
+  }
+
+  /**
+   * 把索引和现有断言对一遍（见文件开头）；幂等。
+   * 库从上一次对完以后没变过就直接回空的报告：每条消息的简报、问记忆每次都要先 sync，几百条断言重算领域要一两百毫秒，
+   * 还要拿写锁（BEGIN IMMEDIATE）——两次整理之间库基本不变，没必要每次都对
+   */
   sync(): ClaimIndexReport {
+    if (this.syncedVersion !== undefined && this.syncedVersion === this.version()) return { reindexed: [], removed: [], domainsChanged: [] };
+    const report = this.syncNow();
+    // 对完再取版本：这次自己写的（重建的关键词、领域）也算进去，下一次没别的改动就不用再对
+    this.syncedVersion = this.version();
+    return report;
+  }
+
+  private syncNow(): ClaimIndexReport {
     return this.store.transaction(() => {
       const report: ClaimIndexReport = { reindexed: [], removed: [], domainsChanged: [] };
       const indexed = new Map(this.db.all<{ claim_id: string; statement: string; domains: string }>("SELECT claim_id, statement, domains FROM claim_index").map((r) => [r.claim_id, r]));

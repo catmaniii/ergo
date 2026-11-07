@@ -2,6 +2,8 @@
 // - 第一次要算时才拉起工作线程（worker.ts），模型在线程里加载一次；
 // - 闲置一段时间（默认 10 分钟）就结束线程，把模型占的内存（bge-m3 量化版约 1 GB）还回去，下次要算时再拉起；
 // - 线程出错或退出时，交给它的请求都以出错结束，下次要算时重新拉起；模型没加载起来时同样作废这个线程；
+// - loaded()：这个线程里的模型加载好了没有（拿回过一次向量就算好了；线程结束就又不算了）；warm()：先拉起线程把模型加载好，
+//   不等哪一次真要算（每条消息的记忆简报据此判断这一轮要不要等模型，见 memory/embedder-adapter.ts）；
 // - close()：结束线程，等着的请求以出错结束。
 import { Worker } from "node:worker_threads";
 import type { Embedder } from "./embedder.ts";
@@ -31,7 +33,15 @@ interface Pending {
 interface Running {
   worker: Worker;
   pending: Map<number, Pending>;
+  /** 模型加载好了（拿回过一次向量） */
+  loaded: boolean;
+  /** 正在预热（warm 交给它的那一批，回来之前再叫 warm 不另交） */
+  warming?: Promise<void>;
 }
+
+/** 预热时交给模型算的一句（只为把模型加载起来，结果不用） */
+// @i18n-ignore-next model：只交给向量模型算、不给人看
+const WARM_TEXT = "预热";
 
 export function createWorkerEmbedder<BackendOptions>(options: WorkerEmbedderOptions<BackendOptions>): Embedder {
   const idleMs = options.idleMs ?? DEFAULT_IDLE_MS;
@@ -67,7 +77,7 @@ export function createWorkerEmbedder<BackendOptions>(options: WorkerEmbedderOpti
     const worker = new Worker(new URL("./worker.ts", import.meta.url), { workerData });
     // 线程不拦着守护进程退出
     worker.unref();
-    const running: Running = { worker, pending: new Map() };
+    const running: Running = { worker, pending: new Map(), loaded: false };
     worker.on("message", (message: EmbedResponse) => {
       const p = running.pending.get(message.id);
       if (!p) return;
@@ -81,6 +91,7 @@ export function createWorkerEmbedder<BackendOptions>(options: WorkerEmbedderOpti
           void worker.terminate();
         }
       } else {
+        running.loaded = true;
         p.resolve(message.vectors);
       }
       if (current === running) armIdle(running);
@@ -91,21 +102,36 @@ export function createWorkerEmbedder<BackendOptions>(options: WorkerEmbedderOpti
     return running;
   };
 
+  const embed = (texts: readonly string[]): Promise<Float32Array[]> => {
+    clearTimeout(idleTimer);
+    const running = ensureWorker();
+    const id = nextId++;
+    return new Promise<Float32Array[]>((resolve, reject) => {
+      running.pending.set(id, { resolve, reject });
+      const request: EmbedRequest = { id, texts: [...texts] };
+      // 这是工作线程的 postMessage，不是浏览器窗口的，没有 targetOrigin
+      // oxlint-disable-next-line unicorn/require-post-message-target-origin
+      running.worker.postMessage(request);
+    });
+  };
+
   return {
     model: options.model,
     available: () => options.available(),
     unavailableHint: () => options.unavailableHint(),
-    embed(texts) {
-      clearTimeout(idleTimer);
+    embed,
+    loaded: () => current?.loaded === true,
+    warm() {
+      if (current?.loaded === true) return Promise.resolve();
       const running = ensureWorker();
-      const id = nextId++;
-      return new Promise<Float32Array[]>((resolve, reject) => {
-        running.pending.set(id, { resolve, reject });
-        const request: EmbedRequest = { id, texts: [...texts] };
-        // 这是工作线程的 postMessage，不是浏览器窗口的，没有 targetOrigin
-        // oxlint-disable-next-line unicorn/require-post-message-target-origin
-        running.worker.postMessage(request);
-      });
+      running.warming ??= embed([WARM_TEXT]).then(
+        () => undefined,
+        (err: unknown) => {
+          running.warming = undefined;
+          throw err;
+        },
+      );
+      return running.warming;
     },
     close: terminate,
   };

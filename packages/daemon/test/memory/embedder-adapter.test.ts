@@ -4,7 +4,7 @@
 import path from "node:path";
 import { MemoryEngine, type EvidenceDraft } from "@ergo/memory";
 import { onTestFinished, describe, expect, test } from "vitest";
-import { kernelEmbedderAdapter } from "../../src/memory/embedder-adapter.ts";
+import { kernelEmbedderAdapter, secretaryEmbedder } from "../../src/memory/embedder-adapter.ts";
 import { FakeEmbedder } from "../helpers/embedder.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -82,5 +82,80 @@ describe("内核向量函数转接", () => {
     await kernelEmbedderAdapter(owned, { closeKernel: true }).close();
     await expect(computing).rejects.toThrow("向量函数已关闭");
     release();
+  });
+});
+
+/** 等一小下（让出事件循环） */
+const tick = () => new Promise((resolve) => setTimeout(resolve, 5));
+
+/** 会冷启动的假内核向量函数：loaded 由测试拨，warm 交回一个测试能放行的承诺 */
+class ColdKernel extends FakeEmbedder {
+  isLoaded = false;
+  warms = 0;
+  private release: (() => void) | undefined;
+  loaded(): boolean {
+    return this.isLoaded;
+  }
+  warm(): Promise<void> {
+    this.warms += 1;
+    return new Promise((resolve) => {
+      this.release = () => {
+        this.isLoaded = true;
+        resolve();
+      };
+    });
+  }
+  /** 模型加载好了 */
+  finishLoading(): void {
+    this.release?.();
+  }
+}
+
+describe("秘书那一侧共用的向量函数（secretaryEmbedder，427）", () => {
+  test("同一个内核向量函数回同一个实例（简报和 ask_memory 两份引擎共用：背景语料向量只算一次）；查询向量记住，同时问同一句也只算一次", async () => {
+    const kernel = new FakeEmbedder();
+    const a = secretaryEmbedder(kernel);
+    expect(secretaryEmbedder(kernel)).toBe(a);
+    expect(secretaryEmbedder(new FakeEmbedder())).not.toBe(a);
+    const [x, y] = await Promise.all([a.embedQueries(["周末被排满"]), a.embedQueries(["周末被排满"])]);
+    expect(y[0]).toBe(x[0]);
+    expect(kernel.calls).toEqual([["周末被排满"]]);
+  });
+
+  test("模型冷启动：ready 说没好；warm 拉起来最多等一会儿——等到了是 loaded，等不到是 cold（模型照样接着加载），本来就好是 warm", async () => {
+    const kernel = new ColdKernel();
+    const e = secretaryEmbedder(kernel);
+    expect(e.ready()).toBe(false);
+    expect(await e.warm(20)).toBe("cold");
+    expect(kernel.warms).toBe(1);
+    const waiting = e.warm(5_000);
+    kernel.finishLoading();
+    expect(await waiting).toBe("loaded");
+    expect(e.ready()).toBe(true);
+    expect(await e.warm(5_000)).toBe("warm");
+    // 模型文件不在：反正不算向量，用不着等
+    const missing = new ColdKernel({ available: false });
+    expect(secretaryEmbedder(missing).ready()).toBe(true);
+    expect(await secretaryEmbedder(missing).warm(5_000)).toBe("warm");
+    expect(missing.warms).toBe(0);
+  });
+
+  test("withoutVectors：只在它自己的异步调用链里当向量模型不在，同时在跑的别的调用照常算向量", async () => {
+    const e = secretaryEmbedder(new FakeEmbedder());
+    const seen: boolean[] = [];
+    const inside = e.withoutVectors(async () => {
+      seen.push(e.available());
+      await tick();
+      seen.push(e.available());
+      return "关键词";
+    });
+    const outside = (async () => {
+      await tick();
+      return e.available();
+    })();
+    expect(await inside).toBe("关键词");
+    expect(seen).toEqual([false, false]);
+    expect(await outside).toBe(true);
+    expect(e.available()).toBe(true);
   });
 });

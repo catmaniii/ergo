@@ -70,7 +70,7 @@ import { askMemoryTool } from "./ask-tool.ts";
 import { ingestMaterialTool } from "./ingest-tool.ts";
 import { MEMORY_BRIEF_BLOCK_ID, wakeBriefText } from "./context.ts";
 import { askCuratorTool } from "./curator-link.ts";
-import { kernelEmbedderAdapter } from "./embedder-adapter.ts";
+import { kernelEmbedderAdapter, secretaryEmbedder } from "./embedder-adapter.ts";
 import { createMemoryEngineProvider, createWritableEngineUse } from "./engine-provider.ts";
 import { memoryCommandExecutors, memoryDeleteCardType } from "./memory-commands.ts";
 import { memoryNightlyAction } from "./nightly-action.ts";
@@ -84,13 +84,15 @@ import { openReasoningDb } from "./rg-db.ts";
 import { readMaterialTool, searchMaterialsTool } from "./search-tool.ts";
 import { createProfileFactExpiry, learnedAbout } from "./personal-files-link.ts";
 import { createWovenQuestions } from "./woven-questions.ts";
-import { createMessageBriefs, queryMemoEmbedder } from "./message-brief.ts";
+import { createMessageBriefs } from "./message-brief.ts";
 import { inAbandonedBranch } from "../conversation/session-branches.ts";
 import { savedPageOf } from "../browsing/api.ts";
 import { internalRecordOf } from "./internal-records.ts";
 
 /** 起来多久之后在后台先算好记忆简报的相关门槛要用的背景语料向量 */
 const BRIEF_WARMUP_MS = 20_000;
+/** 用户发来一句时拉起向量模型：最多等它这么久来记一行加载用了多久（只为日志，不挡任何事） */
+const BRIEF_PREWARM_WAIT_MS = 30_000;
 
 export const memoryPlugin: PluginDefinition = {
   name: "memory",
@@ -220,19 +222,22 @@ export const memoryPlugin: PluginDefinition = {
     // 库用不了时 ask_memory 回"记忆还没准备好"、简报是空串，这一轮照旧能检索素材。
     const layout = ctx.use(KERNEL.layout);
     const inbox = ctx.use(KERNEL.inbox);
-    const embedder = kernelEmbedderAdapter(ctx.use(KERNEL.embedder));
+    const kernelEmbedder = ctx.use(KERNEL.embedder);
+    const embedder = kernelEmbedderAdapter(kernelEmbedder);
     const log = (line: string) => ctx.log(line);
     const modelFactory = ctx.optional(KERNEL.memoryModel);
-    // 秘书这一份的查询向量记住最近几句（每条消息的记忆简报里几处检索、相关门槛都算同一句话的查询向量）
-    const secretaryEmbedder = queryMemoEmbedder(embedder);
-    const engineProvider = createMemoryEngineProvider({ file: layout.rgDb, clock: () => clockIso(clock), model: DEEPSEEK_DEFAULT_MODEL, embedder: secretaryEmbedder, log });
+    // 秘书那一侧共用的向量函数（embedder-adapter.ts）：查询向量记住最近几句，和每条消息的简报（会意插件那份引擎，组合根建的）
+    // 是同一个实例——背景语料向量只算一次，下面预热的就是简报真用的那一份
+    const secretary = secretaryEmbedder(kernelEmbedder);
+    const engineProvider = createMemoryEngineProvider({ file: layout.rgDb, clock: () => clockIso(clock), model: DEEPSEEK_DEFAULT_MODEL, embedder: secretary, log });
     learnedEngine = () => engineProvider.get();
     // 起来一会儿之后在后台先算好相关门槛要用的背景语料向量（200 句，bge-m3 约 2–3 秒，按向量函数实例记住）——
-    // 不然重启后第一条消息的记忆简报要等它算完，超过上限这一条就不带了。只算向量，不打开推理库
+    // 不然重启后第一条消息的记忆简报要等它算完，超过上限这一条就不带了。只算向量，不打开推理库。
+    // 算的是 secretary 这一份：ask_memory 和每条消息的简报（会意那份引擎）都用它（427 之前简报那份是另一个实例，这里预热的它用不上）
     ctx.effect(() => {
       const timer = setTimeout(() => {
-        if (!secretaryEmbedder.available() || !fs.existsSync(layout.rgDb)) return;
-        backgroundVectors(secretaryEmbedder).catch((err: unknown) => log(`记忆简报：预先算背景语料的向量没成，第一次用时再算：${err instanceof Error ? err.message : String(err)}`));
+        if (!secretary.available() || !fs.existsSync(layout.rgDb)) return;
+        backgroundVectors(secretary).catch((err: unknown) => log(`记忆简报：预先算背景语料的向量没成，第一次用时再算：${err instanceof Error ? err.message : String(err)}`));
       }, BRIEF_WARMUP_MS);
       timer.unref();
       return () => clearTimeout(timer);
@@ -270,6 +275,16 @@ export const memoryPlugin: PluginDefinition = {
       materials,
       enabled: () => ctx.optional(KERNEL.memorySettings)?.current().memoryBrief ?? DEFAULT_MEMORY_SETTINGS.memoryBrief,
       record: (usage) => ctx.optional(KERNEL.usage)?.recordContextUsage({ ...usage, role: "secretary" }),
+      // 用户发来一句就把向量模型拉起来（闲置十分钟会卸掉）；这一次是真去加载的才记一行用了多久（看冷启动到底要几秒）
+      prewarm: () => {
+        if (secretary.ready()) return;
+        const started = Date.now();
+        void secretary.warm(BRIEF_PREWARM_WAIT_MS).then((state) => {
+          if (state === "loaded") log(`记忆简报：用户发来一句时向量模型没加载，拉起来用了 ${Date.now() - started} 毫秒`);
+          else log(`记忆简报：用户发来一句时向量模型没加载，拉起来 ${BRIEF_PREWARM_WAIT_MS} 毫秒还没好`);
+        });
+      },
+      now: () => clockIso(clock),
       log,
     });
     ctx.agent.context.register({
