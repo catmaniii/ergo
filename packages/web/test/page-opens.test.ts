@@ -718,9 +718,26 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
 
   // 我的足迹（430）：演示页里今天空着，自己跳到昨天（三处停留、照片小点、常去的地方的圈、轨迹）；手机宽点停留点出详情卡、点概况看列表，
   // 电脑宽左边列这一天、点一行展开详情；前一天空着写"这一天没有足迹"、给最近有足迹的一天；"足迹"开关关了不画；一个请求都不往外发
-  for (const [name, viewport] of [
-    ["手机宽", { width: 390, height: 844 }],
-    ["电脑宽", { width: 1280, height: 800 }],
+  /** 手机宽：点停留点出详情卡，关上，点概况看列表 */
+  async function footprintCard(page: Page) {
+    await page.locator('.map-mark[data-kind="stay"]').nth(2).click();
+    const card = page.locator(".map-day-card");
+    await card.waitFor({ timeout: 5000 });
+    expect(await card.innerText()).toMatch(/杭州市西湖区北山街[\s\S]*18:10–20:30[\s\S]*待了 2 小时 20 分[\s\S]*这里拍了 4 张照片/);
+    await card.locator('button[aria-label="关上"]').click();
+    await page.locator("button.map-day-summary").click();
+    expect(await page.locator('.map-day-card .map-day-entry[data-kind="stay"]').count()).toBe(3);
+  }
+  /** 电脑宽：左边列这一天，点一行展开详情 */
+  async function footprintPanel(page: Page) {
+    const entries = page.locator('.map-day-panel .map-day-entry[data-kind="stay"]');
+    expect(await entries.count()).toBe(3);
+    await entries.nth(1).locator("button").click();
+    expect(await page.locator(".map-day-panel .map-day-detail").innerText()).toMatch(/公司[\s\S]*杭州市西湖区天目山路[\s\S]*待了 8 小时 40 分/);
+  }
+  for (const [name, viewport, details] of [
+    ["手机宽", { width: 390, height: 844 }, footprintCard],
+    ["电脑宽", { width: 1280, height: 800 }, footprintPanel],
   ] as const) {
     test(`地图页的足迹${name}：自己跳到最近有足迹的一天，停留、照片、范围圈都画上，点停留看详情，换日期、关开关，不往外发请求`, async () => {
       const { page, errors } = await open(viewport);
@@ -739,20 +756,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       expect(await page.locator(".map-shapes circle").count()).toBe(3);
       expect(await page.locator(".map-shapes polyline").count()).toBe(1);
       expect(await page.locator(".map-day-summary").innerText()).toContain("待过 3 个地方");
-      if (viewport.width < 600) {
-        await stays.nth(2).click();
-        const card = page.locator(".map-day-card");
-        await card.waitFor({ timeout: 5000 });
-        expect(await card.innerText()).toMatch(/杭州市西湖区北山街[\s\S]*18:10–20:30[\s\S]*待了 2 小时 20 分[\s\S]*这里拍了 4 张照片/);
-        await card.locator('button[aria-label="关上"]').click();
-        await page.locator("button.map-day-summary").click();
-        expect(await page.locator('.map-day-card .map-day-entry[data-kind="stay"]').count()).toBe(3);
-      } else {
-        const entries = page.locator('.map-day-panel .map-day-entry[data-kind="stay"]');
-        expect(await entries.count()).toBe(3);
-        await entries.nth(1).locator("button").click();
-        expect(await page.locator(".map-day-panel .map-day-detail").innerText()).toMatch(/公司[\s\S]*杭州市西湖区天目山路[\s\S]*待了 8 小时 40 分/);
-      }
+      await details(page);
       // 前一天：空着，给最近有足迹的一天（四天前：家、健身房）
       await page.locator('.map-day-pick button[aria-label="前一天"]').click();
       await page.getByText("这一天没有足迹").waitFor({ timeout: 5000 });
