@@ -23,7 +23,7 @@ import { tryLookup } from "./try-lookup.ts";
 const ERGO_VERSION = (JSON.parse(fs.readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string }).version;
 
 /** 工具说明里讲数据从哪来的那句（给模型看的） */
-const LOOKUP_SOURCES = "中国大陆里的用高德（开车带实时路况，有公交；要用户填了高德的 Web 服务 Key，没填时国内也用 OpenStreetMap，店名和小路可能不全），大陆以外用免费的 OpenStreetMap（没有公交、没有实时路况）"; // @i18n-ignore model
+const LOOKUP_SOURCES = "中国大陆里的用高德（开车带实时路况，有公交；要用户填了高德的 Web 服务 Key，没填时国内也用 OpenStreetMap，店名和小路可能不全），大陆以外用免费的 OpenStreetMap（没有公交、没有实时路况；按名字和种类找，找不到时换成英文的种类说法再找：food court、cafe、supermarket）"; // @i18n-ignore model
 
 /** 去取 OpenStreetMap 瓦片、查地点算路线时的 User-Agent：写明是二狗、带能找到人的地址（OSM 瓦片政策、Nominatim 政策要的） */
 export const MAP_USER_AGENT = `ergo/${ERGO_VERSION} (personal assistant; +https://github.com/catmaniii/ergo)`;

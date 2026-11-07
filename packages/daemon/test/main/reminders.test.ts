@@ -112,6 +112,12 @@ describe("秘书建提醒", () => {
       "[tool] remember_memory",
       // 存外部信息（用户要把读到的邮件、网页……存进素材时）
       "[tool] ingest_material",
+      // 查地点、算路线、看常去的地方（地图插件自己登记，插件在运行就有；国内高德、国外 OpenStreetMap，433）
+      "[tool] map_search_places",
+      "[tool] map_route",
+      "[tool] map_geocode",
+      "[tool] map_reverse_geocode",
+      "[tool] map_my_places",
       // 带参调一个登记过的 MCP 工具（登记过就调、不出卡，守卫照常判这次调用）
       "[tool] mcp_call",
       "[tool] propose_quick_action",
