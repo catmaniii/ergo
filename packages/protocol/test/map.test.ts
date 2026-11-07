@@ -18,7 +18,7 @@ const at = (lat: number, lon: number) => ({ lat, lon });
 
 describe("在不在中国大陆", () => {
   it("大陆的城市在里面（含海南、新疆、西藏、东北、紧挨香港澳门的深圳珠海）", () => {
-    for (const [name, lat, lon] of [
+    const cities = [
       ["杭州", 30.27, 120.15],
       ["北京", 39.91, 116.4],
       ["上海", 31.23, 121.47],
@@ -40,13 +40,12 @@ describe("在不在中国大陆", () => {
       ["哈尔滨", 45.75, 126.6],
       ["海拉尔", 49.2, 119.7],
       ["抚远", 48.36, 134.29],
-    ] as const) {
-      expect(inMainlandChina(at(lat, lon)), name).toBe(true);
-    }
+    ] as const;
+    expect(cities.filter(([, lat, lon]) => !inMainlandChina(at(lat, lon))).map(([name]) => name)).toEqual([]);
   });
 
   it("香港、澳门、台湾和邻国在外面", () => {
-    for (const [name, lat, lon] of [
+    const places = [
       ["香港中环", 22.28, 114.16],
       ["尖沙咀", 22.3, 114.17],
       ["上水", 22.5, 114.13],
@@ -68,9 +67,8 @@ describe("在不在中国大陆", () => {
       ["符拉迪沃斯托克", 43.12, 131.89],
       ["哈巴罗夫斯克", 48.48, 135.07],
       ["伦敦", 51.5, -0.12],
-    ] as const) {
-      expect(inMainlandChina(at(lat, lon)), name).toBe(false);
-    }
+    ] as const;
+    expect(places.filter(([, lat, lon]) => inMainlandChina(at(lat, lon))).map(([name]) => name)).toEqual([]);
   });
 
   it("不是数的不算在里面", () => {
@@ -153,7 +151,8 @@ describe("地图页的定位", () => {
   });
 
   it("不是这个样子、超出范围的不认", () => {
-    for (const item of [undefined, "", "30", "30,abc", "91,0", "0,181", "30,120,99", "30,120,14,1", "30,,120"]) expect(parseMapFocusItem(item), String(item)).toBeUndefined();
+    const bad = [undefined, "", "30", "30,abc", "91,0", "0,181", "30,120,99", "30,120,14,1", "30,,120"];
+    expect(bad.filter((item) => parseMapFocusItem(item) !== undefined)).toEqual([]);
   });
 });
 

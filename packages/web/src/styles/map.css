@@ -1,0 +1,226 @@
+/*
+ * 地图页（地图插件，plugins/map/）：上面一条标题栏、一排地点，下面整块是地图。
+ * 地图本身（瓦片、高德画的）不跟风格走：十一套风格只管地图外面那圈（标题栏、地点、按钮、署名角标、点的样子）。
+ * 深色时 OpenStreetMap 的瓦片加一层滤镜（反色再转回色相，水还是蓝的、路是暗的）；高德换它自己的深色样式（MapView.tsx）。
+ */
+.map-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.map-places {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px var(--space-page);
+  scrollbar-width: none;
+}
+.map-places .chip {
+  border: 1px solid var(--card-border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-size: var(--fs-s);
+  padding: 4px 12px;
+}
+.map-canvas {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 240px;
+  overflow: hidden;
+  background: var(--fill);
+}
+.map-host,
+.map-osm,
+.map-amap {
+  position: absolute;
+  inset: 0;
+}
+.map-osm {
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+.map-osm.dragging {
+  cursor: grabbing;
+}
+.map-tiles,
+.map-marks {
+  position: absolute;
+  inset: 0;
+}
+.map-tiles img {
+  position: absolute;
+  max-width: none;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.map-tiles img.broken {
+  visibility: hidden;
+}
+.map-osm.dark .map-tiles {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.7);
+}
+.map-shapes {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.map-line {
+  fill: none;
+  stroke: var(--primary);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-opacity: 0.85;
+  stroke-width: 4;
+}
+.map-line-route {
+  stroke-width: 6;
+}
+.map-circle {
+  fill: var(--primary);
+  fill-opacity: 0.12;
+  stroke: var(--primary);
+  stroke-width: 1;
+}
+.map-marks {
+  pointer-events: none;
+}
+
+/* 一个点：24×30 的一枚定位针，针尖在点上（OSM 那一种按左上角摆，往左上挪；高德的按 bottom-center 摆），字在右边 */
+.map-mark {
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.map-osm .map-mark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: -30px 0 0 -12px;
+}
+.map-pin {
+  position: absolute;
+  left: 2px;
+  top: 1px;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--surface);
+  border-radius: 50% 50% 50% 0;
+  background: var(--primary-fill);
+  box-shadow: var(--shadow-btn);
+  transform: rotate(-45deg);
+}
+.map-pin::after {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: var(--surface);
+  content: "";
+}
+.map-mark-label {
+  position: absolute;
+  left: 26px;
+  top: 2px;
+  padding: 1px 6px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  box-shadow: var(--shadow-btn);
+}
+
+/* 盖在地图上的：左上是哪种底图，右上放大缩小，下面一句提示，右下署名 */
+.map-badge,
+.map-zoom,
+.map-hint,
+.map-attribution,
+.map-loading {
+  position: absolute;
+  z-index: 200;
+}
+.map-badge {
+  left: 10px;
+  top: 10px;
+  padding: 2px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  box-shadow: var(--shadow-btn);
+}
+.map-zoom {
+  right: 10px;
+  top: 10px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  box-shadow: var(--shadow-btn);
+  overflow: hidden;
+}
+.map-zoom .icon-btn {
+  padding: 8px;
+}
+.map-zoom .icon-btn + .icon-btn {
+  border-top: 1px solid var(--border);
+}
+.map-hint {
+  left: 10px;
+  right: 10px;
+  bottom: 36px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 auto;
+  max-width: 520px;
+  padding: 8px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-s);
+  box-shadow: var(--shadow-float);
+}
+.map-hint span {
+  flex: 1 1 auto;
+}
+.map-hint .btn {
+  flex: none;
+}
+.map-attribution {
+  right: 0;
+  bottom: 0;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-top-left-radius: var(--radius-s);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--fs-2xs);
+  opacity: 0.92;
+}
+.map-attribution a {
+  color: inherit;
+}
+.map-loading {
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}

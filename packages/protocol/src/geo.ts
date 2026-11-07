@@ -76,7 +76,7 @@ export function inMainlandChina(p: LatLon): boolean {
 
 /** 克拉索夫斯基椭球的长半轴、偏心率的平方（GCJ-02 的算法用它） */
 const KRASOVSKY_A = 6378245.0;
-const KRASOVSKY_EE = 0.00669342162296594323;
+const KRASOVSKY_EE = 0.006693421622965943;
 
 function offsetLat(x: number, y: number): number {
   let r = -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
@@ -138,9 +138,10 @@ export function gcjToWgs(p: LatLon): LatLon {
 /** 地球平均半径（米），算两点距离用 */
 const EARTH_RADIUS_M = 6371008.8;
 
+const toRad = (deg: number) => (deg * Math.PI) / 180;
+
 /** 两点之间的大圆距离（米，球面近似，几公里内误差在千分之几） */
 export function distanceMeters(a: LatLon, b: LatLon): number {
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
   const dLat = toRad(b.lat - a.lat);
   const dLon = toRad(b.lon - a.lon);
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;

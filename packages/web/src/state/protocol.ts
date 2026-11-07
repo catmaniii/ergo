@@ -709,6 +709,9 @@ export {
   shiftMonthKey,
 } from "@ergo/protocol";
 export type { CalendarDay, CalendarDayCounts, CalendarExternalEntry, CalendarJobEntry, CalendarJobStatus, CalendarMonthView, CalendarReminderEntry, CalendarReminderStatus, ExternalCalendarEventPayload } from "@ergo/protocol";
+// 地图（429 地图插件）：坐标转换（WGS-84 和高德的 GCJ-02）、在不在中国大陆、瓦片地址、高德安全密钥代理的前缀、地图页要的设置
+export { AMAP_SERVICE_PREFIX, AMAP_SOURCE_ID, distanceMeters, gcjToWgs, inMainlandChina, mapFocusItem, mapTilePath, parseMapFocusItem, wgsToGcj } from "@ergo/protocol";
+export type { LatLon, MapConfigView } from "@ergo/protocol";
 // 负责人背后的 agent
 export type { BackgroundAgentEntry, BackgroundAgentList, BackgroundAgentRow, BackgroundAgentState, BackgroundAgentStep, BackgroundAgentsEventPayload, BackgroundAgentTranscript } from "@ergo/protocol";
 // 工具调用的完整参数和返回（详情页按调用 id 现取）

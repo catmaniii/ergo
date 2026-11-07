@@ -100,7 +100,8 @@ describe("高德安全密钥代理", () => {
     expect((await service.amapService("/v3/geocode/regeo", "?key=x", live())).status).toBe(503);
     expect(fake.requests).toHaveLength(0);
     const { secrets } = await setupWithKeys(service);
-    for (const bad of ["/../x", "/v3//x", "/v3/a b", "/v3/%2e%2e"]) expect((await service.amapService(bad, "", live())).status, bad).toBe(404);
+    const statuses = await Promise.all(["/../x", "/v3//x", "/v3/a b", "/v3/%2e%2e"].map(async (bad) => (await service.amapService(bad, "", live())).status));
+    expect(statuses).toEqual([404, 404, 404, 404]);
     expect(fake.requests.filter((r) => !r.url.includes("regeo"))).toHaveLength(0);
     expect(secrets.has(AMAP_SECRET.securityCode)).toBe(true);
   });

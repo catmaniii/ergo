@@ -46,7 +46,7 @@ const refusalOf = (r: ResponseFrame): string => {
 describe("插件清单和配置", () => {
   it("默认全装：提醒插件、记忆插件在运行，提醒的服务经插件宿主取得到", async () => {
     const { daemon } = await startTestDaemon();
-    expect(daemon.plugins.report()).toEqual({ running: ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], disabled: [], skipped: [] });
+    expect(daemon.plugins.report()).toEqual({ running: ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"], disabled: [], skipped: [] });
     expect(reminderService(daemon).pending()).toEqual([]);
     expect(daemon.boardKinds.list().map((k) => k.label)).toEqual(["任务", "简单提醒", "定时触发的任务"]);
   });
@@ -54,12 +54,12 @@ describe("插件清单和配置", () => {
   it("配置里停用提醒插件：守护进程照常起（日志、健康信息里写明）；秘书没有提醒工具、系统提示里没有提醒，不建卡；\"只提醒我\"回\"提醒插件没启用\"；看板、日历、素材、工作日历照常", async () => {
     const logs: string[] = [];
     const clock = new ManualClock(START);
-    const td = await startTestDaemon({ plugins: ["memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], clock, log: (line) => logs.push(line), secretary: [{ kind: "echo_context" }] });
-    expect(td.daemon.plugins.report()).toEqual({ running: ["memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], disabled: ["reminders"], skipped: [] });
+    const td = await startTestDaemon({ plugins: ["memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"], clock, log: (line) => logs.push(line), secretary: [{ kind: "echo_context" }] });
+    expect(td.daemon.plugins.report()).toEqual({ running: ["memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"], disabled: ["reminders"], skipped: [] });
     expect(td.daemon.plugins.service({ id: "reminders" })).toBeUndefined();
     expect(logs).toContain("插件 reminders（提醒）在配置里停用了");
     const health = (await (await fetch(new URL("/healthz", td.url))).json()) as Record<string, unknown>;
-    expect(health.plugins).toEqual({ running: ["memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], disabled: ["reminders"], skipped: [] });
+    expect(health.plugins).toEqual({ running: ["memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"], disabled: ["reminders"], skipped: [] });
 
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe(ALL);
@@ -98,7 +98,7 @@ describe("插件清单和配置", () => {
 
     // 停用着起来
     const reuse = { dataDir: first.dataDir, homeDir: first.homeDir };
-    const second = await startTestDaemon({ plugins: ["memory", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], clock: new ManualClock(at(10, 7, 22)), reuse });
+    const second = await startTestDaemon({ plugins: ["memory", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"], clock: new ManualClock(at(10, 7, 22)), reuse });
     const f2 = await TestFrontend.connect(second.url);
     await f2.subscribe(ALL);
     expect(refusalOf(await f2.cardAction({ cardId, action: "cancel_reminder", expectedVersion: 1 }))).toBe("not_allowed: 提醒插件没启用");
@@ -117,14 +117,14 @@ describe("插件清单和配置", () => {
     const clock = new ManualClock(at(10, 7, 23));
     // 下面拨过 03:00：只关掉记忆整理（memory.enabled），不要后台唤醒记忆管理员；插件照样在运行
     const third = await startTestDaemon({
-      plugins: ["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"],
+      plugins: ["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"],
       clock,
       reuse,
       log: (line) => logs.push(line),
       secretary: [{ kind: "echo_context" }],
       config: { memory: { enabled: false } },
     });
-    expect(third.daemon.plugins.report().running).toEqual(["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"]);
+    expect(third.daemon.plugins.report().running).toEqual(["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"]);
     expect(logs.some((l) => l.startsWith("视图 reminders 从事件 #") && l.endsWith("整表按事件日志补一遍"))).toBe(true);
     expect(reminderService(third.daemon).get("r-1")).toMatchObject({ status: "pending", nextAt: nowIso(at(10, 8, 9)) });
     const f3 = await TestFrontend.connect(third.url);

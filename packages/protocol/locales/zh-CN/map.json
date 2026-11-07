@@ -1,11 +1,11 @@
 {
   "map.plugin.title": "地图",
-  "map.plugin.summary": "地图页：国内用高德地图（要在 设置 · 数据源 里填高德的 Key），国外和还没填 Key 时用 OpenStreetMap；地图瓦片和高德的请求都经这台电脑转发",
+  "map.plugin.summary": "地图页：国内用高德地图（要在 设置 · 数据源 里填高德的 Key），国外和还没填 Key 时用 OpenStreetMap；OpenStreetMap 的瓦片经这台电脑转发，高德的安全密钥由这台电脑替网页拼上",
   "map.plugin.purge.keys": "填过的高德 Key 和安全密钥",
   "map.plugin.purge.tiles": "缓存在这台电脑上的地图瓦片",
   "map.plugin.keep.chat": "聊天里说到过的地点（那是聊天记录）",
   "map.source.title": "高德地图",
-  "map.source.summary": "填了 Key，地图页在国内用高德地图（以后查地点、算路线也用它）。Key 只存在这台电脑上；高德只看得到你正在看的那片地图",
+  "map.source.summary": "填了 Key，地图页在国内用高德地图（以后查地点、算路线也用它）。Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给高德",
   "map.source.account": "地图：{map} · 查地点和路线：{query}",
   "map.source.filled": "已填",
   "map.source.empty": "没填",

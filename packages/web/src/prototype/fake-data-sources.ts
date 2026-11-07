@@ -163,6 +163,23 @@ function initial(): DataSourcesView {
         hasLive: true,
       },
       {
+        id: "amap",
+        title: "高德地图",
+        summary: "填了 Key，地图页在国内用高德地图（以后查地点、算路线也用它）。Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给高德",
+        plugin: "map",
+        pluginTitle: "地图",
+        available: true,
+        connection: "not_connected",
+        usages: [],
+        sensitive: [],
+        count: 0,
+        syncing: false,
+        canSync: false,
+        files: [],
+        configurable: true,
+        disconnectNote: "填过的 Key 和安全密钥从这台电脑上删掉，地图页在国内改用 OpenStreetMap",
+      },
+      {
         id: "demo-camera",
         title: "示例相机",
         summary: "挂脖相机每天的时刻（时间、地点、在做什么），整理成一段一段的摘要进素材",
@@ -462,6 +479,12 @@ export class FakeDataSources {
           if (id === "looki") return body.values.archive === undefined ? this.configureLooki(source, body.values) : this.archiveLooki(source, body.values);
           if (id === "phone-location") return this.phonePlaces(source, body.values);
           if (id === "google-gmail") return this.configureGmail(source, body.values);
+          // 高德地图：原型里填什么都算测过了（不连高德）；账号那一行写两组各填了没有
+          if (id === "amap") {
+            const both = "地图：已填 · 查地点和路线：已填";
+            change({ connection: "connected", account: body.values.serviceKey !== undefined || source.account === both ? both : "地图：已填 · 查地点和路线：没填", hasSecrets: true });
+            return { view: structuredClone(this.state) };
+          }
           change({ connection: "connected", account: id.startsWith("google-") ? "yourname@gmail.com" : "y***@example.com", hasSecrets: true, canSync: source.usages.some((u) => u.usage === "import" && u.on) });
           return { view: structuredClone(this.state) };
         }

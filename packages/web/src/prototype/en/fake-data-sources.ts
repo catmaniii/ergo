@@ -2,6 +2,12 @@
 import type { Phrases } from "./phrases.ts";
 
 export const EN_DATA_SOURCES: Phrases = {
+  "高德地图": "AMap",
+  "填了 Key，地图页在国内用高德地图（以后查地点、算路线也用它）。Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给高德": "With a key, the map page uses AMap inside mainland China (later, looking up places and routes will use it too). The key stays on this computer; where you went each day and where your photos were taken are never sent to AMap",
+  "地图": "Map",
+  "填过的 Key 和安全密钥从这台电脑上删掉，地图页在国内改用 OpenStreetMap": "The key and security code are deleted from this computer; the map page uses OpenStreetMap inside China instead",
+  "地图：已填 · 查地点和路线：已填": "Map: set · Places and routes: set",
+  "地图：已填 · 查地点和路线：没填": "Map: set · Places and routes: not set",
   "家": "Home",
   "杭州市西湖区文三路": "Wensan Road, Xihu District, Hangzhou",
   "公司": "Work",

@@ -308,7 +308,7 @@ describe("生效：默认角色的名字和音色，没指定的 agent 跟着一
 
 describe("语音插件停用：名字和角色照常，音色写\"语音插件没启用\"", () => {
   it("列表照样列得出角色和名字；写音色回 400 带原因；分配角色照常", async () => {
-    const td = await startTestDaemon({ plugins: ["reminders", "memory", "calendar", "browsing", "claude-code", "phone", "google", "looki", "codex"] });
+    const td = await startTestDaemon({ plugins: ["reminders", "memory", "calendar", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"] });
     seedProject(td.daemon, "记账本");
     const listed = await agentRolesApi.list(td.url);
     expect(listed.status).toBe(200);
