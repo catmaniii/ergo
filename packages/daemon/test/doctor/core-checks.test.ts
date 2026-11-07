@@ -29,7 +29,7 @@ import { type ContextAgentView, judgeContext } from "../../src/doctor/context.ts
 import { type CoreDoctorSources, judgeAssistant, judgePlugins, judgeWeb, registerCoreDoctorChecks } from "../../src/doctor/core.ts";
 import { createDoctor, type DoctorProbes, diskProbe, externalProbe, legacyLevel, supervisorProbe, supervisorStatus } from "../../src/doctor/doctor.ts";
 import { judgeModelCalls, modelErrorGist } from "../../src/doctor/model-calls.ts";
-import { judgeServices, localPortOf, parseSupervisorSnapshot } from "../../src/doctor/services.ts";
+import { judgeServices, parseSupervisorSnapshot } from "../../src/doctor/services.ts";
 import { builtinCatalogs } from "../../src/i18n/index.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -298,8 +298,9 @@ describe("托管的服务", () => {
     expect(text.fix).toContain("在服务管家里把它开起来");
   });
 
-  it("都在跑 → 正常，列出来；tailnet 网关在 ergo-daemon 开了 tailnet 时算进来", () => {
-    const snapshot = parseSupervisorSnapshot(snapshotJson([daemon, { ...audiocpp, state: "RUNNING" }, tunnel], { tailnet: { gateway: { id: "tailnet-gw", state: "RUNNING", autostart: true } } }))!;
+  it("都在跑 → 正常，列出来；tailnet 网关在 ergo-daemon 开了 tailnet 时算进来（网关是服务管家里登记的一个服务）", () => {
+    const gateway = { id: "tailnet-gw", name: "tailnet-gw", port: 8443, state: "RUNNING", autostart: true };
+    const snapshot = parseSupervisorSnapshot(snapshotJson([daemon, { ...audiocpp, state: "RUNNING" }, tunnel, gateway], { tailnet: { gateway: { id: "tailnet-gw", state: "RUNNING", autostart: true } } }))!;
     const finding = judgeServices(snapshot, { speechPort: 8090, recognizerPort: 8090 }, MANAGER);
     expect(finding.level).toBe("ok");
     expect(said(finding).fact).toBe("都正常：语音合成和语音识别 audiocpp（在跑）、外网隧道 ergo-tunnel（在跑）和tailnet 网关 tailnet-gw（在跑）");
@@ -330,13 +331,27 @@ describe("托管的服务", () => {
     expect(remote.fix).toEqual({ key: "doctor.fix.servicesNoLink" });
   });
 
-  it("快照解析：形状不对的服务丢掉，不像快照是 undefined；本机地址才取端口", () => {
+  it("和设置 · 服务一页同一份判定（ergoRelated，428）：二狗登记的依赖连同它们硬依赖的停了是坏了；标了 ergo: true 的按名下的判；二狗自己不列；无关的不列", () => {
+    const withDeps = { ...daemon, exposure: {}, tailnet: null, dependsOn: [{ id: "db", type: "hard" }] };
+    const db = { id: "db", name: "db", port: 5432, state: "RUNNING", autostart: true, dependsOn: [{ id: "disk-mount", type: "hard" }] };
+    const mount = { id: "disk-mount", name: "disk-mount", port: 0, state: "STOPPED", autostart: false };
+    const marked = { id: "comfyui", name: "comfyui", port: 8188, state: "STOPPED", autostart: true, ergo: true };
+    const drama = { id: "drama-server", name: "drama-server", port: 3000, state: "FAILED", autostart: true };
+    const finding = judgeServices(parseSupervisorSnapshot(snapshotJson([withDeps, db, mount, marked, drama]))!, {}, MANAGER);
+    expect(finding.level).toBe("error");
+    const fact = said(finding).fact;
+    expect(fact).toContain("二狗要靠的服务 disk-mount（停着）");
+    expect(fact).toContain("标了和二狗有关的服务 comfyui（停着，可开着开机自启）");
+    expect(fact).toContain("另有 1 个正常");
+    expect(fact).not.toContain("drama-server");
+    expect(fact).not.toContain("ergo-daemon");
+  });
+
+  it("快照解析：形状不对的服务丢掉，不像快照是 undefined；依赖、ergo 标记照读", () => {
     expect(parseSupervisorSnapshot({ nope: 1 })).toBeUndefined();
     expect(parseSupervisorSnapshot(snapshotJson([{ name: "no id" }, audiocpp]))!.services.map((s) => s.id)).toEqual(["audiocpp"]);
-    expect(localPortOf("http://127.0.0.1:8090")).toBe(8090);
-    expect(localPortOf("http://localhost/")).toBe(80);
-    expect(localPortOf("http://192.168.1.5:8090")).toBeUndefined();
-    expect(localPortOf("不是地址")).toBeUndefined();
+    const parsed = parseSupervisorSnapshot(snapshotJson([{ ...audiocpp, dependsOn: [{ id: "gpu", type: "soft" }, { nope: 1 }], ergo: true }]))!;
+    expect(parsed.services[0]).toMatchObject({ dependsOn: [{ id: "gpu", type: "soft" }], ergo: true });
   });
 });
 

@@ -74,7 +74,6 @@ import { registerCoreDoctorChecks } from "./doctor/core.ts";
 import { createDeepDoctor, type DeepDoctorService } from "./doctor/deep.ts";
 import { registerDeepDoctorChecks } from "./doctor/deep-checks.ts";
 import { type DoctorService, createDoctor, diskProbe, externalProbe, missingDefaultFeatures, nodeProbe, piVersionProbe, portsProbe, supervisorProbe, supervisorStatus } from "./doctor/doctor.ts";
-import { localPortOf } from "./doctor/services.ts";
 import { type AgentLabel, housekeepingChecks } from "./doctor/housekeeping.ts";
 import { createDoctorWatch, type DoctorWatch } from "./doctor/watch.ts";
 import { modelCredentials, tavilyKey } from "./config/secrets.ts";
@@ -3141,15 +3140,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
             }
           }),
         supervisor: supervisorSnapshot,
-        // 语音插件启用着才算在用：合成是 voice.speech.url；识别是 LSM 托管的那条（lsm）或 audio.cpp 上的（audiocpp，和合成同一个服务），
-        // 二狗自己拉起的 Python（spawn）不归服务管家
-        servicesInUse: () => {
-          if (plugins.service(VOICE) === undefined) return {};
-          const speechPort = localPortOf(options.speechUrl ?? config.voice.speech.url);
-          const recognizer = config.voice.recognizer;
-          const recognizerPort = recognizer.mode === "lsm" ? localPortOf(recognizer.url) : recognizer.mode === "audiocpp" ? speechPort : undefined;
-          return { ...(speechPort === undefined ? {} : { speechPort }), ...(recognizerPort === undefined ? {} : { recognizerPort }) };
-        },
+        // 二狗在用的语音服务的端口：和设置 · 服务一页（428）同一份算法（lsm/voice-ports.ts：语音插件启用着才算；
+        // 识别是 LSM 托管的那条或 audio.cpp 上的，二狗自己拉起的 Python 不归服务管家）
+        servicesInUse: () => voicePortsInUse(config.voice, { voiceOn: plugins.service(VOICE) !== undefined, speechUrl: options.speechUrl }),
         managerUrl: () => lsm.managerUrl,
         plugins: () => plugins.info(),
         webIndex: path.join(options.webRoot ?? DEFAULT_WEB_ROOT, "index.html"),

@@ -1,15 +1,19 @@
 // 体检"二狗本身"里的"托管的服务"（410）：服务管家托管的、和二狗有关的服务现在什么样。
 // 不另连服务管家：服务管家那一项本来就跑了 `lsm status --json`（doctor.ts 的 supervisorStatus，同一次体检里两项共用一份快照），
-// 这里解析那份快照。只列和二狗有关的：
-// - 二狗要用的：配置里在用的语音合成、语音识别（地址是本机的、按端口对上服务管家里的服务；语音插件没启用、识别是二狗自己拉起的
-//   Python 时不算）；给二狗通外网的隧道（二狗那条登记的 exposure.via）；开了 tailnet 入口时服务管家的 tailnet 网关；
-// - 二狗名下的项目服务（id 是 ergo-daemon--<名字>，二狗经接入协议登记的）。
-// 判法（票 410）：二狗要用的停着或失败 → 坏了；名下的服务失败 → 坏了，开了开机自启却停着 → 注意（关着的项目服务停着是正常的）；
+// 这里解析那份快照。只列和二狗有关的，判定和设置 · 服务一页（428）是同一份：协议包的 ergoRelated（ergo-related.ts），
+// 体检里不列二狗自己（self），别的用途对应成：
+// - 二狗要用的：配置里在用的语音合成、语音识别（端口由 lsm/voice-ports.ts 的 voicePortsInUse 从配置算，组合根交进来）；
+//   给二狗通外网的隧道（exposure.via）；开了 tailnet 入口时服务管家的 tailnet 网关；二狗登记里 dependsOn 的服务，
+//   和这些硬依赖的（dependency）；
+// - 二狗名下的（id 是 ergo-daemon--<名字>：项目上线的服务、组件装的语音合成）记成"项目服务"；登记里标了 ergo: true 的（marked）
+//   按名下的判。
+// 判法（票 410）：二狗要用的停着或失败 → 坏了；名下的、标了的失败 → 坏了，开了开机自启却停着 → 注意（关着的项目服务停着是正常的）；
 // 不太健康（DEGRADED）、端口被不归服务管家管的进程占着（ORPHAN）→ 注意。事实写服务名、状态、服务管家记的最后一次出错。
 // 动作：跳到服务管家的网页（只在这台电脑上打得开；418 做好后换成"开起来"）。
 // 快照拿不到（服务管家没回应）算"没查出来"；一个和二狗有关的都没有算"不适用"。纯函数，句子由 doctor.ts 拼。
-import { DOCTOR_FIX_UNKNOWN, type DoctorMessage, doctorOpensUrl, formatList, t, tTable } from "@ergo/protocol";
+import { DOCTOR_FIX_UNKNOWN, type DoctorMessage, doctorOpensUrl, type ErgoRelatedService, type ErgoUse, ergoRelated, formatList, t, tTable } from "@ergo/protocol";
 import { DAEMON_SERVICE_ID } from "../cli/service.ts";
+import type { VoicePortsInUse } from "../lsm/voice-ports.ts";
 import type { DoctorFinding } from "./checks.ts";
 
 /** 快照里一个服务（只取用得到的字段） */
@@ -25,6 +29,10 @@ export interface SupervisorService {
   via?: string;
   /** 二狗那条登记的：开了 tailnet 入口 */
   tailnet: boolean;
+  /** 它依赖谁（服务管家登记的 dependsOn：id 和 hard / soft） */
+  dependsOn?: { id: string; type?: string }[];
+  /** 服务管家登记里标了 ergo: true（428；老的服务管家没有这个字段） */
+  ergo?: boolean;
 }
 
 /** `lsm status --json` 的快照里用得到的部分 */
@@ -48,6 +56,14 @@ export function parseSupervisorSnapshot(raw: unknown): SupervisorSnapshot | unde
     const via = str(record(s.exposure)?.via);
     const lastError = str(s.lastError);
     const role = str(s.role);
+    const dependsOn = Array.isArray(s.dependsOn)
+      ? s.dependsOn.flatMap((d): { id: string; type?: string }[] => {
+          const dep = record(d);
+          const depId = str(dep?.id);
+          const type = str(dep?.type);
+          return depId === undefined ? [] : [{ id: depId, ...(type === undefined ? {} : { type }) }];
+        })
+      : undefined;
     return [
       {
         id,
@@ -59,6 +75,8 @@ export function parseSupervisorSnapshot(raw: unknown): SupervisorSnapshot | unde
         ...(role === undefined ? {} : { role }),
         ...(via === undefined ? {} : { via }),
         tailnet: record(s.tailnet) !== undefined,
+        ...(dependsOn === undefined || dependsOn.length === 0 ? {} : { dependsOn }),
+        ...(s.ergo === true ? { ergo: true } : {}),
       },
     ];
   });
@@ -67,64 +85,51 @@ export function parseSupervisorSnapshot(raw: unknown): SupervisorSnapshot | unde
   return { services, ...(gateway && gatewayId ? { tailnetGateway: { id: gatewayId, state: str(gateway.state) ?? "UNKNOWN", autostart: gateway.autostart === true } } : {}) };
 }
 
-/** 二狗在用的本机服务的端口（语音合成、语音识别）；不在用的不给 */
-export interface ServicesInUse {
-  speechPort?: number;
-  recognizerPort?: number;
-}
-
-/** 地址是本机的才算（127.0.0.1、localhost、::1），交回端口；别的（局域网、外网）是 undefined */
-export function localPortOf(url: string): number | undefined {
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.replace(/^\[|\]$/g, "");
-    if (host !== "127.0.0.1" && host !== "localhost" && host !== "::1") return undefined;
-    const port = parsed.port === "" ? (parsed.protocol === "https:" ? 443 : 80) : Number(parsed.port);
-    return Number.isInteger(port) && port > 0 ? port : undefined;
-  } catch {
-    return undefined;
-  }
-}
+/** 二狗在用的本机服务的端口（语音合成、语音识别；组合根用 voicePortsInUse 从配置算）；不在用的不给 */
+export type ServicesInUse = VoicePortsInUse;
 
 /** 和二狗有关的一个服务：它是干什么的（几种用途可以叠）、二狗要不要用它 */
-type Use = "speech" | "recognizer" | "tunnel" | "gateway" | "project";
+type Use = "speech" | "recognizer" | "tunnel" | "gateway" | "dependency" | "project" | "marked";
 interface Related {
   service: Pick<SupervisorService, "id" | "name" | "state" | "autostart" | "lastError">;
   uses: Use[];
 }
 
-/** 二狗名下的服务的 id 前缀 */
-const OWNED_PREFIX = `${DAEMON_SERVICE_ID}--`;
+/** ergoRelated 的用途在体检里怎么叫：二狗自己不列；名下的就是"项目服务" */
+const USE_OF: Readonly<Record<ErgoUse, Use | undefined>> = {
+  self: undefined,
+  speech: "speech",
+  recognizer: "recognizer",
+  tunnel: "tunnel",
+  gateway: "gateway",
+  dependency: "dependency",
+  owned: "project",
+  marked: "marked",
+};
 
-/** 挑出和二狗有关的（按用途合并同一个服务） */
+/** 挑出和二狗有关的（协议包的 ergoRelated，和设置 · 服务一页同一份判定；先后照它排） */
 function relatedOf(snapshot: SupervisorSnapshot, inUse: ServicesInUse): Related[] {
-  const out = new Map<string, Related>();
-  const add = (service: Related["service"], use: Use) => {
-    const known = out.get(service.id);
-    if (known) {
-      if (!known.uses.includes(use)) known.uses.push(use);
-    } else out.set(service.id, { service, uses: [use] });
-  };
-  // 按端口对上的：二狗自己、隧道不算；同一个端口有几个时挑在跑的
-  const byPort = (port: number | undefined) => {
-    if (port === undefined) return undefined;
-    const candidates = snapshot.services.filter((s) => s.port === port && s.id !== DAEMON_SERVICE_ID && s.role !== "tunnel");
-    return candidates.find((s) => s.state === "RUNNING") ?? candidates[0];
-  };
-  const speech = byPort(inUse.speechPort);
-  if (speech) add(speech, "speech");
-  const recognizer = byPort(inUse.recognizerPort);
-  if (recognizer) add(recognizer, "recognizer");
-  const daemon = snapshot.services.find((s) => s.id === DAEMON_SERVICE_ID);
-  const tunnel = daemon?.via === undefined ? undefined : snapshot.services.find((s) => s.id === daemon.via);
-  if (tunnel) add(tunnel, "tunnel");
-  if (daemon?.tailnet && snapshot.tailnetGateway) add({ ...snapshot.tailnetGateway, name: snapshot.tailnetGateway.id }, "gateway");
-  for (const s of snapshot.services) if (s.id.startsWith(OWNED_PREFIX)) add(s, "project");
-  return [...out.values()];
+  const services: ErgoRelatedService[] = snapshot.services.map((s) => ({
+    id: s.id,
+    port: s.port ?? null,
+    role: s.role ?? null,
+    state: s.state,
+    via: s.via ?? null,
+    tailnet: s.tailnet,
+    ...(s.dependsOn ? { dependsOn: s.dependsOn } : {}),
+    ...(s.ergo ? { ergo: true } : {}),
+  }));
+  const byId = new Map(snapshot.services.map((s) => [s.id, s]));
+  const related = ergoRelated(services, { self: DAEMON_SERVICE_ID, ...inUse, tailnetGateway: snapshot.tailnetGateway?.id });
+  return [...related].flatMap(([id, ergoUses]) => {
+    const uses = ergoUses.flatMap((use) => USE_OF[use] ?? []);
+    const service = byId.get(id);
+    return service === undefined || uses.length === 0 ? [] : [{ service, uses }];
+  });
 }
 
-/** 二狗要用的（语音、隧道、网关）：不在跑就用不了 */
-const needed = (related: Related) => related.uses.some((use) => use !== "project");
+/** 二狗要用的（语音、隧道、网关、它依赖的）：不在跑就用不了；名下的、标了的不一定要一直开着 */
+const needed = (related: Related) => related.uses.some((use) => use !== "project" && use !== "marked");
 
 /** 一个服务算几级 */
 function levelOf(related: Related): "ok" | "warn" | "error" {
@@ -155,7 +160,9 @@ const USE_TEXT: Readonly<Record<Use, string>> = tTable({
   recognizer: "doctor.services.use.recognizer",
   tunnel: "doctor.services.use.tunnel",
   gateway: "doctor.services.use.gateway",
+  dependency: "doctor.services.use.dependency",
   project: "doctor.services.use.project",
+  marked: "doctor.services.use.marked",
 });
 
 /** 一个服务写成"语音合成 audiocpp（停着；上次出错：…）" */
