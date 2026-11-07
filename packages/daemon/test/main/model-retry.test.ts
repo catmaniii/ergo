@@ -118,8 +118,12 @@ describe("重试用完还是出错、最后一条被中止", () => {
     const before = turnEnds(frontend).length;
     await frontend.sendText("第三句");
     await waitUntil(() => frontend.events({ channel: SECRETARY, type: EVENT_TYPES.turnStart }).length === 3, { timeoutMs: 15_000, describe: () => "等第三句开始处理" });
-    await frontend.request(METHODS.stopReply, { conversation: SECRETARY }, "k-stop-421");
-    await waitUntil(() => turnEnds(frontend).length > before, { timeoutMs: 15_000, describe: () => "等第三句被停下" });
+    // 停止送得太早（这一轮的输入还没交到子进程、模型调用还没发出去）时中止落空：没停下就再点一次
+    for (let tries = 0; turnEnds(frontend).length === before; tries++) {
+      expect(tries).toBeLessThan(15);
+      await frontend.request(METHODS.stopReply, { conversation: SECRETARY }, `k-stop-421-${tries}`);
+      await waitUntil(() => turnEnds(frontend).length > before, { timeoutMs: 1000 }).catch(() => undefined);
+    }
     expect(turnEnds(frontend).at(-1)!.outcome).toBe("aborted");
     const last = td.daemon.ledger.entries(null).filter((e) => e.agentId === "secretary" && e.purpose === "work").at(-1)!;
     expect(last).toMatchObject({ failed: true });
