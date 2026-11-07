@@ -440,7 +440,7 @@
   "ui.plugins.looki.archive.kind.journals": "AI journals",
   "ui.plugins.looki.archive.kind.journalsSub": "Saved as 日记.md in each day's folder",
   "ui.plugins.looki.archive.kind.vlogs": "Vlogs",
-  "ui.plugins.looki.archive.kind.vlogsSub": "The ones Looki makes each day",
+  "ui.plugins.looki.archive.kind.vlogsSub": "The video Looki cuts automatically each day; saved only when ticked, and its description then counts toward that day's journal",
   "ui.plugins.looki.archive.kind.clips": "Raw video clips",
   "ui.plugins.looki.archive.kind.clipsSub": "Take a lot of space, off by default",
   "ui.plugins.looki.archive.saved_one": "Saved: {what}, {size} in total ({n} day)",

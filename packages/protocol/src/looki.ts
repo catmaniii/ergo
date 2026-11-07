@@ -6,8 +6,11 @@
 export const LOOKI_ARCHIVE_KINDS = ["photos", "journals", "vlogs", "clips"] as const;
 export type LookiArchiveKind = (typeof LOOKI_ARCHIVE_KINDS)[number];
 
-/** 各类默认存不存：照片、AI 日记、vlog 默认存，原始视频片段默认不存（占地方） */
-export const LOOKI_ARCHIVE_DEFAULT_KINDS: Readonly<Record<LookiArchiveKind, boolean>> = { photos: true, journals: true, vlogs: true, clips: false };
+/**
+ * 各类默认存不存：照片、AI 日记默认存；vlog 默认不存（勾上才存视频，它那一条也才当日记导入，424）；原始视频片段默认不存（占地方）。
+ * 设置文件里没写某一项的按这里算（vlog 改成默认不存以前就在用、没写这一项的也按不存）
+ */
+export const LOOKI_ARCHIVE_DEFAULT_KINDS: Readonly<Record<LookiArchiveKind, boolean>> = { photos: true, journals: true, vlogs: false, clips: false };
 
 /** "把以前的也存下来"默认往回补几天 */
 export const LOOKI_BACKFILL_DEFAULT_DAYS = 30;

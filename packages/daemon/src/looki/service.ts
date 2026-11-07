@@ -8,6 +8,8 @@
 //   断开并删以后重连会重新导入）；限速了等（Retry-After，没有就 60 秒）再试，最多两次；
 // - 按需查（给秘书的工具，tools.ts 写成给模型看的文字）：按日期（最多 7 天，可加时间段）列出时刻，按关键词搜；只读、现查不存；
 //   限速了不等，直接回"过一分钟再查"。
+// - vlog：Looki 每天剪的 vlog 是 /journals 里种类为 DAILY_VLOG 的一条。「存一份到本地」里 vlog 不勾（默认）时整条不要：同步不把它当日记
+//   导入（不进素材）、按需查不列；勾上才导入（424）；
 // - 存一份到本地（archive.ts）：同步拉到的这几天的时刻、日记交给它排队存照片、日记、vlog（不等它），设置、补存经填设置
 //   （values.archive）交给它，连接状态里带它那一块（panel）和断开时要说的一句；断开时它停下（存下的文件不删）。
 // Key 只经密钥区读写，不进日志、事件、出错原因（出错原因由 client.ts 写，里面不带 Key；内核记下之前还会再换一遍 ***）。
@@ -18,7 +20,7 @@ import { type Clock, clockIso } from "../scheduler/clock.ts";
 import { LOOKI_CHANNEL, LOOKI_JOURNAL, LOOKI_MOMENT, LOOKI_REGIONS, type LookiJournalPayload, type LookiMomentPayload, type LookiRegion } from "./api.ts";
 import { createLookiArchive, type LookiArchiveOptions } from "./archive.ts";
 import { createLookiClient, LOOKI_RATE_LIMIT_WAIT_MS, LookiError } from "./client.ts";
-import { addDays, daysBetween, journalRecords, localDay, momentRecord } from "./records.ts";
+import { addDays, daysBetween, isVlogKind, journalRecords, localDay, momentRecord } from "./records.ts";
 
 /** 第一次同步拉最近几天 */
 export const FIRST_SYNC_DAYS = 7;
@@ -338,8 +340,11 @@ export function createLookiService(options: LookiServiceOptions): LookiService {
         const events: NewEvent[] = [];
         const records = journalRecords(groups);
         if (records.length === 0 && groups.length > 0) unreadable += groups.length;
+        const vlogs = archive.vlogsOn();
         for (const record of records) {
           if (record.date < first || record.date > yesterday) continue;
+          // vlog 没勾：Looki 每天剪的 vlog 那一条整条不要（不导入、不交给存到本地）
+          if (!vlogs && isVlogKind(record.kind)) continue;
           pulledJournals.push(record);
           if (known.journals.has(record.journalId)) continue;
           known.journals.add(record.journalId);
@@ -371,7 +376,10 @@ export function createLookiService(options: LookiServiceOptions): LookiService {
         const moments: LookiMomentPayload[] = [];
         for (const day of daysBetween(from, to).slice(0, QUERY_MAX_DAYS)) moments.push(...(await client.moments(day)).flatMap((raw) => momentRecord(raw) ?? []));
         // 只查一整天：顺带那天的日记
-        const journals = from === to && query.after === undefined && query.before === undefined ? journalRecords(await journalsOrNone(() => client.journals(from, 1))).filter((j) => j.date === from) : [];
+        const journals =
+          from === to && query.after === undefined && query.before === undefined
+            ? journalRecords(await journalsOrNone(() => client.journals(from, 1))).filter((j) => j.date === from && (archive.vlogsOn() || !isVlogKind(j.kind)))
+            : [];
         if (problem?.kind === "key") problem = undefined;
         return { moments, journals };
       } catch (err) {

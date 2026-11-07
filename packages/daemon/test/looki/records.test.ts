@@ -4,6 +4,7 @@ import { PURGED_TEXT } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import type { StoredEvent } from "../../src/events/event-store.ts";
 import { LOOKI_CHANNEL, LOOKI_JOURNAL, LOOKI_MOMENT, LOOKI_SOURCE_ID, type LookiJournalPayload, type LookiMomentPayload } from "../../src/looki/api.ts";
+import { journalVlogs, remoteFile } from "../../src/looki/archive-remote.ts";
 import { dataOf, listOf } from "../../src/looki/client.ts";
 import { journalMaterialSource, journalPurge, momentMaterialSource, momentPurge } from "../../src/looki/materials.ts";
 import { addDays, daysBetween, journalRecords, lookiTime, momentRecord, zoneOffset } from "../../src/looki/records.ts";
@@ -104,6 +105,65 @@ describe("日记", () => {
   it("没有摘要用全文开头当说明；没有标题用日期；没有时间用组上的日期", () => {
     const [j] = journalRecords([{ date: "2026-10-24", journals: [{ id: "j-4", content: "一整天都在家。", tz: "Asia/Shanghai" }] }]);
     expect(j).toMatchObject({ date: "2026-10-24", time: "2026-10-24T00:00:00.000+08:00", text: "Looki · 2026-10-24\n一整天都在家。" });
+  });
+});
+
+/** 官方文档的 FileModel：只有链接、种类、大小、时长（没有 id） */
+const file = (url: string, mediaType: string) => ({ temporary_url: url, media_type: mediaType, size: 1024, metadata: { duration_ms: 30_000 } });
+
+describe("存到本地读的文件、vlog（424：官方文档现在的写法）", () => {
+
+  it("日记里的 vlog：DAILY_VLOG 的 media_items 里 source 是视频的那个（缩略图不算）；日期取条目的，没有取组上的；别的种类、只有图片的不要", () => {
+    const groups = [
+      {
+        date: "2026-10-24",
+        start_date: null,
+        journals: [
+          { id: "d-1", type: "DIARY", title: "周六", description: "开会", content: "……", media_items: [{ source: file("https://cdn.example/a.mp4", "VIDEO"), thumbnail: null }], date: "2026-10-24", tz: "+08:00", recorded_at: "2026-10-24T22:00:00+08:00" },
+          {
+            id: "v-1",
+            type: "DAILY_VLOG",
+            title: "忙碌的周六",
+            description: "一天的高光",
+            media_items: [{ source: file("https://cdn.example/processed/vlog/v1.mp4?x-looki-token=abc", "VIDEO"), thumbnail: file("https://cdn.example/processed/vlog/v1.jpg?x-looki-token=abc", "IMAGE") }],
+            date: "2026-10-24",
+            start_date: null,
+            tz: "+08:00",
+            recorded_at: "2026-10-24T21:00:00+08:00",
+            created_at: "2026-10-25T01:00:00+08:00",
+          },
+          // 没有自己的 date：取组上的
+          { id: "v-2", type: "DAILY_VLOG", title: "", description: "高光", media_items: [{ source: file("https://cdn.example/v2", "VIDEO"), thumbnail: null }], tz: "+08:00", recorded_at: "2026-10-25T00:30:00+08:00" },
+          // 只有封面图、没有视频：不要
+          { id: "v-3", type: "DAILY_VLOG", title: "x", description: "x", media_items: [{ source: file("https://cdn.example/v3.jpg", "IMAGE"), thumbnail: null }], date: "2026-10-24" },
+        ],
+      },
+    ];
+    const vlogs = journalVlogs(groups);
+    expect(vlogs.map((v) => [v.id, v.date, v.title, v.file.kind, v.file.url])).toEqual([
+      ["v-1", "2026-10-24", "忙碌的周六", "video", "https://cdn.example/processed/vlog/v1.mp4?x-looki-token=abc"],
+      ["v-2", "2026-10-24", "", "video", "https://cdn.example/v2"],
+    ]);
+    expect(vlogs[0]!.time).toBe("2026-10-24T21:00:00.000+08:00");
+    // 官方回包外面那一层 { items, next_cursor_id, has_more }、同一个 id 来两次只要一次
+    expect(journalVlogs([{ items: groups }, groups[0]]).map((v) => v.id)).toEqual(["v-1", "v-2"]);
+  });
+
+  it("时刻的文件包在 file 里（{ id, file: FileModel, thumbnail, location, created_at, tz }）：id、拍摄时间取外面的，链接、种类取 file 里的；平铺的照旧", () => {
+    expect(remoteFile({ id: "mf-1", file: file("https://cdn.example/p/1.jpg?sig=1", "IMAGE"), thumbnail: file("https://cdn.example/p/1-thumb.jpg", "IMAGE"), location: "望京", created_at: "2026-10-24T14:00:05", tz: "+08:00" })).toEqual({
+      id: "mf-1",
+      kind: "photo",
+      url: "https://cdn.example/p/1.jpg?sig=1",
+      taken: "2026-10-24T14:00:05.000+08:00",
+    });
+    expect(remoteFile({ id: "mf-2", media_type: "VIDEO", temporary_url: "https://cdn.example/c.mp4", created_at: "2026-10-24T14:10:00+08:00" })).toMatchObject({ id: "mf-2", kind: "video" });
+    // 只有缩略图没有文件：不要
+    expect(remoteFile({ id: "mf-3", thumbnail: file("https://cdn.example/t.jpg", "IMAGE") })).toBeUndefined();
+    // FileModel 没有 id：拿链接路径（不含签名）算一个，换了签名还是同一个
+    const a = remoteFile({ source: file("https://cdn.example/x.jpg?sig=1", "IMAGE") });
+    const b = remoteFile({ source: file("https://cdn.example/x.jpg?sig=2", "IMAGE") });
+    expect(a?.id).toMatch(/^u[0-9a-f]{16}$/);
+    expect(a?.id).toBe(b?.id);
   });
 });
 

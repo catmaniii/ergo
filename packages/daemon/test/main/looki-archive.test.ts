@@ -1,9 +1,11 @@
 // 主切面：Looki 的"存一份到本地"。真的守护进程走组合根和插件清单，清单里的 Looki 插件经 extraPlugins 换成同名的、
 // 接口地址指向本机假 Looki（helpers/fake-looki.ts：时刻、文件、vlog、预签名的文件链接都在本机；不连真的 Looki、不联网），
 // 默认位置换成临时目录（绝不往真的用户目录下写）：
-// - 设置 · 数据源里 Looki 下面有"存一份到本地"那一块：默认开着、位置是默认的 Looki 文件夹、照片 / 日记 / vlog 开着、原始视频关着；
+// - 设置 · 数据源里 Looki 下面有"存一份到本地"那一块：默认开着、位置是默认的 Looki 文件夹、照片 / 日记开着，vlog、原始视频关着（424）；
+//   这里勾上 vlog 再同步；
 // - 同步一天 → 照片按 年-月\日期\时刻（起始时间 标题）\ 落盘，字节一个不差、文件时间是拍摄时间；AI 日记写进当天的 日记.md；
 //   vlog 放当天文件夹；每天一份 说明.txt；原始视频不下；文件链接不带 Key；不进素材（素材只有导入的记录）；旁边别的目录不碰；
+// - vlog 从 /journals 里种类为 DAILY_VLOG 的条目取（424：/for_you/items 停用了，一次都不调）；那一条也照样是一篇日记记录；
 // - 再同步不重下（存齐了的时刻连文件都不再列）；
 // - 晚上传的时刻：列出来的链接已经过期 → 重新取一次链接再下；
 // - "打开文件夹"走内核的在电脑上打开；
@@ -34,7 +36,7 @@ const photo21 = fakePhoto("f-21", "2026-10-24T19:20:00+08:00");
 const photo01 = fakePhoto("f-01", "2026-10-23T12:10:00+08:00", "海底捞（望京店）");
 const vlogFile = fakeVideo("vf-1", "2026-10-24T23:00:00+08:00");
 
-/** 假 Looki 里放好的：昨天两个时刻（开会那个有两张照片和一段视频）、一篇日记、一个 vlog，前天一个时刻 */
+/** 假 Looki 里放好的：昨天两个时刻（开会那个有两张照片和一段视频）、一篇日记、一个 vlog（在 /journals 里），前天一个时刻 */
 function script(fake: FakeLooki) {
   fake.moments.set("2026-10-24", [
     fakeMoment({ id: "m-1", date: "2026-10-24", start: "14:00", end: "16:30", title: "在望京开会", description: "和同事在会议室讨论下季度计划", location: "望京 SOHO", media: ["IMAGE", "VIDEO"] }),
@@ -104,7 +106,7 @@ describe("Looki 存一份到本地（假 Looki 接口、临时目录代替默认
       on: true,
       folder,
       defaultFolder: folder,
-      kinds: { photos: true, journals: true, vlogs: true, clips: false },
+      kinds: { photos: true, journals: true, vlogs: false, clips: false },
       saved: { photos: 0, clips: 0, journals: 0, vlogs: 0, bytes: 0, days: 0 },
       pending: 0,
       failed: 0,
@@ -113,8 +115,11 @@ describe("Looki 存一份到本地（假 Looki 接口、临时目录代替默认
     expect(fs.existsSync(folder)).toBe(false);
 
     await dataSourcesApi.act(td.url, LOOKI_SOURCE_ID, { action: "configure", values: { key: LOOKI_TEST_KEY, region: "cn" }, idempotencyKey: key() });
+    // vlog 默认不勾：勾上（勾上才存视频，它那一条也当日记导入）
+    await dataSourcesApi.act(td.url, LOOKI_SOURCE_ID, { action: "configure", values: { archive: "settings", vlogs: "true" }, idempotencyKey: key() });
     const synced = await dataSourcesApi.act(td.url, LOOKI_SOURCE_ID, { action: "sync", idempotencyKey: key() });
-    expect(synced.body).toMatchObject({ added: 4 });
+    // 三个时刻、日记、vlog 那一条（DAILY_VLOG 也是 /journals 里的一篇）
+    expect(synced.body).toMatchObject({ added: 5 });
 
     // 存是排在后面做的：等它存完
     const done = await waitPanel(td, idleWith(4), "存下 4 张照片");
@@ -153,18 +158,20 @@ describe("Looki 存一份到本地（假 Looki 接口、临时目录代替默认
     expect(readme).toContain("14:00–16:30  在望京开会");
     expect(readme).toContain("地点：望京 SOHO");
     expect(readme).toContain("照片 2 张 → 文件夹「14.00 在望京开会」");
-    expect(readme).toContain("AI 日记：日记.md（忙碌又平静的周六）");
+    expect(readme).toContain("AI 日记：日记.md（忙碌又平静的周六、忙碌的周六）");
     expect(readme).toContain("vlog：vlog 忙碌的周六.mp4");
     // 已存多少：数据源页上那一块
     const bytes = [photo11, photo12, photo21, photo01, vlogFile].reduce((sum, f) => sum + f.bytes.length, 0) + Buffer.byteLength(journal);
-    expect(done).toMatchObject({ saved: { photos: 4, clips: 0, journals: 1, vlogs: 1, days: 2, bytes }, pending: 0, failed: 0 });
+    expect(done).toMatchObject({ saved: { photos: 4, clips: 0, journals: 2, vlogs: 1, days: 2, bytes }, pending: 0, failed: 0 });
+    // 老的 vlog 接口一次都不调
+    expect(fake.requests.some((r) => r.path === "/api/v1/for_you/items")).toBe(false);
     expect(done.lastSavedAt).toBeDefined();
     expect(done.problem).toBeUndefined();
     // 旁边别的目录没动
     expect(listAll(path.join(documents, "其他文件"))).toEqual(["说明.txt"]);
     expect(fs.readFileSync(path.join(documents, "其他文件", "说明.txt"), "utf8")).toBe("别的东西");
-    // 不进素材：素材只有导入的四条记录；预签名链接哪儿都不存
-    await waitUntil(() => lookiMaterials(td).length === 4, { timeoutMs: 20_000, describe: () => `素材：${lookiMaterials(td).length}` });
+    // 不进素材：素材只有导入的五条记录；预签名链接哪儿都不存
+    await waitUntil(() => lookiMaterials(td).length === 5, { timeoutMs: 20_000, describe: () => `素材：${lookiMaterials(td).length}` });
     expect(new Set(lookiMaterials(td).map((m) => m.ref.event.type))).toEqual(new Set([LOOKI_MOMENT, LOOKI_JOURNAL]));
     expect(td.daemon.materials.list().some((m) => JSON.stringify(m).includes(".jpg"))).toBe(false);
     expect(JSON.stringify(td.daemon.store.readGlobal(0, 1_000_000).map((e) => e.payload))).not.toContain("X-Amz-Signature");

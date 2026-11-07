@@ -1,9 +1,13 @@
 // Looki 的"存一份到本地"（默认存照片 + 日记 + vlog，原始视频不存）：每天同步时刻时顺带把照片、AI 日记、vlog
 // 存到本地一个文件夹（默认是「文档」下的 Looki；能换成任何本地文件夹，比如网盘的同步目录，手机上也就翻得到），
 // 按 年-月\日期\时刻（起始时间 标题）\ 分文件夹。
-// - 存哪几类各自开关（照片、AI 日记、vlog 默认存，原始视频片段默认不存）；照片、视频原样保存（download.ts：不改一个字节，元数据都在），
+// - 存哪几类各自开关（照片、AI 日记默认存；vlog、原始视频片段默认不存）；vlog 不勾时整条不要：不下视频、它那一条不写进 日记.md
+//   （同步也不把它当日记导入，service.ts 经 vlogsOn() 问这里），勾上才存视频、它那段说明也算进当天的日记（424）；照片、视频原样保存（download.ts：不改一个字节，元数据都在），
 //   文件时间设成拍摄时间；AI 日记写进当天文件夹的"日记.md"；vlog 放当天文件夹；每天一份"说明.txt"（这天有哪些时刻、几点、在哪、存了什么）；
 // - 下载链接 1 小时失效：列出文件就下，过了 50 分钟先重新列一次；下的时候说过期了（403……）就重新列一次、拿新链接再下一次；
+// - vlog 从 /journals 里种类为 DAILY_VLOG 的条目取（2026-11 起 /for_you/items 停用了，424 号票）；以前从 for_you 存下的 vlog 不动、不重下
+//   （同一天标题一样的、或者那天只有一个旧的也只列出一个新的，索引改记新的 id）；列 vlog 时 Looki 回"接口停用了""参数不对"这类，
+//   原因写在那一块上（体检照原文显示），下次列成了清掉；
 // - 按 Looki 的 id 去重（archive-store.ts 的索引）；没存齐的时刻记着，下次同步接着补（不管它在不在这次同步的日子里），连着 5 次不行就不再自动试；
 //   目标文件已经在了就当存过（不覆盖、不重下：索引丢了、用户自己放的都不碰）；
 // - 限速照做法：同步后顺带存的等两次（Retry-After，没有就 60 秒），还限速就停下、下次接着存；补存的一直等（在后台，能停）；
@@ -30,11 +34,11 @@ import {
 import type { DataSourceSecrets } from "../data-sources/api.ts";
 import type { LookiJournalPayload, LookiMomentPayload } from "./api.ts";
 import { absolute, dayFolder, extensionOf, mediaFileName, momentFolderName, vlogFileName } from "./archive-paths.ts";
-import { type RemoteFile, remoteFile, type RemoteVlog, remoteVlog } from "./archive-remote.ts";
+import { journalVlogs, type RemoteFile, remoteFile, type RemoteVlog } from "./archive-remote.ts";
 import { ARCHIVE_SETTINGS_FILE, ARCHIVE_STATE_DIR, type ArchiveSettings, type ArchiveState, createArchiveStore, type DayIndex, MAX_ATTEMPTS, type MomentEntry } from "./archive-store.ts";
-import { LOOKI_FILES_PAGE, LOOKI_RATE_LIMIT_WAIT_MS, type LookiClient, LookiError } from "./client.ts";
+import { LOOKI_FILES_PAGE, LOOKI_JOURNAL_MAX_DAYS, LOOKI_RATE_LIMIT_WAIT_MS, type LookiClient, LookiError } from "./client.ts";
 import { DownloadError, downloadTo } from "./download.ts";
-import { addDays, daysBetween, journalRecords, momentRecord } from "./records.ts";
+import { addDays, daysBetween, isVlogKind, journalRecords, momentRecord } from "./records.ts";
 
 export { ARCHIVE_SETTINGS_FILE, ARCHIVE_STATE_DIR };
 
@@ -54,6 +58,7 @@ const SYNC_RATE_RETRIES = 2;
 const MAX_PAGES = 50;
 /** 没存齐的接着补多久以内的 */
 const PENDING_SWEEP_DAYS = 120;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** 整个停下（磁盘满、没权限、位置不对）：原因给人看 */
 class ArchiveStop extends Error {}
@@ -201,6 +206,8 @@ export interface LookiArchive {
   view(): LookiArchiveView;
   /** 断开时要说的一句（开着或者存过东西时） */
   disconnectNote(): string | undefined;
+  /** vlog 勾没勾（不勾时 Looki 每天剪的 vlog 整条不要：同步不把它当日记导入、按需查也不列） */
+  vlogsOn(): boolean;
   /** 存放位置（建好的）：数据源页"在电脑上打开"用；建不了抛错（原因给人看） */
   folder(): string;
   /** 填设置（values.archive 是哪一样，见协议包 looki.ts）；做不成的原因记在 view().refused */
@@ -249,6 +256,8 @@ export function createLookiArchive(options: LookiArchiveOptions): LookiArchive {
   // 守护进程重启前还在补的：停在"已暂停"（手里没有 Key，等用户点接着补）
   if (state.backfill?.state === "running") state.backfill.state = "paused";
   let problem: string | undefined;
+  /** 列 vlog 时 Looki 回的不对（接口停用了、参数对不上）：不耽误照片、日记，单独记着，下次列成了清掉 */
+  let vlogProblem: string | undefined;
   let refused: string | undefined;
   let working: LookiArchiveWorking | undefined;
   /** 停下正在做的（断开、关掉、换位置时置位，再换一个新的） */
@@ -509,40 +518,81 @@ export function createLookiArchive(options: LookiArchiveOptions): LookiArchive {
     job.saved += 1;
   };
 
-  /** 列一段日子里的 vlog（翻页；回来的再按日期筛一遍） */
+  /**
+   * 列一段日子里的 vlog：从 /journals 按天分组的日记里挑（424）。cursor_date 包不包含那一天官方文档没写，从 to 的后一天往前要
+   * （多要一天，两种都不漏），回来的再按日期筛；有下一页（has_more，next_cursor_id 是个日期）接着翻，翻到比 from 还早、游标重了为止
+   */
   const listVlogs = async (job: Job, from: string, to: string): Promise<RemoteVlog[]> => {
     const out = new Map<string, RemoteVlog>();
-    const seen = new Set<string>();
-    let cursor: string | undefined;
+    const days = Math.min(LOOKI_JOURNAL_MAX_DAYS, daysBetween(from, to).length + 1);
+    let cursor = addDays(to, 1);
+    const seen = new Set<string>([cursor]);
     for (let page = 0; page < MAX_PAGES; page += 1) {
-      const { items, next } = await call(job, () => job.client.vlogs({ from, to }, cursor));
-      for (const raw of items) {
-        const v = remoteVlog(raw);
-        if (v && v.date >= from && v.date <= to && !out.has(v.id)) out.set(v.id, v);
-      }
-      if (next === undefined || seen.has(next) || items.length === 0) break;
+      const at = cursor;
+      const { items, next } = await call(job, () => job.client.journalPage(at, days));
+      for (const v of journalVlogs(items)) if (v.date >= from && v.date <= to && !out.has(v.id)) out.set(v.id, v);
+      // 这一页是空的也接着翻（中间几天没有日记、对方又说还有更早的）：只看有没有下一页、游标重没重、是不是已经早过 from
+      if (next === undefined || seen.has(next) || (DATE.test(next) && next < from)) break;
       seen.add(next);
       cursor = next;
     }
     return [...out.values()];
   };
 
-  /** 存一段日子里的 vlog（vlog 的接口官方文档没写全：回的不对、那边出错只记日志，不耽误照片） */
+  /**
+   * 以前从 /for_you/items 存下的 vlog（索引里没标 api 的）：换到 /journals 以后同一个 vlog 的 id 可能变了。同一天里标题一样的，
+   * 或者那天只剩一个旧的、这次那天也只列出一个没存过的，当成同一个：索引改记新的 id，文件不动、不重下
+   */
+  const adoptLegacy = (day: DayIndex, v: RemoteVlog, listed: readonly RemoteVlog[]): boolean => {
+    const legacy = Object.entries(day.vlogs).filter(([, x]) => x.api === undefined);
+    if (legacy.length === 0) return false;
+    const title = v.title.trim();
+    const sameTitle = title === "" ? undefined : legacy.find(([, x]) => x.title.trim() === title);
+    const fresh = listed.filter((x) => x.date === v.date && !day.vlogs[x.id]);
+    const match = sameTitle ?? (legacy.length === 1 && fresh.length === 1 ? legacy[0] : undefined);
+    if (match === undefined) return false;
+    const [oldId, entry] = match;
+    delete day.vlogs[oldId];
+    day.vlogs[v.id] = { ...entry, api: "journals" };
+    log(`Looki 存到本地：vlog ${v.id} 就是以前存下的 ${oldId}（${entry.path}），不重下`);
+    return true;
+  };
+
+  /** 存一段日子里的 vlog（回的不对、那边出错、连不上不耽误照片、日记：回的不对写在那一块上，别的只记日志） */
   const saveVlogs = async (job: Job, from: string, to: string) => {
-    if (!settings.kinds.vlogs) return;
+    if (!settings.kinds.vlogs) {
+      vlogProblem = undefined;
+      return;
+    }
     let vlogs: RemoteVlog[];
     try {
       vlogs = await listVlogs(job, from, to);
+      vlogProblem = undefined;
     } catch (err) {
       if (err instanceof LookiError && (err.failure === "response" || err.failure === "server" || err.failure === "network")) {
         log(`Looki 存到本地：vlog 没列出来（${err.failure}：${err.message}），下次再试`);
+        // 接口停用了、参数对不上：不是过一会儿就好的，写在那一块上（"Looki 换了接口……"，体检照原文显示）
+        if (err.failure === "response") vlogProblem = t("looki.archive.problem.vlogs", { reason: err.message });
         return;
       }
       throw err;
     }
     for (const v of vlogs) {
       const day = store.day(v.date);
-      if (day.vlogs[v.id]) continue;
+      const known = day.vlogs[v.id];
+      if (known) {
+        // id 没变（Looki 搬家时沿用了老 id）：标上，免得被当成旧的再认一次
+        if (known.api === undefined) {
+          known.api = "journals";
+          store.saveDay(day);
+        }
+        continue;
+      }
+      if (adoptLegacy(day, v, vlogs)) {
+        store.saveDay(day);
+        writeReadme(job, day);
+        continue;
+      }
       if (working) working = { kind: working.kind, day: v.date };
       const taken = new Set(Object.values(day.vlogs).map((x) => path.posix.basename(x.path).toLowerCase()));
       const name = vlogFileName(job.root, v.date, v.title, extensionOf(v.file.url, "video"), taken);
@@ -576,15 +626,15 @@ export function createLookiArchive(options: LookiArchiveOptions): LookiArchive {
         setTimes(file, v.time ?? v.file.taken);
         job.saved += 1;
       }
-      day.vlogs[v.id] = { path: rel, size, title: v.title };
+      day.vlogs[v.id] = { path: rel, size, title: v.title, api: "journals" };
       store.saveDay(day);
       writeReadme(job, day);
     }
   };
 
-  /** 存一天的日记（快、只写字：放在照片前面，照片存到一半停下了日记也已经在了） */
+  /** 存一天的日记（快、只写字：放在照片前面，照片存到一半停下了日记也已经在了）；vlog 不勾时 vlog 那一条不写 */
   const saveJournals = (job: Job, date: string, journals: readonly LookiJournalPayload[]) => {
-    const mine = journals.filter((j) => j.date === date);
+    const mine = journals.filter((j) => j.date === date && (settings.kinds.vlogs || !isVlogKind(j.kind)));
     if (!settings.kinds.journals || mine.length === 0) return;
     const day = store.day(date);
     for (const j of mine) saveJournal(job, day, j);
@@ -750,6 +800,7 @@ export function createLookiArchive(options: LookiArchiveOptions): LookiArchive {
     settings = next;
     store.saveSettings(next);
     if (moved || next.on) problem = undefined;
+    if (!next.on || !next.kinds.vlogs) vlogProblem = undefined;
     log(`Looki 存到本地的设置改了：${next.on ? "开" : "关"}，${next.folder === undefined ? "默认位置" : "自己选的位置"}，${LOOKI_ARCHIVE_KINDS.filter((k) => next.kinds[k]).join("、") || "什么都不存"}`);
   };
 
@@ -772,6 +823,7 @@ export function createLookiArchive(options: LookiArchiveOptions): LookiArchive {
   return {
     view() {
       const totals = store.totals();
+      const shown = problem ?? vlogProblem;
       return {
         on: settings.on,
         folder: root(),
@@ -780,7 +832,7 @@ export function createLookiArchive(options: LookiArchiveOptions): LookiArchive {
         saved: { photos: totals.photos, clips: totals.clips, journals: totals.journals, vlogs: totals.vlogs, bytes: totals.bytes, days: totals.days },
         ...(state.lastSavedAt === undefined ? {} : { lastSavedAt: state.lastSavedAt }),
         ...(working === undefined ? {} : { working: { ...working } }),
-        ...(problem === undefined ? {} : { problem }),
+        ...(shown === undefined ? {} : { problem: shown }),
         ...(refused === undefined ? {} : { refused }),
         pending: totals.pending,
         failed: totals.failed,
@@ -796,6 +848,8 @@ export function createLookiArchive(options: LookiArchiveOptions): LookiArchive {
     },
 
     folder: () => ensureRoot(),
+
+    vlogsOn: () => settings.kinds.vlogs,
 
     configure(values, secrets) {
       refused = undefined;

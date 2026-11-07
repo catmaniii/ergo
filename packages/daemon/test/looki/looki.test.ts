@@ -18,7 +18,7 @@ import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { createLookiPlugin } from "../../src/looki/plugin.ts";
 import { KERNEL } from "../../src/plugins/kernel.ts";
 import { SECRETARY_TARGET } from "../../src/secretary/secretary.ts";
-import { type FakeLooki, fakeMoment, fakePhoto, LOOKI_TEST_KEY, startFakeLooki } from "../helpers/fake-looki.ts";
+import { type FakeLooki, fakeMoment, fakePhoto, fakeVideo, LOOKI_TEST_KEY, startFakeLooki } from "../helpers/fake-looki.ts";
 import { extraService, type PluginKernel, startPluginKernel } from "../helpers/plugin-kernel.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -307,6 +307,18 @@ describe("按需查（秘书的\"查 Looki\"）", () => {
     const span = await ask(k, { date: "2026-10-20", end_date: "2026-10-24" });
     expect(span.text).toContain("10-20（周二） 12:00–12:50 · 海底捞（望京店） · 吃火锅");
     expect(span.text).toContain("10-24（周六） 14:00–16:30");
+  });
+
+  it("一整天顺带的日记：vlog 没勾（默认）时 Looki 每天剪的 vlog 那一条不列，勾上才列（424）", async () => {
+    const { fake, k } = await setup();
+    script(fake);
+    fake.vlogs.push({ id: "v-1", type: "DAILY_VLOG", title: "周六的高光", description: "一天的剪辑", recorded_date: "2026-10-24", created_at: "2026-10-25T01:00:00+08:00", file: fakeVideo("vf-1", "2026-10-25T01:00:00+08:00") });
+    await configure(k, { key: LOOKI_TEST_KEY, region: "cn" });
+    const off = await ask(k, { date: "2026-10-24" });
+    expect(off.text).toContain("《忙碌又平静的周六》");
+    expect(off.text).not.toContain("周六的高光");
+    await configure(k, { archive: "settings", vlogs: "true" });
+    expect((await ask(k, { date: "2026-10-24" })).text).toContain("那天 Looki 的 AI 替用户写的日记《周六的高光》：一天的剪辑");
   });
 
   it("按关键词：交给 Looki 的语义搜索（可限定日期范围）", async () => {
