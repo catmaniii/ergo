@@ -2383,9 +2383,30 @@ const REMOTE: MessageEnvelope[] = [
 ];
 for (const m of REMOTE) SCOPES.set(m.id, { taskId: FAKE_REMOTE_TASK.id });
 
+// ---------- 从家到公司多久（432：秘书调高德查路线；家、公司是常去的地方）----------
+// 编号写死、放在最后定义：前面那些消息、工具调用的编号不挪动。路况、线路是编的
+const COMMUTE_ROUTE_CALL = toolAs("call-commute-route", "map_route", "from=家 to=公司", {
+  nature: "look",
+  result:
+    "从「家」（常去的地方）到「公司」（常去的地方），直线 8.3 公里：\n- 开车：约 35 分钟（高德估的用时），18.2 公里；红绿灯 14 个；打车约 42 元。路况（高德现在的）：中河高架 拥堵 1.2 公里、文三路 缓行 800 米。\n- 公交/地铁：约 52 分钟，步行 500 米，票价 4 元：步行 300 米 → 地铁2号线（学院路 上车，凤起路 下车，5 站）→ 地铁1号线（凤起路 上车，江锦路 下车，8 站）→ 步行 200 米。\n数据来自高德，现查的，没存。编号 amap-r1（要画在地图上时用它）。",
+});
+const SECRETARY_COMMUTE: MessageEnvelope[] = [
+  { id: "msg-commute-ask", conversation: S, speaker: "user", time: at("10-07", "08:52"), parts: [text("从家到公司多久")] },
+  {
+    id: "msg-commute-reply",
+    conversation: S,
+    speaker: "agent",
+    time: at("10-07", "08:52"),
+    parts: [
+      COMMUTE_ROUTE_CALL,
+      text("开车约 **35 分钟**（18 公里），中河高架有 1.2 公里在堵，文三路也有点慢。\n\n坐地铁约 **52 分钟**：2 号线坐 5 站到凤起路，换 1 号线到江锦路，票价 4 元。\n\n用时和路况是高德刚查的。"),
+    ],
+  },
+];
+
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
-  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...SECRETARY_VOICE_RETRY, ...SECRETARY_RELAY, ...SECRETARY_ATTACHMENTS, ...SECRETARY_ATTACHMENT_FIRST, ...PHOTOS, ...BILLS, ...LEDGER_EARLIER, ...LEDGER, ...LEDGER_LATEST, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX, ...CURATOR_MESSAGES, ...TAX_QUESTION, ...TAKEOVER, ...REMOTE].flatMap((m) => [
+  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_COMMUTE, ...SECRETARY_VOICE, ...SECRETARY_VOICE_RETRY, ...SECRETARY_RELAY, ...SECRETARY_ATTACHMENTS, ...SECRETARY_ATTACHMENT_FIRST, ...PHOTOS, ...BILLS, ...LEDGER_EARLIER, ...LEDGER, ...LEDGER_LATEST, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX, ...CURATOR_MESSAGES, ...TAX_QUESTION, ...TAKEOVER, ...REMOTE].flatMap((m) => [
     ...(RECORDS_BEFORE.get(m.id) ?? []).map((payload) => ({ channel: m.conversation, type: EVENT_TYPES.timelineRecord, payload })),
     { channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id), ...(AGENT_INPUTS.has(m.id) ? { agentInput: true } : {}) } },
   ]),

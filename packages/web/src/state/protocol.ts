@@ -712,6 +712,9 @@ export type { CalendarDay, CalendarDayCounts, CalendarExternalEntry, CalendarJob
 // 地图（429 地图插件）：坐标转换（WGS-84 和高德的 GCJ-02）、在不在中国大陆、瓦片地址、高德安全密钥代理的前缀、地图页要的设置
 export { AMAP_SERVICE_PREFIX, AMAP_SOURCE_ID, distanceMeters, gcjToWgs, inMainlandChina, mapFocusItem, mapTilePath, parseMapFocusItem, wgsToGcj } from "@ergo/protocol";
 export type { LatLon, MapConfigView } from "@ergo/protocol";
+// 查地点、算路线（432）：设置 · 数据源 · 高德地图那一块要的（Web 服务 Key 填了没有、这个月的用量）、查到的能画的那一份
+export { isAmapSourcePanel, MAP_ROUTE_MODES } from "@ergo/protocol";
+export type { AmapSourcePanel, AmapUsageView, MapLookupDrawing, MapLookupLine, MapLookupMark, MapRouteMode } from "@ergo/protocol";
 // 负责人背后的 agent
 export type { BackgroundAgentEntry, BackgroundAgentList, BackgroundAgentRow, BackgroundAgentState, BackgroundAgentStep, BackgroundAgentsEventPayload, BackgroundAgentTranscript } from "@ergo/protocol";
 // 工具调用的完整参数和返回（详情页按调用 id 现取）

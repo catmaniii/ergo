@@ -2,6 +2,12 @@
 import type { Phrases } from "./phrases.ts";
 
 export const EN_CONVERSATIONS: Phrases = {
+  "from=家 to=公司": "from=Home to=Office",
+  "从「家」（常去的地方）到「公司」（常去的地方），直线 8.3 公里：\n- 开车：约 35 分钟（高德估的用时），18.2 公里；红绿灯 14 个；打车约 42 元。路况（高德现在的）：中河高架 拥堵 1.2 公里、文三路 缓行 800 米。\n- 公交/地铁：约 52 分钟，步行 500 米，票价 4 元：步行 300 米 → 地铁2号线（学院路 上车，凤起路 下车，5 站）→ 地铁1号线（凤起路 上车，江锦路 下车，8 站）→ 步行 200 米。\n数据来自高德，现查的，没存。编号 amap-r1（要画在地图上时用它）。":
+    "From “Home” (frequent place) to “Office” (frequent place), 8.3 km in a straight line:\n- Driving: about 35 min (AMap's estimate), 18.2 km; 14 traffic lights; a taxi is about $6. Traffic (AMap, now): Zhonghe Elevated Rd jammed for 1.2 km, Wensan Rd slow for 800 m.\n- Transit: about 52 min, 500 m on foot, fare $0.60: walk 300 m → Line 2 (board at Xueyuan Rd, get off at Fengqi Rd, 5 stops) → Line 1 (board at Fengqi Rd, get off at Jiangjin Rd, 8 stops) → walk 200 m.\nData from AMap, looked up just now, not saved. ID amap-r1 (use it to draw on the map).",
+  "从家到公司多久": "How long from home to the office?",
+  "开车约 **35 分钟**（18 公里），中河高架有 1.2 公里在堵，文三路也有点慢。\n\n坐地铁约 **52 分钟**：2 号线坐 5 站到凤起路，换 1 号线到江锦路，票价 4 元。\n\n用时和路况是高德刚查的。":
+    "About **35 min** by car (18 km); 1.2 km of the Zhonghe Elevated Rd is jammed, and Wensan Rd is a bit slow.\n\nAbout **52 min** by subway: Line 2 for 5 stops to Fengqi Rd, change to Line 1 to Jiangjin Rd, fare $0.60.\n\nTimes and traffic were just looked up on AMap.",
   "没有找到和「{}」匹配的素材。": "No material matches “{}”.",
   "找到 {} 条素材： {}": "Found {} materials: {}",
   "素材 {}": "Material {}",

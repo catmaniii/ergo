@@ -2,11 +2,13 @@
 // - 三个密码框：Web 端（JS API）的 Key、它的安全密钥（地图用，两样一起填）、Web 服务的 Key（选填，以后查地点和路线用）；
 //   不回显，填了才发；存着的不填就是"沿用存着的、再测一次"。经 POST 交给守护进程，先测再存进密钥区，回来的整页里没有它们，发完马上清掉；
 // - "测试并保存"：结果按回来的整页写一句（测过了 / 没通过的原因）；
-// - 几句说明：Key 在哪建、只存在这台电脑上、安全密钥不进网页，地图服务看得到什么。
+// - 几句说明：Key 在哪建、只存在这台电脑上、安全密钥不进网页，地图服务看得到什么；
+// - 432：填了 Web 服务 Key 以后的"试查一下"和这个月的用量（AmapTry.tsx），放在说明前面。
 // 组件本身是纯渲染加一个请求（AmapPanelView 不碰 HTTP，测试在 Node 里直接渲染）。
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { type DataSourcesView, type DataSourceView, t } from "../../state/index.ts";
+import { AmapTry } from "./AmapTry.tsx";
 
 /** 交给守护进程的三样（名字和守护进程 map/amap.ts 的 AMAP_SECRET 一样） */
 export const AMAP_FIELDS = ["jsKey", "securityCode", "serviceKey"] as const;
@@ -36,10 +38,12 @@ export interface AmapPanelViewProps {
   result: { ok: boolean; text: string } | undefined;
   onValue(field: AmapField, text: string): void;
   onSubmit(): void;
+  /** 说明前面再放的（432 的"试查一下"） */
+  extra?: ReactNode;
 }
 
 /** 纯渲染的那一块 */
-export function AmapPanelView({ source, values, busy, result, onValue, onSubmit }: AmapPanelViewProps) {
+export function AmapPanelView({ source, values, busy, result, onValue, onSubmit, extra }: AmapPanelViewProps) {
   const saved = hasSavedAmapKey(source);
   const typed = AMAP_FIELDS.some((f) => values[f].trim() !== "");
   const canSubmit = !busy && (typed || saved);
@@ -70,6 +74,7 @@ export function AmapPanelView({ source, values, busy, result, onValue, onSubmit 
           {result.text}
         </div>
       )}
+      {extra}
       <ul className="source-notes">
         <li>{t("ui.plugins.map.panel.howTo")}</li>
         <li>{t("ui.plugins.map.panel.keySafe")}</li>
@@ -105,5 +110,15 @@ export function AmapPanel({ source, onView }: { source: DataSourceView; onView(v
       .finally(() => setBusy(false));
   };
 
-  return <AmapPanelView source={source} values={values} busy={busy} result={result} onValue={(f, v) => setValues((old) => ({ ...old, [f]: v }))} onSubmit={submit} />;
+  return (
+    <AmapPanelView
+      source={source}
+      values={values}
+      busy={busy}
+      result={result}
+      onValue={(f, v) => setValues((old) => ({ ...old, [f]: v }))}
+      onSubmit={submit}
+      extra={<AmapTry source={source} />}
+    />
+  );
 }

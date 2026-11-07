@@ -17,6 +17,7 @@
 // 数据源详情里看数据——已获取的（进素材的按 fake-materials 里编的数据源素材列，点开跳素材详情；不进素材的这里编）、现在能查到的
 // （日历、Gmail、Looki 编的上游：现查要一会儿；Gmail 点开才有正文；没连着的写明）。全是编的，没有真实信息。Gmail 开头就连着，好看现查的样子。
 import type {
+  AmapSourcePanel,
   DataSourceActionBody,
   DataSourceActionResult,
   DataSourceDataItem,
@@ -162,22 +163,27 @@ function initial(): DataSourcesView {
         hasStored: true,
         hasLive: true,
       },
+      // 高德地图：演示页当作两组 Key 都填好了（地图页国内用"高德"，fake-map.ts）；432 的按需查开着、带着这个月的用量，能"试查一下"
       {
         id: "amap",
         title: "高德地图",
-        summary: "填了 Key，地图页在国内用高德地图（以后查地点、算路线也用它）。Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给高德",
+        summary: "填了 Key，地图页在国内用高德地图，查地点、算路线也用它（只在你问的时候把起点、终点、\"附近\"的那一处发给高德）。Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给高德",
         plugin: "map",
         pluginTitle: "地图",
         available: true,
-        connection: "not_connected",
-        usages: [],
+        connection: "connected",
+        account: "地图：已填 · 查地点和路线：已填",
+        hasSecrets: true,
+        usages: [{ usage: "query", on: true }],
         sensitive: [],
         count: 0,
         syncing: false,
         canSync: false,
         files: [],
         configurable: true,
+        panel: amapPanel(),
         disconnectNote: "填过的 Key 和安全密钥从这台电脑上删掉，地图页在国内改用 OpenStreetMap",
+        hasLive: true,
       },
       {
         id: "demo-camera",
@@ -426,8 +432,24 @@ function gmailLive(source: DataSourceView | undefined): Omit<DataSourceLiveResul
 }
 
 /** 编的上游，现查回来的；日历有一个没拉到 */
+/** 高德地图那一块（432）：两组 Key 都填了，这个月查了几次（编的） */
+function amapPanel(): AmapSourcePanel {
+  return { kind: "amap", lookup: true, usage: { month: nowIso().slice(0, 7), search: 37, lbs: 212, searchLimit: 5000, lbsLimit: 150000 } };
+}
+
 function liveAnswer(id: string, source?: DataSourceView): Omit<DataSourceLiveResult, "state" | "at"> | undefined {
   switch (id) {
+    // 试查一下（432）：搜固定的地点；搜到的是编的
+    case "amap":
+      return {
+        scope: "试查：在北京搜「天安门」（固定的词，不是你的位置）",
+        items: [
+          { id: "try-1", title: "示例广场", subtitle: "北京市东城区 · 示例长安街 1 号 · 风景名胜" },
+          { id: "try-2", title: "示例广场（东地铁站）", subtitle: "北京市东城区 · 地铁 1 号线 · 地铁站" },
+          { id: "try-3", title: "示例城楼", subtitle: "北京市东城区 · 示例长安街 · 风景名胜" },
+        ],
+        notes: ["通了：查地点、算路线能用。数据来自高德，现查的，不存", "这个月已查：搜地点 38 / 5000 次，地址和路线 212 / 150000 次（高德个人认证档每月的免费量，以高德控制台为准）"],
+      };
     case "google-calendar":
       return {
         scope: "未来 30 天的日程",
