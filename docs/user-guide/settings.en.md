@@ -559,6 +559,40 @@ See [On your phone](mobile.en.md) for more.
 - Something the service manager doesn't know about, such as running `tailscale serve` by hand, counts as fine once a phone has paired.
 - An entry connected to local port 8810 counts as unhealthy for this check. Port 8810 automatically trusts local requests and must never be connected to the outside.
 
+### Services
+
+**What it is:** The ergo-related services in the service manager, with their status, start and stop, and logs, right inside ergo. The service manager's own web page only opens on the computer ergo runs on; this page works on your phone and your computer alike.
+
+**Where:** Settings · Data & devices · Services (right after Checkup).
+
+**What's listed:** Only services that have to do with ergo. Other services don't show up here:
+
+- ergo itself (`ergo-daemon`);
+- services registered by ergo: project services and the speech synthesis installed from the Components page (`ergo-daemon--…`);
+- the speech synthesis and speech recognition ergo uses: the local addresses in the config are matched by port to entries in the service manager (this is how your own audiocpp and ergo-asr entries are recognized);
+- what ergo can't run without: its internet tunnel, the tailnet gateway when it has a tailnet entry, and the dependencies in ergo's entry (plus what those hard-depend on);
+- entries with `ergo: true`: for a service ergo can't recognize that you still want to see and switch here, add that line to its entry.
+
+**One block per service:** name, status (Running, Stopped, Failed, Starting…), id, port, how long it's been up and why it's related to ergo; a service that isn't running shows its last error. **Refresh** at the top right fetches again, and the page refreshes itself every 15 seconds while it's open.
+
+| Button | What it does |
+|---|---|
+| **Start** | Only when it isn't running. Returns once it's up |
+| **Stop**, **Restart** | Only when it's running. A service with no normal way to stop (restart) is forced down (force-restarted) right away, cutting off whatever it's doing; the result says so |
+| **Force stop** | Only for services that do have a normal way to stop. Doesn't wait: if it hasn't stopped within 10 seconds the process is killed. Asks you to confirm first |
+| **Don't stop** | Only while a stop-when-idle is pending; cancels it |
+| **Logs** | Shows the last few dozen lines; if they're too long only the last ones are kept, and anything that looks like a key is wiped. You can switch between a service's logs if it has several |
+| **Start at sign-in** switch | On: the service manager starts it next time you sign in to Windows. Turning it off asks you to confirm first and doesn't affect it if it's running now |
+
+**Protected:** ergo itself, its internet tunnel, the tailnet gateway and services ergo can't run without are marked **Protected** with the reason. They have no Stop or Restart buttons, and their autostart can't be turned off here. If one really has to be stopped, do it yourself on the service manager's web page.
+
+**Good to know:**
+
+- What you click here happens right away, without an approval card (approval cards are for when ergo acts on its own). The result, or why it didn't work, is written under that service, in the service manager's words.
+- It goes the same way, with the same rules, as having ergo switch services in a chat; the service manager has the final say by identity.
+- If ergo wasn't started by the service manager (you ran it yourself from the command line), the page says there's nothing to show; if the service manager is too old, it says to update it first.
+- Registering services, changing settings and opening outside access aren't done here; the service manager's web address is at the bottom of the page.
+
 ### About ergo
 
 **What it is:** The version and changelog. Copy the version from here when reporting a problem.

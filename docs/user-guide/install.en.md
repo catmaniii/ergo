@@ -163,6 +163,7 @@ Good to know:
 - **To protect one more service** (speech recognition, say), add a line `lifeline: true` to its entry; then nobody can stop it this way.
 - **If the service manager is too old**, ergo says plainly that the service manager needs updating first, and leaves everything as it is.
 - **Not done here:** setting up public access (creating a tunnel), changing the service manager's password and reloading entries are done on the service manager's web page.
+- **Or click it yourself:** Settings · Data & devices · Services lists the ergo-related services; you can start, stop and read logs there, on your phone too, with the same rules. See [Settings · Services](settings.en.md#services).
 
 ## Starting automatically
 

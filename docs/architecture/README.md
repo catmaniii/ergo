@@ -130,7 +130,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 | `scheduler/`、`workday/`、`backup/` | 调度器和可注入的时钟、内部作业；个人工作日历和节假日；备份、校验、恢复 |
 | `web/`、`typed-shell/`、`skills/`、`mcp/`、`toolkit/`、`apps/` | 联网工具、带类型的 bash 工具（git、构建……）、skill 库（`skills/change.ts`：负责人提交 skill 的卡，路子和 `mcp/change.ts` 一样，校验和导入共用 `library.ts`）、MCP 登记（用户写的和[项目自动转的](#项目自动转的-mcp)）、工具包、转发本机服务的页面 |
 | `prompts/`、`agent-settings/`、`model-settings/`、`assistant/`、`agent-roles/`、`i18n/` | 系统提示（md 文件，用户能改）、每个 agent 的 ⚙、模型设置、助理的名字、角色、多语言 |
-| `lsm/` | 接入服务管家的 link 协议（报健康和忙不忙、优雅停机、名下的服务、管理指令）；秘书指挥服务管家的六个宿主工具（`secretary-tools.ts`，经 agent 贡献只给秘书：看列表和日志、开关服务直接做（没有正常停止 / 重启办法的自动改成强制的），强制停止、移出自启、场景停止、撤销、孤儿、外网入口和重启自己落在秘书特别敏感的类别里出审批卡；先按列表里的命脉本地拒一遍，服务管家按身份最后裁决）；`restart-hold.ts`：重启自己排上后、秘书这一轮说完之前也报忙 |
+| `lsm/` | 接入服务管家的 link 协议（报健康和忙不忙、优雅停机、名下的服务、管理指令）；秘书指挥服务管家的六个宿主工具（`secretary-tools.ts`，经 agent 贡献只给秘书：看列表和日志、开关服务直接做（没有正常停止 / 重启办法的自动改成强制的），强制停止、移出自启、场景停止、撤销、孤儿、外网入口和重启自己落在秘书特别敏感的类别里出审批卡；先按列表里的命脉本地拒一遍，服务管家按身份最后裁决）；`restart-hold.ts`：重启自己排上后、秘书这一轮说完之前也报忙；`services-page.ts`：设置 · 服务一页（`GET /api/managed-services`、`POST /api/managed-services/<id>`、`GET /api/managed-services/<id>/logs`，同一条管理指令，只认"和二狗有关的"——判定在协议包 `ergo-related.ts`，体检共用；语音端口从配置算在 `voice-ports.ts`；日志的截短、擦密钥和秘书的 `lsm_logs` 共用 `log-lines.ts`） |
 | `deploy/`、`deploy-nginx.ts`、`restore.ts`、`run-backup.ts`、`download-model.ts` | 命令行工具：生成和部署 nginx 站点、恢复、备份、下载模型 |
 
 网页的目录见 [页面从哪里来](#页面从哪里来原型和在线演示页)。
