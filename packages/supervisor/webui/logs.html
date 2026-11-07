@@ -383,7 +383,8 @@ function decorate(el, colored) {
 
 // ---------------------------------------------------------------- 视图状态
 let term = new Term();
-let lines = 0, startOffset = 0, lastEnd = 0, file = null, es = null, sources = [];
+// 位置：命令行输出被切开过时，切下来的旧日志（.1 .2 …）排在负数上，earliest 是还留着的最早那份的开头（服务端 logs.mjs 文件头）
+let lines = 0, startOffset = 0, lastEnd = 0, earliest = 0, file = null, es = null, sources = [];
 let follow = true, unseen = 0;
 const partial = document.createElement('div');
 partial.id = 'partial'; partial.className = 'ln';
@@ -424,9 +425,9 @@ document.addEventListener('keydown', (e) => {
 function scrollIfFollowing() { if (follow) { programmatic = true; out.scrollTop = out.scrollHeight; } }
 function setCount() { $('nlines').textContent = lines.toLocaleString(); }
 function syncMore() {
-  if (startOffset > 0) {
+  if (startOffset > earliest) {
     moreBtn.disabled = false; moreBtn.classList.remove('top');
-    moreBtn.textContent = `↑ 加载更早的（前面还有 ${fmtSize(startOffset)}）`;
+    moreBtn.textContent = `↑ 加载更早的（前面还有 ${fmtSize(startOffset - earliest)}）`;
   } else {
     moreBtn.disabled = true; moreBtn.classList.add('top');
     moreBtn.textContent = '— 已经是文件开头 —';
@@ -464,7 +465,7 @@ function appendText(text) {
 
 /** 往前翻：取 startOffset 之前的一段，插在最前面，视口保持不动 */
 async function loadEarlier() {
-  if (startOffset <= 0 || moreBtn.disabled) return;
+  if (startOffset <= earliest || moreBtn.disabled) return;
   moreBtn.disabled = true; moreBtn.textContent = '加载中…';
   try {
     const r = await (await fetch(`/api/logs/range?id=${encodeURIComponent(ID)}&i=${srcIdx}&end=${startOffset}`, { credentials: 'same-origin' })).json();
@@ -507,8 +508,8 @@ function open(i) {
   es.addEventListener('meta', (e) => {
     const m = JSON.parse(e.data);
     // 断线重连：服务端按 Last-Event-ID 从我们读到的位置续上——屏幕上已有的内容原样保留
-    if (file && m.file === file && m.start === lastEnd) { $('meta').textContent = fmtSize(m.size); return; }
-    file = m.file; startOffset = m.start; lastEnd = m.start;
+    if (file && m.file === file && m.start === lastEnd) { $('meta').textContent = fmtSize(m.size); earliest = m.earliest ?? 0; syncMore(); return; }
+    file = m.file; startOffset = m.start; lastEnd = m.start; earliest = m.earliest ?? 0;
     clearView(); syncMore();
     $('path').firstElementChild.textContent = m.file; $('path').title = m.file;
     $('meta').textContent = fmtSize(m.size);
@@ -519,7 +520,14 @@ function open(i) {
     partial.textContent = '';
     appendText(JSON.parse(e.data).text);
     lastEnd = Number(e.lastEventId);
-    $('meta').textContent = fmtSize(lastEnd);
+    $('meta').textContent = fmtSize(Math.max(0, lastEnd));
+  });
+  // 日志太大被切开了：屏幕上已有的内容现在在 .1 里，位置整体往前挪；不清屏，接着往下推（切开的地方服务端会标一行）
+  es.addEventListener('rotated', (e) => {
+    if (!file) return;
+    const m = JSON.parse(e.data);
+    startOffset -= m.shift; lastEnd = Number(e.lastEventId); earliest = m.earliest;
+    syncMore();
   });
   es.addEventListener('partial', (e) => {
     if (!file) return;

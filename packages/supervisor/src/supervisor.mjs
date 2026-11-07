@@ -15,7 +15,8 @@ import * as tn from './tailnet.mjs';
 import * as vb from './vpsbilling.mjs';
 import { toast } from './notify.mjs';
 import { createOwned } from './owned.mjs';
-import { info, warn, audit } from './log.mjs';
+import { info, warn, audit, setLogRotation } from './log.mjs';
+import { rotationPolicy, rotateIfLarge } from './rotate.mjs';
 
 export const STATES = ['STOPPED', 'STARTING', 'RUNNING', 'DEGRADED', 'STOPPING', 'FAILED', 'ORPHAN', 'EXTERNAL'];
 
@@ -85,6 +86,8 @@ export function runningEvidence(svc, st, snap, { probe = null, link = null, outL
   return { running: why.length > 0, pids: [...pids], why: why.join('；') };
 }
 
+const mb = (n) => (n < 1048576 ? `${Math.round(n / 1024)} KB` : `${(n / 1048576).toFixed(1)} MB`);
+
 /** 强制停止时给服务自己收尾的时间；过了就杀进程树。 */
 export const FORCE_GRACE_MS = 10000;
 
@@ -119,6 +122,8 @@ export class Supervisor extends EventEmitter {
     this.starting = new Map();   // id → 正在进行的那次 start() 的 Promise（见 start 的注释）
     // 开机那一下正在决定「上次留下的服务还算不算数」，这期间不许 autoRestart 抢先把它们拉起来
     this.booting = false;
+    // 命令行输出超了上限、却正被服务占着切不了的：管理器日志里每个服务只提一次（rotateLogs）
+    this.oversizeNoted = new Set();
     // 接入的项目经协议登记、启停、撤销的「名下的服务」（docs/link-protocol.md §7）。CLI 本地直连模式也要用它撤销，所以挂在这里
     this.owned = createOwned(this);
     this.reload();
@@ -127,6 +132,11 @@ export class Supervisor extends EventEmitter {
   reload() {
     this.manager = loadManager();
     const { services, errors } = loadServices();
+    // 日志切分规则（manager.yaml 的 logs:）：服务的命令行输出和管理器自己的 manager.log、audit.log 都按它
+    const rot = rotationPolicy(this.manager.logs);
+    this.logRotation = rot.policy;
+    setLogRotation(rot.policy);
+    errors.push(...rot.errors);
     this.services = services;
     const boot = loadBootList();
     this.bootList = boot.ids;
@@ -161,6 +171,31 @@ export class Supervisor extends EventEmitter {
 
   /** 这个服务的命令行输出落在哪：管理器 spawn 的输出、各个钩子的输出都写这里，日志页读的就是它。 */
   outLog(id) { return path.join(LOGS_DIR, `${id}.out.log`); }
+
+  /**
+   * 命令行输出超了上限就切（rotate.mjs）。服务还在跑时它的 cmd 占着文件，切不了（busy），等它下一次启动前再切。
+   * 启动 / 停机 / 重启钩子打开这个文件之前都调它（hooks 的 beforeOpen），巡检（rotateLogs）也调。
+   */
+  rotateOutLog(id) {
+    const file = this.outLog(id);
+    let r;
+    try { r = rotateIfLarge(file, this.logRotation); } catch (e) { r = { rotated: false, why: String(e?.message || e) }; }
+    if (r.rotated) {
+      this.oversizeNoted.delete(id);
+      info(`${id} 的命令行输出到了 ${mb(r.size)}，超过上限 ${mb(this.logRotation.maxBytes)}，切开了：旧的现在是 ${path.basename(file)}.1，留最近 ${this.logRotation.keep} 份`);
+    } else if (r.busy && !this.oversizeNoted.has(id)) {
+      this.oversizeNoted.add(id);
+      info(`${id} 的命令行输出 ${mb(r.size)}，超过上限 ${mb(this.logRotation.maxBytes)}；它正在跑、文件被它占着（Windows 上改不了名也截不了），下次启动时切`);
+    } else if (r.why) {
+      warn(`${id} 的命令行输出切不开：${r.why}`);
+    }
+    return r;
+  }
+
+  /** 巡检：所有托管服务的命令行输出，超了上限、又没人占着的当场切；占着的记一笔，等它下次启动。 */
+  rotateLogs() {
+    for (const svc of this.services.values()) if (svc.kind !== 'external') this.rotateOutLog(svc.id);
+  }
 
   persist() { store.save(this.state); }
 
@@ -488,11 +523,11 @@ export class Supervisor extends EventEmitter {
     let r;
     if (svc.hooks.start.detaches === false) {
       // 前台常驻脚本：管理器自己 spawn，PID 当场到手，输出也接管了
-      r = await spawnDetached(svc, { extraEnv, logFile });
+      r = await spawnDetached(svc, { extraEnv, logFile, beforeOpen: () => this.rotateOutLog(id) });
       if (r.ok) st.pid = r.pid;
     } else {
       // 钩子自己 detach：跑完就退，真实 PID 稍后靠端口反查（端口是服务的身份）。钩子本身的输出照样记下来。
-      r = await runHook(svc, 'start', { extraEnv, logFile });
+      r = await runHook(svc, 'start', { extraEnv, logFile, beforeOpen: () => this.rotateOutLog(id) });
     }
     if (!r.ok) {
       st.state = 'FAILED';
@@ -572,7 +607,7 @@ export class Supervisor extends EventEmitter {
         return { ok: true, pending: true, why: '服务正忙，停机已排队，等它空闲后自己完成' };
       }
     } else if (svc.hooks.stop) {
-      hookResult = await runHook(svc, 'stop', { logFile: this.outLog(id) });
+      hookResult = await runHook(svc, 'stop', { logFile: this.outLog(id), beforeOpen: () => this.rotateOutLog(id) });
       if (!hookResult.ok && !force) {
         st.state = 'FAILED';
         st.lastError = `stop 钩子失败（${hookResult.reason}）：${(hookResult.stderr || '').slice(-500)}`;
@@ -657,7 +692,7 @@ export class Supervisor extends EventEmitter {
       st.state = 'STARTING';
       st.readyDeadline = Date.now() + (svc.hooks.restart.readyTimeoutMs ?? 60000);
       this.persist();
-      const r = await runHook(svc, 'restart', { extraEnv: this.linkEnv(svc), logFile: this.outLog(id) });
+      const r = await runHook(svc, 'restart', { extraEnv: this.linkEnv(svc), logFile: this.outLog(id), beforeOpen: () => this.rotateOutLog(id) });
       if (!r.ok) {
         st.state = 'FAILED';
         st.lastError = `restart 钩子失败（${r.reason}）：${(r.stderr || '').slice(-500)}`;

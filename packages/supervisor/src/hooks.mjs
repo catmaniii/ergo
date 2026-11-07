@@ -101,7 +101,7 @@ export function cmdLineOf(argv) {
  *   现在：stdio 全 ignore → 每个服务一个**自己的、不可见的**控制台；
  *   输出由 cmd 的 `>> 日志 2>&1` 写进文件，不再需要继承句柄。
  */
-export async function spawnDetached(svc, { extraEnv = {}, logFile } = {}) {
+export async function spawnDetached(svc, { extraEnv = {}, logFile, beforeOpen } = {}) {
   const hook = svc.hooks?.start;
   if (!hook) return { ok: false, reason: 'no-capability', stderr: `服务 ${svc.id} 没有 start 钩子` };
 
@@ -119,6 +119,9 @@ export async function spawnDetached(svc, { extraEnv = {}, logFile } = {}) {
 
   try {
     fs.mkdirSync(path.dirname(logFile), { recursive: true });
+    // 日志太大就在这一刻切（beforeOpen，见 rotate.mjs）：新的 cmd 马上就要 >> 打开它，切完到重新建出来之间几乎没有空档。
+    // 上一份 cmd 还占着它（服务还在跑）时切不了，下面的追加也会 EBUSY——照旧报 already-running。
+    try { beforeOpen?.(); } catch {}
     fs.appendFileSync(logFile, `\n===== lsm 启动 ${svc.id} @ ${new Date().toISOString()} =====\n`);
   } catch (e) {
     // cmd 的 >> 打开文件时不许别人再写（实测：同时写 → EBUSY，同时读没问题，日志页照常能看）。
@@ -149,7 +152,7 @@ export async function spawnDetached(svc, { extraEnv = {}, logFile } = {}) {
  * stdio 的 stdin 恒为 ignore —— 这就是契约第 4 条「禁止交互」的强制手段：
  * 钩子里任何 Read-Host / 确认提示会立刻拿到 EOF 而失败，而不是把管理器挂死。
  */
-export async function runHook(svc, name, { extraEnv = {}, onOutput, logFile } = {}) {
+export async function runHook(svc, name, { extraEnv = {}, onOutput, logFile, beforeOpen } = {}) {
   // 钩子的输出也记进这个服务的命令行日志：日志页上看到的是「这个服务在命令行里说过的所有话」，
   // 停机钩子报的错不该只活在内存里那 4000 个字符中。
   // 例外：服务自己还在跑时，它的 cmd 正占着这个文件写（>> 不许别人同时写），停机钩子的输出就记不进去，
@@ -164,6 +167,7 @@ export async function runHook(svc, name, { extraEnv = {}, onOutput, logFile } = 
   }
   if (logFile) {
     try { fs.mkdirSync(path.dirname(logFile), { recursive: true }); } catch {}
+    try { beforeOpen?.(); } catch {}   // 日志太大就先切；服务自己的 cmd 还占着它时切不了，静默跳过（同上）
     record(`\n===== lsm 执行 ${name} 钩子 ${svc.id} @ ${new Date().toISOString()} =====\n`);
   }
 
