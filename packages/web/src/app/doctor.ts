@@ -35,6 +35,11 @@ export function doctorSinceText(since: string): string {
   return t("doctor.since", { time: formatDate(since, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) });
 }
 
+/** 后台盯着（416）里点了"不再提醒"的一项："11/6 21:40 起不再提醒" */
+export function doctorMutedAtText(at: string): string {
+  return t("doctor.watch.mutedAt", { time: formatDate(at, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) });
+}
+
 /** 停用、移除了的插件那一行；没有是 undefined */
 export function doctorOffText(view: DoctorView): string | undefined {
   return view.off.length === 0 ? undefined : t("doctor.off", { plugins: formatList(view.off.map((plugin) => plugin.title)) });

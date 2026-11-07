@@ -65,6 +65,9 @@ const CONTROLLED: Array<{ group?: string; id: string; title: string; cost: Docto
 
 const keyOf = (group: string | undefined, id: string) => `${group ?? DOCTOR_CORE_GROUP}/${id}`;
 
+/** 等定时器起的那一轮查完（测试里的检查都是立刻交回的） */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+
 function record(extra: Partial<BackupRunRecord> = {}): BackupRunRecord {
   return { by: "daemon", mode: "auto", startedAt: "2026-11-07T06:37:00.000Z", finishedAt: "2026-11-07T06:37:30.000Z", date: "2026-11-07", local: "created", sync: "copied", ...extra };
 }
@@ -229,7 +232,6 @@ describe("防抖", () => {
   it("刚启动的 5 分钟不查；之后每 5 分钟一轮，到点了自己查（定时器）；坏了第三轮放进待办", async () => {
     const s = setup();
     s.results.set(MODEL, BROKEN);
-    const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
     s.clock.advance(WATCH_STARTUP_GRACE_MS - MINUTE);
     await settle();
     expect(s.ran).toEqual([]);

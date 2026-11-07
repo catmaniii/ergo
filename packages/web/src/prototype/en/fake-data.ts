@@ -165,6 +165,10 @@ export const EN_DATA: Phrases = {
   "昨晚的备份没写进同步目录": "Last night's backup didn't reach the sync folder",
   "03:30 的备份：快照已在本机做好，但配置里的同步目录（网盘的同步文件夹）不存在。": "03:30 backup: the snapshot was made locally, but the sync folder in the settings (the drive's sync folder) doesn't exist.",
   "系统": "System",
+  "备份有问题": "Backup has a problem",
+  "最近一次（10/7 03:30）本机快照做好了，写进另存的文件夹时失败：同步目录不存在\n从 10/7 03:31 起\n怎么修：去设置 · 备份看最近一次失败的原因，修好后点「立即备份」\n二狗在后台每 5 分钟看一眼，连着几次都这样才放进待办；修好了这条会自动收起。":
+    "The last backup (10/7 03:30) made the local snapshot, but copying it to the sync folder failed: the sync folder doesn't exist\nSince 10/7 03:31\nHow to fix: Open Settings · Backup to see why the last backup failed; fix it, then press \"Back up now\"\nergo checks this in the background every 5 minutes and only adds it to the Inbox after several bad checks in a row; it closes by itself once fixed.",
+  "体检": "Checkup",
   "重试": "Retry",
   "定时触发的任务「每周日备份照片」已自动暂停": "Scheduled task “Back up photos every Sunday” paused itself",
   "连续失败 3 次（10-04、09-27、09-20），最近一次：NAS 没挂载。": "Failed 3 times in a row (10-04, 09-27, 09-20). Latest: the NAS wasn't mounted.",

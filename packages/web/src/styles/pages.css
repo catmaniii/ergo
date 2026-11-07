@@ -5265,6 +5265,46 @@ a.att-icon:hover {
   font-size: var(--fs-s);
   line-height: 1.5;
 }
+/* 后台盯着（416）：一句说明；点过"不再提醒这件事"的一项一行（名字、从什么时候起、恢复提醒） */
+.doctor-watch {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.doctor-watch-intro,
+.doctor-watch-head {
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+.doctor-watch-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0 12px;
+  list-style: none;
+  border-radius: var(--radius-l);
+  background: var(--surface);
+}
+.doctor-watch-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 8px 0;
+  min-width: 0;
+}
+.doctor-watch-row + .doctor-watch-row {
+  border-top: 1px solid var(--border);
+}
+.doctor-watch-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.doctor-watch-at {
+  flex: 1 1 auto;
+  font-size: var(--fs-s);
+}
 .doctor-summary {
   display: flex;
   flex-wrap: wrap;
