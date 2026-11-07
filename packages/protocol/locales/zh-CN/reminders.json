@@ -64,5 +64,9 @@
   "reminders.tool.archive": "归档简单提醒",
   "reminders.deleteAction.title": "删除简单提醒",
   "reminders.deleteAction.actionTitle": "删除提醒 {id}「{text}」",
-  "reminders.deleteAction.done": "已删除提醒 {id}「{text}」：看板、日历、待办里都不再有它"
+  "reminders.deleteAction.done": "已删除提醒 {id}「{text}」：看板、日历、待办里都不再有它",
+  "reminders.doctor.timezone.title": "时区",
+  "reminders.doctor.timezone.ok": "和这台电脑一样（{zone}）",
+  "reminders.doctor.timezone.mismatch": "配置文件里的时区是 {configured}，这台电脑是 {local}：消息前的时间按前者，提醒到点按后者，说好几点提醒会差开",
+  "reminders.doctor.timezone.fix": "不需要另设时区的话，把数据目录 config/ergo.json 里的 timeZone 去掉（或者改成和电脑一样），重启二狗；也可以把电脑的时区改过来"
 }

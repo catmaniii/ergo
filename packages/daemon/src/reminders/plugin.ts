@@ -15,6 +15,7 @@
 // 设置 · 插件：一句话和它带来了什么（四个给秘书的工具、提醒卡）；移除时"连数据删"删全部提醒事件、提醒卡的每个版本、
 // 待我处理里提醒的通知（提醒视图随之重放成空的），删不掉的是秘书会话里提到过的和备份快照里的。
 // 提醒卡没有"关掉"这个动作，不会有关掉提醒卡采成的素材，素材库不受影响。
+// 体检（414，doctor.ts）：配置的时区和这台电脑的不一致，装配时记个标记，登记"时区"一项（不一致是注意）。
 import { CHANNELS, EVENT_TYPES, t } from "@ergo/protocol";
 import type { EventSubscriberKind } from "../event-sources/index.ts";
 import type { EventStore } from "../events/event-store.ts";
@@ -27,6 +28,7 @@ import { deleteReminderAction } from "./delete-action.ts";
 import { remindersPrompts } from "./prompt.ts";
 import { reminderPurge } from "./purge.ts";
 import { createReminderService, type ReminderService } from "./reminders.ts";
+import { timezoneCheck, zoneMismatch } from "./doctor.ts";
 import { reminderText } from "./texts.ts";
 import { reminderTools } from "./tools.ts";
 import { listReminders, remindersView } from "./views.ts";
@@ -86,7 +88,10 @@ export const remindersPlugin: PluginDefinition = {
     // 消息前的时间标记按配置的 timeZone，简单提醒的时间按本机时区算：两者不一致时秘书写的提醒时间会差开
     const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const configuredZone = Intl.DateTimeFormat("en-US", { timeZone: config.timeZone }).resolvedOptions().timeZone;
-    if (configuredZone !== localZone) ctx.log(reminderText.zoneMismatch(configuredZone, localZone));
+    // 两者不一致：记日志，再记个标记给体检（414：设置 · 体检里提醒那一块的"时区"变黄）
+    const mismatch = zoneMismatch(configuredZone, localZone);
+    if (mismatch) ctx.log(reminderText.zoneMismatch(configuredZone, localZone));
+    ctx.doctor.register(timezoneCheck(mismatch, localZone));
     const reminders = createReminderService({
       store,
       cards: ctx.use(KERNEL.cards),

@@ -36,5 +36,14 @@
   "browsing.voice.empty": "Didn't catch that. Say it again?",
   "browsing.voice.onlyFiller": "Only heard the model's own filler phrases (like \"please like and subscribe\"), so they were discarded. Say it again?",
   "browsing.tools.elementContent": "Get a web element's content",
-  "browsing.tools.elementDownload": "Download a web element"
+  "browsing.tools.elementDownload": "Download a web element",
+  "browsing.doctor.thumbnails.title": "Thumbnails",
+  "browsing.doctor.thumbnails.idle": "No images shrunk since Ergo started, not checked",
+  "browsing.doctor.thumbnails.ok_one": "Shrank {count} batch of images since Ergo started, no errors",
+  "browsing.doctor.thumbnails.ok_other": "Shrank {count} batches of images since Ergo started, no errors",
+  "browsing.doctor.thumbnails.recovered_one": "Shrinking images failed {count} time since Ergo started, but works again",
+  "browsing.doctor.thumbnails.recovered_other": "Shrinking images failed {count} times since Ergo started, but works again",
+  "browsing.doctor.thumbnails.failing_one": "The image-shrinking process failed {count} time in a row (last at {time}: {error}); candidate images and image viewing can't be shrunk",
+  "browsing.doctor.thumbnails.failing_other": "The image-shrinking process failed {count} times in a row (last at {time}: {error}); candidate images and image viewing can't be shrunk",
+  "browsing.doctor.thumbnails.fix": "Restart Ergo and try again; if it keeps happening, check what the log lines about thumbnails not being made or images failing to shrink say"
 }
