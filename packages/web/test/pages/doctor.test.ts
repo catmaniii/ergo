@@ -160,11 +160,23 @@ describe("原型编的一份", () => {
     const looki = view.groups.find((g) => g.id === "looki")!;
     expect(looki.items.find((i) => i.id === "source:looki")).toMatchObject({ level: "warn", since: "2026-11-04T02:30:00+08:00", action: { kind: "open", route: "#/more/data-sources/looki" } });
     expect(looki.items.find((i) => i.id === "source:looki")!.text.fact).toBe("85 小时没同步成功了（定期导入是每天 02:30）");
-    expect(view.groups.find((g) => g.id === "memory")!.items.find((i) => i.id === "brief")!.text.fact).toBe("这次没查出来：1.5 秒内没查完");
-    // 坏了的插件块排在前面（语音），总状态是坏了
-    expect(view.groups[1]!.id).toBe("voice");
+    expect(view.groups.find((g) => g.id === "voice")!.items.find((i) => i.id === "recognizer")!.text.fact).toBe("这次没查出来：1.5 秒内没查完");
+    // 记忆那一块（412 的六项）：记忆简报注意、每晚整理坏了（从上次跑成起，跳记忆管理员），别的正常
+    const memory = view.groups.find((g) => g.id === "memory")!;
+    expect(memory.items.map((i) => [i.id, i.level])).toEqual([
+      ["plugin", "ok"],
+      ["index", "ok"],
+      ["graph", "ok"],
+      ["system", "ok"],
+      ["brief", "warn"],
+      ["nightly", "error"],
+      ["presync", "ok"],
+    ]);
+    expect(memory.items.find((i) => i.id === "nightly")).toMatchObject({ since: "2026-11-05T03:14:00+08:00", action: { kind: "open", route: "#/more/memory/curator" } });
+    // 坏了的插件块排在前面（记忆、语音，照插件清单的先后），总状态是坏了
+    expect(view.groups.slice(1, 3).map((g) => g.id)).toEqual(["memory", "voice"]);
     expect(view.level).toBe("error");
-    expect(view.counts).toEqual({ error: 1, warn: 4, unknown: 1 });
+    expect(view.counts).toEqual({ error: 2, warn: 5, unknown: 1 });
     expect(view.off).toEqual([]);
   });
 
