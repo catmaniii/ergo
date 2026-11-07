@@ -246,6 +246,11 @@ export interface DataSource {
       readonly destination?: string;
       /** 填好设置、连上以后马上同步一次（导入开着时；填了日历地址就该看到事件，不等下一次定期导入） */
       readonly syncOnConnect?: boolean;
+      /**
+       * 体检（414）：定期导入多久没同步成功算过期（毫秒，体检里这个数据源那一项变黄）。不写是定期导入间隔的 3 倍（doctor/auto.ts）；
+       * 每天一次、又要赶在每晚整理之前的写得紧一些（Looki 是 26 小时：错过一次就该知道）
+       */
+      readonly staleAfterMs?: number;
     };
   };
   /** 它导入的记录（事件）：数据源页上的"共几条"按它数；断开时选了"连已导入的一起删"，这些整条换成"已删除"标记，由它们采成的素材彻底删除 */

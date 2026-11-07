@@ -69,5 +69,13 @@
   "looki.live.scope": "最近 {days} 天的时刻（含今天）",
   "looki.live.media.photo": "照片",
   "looki.live.media.video": "视频",
-  "looki.live.media.audio": "录音"
+  "looki.live.media.audio": "录音",
+  "looki.doctor.archive.title": "存一份到本地",
+  "looki.doctor.archive.off": "没开，不查",
+  "looki.doctor.archive.never": "开着，还没存过东西",
+  "looki.doctor.archive.ok": "开着，上次存下东西是 {time}",
+  "looki.doctor.archive.problem": "停下了：{problem}",
+  "looki.doctor.archive.failed": "有 {count} 个时刻试了几次都没存下来",
+  "looki.doctor.archive.fixProblem": "去设置 · 数据源 · Looki 的「存一份到本地」那一块看原因：位置、磁盘、权限的问题照它说的改；写着 Looki 回的不对（比如换了接口）的，等二狗更新，照片、日记照常存",
+  "looki.doctor.archive.fixFailed": "去设置 · 数据源 · Looki 的「存一份到本地」那一块点「现在接着存」再试一次"
 }

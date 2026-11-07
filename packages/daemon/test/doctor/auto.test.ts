@@ -116,6 +116,13 @@ describe("数据源那一项", () => {
     expect(sourceItem(facts(source(), { lastOkAt: okAt(71), everyMs: daily }), NOW)).toMatchObject({ level: "ok", fact: { key: "doctor.source.synced", params: { time: doctorTime(okAt(71)) } } });
   });
 
+  it("数据源自己定了过期时长（414，usages.import.staleAfterMs）：按它算，不按 3 倍", () => {
+    const daily = 24 * HOUR;
+    const looki = { everyMs: daily, staleMs: 26 * HOUR };
+    expect(sourceItem(facts(source(), { lastOkAt: okAt(27), ...looki }), NOW)).toMatchObject({ level: "warn", fact: { key: "doctor.source.stale", params: { hours: 27, schedule: "每天 02:30" } }, since: okAt(27) });
+    expect(sourceItem(facts(source(), { lastOkAt: okAt(25), ...looki }), NOW)).toMatchObject({ level: "ok", fact: { key: "doctor.source.synced" } });
+  });
+
   it("最近一次同步出错（还没过期）：注意，写时间和原因；导入文件出错不算同步出错", () => {
     const failed = sourceItem(facts(source({ lastSync: { at: okAt(1), trigger: "scheduled", error: "429 太快了" } }), { lastOkAt: okAt(25), everyMs: 24 * HOUR }), NOW);
     expect(failed).toMatchObject({ level: "warn", fact: { key: "doctor.source.lastFailed", params: { time: doctorTime(okAt(1)), error: "429 太快了" } }, fix: { key: "doctor.fix.sourceSync" } });

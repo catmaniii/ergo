@@ -3,7 +3,8 @@
 //   （用户没选用，PluginInfo.missing）→ 不适用（只是提示）。停用、移除了的插件没有这一块（doctor.ts 只列一下名字）。
 // - 它的每个数据源（id "source:<数据源 id>"）：读设置 · 数据源整页视图的现成状态（DataSourceDoctorFacts），不联网——
 //   插件没装上、没连、两种用法都关着 → 不适用；要重新授权 → 坏了；连接出错 → 坏了（原因原文）；导入开着、定期导入的
-//   超过间隔 3 倍没同步成功 → 注意（"过期"，从上次成功起）；最近一次同步出错 → 注意（时间和原因）；别的正常（写上次成功的时间）。
+//   超过间隔 3 倍（数据源自己定了 usages.import.staleAfterMs 的按它，414：Looki 是 26 小时）没同步成功 → 注意（"过期"，从上次成功起）；
+//   最近一次同步出错 → 注意（时间和原因）；别的正常（写上次成功的时间）。
 // - 它的每个 agent 运行时（id "runtime:<运行时 id>"，Claude Code、Codex）：读运行时登记表——能用 → 正常；外部程序没装、没有任务
 //   和项目用它 → 不适用（提示怎么装）；没装、可有任务或项目用着它 → 坏了；插件没装上（别的原因）→ 不适用（插件本身那一行已经是红的）。
 // 都是纯函数：交回一项的草稿（没拼句子），句子由 doctor.ts 按当前语言拼。时间按当前语言先写好放进参数（formatDate）。
@@ -40,7 +41,7 @@ const usageOn = (view: DataSourceView, usage: "query" | "import") => view.usages
 
 /** 一个数据源那一项（now：此刻的毫秒时间戳） */
 export function sourceItem(facts: DataSourceDoctorFacts, now: number): DoctorItemDraft {
-  const { view, lastOkAt, everyMs } = facts;
+  const { view, lastOkAt, everyMs, staleMs } = facts;
   const id = `source:${view.id}`;
   const title: DoctorMessage = { key: "doctor.source.title", params: { name: view.title } };
   const open = { kind: "open" as const, route: sourceRoute(view.id) };
@@ -61,8 +62,8 @@ export function sourceItem(facts: DataSourceDoctorFacts, now: number): DoctorIte
   if (!usageOn(view, "import")) return usageOn(view, "query") ? { id, level: "ok", title, fact: { key: "doctor.source.query" } } : na({ key: "doctor.source.off" });
   const failed = last?.error !== undefined && last.trigger !== "file" ? last : undefined;
   const sync = { key: "doctor.fix.sourceSync" };
-  // 定期导入的：超过间隔 3 倍没同步成功算过期（从上次成功起）
-  if (everyMs !== undefined && lastOkAt !== undefined && now - Date.parse(lastOkAt) > SOURCE_STALE_FACTOR * everyMs) {
+  // 定期导入的：超过间隔 3 倍（数据源自己定了过期时长的按它）没同步成功算过期（从上次成功起）
+  if (everyMs !== undefined && lastOkAt !== undefined && now - Date.parse(lastOkAt) > (staleMs ?? SOURCE_STALE_FACTOR * everyMs)) {
     const hours = Math.floor((now - Date.parse(lastOkAt)) / 3_600_000);
     const schedule = view.schedule ?? "";
     const fact: DoctorMessage = failed

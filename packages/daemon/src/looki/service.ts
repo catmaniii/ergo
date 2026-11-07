@@ -11,7 +11,7 @@
 // - 存一份到本地（archive.ts）：同步拉到的这几天的时刻、日记交给它排队存照片、日记、vlog（不等它），设置、补存经填设置
 //   （values.archive）交给它，连接状态里带它那一块（panel）和断开时要说的一句；断开时它停下（存下的文件不删）。
 // Key 只经密钥区读写，不进日志、事件、出错原因（出错原因由 client.ts 写，里面不带 Key；内核记下之前还会再换一遍 ***）。
-import { t } from "@ergo/protocol";
+import { type LookiArchiveView, t } from "@ergo/protocol";
 import type { DataSourceSecrets, DataSourceStatus, DataSourceSyncContext, DataSourceSyncResult } from "../data-sources/api.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import { type Clock, clockIso } from "../scheduler/clock.ts";
@@ -79,6 +79,8 @@ export interface LookiService {
   today(): string;
   /** 存到本地的位置（建好的；数据源页"在电脑上打开"）：建不了抛错，原因给人看 */
   localFolder(): string;
+  /** "存一份到本地"那一块现在的样子（体检读，414；和连接状态里的 panel 同一份，不用 Key） */
+  archiveView(): LookiArchiveView;
   /** 停用插件时：正在存的停下、等它停 */
   stop(): Promise<void>;
   /** 正在存到本地的做完（测试用） */
@@ -366,6 +368,8 @@ export function createLookiService(options: LookiServiceOptions): LookiService {
     today: () => localDay(clock.now()),
 
     localFolder: () => archive.folder(),
+
+    archiveView: () => archive.view(),
 
     stop: () => archive.cancel(),
 

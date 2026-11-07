@@ -13,6 +13,7 @@
 //   设置在配置区的 looki-archive.json、索引在数据目录的 looki-archive/（数据目录各区要 KERNEL.layout）；数据源页"在电脑上打开"它（localFolder）；
 //   断开（不管删不删已导入的）都不删存下的文件；移除并连数据删时删设置和索引，文件照样留着（确认框写明）。停用时正在存的停下。
 // - 数据源详情里看数据：已获取的是导入的素材（内核按素材的出处列）；现在能查到的（live，data.ts）现查最近几天的时刻，什么都不存。
+// - 体检（414，doctor.ts）：登记"存一份到本地"一项（停下了、有存不下来的算注意）；数据源那一项二狗替它生成，过期按 26 小时算（LOOKI_STALE_AFTER_MS）。
 // 接口地址、限速要等多久可以换（测试接本机的假 Looki：test/helpers/fake-looki.ts，主切面经 extraPlugins 换掉清单里的同名插件）。
 import path from "node:path";
 import { t } from "@ergo/protocol";
@@ -23,6 +24,7 @@ import { LOOKI_CHANNEL, LOOKI_JOURNAL, LOOKI_MOMENT, LOOKI_PLUGIN, LOOKI_SOURCE_
 import { ARCHIVE_SETTINGS_FILE, ARCHIVE_STATE_DIR, LOOKI_ARCHIVE_DEFAULT_FOLDER, type LookiArchiveOptions } from "./archive.ts";
 import { LOOKI_ENDPOINTS } from "./client.ts";
 import { lookiLive } from "./data.ts";
+import { lookiArchiveCheck } from "./doctor.ts";
 import { journalMaterialSource, journalPurge, momentMaterialSource, momentPurge } from "./materials.ts";
 import { createLookiService, type LookiService } from "./service.ts";
 import { lookiQueryTool } from "./tools.ts";
@@ -31,6 +33,12 @@ const LOOKI = serviceKey<LookiService>("looki");
 
 /** 定期导入的时间：赶在每晚整理（03:00）之前，昨天的时刻当夜就读得到 */
 export const LOOKI_IMPORT_TIME = "02:30";
+
+/**
+ * 体检（414）：多久没同步成功算过期——每天一次的定期导入，过了 26 小时还没成就是今天 02:30 那次没成（留两小时给开机补跑、
+ * 出错后每小时的再试），当夜的记忆整理读不到昨天的时刻了。不写的话体检按间隔的 3 倍（72 小时）才报
+ */
+export const LOOKI_STALE_AFTER_MS = 26 * 3_600_000;
 
 export interface LookiPluginOptions {
   /** 两个区域的接口地址（测试换成本机的假 Looki） */
@@ -80,7 +88,7 @@ export function createLookiPlugin(options: LookiPluginOptions = {}): PluginDefin
           return t("looki.source.summary");
         },
         sensitive: ["location", "emotion", "health"],
-        usages: { query: { default: true }, import: { default: true, schedule: { kind: "daily", time: LOOKI_IMPORT_TIME } } },
+        usages: { query: { default: true }, import: { default: true, schedule: { kind: "daily", time: LOOKI_IMPORT_TIME }, staleAfterMs: LOOKI_STALE_AFTER_MS } },
         records,
         status: (c) => ctx.active(LOOKI).status(c.secrets),
         configure: (values, c) => ctx.active(LOOKI).configure(values, c.secrets),
@@ -130,6 +138,8 @@ export function createLookiPlugin(options: LookiPluginOptions = {}): PluginDefin
       ctx.provide(LOOKI, service);
       // 停用时：正在存到本地的、补存的停下（补存停在"已暂停"），等它们停
       ctx.lifecycle({ stop: () => service.stop() });
+      // 体检（414）："存一份到本地"停下了、有存不下来的（数据源那一项二狗替它生成：Key 不认、26 小时没同步成功、同步出错）
+      ctx.doctor.register(lookiArchiveCheck(() => service.archiveView()));
     },
   };
 }

@@ -149,6 +149,8 @@ export interface DataSourceDoctorFacts {
   readonly view: DataSourceView;
   readonly lastOkAt?: string;
   readonly everyMs?: number;
+  /** 多久没同步成功算过期（毫秒，414）：数据源登记了 usages.import.staleAfterMs 的才有，不然体检按间隔的 3 倍算 */
+  readonly staleMs?: number;
 }
 
 const DAY_MS = 86_400_000;
@@ -1019,14 +1021,15 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     });
 
   let toolsUndo: (() => void) | undefined;
-  /** 体检要的：整页视图的每一项，加上上次成功同步的时间、定期导入（开着的）大约多久一次 */
+  /** 体检要的：整页视图的每一项，加上上次成功同步的时间、定期导入（开着的）大约多久一次、数据源自己定的过期时长（414） */
   const doctorFacts = (): DataSourceDoctorFacts[] =>
     view().sources.map((source) => {
       const entry = registry.get(source.id);
       const schedule = entry?.source.usages.import?.schedule;
       const everyMs = entry && schedule && usageOn(entry, "import") ? scheduleEveryMs(schedule) : undefined;
+      const staleMs = everyMs === undefined ? undefined : entry?.source.usages.import?.staleAfterMs;
       const lastOkAt = lastSyncAt(source.id);
-      return { view: source, ...(lastOkAt === undefined ? {} : { lastOkAt }), ...(everyMs === undefined ? {} : { everyMs }) };
+      return { view: source, ...(lastOkAt === undefined ? {} : { lastOkAt }), ...(everyMs === undefined ? {} : { everyMs }), ...(staleMs === undefined ? {} : { staleMs }) };
     });
 
   return {
