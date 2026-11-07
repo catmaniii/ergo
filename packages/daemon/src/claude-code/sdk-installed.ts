@@ -56,6 +56,37 @@ export function claudeSdkInstalled(componentsDir?: string): boolean {
   }
 }
 
+/** 从 SDK 的入口文件往上找它自己的 package.json（名字对得上的那个），读 version；找不到是 undefined */
+export function claudeSdkVersionNear(entry: string): string | undefined {
+  let dir = path.dirname(entry);
+  for (let i = 0; i < 6; i += 1) {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8")) as { name?: unknown; version?: unknown };
+      if (pkg.name === CLAUDE_SDK_PACKAGE) return typeof pkg.version === "string" ? pkg.version : undefined;
+    } catch {
+      // 这一层没有、读不了：往上找
+    }
+    const up = path.dirname(dir);
+    if (up === dir) break;
+    dir = up;
+  }
+  return undefined;
+}
+
+/**
+ * 装着的 SDK 是哪一版（体检读，414）：和 claudeSdkInstalled 一样先按 Node 的解析规则找、再看组件区，找到入口往上读它的 package.json；
+ * 不加载它。没装、读不出是 undefined
+ */
+export function claudeSdkInstalledVersion(componentsDir?: string): string | undefined {
+  let entry: string | undefined;
+  try {
+    entry = createRequire(import.meta.url).resolve(CLAUDE_SDK_PACKAGE);
+  } catch {
+    entry = componentsDir === undefined ? undefined : claudeSdkEntryIn(componentsDir);
+  }
+  return entry === undefined ? undefined : claudeSdkVersionNear(entry);
+}
+
 /** 没装时给人看的一句：没装什么、怎么装（开发时在程序目录 npm 装；装好的程序在组件里装）；装着是 undefined（插件定义的 missing） */
 export function claudeSdkMissing(installed: () => boolean = claudeSdkInstalled, runningSources: boolean = RUNNING_SOURCES): string | undefined {
   if (installed()) return undefined;

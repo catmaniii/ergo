@@ -61,5 +61,12 @@
   "codex.child.approvalDeclined": "二狗的守卫没放行",
   "codex.navigate.noInput": "这条消息没有交给 Codex 的记录（接管之前的，或者没交给它），撤回不到它之前",
   "codex.navigate.noCallPoint": "Codex 只能撤回到一条消息之前，回不到一次工具调用前后（阶段、步骤开始前）",
-  "codex.navigate.ownSummary": "Codex 不自己写分支摘要（要二狗先写好交过来）"
+  "codex.navigate.ownSummary": "Codex 不自己写分支摘要（要二狗先写好交过来）",
+  "codex.doctor.program.title": "程序和版本",
+  "codex.doctor.program.ok": "Codex {version}（要 {min} 或更新的）",
+  "codex.doctor.program.gone": "找不到本机的 Codex 了（开机时还在）：用它的任务、项目起不来",
+  "codex.doctor.program.noVersion": "找到了 Codex，但看不出它的版本（要 {min} 或更新的）",
+  "codex.doctor.program.tooOld": "本机的 Codex 现在是 {version}，太旧了：要 {min} 或更新的，用它的任务、项目跑不起来",
+  "codex.doctor.program.fixInstall": "用 npm i -g @openai/codex 重新装上（PATH 里要找得到 codex），再 codex login 登录，然后重启二狗",
+  "codex.doctor.program.fixUpdate": "用 npm i -g @openai/codex 更新到最新，然后重启二狗"
 }

@@ -4,16 +4,20 @@
 //   codex.exe 直接起；npm 装的是 codex.cmd 这类包装脚本，旁边 node_modules/@openai/codex/bin/codex.js 才是真的入口，用二狗自己的 Node 起它
 //   （它再拉起平台包里的原生程序，带上官方要的环境）；
 // - 版本：npm 装的读包里的 package.json，不起进程；codex.exe 跑一次 --version（不联网）。低于 CODEX_MIN_VERSION 不装配：
-//   app-server 的协议就是按这一版核对的（test/fixtures/codex-app-server.schema.json）；
+//   app-server 的协议就是按这一版核对的（test/fixtures/codex-app-server.schema.json）。读到的按"入口文件 + 修改时间"缓存，
+//   体检（414，codexVersionChecked）读同一份，没缓存时异步跑一次 --version；
 // - 环境：从子进程自己的环境（守护进程按白名单给的）拷一份，去掉会改计费方式、改账号的变量和从别的 Codex 会话继承来的变量。
 //   Codex 自己认哪些是从 0.166 的程序里核对的。本机登录的凭据在 auth.json 里，二狗不读。
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { t } from "@ergo/protocol";
 
 /** 最低版本：app-server 的协议按这一版核对 */
 export const CODEX_MIN_VERSION = "0.166.0";
+
+/** codex.exe 跑 --version 最多等多久（毫秒；不联网，正常一两秒） */
+export const CODEX_VERSION_TIMEOUT_MS = 15_000;
 
 /** 交给 codex 之前去掉的环境变量（Windows 上名字不分大小写，按大写比） */
 export const STRIPPED_CODEX_ENV = [
@@ -104,6 +108,35 @@ export function codexVersion(entry: CodexEntry): string | undefined {
   return version;
 }
 
+/** 跑一次 `codex --version`，交回它打印的（起不来、超时、退出码不是 0 是 undefined）：体检用的不卡住守护进程的那种 */
+export type CodexVersionRunner = (program: string) => Promise<string | undefined>;
+
+const runVersion: CodexVersionRunner = (program) =>
+  new Promise((resolve) => {
+    execFile(program, ["--version"], { encoding: "utf8", timeout: CODEX_VERSION_TIMEOUT_MS, windowsHide: true }, (err, stdout) => resolve(err ? undefined : stdout));
+  });
+
+/**
+ * 体检读版本（414）：和 codexVersion 同一份缓存（插件装配前的 missing 已经读过一次，文件没变直接用）；没缓存、文件变了才现读——
+ * npm 装的读包里的 package.json，codex.exe 异步跑一次 --version（最多 CODEX_VERSION_TIMEOUT_MS，不卡住守护进程），读到的记进缓存。
+ * 入口没了（文件不在）是 undefined
+ */
+export async function codexVersionChecked(entry: CodexEntry, run: CodexVersionRunner = runVersion): Promise<string | undefined> {
+  const script = entry.args[0];
+  const file = script ?? entry.command;
+  let mtime: number;
+  try {
+    mtime = fs.statSync(file).mtimeMs;
+  } catch {
+    return undefined;
+  }
+  const known = versions.get(file);
+  if (known?.mtime === mtime) return known.version;
+  const version = script === undefined ? /(\d+\.\d+\.\d+)/.exec((await run(entry.command)) ?? "")?.[1] : versionFromPackage(script);
+  versions.set(file, { mtime, version });
+  return version;
+}
+
 function versionFromPackage(script: string): string | undefined {
   try {
     const pkg = JSON.parse(fs.readFileSync(path.join(path.dirname(script), "..", "package.json"), "utf8")) as { version?: unknown };
@@ -115,7 +148,7 @@ function versionFromPackage(script: string): string | undefined {
 
 function versionFromProgram(program: string): string | undefined {
   try {
-    const out = execFileSync(program, ["--version"], { encoding: "utf8", timeout: 15_000, windowsHide: true, stdio: ["ignore", "pipe", "ignore"] });
+    const out = execFileSync(program, ["--version"], { encoding: "utf8", timeout: CODEX_VERSION_TIMEOUT_MS, windowsHide: true, stdio: ["ignore", "pipe", "ignore"] });
     return /(\d+\.\d+\.\d+)/.exec(out)?.[1];
   } catch {
     return undefined;
