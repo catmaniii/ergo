@@ -143,6 +143,18 @@ describe("按块显示", () => {
     expect(knownDoctorAction({ kind: "open", route: "#/more/plugins" })).toBe(true);
     expect(doctorActionText({ kind: "open", route: "#/more/plugins" })).toBe("去看看");
   });
+
+  test("去看看跳二狗之外的网页（服务管家，413）：画成新开一页的链接，不经页面的跳转", () => {
+    const speech = item("speech", "error", "语音合成", "连不上", { action: { kind: "open", route: "http://127.0.0.1:7420/" } });
+    let clicked = 0;
+    const html = renderToStaticMarkup(createElement(DoctorItemRow, { item: speech, onAction: () => (clicked += 1) }));
+    expect(html).toContain('<a class="btn ghost small" data-action="open" href="http://127.0.0.1:7420/" target="_blank" rel="noreferrer">去看看</a>');
+    expect(html).not.toContain("<button");
+    expect(clicked).toBe(0);
+    // 二狗自己的地址照旧是按钮
+    const inside = renderToStaticMarkup(createElement(DoctorItemRow, { item: { ...speech, action: { kind: "open", route: "#/more/voice" } }, onAction: noop }));
+    expect(inside).toContain('<button type="button" class="btn ghost small" data-action="open"');
+  });
 });
 
 /** 原型的插件清单（off 里的停用了） */
@@ -163,6 +175,18 @@ describe("原型编的一份", () => {
     expect(view.groups.find((g) => g.id === "memory")!.items.find((i) => i.id === "brief")!.text.fact).toBe("这次没查出来：1.5 秒内没查完");
     // 坏了的插件块排在前面（语音），总状态是坏了
     expect(view.groups[1]!.id).toBe("voice");
+    // 语音那一块是 413 的五项：合成服务坏了（从 15:42 起，去看看跳服务管家的网页），别的正常
+    const voice = view.groups[1]!.items;
+    expect(voice.map((i) => [i.id, i.level])).toEqual([
+      ["plugin", "ok"],
+      ["speech", "error"],
+      ["recognizer", "ok"],
+      ["references", "ok"],
+      ["ffmpeg", "ok"],
+      ["gpu", "ok"],
+    ]);
+    expect(voice[1]).toMatchObject({ since: "2026-11-07T15:42:00+08:00", action: { kind: "open", route: "http://127.0.0.1:7420/" } });
+    expect(voice[1]!.text.fix).toContain("服务管家");
     expect(view.level).toBe("error");
     expect(view.counts).toEqual({ error: 1, warn: 4, unknown: 1 });
     expect(view.off).toEqual([]);

@@ -554,7 +554,7 @@ Each item has a small dot in front, and there are five results:
 | Not checked (grey) | The check timed out or failed this time. That doesn't count as broken and doesn't lower the overall status. Press **Run again** |
 | Not applicable (hollow, faded) | The feature isn't on or the data source isn't connected, so it isn't checked; listed last in its block |
 
-Items that aren't OK show what was found, since when, and how to fix it. Where one click fixes it there's a button: **Take a look** jumps to the right page, **Compact now** compacts that conversation. After fixing, click **Run again** at the top right.
+Items that aren't OK show what was found, since when, and how to fix it. Where one click fixes it there's a button: **Take a look** jumps to the right page (the service manager's page opens in a new tab, and only works on the computer running ergo), **Compact now** compacts that conversation. After fixing, click **Run again** at the top right.
 
 What ergo checks for each plugin:
 
@@ -563,6 +563,16 @@ What ergo checks for each plugin:
 | The plugin itself | Running is OK; not loaded is broken, with the reason; an external program it needs isn't installed and you don't use it, that's just a hint (not applicable) |
 | Data sources | Not connected, or both uses off: not checked. Needs authorizing again, or can't connect: broken. Scheduled import with no successful sync for over 3 times its interval counts as stale (heads-up); the last sync failing is also a heads-up |
 | Runtimes | Usable is OK; not installed and no task or project uses it is just a hint; not installed while a task or project uses it is broken |
+
+The voice plugin brings five checks of its own. Voice replies count as on when speech synthesis is installed in Settings · Components, or a service is registered on the synthesis port in the service manager (an audio.cpp you registered by hand counts too); voice input counts as on when speech recognition is installed in Settings · Components or you've configured your own. Checks for what isn't on are skipped.
+
+| Check | How it's judged | If it's wrong |
+|---|---|---|
+| Speech synthesis | The synthesis service (audio.cpp) can be reached. ergo already probes it every minute; the checkup reads that result and probes right away if it's been too long | Can't reach it, or the trial synthesis failed: broken. On the computer running ergo, open the service manager and start the service the fix names (**Take a look** opens the service manager). The GPU being busy with another program is a heads-up |
+| Speech recognition | Recognition can be used. The process ergo starts itself is judged by its status; a service run by the service manager or on audio.cpp gets its port probed | Follow the fix: check that service in the service manager, or the Python in the config |
+| Reference voices | There's at least one | None at all is a heads-up: import some clean speech in Settings · Voice |
+| ffmpeg | It's on PATH | Not found is a heads-up: without it reference voices can only be imported as WAV. Install ffmpeg and restart ergo |
+| NVIDIA GPU | There is one | None is just a hint (not applicable): synthesis and recognition run on the CPU and will be slow |
 
 ergo's own eight checks:
 

@@ -2,7 +2,8 @@
 // 最上面一句说明，然后是总状态（坏了几项、要注意几项、都正常；没查出来的另起一句灰字）和查的时刻；下面按块显示——
 // "二狗本身"一块在最前，每个在跑或没装上的插件一块（有问题的在前），块头是名字和这一块最差的结果；
 // 每项一行：结果的小圆点、名字（不正常的带结果的小签）、查出来的事实、"从什么时候起"、怎么修，带动作的有一个按钮
-// （去看看：跳到那一页；现在压缩：和会话 ⚙ 里同一个接口）；不适用的淡显、排在块的最后。停用了的插件最底下一行列名字。
+// （去看看：跳到那一页，是二狗之外的网页——服务管家——就新开一页；现在压缩：和会话 ⚙ 里同一个接口）；不适用的淡显、排在块的最后。
+// 停用了的插件最底下一行列名字。
 // 右上"再查一遍"（重新请求 GET /api/doctor）。演示页用原型编的一份（prototype/fake-doctor.ts）。
 // 每项查什么、几级怎么判、句子怎么拼都在守护进程（packages/daemon/src/doctor/）；形状在共享协议包的 doctor.ts；
 // 页面上的几句（总状态、几种结果的叫法、"从什么时候起"）在 app/doctor.ts，中英文案在 locales/*/doctor.json。
@@ -12,7 +13,7 @@ import { doctorActionText, doctorAtText, doctorLevelText, doctorOffText, doctorS
 import { useDoctor } from "../../app/page-doctor.ts";
 import { type Navigate, parseHash } from "../../app/route.ts";
 import { useStore } from "../../app/store.tsx";
-import { type DoctorAction, type DoctorGroupView, type DoctorItemView, type DoctorView, t } from "../../state/index.ts";
+import { type DoctorAction, type DoctorGroupView, type DoctorItemView, type DoctorView, isExternalDoctorRoute, t } from "../../state/index.ts";
 import { TopBar } from "../../ui/common.tsx";
 import { useToast } from "../../ui/toast.tsx";
 
@@ -44,9 +45,16 @@ export function DoctorItemRow({ item, onAction, busy }: { item: DoctorItemView }
         {item.text.fix !== undefined && <span className="doctor-fix">{item.text.fix}</span>}
         {action && (
           <span className="doctor-action">
-            <button type="button" className="btn ghost small" data-action={action.kind} disabled={doing || onAction === undefined} onClick={() => onAction?.(action)}>
-              {doctorActionText(action, doing)}
-            </button>
+            {action.kind === "open" && isExternalDoctorRoute(action.route) ? (
+              // 二狗之外的网页（服务管家）：新开一页，和设备配对页"打开服务管家"一样是个链接
+              <a className="btn ghost small" data-action={action.kind} href={action.route} target="_blank" rel="noreferrer">
+                {doctorActionText(action)}
+              </a>
+            ) : (
+              <button type="button" className="btn ghost small" data-action={action.kind} disabled={doing || onAction === undefined} onClick={() => onAction?.(action)}>
+                {doctorActionText(action, doing)}
+              </button>
+            )}
           </span>
         )}
       </div>

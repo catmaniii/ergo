@@ -2,11 +2,12 @@
 // - 二狗本身：八项（组件缺记忆的向量模型、外网入口没查到依据，都是注意，各带修法；句子由协议包的八项拼句按当前语言拼），
 //   加一项编的"对话长度"（主对话过了自动压缩点，带"现在压缩"按钮；410 做的那种）；
 // - 插件块：每个在跑的插件一块（插件本身在跑）；记忆多两项（推理库正常、记忆简报这次没查出来），Looki 的数据源过期（跳到数据源详情），
-//   语音合成服务坏了（跳到设置 · 语音），Codex 要的外部程序没装（插件本身和运行时都是不适用），手机、Google 的数据源正常，
+//   语音那一块是 413 的五项（合成服务连不上、从 15:42 起，修法写到服务管家把组件装的那一条开起来，"去看看"跳服务管家的网页；
+//   识别、参考音色、ffmpeg、N 卡正常），Codex 要的外部程序没装（插件本身和运行时都是不适用），手机、Google 的数据源正常，
 //   Claude Code 的运行时正常；
 // - 停用、移除了的插件（地址带 ?demo-plugins-off=…）不成块，只列名字。
-// 二狗替插件生成的那几项照守护进程的文案键拼（doctorItemText，和真的一样）；插件自己的检查项（412、413 才做）是编好的中文，
-// 英文在 en/fake-doctor.ts（假 HTTP 照表换）。
+// 二狗替插件生成的那几项照守护进程的文案键拼（doctorItemText，和真的一样）；插件自己的检查项是编好的中文（插件的文案键在插件自己的
+// 语言文件里，网页的词典里没有；语音那几句照 voice.json 的 voice.doctor.* 抄），英文在 en/fake-doctor.ts（假 HTTP 照表换）。
 import {
   coreDoctorItem,
   DOCTOR_CHECKS,
@@ -54,10 +55,19 @@ function keyed(id: string, level: DoctorLevel, title: DoctorMessage, fact: Docto
   return { id, level, ...shape, ...(extra.since ? { since: extra.since } : {}), ...(extra.action ? { action: extra.action } : {}), text: doctorItemText(shape) };
 }
 
-/** 编好句子的一项（插件自己的检查项：文案键在插件的语言文件里，412、413 才有，这里直接写句子） */
-function said(id: string, level: DoctorLevel, title: string, fact: string, extra: { fix?: string; action?: DoctorAction } = {}): DoctorItemView {
+/** 编好句子的一项（插件自己的检查项：文案键在插件的语言文件里，网页拿不到，这里直接写句子） */
+function said(id: string, level: DoctorLevel, title: string, fact: string, extra: { fix?: string; since?: string; action?: DoctorAction } = {}): DoctorItemView {
   const demo: DoctorMessage = { key: "demo" };
-  return { id, level, title: demo, fact: demo, ...(extra.fix ? { fix: demo } : {}), ...(extra.action ? { action: extra.action } : {}), text: { title, fact, ...(extra.fix ? { fix: extra.fix } : {}) } };
+  return {
+    id,
+    level,
+    title: demo,
+    fact: demo,
+    ...(extra.fix ? { fix: demo } : {}),
+    ...(extra.since ? { since: extra.since } : {}),
+    ...(extra.action ? { action: extra.action } : {}),
+    text: { title, fact, ...(extra.fix ? { fix: extra.fix } : {}) },
+  };
 }
 
 /** 时间写成"11/7 14:30"这样（和守护进程一样） */
@@ -73,9 +83,17 @@ function extras(name: string): DoctorItemView[] {
       // 记忆简报这次没查出来：事实和修法是体检自己的那两句
       return [said("graph", "ok", "推理库", "能打开；昨晚 03:12 整理过"), said("brief", "unknown", "记忆简报", t("doctor.unknown.timeout", { seconds: 1.5 }), { fix: t("doctor.fix.retry") })];
     case "voice":
+      // 413 的五项：合成服务停了（组件装的那一条），去看看跳服务管家的网页
       return [
-        said("speech", "error", "语音合成服务", "连不上 127.0.0.1:8090（从 15:42 起），语音回复都没合成", { fix: "在服务管家里把语音合成服务开起来，再查一遍", action: { kind: "open", route: "#/more/voice" } }),
-        said("recognizer", "ok", "语音识别服务", "在听（127.0.0.1:8091）"),
+        said("speech", "error", "语音合成", "语音合成服务没开（http://127.0.0.1:8090）：你发语音时的回复都合成不了，退回只发文字", {
+          fix: "在装二狗的那台电脑上打开服务管家，把「语音合成服务（audio.cpp）」（ergo-daemon--audiocpp）开起来，再查一遍",
+          since: "2026-11-07T15:42:00+08:00",
+          action: { kind: "open", route: "http://127.0.0.1:7420/" },
+        }),
+        said("recognizer", "ok", "语音识别", "服务管家托管的识别服务（127.0.0.1:8091）：模型加载好了（large-v3）"),
+        said("references", "ok", "参考音色", "有 2 条，语音回复用「示例音色」"),
+        said("ffmpeg", "ok", "ffmpeg", "找到了：C:\\Tools\\ffmpeg\\bin\\ffmpeg.exe"),
+        said("gpu", "ok", "N 卡", "有 N 卡：语音合成、识别跑在显卡上"),
       ];
     case "looki":
       return [

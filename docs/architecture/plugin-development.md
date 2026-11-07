@@ -242,7 +242,9 @@ expect(listNotes(k.store.reader)).toEqual([]);
 - `id`：插件里不重复，小写英文、数字和连字符（`plugin` 和原来八项的 id 留给二狗）；`title`：名字的文案键（要参数时写 `{ key, params }`）；
 - `cost`：`passive` 只读内存、文件、事件，`local` 连本机端口、起本机进程。平时体检两种都跑：不联网、不调模型、不改东西；
 - `timeoutMs`：默认 1500。超时、抛错、交回的东西不像样只算这一项"没查出来"，不影响别的项；`run(signal)` 要快，重活先在后台算好，这里只读结果；
-- `run` 交回 `DoctorFinding`：`level` 是 `ok`、`warn`（能用但打折扣）、`error`（用不了）、`unknown`（没查出来）、`na`（没开这个功能，不查）之一；`fact`、`fix` 是文案键 + 参数（键放插件自己的语言文件 `<插件>.doctor.*`，中英都加；时间、数字先按当前语言写好放进参数）；可选的 `since`（ISO）和一个 `action`（`{ kind: "open", route: "#/more/…" }` 跳页，`{ kind: "compact", agentId }` 现在压缩）。
+- `run` 交回 `DoctorFinding`：`level` 是 `ok`、`warn`（能用但打折扣）、`error`（用不了）、`unknown`（没查出来）、`na`（没开这个功能，不查）之一；`fact`、`fix` 是文案键 + 参数（键放插件自己的语言文件 `<插件>.doctor.*`，中英都加；时间、数字先按当前语言写好放进参数）；可选的 `since`（ISO）和一个 `action`（`{ kind: "open", route: "#/more/…" }` 跳页，`route` 也可以是这台电脑上别的网页 `http(s)://…`——比如服务管家，网页新开一页；`{ kind: "compact", agentId }` 现在压缩）。
+
+例子是语音插件（`packages/daemon/src/voice/doctor.ts`，413）：五项各自先看功能开没开（没开交 `na`）；合成直接读预热每分钟探一次的状态，太久没探才当场探本机端口（`cost: "local"`，自己限时 1.5 秒、整项 2.5 秒）；只连本机地址，当场探的结果不写回状态。插件自己看不到的现状（组件页的功能门、服务管家里登记在某端口的服务）由内核服务给（`KERNEL.voiceSetup`）。
 
 网页的词典里没有插件的区域，句子由守护进程按当前语言拼好（`DoctorItemView.text`）交给网页；秘书的只读工具 `check_health` 读的也是这一份。
 
