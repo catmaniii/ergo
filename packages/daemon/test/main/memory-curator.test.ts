@@ -233,6 +233,70 @@ describe("记忆管理员", () => {
     },
   );
 
+  it(
+    "423：整理比工具调用的默认超时久（这里默认超时设成 1 秒，代表原来的 10 分钟）——管理员那次调用不被砍，整理只跑一遍、只记一条，日记照写；没有补跑、没有 bad_command",
+    { timeout: 90_000 },
+    async () => {
+      // 整理用的假模型：第一次被问到时卡住，测试放行了才回（整理"要跑很久"）
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let started: () => void = () => {};
+      const consolidating = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      const fake = new FakeChatModel(fakeMemoryModel);
+      const logs: string[] = [];
+      const clock = new ManualClock(at(10, 7, 2, 0));
+      const td = await startTestDaemon({
+        clock,
+        memoryPlugin: true,
+        memoryModel: () => ({
+          name: fake.name,
+          async complete(request) {
+            started();
+            await gate;
+            return fake.complete(request);
+          },
+        }),
+        config: { agents: { toolCallMinutes: 1 / 60 } },
+        log: (line) => logs.push(line),
+        secretary: [{ kind: "reply", text: "好。" }],
+        curator: [
+          { kind: "reply", toolCalls: [{ name: "run_memory_consolidation", arguments: {} }] },
+          { kind: "reply", text: "今晚整理完了：跑得久了点，新出的结论一条。" },
+        ],
+      });
+      const frontend = await TestFrontend.connect(td.url);
+      await frontend.subscribe({ [SECRETARY]: 0 });
+      await frontend.sendText("这周六的聚会我就不去了，最近周末想好好休息。");
+      await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
+
+      clock.advanceTo(at(10, 7, 3, 0));
+      await consolidating;
+      // 整理卡着，过了"原来的工具调用超时"好几倍：那次调用没被管家砍掉
+      await new Promise((resolve) => setTimeout(resolve, 3_000));
+      expect(logs.filter((line) => line.includes("没有结束，已中止"))).toEqual([]);
+      release();
+      await td.daemon.internalJobs.whenIdle();
+
+      // 只跑一遍、只记一条：这一夜一条跑成的记录（补着管理员调了几次），没超时过
+      const ran = nightlyRecords(td).filter((record) => record.state === "ran");
+      expect(ran).toHaveLength(1);
+      expect(ran[0]).toMatchObject({ night: "2026-10-07", trigger: "scheduled" });
+      expect(ran[0]!.curatorModelCalls).toBeGreaterThanOrEqual(2);
+      expect(ran[0]!.timedOut).toBeUndefined();
+      expect(typeof ran[0]!.durationMs).toBe("number");
+      expect(nightlyOf(td, "2026-10-07")).toEqual(ran[0]);
+      // 管理员拿到了结果、写了日记
+      expect(texts(td, CURATOR).some((text) => text.includes("今晚整理完了"))).toBe(true);
+      // 日志：一行 ran，没有补跑、没有送不回去的结果、子进程没报 bad_command
+      expect(logs.filter((line) => line.startsWith("记忆整理 2026-10-07：ran"))).toHaveLength(1);
+      expect(logs.filter((line) => line.includes("补跑") || line.includes("送不回去") || line.includes("bad_command") || line.includes("结果不再送回"))).toEqual([]);
+    },
+  );
+
   it("管理员起不来（模型坏了）：整理照旧按失败记、待我处理一条，守护进程不崩", { timeout: 90_000 }, async () => {
     const clock = new ManualClock(at(10, 7, 2, 0));
     const td = await startTestDaemon({

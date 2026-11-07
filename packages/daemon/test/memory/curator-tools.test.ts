@@ -6,7 +6,7 @@ import path from "node:path";
 import { type Claim, type EvidenceDraft, type MemoryEngine } from "@ergo/memory";
 import type { ConversationId } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
-import type { HostTool } from "../../src/agent-manager/host-tools.ts";
+import { type HostTool, hostToolTimeouts } from "../../src/agent-manager/host-tools.ts";
 import type { Materials } from "../../src/materials/index.ts";
 import { curatorTools } from "../../src/memory/curator-tools.ts";
 import { createMemoryGraphReader } from "../../src/memory/graph.ts";
@@ -259,5 +259,26 @@ describe("inspect_memory 的原话带证据编号", () => {
     const output = await tools.find((tool) => tool.spec.name === "inspect_memory")!.run({ claimId: autonomy.id }, { toolCallId: "call-inspect" });
     expect(output.text).toContain(`${autonomy.id}「`);
     expect(output.text).toMatch(/ev-w04「我不反感见朋友/);
+  });
+});
+
+// 423：一次整理要十几分钟，工具调用默认 10 分钟就被管家砍掉（作业又补跑一遍、结果送不回去）。整理一次那个工具声明自己的超时，
+// 拉起管理员时随 toolTimeouts 交给管家；别的工具照默认
+describe("run_memory_consolidation 的超时", () => {
+  it("声明了给的超时（拉起时交给管家的 toolTimeouts 里只有它）；不给就照默认", () => {
+    const deps = {
+      file: "rg.db",
+      now: () => "2026-10-10T03:00:00+08:00",
+      model: "deepseek-flash",
+      store: { append: () => ({}) as never },
+      conversation: "maintainer:memory-curator" as ConversationId,
+      graph: { claim: () => undefined, questions: () => ({ ready: true, items: [], total: 0, open: 0 }) } as never,
+      materials: { get: () => undefined } as unknown as Materials,
+      materialOptions: {},
+      consolidate: async () => undefined,
+      blocked: () => undefined,
+    };
+    expect(hostToolTimeouts(curatorTools({ ...deps, consolidateTimeoutMs: 65 * 60_000 }))).toEqual({ run_memory_consolidation: 65 * 60_000 });
+    expect(hostToolTimeouts(curatorTools(deps))).toEqual({});
   });
 });

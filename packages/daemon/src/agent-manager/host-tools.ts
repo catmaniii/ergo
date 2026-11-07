@@ -182,6 +182,18 @@ export function serveHostTools(agent: AgentLink, tools: readonly HostTool[] | ((
       return;
     }
     if (report.type !== "host_tool_call") return;
+    // 这次调用的中止信号：子进程先结束了这次调用（tool_call_end）或者 agent 退出时置位
+    const controller = new AbortController();
+    /**
+     * 子进程已经不等这次调用的结果了（这一轮被中止、管家按超时中止了这次调用，或者 agent 已经退出）：它那边这次调用已经按
+     * "回合已中止"收了尾，再送结果只会换来"没有在等结果的工具调用"（bad_command）或者"送不回去"——这次调用到这里收尾，
+     * 只记一行（423：记忆管理员的整理被 10 分钟砍掉之后，整理跑完时就是这样报错的）
+     */
+    const ended = (error?: unknown): boolean => {
+      if (!controller.signal.aborted) return false;
+      log(`工具 ${report.toolName} 在 agent 结束这次调用之后才收尾${error === undefined ? "" : `（${error instanceof Error ? error.message : String(error)}）`}，结果不再送回`);
+      return true;
+    };
     const reply = (result: HostToolResult) => {
       try {
         agent.send({ type: "host_tool_result", requestId: report.requestId, result });
@@ -191,13 +203,13 @@ export function serveHostTools(agent: AgentLink, tools: readonly HostTool[] | ((
       }
     };
     const failed = (err: unknown) => {
+      if (ended(err)) return;
       log(`工具 ${report.toolName} 出错：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
       reply({ text: "这个工具出错了，没做成", isError: true }); // @i18n-ignore model：工具结果
     };
     const tool = find(report.toolName);
     if (!tool) return reply({ text: `没有这个工具：${report.toolName}`, isError: true }); // @i18n-ignore model：工具结果
     // 情境在调用到达时取（之后 agent 可能已经换到下一条输入）
-    const controller = new AbortController();
     running.set(report.toolCallId, controller);
     const call: HostToolCall = {
       agentId: agent.agentId,
@@ -213,6 +225,7 @@ export function serveHostTools(agent: AgentLink, tools: readonly HostTool[] | ((
         if (out.cardIds?.length) options.onCards?.(out.cardIds);
         if (out.attachments?.length) options.onAttachments?.(out.attachments);
         if (out.recall) options.onRecall?.(report.toolCallId, out.recall);
+        if (ended()) return;
         reply({ text: out.text, isError: out.isError ?? false, ...(out.images?.length ? { images: out.images } : {}) });
       })
       .catch(failed)

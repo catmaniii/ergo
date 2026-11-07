@@ -15,7 +15,7 @@ import type { SensitiveCategory } from "../../src/config/config.ts";
 import { kernelEmbedderAdapter } from "../../src/memory/embedder-adapter.ts";
 import { openReasoningDb } from "../../src/memory/rg-db.ts";
 import { consolidationText } from "../../src/memory/curator-tools.ts";
-import { createMemoryNightlyJob, MEMORY_NIGHTLY_FAILED_NOTICE, MEMORY_NIGHTLY_JOB } from "../../src/memory/nightly-job.ts";
+import { createMemoryNightlyJob, MEMORY_NIGHTLY_FAILED_NOTICE, MEMORY_NIGHTLY_JOB, type MemoryNightlyJobOptions } from "../../src/memory/nightly-job.ts";
 import { MEMORY_NIGHTLY_EVENT, memoryNightlyView, type MemoryNightlyRecord } from "../../src/memory/nightly-record.ts";
 import { INTERNAL_CHANNEL } from "../../src/scheduler/internal-jobs.ts";
 import { clockIso } from "../../src/scheduler/clock.ts";
@@ -137,24 +137,32 @@ function setup(options: SetupOptions = {}) {
             return model.respond(request);
           })));
   const config = { maxModelCalls: options.maxModelCalls ?? 200, extractor: options.extractor ?? ("model" as const), sensitiveCategories: options.sensitiveCategories ?? [], enabled: true, nightlyTimeoutMinutes: options.nightlyTimeoutMinutes ?? 60, curator: { maxModelCalls: 8 } };
-  const handle = createMemoryNightlyJob({
-    file: path.join(dir, "db", "rg.db"),
-    materials: { list: () => materials },
-    clock,
-    store,
-    inbox,
-    config,
-    model: "deepseek-flash",
-    env: options.env ?? {},
-    ...(options.embedder === undefined ? {} : { embedder: options.embedder }),
-    ...(chat === undefined ? {} : { chat }),
-    ...(options.validator === undefined ? {} : { validator: options.validator }),
-    log: () => {},
-  });
-  onTestFinished(async () => {
-    handle.abort();
-    await handle.whenIdle();
-  });
+  /** 作业的日志（按先后） */
+  const logs: string[] = [];
+  /** 在同一份数据（rg.db、事件日志）上建一个作业：第二个就是"守护进程重启、插件重装以后"的那一个 */
+  const makeJob = (extra: Partial<MemoryNightlyJobOptions> = {}) => {
+    const job = createMemoryNightlyJob({
+      file: path.join(dir, "db", "rg.db"),
+      materials: { list: () => materials },
+      clock,
+      store,
+      inbox,
+      config,
+      model: "deepseek-flash",
+      env: options.env ?? {},
+      ...(options.embedder === undefined ? {} : { embedder: options.embedder }),
+      ...(chat === undefined ? {} : { chat }),
+      ...(options.validator === undefined ? {} : { validator: options.validator }),
+      log: (line) => logs.push(line),
+      ...extra,
+    });
+    onTestFinished(async () => {
+      job.abort();
+      await job.whenIdle();
+    });
+    return job;
+  };
+  const handle = makeJob();
   const records = (): MemoryNightlyRecord[] => store.read(INTERNAL_CHANNEL, 0, MEMORY_NIGHTLY_EVENT).map((event) => event.payload as MemoryNightlyRecord);
   const recordAt = (night: string): MemoryNightlyRecord | undefined => {
     const row = store.reader.get<{ record: string }>("SELECT record FROM memory_nightly WHERE night = ?", night);
@@ -170,11 +178,41 @@ function setup(options: SetupOptions = {}) {
     }
   };
   const signal = new AbortController().signal;
-  return { clock, dir, store, materials, items, inbox, config, model, handle, records, recordAt, withDb, signal, file: path.join(dir, "db", "rg.db") };
+  return { clock, dir, store, materials, items, inbox, config, model, handle, makeJob, logs, records, recordAt, withDb, signal, file: path.join(dir, "db", "rg.db") };
 }
 
+/**
+ * 能卡住的假模型（造"一次整理要跑十几分钟"，耗时由测试控制）：门关着时每次调用都等着，release 之后才照 FakeChatModel 回。
+ * started 在第一次被问到时兑现（这时整理已经在跑、卡在等模型）；calls 数一共被问了几次
+ */
+function gatedChat(respond: (request: ChatRequest) => unknown = () => ({})) {
+  let open: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  let first: () => void = () => {};
+  const started = new Promise<void>((resolve) => {
+    first = resolve;
+  });
+  const fake = new FakeChatModel(respond);
+  const state = { calls: 0 };
+  const chat: ChatModel = {
+    name: fake.name,
+    async complete(request: ChatRequest): Promise<ChatResponse> {
+      state.calls += 1;
+      first();
+      await gate;
+      return fake.complete(request);
+    },
+  };
+  return { chat, started, release: () => open(), state };
+}
+
+/** 日志里"记忆整理 <那一夜>：ran"那几行（一次整理记一条就是一行） */
+const ranLines = (logs: readonly string[]) => logs.filter((line) => /^记忆整理 \d{4}-\d{2}-\d{2}：ran/.test(line));
+
 describe("每晚 03:00 的记忆整理作业", () => {
-  it("到点（03:00）整理一次：事件日志、整理记录、rg.db 里的报告都有；同一夜再跑只记一条已跑过", async () => {
+  it("到点（03:00）整理一次：事件日志、整理记录、rg.db 里的报告都有、记着用了多久；同一夜再叫直接交回那一条，不再整理、不再记", async () => {
     const t = setup({
       materials: [
         say("mat-1", "这周六的聚会我就不去了，最近周末想好好休息。", at(10, 9, 20, 0)),
@@ -196,13 +234,134 @@ describe("每晚 03:00 的记忆整理作业", () => {
     });
     // 待我处理里没有事项（成功了不出声）
     expect(t.items).toEqual([]);
+    // 用了多久（按作业的时钟；手动拨的时钟没动，就是 0）、没超时过
+    expect(record!.durationMs).toBe(0);
+    expect(record!.timedOut).toBeUndefined();
 
-    // 同一夜再来一次（启动补跑）：已跑过，不重复整理
+    // 同一夜再来一次：已经跑成了，直接交回那一条——不重复整理、不调模型、不多记一条（视图里还是跑成的那条）
+    const calls = t.model.calls.length;
     const again = await t.handle.run("catch_up", t.signal);
-    expect(again).toMatchObject({ state: "deferred" });
+    expect(again).toBe(record);
+    expect(t.model.calls).toHaveLength(calls);
+    expect(t.records()).toHaveLength(1);
+    expect(t.recordAt("2026-10-10")!.state).toBe("ran");
+    expect(ranLines(t.logs)).toHaveLength(1);
+  });
+
+  it("同一个日期只整理一次：重启以后（换一个作业）再叫，在同步、判回答这些花钱的准备之前就停——不调模型、不记，视图里还是跑成的那条", async () => {
+    const t = setup({ materials: [say("mat-1", "这周六的聚会我就不去了，最近周末想好好休息。", at(10, 9, 20, 0))] });
+    const record = await t.handle.run("scheduled", t.signal);
+    expect(record).toMatchObject({ state: "ran", night: "2026-10-10" });
+    const calls = t.model.calls.length;
+
+    // 守护进程重启、插件重装：新的作业（内存里什么都没有），开机补跑又叫到这一夜
+    let synced = 0;
+    const restarted = t.makeJob({
+      sourceSync: {
+        sync: () => {
+          synced += 1;
+          return undefined;
+        },
+      },
+    });
+    t.clock.advanceTo(at(10, 10, 3, 20));
+    const again = await restarted.run("catch_up", t.signal);
+    expect(again).toMatchObject({ state: "deferred", night: "2026-10-10", trigger: "catch_up" });
     expect(again!.reason).toContain("已经整理过");
-    expect(t.records()).toHaveLength(2);
-    expect(t.recordAt("2026-10-10")!.state).toBe("deferred");
+    // 没走到同步那一步，也没调模型
+    expect(synced).toBe(0);
+    expect(t.model.calls).toHaveLength(calls);
+    // 不记：事件日志里还是那一条，视图里那一夜还是跑成的
+    expect(t.records()).toHaveLength(1);
+    expect(t.recordAt("2026-10-10")).toEqual(record);
+
+    // 手动整理一次不受它管（有自己的键）：照样跑
+    expect(await restarted.runNow()).toMatchObject({ state: "ran", trigger: "manual" });
+  });
+
+  it("这一夜已经在跑时再叫：等它跑完、交回同一条——只跑一遍、只记一条", async () => {
+    const gated = gatedChat();
+    const t = setup({ chat: () => gated.chat, materials: [say("mat-1", "这周六的聚会我就不去了，最近周末想好好休息。", at(10, 9, 20, 0))] });
+    const first = t.handle.run("scheduled", t.signal);
+    await gated.started;
+    // 第一次还卡在等模型：再叫一次（开机补跑、管理员又调了一次工具）
+    const second = t.handle.run("catch_up", t.signal);
+    await flush();
+    expect(gated.state.calls).toBe(1);
+    gated.release();
+    const [a, b] = await Promise.all([first, second]);
+    expect(a).toMatchObject({ state: "ran", trigger: "scheduled" });
+    expect(b).toBe(a);
+    expect(t.records()).toHaveLength(1);
+    expect(ranLines(t.logs)).toHaveLength(1);
+    expect(t.logs.some((line) => line.includes("已经在跑，这次不再起第二遍"))).toBe(true);
+  });
+
+  it("03:00 交给记忆管理员：它那一轮里跑完的整理先不记，那一轮结束后补上它调了几次模型再记——一夜一条、日志里一行 ran；它再调一次交回同一条", async () => {
+    const t = setup({ materials: [say("mat-1", "这周六的聚会我就不去了，最近周末想好好休息。", at(10, 9, 20, 0))] });
+    let inTurn: { record: unknown; again: unknown; recordsDuringTurn: number } | undefined;
+    t.handle.wakeWith(async (info) => {
+      const record = await info.run(info.trigger, info.signal);
+      // 模型重试、又调了一次工具：已经跑成，交回同一条，不再整理
+      const again = await info.run(info.trigger, info.signal);
+      inTurn = { record, again, recordsDuringTurn: t.records().length };
+      return { modelCalls: 3, record };
+    });
+    const record = (await t.handle.job.run("scheduled", t.signal)) as MemoryNightlyRecord | undefined;
+    expect(record).toMatchObject({ state: "ran", night: "2026-10-10", trigger: "scheduled", curatorModelCalls: 3 });
+    expect(record!.timedOut).toBeUndefined();
+    expect(typeof record!.durationMs).toBe("number");
+    // 那一轮里还没记（等它写完日记、数完它调了几次）；它再调的那次交回的是同一条
+    expect(inTurn!.recordsDuringTurn).toBe(0);
+    expect(inTurn!.again).toBe(inTurn!.record);
+    // 一夜一条、日志一行，没有补跑
+    expect(t.records()).toEqual([record]);
+    expect(t.recordAt("2026-10-10")).toEqual(record);
+    expect(ranLines(t.logs)).toHaveLength(1);
+    expect(t.logs.some((line) => line.includes("补跑"))).toBe(false);
+  });
+
+  it("管理员那一轮里起的整理比原来的 10 分钟久：那一轮先结束了（工具调用被砍），作业等它跑完、不补跑第二遍——只跑一遍、只记一条，记着用了 15 分钟、timedOut: curator", async () => {
+    const gated = gatedChat();
+    const t = setup({ chat: () => gated.chat, materials: [say("mat-1", "这周六的聚会我就不去了，最近周末想好好休息。", at(10, 9, 20, 0))] });
+    let curatorRun: Promise<unknown> | undefined;
+    t.handle.wakeWith(async (info) => {
+      // 管理员调了 run_memory_consolidation：整理开始跑、卡在等模型
+      curatorRun = info.run(info.trigger, info.signal);
+      await gated.started;
+      // 原来的 10 分钟到了：管家中止了这次工具调用，管理员这一轮结束（整理还在后台跑）
+      t.clock.advanceTo(at(10, 10, 3, 10));
+      return { modelCalls: 2 };
+    });
+    const pending = t.handle.job.run("scheduled", t.signal);
+    await gated.started;
+    await flush();
+    // 那一轮结束了，作业没有补跑第二遍：只有那一份整理在跑（模型只被问了一次、还卡着），也还没记
+    expect(gated.state.calls).toBe(1);
+    expect(t.records()).toEqual([]);
+    expect(t.logs.some((line) => line.includes("还在跑：等它跑完，不再起第二遍"))).toBe(true);
+
+    // 整理一共跑了 15 分钟才完
+    t.clock.advanceTo(at(10, 10, 3, 15));
+    gated.release();
+    const record = await pending;
+    expect(record).toMatchObject({ state: "ran", night: "2026-10-10", curatorModelCalls: 2, timedOut: "curator", durationMs: 15 * 60_000 });
+    expect(await curatorRun).toMatchObject({ state: "ran", night: "2026-10-10" });
+    expect(t.records()).toEqual([record]);
+    expect(ranLines(t.logs)).toHaveLength(1);
+    expect(t.logs.some((line) => line.includes("补跑"))).toBe(false);
+    // 同一夜之后再叫（比如管理员醒过来又调）：交回这一条，不再整理
+    expect(await t.handle.run("scheduled", t.signal)).toEqual(record);
+    expect(t.records()).toHaveLength(1);
+  });
+
+  it("管理员那一轮没调整理（起不来、没听明白）：作业照旧自己补跑一次，只记一条", async () => {
+    const t = setup({ materials: [say("mat-1", "这周六的聚会我就不去了，最近周末想好好休息。", at(10, 9, 20, 0))] });
+    t.handle.wakeWith(async () => ({ modelCalls: 1 }));
+    const record = await t.handle.job.run("scheduled", t.signal);
+    expect(record).toMatchObject({ state: "ran", night: "2026-10-10" });
+    expect(t.records()).toEqual([record]);
+    expect(t.logs.some((line) => line.includes("作业补跑一次"))).toBe(true);
   });
 
   it("没到点（02:00）：不整理，只记一条下次几点", async () => {
@@ -494,10 +653,13 @@ describe("每晚 03:00 的记忆整理作业", () => {
     const manual = await t.handle.runNow();
     expect(manual).toMatchObject({ state: "ran", night: "2026-10-10", trigger: "manual", processedEvidence: 0, pendingEvidence: 0 });
     expect(manual!.modelCalls).toBe(0);
-    // 那一夜的定时水位还是"已经整理过"：再跑一次定时照旧说 already_ran
+    // 那一夜的定时水位还是"已经整理过"：再叫定时的那次交回 03:00 那一条（不再整理）；
+    // 重启以后的作业看 rg.db 里的水位，照旧说已经整理过
     const again = await t.handle.run("scheduled", t.signal);
-    expect(again).toMatchObject({ state: "deferred" });
-    expect(again!.reason).toContain("已经整理过");
+    expect(again).toBe(scheduled);
+    const restarted = await t.makeJob().run("scheduled", t.signal);
+    expect(restarted).toMatchObject({ state: "deferred" });
+    expect(restarted!.reason).toContain("已经整理过");
   });
 
   it("整理失败：进待我处理一条、素材和证据一条不少，下一夜接着做", async () => {
@@ -650,9 +812,10 @@ describe("每晚 03:00 的记忆整理作业", () => {
     };
     const t = setup({ chat: () => chat, nightlyTimeoutMinutes: 0.001, materials: [say("mat-1", "这周六的聚会我就不去了。", at(10, 9, 20, 0))] });
     const record = await t.handle.run("scheduled", t.signal);
-    expect(record).toMatchObject({ state: "failed", night: "2026-10-10" });
+    expect(record).toMatchObject({ state: "failed", night: "2026-10-10", timedOut: "consolidation" });
     expect(record!.reason).toContain("整理超时");
     expect(record!.reason).toContain("0.001");
+    expect(typeof record!.durationMs).toBe("number");
     expect(t.items).toHaveLength(1);
     expect(t.items[0]).toMatchObject({ kind: "notice", notice: MEMORY_NIGHTLY_FAILED_NOTICE });
     expect((t.items[0] as { body?: string }).body).toContain("整理超时");
