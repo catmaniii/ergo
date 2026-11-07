@@ -115,6 +115,7 @@
 import { randomUUID } from "node:crypto";
 import {
   type AgentCompactionState,
+  type AgentAutoCompactResult,
   type AgentCompactResult,
   type BranchFilesRewind,
   type ConversationId,
@@ -210,6 +211,8 @@ export interface AgentSessionPanel {
   compaction: AgentCompactionState;
   /** 上一次手动压缩的结果（守护进程这次起来以后的） */
   lastCompact: AgentCompactResult | undefined;
+  /** 上一次自动压缩（到了自动压缩点、上下文溢出之后）的结果（守护进程这次起来以后的；410，体检的"对话长度"看它） */
+  lastAutoCompact: AgentAutoCompactResult | undefined;
   /** 清空等着手头这一条处理完 */
   clearPending: boolean;
   /** 最近一次就绪时报的上下文窗口和压缩设置（守护进程这次起来以后还没就绪过是 undefined） */
@@ -595,6 +598,8 @@ export class AgentSession {
   /** 送了 compact、还没压完：放开不闲置退出 */
   private compacting: (() => void) | undefined;
   private lastCompact: AgentCompactResult | undefined;
+  /** 上一次自动压缩的结果（410：以前自动压缩没压成没人记） */
+  private lastAutoCompact: AgentAutoCompactResult | undefined;
   /** 最近一次就绪时报的上下文窗口和压缩设置 */
   private contextInfo: SessionContextInfo | undefined;
   /** 现在的子进程手里通用贡献清单里插件那几项的文字（id → 文字）：交每条输入之前比一比，变了先送 */
@@ -679,6 +684,7 @@ export class AgentSession {
       busy: this.current !== undefined && this.asking === undefined,
       compaction: this.compacting ? "running" : this.compactWanted ? "waiting" : "idle",
       lastCompact: this.lastCompact,
+      lastAutoCompact: this.lastAutoCompact,
       clearPending: this.clearWanted !== undefined,
       context: this.contextInfo,
       model: this.model,
@@ -1403,8 +1409,17 @@ export class AgentSession {
     }
   }
 
-  /** 压缩结束了：压好了在时间线上记一笔；是"现在压缩"要的就记下结果、接着处理排着的输入 */
+  /**
+   * 压缩结束了：压好了在时间线上记一笔；自动的（到了自动压缩点、上下文溢出之后）记下结果（410：没压成的体检报出来，原因进日志）；
+   * 是"现在压缩"要的就记下结果、接着处理排着的输入
+   */
   private onCompacted(report: CompactedReport): void {
+    if (report.reason !== "manual") {
+      const failed = report.outcome === "failed";
+      this.lastAutoCompact = { outcome: report.outcome, at: nowIso(), ...(failed ? { message: report.error ?? t("conversation.compaction.failed") } : {}) };
+      // @i18n-ignore-next log：给开发者看的
+      if (failed) this.options.log(`${this.options.agentId}：自动压缩没压成（${report.reason}）：${report.error ?? "?"}`);
+    }
     if (report.outcome === "done") {
       const detail =
         report.tokensBefore === undefined

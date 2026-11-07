@@ -12,7 +12,7 @@
 import { type Static, Type } from "typebox";
 import { AgentIdentityView } from "./agent-profiles-schema.ts";
 import { AgentRoleOption } from "./agent-roles-schema.ts";
-import { AGENT_CLEAR_KINDS, AGENT_COMPACT_OUTCOMES, AGENT_COMPACTION_STATES, AGENT_PROMPT_MODES, AGENT_PROMPT_STATES, AGENT_SETTINGS_KINDS } from "./agent-settings.ts";
+import { AGENT_AUTO_COMPACT_OUTCOMES, AGENT_CLEAR_KINDS, AGENT_COMPACT_OUTCOMES, AGENT_COMPACTION_STATES, AGENT_PROMPT_MODES, AGENT_PROMPT_STATES, AGENT_SETTINGS_KINDS } from "./agent-settings.ts";
 import { MAINTAINER_MODEL_AGENTS, MODEL_SWITCH_AT, MODEL_THINKING_LEVELS } from "./model-settings.ts";
 import { AgentRuntimeStateView } from "./runtime-schema.ts";
 import { SystemPromptPlaceholder } from "./system-prompt-schema.ts";
@@ -63,6 +63,15 @@ export const AgentCompactResult = Type.Object({
 });
 export type AgentCompactResult = Static<typeof AgentCompactResult>;
 
+/** 一次自动压缩的结果（410）：之前没人记，体检的"对话长度"看它 */
+export const AgentAutoCompactResult = Type.Object({
+  outcome: Type.Enum(AGENT_AUTO_COMPACT_OUTCOMES),
+  at: Type.String(),
+  /** 没压成的原因 */
+  message: Type.Optional(Type.String()),
+});
+export type AgentAutoCompactResult = Static<typeof AgentAutoCompactResult>;
+
 /**
  * 上下文用量和压缩：数都从子进程每次模型调用报的 usage 来（token 账本，不另数一套）；agent 没在跑时是上一次的。
  * 用量是这段会话（清空、重置之后的这一段）里最近一次模型调用的上下文（缓存命中 + 未命中 + 输出）；压缩之后、清空之后还没调用过模型时没有
@@ -89,6 +98,8 @@ export const AgentContextView = Type.Object({
   compaction: Type.Enum(AGENT_COMPACTION_STATES),
   /** 上一次手动压缩的结果（守护进程这次起来以后的） */
   lastCompact: Type.Optional(AgentCompactResult),
+  /** 上一次自动压缩的结果（守护进程这次起来以后的；410，体检的"对话长度"看它） */
+  lastAutoCompact: Type.Optional(AgentAutoCompactResult),
   /** 现在压不了的原因（项目负责人没有在进行的一段会话）；压得了没有 */
   cannotCompact: Type.Optional(Type.String()),
 });

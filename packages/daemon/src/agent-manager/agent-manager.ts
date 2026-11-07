@@ -31,6 +31,7 @@ import { buildChildEnv, COMPONENTS_DIR_ENV, OFFLINE_SHELL_ENV, SCRIPT_UTF8_ENV }
 import { AGENT_BROWSER_ENV } from "../web/index.ts";
 import type { AgentUsage, UsageAttribution } from "../ledger/index.ts";
 import type { JobObject } from "../process/job-object.ts";
+import { createTurnLog, type TurnRecord } from "./turn-log.ts";
 import {
   type AgentContributions,
   type AgentExit,
@@ -299,6 +300,11 @@ export interface AgentManager extends UserWaits {
   attributionOf(agentId: string): UsageAttribution | undefined;
   /** 现在活着的子进程 */
   live(): Array<{ agentId: string; pid: number }>;
+  /**
+   * 最近各轮的结局（410，体检的"模型近况"读）：pi 跑的 agent 每轮结束记一条，内存里的环形记录、按先后，守护进程重启就清空
+   * （turn-log.ts）
+   */
+  recentTurns(): readonly TurnRecord[];
   /** 结束所有还活着的子进程（排队的取消），等它们退出 */
   shutdown(): Promise<void>;
 }
@@ -452,8 +458,12 @@ class Entry implements ManagedAgent {
   private graceTimer: NodeJS.Timeout | undefined;
   /** 这一轮因为超时被中止：turn_end 换成出错，带上这句说明 */
   private timedOut: string | undefined;
+  /** 超时的是模型调用还是工具调用（模型近况只记模型调用超时） */
+  private timedOutKind: "model" | "tool" | undefined;
   /** pi 会话的 id（就绪时报的），记账用 */
   private sessionId = "";
+  /** 会话实际用的模型（就绪时报的「provider/模型 id」）：模型近况按它记 */
+  private reportedModel: string | undefined;
   /** 这一轮里在等用户的事（key → 说明） */
   private readonly userWaits = new Map<string, ActivityDetail>();
   /** 刚就绪、还在等第一条输入（按需的 agent，READY_HOLD_MS 内）：算被唤起，不算空闲 */
@@ -594,6 +604,7 @@ class Entry implements ManagedAgent {
     switch (report.type) {
       case "ready":
         this.sessionId = report.sessionId;
+        this.reportedModel = modelKeyOf(report.model.provider, report.model.modelId);
         // 这个模型的上下文窗口：记账的模型键和用量的一样（目录里的模型按会话实际用的，faux 是 faux）
         this.manager.context(this.request.model.kind === "catalog" ? modelKeyOf(report.model.provider, report.model.modelId) : modelConfigKey(this.request.model), report.context);
         if (this.state === "starting") this.state = "running";
@@ -644,9 +655,11 @@ class Entry implements ManagedAgent {
         this.toolStarts.clear();
         this.userWaits.clear();
         this.clearTurnTimers();
+        this.noteTurn(report);
         if (this.timedOut) {
           forwarded = { type: "turn_end", outcome: "error", errorMessage: this.timedOut };
           this.timedOut = undefined;
+          this.timedOutKind = undefined;
         }
         if (this.state === "running") this.armIdle();
         this.reportActivity();
@@ -676,10 +689,23 @@ class Entry implements ManagedAgent {
     for (const listener of this.listeners) listener(forwarded);
   }
 
+  /**
+   * 模型近况（410）：pi 跑的 agent 这一轮的结局记进管家的环形记录。超时中止的照"超时"记（工具调用超时的不记：说明不了模型）；
+   * 出错的带服务商的原文；用户停的照"用户停"记
+   */
+  private noteTurn(report: Extract<AgentReport, { type: "turn_end" }>): void {
+    if ((this.request.runtime ?? PI_RUNTIME_ID) !== PI_RUNTIME_ID) return;
+    if (this.timedOut !== undefined && this.timedOutKind === "tool") return;
+    const model = this.request.model.kind === "catalog" ? (this.reportedModel ?? modelConfigKey(this.request.model)) : modelConfigKey(this.request.model);
+    const outcome = this.timedOut !== undefined ? "timeout" : report.outcome === "error" ? "error" : report.outcome === "aborted" ? "stopped" : "ok";
+    const error = this.timedOut ?? (outcome === "error" ? report.errorMessage : undefined);
+    this.manager.turn({ at: Date.now(), agentId: this.agentId, model, outcome, ...(error === undefined ? {} : { error }) });
+  }
+
   private armModel(): void {
     this.clearModel();
     const ms = this.manager.limits.modelCallMs;
-    this.modelTimer = setTimeout(() => this.timeout(t("agentManager.modelTimeout", { duration: duration(ms) })), ms);
+    this.modelTimer = setTimeout(() => this.timeout(t("agentManager.modelTimeout", { duration: duration(ms) }), "model"), ms);
     this.modelTimer.unref();
   }
 
@@ -744,7 +770,7 @@ class Entry implements ManagedAgent {
       this.toolTimers.set(toolCallId, undefined);
       return;
     }
-    const timer = setTimeout(() => this.timeout(t("agentManager.toolTimeout", { tool: toolName, duration: duration(ms) })), ms);
+    const timer = setTimeout(() => this.timeout(t("agentManager.toolTimeout", { tool: toolName, duration: duration(ms) }), "tool"), ms);
     timer.unref();
     this.toolTimers.set(toolCallId, timer);
   }
@@ -758,9 +784,10 @@ class Entry implements ManagedAgent {
   }
 
   /** 超时：中止这一轮；中止之后还不结束就结束子进程 */
-  private timeout(message: string): void {
+  private timeout(message: string, kind: "model" | "tool"): void {
     if (!this.turnOpen || this.timedOut || !this.proc) return;
     this.timedOut = message;
+    this.timedOutKind = kind;
     this.clearTurnTimers();
     this.manager.log(`agent ${this.agentId}：${message}`);
     try {
@@ -834,6 +861,8 @@ interface Manager {
   usage(usage: () => AgentUsage): void;
   /** 运行时的子进程报回了它自己的模型列表、斜杠命令：记进运行时的登记表 */
   catalog(runtime: string, agentId: string, report: RuntimeCatalogReport): void;
+  /** 一轮结束了：记进模型近况的环形记录 */
+  turn(record: TurnRecord): void;
   dequeue(entry: Entry): void;
   /** 一个 agent 退出了（或排队时被取消）：名额空出来，按先后拉起排队的 */
   released(entry: Entry): void;
@@ -851,6 +880,8 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
   const contexts = new Map<string, SessionContextInfo>();
   /** 常驻的 agent：各占一个预留的名额 */
   const residents = new Set<string>();
+  /** 模型近况（410）：每轮的结局，内存里的环形记录 */
+  const turns = createTurnLog();
 
   /** 非常驻的 agent 现在能不能拉起：活着的加上没在运行的常驻 agent 预留的名额，不到上限 */
   const hasRoom = () => {
@@ -969,6 +1000,9 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
       const { type: _type, ...catalog } = report;
       options.runtimes?.noteCatalog?.(runtime, agentId, catalog);
     },
+    turn(record) {
+      turns.record(record);
+    },
     dequeue(entry) {
       const i = queue.indexOf(entry);
       if (i >= 0) queue.splice(i, 1);
@@ -1029,6 +1063,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
       for (const entry of live) if (entry.agentId === agentId) entry.userWaitEnded(key);
     },
     live: () => [...live].flatMap((e) => (e.pid === undefined ? [] : [{ agentId: e.agentId, pid: e.pid }])),
+    recentTurns: () => turns.recent(),
     rewriteSessions(agentId, request) {
       // @i18n-ignore-start log：编程错误
       if (!AGENT_ID.test(agentId)) return Promise.reject(new Error(`agent 标识不合法：${agentId}`));

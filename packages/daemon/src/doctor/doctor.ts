@@ -14,17 +14,22 @@
 // - 每项查什么由组合根注入（DoctorProbes、登记表、插件 / 数据源 / 运行时的现状），测试注入假的；这一份也提供正式用的那几个探测器（进程、文件系统那些）。
 //
 // 八项不健康时算几级（BAD_LEVEL）：端口、pi、模型的 key、磁盘不到 1 GB 是坏了（聊不了天、手机连不上、写不进去）；
-// Node 版本、服务管家、组件、外网入口是注意（能用，但打了折扣）。
+// Node 版本、服务管家、组件、外网入口是注意（能用，但打了折扣）——外网入口有一个例外（410）：服务管家给的入口全都从外面打不通，算坏了。
 //
 // 各项的 ok 判法：
 // - ports：两个端口都有人在听、而且听的是二狗自己（查得到占用者时按 pid 认；查不到时只按"有人在听"算，见 portsProbe）；
 // - node：跑着的 Node 大版本对得上 ADR-0031 那条线（pi 测过的，现在是 22）；
 // - pi：读得到 pi-coding-agent 的版本；
-// - supervisor：服务管家的命令行有回应（lsm status --json 回得出来）；
+// - supervisor：服务管家的命令行有回应（lsm status --json 回得出来），而且二狗是它拉起的话，二狗和它的连接连着（410：断着在重连算注意）；
 // - model：模型的 key 配好了（modelSettings.keyView()，不真发请求）；
 // - components：照组件清单的默认该装的功能都还不能用的，一个都不缺；
-// - disk：数据目录所在卷还剩 1 GB 以上；
-// - external：查到了外网入口的依据（服务管家里的登记，或者已配对的设备；不真连出去）。
+// - disk：数据目录所在卷还剩 1 GB 以上；服务管家的数据和日志在另一个卷上时那个卷也要（410）；
+// - external：查到了外网入口的依据（服务管家里的登记、它推来的入口，或者已配对的设备；不真连出去），没有手机用不了的入口，
+//   服务管家推来的入口它最近一次从外面都打通了（410：读它测好的 reachable、why，不自己连出去），二狗和它的连接没停在等待。
+//
+// 410 起"二狗本身"里还有内核登记的几项（core.ts：主对话在不在线、模型近况、对话长度、托管的服务、插件、网页文件），
+// 和插件的检查项一样经登记表（checks.ts）跑。服务管家那一项跑 lsm status --json 拿到的快照留给"托管的服务"那一项
+// （supervisorStatus：同一次体检里两项共用一份，不跑两遍）。
 import { execFile } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
@@ -41,6 +46,8 @@ import {
   type DoctorCheckId,
   type DoctorCheckView,
   doctorCounts,
+  type DoctorExternalEntry,
+  type DoctorLinkState,
   type DoctorGroupView,
   type DoctorItemView,
   doctorItemText,
@@ -60,6 +67,7 @@ import { listeningPids } from "../process/port-owner.ts";
 import type { InstallLayout } from "../release/layout.ts";
 import { type DoctorItemDraft, pluginItem, runtimeItem, sourceItem } from "./auto.ts";
 import { type DoctorCheckRegistry, type DoctorCost, type DoctorFinding, type RegisteredDoctorCheck, runDoctorCheck } from "./checks.ts";
+import { parseSupervisorSnapshot, type SupervisorSnapshot } from "./services.ts";
 
 /** 二狗和 pi 用的 Node 大版本（ADR-0031：跟着 pi 的测试线走，现在是 22） */
 export const DOCTOR_NODE_MAJOR = 22;
@@ -136,10 +144,16 @@ const LEGACY_COST: { readonly [Id in DoctorCheckId]: DoctorCost } = {
   external: "passive",
 };
 
-/** 八项里一项算几级：好的正常，查不了的没查出来，坏的照 BAD_LEVEL */
+/** 八项里一项算几级：好的正常，查不了的没查出来，坏的照 BAD_LEVEL；外网入口全都打不通算坏了（410） */
 export function legacyLevel(check: DoctorCheckView): DoctorLevel {
   if (check.ok) return "ok";
-  return check.fix === DOCTOR_FIX_UNKNOWN ? "unknown" : BAD_LEVEL[check.id];
+  if (check.fix === DOCTOR_FIX_UNKNOWN) return "unknown";
+  if (check.id === "external") {
+    const data = check.data as DoctorCheckDataById["external"];
+    const entries = data.entries ?? [];
+    if (entries.length > 0 && unreachableOf(data).length === entries.length) return "error";
+  }
+  return BAD_LEVEL[check.id];
 }
 
 /** 草稿拼上按当前语言的句子 */
@@ -169,16 +183,19 @@ export function overallLevel(groups: readonly DoctorGroupView[]): DoctorLevel {
   return worstLevel(groups.flatMap((group) => group.items.map((item) => item.level)).filter((level) => level !== "unknown" && level !== "na"));
 }
 
+/** 服务管家推来的入口里有从外面打不通的 */
+const unreachableOf = (data: DoctorCheckDataById["external"]) => (data.entries ?? []).filter((entry) => entry.reachable === false);
+
 /** 每一项的 ok 判法 */
 const OK: { readonly [Id in DoctorCheckId]: (data: DoctorCheckDataById[Id]) => boolean } = {
   ports: (data) => data.localUp && data.externalUp,
   node: (data) => data.running.split(".")[0] === data.expected,
   pi: (data) => data.version !== undefined,
-  supervisor: (data) => data.running,
+  supervisor: (data) => data.running && data.link !== "waiting",
   model: (data) => data.configured,
   components: (data) => data.missing.length === 0,
-  disk: (data) => data.freeGb > DOCTOR_DISK_MIN_GB,
-  external: (data) => data.configured && (data.rejected?.length ?? 0) === 0,
+  disk: (data) => data.freeGb > DOCTOR_DISK_MIN_GB && (data.supervisor === undefined || data.supervisor.freeGb > DOCTOR_DISK_MIN_GB),
+  external: (data) => data.configured && (data.rejected?.length ?? 0) === 0 && unreachableOf(data).length === 0 && data.link !== "waiting",
 };
 
 /**
@@ -202,10 +219,23 @@ function piFix(install: DoctorOptions["install"]): string {
   return install?.kind === "installed" && install.info?.kind !== "link" ? "doctor.fix.piInstalled" : "doctor.fix.pi";
 }
 
-/** 怎么修的文案键：外网入口接错了端口和没配是两回事，修法不一样；pi 按安装方式 */
+/**
+ * 怎么修的文案键：外网入口接错了端口、打不通、连接断着和没配是几回事，修法不一样；服务管家有回应、只是二狗和它的连接断着另是一句（410）；
+ * pi 按安装方式
+ */
 function fixOf(id: DoctorCheckId, data: DoctorCheckData, install: DoctorOptions["install"]): string {
   if (id === "pi") return piFix(install);
-  return id === "external" && ((data as DoctorCheckDataById["external"]).rejected?.length ?? 0) > 0 ? "doctor.fix.externalRejected" : `doctor.fix.${id}`;
+  if (id === "supervisor") {
+    const supervisor = data as DoctorCheckDataById["supervisor"];
+    return supervisor.running && supervisor.link === "waiting" ? "doctor.fix.supervisorLink" : "doctor.fix.supervisor";
+  }
+  if (id === "external") {
+    const external = data as DoctorCheckDataById["external"];
+    if ((external.rejected?.length ?? 0) > 0) return "doctor.fix.externalRejected";
+    if (unreachableOf(external).length > 0) return "doctor.fix.externalUnreachable";
+    if (external.link === "waiting") return "doctor.fix.supervisorLink";
+  }
+  return `doctor.fix.${id}`;
 }
 
 /** 按 id 挑判法（两边是同一种形状，TS 认不出这层对应关系） */
@@ -365,16 +395,63 @@ export interface SupervisorCommand {
 /** 服务管家用默认的这么多毫秒：它没在跑时 lsm 本地直连探一遍注册表，超了就不等 */
 export const SUPERVISOR_PROBE_TIMEOUT_MS = 5_000;
 
+/** 跑一次 `lsm status --json` 的结果：有没有回应、回的快照（解析过的，只留体检用得到的；回了但不像快照是 undefined） */
+export interface SupervisorReading {
+  responded: boolean;
+  snapshot?: SupervisorSnapshot;
+}
+
+/** 服务管家的快照：同一次体检里服务管家那一项和"托管的服务"那一项共用一份（410） */
+export interface SupervisorStatus {
+  read(): Promise<SupervisorReading>;
+}
+
+/** 一份快照多久内算同一次体检的（毫秒）：两项并行查，第二个拿第一个在跑的那次或刚拿到的那份 */
+const SUPERVISOR_STATUS_TTL_MS = 2_000;
+
+/**
+ * 跑 `lsm status --json --data-dir <目录>` 拿服务管家的快照：正在跑的那次、刚拿到（SUPERVISOR_STATUS_TTL_MS 内）的那份直接给，
+ * 不跑第二遍。起不来、超时、退出码不是 0、打印的不是 JSON 都是没回应
+ */
+export function supervisorStatus(command: SupervisorCommand, now: () => number = Date.now): SupervisorStatus {
+  let inflight: Promise<SupervisorReading> | undefined;
+  let last: { at: number; reading: SupervisorReading } | undefined;
+  const run = async (): Promise<SupervisorReading> => {
+    const stdout = await runQuietly(command.node, [command.script, "status", "--json", "--data-dir", command.dataDir], command.timeoutMs ?? SUPERVISOR_PROBE_TIMEOUT_MS);
+    const json = stdout === undefined ? undefined : parseJson(stdout);
+    if (!json?.ok) return { responded: false };
+    const snapshot = parseSupervisorSnapshot(json.value);
+    return { responded: true, ...(snapshot ? { snapshot } : {}) };
+  };
+  return {
+    read() {
+      if (inflight) return inflight;
+      if (last && now() - last.at < SUPERVISOR_STATUS_TTL_MS) return Promise.resolve(last.reading);
+      inflight = run().then((reading) => {
+        last = { at: now(), reading };
+        inflight = undefined;
+        return reading;
+      });
+      return inflight;
+    },
+  };
+}
+
 /**
  * 服务管家在不在：跑 `lsm status --json --data-dir <目录>`，退出码 0 而且打印得出来就是有回应（服务管家没在跑时
- * lsm 自己本地直连探一遍，照样有回应——这一项只判"这套东西还能不能管二狗"）。端口从它的 manager.yaml 读（和 ergo 命令同一个读法）
+ * lsm 自己本地直连探一遍，照样有回应——这一项只判"这套东西还能不能管二狗"）。端口从它的 manager.yaml 读（和 ergo 命令同一个读法）。
+ * 410：快照交给 status（"托管的服务"那一项共用）；二狗是服务管家拉起的时，link 报二狗和它的连接连着没有
  */
-export function supervisorProbe(command: SupervisorCommand): () => Promise<DoctorCheckDataById["supervisor"]> {
+export function supervisorProbe(
+  command: SupervisorCommand,
+  options: { status?: SupervisorStatus; link?: () => DoctorLinkState | undefined } = {},
+): () => Promise<DoctorCheckDataById["supervisor"]> {
+  const status = options.status ?? supervisorStatus(command);
   return async () => {
     const port = managerPort(path.join(command.dataDir, "registry", "manager.yaml"));
-    const stdout = await runQuietly(command.node, [command.script, "status", "--json", "--data-dir", command.dataDir], command.timeoutMs ?? SUPERVISOR_PROBE_TIMEOUT_MS);
-    const running = stdout !== undefined && isJson(stdout);
-    return { running, ...(port === undefined ? {} : { port }) };
+    const { responded } = await status.read();
+    const link = options.link?.();
+    return { running: responded, ...(port === undefined ? {} : { port }), ...(link === undefined ? {} : { link }) };
   };
 }
 
@@ -395,23 +472,45 @@ function runQuietly(file: string, args: readonly string[], timeoutMs: number): P
   });
 }
 
-function isJson(text: string): boolean {
+function parseJson(text: string): { ok: true; value: unknown } | { ok: false } {
   try {
-    JSON.parse(text);
-    return true;
+    return { ok: true, value: JSON.parse(text) as unknown };
   } catch {
-    return false;
+    return { ok: false };
   }
 }
 
 /** 字节换成 GB（一位小数） */
 const gbOf = (bytes: number) => Math.round((bytes / 1024 ** 3) * 10) / 10;
 
-/** 数据目录所在卷还剩多少、一共多少（GB，一位小数） */
-export function diskProbe(dir: string): () => DoctorCheckDataById["disk"] {
+/** 一个目录所在卷还剩多少、一共多少（GB，一位小数） */
+function volumeOf(dir: string): { freeGb: number; totalGb: number; path: string } {
+  const stats = fs.statfsSync(dir);
+  return { freeGb: gbOf(stats.bsize * stats.bavail), totalGb: gbOf(stats.bsize * stats.blocks), path: dir };
+}
+
+/** 目录所在卷的根（盘符、UNC 的根，小写） */
+const volumeRoot = (dir: string) => path.parse(path.resolve(dir)).root.toLowerCase();
+
+/** 两个目录在不在同一个卷上（按根比） */
+function sameVolume(a: string, b: string): boolean {
+  return volumeRoot(a) === volumeRoot(b);
+}
+
+/**
+ * 数据目录所在卷还剩多少、一共多少（GB，一位小数）。410：给了服务管家的数据目录（它的日志也在里面）、而且在另一个卷上时，
+ * 那个卷也报（supervisor）；那个目录还没有（没装服务管家）、读不了的不报
+ */
+export function diskProbe(dir: string, options: { supervisorDir?: string } = {}): () => DoctorCheckDataById["disk"] {
   return () => {
-    const stats = fs.statfsSync(dir);
-    return { freeGb: gbOf(stats.bsize * stats.bavail), totalGb: gbOf(stats.bsize * stats.blocks), path: dir };
+    const data = volumeOf(dir);
+    const svc = options.supervisorDir;
+    if (svc === undefined || sameVolume(dir, svc) || !fs.existsSync(svc)) return data;
+    try {
+      return { ...data, supervisor: volumeOf(svc) };
+    } catch {
+      return data;
+    }
   };
 }
 
@@ -440,20 +539,32 @@ export function externalProbe(options: {
   pairedDevices: () => number;
   /** 连接地址那边算好的（pairing/addresses.ts）：手填了没有、哪些入口用不了；不给是都没有 */
   addresses?: () => { manual: boolean; rejected: RejectedConnectionAddress[] };
+  /**
+   * 服务管家推来的、手机用得上的入口和它最近一次从外面打的结果（410），二狗和它的连接是不是停在等待；不给是都没有。
+   * 有入口也算依据（排在登记文件后面：服务管家的数据目录不在这台二狗知道的地方时靠它）
+   */
+  reachability?: () => { entries: DoctorExternalEntry[]; waiting: boolean };
 }): () => DoctorCheckDataById["external"] {
-  const found = (): DoctorCheckDataById["external"] => {
+  const found = (entries: readonly DoctorExternalEntry[]): DoctorCheckDataById["external"] => {
     const registry = path.join(options.svcDataDir, "registry");
     if (hasTailnetEntry(path.join(registry, "tailnet.yaml"))) {
       return { configured: true, kind: hasHeadscale(path.join(options.svcDataDir, "vps-setup.json")) ? "headscale" : "tailscale" };
     }
     if (exposureVia(path.join(registry, "services", `${DAEMON_SERVICE_ID}.yaml`)) !== undefined) return { configured: true, kind: "tunnel" };
+    if (entries.length > 0) return { configured: true, kind: entries[0]!.kind === "tailnet" ? "tailscale" : "tunnel" };
     if (options.addresses?.().manual) return { configured: true, kind: "manual" };
     const devices = options.pairedDevices();
     return devices > 0 ? { configured: true, kind: "paired", devices } : { configured: false };
   };
   return () => {
     const rejected = options.addresses?.().rejected ?? [];
-    return { ...found(), ...(rejected.length > 0 ? { rejected } : {}) };
+    const reach = options.reachability?.() ?? { entries: [], waiting: false };
+    return {
+      ...found(reach.entries),
+      ...(rejected.length > 0 ? { rejected } : {}),
+      ...(reach.entries.length > 0 ? { entries: reach.entries } : {}),
+      ...(reach.waiting ? { link: "waiting" as const } : {}),
+    };
   };
 }
 

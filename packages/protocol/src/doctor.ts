@@ -30,17 +30,39 @@ export type DoctorCheckId = (typeof DOCTOR_CHECKS)[number];
  * - disk：数据目录所在卷还剩多少、一共多少（GB）、是哪个目录；
  * - external：本机记着的外网入口依据（不真连出去）：configured 是查到了依据——服务管家里的 tailnet、隧道登记（kind 是哪一种），
  *   或者没被吊销的已配对设备（kind 是 paired，devices 是几台）。没查到依据不等于没配：手动跑的 tailscale serve 服务管家不知道。
- *   rejected是服务管家给了、手机却用不了的入口（接到了别的端口、不是 https）：有就算不健康，修法是 doctor.fix.externalRejected
+ *   rejected是服务管家给了、手机却用不了的入口（接到了别的端口、不是 https）：有就算不健康，修法是 doctor.fix.externalRejected。
+ *   410 加了 entries：服务管家推给二狗的、手机用得上的入口，连同它最近一次从外面打的结果（reachable）和不通的原因（why）——
+ *   登记了但不通不再算好：全不通算坏了，有不通的算注意；link 是 waiting 时二狗和服务管家的连接停在等待（入口的结果可能是旧的），算注意。
+ * 410 还加了：supervisor 的 link（二狗是服务管家拉起的才有：connected 连着、waiting 断着在重连，断着算注意）；
+ * disk 的 supervisor（服务管家的数据和日志所在卷，和数据目录不在一个卷上才有：两个卷都要剩 1 GB 以上）
  */
 export interface DoctorCheckDataById {
   ports: { local: number; external: number; localUp: boolean; externalUp: boolean };
   node: { running: string; expected: string };
   pi: { version?: string };
-  supervisor: { running: boolean; port?: number };
+  supervisor: { running: boolean; port?: number; link?: DoctorLinkState };
   model: { configured: boolean };
   components: { missing: string[] };
-  disk: { freeGb: number; totalGb: number; path: string };
-  external: { configured: boolean; kind?: "tailscale" | "headscale" | "tunnel" | "manual" | "paired"; devices?: number; rejected?: RejectedConnectionAddress[] };
+  disk: { freeGb: number; totalGb: number; path: string; supervisor?: { freeGb: number; totalGb: number; path: string } };
+  external: {
+    configured: boolean;
+    kind?: "tailscale" | "headscale" | "tunnel" | "manual" | "paired";
+    devices?: number;
+    rejected?: RejectedConnectionAddress[];
+    entries?: DoctorExternalEntry[];
+    link?: "waiting";
+  };
+}
+
+/** 二狗和服务管家的连接（link 协议）：连着、断着在重连 */
+export type DoctorLinkState = "connected" | "waiting";
+
+/** 服务管家推给二狗的一个入口（410）：手机用得上的那种，带最近一次从外面打的结果（null 是还没测过）和不通的原因 */
+export interface DoctorExternalEntry {
+  kind: "public" | "tailnet";
+  url: string;
+  reachable: boolean | null;
+  why?: string;
 }
 
 export type DoctorCheckData = DoctorCheckDataById[DoctorCheckId];
@@ -72,13 +94,19 @@ export interface DoctorMessage {
 
 /**
  * 一项可以带的一个动作按钮（网页认得这几种；不认得的不画）：
- * - open：跳到二狗的某一页，route 是网页的地址（"#/more/data-sources/looki"）；
+ * - open：跳到二狗的某一页，route 是网页的地址（"#/more/data-sources/looki"）；也可以是本机的一个网址（410：服务管家的网页
+ *   "http://127.0.0.1:7420/"，网页在新标签页里打开，只在这台电脑上打得开）；
  * - compact：现在压缩某个 agent 的对话（和会话 ⚙ 里"现在压缩"同一个接口，POST /api/agents/<agent id>/compact）
  */
 export type DoctorAction = { kind: "open"; route: string } | { kind: "compact"; agentId: string };
 
 /** 动作的种类（网页按它挑按钮上的字） */
 export const DOCTOR_ACTION_KINDS = ["open", "compact"] as const;
+
+/** open 的 route 是不是网页外面的网址（服务管家的网页）：是的话新标签页打开，不是二狗的页 */
+export function doctorOpensUrl(route: string): boolean {
+  return /^https?:\/\//i.test(route);
+}
 
 /** 分块里的一项 */
 export interface DoctorItemView {

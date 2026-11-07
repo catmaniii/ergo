@@ -40,6 +40,10 @@ export type AgentCompactionState = (typeof AGENT_COMPACTION_STATES)[number];
 export const AGENT_COMPACT_OUTCOMES = ["done", "nothing", "failed"] as const;
 export type AgentCompactOutcome = (typeof AGENT_COMPACT_OUTCOMES)[number];
 
+/** 上一次自动压缩（到了自动压缩点、上下文溢出之后）的结果（410）：压好了、没什么可压的、被中止、没压成 */
+export const AGENT_AUTO_COMPACT_OUTCOMES = ["done", "nothing", "aborted", "failed"] as const;
+export type AgentAutoCompactOutcome = (typeof AGENT_AUTO_COMPACT_OUTCOMES)[number];
+
 /**
  * pi 的压缩规矩（自动压缩的时机）：上下文用量超过"窗口减 reserveTokens"时自动压缩，最近约 keepRecentTokens 原样保留。
  * 子进程就绪时报回这次会话实际的数（模型的窗口、pi 的压缩设置），这里的只在还不知道时给界面写说明用

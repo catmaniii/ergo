@@ -425,6 +425,7 @@ export function createAgentSettings(options: AgentSettingsOptions): AgentSetting
         ...(compacted ? { lastCompactedAt: compacted.time } : {}),
         compaction: panel?.compaction ?? "idle",
         ...(panel?.lastCompact ? { lastCompact: panel.lastCompact } : {}),
+        ...(panel?.lastAutoCompact ? { lastAutoCompact: panel.lastAutoCompact } : {}),
         ...(cannotCompact === undefined ? {} : { cannotCompact }),
       },
       ...(model ? { model } : {}),

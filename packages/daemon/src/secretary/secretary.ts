@@ -115,6 +115,8 @@ export interface SecretaryHealth {
   status: SecretaryStatus;
   /** 不健康的原因 */
   reason?: string;
+  /** 不健康时已经多久没在运行（毫秒；体检写"掉线多久了"，410） */
+  downMs?: number;
 }
 
 export interface Secretary {
@@ -410,7 +412,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
       if (session.switchingModel) return { ok: true, status: now };
       const downMs = Date.now() - downSince;
       if (downMs <= downThresholdMs) return { ok: true, status: now };
-      return { ok: false, status: now, reason: `秘书子进程已经 ${Math.round(downMs / 1000)} 秒没在运行（${now === "restarting" ? "意外退出后等着重新拉起" : "拉起中"}）` }; // @i18n-ignore log：探活的原因（LSM 看）
+      return { ok: false, status: now, downMs, reason: `秘书子进程已经 ${Math.round(downMs / 1000)} 秒没在运行（${now === "restarting" ? "意外退出后等着重新拉起" : "拉起中"}）` }; // @i18n-ignore log：探活的原因（LSM 看）
     },
     agentHandle: () => ({
       agentId: SECRETARY_AGENT_ID,

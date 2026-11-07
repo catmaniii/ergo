@@ -5,7 +5,7 @@
 //   这里再按 port 核对一遍（老版本、写错了的管理器都不能把本机端口的入口塞给手机）。用不了的写进日志和体检；
 // - 老管理器、没接入：不报错，只有手填的那个；
 // - 真相：入口在服务管家，手填的在配置文件（config/ergo.json 的 connection.manualAddress）。
-import { checkAppAddress, checkManualConnectionAddress, type ConnectionAddress, type ConnectionAddressesView, orderConnectionAddresses, type RejectedConnectionAddress, t } from "@ergo/protocol";
+import { checkAppAddress, checkManualConnectionAddress, type ConnectionAddress, type ConnectionAddressesView, type DoctorExternalEntry, orderConnectionAddresses, type RejectedConnectionAddress, t } from "@ergo/protocol";
 import { RequestRejected } from "../errors.ts";
 import { DISABLED_LSM_ENTRIES, type LsmEntries, type LsmEntry } from "../lsm/link.ts";
 
@@ -31,6 +31,11 @@ export interface ConnectionAddressesService {
   setManual(input: string | null): ConnectionAddressesView;
   /** 接上接入层；返回断开（守护进程停的时候） */
   attach(link: ConnectionAddressesLink): () => void;
+  /**
+   * 体检的外网入口（410）：服务管家给的、手机用得上的入口连同它最近一次从外面打的结果和不通的原因（view 里不带原因），
+   * 二狗和服务管家的连接是不是停在等待（入口是断之前的）
+   */
+  reachability(): { entries: DoctorExternalEntry[]; waiting: boolean };
 }
 
 export function createConnectionAddresses(options: ConnectionAddressesOptions): ConnectionAddressesService {
@@ -39,10 +44,11 @@ export function createConnectionAddresses(options: ConnectionAddressesOptions): 
   let rejectedLogged = "";
 
   /** 服务管家给的入口拆成能用的和用不了的 */
-  const split = (): { usable: ConnectionAddress[]; rejected: RejectedConnectionAddress[] } => {
+  const split = (): { usable: ConnectionAddress[]; rejected: RejectedConnectionAddress[]; entries: DoctorExternalEntry[] } => {
     const current = link.entries.current;
     const usable: ConnectionAddress[] = [];
     const rejected: RejectedConnectionAddress[] = [];
+    const entries: DoctorExternalEntry[] = [];
     const wrong = (e: LsmEntry) => rejected.push({ kind: e.kind, url: e.url, reason: "wrong_port", port: e.port });
     for (const e of current?.entries ?? []) {
       if (e.port !== link.externalPort) {
@@ -50,11 +56,13 @@ export function createConnectionAddresses(options: ConnectionAddressesOptions): 
         continue;
       }
       const checked = checkAppAddress(e.url);
-      if (checked.ok) usable.push({ kind: e.kind, url: checked.url, reachable: e.reachable });
-      else rejected.push({ kind: e.kind, url: e.url, reason: "not_https", port: e.port });
+      if (checked.ok) {
+        usable.push({ kind: e.kind, url: checked.url, reachable: e.reachable });
+        entries.push({ kind: e.kind, url: checked.url, reachable: e.reachable, ...(e.why ? { why: e.why } : {}) });
+      } else rejected.push({ kind: e.kind, url: e.url, reason: "not_https", port: e.port });
     }
     for (const e of current?.wrongPort ?? []) wrong(e);
-    return { usable, rejected };
+    return { usable, rejected, entries };
   };
 
   /** 用不了的入口只在变了时记一条：探活每轮都可能问到这里 */
@@ -82,6 +90,7 @@ export function createConnectionAddresses(options: ConnectionAddressesOptions): 
 
   return {
     view,
+    reachability: () => ({ entries: split().entries, waiting: link.entries.support === "waiting" }),
     setManual(input) {
       if (input === null || input.trim().length === 0) {
         if (manual !== undefined) options.save(undefined);
