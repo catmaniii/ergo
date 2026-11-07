@@ -90,10 +90,11 @@ export interface TokenLedger {
   /** 账本里的条目，按记账的先后；给了 owner 只要它名下的（null 是不在任何名下的：系统开销和未归属） */
   entries(owner?: LedgerOwner | null): LedgerEntry[];
   /**
-   * 某个 agent 最近一次这几种用途的调用（⚙ 里的上下文用量是最近一次干活的调用，上次压缩是最近一次压缩的那次）；
-   * 只看全局序号大于 afterSeq 的（这段会话里的：清空、重置负责人之后）；没有是 undefined
+   * 某个 agent 最近一次这几种用途的调用（⚙ 里的上下文用量是最近一次成了的干活的调用，上次压缩是最近一次压缩的那次）；
+   * 只看全局序号大于 afterSeq 的（这段会话里的：清空、重置负责人之后）；succeeded 时出错、被中止的不算（以前没记成败的，
+   * 输入是 0 的也不算）。没有是 undefined
    */
-  lastOf(agentId: string, purposes: readonly LedgerPurpose[], afterSeq?: number): LedgerEntry | undefined;
+  lastOf(agentId: string, purposes: readonly LedgerPurpose[], afterSeq?: number, options?: { succeeded?: boolean }): LedgerEntry | undefined;
   /** 某个名下的合计（总量、按 agent、按阶段），和看板上 token_totals 的负载一样；还没有用量是 undefined */
   totals(owner: LedgerOwner): TokenTotalsEventPayload | undefined;
   /**
@@ -156,6 +157,7 @@ export function createTokenLedger(options: TokenLedgerOptions): TokenLedger {
         sessionId,
         model,
         tokens: ledgerTokens(report),
+        ...(report.failed ? { failed: true as const } : {}),
       };
       const events: NewEvent[] = [{ channel: LEDGER_CHANNEL, type: TOKEN_USAGE_EVENT, payload }];
       // 任务、定时作业名下的：看板上推这个名下的最新合计（和这一条同一事务；把这一条并进去聚合）
@@ -181,7 +183,7 @@ export function createTokenLedger(options: TokenLedgerOptions): TokenLedger {
       store.append({ channel: LEDGER_CHANNEL, type: CONTEXT_USAGE_EVENT, payload });
     },
     entries: (owner) => listEntries(store.reader, owner),
-    lastOf: (agentId, purposes, afterSeq) => lastEntryOf(store.reader, agentId, purposes, afterSeq),
+    lastOf: (agentId, purposes, afterSeq, opts) => lastEntryOf(store.reader, agentId, purposes, afterSeq, opts?.succeeded === true),
     totals: (owner) => ownerTotals(store.reader, owner),
     stageTokens: (taskId, stageId, opts = {}) => stageTokenSum(store.reader, taskId, stageId, opts.budget === true),
     callMeter(agentId) {

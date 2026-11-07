@@ -5,7 +5,8 @@
 //   面板上看得到现在实际用的系统提示全文（前缀、模板 + 追加或整份；项目负责人后面还有这一段的固定上下文）；
 // - 清空当前对话：秘书、任务的负责人新开一段会话（conversation/agent-session.ts 的 clear：旧消息不删，界面上收在分隔线上面；
 //   计划、阶段、进展照常作为上下文给到新的一段，秘书照常有看板变化），项目负责人就是重置负责人；
-// - 上下文用量和"现在压缩"：数都从子进程每次模型调用报的 usage 来（token 账本），不另数一套——这段会话里最近一次干活的调用的上下文
+// - 上下文用量和"现在压缩"：数都从子进程每次模型调用报的 usage 来（token 账本），不另数一套——这段会话里最近一次成了的干活的调用的上下文
+//   （出错、被中止的不算，421）
 //   （缓存命中 + 未命中 + 输出，和 pi 自己算的一样），压缩之后还没调用过的不写；窗口和 pi 的压缩设置是子进程就绪时报的
 //   （agent 没在跑时用这个模型上一次报的）。"现在压缩"经宿主协议的 compact（秘书照旧用它专用的压缩指令，负责人照旧在压缩时做范围审视、
 //   压缩后重注入固定上下文），压缩那次的用量照常记账（用途"压缩"）。
@@ -443,8 +444,9 @@ export function createAgentSettings(options: AgentSettingsOptions): AgentSetting
     const template = prompts.detail(handle.template);
     const since = handle.since();
     const panel = handle.panel();
-    // 这段会话里最近一次干活的调用、最近一次压缩：压缩在后的，压缩之后还没调用过模型，用量等下一次调用再说
-    const work = ledger.lastOf(agentId, ["work"], since.seq);
+    // 这段会话里最近一次成了的干活的调用（出错、被中止的那几次用量多半是 0，不代表上下文有多大）、最近一次压缩：
+    // 压缩在后的，压缩之后还没成功调用过模型，用量等下一次调用再说
+    const work = ledger.lastOf(agentId, ["work"], since.seq, { succeeded: true });
     const compacted = ledger.lastOf(agentId, ["compaction"], since.seq);
     const used = work && (!compacted || compacted.seq < work.seq) ? work : undefined;
     const context = contextOf(handle, panel, since.seq);

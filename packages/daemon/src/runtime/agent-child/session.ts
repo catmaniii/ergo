@@ -52,6 +52,7 @@ import { ScopeReviewer } from "./scope-review.ts";
 import { userInvokedSkillsBlock } from "./user-invoked-skills.ts";
 import { dropPartialTail, fillInterruptedToolResults } from "./session-recovery.ts";
 import { installToolOrder } from "./tool-order.ts";
+import { watchSilence } from "./silence.ts";
 import { navigateSession, type NavigationDeps } from "./session-navigation.ts";
 
 /** 子进程里驱动一个 pi 会话的对象；main.ts 把宿主协议的命令转给它 */
@@ -164,8 +165,10 @@ async function startPiSession(
         emit,
       })
     : undefined;
-  // 设置只放内存，不读 ~/.pi/agent/settings.json 和工作目录里的 .pi/settings.json
-  const settingsManager = SettingsManager.inMemory({});
+  // 设置只放内存，不读 ~/.pi/agent/settings.json 和工作目录里的 .pi/settings.json。重试照 pi 默认的（最多 3 次，2 秒起翻倍），
+  // 测试的 faux 可以把间隔调小
+  const retryDelayMs = assembly.model.kind === "faux" ? assembly.model.retryDelayMs : undefined;
+  const settingsManager = SettingsManager.inMemory(retryDelayMs === undefined ? {} : { retry: { baseDelayMs: retryDelayMs } });
   /** 建好的 pi 会话（按压缩指令写摘要要它的模型调用函数；会话建好之后才会压缩） */
   let piSession: AgentSession | undefined;
   // 通用桥接扩展：守卫转发（打开了才接）、上下文块、钩子订阅、范围审视（负责人）都经它翻译给 pi；
@@ -215,6 +218,14 @@ async function startPiSession(
   piSession = session;
   // 接着会话时工具清单以这次交的为准：发给模型的工具按这次交的先后、开头一份，不按 pi 重放会话里增减的结果
   installToolOrder(session);
+  // 太久没回应就提前重试：一次模型调用 silenceMs 内一个字都没回来，中止这一次、按出错交给 pi 重试（silence.ts）
+  const { silenceMs } = assembly;
+  if (silenceMs !== undefined) {
+    session.agent.streamFunction = watchSilence(session.agent.streamFunction, silenceMs, {
+      onSilent: () => process.stderr.write(`模型调用 ${Math.round(silenceMs / 1000)} 秒没有回应，中止这一次，交给 pi 重试
+`),
+    });
+  }
   const vision = model.input.includes(IMAGE_INPUT);
   // 会话开始时（和第一次接着以前开的会话时）记下看图能力：之后接着这个会话都照它（新会话在第一条消息时随之写盘）
   if (setup.recordVision) session.sessionManager.appendCustomEntry(SESSION_MODEL_ENTRY, { vision });

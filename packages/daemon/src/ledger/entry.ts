@@ -46,6 +46,8 @@ export interface TokenUsagePayload {
   /** 模型在配置里的键（modelConfigKey），和配置里 models、tokenPrices 的键一样 */
   model: string;
   tokens: TokenCounts;
+  /** 这次调用出错了或被中止了（子进程报的 usage.failed）：照样记账；⚙ 的上下文用量不取它。成了的不带（以前记的也没有） */
+  failed?: true;
 }
 
 /** 账本里的一条（读出来的样子）：seq 是事件的全局序号 */

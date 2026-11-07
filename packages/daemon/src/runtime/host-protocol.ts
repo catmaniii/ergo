@@ -82,7 +82,19 @@ import { type BranchFilesRewind, type ModelCustomProvider, type RuntimeQuestion,
 // 兼容：守护进程和子进程同一次发布，不跨版本混用。对不上时子进程在 start 回 start_failed（fatal，写明两边的版本）并退出，
 // 不会拿看不懂的装配参数硬起会话；守护进程按"拉起失败"处理（秘书意外退出后退避重拉、负责人这一轮按出错收尾），日志里有那条原因。
 // 30（授权的文件夹升级成全局）：装配参数 readOnlyDirs（运行时自己也管权限的，按它的办法放开这些文件夹的读；pi 不看它）。
-export const HOST_PROTOCOL_VERSION = 30;
+// 31（模型出错时在聊天里说一声、太久没回应提前重试）：装配参数 silenceMs（一次模型调用发出去这么久一个字都没回来，就中止这一次、
+// 按出错交给 pi 重试）；上报 model_retry（pi 自动重试一次模型调用之前报：第几次、最多几次、等多久、上一次出错的原文）；
+// usage 加 failed（这次调用出错或被中止：⚙ 的上下文用量、自动压缩点不按它算，账本照记）；faux 剧本多 provider_error、stall 两步，
+// faux 模型多 retryDelayMs（测试里 pi 重试的间隔）。
+export const HOST_PROTOCOL_VERSION = 31;
+
+/**
+ * 一次模型调用太久一个字都没回来、子进程中止它时，交给 pi 的那条出错说明（给模型和日志看的原文，守护进程按"超时"认它）。
+ * 要让 pi 当成能重试的出错：里面得有 "timed out"（pi 的 isRetryableAssistantError 认它）
+ */
+export function silentCallError(silenceMs: number): string {
+  return `No response from the model for ${Math.round(silenceMs / 1000)} seconds; the request timed out (ergo)`; // @i18n-ignore model：给 pi 和日志的出错原文
+}
 
 /**
  * 子进程用哪种语言写给用户看的话（ADR-0029）：守护进程拉起 agent 子进程、模型探查的一次性子进程时
@@ -196,6 +208,8 @@ export interface FauxModelSpec {
   tokensPerSecond?: number;
   /** 上下文窗口（token）；不填是 faux 默认的 128000。回显整段上下文、来回几轮就贴近窗口的测试调大，免得提前自动压缩吃掉剧本的一步 */
   contextWindow?: number;
+  /** pi 自动重试的间隔（毫秒，第一次重试前等这么久，之后翻倍）；不填照 pi 默认的（2 秒起）。测重试时调小 */
+  retryDelayMs?: number;
 }
 
 /** faux 剧本的一步，对应一次模型调用。 */
@@ -228,7 +242,14 @@ export type FauxStep =
   /**
    * 模型报"上下文溢出"（provider 的出错回复，契约测试用）：pi 据此自动压缩、再重试这一轮（验证自动压缩用自定义的压缩指令）
    */
-  | { kind: "context_overflow" };
+  | { kind: "context_overflow" }
+  /**
+   * 服务商回了出错（message 是出错的原文，比如 "503 Service Unavailable"）：像 503、500、overloaded 这类 pi 当成能重试的，
+   * 照它的重试设置再调一次（取剧本的下一步）
+   */
+  | { kind: "provider_error"; message: string }
+  /** 发出去就一直不回（一个字都不回），直到被中止（太久没回应的那道、用户点停止、单次调用超时） */
+  | { kind: "stall" };
 
 /** 剧本给定的一次调用的用量：输入里命中缓存的、没命中的，和输出（token 数） */
 export interface FauxUsage {
@@ -383,6 +404,11 @@ export interface SessionAssembly {
   shellTempDir?: string;
   /** 心跳间隔 */
   heartbeatIntervalMs: number;
+  /**
+   * 一次模型调用发出去多久一个字（正文、思考、工具调用的参数）都没回来，就中止这一次、按出错（silentCallError）交给 pi，
+   * 由 pi 照它的重试设置重试（算进重试次数）。中途收到内容就重新计时：慢慢输出的不砍。不给就不管（pi 跑的会话才看它）
+   */
+  silenceMs?: number;
   /**
    * 被中断的工具调用补上的结果：接着会话（continueSession）时，会话文件里最后一个回合的工具调用还没有结果的，
    * 子进程补上一条工具结果，按工具调用 id 取这里的，没有的用 INTERRUPTED_TOOL_RESULT（出错）。末尾写到一半的一行同时去掉
@@ -751,6 +777,7 @@ export type AgentReport =
   /** interjected：这一轮里已经进了上下文的插话（输入 id，按先后）；没有时不带 */
   | { type: "host_tool_call"; requestId: string; toolCallId: string; toolName: string; args: JsonValue; interjected?: string[] }
   | UsageReport
+  | ModelRetryReport
   /** 回合结束和闲置：这一轮输入处理完了，agent 闲下来，可以送下一条输入。interjected 是这一轮里收下的插话（输入 id） */
   | { type: "turn_end"; outcome: TurnOutcome; errorMessage?: string; interjected?: string[] }
   | ScopeReviewReport
@@ -929,6 +956,24 @@ export interface UsageReport {
    * 不是 agent 子进程报的，守护进程按翻译的一次性子进程交回的用量记）。账本里单独标出
    */
   purpose?: UsagePurpose;
+  /**
+   * 这次调用出错了或被中止了（服务商报错、太久没回应被中止、用户点了停止）：用量照记（服务商可能照样计费），
+   * 但它不代表会话的上下文有多大（多半是 0）——⚙ 的上下文用量、自动压缩点取最近一次没带它的。成了的不带
+   */
+  failed?: true;
+}
+
+/**
+ * 运行时要自动重试一次模型调用（pi 的 auto_retry_start：上一次服务商出错、太久没回应被中止，又是能重试的那种）：
+ * attempt 是这是第几次重试（从 1 起），maxAttempts 最多重试几次，delayMs 等多久再发，error 是上一次出错的原文。
+ * 重试成了接着照常流式输出；都没成以这一轮出错结束（turn_end 的 errorMessage 是最后一次的原文）
+ */
+export interface ModelRetryReport {
+  type: "model_retry";
+  attempt: number;
+  maxAttempts: number;
+  delayMs: number;
+  error: string;
 }
 
 /** 用量报告的用途（平常的回复不写） */

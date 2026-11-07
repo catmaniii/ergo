@@ -82,24 +82,28 @@ describe("配置", () => {
     expect(() => loadConfig({ env: { ERGO_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/approvals\.waitMinutes/);
   });
 
-  it("agent 子进程的资源限制：默认上限 8、闲置 10 分钟、模型调用 5 分钟、工具调用 10 分钟、每分钟回收孤儿、agent-browser 闲 30 分钟回收；可以改；写错了报错", () => {
+  it("agent 子进程的资源限制：默认上限 8、闲置 10 分钟、模型调用 5 分钟、90 秒没回应提前重试、工具调用 10 分钟、每分钟回收孤儿、agent-browser 闲 30 分钟回收；可以改；写错了报错", () => {
     const dataDir = makeTempDir();
     expect(loadConfig({ env: { ERGO_DATA_DIR: dataDir }, homeDir: makeTempDir() }).agentLimits).toEqual({
       maxLive: 8,
       idleMs: 10 * 60_000,
       modelCallMs: 5 * 60_000,
+      modelSilenceMs: 90_000,
       toolCallMs: 10 * 60_000,
       orphanSweepMs: 60_000,
       browserIdleMs: 30 * 60_000,
     });
-    writeConfigFile(dataDir, { agents: { maxLive: 3, idleMinutes: 0.5, orphanSweepSeconds: 5, browserIdleMinutes: 5 } });
+    writeConfigFile(dataDir, { agents: { maxLive: 3, idleMinutes: 0.5, orphanSweepSeconds: 5, browserIdleMinutes: 5, modelSilenceSeconds: 45 } });
     expect(loadConfig({ env: { ERGO_DATA_DIR: dataDir }, homeDir: makeTempDir() }).agentLimits).toMatchObject({
       maxLive: 3,
       idleMs: 30_000,
       orphanSweepMs: 5000,
       modelCallMs: 5 * 60_000,
+      modelSilenceMs: 45_000,
       browserIdleMs: 5 * 60_000,
     });
+    writeConfigFile(dataDir, { agents: { modelSilenceSeconds: 0 } });
+    expect(() => loadConfig({ env: { ERGO_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/agents\.modelSilenceSeconds/);
     writeConfigFile(dataDir, { agents: { browserIdleMinutes: 0 } });
     expect(() => loadConfig({ env: { ERGO_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/agents\.browserIdleMinutes/);
     writeConfigFile(dataDir, { agents: { maxLive: 1 } });

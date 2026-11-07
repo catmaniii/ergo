@@ -71,6 +71,11 @@ export const EVENT_TYPES = {
   turnStart: "turn_start",
   /** 会话频道：agent 处理完一条输入（回合结束），带结局 */
   turnEnd: "turn_end",
+  /**
+   * 会话频道：这一轮里模型调用出错了（服务商忙、出错、太久没回应），正在自动重试第几次。聊天里在这一轮显示一行小字，
+   * 接着回出字来、这一轮结束就收起；都没成以这一轮出错结束（会话里那条说明写清服务商那边的情况）
+   */
+  modelRetry: "model_retry",
   /** 会话频道（临时）：agent 回复的流式增量，每 100 毫秒最多一帧 */
   stream: "stream",
   /** 卡片频道：一张卡片的最新版本 */
@@ -537,6 +542,13 @@ export const TOOL_CALL_BLOCK_LABEL: Readonly<Record<(typeof TOOL_CALL_BLOCKS)[nu
  * 不会自动重送，会话里另有一条系统说明请用户需要时重发）。
  */
 export const TURN_OUTCOMES = ["completed", "aborted", "error", "interrupted"] as const;
+
+/**
+ * 模型调用出错的种类（聊天里"正在重试"那行字、最后没成时的说明按它写）：服务商忙（限流、过载、503 这类）、
+ * 太久没回应（二狗等不到一个字中止的、服务商那边超时的）、别的出错（500、连不上……）
+ */
+export const MODEL_ERROR_KINDS = ["busy", "timeout", "error"] as const;
+export type ModelErrorKind = (typeof MODEL_ERROR_KINDS)[number];
 
 /**
  * 第一阶段的 14 种卡片。守护进程的卡片类型注册表（cards/registry.ts）建在这张表上。

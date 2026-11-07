@@ -33,6 +33,7 @@ import {
   TOOL_CALL_MARKS,
   TOOL_NATURES,
   TURN_OUTCOMES,
+  MODEL_ERROR_KINDS,
   URGENCIES,
 } from "./constants.ts";
 import { DEVICE_BATCH_MAX, DEVICE_EXTEND_MAX_DAYS, PAIRING_FINGERPRINT_HEX_DIGITS, PAIRING_SHORT_CODE_DIGITS } from "./pairing.ts";
@@ -722,6 +723,21 @@ export const TurnEndEventPayload = Type.Object({
   error: Type.Optional(Type.String()),
 });
 export type TurnEndEventPayload = Static<typeof TurnEndEventPayload>;
+
+/**
+ * `model_retry` 事件：这一轮（inputMessageId 这条输入）里模型调用出错了，正在自动重试——第几次（从 1 起）、最多几次、
+ * 出错的种类（kind）、等多久再发（delayMs）
+ */
+export const ModelRetryEventPayload = Type.Object({
+  inputMessageId: Type.String(),
+  attempt: Type.Integer({ minimum: 1 }),
+  maxAttempts: Type.Integer({ minimum: 1 }),
+  kind: Type.Enum(MODEL_ERROR_KINDS),
+  delayMs: Type.Integer({ minimum: 0 }),
+  /** 上一次出错的原文（服务商回的，截短；排查用，界面不直接显示） */
+  error: Type.Optional(Type.String()),
+});
+export type ModelRetryEventPayload = Static<typeof ModelRetryEventPayload>;
 
 /**
  * `stream` 事件（临时）：agent 回复的流式增量。messageId 就是定稿后那条消息的 id。

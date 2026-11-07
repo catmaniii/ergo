@@ -71,6 +71,16 @@ function toResponseStep(step: FauxStep): FauxResponseStep {
     case "context_overflow":
       // pi 按出错信息认上下文溢出（"prompt is too long" 是它认的写法之一）
       return fauxAssistantMessage([], { stopReason: "error", errorMessage: "prompt is too long: context window exceeded (faux)" });
+    case "provider_error":
+      return fauxAssistantMessage([], { stopReason: "error", errorMessage: step.message });
+    case "stall":
+      // 一直不回：等这次调用被中止（faux 看到中止信号就报"已中止"）
+      return (_context, options) =>
+        new Promise((resolve) => {
+          const done = () => resolve(fauxAssistantMessage([], { stopReason: "aborted" }));
+          if (options?.signal?.aborted) return done();
+          options?.signal?.addEventListener("abort", done, { once: true });
+        });
     case "call_with_matches":
       return (context: TranscriptContext) => {
         const find = (text: string) => [...new Set(Array.from(text.matchAll(new RegExp(step.pattern, "g")), (m) => m[0]))];
