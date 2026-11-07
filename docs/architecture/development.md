@@ -151,6 +151,8 @@ adb -s <设备号> logcat -s ErgoApp                  # App 和网页的日志
 
 **系统通知**是本地通知，不接 FCM，没有前台服务：进程活着才发得出，被系统杀掉后收不到。其余规矩和鸿蒙一样：第一次问授权，前台不发，同一件事只出一条，点了回到对应的页面。
 
+**网页视频全屏**（鸿蒙和安卓一样）：网页里的视频进全屏（Fullscreen API、`<video>` 控件上的按钮）时，App 藏掉状态栏和导航条、手势条（从边缘滑一下临时出来）、屏幕常亮，横视频（宽 > 高）转横屏（两个方向都行），竖视频不转；返回键 / 返回手势先退全屏，切到后台、换地址也先退出，退出时都恢复成进去之前的样子。安卓接 `WebChromeClient.onShowCustomView`（进全屏后在页面里读视频宽高），鸿蒙接 Web 组件的 `onFullScreenEnter`（事件里带宽高），实现在两边的 `video/VideoFullscreen.*`。原生桥上的 `videoFullscreen()` 回 `true`，网页认它在不在才给全屏按钮（旧 App 没有）；只开给主界面，浏览侧边栏没有。联调：`frontend/android/e2e/video-fullscreen.ts`、`frontend/harmony/e2e/video-fullscreen.ts`。
+
 ### 发布手机安装包
 
 `npm run release` 顺带把两个手机安装包放进发布目录、写进 `SHA256SUMS`，和 Windows 包一起被签：`ergo-android-debug.apk`、`ergo-harmony-unsigned.hap`。文件名不带版本号，这样 `releases/latest/download/<文件名>` 一直有效。`latest.json` 不提它们，`ergo update` 和安装脚本只认 Windows 包。

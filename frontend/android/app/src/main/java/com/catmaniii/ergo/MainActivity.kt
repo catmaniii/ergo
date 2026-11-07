@@ -92,6 +92,7 @@ import com.catmaniii.ergo.ui.PermissionNote
 import com.catmaniii.ergo.ui.ShadowView
 import com.catmaniii.ergo.ui.dp
 import com.catmaniii.ergo.ui.ToastHost
+import com.catmaniii.ergo.video.VideoFullscreen
 import com.catmaniii.ergo.voice.MicrophoneAccess
 import com.catmaniii.ergo.voice.NativeVoice
 import org.json.JSONObject
@@ -128,6 +129,8 @@ class MainActivity : Activity() {
     private lateinit var notErgoBar: NotErgoBar
     private lateinit var toast: ToastHost
     private lateinit var permissionNote: PermissionNote
+    /** 网页视频真全屏（票 407）：盖在最外层，藏系统栏、常亮、横视频转横屏 */
+    private lateinit var videoFullscreen: VideoFullscreen
     private val handler = Handler(Looper.getMainLooper())
 
     /** 当前加载的地址；没配过是 null */
@@ -436,9 +439,13 @@ class MainActivity : Activity() {
         UpdatedReceiver.clearReopenNotice(this)
     }
 
-    /** App 切到后台：放掉原生录音器（后台不录；网页的 visibilitychange 不一定先到）。回到前台由网页重新要。之后来的提醒发到系统通知栏 */
+    /**
+     * App 切到后台：放掉原生录音器（后台不录；网页的 visibilitychange 不一定先到）。回到前台由网页重新要。之后来的提醒发到系统通知栏。
+     * 视频全屏着（来电、按了 Home）就先退出全屏：回来时状态栏、方向都是平常的样子，不留藏着状态栏的半截
+     */
     override fun onStop() {
         super.onStop()
+        videoFullscreen.exit()
         nativeNotify.setForeground(false)
         bridge?.releaseVoice("background")
         sideBridge?.releaseVoice("background")
@@ -493,6 +500,7 @@ class MainActivity : Activity() {
         connectPage = ConnectPage(this, { retryConnect() }, { rescan() }, { backFromConnect() })
         toast = ToastHost(this)
         permissionNote = PermissionNote(this)
+        videoFullscreen = VideoFullscreen(this, root)
         content.addView(errorPage.view, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         content.addView(notErgoBar.view, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
         content.addView(addressPage.view, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
@@ -627,8 +635,12 @@ class MainActivity : Activity() {
         handleBack()
     }
 
-    /** 对应 Index.ets 的 onBackPress：地址页先回到网页；网页报过还能在内部返回就交给网页；否则退到后台（进程留着，后台还能发通知） */
+    /**
+     * 对应 Index.ets 的 onBackPress：视频全屏着先退出全屏；地址页先回到网页；网页报过还能在内部返回就交给网页；
+     * 否则退到后台（进程留着，后台还能发通知）
+     */
     private fun handleBack() {
+        if (videoFullscreen.exit()) return
         if (scanning) {
             stopScan()
             return
@@ -667,6 +679,8 @@ class MainActivity : Activity() {
 
     /** 换地址：WebView 连同原生桥整个重建（原生桥的白名单是注册时定的） */
     private fun openServer(address: ServerAddress) {
+        // 旧网页的视频还全屏着：先退出、恢复窗口，再拆 WebView
+        videoFullscreen.exit()
         // 换地址：旧网页的原生录音器先放掉
         bridge?.releaseVoice("server-changed")
         sideBridge?.releaseVoice("server-changed")
@@ -724,7 +738,7 @@ class MainActivity : Activity() {
         applySafeSettings(this)
         CookieManager.getInstance().setAcceptCookie(true)
         webViewClient = MainClient()
-        webChromeClient = MainChrome()
+        webChromeClient = MainChrome(this)
         setDownloadListener(downloadListener(this) { mainDownloads })
     }
 
@@ -827,7 +841,8 @@ class MainActivity : Activity() {
         }
     }
 
-    private inner class MainChrome : WebChromeClient() {
+    /** 二狗自己的网页（主界面、浏览侧边栏）的 WebView 用的；web 是挂着它的那个 WebView（全屏时在它里面读视频宽高） */
+    private inner class MainChrome(private val web: WebView) : WebChromeClient() {
         /** 网页要麦克风（getUserMedia）：网页在 App 里走原生录音，这里一律不给（Index.ets 的 onPermissionRequest 是留给旧版网页的，安卓没有旧版网页） */
         override fun onPermissionRequest(request: PermissionRequest) {
             Log.w(TAG, "deny web permission ${request.resources.joinToString()} for ${request.origin}")
@@ -837,6 +852,12 @@ class MainActivity : Activity() {
         override fun onGeolocationPermissionsShowPrompt(origin: String?, callback: GeolocationPermissions.Callback) {
             callback.invoke(origin, false, false)
         }
+
+        /** 网页里的视频进全屏（对应 Index.ets 的 onFullScreenEnter）：铺满整个屏幕、藏系统栏、常亮，横视频转横屏 */
+        override fun onShowCustomView(view: View, callback: CustomViewCallback) = videoFullscreen.show(web, view, callback)
+
+        /** 网页退出了全屏（对应 onFullScreenExit）：都恢复成进去之前的样子 */
+        override fun onHideCustomView() = videoFullscreen.hide()
     }
 
     /** 往二狗的网页推（window.__ergoBrowser）：网页还没 attach（还没加载好）就不推 */
@@ -937,7 +958,7 @@ class MainActivity : Activity() {
         applySafeSettings(web)
         web.setBackgroundColor(ErgoTheme.palette(isDark()).background)
         web.webViewClient = SideClient()
-        web.webChromeClient = MainChrome()
+        web.webChromeClient = MainChrome(web)
         val voice = NativeVoice(this, microphone) { json -> sideChannel?.callPage("__ergoVoice", json) }
         val nativeBridge = NativeBridge(bridgeHost, voice)
         sideBridge = nativeBridge

@@ -112,8 +112,9 @@ try {
     const views = await WebViews.connect(device, 9333);
     main = await views.attach((url) => url.startsWith(devices.external));
     await main.waitFor("window.ergoNative && document.getElementById('root') && document.getElementById('root').childElementCount > 0");
-    expectEqual(await main.eval("window.ergoNative.appVersion()"), "0.4.3", "App 的版本号");
+    expectEqual(await main.eval("window.ergoNative.appVersion()"), "0.4.4", "App 的版本号");
     expectTrue(await main.eval("typeof window.ergoNative.setColorMode === 'function'"), "原生桥的方法在");
+    expectEqual(await main.eval("window.ergoNative.videoFullscreen()"), true, "网页视频能真全屏（票 407）");
     expectEqual(await main.eval("typeof window.ergoNative.phoneContactsPick"), "undefined", "手机数据源的方法不提供");
     await sleep(1500);
     run.shot("05-pairing-web");
