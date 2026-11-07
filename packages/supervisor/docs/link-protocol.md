@@ -63,7 +63,7 @@ WebSocket，项目**出站**连接 `LSM_URL`，`Authorization: Bearer <LSM_TOKEN
 {"type":"conflict","reason":"该 serviceId 已有活跃会话"}   // 收到后项目应自行退出
 {"type":"stop","id":"cmd-17","mode":"now","deadlineMs":60000}
 {"type":"stop","id":"cmd-18","mode":"when-idle","deadlineMs":600000}
-{"type":"restart","id":"cmd-19","mode":"when-idle","deadlineMs":600000}
+{"type":"restart","id":"cmd-19","mode":"when-idle","deadlineMs":3600000}
 {"type":"cancel","id":"cmd-21"}                            // 撤销挂起的 when-idle 停机
 {"type":"ping","id":"cmd-20"}
 ```
@@ -91,6 +91,13 @@ WebSocket，项目**出站**连接 `LSM_URL`，`Authorization: Bearer <LSM_TOKEN
   这是人在卡片上点了、再确认过的，不是管理器自己的决定（2026-10-13，一个服务忙着长任务停不下来）。
 - 反悔用 `cancel`：管理器和服务两边都要撤销，否则服务空闲时还是会自己退。
 - 项目可以 `ack{ok:false}` **拒绝**停机并给出理由，管理器如实展示，不强杀（除非你在 UI 上点强制）。
+- **`restart` 对项目和 `stop` 完全一样**：ack、按 mode 处理、自己退出。**拉起来是管理器的活**：它亲眼看到连接断开、
+  进程和端口都没了，先把账本记成已停（期望状态仍是「在跑」），再按注册表的 start 钩子起一个新进程；连着的已经换了一个进程
+  （被 `autoRestart` 抢先拉起来）就不再起。重启的结果照实回：已重启（新进程 PID）/ 等它空闲后重启 / 没重启成的原因，
+  绝不回「本来就在跑」（2026-11-08 修：原来紧接着的启动先探一轮活，「上一轮还在跑」的服务头一回探活不过有一轮宽限，
+  账本还是 RUNNING，启动当它已经在跑、什么都没起）。`mode: "when-idle"` 时项目报了忙（或一分钟内没退出），
+  管理器先回「等它空闲后重启」，后面在后台做完；等到上限（同上，默认 1 小时）还没空闲就发 `cancel` 两边撤，服务照常跑。
+  `mode: "now"` 过了期限还没退出，和停机一样 `taskkill /T /F` 兜底再拉起。
 
 ## 5. 心跳与降级
 

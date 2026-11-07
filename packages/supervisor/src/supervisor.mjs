@@ -87,6 +87,7 @@ export function runningEvidence(svc, st, snap, { probe = null, link = null, outL
 }
 
 const mb = (n) => (n < 1048576 ? `${Math.round(n / 1024)} KB` : `${(n / 1048576).toFixed(1)} MB`);
+const span = (ms) => (ms < 60000 ? `${Math.round(ms / 1000)} 秒` : `${Math.round(ms / 60000)} 分钟`);
 
 /** 强制停止时给服务自己收尾的时间；过了就杀进程树。 */
 export const FORCE_GRACE_MS = 10000;
@@ -789,13 +790,13 @@ export class Supervisor extends EventEmitter {
         // 连着的已经换了一个进程：旧的退了之后被别人（autoRestart）抢先拉了起来，这次重启已经发生
         if (oldPid && l.pid && l.pid !== oldPid) { replaced = l.pid; return true; }
         if (mode === 'when-idle' && l.busy) queue(`${id} 正忙（${l.busyReason || '没说在忙什么'}）`);
-        else if (slow()) queue(`${id} 接下了重启指令，${Math.round(RESTART_REPLY_WAIT_MS / 1000)} 秒还没退出`);
+        else if (slow()) queue(`${id} 接下了重启指令，${span(RESTART_REPLY_WAIT_MS)}还没退出`);
         return false;   // 连接在 = 进程在
       }
       // 连接断了不等于退了（可能只是在重连）。退没退看进程和端口，不看健康检查——
       // 否则健康检查不过时会当它退了，接着在它还占着的端口上再起一份
       const live = await this.liveness(svc, st);
-      if (live.running && slow()) queue(`${id} 接下了重启指令，${Math.round(RESTART_REPLY_WAIT_MS / 1000)} 秒还没退出（${live.why}）`);
+      if (live.running && slow()) queue(`${id} 接下了重启指令，${span(RESTART_REPLY_WAIT_MS)}还没退出（${live.why}）`);
       return !live.running;
     }, { timeoutMs: plan.deadlineMs, intervalMs: 1000 });
 
@@ -810,7 +811,7 @@ export class Supervisor extends EventEmitter {
       // 等到上限还没空闲：两边都撤（服务那边的挂起也撤），它照常跑
       const c = this.link?.status(id)?.connected ? await this.link.cancel(id) : { ok: false, why: '它现在没接入，撤不到它那边' };
       await this.refresh();
-      return { ok: false, why: `等了 ${Math.round(plan.deadlineMs / 60000)} 分钟它还没空闲退出，这次重启撤销了${c.ok ? '（它那边挂着的也撤了）' : `（但${c.why}）`}，它照常跑` };
+      return { ok: false, why: `等了 ${span(plan.deadlineMs)}它还没空闲退出，这次重启撤销了${c.ok ? '（它那边挂着的也撤了）' : `（但${c.why}）`}，它照常跑` };
     }
     if (!exited) {
       // 立刻重启过了停机期限还没退出：和立刻停止一样杀进程树兜底（docs/link-protocol.md §4）
@@ -824,7 +825,7 @@ export class Supervisor extends EventEmitter {
       const gone = await waitFor(async () => !(await this.liveness(svc, st)).running, { timeoutMs: 10000, intervalMs: 500 });
       if (!gone) {
         await this.refresh();
-        return { ok: false, why: `${id} 接下了重启指令，却没在 ${Math.round(plan.deadlineMs / 1000)} 秒内退出，杀了进程树之后${(await this.liveness(svc, st)).why || '还在跑'}——没重启` };
+        return { ok: false, why: `${id} 接下了重启指令，却没在 ${span(plan.deadlineMs)}内退出，杀了进程树之后${(await this.liveness(svc, st)).why || '还在跑'}——没重启` };
       }
     }
 
