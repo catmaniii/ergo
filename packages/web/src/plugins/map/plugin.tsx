@@ -2,25 +2,28 @@
 // 插件名和守护进程的一样（map）：守护进程报它在运行就装，停用了、移除了就停。登记的：
 // - 页面"地图"（MapPage.tsx，#/more/map）：导航里排在记忆后面、设置前面（order 85），放不下时收进"更多"；
 //   国内用高德地图（填了 Key），国外和没填 Key 时用 OpenStreetMap，按看的地方自动换；
-// - 设置 · 数据源里"高德地图"下面填 Key 的那一块（dataSources 插槽，AmapPanel.tsx）。
-// 停用时：导航、"更多"里没有地图，#/more/map 写"地图插件没启用"；数据源那一行写"地图插件没启用"，这一块不画。
+// - 设置 · 数据源里"高德地图"下面填 Key 的那一块（dataSources 插槽，AmapPanel.tsx）；
+// - 卡片类型 map 的画法（MapCard.tsx：聊天里的地图卡片，431）：缩略地图，点开进地图页看大的。
+// 停用时：导航、"更多"里没有地图，#/more/map 写"地图插件没启用"；数据源那一行写"地图插件没启用"，这一块不画；
+// 聊天里以前的地图卡片显示"（地图插件没启用，这条内容暂时看不到）"。
 import { AMAP_SOURCE_ID, t } from "../../state/index.ts";
 import type { WebPluginDefinition } from "../api.ts";
 import { AmapPanel } from "./AmapPanel.tsx";
+import { MapCard } from "./MapCard.tsx";
 import { MapColumn, MapSection } from "./MapPage.tsx";
+import { MAP_PAGE } from "./route.ts";
 
-/** 地图页的页面 id（地址 #/more/map、导航那一项的 data-nav） */
-export const MAP_PAGE = "map";
+export { MAP_PAGE };
 
 export const mapWebPlugin: WebPluginDefinition = {
   name: "map",
   get title() {
     return t("ui.plugins.map.title");
   },
-  owns: { pages: [MAP_PAGE], dataSources: [AMAP_SOURCE_ID] },
+  owns: { pages: [MAP_PAGE], dataSources: [AMAP_SOURCE_ID], cards: ["map"] },
   // 设置 · 插件里列的网页上的页面、栏目
   get brings() {
-    return [t("ui.plugins.map.brings.page"), t("ui.plugins.map.brings.panel")];
+    return [t("ui.plugins.map.brings.page"), t("ui.plugins.map.brings.panel"), t("ui.plugins.map.brings.card")];
   },
   setup(ctx) {
     ctx.register("pages", {
@@ -40,5 +43,6 @@ export const mapWebPlugin: WebPluginDefinition = {
       Column: MapColumn,
     });
     ctx.register("dataSources", { id: AMAP_SOURCE_ID, Panel: AmapPanel });
+    ctx.register("cards", { type: "map", Card: MapCard });
   },
 };

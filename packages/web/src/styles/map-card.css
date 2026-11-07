@@ -1,0 +1,111 @@
+/*
+ * 聊天里的地图卡片（地图插件，plugins/map/MapCard.tsx、MapThumb.tsx）和点开后地图页上的那一条：
+ * - 卡片：标题下面一块缩略地图（不能拖，点"看大地图"进地图页），地图下面一两行概况；高德查来的不画缩略图，只有文字和"在高德地图上看"；
+ * - 地图页看一张卡片时：标题栏下面一条写卡片的标题和概况，"×"回到足迹。
+ * 缩略图里的瓦片、点、线照地图页（map.css、map-footprints.css）画；只用 token，十一套风格都跟着换皮。
+ */
+.map-card-thumb {
+  position: relative;
+  height: 168px;
+  margin-top: 2px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  overflow: hidden;
+}
+.map-card-thumb .map-osm {
+  cursor: default;
+}
+/* 缩略图上不写点旁边的字（名字写在地图下面那一行） */
+.map-card-thumb .map-mark-label {
+  display: none;
+}
+/* 整块都能点：点了去地图页；左下角一个"看大地图" */
+.map-card-open {
+  position: absolute;
+  inset: 0;
+  z-index: 210;
+  display: flex;
+  align-items: flex-end;
+  padding: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+.map-card-open-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--primary);
+  font-size: var(--fs-xs);
+  box-shadow: var(--shadow-btn);
+}
+.map-card-thumb .map-attribution {
+  z-index: 220;
+  padding: 1px 6px;
+}
+.map-card-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  color: var(--muted);
+  font-size: var(--fs-s);
+  text-align: center;
+}
+.map-card-line {
+  margin-top: 6px;
+  color: var(--text);
+  font-size: var(--fs-s);
+}
+.map-card-line + .map-card-line {
+  margin-top: 2px;
+  color: var(--muted);
+}
+.map-card-note {
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.map-card-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+/* ---- 地图页上看一张卡片时，标题栏下面那一条 ---- */
+.map-card-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 6px var(--space-page);
+  border-bottom: 1px solid var(--border);
+  background: var(--bar-bg);
+  color: var(--text);
+}
+.map-card-bar > .icon {
+  flex: none;
+  color: var(--primary);
+}
+.map-card-bar-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+}
+.map-card-bar-note {
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.map-card-bar .icon-btn {
+  flex: none;
+  padding: 6px;
+}

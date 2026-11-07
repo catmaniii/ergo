@@ -2,6 +2,16 @@
 import type { Phrases } from "./phrases.ts";
 
 export const EN_CONVERSATIONS: Phrases = {
+  "把我昨天去过的地方画在地图上": "Draw where I went yesterday on a map",
+  "已在聊天里放了一张地图卡片：{} 的足迹（用户点开能看大地图，轨迹、停留、照片地点都在上面）。\n这一天待过 3 个地方（按先到的先后）：家（07:00–08:15）、公司（08:50–17:30）、杭州市西湖区北山街（18:10–20:30）。\n拍了 6 张照片（1 张没有地点）。":
+    "Put a map card in the chat: footprints for {} (the user can open it for the full map with the track, stays and photo spots).\nStayed at 3 places that day (in order): Home (07:00–08:15), Office (08:50–17:30), Beishan St, Xihu, Hangzhou (18:10–20:30).\nTook 6 photos (1 without a location).",
+  "去了 3 个地方：家、公司，晚上在西湖边的北山街待了两个多小时，拍了几张照片。": "You went to 3 places: home, the office, and in the evening you spent over two hours on Beishan St by West Lake, taking a few photos.",
+  "从公司走到西湖边要多久？画在地图上": "How long is the walk from the office to West Lake? Show it on a map",
+  "from=公司 to=西湖边 modes=walking,driving": "from=Office to=West Lake modes=walking,driving",
+  "从「公司」（常去的地方）到「西湖边」：\n- 步行：约 25 分钟，1.9 公里\n- 开车：约 9 分钟，2.6 公里（没有实时路况）\n数据来自 OpenStreetMap，现查的，没存。编号 osm-r1（要画在地图上时用它）。":
+    "From “Office” (frequent place) to “West Lake”:\n- Walking: about 25 min, 1.9 km\n- Driving: about 9 min, 2.6 km (no live traffic)\nData from OpenStreetMap, looked up just now, not saved. ID osm-r1 (use it to draw on the map).",
+  "已在聊天里放了一张地图卡片「从公司到西湖边」（2 个点、2 条路线；卡上写着数据来自哪家）。": "Put a map card “From the office to West Lake” in the chat (2 points, 2 routes; the card says where the data is from).",
+  "走过去约 **25 分钟**（1.9 公里）；开车约 9 分钟。": "About **25 min** on foot (1.9 km); about 9 min by car.",
   "没有找到和「{}」匹配的素材。": "No material matches “{}”.",
   "找到 {} 条素材： {}": "Found {} materials: {}",
   "素材 {}": "Material {}",

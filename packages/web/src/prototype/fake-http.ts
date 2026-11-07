@@ -72,6 +72,7 @@ import type {
   CalendarMonthView,
   MapConfigView,
   MapDayView,
+  MapDrawing,
   DeleteMaterialsResult,
   FileTextResult,
   FramePreview,
@@ -170,7 +171,7 @@ import { fakeTakeoverSessions } from "./fake-takeover.ts";
 import { fakeAppFileText } from "./fake-app-files.ts";
 import { fakeMedia } from "./fake-media.ts";
 import { FAKE_MATERIAL_IMAGES, fakeMaterialConversations, fakeMaterialDetail, fakeMaterialsIn, fakeSaveWebPage } from "./fake-materials.ts";
-import { DEMO_AMAP_KEY } from "./fake-map.ts";
+import { DEMO_AMAP_KEY, demoMapDrawing } from "./fake-map.ts";
 import { demoMapDay } from "./fake-footprints.ts";
 import { fakeServiceThumbnail } from "./fake-operations.ts";
 import { fakeProjectStandard } from "./fake-standard.ts";
@@ -669,6 +670,11 @@ export class FakeDaemonHttp implements DaemonHttp {
   /** 我的足迹：编的（昨天一整天、四天前半天，见 prototype/fake-footprints.ts） */
   mapDay(date: string): Promise<MapDayView> {
     return Promise.resolve(demoMapDay(date));
+  }
+
+  /** 地图卡片的那条路线：编的（OpenStreetMap 查的、从公司到西湖边，见 prototype/fake-map.ts） */
+  mapDrawing(lookup: string): Promise<MapDrawing> {
+    return demoMapDrawing(lookup);
   }
 
   referenceVoices(): Promise<ReferenceVoiceList> {

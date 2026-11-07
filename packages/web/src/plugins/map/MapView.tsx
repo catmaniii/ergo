@@ -5,9 +5,12 @@
 // - 没填 Key 而看的是国内：照样用 OpenStreetMap，写一句"填了高德 Key 国内地图更清楚"，点了去设置 · 数据源 · 高德地图；
 // - 署名：OpenStreetMap 时右下角写"© OpenStreetMap 贡献者"（链到它的版权页）；高德地图自己画它的标志和审图号，不遮；
 // - 深色：跟着页面的外观（OSM 的瓦片加滤镜，高德换深色样式）；
-// - 放大、缩小的按钮在右上（手机上捏合、电脑上滚轮也行）。
+// - 放大、缩小的按钮在右上（手机上捏合、电脑上滚轮也行）；
+// - 画着用户自己的足迹时一律 OpenStreetMap、不加载高德的脚本（scene.ts 的 AMAP_WITH_FOOTPRINTS，用户 2026-11-07 定）；
+// - 高德查来的地点和路线（amapScene，431 的地图卡片点开）只画在高德的地图上（高德的协议不许脱离它的服务展示）：底图是 OpenStreetMap 时
+//   不画，写一句为什么（没填 Key 去填、拖到国外了回国内、高德没加载上）。
 // 演示页（MODE === "demo"）里瓦片是编的占位图、高德是假的（demo-amap.ts），不连任何地图服务。
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { pageTheme } from "../../app/page-theme.ts";
 import type { Navigate } from "../../app/route.ts";
 import { AMAP_SOURCE_ID, inMainlandChina, type MapConfigView, mapTilePath, t } from "../../state/index.ts";
@@ -16,7 +19,7 @@ import { type AmapNamespace, createAmapEngine, loadAmap, setAmapLoader } from ".
 import { fakeAmapLoader } from "./demo-amap.ts";
 import type { MapEngine } from "./engine.ts";
 import { createOsmEngine } from "./osm-engine.ts";
-import { chooseBasemap, type MapScene, type MapView } from "./scene.ts";
+import { AMAP_WITH_FOOTPRINTS, chooseBasemap, type MapScene, type MapView } from "./scene.ts";
 import { demoBasemapNote, demoTileUrl } from "../../prototype/fake-map.ts";
 
 /** OpenStreetMap 的版权页（署名角标链过去） */
@@ -33,8 +36,11 @@ const DEMO =
     : undefined;
 DEMO?.install();
 
-/** 真的页面：瓦片经守护进程的 /tiles/osm 转发 */
-const osmTileUrl = DEMO ? DEMO.osmTile : (z: number, x: number, y: number) => mapTilePath("osm", z, x, y);
+/** 真的页面：瓦片经守护进程的 /tiles/osm 转发（聊天里地图卡片的缩略图也用它） */
+export const osmTileUrl = DEMO ? DEMO.osmTile : (z: number, x: number, y: number) => mapTilePath("osm", z, x, y);
+
+/** 演示页的底图是编的：署名后面写一句（缩略图也用） */
+export const demoBasemapNoteText = DEMO ? DEMO.note : undefined;
 
 /** 高德加载到哪一步了（idle 包括正在加载） */
 type AmapState = { state: "idle" } | { state: "ready"; key: string; ns: AmapNamespace } | { state: "failed"; key: string; reason: string };
@@ -42,7 +48,7 @@ type AmapState = { state: "idle" } | { state: "ready"; key: string; ns: AmapName
 const reasonOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 /** 页面现在是不是深色（跟着外观、系统） */
-function useDark(): boolean {
+export function useDark(): boolean {
   const theme = pageTheme();
   return useSyncExternalStore(theme.subscribe, () => theme.theme() === "dark");
 }
@@ -51,6 +57,10 @@ export interface MapCanvasProps {
   /** 地图页要的设置；还没取到是 undefined（先不画，免得先画 OSM 又换高德） */
   config: MapConfigView | undefined;
   scene: MapScene;
+  /** 画着用户自己的足迹（挑底图时按 scene.ts 的 AMAP_WITH_FOOTPRINTS 走） */
+  footprints?: boolean | undefined;
+  /** 高德查来的地点和路线：只在底图是高德时画（在 scene 上面） */
+  amapScene?: MapScene | undefined;
   /** 一开始看哪里 */
   initial: MapView;
   /** 跳到哪里：换了一个对象就跳（点了地点、地址里带了位置） */
@@ -61,7 +71,7 @@ export interface MapCanvasProps {
   navigate: Navigate;
 }
 
-export function MapCanvas({ config, scene, initial, jump, onView, onMarkClick, navigate }: MapCanvasProps) {
+export function MapCanvas({ config, scene, footprints = false, amapScene, initial, jump, onView, onMarkClick, navigate }: MapCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<MapEngine | undefined>(undefined);
   /** 现在看的地方（换底图时带过去）；停下来时更新 */
@@ -76,15 +86,21 @@ export function MapCanvas({ config, scene, initial, jump, onView, onMarkClick, n
   // 高德那一种：这个 Key 加载上了就能画；这个 Key 加载不上就不再试（换了 Key 重新试）
   const amapNs = amap.state === "ready" && amap.key === amapKey ? amap.ns : undefined;
   const amapFailed = amap.state === "failed" && amap.key === amapKey ? amap.reason : undefined;
-  const wantAmap = chooseBasemap(settled, amapKey !== undefined && amapFailed === undefined) === "amap";
+  const wantAmap = chooseBasemap(settled, amapKey !== undefined && amapFailed === undefined, footprints) === "amap";
   const rendered = wantAmap && amapNs ? "amap" : "osm";
   const ready = config !== undefined;
   const inChina = inMainlandChina(settled);
+  // 真画上去的：高德查来的只在底图是高德时加上
+  const amapExtra = amapScene !== undefined && amapScene.marks.length + amapScene.lines.length > 0;
+  const drawn = useMemo<MapScene>(
+    () => (rendered === "amap" && amapScene ? { marks: [...scene.marks, ...amapScene.marks], lines: [...scene.lines, ...amapScene.lines], circles: [...scene.circles, ...amapScene.circles] } : scene),
+    [scene, amapScene, rendered],
+  );
 
   // 拿最新的回调、外观、要画的东西（引擎的事件回调里用）
-  const latest = useRef({ dark, scene, onView, onMarkClick });
+  const latest = useRef({ dark, scene: drawn, onView, onMarkClick });
   useEffect(() => {
-    latest.current = { dark, scene, onView, onMarkClick };
+    latest.current = { dark, scene: drawn, onView, onMarkClick };
   });
 
   // 真要用高德时才加载它的脚本（同一个 Key 只试一次）
@@ -131,7 +147,7 @@ export function MapCanvas({ config, scene, initial, jump, onView, onMarkClick, n
     };
   }, [rendered, amapNs, amapKey, ready]);
 
-  useEffect(() => engineRef.current?.setScene(scene), [scene]);
+  useEffect(() => engineRef.current?.setScene(drawn), [drawn]);
   useEffect(() => engineRef.current?.setDark(dark), [dark]);
   // 跳过去：引擎停下来时报回来（onMoveEnd），底图按新的地方再挑
   useEffect(() => {
@@ -142,6 +158,15 @@ export function MapCanvas({ config, scene, initial, jump, onView, onMarkClick, n
 
   const hint = ((): { text: string; action?: boolean } | undefined => {
     if (!ready || rendered === "amap") return undefined;
+    // 高德查来的画不上去：为什么（高德还在加载的那一会儿不写）
+    if (amapExtra) {
+      if (amapFailed !== undefined) return { text: t("ui.plugins.map.hint.amapOnlyFailed", { reason: amapFailed }) };
+      if (!inChina) return { text: t("ui.plugins.map.hint.amapOnlyAbroad") };
+      if (config.amapKey === undefined || config.amapProblem) return { text: t("ui.plugins.map.hint.amapOnlyNoKey"), action: true };
+      return undefined;
+    }
+    // 看足迹时本来就用 OpenStreetMap（scene.ts 的 AMAP_WITH_FOOTPRINTS）：不催着填高德的 Key
+    if (footprints && !AMAP_WITH_FOOTPRINTS) return undefined;
     if (amapFailed !== undefined) return { text: t("ui.plugins.map.hint.amapFailed", { reason: amapFailed }) };
     if (!inChina) return undefined;
     if (config.amapProblem) return { text: t("ui.plugins.map.hint.amapProblem", { problem: config.amapProblem }), action: true };
@@ -150,7 +175,12 @@ export function MapCanvas({ config, scene, initial, jump, onView, onMarkClick, n
   })();
 
   return (
-    <div className="map-canvas" data-basemap={ready ? rendered : "loading"} data-amap={amapNs ? "ready" : amapFailed !== undefined ? "failed" : "idle"}>
+    <div
+      className="map-canvas"
+      data-basemap={ready ? rendered : "loading"}
+      data-amap={amapNs ? "ready" : amapFailed !== undefined ? "failed" : "idle"}
+      data-amap-results={amapExtra ? (rendered === "amap" ? "shown" : "hidden") : undefined}
+    >
       <div className="map-host" ref={hostRef} />
       {!ready && <div className="map-loading">{t("ui.plugins.map.loading")}</div>}
       <span className="map-badge" data-basemap={rendered}>

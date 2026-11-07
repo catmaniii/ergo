@@ -1,8 +1,8 @@
 // 地图插件的边界（429，照日历插件的 test/calendar/boundary.test.ts）：
 // 1. 组合根（daemon.ts）里不出现地图插件：不建地图的服务、不 import 地图的内部，网关、接口经 map/api.ts 的服务名现取；
 // 2. 地图目录之外只从 map/api.ts 拿地图的东西，写明的例外只有插件清单列它；
-// 3. 地图插件拥有的只有密钥区那一格和瓦片缓存：没有派生视图、卡片、素材来源；数据契约里登记数据源"高德地图"和移除时删什么；
-//    我的足迹（430）的数据在手机插件那里，是可选依赖。
+// 3. 地图插件拥有的只有密钥区那一格、瓦片缓存和聊天里的地图卡片（431）：没有派生视图、素材来源；数据契约里登记数据源"高德地图"、
+//    地图卡片和移除时删什么；我的足迹（430）的数据在手机插件那里，是可选依赖。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -48,10 +48,10 @@ describe("地图插件的边界", () => {
     expect(imports).toContain("daemon.ts → map/api.ts");
   });
 
-  it("不拥有事件：没有视图；要数据目录、密钥区里自己那一格、时钟；可选地要手机插件（我的足迹，430）", () => {
+  it("没有视图；要数据目录、密钥区里自己那一格、时钟、卡片（地图卡片，431）；可选地要手机插件（我的足迹，430）", () => {
     expect(mapPlugin.views ?? []).toEqual([]);
     expect(typeof mapPlugin.contracts).toBe("function");
-    expect((mapPlugin.needs ?? []).map((k) => k.id).toSorted()).toEqual(["clock", "dataSourceSecrets", "layout"]);
+    expect((mapPlugin.needs ?? []).map((k) => k.id).toSorted()).toEqual(["cards", "clock", "dataSourceSecrets", "layout"]);
     expect((mapPlugin.wants ?? []).map((k) => k.id)).toEqual(["phone"]);
   });
 });

@@ -11,7 +11,7 @@ import { describe, expect, test, vi } from "vitest";
 import { AmapPanelView, type AmapPanelViewProps, amapResultOf } from "../../src/plugins/map/AmapPanel.tsx";
 import { type AmapNamespace, createAmapEngine } from "../../src/plugins/map/amap-engine.ts";
 import { mapWebPlugin } from "../../src/plugins/map/plugin.tsx";
-import { chooseBasemap, clampZoom, DEFAULT_VIEW, parseSavedView, viewToFit } from "../../src/plugins/map/scene.ts";
+import { AMAP_WITH_FOOTPRINTS, chooseBasemap, clampZoom, DEFAULT_VIEW, parseSavedView, viewToFit } from "../../src/plugins/map/scene.ts";
 import { metersPerPixel, pointAt, pointOnScreen, screenPoint, tilesFor, worldPoint } from "../../src/plugins/map/tiles.ts";
 import { createWebPluginHost } from "../../src/plugins/host.ts";
 import { WEB_PLUGIN_MANIFEST } from "../../src/plugins/manifest.ts";
@@ -80,6 +80,12 @@ describe("一屏用哪种底图", () => {
   test("国外、香港：一律 OpenStreetMap（那里 GCJ-02 等于 WGS-84，OSM 的瓦片和二狗的点对得上）", () => {
     expect(chooseBasemap(SINGAPORE, true)).toBe("osm");
     expect(chooseBasemap(HONG_KONG, true)).toBe("osm");
+  });
+
+  test("画着用户自己的足迹：大陆里高德能用也用 OpenStreetMap（足迹不和高德的脚本在同一个页面里，431 用户定的）", () => {
+    expect(AMAP_WITH_FOOTPRINTS).toBe(false);
+    expect(chooseBasemap(HANGZHOU, true, true)).toBe("osm");
+    expect(chooseBasemap(HANGZHOU, true, false)).toBe("amap");
   });
 });
 
@@ -211,7 +217,7 @@ describe("设置 · 数据源 · 高德地图那一块", () => {
 });
 
 describe("插件登记的", () => {
-  test("地图页（导航里排在记忆后面、设置前面，收进\"更多\"时有返回）和高德地图那一块", () => {
+  test("地图页（导航里排在记忆后面、设置前面，收进\"更多\"时有返回）、高德地图那一块、聊天里的地图卡片（431）", () => {
     const host = createWebPluginHost({ plugins: WEB_PLUGIN_MANIFEST, log: noop });
     host.apply(undefined);
     expect(host.ownerOf("pages", "map")?.name).toBe("map");
@@ -219,6 +225,7 @@ describe("插件登记的", () => {
     const page = host.get("pages", "map")!;
     expect({ order: page.order, icon: page.icon, navLabel: page.navLabel, title: page.title, column: typeof page.Column }).toEqual({ order: 85, icon: "map", navLabel: "地图", title: "地图", column: "function" });
     expect(navItemsFor({ browse: false, plugins: host.list("pages") }).slice(-3)).toEqual(["memory", "map", "settings"]);
-    expect(mapWebPlugin.owns).toEqual({ pages: ["map"], dataSources: ["amap"] });
+    expect(host.ownerOf("cards", "map")?.name).toBe("map");
+    expect(mapWebPlugin.owns).toEqual({ pages: ["map"], dataSources: ["amap"], cards: ["map"] });
   });
 });

@@ -80,7 +80,7 @@ describe("按真守护进程报的状况装网页插件", () => {
       tabs: ["browse"],
       chatItems: ["recall"],
       details: ["recall"],
-      cards: ["reminder", "memory_delete", "interview", "interview_files", "browse_pick"],
+      cards: ["reminder", "memory_delete", "interview", "interview_files", "browse_pick", "map"],
       boardEntries: ["reminder", "memory_curator"],
       calendar: ["reminders"],
       dataSources: ["phone-contacts", "phone-calendar", "phone-photos", "phone-location", "google-calendar", "google-gmail", "google-contacts", "looki", "amap"],
@@ -105,7 +105,7 @@ describe("按真守护进程报的状况装网页插件", () => {
       ["map", "running"],
     ]);
     expect([host.running("reminders"), host.running("memory")]).toEqual([true, false]);
-    expect(slotsOf(host)).toEqual({ pages: ["calendar", "map"], tabs: ["browse"], chatItems: [], details: [], cards: ["reminder", "browse_pick"], boardEntries: ["reminder"], calendar: ["reminders"], dataSources: ["phone-contacts", "phone-calendar", "phone-photos", "phone-location", "google-calendar", "google-gmail", "google-contacts", "looki", "amap"] });
+    expect(slotsOf(host)).toEqual({ pages: ["calendar", "map"], tabs: ["browse"], chatItems: [], details: [], cards: ["reminder", "browse_pick", "map"], boardEntries: ["reminder"], calendar: ["reminders"], dataSources: ["phone-contacts", "phone-calendar", "phone-photos", "phone-location", "google-calendar", "google-gmail", "google-contacts", "looki", "amap"] });
     expect(navItemsFor({ browse: false, plugins: host.list("pages") })).toEqual(["secretary", "tasks", "projects", "inbox", "calendar", "usage", "map", "settings"]);
     expect(["pages:memory", "chatItems:recall", "details:recall", "cards:memory_delete", "cards:interview", "cards:interview_files", "boardEntries:memory_curator"].map((k) => host.unavailable(k.split(":")[0] as never, k.split(":")[1]!))).toEqual(["记忆", "记忆", "记忆", "记忆", "记忆", "记忆", "记忆"]);
     expect(host.unavailable("cards", "reminder")).toBeUndefined();
@@ -116,7 +116,7 @@ describe("按真守护进程报的状况装网页插件", () => {
   test("配置里停用提醒插件（录下的事件流）：提醒卡、看板上的提醒、日历里的提醒都没有，拥有的位置交回\"提醒\"；记忆照常", () => {
     const { host } = assembled("plugins-reminders-off");
     expect([host.running("reminders"), host.running("memory")]).toEqual([false, true]);
-    expect(slotsOf(host)).toEqual({ pages: ["calendar", "memory", "map"], tabs: ["browse"], chatItems: ["recall"], details: ["recall"], cards: ["memory_delete", "interview", "interview_files", "browse_pick"], boardEntries: ["memory_curator"], calendar: [], dataSources: ["phone-contacts", "phone-calendar", "phone-photos", "phone-location", "google-calendar", "google-gmail", "google-contacts", "looki", "amap"] });
+    expect(slotsOf(host)).toEqual({ pages: ["calendar", "memory", "map"], tabs: ["browse"], chatItems: ["recall"], details: ["recall"], cards: ["memory_delete", "interview", "interview_files", "browse_pick", "map"], boardEntries: ["memory_curator"], calendar: [], dataSources: ["phone-contacts", "phone-calendar", "phone-photos", "phone-location", "google-calendar", "google-gmail", "google-contacts", "looki", "amap"] });
     expect([host.unavailable("cards", "reminder"), host.unavailable("boardEntries", "reminder"), host.unavailable("calendar", "reminders")]).toEqual(["提醒", "提醒", "提醒"]);
     // 记忆页的"档案"也盖住"更多"里的个人档案
     expect(host.list("pages").flatMap((p) => p.covers ?? [])).toEqual(["materials-delete", "files"]);
@@ -138,7 +138,7 @@ describe("按真守护进程报的状况装网页插件", () => {
       ["map", "running"],
     ]);
     expect([host.running("reminders"), host.running("memory"), host.running("calendar")]).toEqual([true, true, false]);
-    expect(slotsOf(host)).toEqual({ pages: ["memory", "map"], tabs: ["browse"], chatItems: ["recall"], details: ["recall"], cards: ["reminder", "memory_delete", "interview", "interview_files", "browse_pick"], boardEntries: ["reminder", "memory_curator"], calendar: ["reminders"], dataSources: ["phone-contacts", "phone-calendar", "phone-photos", "phone-location", "google-calendar", "google-gmail", "google-contacts", "looki", "amap"] });
+    expect(slotsOf(host)).toEqual({ pages: ["memory", "map"], tabs: ["browse"], chatItems: ["recall"], details: ["recall"], cards: ["reminder", "memory_delete", "interview", "interview_files", "browse_pick", "map"], boardEntries: ["reminder", "memory_curator"], calendar: ["reminders"], dataSources: ["phone-contacts", "phone-calendar", "phone-photos", "phone-location", "google-calendar", "google-gmail", "google-contacts", "looki", "amap"] });
     expect(navItemsFor({ browse: false, plugins: host.list("pages") })).toEqual(["secretary", "tasks", "projects", "inbox", "usage", "memory", "map", "settings"]);
     expect(navItemsFor({ browse: true, plugins: host.list("pages") })).toEqual(["secretary", "tasks", "projects", "inbox", "browse", "usage", "memory", "map", "settings"]);
     expect(host.get("pages", "calendar")).toBeUndefined();
@@ -169,7 +169,7 @@ describe("按真守护进程报的状况装网页插件", () => {
       ["map", "running"],
     ]);
     expect(host.running("browsing")).toBe(false);
-    expect(slotsOf(host)).toEqual({ pages: ["calendar", "memory", "map"], tabs: [], chatItems: ["recall"], details: ["recall"], cards: ["reminder", "memory_delete", "interview", "interview_files"], boardEntries: ["reminder", "memory_curator"], calendar: ["reminders"], dataSources: ["phone-contacts", "phone-calendar", "phone-photos", "phone-location", "google-calendar", "google-gmail", "google-contacts", "looki", "amap"] });
+    expect(slotsOf(host)).toEqual({ pages: ["calendar", "memory", "map"], tabs: [], chatItems: ["recall"], details: ["recall"], cards: ["reminder", "memory_delete", "interview", "interview_files", "map"], boardEntries: ["reminder", "memory_curator"], calendar: ["reminders"], dataSources: ["phone-contacts", "phone-calendar", "phone-photos", "phone-location", "google-calendar", "google-gmail", "google-contacts", "looki", "amap"] });
     expect([host.unavailable("tabs", "browse"), host.unavailable("cards", "browse_pick")]).toEqual(["内置浏览器", "内置浏览器"]);
     // 鸿蒙 App 里（有原生浏览器）导航也没有"浏览"：组合根按页签插槽里有没有它定（App.tsx 的 Shell）
     const browse = host.get("tabs", "browse") !== undefined;

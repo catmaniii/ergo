@@ -80,15 +80,19 @@ export function useFootprints(http: DaemonHttp, item: string | undefined): Footp
     const date = parseMapDayItem(item);
     return { date: date ?? today, chosen: date !== undefined, fit: parseMapFocusItem(item) === undefined };
   });
-  // 地址里的日期变了（聊天里的足迹卡片点进来）：换那一天、挪视野（React 推荐的"跟着 props 调 state"的写法）
+  // 地址里的日期变了（聊天里的足迹卡片点进来）：换那一天、挪视野（React 推荐的"跟着 props 调 state"的写法）；
+  // 地址里写了日期就是要看那天的足迹：关着的"足迹"这次打开（不改记着的开关）
   const [lastItem, setLastItem] = useState(item);
+  const [loaded, setLoaded] = useState<{ date: string; view: MapDayView } | { date: string; error: string }>();
+  const [shown, setShown] = useState(() => layerShown() || parseMapDayItem(item) !== undefined);
   if (item !== lastItem) {
     setLastItem(item);
     const date = parseMapDayItem(item);
-    if (date !== undefined) setRequest({ date, chosen: true, fit: true });
+    if (date !== undefined) {
+      setRequest({ date, chosen: true, fit: true });
+      setShown(true);
+    }
   }
-  const [loaded, setLoaded] = useState<{ date: string; view: MapDayView } | { date: string; error: string }>();
-  const [shown, setShown] = useState(layerShown);
   const [selected, setSelected] = useState<string>();
   const [fit, setFit] = useState<{ bounds: readonly LatLon[] }>();
   const [focus, setFocus] = useState<{ lat: number; lon: number; zoom?: number }>();

@@ -77,13 +77,13 @@ describe("地图插件", () => {
     expect(source(k).connection).toBe("not_connected");
   });
 
-  it("移除并连数据删：密钥区那一格、瓦片缓存删掉；确认框写明删什么、删不掉什么；它不带给 agent 的东西", async () => {
+  it("移除并连数据删：密钥区那一格、瓦片缓存、地图卡片删掉；确认框写明删什么、删不掉什么；带给秘书一个工具、一种卡片（431）", async () => {
     const { k } = await setup();
     await k.dataSources.act(AMAP_SOURCE_ID, { action: "configure", values: { jsKey: AMAP_TEST_JS_KEY, securityCode: AMAP_TEST_SECURITY_CODE }, idempotencyKey: key() });
     await k.host.service(MAP)!.tile({ source: "osm", z: 0, x: 0, y: 0 }, live());
     const info = k.host.info().find((p) => p.name === MAP_PLUGIN)!;
-    expect(info.brings).toEqual({ tools: [], cards: [], jobs: [] });
-    expect(info.removal?.deletes).toEqual(["填过的高德 Key 和安全密钥", "缓存在这台电脑上的地图瓦片"]);
+    expect(info.brings).toEqual({ tools: ["画在地图上"], cards: ["聊天里的地图卡片"], jobs: [] });
+    expect(info.removal?.deletes).toEqual(["填过的高德 Key 和安全密钥", "缓存在这台电脑上的地图瓦片", "聊天里的地图卡片（卡上的标题、点和路线）"]);
     expect(info.removal?.keeps.join("\n")).toContain("聊天里说到过的地点");
     const result = await k.settings.act(MAP_PLUGIN, { action: "remove", purgeData: true, idempotencyKey: key() });
     expect(result.purged).toMatchObject({ events: 0, files: 2 });

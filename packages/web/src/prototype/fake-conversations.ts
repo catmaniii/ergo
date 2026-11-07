@@ -48,10 +48,13 @@ import {
   type QuickActionCardPayload,
   type ReminderCardPayload,
   type JobRun,
+  localDate,
+  type MapCardPayload,
   type ScheduledJob,
   type ScheduledJobEventPayload,
   type ScheduleTaskCardPayload,
   type ServiceEntryCardPayload,
+  shiftMapDate,
   type SkillChangeCardPayload,
   type Speaker,
   type Task,
@@ -465,6 +468,9 @@ const standardBackfillOldsite: StandardBackfillPayload = {
 
 /** 秘书提交的 skill 的触发说明（卡上的"它会改变什么行为"，也写在拼好的 SKILL.md 里） */
 const FAKE_SKILL_DESCRIPTION = "你说「整理这周的笔记」时用: 按日期归并，标出待办，最后列 3 条要点";
+
+/** 地图卡片画的那一天：演示的足迹在"昨天"（fake-footprints.ts 按今天算） */
+const MAP_DAY_DATE = shiftMapDate(localDate(new Date()), -1);
 
 export const FAKE_CARDS: Card[] = [
   card("c-rem-1", "reminder", {
@@ -975,6 +981,10 @@ export const FAKE_CARDS: Card[] = [
     } satisfies PairingPayload,
     { urgency: "non_blocking", createdAt: at("10-07", "00:47") },
   ),
+  // 聊天里的地图卡片（431，出来就是已处理）：昨天的足迹（按日期现取 fake-footprints.ts 的那一天）、从公司到西湖边的路线（OpenStreetMap 查的，
+  // 按编号现取 fake-map.ts 的那一份）
+  card("c-map-day", "map", { show: { kind: "day", date: MAP_DAY_DATE } } satisfies MapCardPayload, { status: "handled", createdAt: at("10-07", "09:05") }),
+  card("c-map-route", "map", { title: "从公司到西湖边", show: { kind: "lookup", lookup: "osm-r1", what: "route", source: "osm" } } satisfies MapCardPayload, { status: "handled", createdAt: at("10-07", "09:10") }),
   // 两个流程的计划卡（fake-workflow.ts）：退回的 v1、授权的 v2，定时流程的那一份
   ...WORKFLOW_CARDS,
   // 三个长程任务的计划卡、验收结论、计划变更卡（fake-long-tasks.ts）：并行的阶段、计划等你确认、计划调整中
@@ -1576,6 +1586,43 @@ const PLAIN: MessageEnvelope[] = [
 ];
 // 普通任务 agent 会话里的消息带着所属的任务（守护进程照样带）：缩小后左边一张任务卡；没有阶段，不画书脊
 for (const m of PLAIN) SCOPES.set(m.id, { taskId: FAKE_PLAIN_TASK.id });
+/**
+ * 画在地图上（431）：昨天去过哪（show_on_map 画足迹，先说结论再给卡片）、从公司走到西湖边多久（查路线，用编号画成路线卡片）。
+ * 编号写死：不让后面那些调用的编号挪动。路线是编的、OpenStreetMap 查的（433 那一家；没有高德也能用）
+ */
+const SECRETARY_MAP: MessageEnvelope[] = [
+  { id: "msg-map-day-ask", conversation: S, speaker: "user", time: at("10-07", "09:04"), parts: [text("把我昨天去过的地方画在地图上")] },
+  {
+    id: "msg-map-day-reply",
+    conversation: S,
+    speaker: "agent",
+    time: at("10-07", "09:05"),
+    parts: [
+      toolAs("call-map-day", "show_on_map", `date=${MAP_DAY_DATE}`, {
+        nature: "look",
+        result: `已在聊天里放了一张地图卡片：${MAP_DAY_DATE} 的足迹（用户点开能看大地图，轨迹、停留、照片地点都在上面）。\n这一天待过 3 个地方（按先到的先后）：家（07:00–08:15）、公司（08:50–17:30）、杭州市西湖区北山街（18:10–20:30）。\n拍了 6 张照片（1 张没有地点）。`,
+      }),
+      text("去了 3 个地方：家、公司，晚上在西湖边的北山街待了两个多小时，拍了几张照片。"),
+      cardRef("c-map-day"),
+    ],
+  },
+  { id: "msg-map-route-ask", conversation: S, speaker: "user", time: at("10-07", "09:09"), parts: [text("从公司走到西湖边要多久？画在地图上")] },
+  {
+    id: "msg-map-route-reply",
+    conversation: S,
+    speaker: "agent",
+    time: at("10-07", "09:10"),
+    parts: [
+      toolAs("call-map-route", "map_route", "from=公司 to=西湖边 modes=walking,driving", {
+        nature: "look",
+        result: "从「公司」（常去的地方）到「西湖边」：\n- 步行：约 25 分钟，1.9 公里\n- 开车：约 9 分钟，2.6 公里（没有实时路况）\n数据来自 OpenStreetMap，现查的，没存。编号 osm-r1（要画在地图上时用它）。",
+      }),
+      toolAs("call-map-route-show", "show_on_map", "lookup=osm-r1", { nature: "look", result: "已在聊天里放了一张地图卡片「从公司到西湖边」（2 个点、2 条路线；卡上写着数据来自哪家）。" }),
+      text("走过去约 **25 分钟**（1.9 公里）；开车约 9 分钟。"),
+      cardRef("c-map-route"),
+    ],
+  },
+];
 /** 助理那边：交出去时说一声，做完转告结果 */
 const SECRETARY_PLAIN: MessageEnvelope[] = [
   msg(S, "user", at("10-07", "08:39"), text("去搜一下晴天这首歌，把音频下下来")),
@@ -2385,7 +2432,7 @@ for (const m of REMOTE) SCOPES.set(m.id, { taskId: FAKE_REMOTE_TASK.id });
 
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
-  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...SECRETARY_VOICE_RETRY, ...SECRETARY_RELAY, ...SECRETARY_ATTACHMENTS, ...SECRETARY_ATTACHMENT_FIRST, ...PHOTOS, ...BILLS, ...LEDGER_EARLIER, ...LEDGER, ...LEDGER_LATEST, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX, ...CURATOR_MESSAGES, ...TAX_QUESTION, ...TAKEOVER, ...REMOTE].flatMap((m) => [
+  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_MAP, ...SECRETARY_VOICE, ...SECRETARY_VOICE_RETRY, ...SECRETARY_RELAY, ...SECRETARY_ATTACHMENTS, ...SECRETARY_ATTACHMENT_FIRST, ...PHOTOS, ...BILLS, ...LEDGER_EARLIER, ...LEDGER, ...LEDGER_LATEST, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX, ...CURATOR_MESSAGES, ...TAX_QUESTION, ...TAKEOVER, ...REMOTE].flatMap((m) => [
     ...(RECORDS_BEFORE.get(m.id) ?? []).map((payload) => ({ channel: m.conversation, type: EVENT_TYPES.timelineRecord, payload })),
     { channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id), ...(AGENT_INPUTS.has(m.id) ? { agentInput: true } : {}) } },
   ]),
