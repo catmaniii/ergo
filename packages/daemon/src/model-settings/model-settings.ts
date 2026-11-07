@@ -27,9 +27,18 @@
 //   目录 0o700），同时换进内存里的 key（credentials + keyApplied 交给组合根别处取 key 的地方），下一次模型调用就用新的；
 //   接口回的、页面上的、日志里的都没有 key 的内容。连通测试的出错原因里 provider 可能带着 key 的一截，子进程去掉一遍，这里再去掉一遍
 //   （都用 runtime/redact.ts）。
+// - 自动压缩点（420，协议包的 auto-compact.ts）：默认值是设置的一项（autoCompactAt，设置页整份存时带着；没带就留着原来的，
+//   和内置默认一样时不写），每个 agent 在自己的 ⚙ 里单独设的存在同一个文件的 agentAutoCompact 里（按 agent id，设置页整份存时原样留着）。
+//   会话每轮结束时按 agent id 现取（autoCompactOf），所以改了从这一轮结束起就按新的判断，不等新会话。
 import fs from "node:fs";
 import path from "node:path";
 import {
+  AUTO_COMPACT_DEFAULT,
+  AUTO_COMPACT_MAX,
+  AUTO_COMPACT_MIN,
+  type AutoCompactSetting,
+  autoCompactDefaultOf,
+  autoCompactProblem,
   CUSTOM_MODELS_MAX,
   CUSTOM_PROVIDER_ID,
   checkModelCustom,
@@ -108,6 +117,15 @@ export interface ModelSettingsService {
   setMaintainerModel(agentId: string, choice: ModelChoice): Promise<void>;
   /** 不再单独配、改回跟随那一行（⚙ 里改回、项目归档、任务归档）；why 记进日志。原来就没有回 false */
   followRole(agentId: string, why: string): boolean;
+  /** 这个 agent 的自动压缩点（420）：设置里的默认值、在它的 ⚙ 里单独设的（跟随默认时没有）。会话每轮结束时现取 */
+  autoCompactOf(agentId: string): AutoCompactSetting;
+  /**
+   * 单独设这个 agent 的自动压缩点：查过范围（autoCompactProblem；model 给了还按这个模型的上限查），不合规抛 RequestRejected
+   * （HTTP 回 400），再写文件；从它这一轮结束起按新的判断
+   */
+  setAutoCompact(agentId: string, at: number, model?: { window: number; reserveTokens?: number }): void;
+  /** 不再单独设、恢复跟随默认（⚙ 里恢复默认、项目归档、任务归档）；why 记进日志。原来就没有回 false */
+  followAutoCompact(agentId: string, why: string): boolean;
   /** 配置写明的看图能力（设置页改的优先于配置文件），键是「provider/模型 id」；拉起 agent 时交给子进程 */
   configuredVision(): Record<string, boolean>;
   /**
@@ -191,6 +209,8 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
   let settings: ModelSettings = loaded.settings;
   /** 单独配了模型的负责人：agent id → 选定的 */
   let maintainers: Record<string, ModelChoice> = loaded.maintainers;
+  /** 单独设了自动压缩点的 agent：agent id → 压缩点 */
+  let agentAutoCompact: Record<string, number> = loaded.agentAutoCompact;
   /** 单独配的模型用不了、退回跟随那一行时记过日志的（agent id → 那个模型；不刷屏） */
   const fallbackLogged = new Map<string, string>();
   /** 设置文件读不出来的原因（这时在用默认；设置页存一次覆盖它之后清掉） */
@@ -272,11 +292,17 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
     return undefined;
   };
 
-  /** 写设置文件：设置加上单独配了模型的负责人（没有就不写这一项） */
-  const save = (next: ModelSettings, nextMaintainers: Record<string, ModelChoice>, where: string) => {
-    writeJsonAtomic(file, { format: 1, ...next, ...(Object.keys(nextMaintainers).length === 0 ? {} : { maintainers: nextMaintainers }) } satisfies ModelSettingsFile);
+  /** 写设置文件：设置加上单独配了模型的负责人、单独设了自动压缩点的 agent（没有就不写这一项） */
+  const save = (next: ModelSettings, nextMaintainers: Record<string, ModelChoice>, where: string, nextAutoCompact: Record<string, number> = agentAutoCompact) => {
+    writeJsonAtomic(file, {
+      format: 1,
+      ...next,
+      ...(Object.keys(nextMaintainers).length === 0 ? {} : { maintainers: nextMaintainers }),
+      ...(Object.keys(nextAutoCompact).length === 0 ? {} : { agentAutoCompact: nextAutoCompact }),
+    } satisfies ModelSettingsFile);
     settings = next;
     maintainers = nextMaintainers;
+    agentAutoCompact = nextAutoCompact;
     if (fileError !== undefined) log(`模型设置的文件读不出来，${where}存了一份新的，覆盖了它：${file}`);
     fileError = undefined;
   };
@@ -319,6 +345,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
       effective: Object.fromEntries(MODEL_AGENTS.map((agent) => [agent, effectiveChoiceOf(agent)])) as Record<ModelAgent, ModelChoice>,
       ...(secretarySession ? { secretarySession } : {}),
       maintainers: maintainerViews(),
+      autoCompact: { defaultAt: autoCompactDefaultOf(settings), builtin: AUTO_COMPACT_DEFAULT, min: AUTO_COMPACT_MIN, max: AUTO_COMPACT_MAX, ownCount: Object.keys(agentAutoCompact).length },
     };
   };
 
@@ -429,6 +456,26 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
       log(`${agentId} 不再单独配模型（原来是 ${dropped.modelId}，思考 ${dropped.thinkingLevel}）：${why}；改回跟随它那一行的设置`);
       return true;
     },
+    autoCompactOf(agentId) {
+      const own = agentAutoCompact[agentId];
+      return { defaultAt: autoCompactDefaultOf(settings), ...(own === undefined ? {} : { own }) };
+    },
+    setAutoCompact(agentId, at, model) {
+      const problem = autoCompactProblem(at, model);
+      if (problem !== undefined) throw new RequestRejected("bad_params", problem);
+      if (fileError === undefined && agentAutoCompact[agentId] === at) return;
+      save(settings, maintainers, `${agentId} 的 ⚙ 里`, { ...agentAutoCompact, [agentId]: at }); // @i18n-ignore log：只进日志
+      log(`${agentId} 单独设了自动压缩点：${at} token（这一轮结束起按它判断）`);
+    },
+    followAutoCompact(agentId, why) {
+      const dropped = agentAutoCompact[agentId];
+      if (dropped === undefined) return false;
+      const rest = { ...agentAutoCompact };
+      delete rest[agentId];
+      save(settings, maintainers, "恢复默认时", rest); // @i18n-ignore log：只进日志
+      log(`${agentId} 不再单独设自动压缩点（原来是 ${dropped} token）：${why}；改回跟随默认（${autoCompactDefaultOf(settings)} token）`);
+      return true;
+    },
     configuredVision,
     async visionOf(model) {
       const configured = configuredVision()[model.kind === "faux" ? "faux" : modelKeyOf(model.provider, model.modelId)];
@@ -491,14 +538,32 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
         check(parts.modelId, t("modelSettings.where.vision"));
         vision[key] = value;
       }
-      const next: ModelSettings = { provider: provider.id, default: { modelId: body.default.modelId, thinkingLevel: body.default.thinkingLevel }, agents, vision, ...(custom === undefined ? {} : { custom }) };
-      // 设置文件读不出来时，存一次就覆盖它（哪怕和正在用的默认一样）；单独配了模型的负责人原样留着（只经 ⚙ 改）
-      if (fileError !== undefined || JSON.stringify(next) !== JSON.stringify(settings)) {
+      // 自动压缩点的默认值：这次没带就留着原来的；和内置默认一样时不写（设置文件里没有这一项就是内置的）
+      if (body.autoCompactAt !== undefined) {
+        const problem = autoCompactProblem(body.autoCompactAt);
+        if (problem !== undefined) throw new RequestRejected("bad_params", problem);
+      }
+      const compactAt = body.autoCompactAt ?? settings.autoCompactAt;
+      const next: ModelSettings = {
+        provider: provider.id,
+        default: { modelId: body.default.modelId, thinkingLevel: body.default.thinkingLevel },
+        agents,
+        vision,
+        ...(custom === undefined ? {} : { custom }),
+        ...(compactAt === undefined || compactAt === AUTO_COMPACT_DEFAULT ? {} : { autoCompactAt: compactAt }),
+      };
+      // 设置文件读不出来时，存一次就覆盖它（哪怕和正在用的默认一样）；单独配了模型的负责人、单独设了压缩点的 agent 原样留着（只经 ⚙ 改）
+      const { autoCompactAt: _nextCompact, ...nextModels } = next;
+      const { autoCompactAt: _wasCompact, ...wasModels } = settings;
+      const modelsChanged = JSON.stringify(nextModels) !== JSON.stringify(wasModels);
+      const compactChanged = autoCompactDefaultOf(next) !== autoCompactDefaultOf(settings);
+      if (fileError !== undefined || modelsChanged || compactChanged) {
         save(next, maintainers, "设置页"); // @i18n-ignore log：只进日志
         // 自定义服务商的地址、模型 id 变了：模型目录那份记的不作数了，下次要用时重查（在一次性子进程里登记后查）
         catalogs.delete(CUSTOM_PROVIDER_ID);
         known.delete(CUSTOM_PROVIDER_ID);
-        log(`模型设置改了（下一个新会话起生效）：默认 ${next.default.modelId}（思考 ${next.default.thinkingLevel}）${describeAgents(next)}`);
+        if (modelsChanged) log(`模型设置改了（下一个新会话起生效）：默认 ${next.default.modelId}（思考 ${next.default.thinkingLevel}）${describeAgents(next)}`);
+        if (compactChanged) log(`自动压缩点的默认改成了 ${autoCompactDefaultOf(next)} token：跟随默认的 agent 从这一轮结束起按它判断（单独设了的 ${Object.keys(agentAutoCompact).length} 个不变）`);
       }
       return view();
     },
@@ -603,16 +668,16 @@ function checkModel(modelId: string, allowed: { ids: Set<string>; fromCatalog: b
 /**
  * 读设置文件：没有是默认；读不了、不合规时 error 是原因，按默认用、记一条日志（先不覆盖文件：设置页上提示，存一次才覆盖）
  */
-function readSettings(file: string, log: (line: string) => void): { settings: ModelSettings; maintainers: Record<string, ModelChoice>; error?: string } {
+function readSettings(file: string, log: (line: string) => void): { settings: ModelSettings; maintainers: Record<string, ModelChoice>; agentAutoCompact: Record<string, number>; error?: string } {
   const broken = (error: string) => {
     log(`模型设置的文件读不出来：${file}：${error}；正在用默认，设置页保存会覆盖它`);
-    return { settings: structuredClone(DEFAULT_MODEL_SETTINGS) as ModelSettings, maintainers: {}, error };
+    return { settings: structuredClone(DEFAULT_MODEL_SETTINGS) as ModelSettings, maintainers: {}, agentAutoCompact: {}, error };
   };
   let parsed: unknown;
   try {
     parsed = JSON.parse(fs.readFileSync(file, "utf8"));
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return { settings: structuredClone(DEFAULT_MODEL_SETTINGS) as ModelSettings, maintainers: {} };
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return { settings: structuredClone(DEFAULT_MODEL_SETTINGS) as ModelSettings, maintainers: {}, agentAutoCompact: {} };
     return broken(err instanceof Error ? err.message : String(err));
   }
   if (!settingsFile.check(parsed)) return broken(t("modelSettings.file.invalid", { error: settingsFile.firstError(parsed) ?? t("modelSettings.file.invalidUnknown") }));
@@ -620,8 +685,13 @@ function readSettings(file: string, log: (line: string) => void): { settings: Mo
   // 跨字段的那几条：provider 是 custom 时要有 custom，地址要是 http(s)、模型 id 不能空（旧文件没有这一项，照旧合规）
   const checked = checkModelCustom(parsed);
   if (!checked.ok) return broken(t("modelSettings.file.invalid", { error: checked.error }));
-  const { format: _format, maintainers, ...settings } = parsed;
-  return { settings: { ...settings, ...(checked.custom === undefined ? {} : { custom: checked.custom }) } as ModelSettings, maintainers: (maintainers ?? {}) as Record<string, ModelChoice> };
+  // 旧的设置文件没有 autoCompactAt、agentAutoCompact：照常读，压缩点按内置的 70 万
+  const { format: _format, maintainers, agentAutoCompact, ...settings } = parsed;
+  return {
+    settings: { ...settings, ...(checked.custom === undefined ? {} : { custom: checked.custom }) } as ModelSettings,
+    maintainers: (maintainers ?? {}) as Record<string, ModelChoice>,
+    agentAutoCompact: { ...agentAutoCompact },
+  };
 }
 
 // @i18n-ignore-next log：只进日志

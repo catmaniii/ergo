@@ -434,3 +434,63 @@ describe("在网页上填模型的 key", () => {
     expect(service.keyView().apiKey.configured).toBe(true);
   });
 });
+
+// 420：自动压缩点。默认值是设置的一项（设置页整份存时带着，没带就留着原来的），每个 agent 单独设的按 agent id 记在同一个文件里
+describe("自动压缩点（420）", () => {
+  it("旧的设置文件（没有这一项）照常读：默认按 70 万，没有单独设的；设置页上写默认值、内置的、范围", async () => {
+    const dataDir = makeTempDir("ergo-data-");
+    const { modelSettingsFile, config } = dataDirLayout(dataDir);
+    fs.mkdirSync(config, { recursive: true });
+    fs.writeFileSync(modelSettingsFile, JSON.stringify({ format: 1, provider: "deepseek", default: { modelId: "deepseek-v4-pro", thinkingLevel: "high" }, agents: {}, vision: {} }));
+    const { service } = setup({ dataDir });
+    expect(service.modelFor("secretary")).toMatchObject({ modelId: "deepseek-v4-pro" });
+    expect(service.autoCompactOf("secretary")).toEqual({ defaultAt: 700_000 });
+    const view = await service.view();
+    expect(view.settingsFileError).toBeUndefined();
+    expect(view.autoCompact).toEqual({ defaultAt: 700_000, builtin: 700_000, min: 50_000, max: 10_000_000, ownCount: 0 });
+  });
+
+  it("改默认：写进设置文件（和内置的一样时不写这一项），跟随默认的 agent 一起变、单独设的不变；没带这一项的整份存留着原来的；重启后照文件", async () => {
+    const { service, layout, dataDir, logs } = setup();
+    service.setAutoCompact("pm-1", 300_000);
+    const saved = await service.change(settings({ autoCompactAt: 500_000 }));
+    expect(saved.autoCompact).toMatchObject({ defaultAt: 500_000, ownCount: 1 });
+    expect(service.autoCompactOf("secretary")).toEqual({ defaultAt: 500_000 });
+    expect(service.autoCompactOf("pm-1")).toEqual({ defaultAt: 500_000, own: 300_000 });
+    expect(JSON.parse(fs.readFileSync(layout.modelSettingsFile, "utf8"))).toMatchObject({ autoCompactAt: 500_000, agentAutoCompact: { "pm-1": 300_000 } });
+    expect(logs.join("\n")).toMatch(/自动压缩点的默认改成了 500000 token/);
+    // 只改模型、没带压缩点：留着原来的（旧网页、首次设置向导整份存时不会把它弄丢）
+    await service.change(settings({ default: { modelId: "deepseek-v4-pro", thinkingLevel: "high" } }));
+    expect(service.autoCompactOf("secretary").defaultAt).toBe(500_000);
+    // 重启：照文件
+    expect(setup({ dataDir }).service.autoCompactOf("pm-1")).toEqual({ defaultAt: 500_000, own: 300_000 });
+    // 恢复默认（存内置的那个数）：文件里不写这一项，单独设的照样留着
+    await service.change(settings({ default: { modelId: "deepseek-v4-pro", thinkingLevel: "high" }, autoCompactAt: 700_000 }));
+    const file = JSON.parse(fs.readFileSync(layout.modelSettingsFile, "utf8")) as Record<string, unknown>;
+    expect(file).not.toHaveProperty("autoCompactAt");
+    expect(file.agentAutoCompact).toEqual({ "pm-1": 300_000 });
+    expect(service.autoCompactOf("secretary")).toEqual({ defaultAt: 700_000 });
+  });
+
+  it("范围不对的不存（400，说清最少、最多）：默认值、单独设的都查；单独设的给了模型窗口还按这个模型的上限查；文件不动", async () => {
+    const { service, layout } = setup();
+    await expect(service.change(settings({ autoCompactAt: 10_000 }))).rejects.toThrow(/最少 50,000 token/);
+    await expect(service.change(settings({ autoCompactAt: 20_000_000 }))).rejects.toThrow(/最多 10,000,000 token/);
+    expect(() => service.setAutoCompact("secretary", 49_999)).toThrow(RequestRejected);
+    expect(() => service.setAutoCompact("secretary", 990_000, { window: 1_000_000, reserveTokens: 16_384 })).toThrow(/最多设到 983,616 token（窗口 1,000,000 减 16,384/);
+    expect(fs.existsSync(layout.modelSettingsFile)).toBe(false);
+    // 窗口还不知道时只查范围
+    service.setAutoCompact("secretary", 990_000);
+    expect(service.autoCompactOf("secretary").own).toBe(990_000);
+  });
+
+  it("恢复跟随默认：去掉这一条、写进日志；原来就没有的回 false；文件里没有单独设的就不写这一项", () => {
+    const { service, layout, logs } = setup();
+    service.setAutoCompact("tm-3", 200_000);
+    expect(service.followAutoCompact("tm-3", "在它的 ⚙ 里恢复默认")).toBe(true);
+    expect(service.autoCompactOf("tm-3")).toEqual({ defaultAt: 700_000 });
+    expect(logs.join("\n")).toMatch(/tm-3 不再单独设自动压缩点（原来是 200000 token）：在它的 ⚙ 里恢复默认/);
+    expect(service.followAutoCompact("tm-3", "再来一次")).toBe(false);
+    expect(JSON.parse(fs.readFileSync(layout.modelSettingsFile, "utf8"))).not.toHaveProperty("agentAutoCompact");
+  });
+});

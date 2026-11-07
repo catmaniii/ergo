@@ -5,5 +5,6 @@
   "agentSettings.runtime.badModel": "{runtime}没有模型「{model}」",
   "agentSettings.runtime.badSetting": "{runtime}没有设置项「{setting}」",
   "agentSettings.runtime.badValue": "「{setting}」没有「{value}」这一档",
-  "agentSettings.runtime.notAllowed": "{label}不能选运行时"
+  "agentSettings.runtime.notAllowed": "{label}不能选运行时",
+  "agentSettings.autoCompact.managed": "{runtime}自己管压缩，这里设的压缩点对它不起作用"
 }

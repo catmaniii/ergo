@@ -5,6 +5,8 @@
 // - API key 只说配没配、从哪来，页面上没有 key 的内容；能在页面上填一个换掉（那块在 ui/model-key.tsx，
 //   请求体和"存好之后怎么说"在 state/model-key.ts）；
 // - 看图能力：这里改的为准，其次配置文件写明的，都没写按模型目录。
+// - 自动压缩点的默认值（420）：对话到多少 token 自动压缩，每个 agent 跟随它、也能在自己的 ⚙ 里单独设；改了每轮说完就按新的判断
+//   （不等新会话）。"恢复默认"存的是内置的 70 万。
 // - 单独配了模型的负责人：项目、任务的负责人在自己的 ⚙ 里选定，盖过它那一行；这一页在那一行下面列出来（点了去它的 ⚙），
 //   ⚙ 上的"模型"一块也在这里写成话（模型清单、看图能力的说法和这一页同一套）。
 import {
@@ -32,6 +34,7 @@ import {
   t,
   tTable,
 } from "./protocol.ts";
+import { tokensText } from "./agent-settings.ts";
 
 // 页面上的几句说明是函数（按当前语言现取）
 
@@ -63,6 +66,33 @@ export function settingsBody(settings: ModelSettings): ModelSettingsBody {
     agents: Object.fromEntries(Object.entries(settings.agents).map(([agent, o]) => [agent, { ...o }])),
     vision: { ...settings.vision },
     ...(settings.custom === undefined ? {} : { custom: { ...settings.custom } }),
+    ...(settings.autoCompactAt === undefined ? {} : { autoCompactAt: settings.autoCompactAt }),
+  };
+}
+
+/** 改自动压缩点的默认值（420）：恢复默认就是给内置的那个数（守护进程存的时候和内置的一样就不写） */
+export function withAutoCompact(settings: ModelSettings, at: number): ModelSettingsBody {
+  const body = settingsBody(settings);
+  body.autoCompactAt = at;
+  return body;
+}
+
+/** 设置 · 模型页上"自动压缩"那一块写成的话 */
+export interface ModelAutoCompactLines {
+  /** 现在的默认值，是不是内置的 */
+  readonly current: string;
+  /** 有几个 agent 在自己的 ⚙ 里单独设了（不跟这个变）；没有是 undefined */
+  readonly owners: string | undefined;
+  /** "恢复默认（70 万）"能不能点 */
+  readonly canReset: boolean;
+}
+
+export function modelAutoCompactLines(view: Pick<ModelSettingsView, "autoCompact">): ModelAutoCompactLines {
+  const { defaultAt, builtin, ownCount } = view.autoCompact;
+  return {
+    current: defaultAt === builtin ? t("state.modelSettings.autoCompact.currentBuiltin", { at: tokensText(defaultAt) }) : t("state.modelSettings.autoCompact.current", { at: tokensText(defaultAt), builtin: tokensText(builtin) }),
+    owners: ownCount > 0 ? t("state.modelSettings.autoCompact.owners", { count: ownCount }) : undefined,
+    canReset: defaultAt !== builtin,
   };
 }
 

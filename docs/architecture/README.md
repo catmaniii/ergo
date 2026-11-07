@@ -343,6 +343,8 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 **这一层不管的**：记忆的每晚整理（`memory/nightly-job.ts` 用 `DEEPSEEK_API_KEY` 建 `DeepSeekChat`）、联网搜索和读网页（`web/deepseek.ts` 是 DeepSeek 专有接口）、token 单价表（`packages/protocol/src/token-prices.ts` 只有 DeepSeek）都只认 DeepSeek，换成自定义服务商也不跟着换——碰这几样时按登记表里 `deepseek` 的 `keyEnv` / `secretFile`（或 `config/secrets.ts` 的 `deepseekKey()`）取 key，别顺手改成"当前服务商"。
 
+**自动压缩点（420）。** 对话到多少 token 自动压缩也存在这个文件里：默认值是设置的一项 `autoCompactAt`（没写是内置的 70 万，`POST /api/model-settings` 没带就沿用原来的），每个 agent 在 ⚙ 里单独设的记在 `agentAutoCompact`（按 agent id，`PUT` / `DELETE /api/agents/<id>/auto-compact`）。生效的点、范围在协议包的 `auto-compact.ts`（`effectiveAutoCompact`、`autoCompactProblem`，守护进程和网页同一份）：最少 5 万，最多窗口减 pi 的 `reserveTokens`（16384），设得更大按它算。触发在守护进程这一层：`conversation/agent-session.ts` 每轮结束（`turn_end` 已经追加、回复交出去了）拿子进程报的最近一次干活调用的上下文比这个 agent 此刻的点，过了就在追问之后、下一条输入之前送 `compact`（和"现在压缩"同一条路，秘书的压缩指令照带）。不挪用 pi 的 `reserveTokens`——它还管摘要最多写多长（pi 里是它的 0.8 倍）；pi 自己"窗口 − 16384"那一道照旧是最后一道。没压成不连环重试（`conversation/auto-compact.ts`：15 分钟起翻倍、最多 2 小时，之后到了某一轮结束才再试），上次自动压缩的结果在 ⚙ 的 `context.autoCompact` 里。Claude Code、Codex 跑的 agent 自己管压缩，不比这个点。
+
 ### 安装链
 
 `install.ps1` 下载、验签、解开之后依次：写 `current` → 放 `bin` → 加 PATH → `ergo svc install-autostart`（`ergo svc` 原样转给 lsm，带上 `LSM_DATA_DIR`）→ `ergo onboard`（`ergo start` 加一句指路向导）→ 报摘要。写成 `current` 之前失败才算安装失败（退出码 1，在用的版本不变）；之后的每一步失败只说清楚、其余照常、退出码 0。开关：`-NoAutostart`、`-NoStart`，`irm | iex` 用环境变量。

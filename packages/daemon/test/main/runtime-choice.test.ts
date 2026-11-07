@@ -5,7 +5,7 @@
 //   原样交给 Claude Code（不加时间标记、不带消息 id 那一行）；输入框的候选里有 Claude Code 报的命令；没选的 pi 任务照旧（/compact 照常加时间标记）；
 // - 秘书交给后台时带上运行时（delegate_task 的 runtime）：建出的任务用它；写了没启用的运行时，工具回错、不建任务；
 // - ⚙：Claude Code 的负责人按能力清单多"权限模式""思考档位"，模型列表是 Claude Code 报的；选的值交给子进程（下一轮的 query 选项里有）；
-//   不认得的值回 400；
+//   不认得的值回 400；自动压缩点写明由 Claude Code 自己管、不能单独设（420）；
 // - 中途换运行时（pi → Claude Code）：原来的 pi 写交接摘要，Claude Code 新开会话，摘要跟着下一条输入交过去；会话里记一条"已换成"；
 //   任务记着新的运行时；
 // - 原来的运行时写不了交接摘要、回 unsupported（假运行时 helpers/fake-runtime.ts 就这样回）：马上按没写成换，不等到超时。
@@ -155,6 +155,9 @@ describe("⚙ 按运行时、中途换运行时", () => {
 
     const view = (await agentSettingsApi.view(td.url, task.maintainerId)).body;
     expect(view.runtime).toMatchObject({ id: CLAUDE_CODE_RUNTIME_ID, settings: {} });
+    // 自动压缩点（420）：Claude Code 自己管压缩，这一项写明由它管，单独设回 400
+    expect(view.context.autoCompact).toMatchObject({ managedBy: "Claude Code", source: "default" });
+    expect(await agentSettingsApi.autoCompact(td.url, task.maintainerId, 300_000)).toMatchObject({ status: 400, body: { message: expect.stringContaining("Claude Code自己管压缩") } });
     // 不认得的值、没有的模型：400，没改
     expect((await agentSettingsApi.runtime(td.url, task.maintainerId, { runtime: CLAUDE_CODE_RUNTIME_ID, settings: { permission_mode: "yolo" } })).status).toBe(400);
     expect((await agentSettingsApi.runtime(td.url, task.maintainerId, { runtime: CLAUDE_CODE_RUNTIME_ID, model: "gpt-5" })).status).toBe(400);

@@ -2,9 +2,24 @@
 // - 单独的提示词两种写法：追加（接在通用模板后面，默认）、整份自己写（从通用模板复制一份来改）；边改边查，和守护进程同一个检查
 //   （协议包的 agentPromptProblem，能用的占位符照这个 agent 的通用模板，和设置 · 系统提示一样）；
 // - 清空当前对话：先确认（"清空后它不记得之前聊过什么，记录照样能看"）；项目负责人的清空就是重置负责人；
-// - 上下文用量：现在用了多少 / 窗口多大（进度条）、上次压缩是什么时候、离自动压缩还有多少（pi 的规矩：用量超过窗口减 16384 自动压缩，
+// - 上下文用量：现在用了多少 / 窗口多大（进度条）、上次压缩是什么时候、离自动压缩还有多少（用量超过这个 agent 的自动压缩点就压缩，
 //   最近约 2 万 token 原样保留）；数都是守护进程从 token 账本里取的，这里只写成话。
-import { type AgentClearKind, type AgentContextView, type AgentPromptMode, agentPromptProblem, type AgentSettingsView, formatNumber, intlLocale, normalizePromptSource, PI_COMPACTION_DEFAULTS, t, tTable } from "./protocol.ts";
+// - 自动压缩点（420）：跟随设置 · 模型里的默认还是单独设的、设的比这个模型的上限大时按上限算（写明为什么）、自己管压缩的运行时灰掉、
+//   上次自动压缩没压成写什么时候再试；改的时候边改边查（和守护进程同一个函数 autoCompactProblem）。
+import {
+  type AgentClearKind,
+  type AgentContextView,
+  type AgentPromptMode,
+  agentPromptProblem,
+  type AgentSettingsView,
+  autoCompactProblem,
+  formatNumber,
+  intlLocale,
+  normalizePromptSource,
+  PI_COMPACTION_DEFAULTS,
+  t,
+  tTable,
+} from "./protocol.ts";
 import { systemPromptSpec } from "./system-prompts.ts";
 
 /** 两种写法的名字和一句说明 */
@@ -151,6 +166,71 @@ export function agentClearText(view: AgentSettingsView): string | undefined {
   if (view.clear.lastAt === undefined) return undefined;
   const at = whenText(view.clear.lastAt);
   return view.clear.how === "reset_maintainer" ? t("state.agentSettings.clear.lastReset", { at }) : t("state.agentSettings.clear.lastCleared", { at });
+}
+
+/** ⚙ 里"自动压缩点"那一小块写成的话（420） */
+export interface AgentAutoCompactLines {
+  /** 输入框里的初始值：单独设的，跟随默认时是默认值 */
+  readonly value: number;
+  /** 现在用的、从哪来 */
+  readonly source: string;
+  /** 设的比这个模型的上限大：按上限算了，为什么 */
+  readonly clamped: string | undefined;
+  /** 自己管压缩的运行时（Claude Code、Codex）：这一项不起作用 */
+  readonly managed: string | undefined;
+  /** 上次自动压缩没压成：什么时候、为什么、什么时候再试 */
+  readonly failed: string | undefined;
+  /** 能改（只读的、自己管压缩的不能） */
+  readonly canEdit: boolean;
+  /** 能恢复默认（单独设过才能） */
+  readonly canReset: boolean;
+}
+
+export function agentAutoCompactLines(view: AgentSettingsView): AgentAutoCompactLines | undefined {
+  const auto = view.context.autoCompact;
+  if (!auto) return undefined;
+  const configured = auto.own ?? auto.defaultAt;
+  const source =
+    auto.own === undefined
+      ? t("state.agentSettings.autoCompact.followDefault", { at: tokensText(auto.defaultAt) })
+      : t("state.agentSettings.autoCompact.own", { at: tokensText(auto.own), default: tokensText(auto.defaultAt) });
+  const window = view.context.window;
+  const clamped =
+    auto.clamped && auto.limit !== undefined && window !== undefined
+      ? t("state.agentSettings.autoCompact.clamped", { set: tokensText(configured), limit: tokensText(auto.limit), window: tokensText(window), reserve: window - auto.limit })
+      : undefined;
+  const managed = auto.managedBy === undefined ? undefined : t("state.agentSettings.autoCompact.managed", { runtime: auto.managedBy });
+  const last = auto.last;
+  const failed =
+    last?.outcome === "failed"
+      ? t(auto.retryAt === undefined ? "state.agentSettings.autoCompact.failed" : "state.agentSettings.autoCompact.failedRetry", {
+          at: whenText(last.at),
+          message: last.message ?? t("state.agentSettings.compaction.error"),
+          retry: auto.retryAt === undefined ? "" : whenText(auto.retryAt),
+        })
+      : undefined;
+  const canEdit = view.readOnly === undefined && managed === undefined;
+  return { value: configured, source, clamped, managed, failed, canEdit, canReset: canEdit && auto.own !== undefined };
+}
+
+/** 正在改的压缩点：能不能存（不对时写为什么）、和现在设的比改没改 */
+export interface AutoCompactDraftCheck {
+  readonly at: number | undefined;
+  readonly problem: string | undefined;
+  readonly changed: boolean;
+}
+
+/**
+ * 查正在改的压缩点（⚙、设置 · 模型共用）：认整数（可以带空格、千分位的逗号），范围照守护进程同一个函数查；
+ * limit / window 给了（⚙ 里这个 agent 的模型窗口知道时）还不能超过这个模型的上限
+ */
+export function checkAutoCompactDraft(draft: string, current: number, model?: { window: number; limit: number }): AutoCompactDraftCheck {
+  // 空白、千分位的逗号（半角、全角 U+FF0C）、下划线都去掉
+  const cleaned = draft.replace(/[\s,_\uFF0C]/g, "");
+  const at = /^\d+$/.test(cleaned) ? Number(cleaned) : undefined;
+  if (at === undefined) return { at, problem: t("protocol.autoCompact.notInteger"), changed: cleaned !== "" };
+  const problem = autoCompactProblem(at, model ? { window: model.window, reserveTokens: model.window - model.limit } : undefined);
+  return { at, problem, changed: at !== current };
 }
 
 /** 面板开着时要不要过一会儿再取一次：在等清空、在等或正在压缩 */

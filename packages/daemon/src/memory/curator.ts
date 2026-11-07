@@ -32,7 +32,7 @@
 //   语音插件运行中停用、启用时从下一轮起重新拉起。没开语音插件就是文字。
 import type { Embedder } from "@ergo/memory";
 import { localDate } from "@ergo/memory";
-import { type MessageEnvelope, type MessagesPurgedEventPayload, type MessageEventPayload, MEMORY_CURATOR_AGENT_ID, MEMORY_CURATOR_CONVERSATION, t } from "@ergo/protocol";
+import { type AutoCompactSetting, type MessageEnvelope, type MessagesPurgedEventPayload, type MessageEventPayload, MEMORY_CURATOR_AGENT_ID, MEMORY_CURATOR_CONVERSATION, t } from "@ergo/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool, HostToolCall, HostToolOutput } from "../agent-manager/host-tools.ts";
 import type { AgentHandle } from "../agent-settings/index.ts";
@@ -129,6 +129,8 @@ export interface MemoryCuratorOptions {
   proposePersonalFile?: (params: unknown, call: HostToolCall) => HostToolOutput | Promise<HostToolOutput>;
   /** 每个会话都配的那一份（只用它的语音回复：按住说话时回话合成语音）；不给就只有文字 */
   sessionTools?: SessionTools;
+  /** 它的自动压缩点（420，设置 · 模型里的默认、它的 ⚙ 里单独设的）：每轮结束时现取；不给就只有 pi 自己的那一道 */
+  autoCompact?: () => AutoCompactSetting;
   log: (line: string) => void;
 }
 
@@ -272,6 +274,8 @@ export function startMemoryCurator(options: MemoryCuratorOptions): MemoryCurator
     configuredVision: options.configuredVision,
     interruptedNote: (quoted) => t(quoted ? "memory.curator.interruptedQuoted" : "memory.curator.interrupted", { quoted }),
     ...(options.sessionRewriteFor === undefined ? {} : { sessionRewriteFor: options.sessionRewriteFor }),
+    // 自动压缩点（420）：每轮结束时现取，过了就在回复交出去之后压缩
+    ...(options.autoCompact === undefined ? {} : { autoCompact: options.autoCompact }),
   });
 
   /** 会话里这一条输入的 turn_end 已经有过了没有（重启后补跑时用） */

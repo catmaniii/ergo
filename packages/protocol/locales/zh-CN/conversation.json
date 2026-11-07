@@ -19,6 +19,7 @@
   "conversation.compaction.manual": "你点了“现在压缩”",
   "conversation.compaction.threshold": "上下文快到模型的窗口了，自动压缩",
   "conversation.compaction.overflow": "上下文超出了模型的窗口，自动压缩后接着",
+  "conversation.compaction.auto": "对话过了设的自动压缩点（{at} token），回复说完后自动压缩",
   "conversation.compaction.tokensUnit": "10000",
   "conversation.compaction.tokensLarge": "{n} 万",
   "conversation.compaction.failed": "压缩出错了",

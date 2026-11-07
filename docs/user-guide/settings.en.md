@@ -112,13 +112,14 @@ See [Voice](voice.en.md) for more. This item isn't in the list when the Voice pl
 
 ![The Models page](images/settings/03-models.png)
 
-This page has five blocks, from top to bottom:
+This page has six blocks, from top to bottom:
 
 | Block | How to change it | Effect |
 |---|---|---|
 | Provider | Click DeepSeek or **Custom (OpenAI-compatible)** | Which provider handles conversations. Picking custom expands the endpoint URL, model id and API style |
 | API key | One row per provider. Paste, then click **Save key** | Takes effect at once, no restart. The key isn't shown; it only says whether it's set and where from |
 | Default model | Pick a model, then click a thinking level: Off, Low, Medium, High | Used by every agent without its own setting |
+| Auto-compaction | Enter a number of tokens and click **Save**; **Restore default (700K)** sets it back | A conversation is compacted automatically once it reaches this many tokens. Every agent follows it, and each can have its own in its ⚙ |
 | Agents | Secretary, Task owner, Project owner, Sub-agent, Reviewer and Scope review each have two dropdowns | The first option is **Use default**; you can also pick a model and thinking level |
 | Image understanding | One dropdown per model: Follow the model catalog, Can see images, Can't see images | Models that can't see images don't get images from chat, only a one-line placeholder |
 
@@ -141,6 +142,8 @@ This page has five blocks, from top to bottom:
 - After switching to custom, memory's nightly consolidation and DeepSeek's web search and page reading still use the DeepSeek key. Don't delete it.
 - Custom models have no unit price, so their cost on the Usage page comes out as 0.
 - If an owner needs its own model, set it in its ⚙. This page lists which ones have their own setting; click a name to jump there.
+- A new auto-compact point applies right away, without waiting for a new session: it's checked after every turn and compacts once passed. At least 50K; at most the model window minus 16384, and anything larger counts as that. Agents run by Claude Code or Codex handle compaction themselves and ignore it.
+- Auto-compaction runs after the reply is done. Messages you send while it runs wait and are answered afterwards. If it fails (for example, the provider is busy) it doesn't retry every turn: it waits 15 minutes first, longer after each further failure, up to 2 hours.
 - You don't have to make a provider current before entering its key. Filling in the custom row doesn't touch the DeepSeek one.
 - **Fetch list** and **Test the current provider** save this block into settings first. If the list can't be fetched it says why, and you can still type by hand.
 - A custom model's capabilities are estimated: text only, no thinking, context about 128k, at most about 8192 tokens generated at a time. If your provider's limits are lower, replies may be cut off or return an error.

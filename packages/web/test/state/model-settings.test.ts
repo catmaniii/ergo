@@ -22,7 +22,10 @@ import {
   visionText,
   withDefault,
   withAgent,
+  withAutoCompact,
   withVision,
+  AUTO_COMPACT_DEFAULT,
+  modelAutoCompactLines,
   type ModelOptionView,
   type ModelSettings,
   type ModelSettingsView,
@@ -34,6 +37,9 @@ const SETTINGS: ModelSettings = {
   agents: { reviewer: { thinkingLevel: "off" } },
   vision: { "deepseek/deepseek-v4-pro": true },
 };
+
+/** 设置 · 模型页上"自动压缩"那一块（420）：默认值是多少、有几个 agent 单独设了 */
+const autoCompactBlock = (defaultAt: number, ownCount: number) => modelAutoCompactLines({ autoCompact: { defaultAt, builtin: 700_000, min: 50_000, max: 10_000_000, ownCount } });
 
 const FLASH: ModelOptionView = { modelId: "deepseek-flash", name: "DeepSeek V4.1 Flash", inCatalog: true, vision: true, visionSource: "catalog", catalogVision: true, thinkingLevels: ["off", "low", "high"] };
 const PRO: ModelOptionView = { modelId: "deepseek-v4-pro", name: "DeepSeek V4 Pro", inCatalog: true, vision: true, visionSource: "settings", catalogVision: false, thinkingLevels: ["off", "high"] };
@@ -50,6 +56,18 @@ describe("改一处、存整份", () => {
     expect(SETTINGS.vision).toEqual({ "deepseek/deepseek-v4-pro": true });
     expect(visionChoiceOf(SETTINGS, "deepseek/deepseek-v4-pro")).toBe("on");
     expect(visionChoiceOf(SETTINGS, "deepseek/deepseek-flash")).toBe("follow");
+  });
+
+  test("自动压缩点的默认值（420）：改了带在整份里；原来设过的，改别的时照样带着（不弄丢）；恢复默认就是存内置的那个数", () => {
+    expect(withAutoCompact(SETTINGS, 500_000)).toMatchObject({ provider: "deepseek", autoCompactAt: 500_000 });
+    expect(withDefault(SETTINGS, { thinkingLevel: "low" })).not.toHaveProperty("autoCompactAt");
+    expect(withDefault({ ...SETTINGS, autoCompactAt: 500_000 }, { thinkingLevel: "low" }).autoCompactAt).toBe(500_000);
+    expect(withAutoCompact({ ...SETTINGS, autoCompactAt: 500_000 }, AUTO_COMPACT_DEFAULT).autoCompactAt).toBe(700_000);
+  });
+
+  test("自动压缩那一块的话：现在的默认、是不是内置的、有几个 agent 单独设了；内置的时恢复默认点不了", () => {
+    expect(autoCompactBlock(700_000, 0)).toEqual({ current: "现在：70 万 token（默认）", owners: undefined, canReset: false });
+    expect(autoCompactBlock(500_000, 2)).toEqual({ current: "现在：50 万 token（默认是 70 万）", owners: "2 个 agent 在自己的 ⚙ 里单独设了，不跟这个变", canReset: true });
   });
 });
 

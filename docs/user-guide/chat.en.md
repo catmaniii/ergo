@@ -582,7 +582,7 @@ The phone app sends system notifications, which you have to turn on first. See [
 | **Own prompt** | Add a few sentences just for it, such as "Keep answers short and to the point." They can follow the general template, or you can write the whole thing yourself. See [System prompts](settings.en.md#system-prompts) |
 | **Model**, **Runtime** | Owners only. Pick a model just for it, or switch runtime |
 | **Clear conversation** | Start the conversation over |
-| **Context usage** | How much is used. Click **Compact now** to write earlier parts into a summary |
+| **Context usage** | How much is used. Click **Compact now** to write earlier parts into a summary; **Auto-compact point** sets how many tokens trigger automatic compaction |
 
 **Clearing the conversation:**
 
@@ -593,6 +593,13 @@ The phone app sends system notifications, which you have to turn on first. See [
 ergo no longer remembers what was said before. It doesn't forget work in progress: a task's plan and progress are still given to it. For project owners this is called **Reset owner**, and the owner rebuilds its understanding from the project records.
 
 **Compaction:** Happens automatically when a conversation gets too long; you can also click **Compact now**. The session notes **Conversation compacted here**, and the records can still be viewed.
+
+**Auto-compact point:** In the **Context usage** block. By default it follows **Auto-compaction** in [Settings · Models](settings.en.md#models) (700K).
+
+1. Enter a number of tokens and click **Save**. It applies only to this agent and is marked as set just for it.
+2. Click **Restore default** to follow the default in settings again.
+
+A change applies without waiting for a new session: it's checked as soon as this turn ends. A number above what this model allows (the window minus 16384) can't be saved; if a switch to a smaller model puts it over, that limit is used and a line says why. When the last auto-compaction failed, this block says why and when it will try again. For agents run by Claude Code or Codex it's greyed out, since they handle compaction themselves.
 
 ## Troubleshooting
 

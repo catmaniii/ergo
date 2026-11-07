@@ -57,6 +57,7 @@
 //   流程步骤参数里 {{事件.字段名}} 占位的认法和代入（不引用 TypeBox），和事件触发方式的 schema。
 // - agent-settings.ts / agent-settings-schema.ts：每个 agent 的会话里的 ⚙ 面板——单独的提示词（追加或整份自己写）的名字和检查
 //   （不引用 TypeBox）、面板接口的 schema。
+// - auto-compact.ts：自动压缩点——设置 · 模型里的默认、每个 agent 的 ⚙ 里单独设的，生效的点怎么算（按模型窗口夹）、范围怎么查。
 // - agent-profiles.ts / agent-profiles-schema.ts：每个 agent 自己的名字和音色——来源、"跟默认"是什么、设置页那张表的样子
 //   （不引用 TypeBox）和配置文件、接口的 schema。全局的名字和音色是默认，每个 agent 配的是覆盖。
 // - operations.ts / operations-schema.ts：运营方案：项目转入使用后怎么运转——每一条的做法、要的能力和项目工具包比、
@@ -182,6 +183,7 @@ export * from "./event-sources.ts";
 export * from "./event-source-schema.ts";
 export * from "./agent-settings.ts";
 export * from "./agent-settings-schema.ts";
+export * from "./auto-compact.ts";
 export * from "./agent-profiles.ts";
 export * from "./agent-profiles-schema.ts";
 export * from "./agent-roles.ts";

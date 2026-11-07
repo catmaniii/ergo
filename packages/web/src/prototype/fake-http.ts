@@ -26,6 +26,7 @@ import type {
   ProjectStandardView,
   DebugRecognizeResult,
   DebugSpeakResult,
+  AgentAutoCompactBody,
   AgentModelBody,
   AgentRuntimeBody,
   AgentRoleBody,
@@ -155,7 +156,7 @@ import type {
   MemorySummaryView,
   DoctorView,
 } from "../state/index.ts";
-import { copyWebSettings, nowIso, CUSTOM_PROVIDER_ID, DEFAULT_MEMORY_SETTINGS, MEMORY_CURATOR_CONVERSATION, DEFAULT_SECRETARY_SKILLS, DEFAULT_WEB_SETTINGS, effectiveModelChoice, effectiveWebQueue, framePreviewOf, IMPORT_NAME_PATTERN, MEDIA_FRAME_MAX_BYTES, MEDIA_TEXT_MAX_BYTES, MODEL_AGENTS, modelKeyOf, reopenScope, t, textPreviewOf, webSettingsProblem } from "../state/index.ts";
+import { AUTO_COMPACT_DEFAULT, AUTO_COMPACT_MAX, AUTO_COMPACT_MIN, autoCompactDefaultOf, autoCompactProblem, copyWebSettings, nowIso, CUSTOM_PROVIDER_ID, DEFAULT_MEMORY_SETTINGS, MEMORY_CURATOR_CONVERSATION, DEFAULT_SECRETARY_SKILLS, DEFAULT_WEB_SETTINGS, effectiveModelChoice, effectiveWebQueue, framePreviewOf, IMPORT_NAME_PATTERN, MEDIA_FRAME_MAX_BYTES, MEDIA_TEXT_MAX_BYTES, MODEL_AGENTS, modelKeyOf, reopenScope, t, textPreviewOf, webSettingsProblem } from "../state/index.ts";
 import { demoParam, FAKE_SAFETY_START, fakeServerWebVersion } from "./fake-connection.ts";
 import { fakeMemoryClaim, fakeMemoryClaims, fakeMemoryQuestions, fakeMemoryStrategies, fakeMemorySummary } from "./fake-memory-graph.ts";
 import { FakeDataSources } from "./fake-data-sources.ts";
@@ -944,6 +945,15 @@ export class FakeDaemonHttp implements DaemonHttp {
     return attempt(() => this.agentPanels.followModel(agentId));
   }
 
+  // 自动压缩点（420）：编的，只在内存里（记账本的负责人单独设了 30 万）
+  setAgentAutoCompact(agentId: string, body: AgentAutoCompactBody): Promise<AgentSettingsView> {
+    return attempt(() => this.agentPanels.setAutoCompact(agentId, body.at));
+  }
+
+  followAgentAutoCompact(agentId: string): Promise<AgentSettingsView> {
+    return attempt(() => this.agentPanels.followAutoCompact(agentId));
+  }
+
   // 项目、任务的负责人用哪个运行时：编的，只在内存里（个人博客的负责人用 Claude Code）
   setAgentRuntime(agentId: string, body: AgentRuntimeBody): Promise<AgentSettingsView> {
     return attempt(() => this.agentPanels.setRuntime(agentId, body));
@@ -1025,6 +1035,7 @@ export class FakeDaemonHttp implements DaemonHttp {
       effective,
       secretarySession: { modelId: custom?.modelId ?? "deepseek-flash", thinkingLevel: "high", vision: custom === undefined },
       maintainers: this.agentPanels.maintainerModels(),
+      autoCompact: { defaultAt: autoCompactDefaultOf(settings), builtin: AUTO_COMPACT_DEFAULT, min: AUTO_COMPACT_MIN, max: AUTO_COMPACT_MAX, ownCount: this.agentPanels.autoCompactOwnCount() },
     });
   }
 
@@ -1040,10 +1051,17 @@ export class FakeDaemonHttp implements DaemonHttp {
     return Promise.resolve({ configured: true, effective: "now", apiKey: fakeApiKey(provider ?? this.models.provider) });
   }
 
-  /** 整份存：只在内存里；没带自定义那一块时留着原来那份（和守护进程一样，切回 DeepSeek 不清空） */
+  /**
+   * 整份存：只在内存里；没带自定义那一块时留着原来那份（和守护进程一样，切回 DeepSeek 不清空）；
+   * 自动压缩点没带就留着原来的，范围照守护进程同一个函数查，和内置默认一样时不记
+   */
   saveModelSettings(body: ModelSettingsBody): Promise<ModelSettingsView> {
+    const problem = body.autoCompactAt === undefined ? undefined : autoCompactProblem(body.autoCompactAt);
+    if (problem !== undefined) return Promise.reject(new Error(problem));
     const custom = body.custom ?? this.models.custom;
-    this.models = { ...structuredClone(body), ...(custom === undefined ? {} : { custom: structuredClone(custom) }) } as ModelSettings;
+    const { autoCompactAt: bodyCompact, ...rest } = structuredClone(body);
+    const compactAt = bodyCompact ?? this.models.autoCompactAt;
+    this.models = { ...rest, ...(custom === undefined ? {} : { custom: structuredClone(custom) }), ...(compactAt === undefined || compactAt === AUTO_COMPACT_DEFAULT ? {} : { autoCompactAt: compactAt }) } as ModelSettings;
     return this.modelSettings();
   }
 

@@ -6,6 +6,8 @@
 //   "恢复用通用模板"；下面是现在实际用的系统提示全文（只读，收着）；
 // - 清空当前对话：先确认；项目负责人是重置负责人（入口并到这里，项目档案栏里不再另放一个）；
 // - 上下文用量：用了多少 / 窗口多大和进度条、上次压缩、离自动压缩还有多少，"现在压缩"；
+//   自动压缩点（420）：跟随设置 · 模型里的默认还是单独设的，能改成别的数、能"恢复默认"改回跟随；设的比这个模型的上限大时写按多少算、为什么；
+//   Claude Code、Codex 跑的灰掉（它们自己管压缩）；上次自动压缩没压成写什么时候再试；
 // - 目录授权（秘书、项目、任务的负责人；记忆管理员没有）：这个 agent 登记了哪些目录、能读写删哪几种，能加能删（ui/folder-grants.tsx）；
 // - 模型（只有项目、任务的负责人有）：跟随设置 · 模型里它那一行，或者单独选定模型和思考档位；可选的模型、看图能力的说法
 //   和设置 · 模型页同一套（取同一个接口），写明下一个新会话用的、最近在跑的会话实际用的、什么时候换。
@@ -19,8 +21,11 @@ import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useStore } from "../app/store.tsx";
 import {
+  agentAutoCompactLines,
   agentModelLines,
   AGENT_CLEAR_COPY,
+  AUTO_COMPACT_MIN,
+  checkAutoCompactDraft,
   AGENT_PROMPT_MODE_INFO,
   AGENT_PROMPT_MODES,
   AGENT_PROMPT_STATE_LABEL,
@@ -554,6 +559,80 @@ function ClearBlock({ view, onView }: { view: AgentSettingsView; onView(v: Agent
   );
 }
 
+/**
+ * 自动压缩点（420）：输入框（初始是现在设的：单独设的，跟随默认时是默认值）、"保存"单独设、"恢复默认"改回跟随；边改边查
+ * （和守护进程同一个函数，窗口知道时按这个模型的上限查）。只读的、自己管压缩的运行时灰掉
+ */
+function AutoCompactField({ view, onView }: { view: AgentSettingsView; onView(v: AgentSettingsView): void }) {
+  const { http } = useStore();
+  const toast = useToast();
+  const [draft, setDraft] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const lines = agentAutoCompactLines(view)!;
+  const auto = view.context.autoCompact!;
+  const value = draft ?? String(lines.value);
+  const model = auto.limit !== undefined && view.context.window !== undefined ? { window: view.context.window, limit: auto.limit } : undefined;
+  const check = checkAutoCompactDraft(value, lines.value, model);
+  const run = (request: Promise<AgentSettingsView>, done: string) => {
+    setBusy(true);
+    request
+      .then(
+        (v) => {
+          setDraft(undefined);
+          onView(v);
+          toast(done);
+        },
+        (err: unknown) => toast(t("ui.agentSettings.autoCompact.failed", { error: errorText(err) })),
+      )
+      .finally(() => setBusy(false));
+  };
+  const save = () => check.at !== undefined && run(http.setAgentAutoCompact(view.agentId, { at: check.at }), t("ui.agentSettings.autoCompact.saved"));
+  return (
+    <div className="agent-auto-compact" data-source={auto.source} {...(auto.managedBy === undefined ? {} : { "data-managed": "" })}>
+      <div className="agent-auto-compact-title">{t("ui.agentSettings.autoCompact.title")}</div>
+      <div className="auto-compact-row">
+        <input
+          className="input"
+          type="number"
+          inputMode="numeric"
+          name="agent-auto-compact"
+          min={AUTO_COMPACT_MIN}
+          {...(auto.limit === undefined ? {} : { max: auto.limit })}
+          step={10_000}
+          value={value}
+          disabled={!lines.canEdit || busy}
+          aria-label={t("ui.agentSettings.autoCompact.label")}
+          aria-invalid={check.changed && check.problem !== undefined}
+          onChange={(e) => setDraft(e.currentTarget.value)}
+          onKeyDown={(e) => e.key === "Enter" && check.changed && check.problem === undefined && !busy && save()}
+        />
+        <span className="auto-compact-unit">{t("ui.agentSettings.autoCompact.unit")}</span>
+        <button type="button" className="btn primary" disabled={!lines.canEdit || busy || !check.changed || check.problem !== undefined} onClick={save}>
+          {busy ? t("ui.agentSettings.saving") : t("ui.agentSettings.autoCompact.save")}
+        </button>
+        <button type="button" className="btn ghost" disabled={!lines.canReset || busy} onClick={() => run(http.followAgentAutoCompact(view.agentId), t("ui.agentSettings.autoCompact.followed"))}>
+          {t("ui.agentSettings.autoCompact.reset")}
+        </button>
+      </div>
+      {check.changed && check.problem && (
+        <div className="field-error" role="alert">
+          {check.problem}
+        </div>
+      )}
+      {/* 自己管压缩的运行时：设的点对它不起作用，不写"跟随……"，只写下面那句由它自己管 */}
+      {lines.managed === undefined && <div className="agent-note agent-auto-compact-source">{lines.source}</div>}
+      {lines.clamped && <div className="agent-note agent-auto-compact-clamped">{lines.clamped}</div>}
+      {lines.managed && <div className="muted agent-note">{lines.managed}</div>}
+      {lines.failed && (
+        <div className="prompt-broken" role="alert">
+          {lines.failed}
+        </div>
+      )}
+      {lines.canEdit && <div className="muted agent-note">{t("ui.agentSettings.autoCompact.note")}</div>}
+    </div>
+  );
+}
+
 /** 上下文用量和"现在压缩"（运行时不支持压缩的不放按钮） */
 function ContextBlock({ view, onView, canCompact = true }: { view: AgentSettingsView; onView(v: AgentSettingsView): void; canCompact?: boolean }) {
   const { http } = useStore();
@@ -576,6 +655,7 @@ function ContextBlock({ view, onView, canCompact = true }: { view: AgentSettings
         </div>
       )}
       <div className="muted agent-note">{lines.autoCompact}</div>
+      {view.context.autoCompact && <AutoCompactField key={`${view.context.autoCompact.own ?? "default"}:${view.context.autoCompact.defaultAt}`} view={view} onView={onView} />}
       <div className="muted agent-note">{lines.lastCompacted}</div>
       {lines.compaction && <div className="agent-note">{lines.compaction}</div>}
       {canCompact && (

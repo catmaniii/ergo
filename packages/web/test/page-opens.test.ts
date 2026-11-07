@@ -1795,6 +1795,94 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     await page.close();
     expect(errors).toEqual([]);
   }, 60_000);
+
+  // 420：设置 · 模型里"自动压缩"的默认值（内置 70 万）——边改边查、存了跟随默认的 agent 的 ⚙ 跟着变、单独设了的不变、恢复默认
+  test("设置 · 模型：自动压缩点能改、写错的不让存，跟随默认的 agent 跟着变，能恢复默认", async () => {
+    const { page, errors } = await open({ width: 1280, height: 800 });
+    const at = async (hash: string) => {
+      await page.evaluate(`window.location.hash = ${JSON.stringify(hash)}`);
+      await page.waitForTimeout(400);
+    };
+    const section = () => page.locator(".models-page .sec", { has: page.locator('input[name="model-auto-compact"]') });
+    await at("#/more/models");
+    await page.waitForSelector('input[name="model-auto-compact"]');
+    expect(await page.locator('input[name="model-auto-compact"]').inputValue()).toBe("700000");
+    expect(await section().innerText()).toContain("现在：70 万 token（默认）");
+    // 原型里记账本的负责人单独设了 30 万
+    expect(await section().innerText()).toContain("1 个 agent 在自己的 ⚙ 里单独设了，不跟这个变");
+    expect(await section().locator('button:has-text("恢复默认（70 万）")').isDisabled()).toBe(true);
+    // 写错的：说清最少多少，保存点不了
+    await page.fill('input[name="model-auto-compact"]', "40000");
+    expect(await section().locator(".field-error").innerText()).toContain("最少 50,000 token");
+    expect(await section().locator('button:has-text("保存")').isDisabled()).toBe(true);
+    // 改成 50 万：存了
+    await page.fill('input[name="model-auto-compact"]', "500000");
+    await section().locator('button:has-text("保存")').click();
+    await page.waitForFunction(`document.querySelector(".model-auto-compact-current")?.textContent === "现在：50 万 token（默认是 70 万）"`, undefined, { timeout: 10_000 });
+
+    // 跟随默认的（秘书）跟着变；单独设了的（记账本的负责人）不变
+    await at("#/secretary");
+    await page.click(".agent-gear");
+    await page.waitForSelector(".agent-auto-compact");
+    expect(await page.locator(".agent-auto-compact-source").innerText()).toBe("跟随设置 · 模型里的默认：50 万 token");
+    expect(await page.locator('input[name="agent-auto-compact"]').inputValue()).toBe("500000");
+    await page.locator(".modal .sheet-head .icon-btn").click();
+    await at("#/projects/p-ledger/chat");
+    await page.click(".agent-gear");
+    await page.waitForSelector(".agent-auto-compact");
+    expect(await page.locator(".agent-auto-compact-source").innerText()).toBe("单独设的：30 万 token（默认是 50 万）");
+    await page.locator(".modal .sheet-head .icon-btn").click();
+
+    // 恢复默认：回到内置的 70 万
+    await at("#/more/models");
+    await section().locator('button:has-text("恢复默认（70 万）")').click();
+    await page.waitForFunction(`document.querySelector(".model-auto-compact-current")?.textContent === "现在：70 万 token（默认）"`, undefined, { timeout: 10_000 });
+    expect(await page.locator('input[name="model-auto-compact"]').inputValue()).toBe("700000");
+    await page.close();
+    expect(errors).toEqual([]);
+  }, 60_000);
+
+  // 420：⚙ → 上下文用量里的自动压缩点——单独设过的写默认是多少、能恢复默认改回跟随；能改成别的数（超过这个模型的上限不让存）；
+  // Claude Code 跑的灰掉、写明它自己管
+  test("手机宽：⚙ 里自动压缩点单独设的能恢复默认、能改，写错的不让存；Claude Code 的灰掉", async () => {
+    const { page, errors } = await open({ width: 390, height: 844 });
+    const openGear = async (hash: string) => {
+      await page.evaluate(`window.location.hash = ${JSON.stringify(hash)}`);
+      await page.waitForTimeout(400);
+      await page.click(".topbar .th-more");
+      await page.getByRole("menuitem", { name: "这个 agent 的设置" }).click();
+      await page.waitForSelector(".agent-auto-compact");
+    };
+    const source = () => page.locator(".agent-auto-compact-source").innerText();
+    const field = page.locator('input[name="agent-auto-compact"]');
+    const block = page.locator(".agent-auto-compact");
+    await openGear("#/projects/p-ledger/chat");
+    expect(await source()).toBe("单独设的：30 万 token（默认是 70 万）");
+    expect(await field.inputValue()).toBe("300000");
+    // 恢复默认：改回跟随
+    await block.locator('button:has-text("恢复默认")').click();
+    await page.waitForFunction(`document.querySelector(".agent-auto-compact-source")?.textContent === "跟随设置 · 模型里的默认：70 万 token"`, undefined, { timeout: 10_000 });
+    expect(await field.inputValue()).toBe("700000");
+    expect(await block.locator('button:has-text("恢复默认")').isDisabled()).toBe(true);
+    // 超过这个模型的上限（窗口 100 万减 16384）：不让存
+    await field.fill("990000");
+    expect(await block.locator(".field-error").innerText()).toContain("最多设到 983,616 token");
+    expect(await block.locator('button:has-text("保存")').isDisabled()).toBe(true);
+    // 改成 20 万：单独设的
+    await field.fill("200000");
+    await block.locator('button:has-text("保存")').click();
+    await page.waitForFunction(`document.querySelector(".agent-auto-compact-source")?.textContent === "单独设的：20 万 token（默认是 70 万）"`, undefined, { timeout: 10_000 });
+    // 上面那句"离自动压缩还有……"按新的点算
+    expect(await page.locator(".agent-panel").innerText()).toContain("用量超过 20 万 token 时自动压缩");
+    await page.locator(".modal .sheet-head .icon-btn").click();
+
+    // Claude Code 跑的（个人博客的负责人）：灰掉、写明它自己管
+    await openGear("#/projects/p-blog/chat");
+    expect(await field.isDisabled()).toBe(true);
+    expect(await block.innerText()).toContain("由 Claude Code 自己管压缩，这里设的压缩点对它不起作用");
+    await page.close();
+    expect(errors).toEqual([]);
+  }, 60_000);
 });
 
 /**

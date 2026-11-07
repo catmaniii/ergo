@@ -344,6 +344,7 @@ const RUNTIMES = "runtimes";
 const SESSIONS = "sessions";
 const TAKE_OVER = "take-over";
 const TAKEOVER = "takeover";
+const AUTO_COMPACT = "auto-compact";
 const WORK_FOLDER = "work-folder";
 const DATA_SOURCES = "data-sources";
 const IMPORT_FOLDER = "import-folder";
@@ -620,6 +621,8 @@ export const HTTP_PATHS = {
   agentTranscript: (agentId: string) => api(AGENTS, agentId, TRANSCRIPT),
   /** 项目、任务的负责人单独配模型：PUT 选定（请求体 AgentModelBody）、DELETE 改回跟随它那一行，响应都是 AgentSettingsView */
   agentModel: (agentId: string) => api(AGENTS, agentId, MODEL),
+  /** 这个 agent 单独设自动压缩点（420）：PUT 设（请求体 AgentAutoCompactBody）、DELETE 恢复跟随设置 · 模型里的默认，响应都是 AgentSettingsView */
+  agentAutoCompact: (agentId: string) => api(AGENTS, agentId, AUTO_COMPACT),
   /**
    * 项目、任务的负责人用哪个运行时、给它选的模型和设置项：PUT（请求体 AgentRuntimeBody，响应 AgentSettingsView）。
    * 换了运行时的：手头这一条做完，原来的写交接摘要、新的新开会话；只改模型、设置项的从下一轮起
@@ -791,6 +794,7 @@ export type HttpRoute =
   | { route: "agent_background"; agentId: string }
   | { route: "agent_transcript"; agentId: string }
   | { route: "agent_model"; agentId: string }
+  | { route: "agent_auto_compact"; agentId: string }
   | { route: "agent_runtime"; agentId: string }
   | { route: "agent_takeover"; agentId: string }
   | { route: "agent_profiles" }
@@ -936,6 +940,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
     if (tail === BACKGROUND) return { route: "agent_background", agentId: id };
     if (tail === TRANSCRIPT) return { route: "agent_transcript", agentId: id };
     if (tail === MODEL) return { route: "agent_model", agentId: id };
+    if (tail === AUTO_COMPACT) return { route: "agent_auto_compact", agentId: id };
     if (tail === RUNTIME) return { route: "agent_runtime", agentId: id };
     if (tail === TAKEOVER) return { route: "agent_takeover", agentId: id };
   }

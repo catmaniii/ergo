@@ -11,6 +11,7 @@
 //   写进同一个文件）；接口回的、页面上显示的、日志里的都没有 key 的内容（请求体里那一次除外）；
 // - 看图能力：设置页改的为准，其次是配置文件 models["provider/模型 id"].vision 写明的，都没写按模型目录。
 import { ASSISTANT_NAME_MARK } from "./assistant-name.ts";
+import { AUTO_COMPACT_DEFAULT } from "./auto-compact.ts";
 import { t, tTable } from "./i18n/runtime.ts";
 
 /** 各自选模型的 agent。普通任务的 agent、迁移来的定时作业自己的负责人都算任务负责人 */
@@ -128,6 +129,16 @@ export interface ModelSettings {
    * 模型是它里面的 modelId——服务商只有一个模型，default 和各 agent 覆盖里写的模型 id 对自定义不起作用（思考档位照旧按那一行）
    */
   custom?: ModelCustomProvider;
+  /**
+   * 自动压缩点的默认值（420，auto-compact.ts）：对话到多少 token 自动压缩，每个 agent 跟随它、也能在自己的 ⚙ 里单独设。
+   * 没写（旧的设置文件、和内置默认一样）是 AUTO_COMPACT_DEFAULT
+   */
+  autoCompactAt?: number;
+}
+
+/** 自动压缩点的默认值：设置里写了的，没写是内置的 AUTO_COMPACT_DEFAULT（70 万） */
+export function autoCompactDefaultOf(settings: Pick<ModelSettings, "autoCompactAt">): number {
+  return settings.autoCompactAt ?? AUTO_COMPACT_DEFAULT;
 }
 
 /** 某个 agent 实际会用的：跟随默认的那一项换成默认 */
@@ -257,6 +268,21 @@ export interface ModelSettingsView {
   secretarySession?: SessionModelView;
   /** 单独配了模型的项目、任务的负责人（在各自的 ⚙ 里配；项目归档、任务归档时清掉） */
   maintainers: MaintainerModelView[];
+  /** 自动压缩点（420）：默认值和它的范围、有几个 agent 在自己的 ⚙ 里单独设了（不跟默认变） */
+  autoCompact: ModelAutoCompactView;
+}
+
+/** 设置 · 模型页上"自动压缩"那一块 */
+export interface ModelAutoCompactView {
+  /** 现在的默认值（设置里没写就是内置的） */
+  defaultAt: number;
+  /** 内置的默认（AUTO_COMPACT_DEFAULT，"恢复默认"改回它） */
+  builtin: number;
+  /** 最少、最多（AUTO_COMPACT_MIN、AUTO_COMPACT_MAX；按模型窗口的上限在各个 agent 的 ⚙ 里另说） */
+  min: number;
+  max: number;
+  /** 在自己的 ⚙ 里单独设了的 agent 有几个 */
+  ownCount: number;
 }
 
 /**

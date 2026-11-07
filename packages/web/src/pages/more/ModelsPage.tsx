@@ -16,6 +16,8 @@
 //   下一轮新开会话、附交接摘要，任务执行中途不换。每个 agent 一行下面另有一句它的会话什么时候换。
 // -项目、任务的负责人能在自己的 ⚙ 里单独配模型，盖过它那一行；项目负责人、任务负责人那一行下面一句列出哪几个单独配了，
 //   点名字跳到它的页面、它的 ⚙ 自己打开。
+// - 自动压缩（420，默认模型下面）：对话到多少 token 自动压缩的默认值（内置 70 万），每个 agent 跟随它、也能在自己的 ⚙ 里单独设；
+//   改了每轮说完就按新的判断，不用等新会话。服务商选自定义时照样在（压缩点和服务商无关）。
 // 设置存在守护进程（各设备一样）：打开页面时取一次（GET /api/model-settings），每改一处就把整份存回去，守护进程查过合规才存
 // （不合规时说原因、页面照旧）。说法和"改一处、存整份"在状态层（state/model-settings.ts、state/model-custom.ts、state/model-key.ts）。
 import { useEffect, useState } from "react";
@@ -34,7 +36,11 @@ import {
   modelKeyOf,
   modelOptionLabel,
   agentSummary,
+  checkAutoCompactDraft,
   maintainerOverrideLine,
+  modelAutoCompactLines,
+  tokensText,
+  withAutoCompact,
   type MaintainerModelView,
   sessionModelText,
   t,
@@ -60,8 +66,8 @@ import { ModelKeySetting } from "../../ui/model-key.tsx";
 import { ModelProviderForm, ModelTestBlock, useModelProviderBlock } from "../../ui/model-provider.tsx";
 import { useToast } from "../../ui/toast.tsx";
 
-/** 存整份设置（默认模型、各 agent、看图能力都用它）；存好之后换掉这一页的 view */
-type SaveBody = (body: ModelSettingsBody) => void;
+/** 存整份设置（默认模型、各 agent、看图能力、自动压缩点都用它）；存好之后换掉这一页的 view，提示 done（不给是"下一个新会话起生效"） */
+type SaveBody = (body: ModelSettingsBody, done?: string) => void;
 
 export function ModelsPage({ navigate }: { navigate: Navigate }) {
   const { http } = useStore();
@@ -89,14 +95,14 @@ export function ModelsPage({ navigate }: { navigate: Navigate }) {
 
   if (!view) return <div className="muted">{error ? t("pages.models.loadFailed", { reason: error }) : t("pages.models.loading")}</div>;
 
-  const save: SaveBody = (body) => {
+  const save: SaveBody = (body, done) => {
     setSaving(true);
     http
       .saveModelSettings(body)
       .then(
         (v) => {
           setView(v);
-          toast(t("pages.models.saved"));
+          toast(done ?? t("pages.models.saved"));
         },
         (err: unknown) => toast(t("pages.models.saveFailed", { reason: err instanceof Error ? err.message : String(err) })),
       )
@@ -183,6 +189,8 @@ function ModelsBody({
         {view.catalogError && <div className="sys-note">{t("pages.models.catalogFailed", { reason: view.catalogError })}</div>}
       </Section>
 
+      <AutoCompactSection key={view.autoCompact.defaultAt} view={view} saving={saving} save={save} />
+
       <Section title={t("pages.models.agents")}>
         {custom !== undefined ? (
           // 自定义服务商只有一个模型：各个 agent 都走它，这里不用逐个指定
@@ -219,6 +227,55 @@ function ModelsBody({
         )}
       </Section>
     </div>
+  );
+}
+
+/**
+ * 自动压缩（420）：对话到多少 token 自动压缩的默认值——每个 agent 跟随它，也能在自己的 ⚙ 里单独设；改了每轮说完就按新的判断。
+ * 输入框边改边查（和守护进程同一个函数），"保存"存进模型设置，"恢复默认"改回内置的 70 万；有单独设了的 agent 写一句它们不跟这个变
+ */
+function AutoCompactSection({ view, saving, save }: { view: ModelSettingsView; saving: boolean; save: SaveBody }) {
+  const [draft, setDraft] = useState<string>();
+  const { defaultAt, builtin, min, max } = view.autoCompact;
+  const lines = modelAutoCompactLines(view);
+  const value = draft ?? String(defaultAt);
+  const check = checkAutoCompactDraft(value, defaultAt);
+  const submit = () => check.at !== undefined && !saving && save(withAutoCompact(view.settings, check.at), t("pages.models.autoCompactSaved"));
+  return (
+    <Section title={t("pages.models.autoCompact")}>
+      <span className="muted">{t("pages.models.autoCompactHint")}</span>
+      <div className="auto-compact-row model-auto-compact">
+        <input
+          className="input"
+          type="number"
+          inputMode="numeric"
+          name="model-auto-compact"
+          min={min}
+          max={max}
+          step={10_000}
+          value={value}
+          disabled={saving}
+          aria-label={t("pages.models.autoCompactLabel")}
+          aria-invalid={check.changed && check.problem !== undefined}
+          onChange={(e) => setDraft(e.currentTarget.value)}
+          onKeyDown={(e) => e.key === "Enter" && check.changed && check.problem === undefined && submit()}
+        />
+        <span className="auto-compact-unit">{t("pages.models.autoCompactUnit")}</span>
+        <button type="button" className="btn primary" disabled={saving || !check.changed || check.problem !== undefined} onClick={submit}>
+          {t("pages.models.autoCompactSave")}
+        </button>
+        <button type="button" className="btn ghost" disabled={saving || !lines.canReset} onClick={() => save(withAutoCompact(view.settings, builtin), t("pages.models.autoCompactSaved"))}>
+          {t("pages.models.autoCompactReset", { at: tokensText(builtin) })}
+        </button>
+      </div>
+      {check.changed && check.problem && (
+        <div className="field-error" role="alert">
+          {check.problem}
+        </div>
+      )}
+      <span className="model-auto-compact-current">{lines.current}</span>
+      {lines.owners && <span className="muted">{lines.owners}</span>}
+    </Section>
   );
 }
 
