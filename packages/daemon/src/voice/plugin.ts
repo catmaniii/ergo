@@ -19,6 +19,8 @@
 //   正在跑的一轮里再调它们回"语音插件没启用"。启用回来是新的一次装配：排队、识别中的接着识别（同守护进程重启）。
 // -转述负责人的进展时第二段用它自己的声音（agent-voice-ref.ts 的 ownVoiceOfAgent，按角色查、和秘书现在用的比），经 replies.ownVoiceOf
 //   告诉内核（交给秘书的通知里写明）。移除时连数据删也改写各段的文字（parts）。
+// - 体检（413，doctor.ts）：setup 里经 ctx.doctor.register 登记五项——语音合成、语音识别、参考音色、ffmpeg、N 卡；停用时跟着撤。
+//   语音开没开、服务管家里登记在合成端口上的是哪条、服务管家的网页、有没有 N 卡经内核的 voiceSetup 问（组件、服务管家在内核）。
 // - agent 那一侧的工具（口语总结、发语音）不经 agent 贡献缝：它们是"每个会话都配的工具"（session-tools.ts），排在联网工具后面，
 //   秘书、负责人的工具顺序和搬过来之前一样。系统提示里讲念语音的几句包在条件"语音"里（prompt.ts）。
 import { type AgentVoiceEventPayload, CHANNELS, type ConversationId, EVENT_TYPES, forModel, PURGED_TEXT, t, type VoiceEventPayload } from "@ergo/protocol";
@@ -34,6 +36,7 @@ import { agentVoicesIn, voiceMaterialSource, voicePurge, voicesIn } from "../voi
 import { agentIdOfConversation, ownVoiceOfAgent, voiceOfAgent } from "./agent-voice-ref.ts";
 import { VOICE, type VoiceApi } from "./api.ts";
 import { createDebugVoice } from "./debug-voice.ts";
+import { findFfmpeg, voiceDoctorChecks } from "./doctor.ts";
 import { voiceGateOf } from "./gate.ts";
 import { RECOGNIZER_ENV, RECOGNIZER_SCRIPT, recognizerHint } from "./index.ts";
 import { voicePrompts } from "./prompt.ts";
@@ -105,7 +108,7 @@ export const voicePlugin: PluginDefinition = {
   get brings() {
     return { tools: [t("voice.tools.spokenSummary"), t("voice.tools.sendVoice")], cards: [], jobs: [] };
   },
-  needs: [KERNEL.config, KERNEL.store, KERNEL.clock, KERNEL.inbox, KERNEL.media, KERNEL.layout, KERNEL.notifications, KERNEL.voiceEngines, KERNEL.agentRoles],
+  needs: [KERNEL.config, KERNEL.store, KERNEL.clock, KERNEL.inbox, KERNEL.media, KERNEL.layout, KERNEL.notifications, KERNEL.voiceEngines, KERNEL.agentRoles, KERNEL.voiceSetup],
   provides: [VOICE],
   prompts: voicePrompts,
   contracts(ctx) {
@@ -226,6 +229,20 @@ export const voicePlugin: PluginDefinition = {
     });
     // Debug 工具集的语音组：录一段送识别、用当前参考音色合成念一句，都不经会话
     const debug = createDebugVoice({ recognizer, recognition, speech: warmup.speech, references: referenceVoices, pace: voiceConfig.reply, tmpDir: layout.tmp, log });
+
+    // 体检（413）：语音那一块的五项。合成读预热每个探活间隔看一次的状态（两个间隔没看过就当场探），识别读现成的状态（服务那两种不新就当场探）
+    for (const check of voiceDoctorChecks({
+      setup: ctx.use(KERNEL.voiceSetup),
+      speech: { url: speechUrl, state: () => warmup.view().speech, checkedAt: () => warmup.speechCheckedAt(), freshMs: 2 * voiceConfig.speech.probeMs },
+      recognizer: { mode: () => recognizerMode, state: () => recognizer.state, lsmUrl: recognizerConfig.url },
+      references: () => {
+        const current = referenceVoices.current();
+        return { count: referenceVoices.list().voices.length, ...(current ? { current: current.name } : {}) };
+      },
+      ffmpeg: () => findFfmpeg(engines.ffmpegCommand, engines.env),
+    })) {
+      ctx.doctor.register(check);
+    }
 
     // 这一次装配停了以后（运行中停用），还没按新的装配重新拉起的 agent 在正在跑的一轮里再调口语总结、发语音：回"语音插件没启用"，不做
     let running = true;

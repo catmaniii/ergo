@@ -8,6 +8,7 @@
 // "手机"插件也用个人档案的收候选。为 Claude Code 插件加了一次性子进程（列本机会话、读前情、分叉）。
 // 为记忆插件加了记忆插件槽（按原话记一条、每条消息的简报，转给在跑的那个记忆插件）。
 // 为记忆插件加了整理前同步一遍（数据源的服务把能由电脑拉的各同步一次）。
+// 为语音插件的体检项加了语音在这台电脑上是怎么配的（组件页的功能门、服务管家里登记在某端口的服务、服务管家的网页、有没有 N 卡）。
 import type { ChatModel } from "@ergo/memory";
 import type { CalendarExternalEntry, MemoryBriefInput, MemoryBriefResult, MemoryItem, MemoryRememberInput } from "@ergo/protocol";
 import type { HostToolCall } from "../agent-manager/host-tools.ts";
@@ -22,6 +23,7 @@ import type { EventTriggers } from "../event-sources/index.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import type { LocalFolders } from "../folders/local-folders.ts";
+import type { RegisteredService } from "../lsm/registered.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { Embedder, Materials } from "../materials/index.ts";
 import type { MaterialOwners, MemorySettingsService, PurgeRewriters } from "../memory/index.ts";
@@ -54,6 +56,24 @@ export interface VoiceEngines {
   recognizerStableMs?: number | undefined;
   /** 发语音工具最多等合成多久就先交回"还在合成"（毫秒）；不给用 send-voice.ts 的 */
   sendVoiceWaitMs?: number | undefined;
+}
+
+/**
+ * 语音在这台电脑上是怎么配的（413，语音插件的体检项要）：这几样在组件页、服务管家那边，语音插件自己看不到。
+ * 组件、服务管家的接入层建在插件装配之后，组合根现转给它（体检时才问）；测试换成假的
+ */
+export interface VoiceSetup {
+  /**
+   * 组件页的功能门现在能不能用（COMPONENT_FEATURES 的 voice.input "按住说话"、voice.reply "用语音回复"）：组件装在这儿，
+   * 或者别处已经有了（用户自己配的识别、合成）。用户自己的合成服务停着时这里认不出来，要再看 registeredOn
+   */
+  featureReady(feature: string): boolean;
+  /** 服务管家里探活端口是这个的那条服务（读它的注册表文件，不连服务管家）；没有、读不到是 undefined */
+  registeredOn(port: number): RegisteredService | undefined;
+  /** 服务管家的网页（体检的"去看看"跳这里）；不知道是 undefined */
+  managerUrl(): string | undefined;
+  /** 这台电脑有没有 N 卡（组件那边问 nvidia-smi 一次记住的） */
+  gpu(): "nvidia" | "none";
 }
 
 /** 插件的一次性子进程（见 KERNEL.oneShot）：入口、请求、出错时写的名字、最多等多久（毫秒） */
@@ -156,6 +176,8 @@ export const KERNEL = {
   notifications: serviceKey<Pick<EphemeralBus, "publish">>("notifications"),
   /** 语音用的外部程序（见 VoiceEngines；测试换成假的） */
   voiceEngines: serviceKey<VoiceEngines>("voiceEngines"),
+  /** 语音在这台电脑上是怎么配的（见 VoiceSetup；语音插件的体检项用；测试换成假的） */
+  voiceSetup: serviceKey<VoiceSetup>("voiceSetup"),
   /**
    * 角色（是每个 agent 自己的名字和音色）：语音插件按"说话的是哪个 agent"取它用的角色指定的音色
    * （没指定、被删了跟全局默认）。转述负责人的进展时还要角色名（转文字时写"小张："）

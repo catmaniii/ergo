@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { pairDevice } from "../helpers/device.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
+import { fakeProbes } from "../helpers/fake-downloads.ts";
 import { doctorApi } from "../helpers/http.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -102,6 +103,28 @@ describe("体检的接口（319b）", () => {
     fs.writeFileSync(path.join(svc, "registry", "tailnet.yaml"), "entries:\n  - id: ergo-daemon\n    name: ergo\n");
     const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined, LSM_DATA_DIR: svc } });
     expect(idOf((await doctorApi.view(td.url)).body.checks, "external")).toEqual({ id: "external", ok: true, data: { configured: true, kind: "tailscale" } });
+  });
+
+  it("语音插件那一块（413）：五项都在；合成服务手工登记在服务管家里却连不上 → 坏了，修法写那一条、去看看跳服务管家的网页", { timeout: 60_000 }, async () => {
+    // 测试底座的合成服务地址是本机 1 号端口（连不上，不碰真的 8090）；服务管家目录是临时的，里面手写一条登记在这个端口上的服务
+    const svc = makeTempDir("ergo-doctor-svc-");
+    fs.mkdirSync(path.join(svc, "registry", "services"), { recursive: true });
+    fs.writeFileSync(path.join(svc, "registry", "manager.yaml"), ["bind: 127.0.0.1", "port: 17420", ""].join("\n"));
+    fs.writeFileSync(path.join(svc, "registry", "services", "my-tts.yaml"), ["id: my-tts", "name: 我的语音合成", "probe:", "  tier: health", "  port: 1", ""].join("\n"));
+    // 组件页的"按住说话"算能用（别处配了识别）；"用语音回复"认不出（合成停着）
+    const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined, LSM_DATA_DIR: svc }, components: { probes: fakeProbes({ provided: { "voice-recognizer": "测试里配的识别" } }) } });
+    const view = (await doctorApi.view(td.url)).body;
+    const voice = view.groups.find((group) => group.id === "voice")!;
+    expect(voice.items.map((item) => item.id).toSorted()).toEqual(["ffmpeg", "gpu", "plugin", "recognizer", "references", "speech"]);
+    const speech = voice.items.find((item) => item.id === "speech")!;
+    expect(speech.level).toBe("error");
+    expect(speech.text.fact).toContain("127.0.0.1:1");
+    expect(speech.text.fix).toBe("在装二狗的那台电脑上打开服务管家，把「我的语音合成」（my-tts）开起来，再查一遍");
+    expect(speech.action).toEqual({ kind: "open", route: "http://127.0.0.1:17420/" });
+    // 内置的默认参考音色装上了；测试底座没有 N 卡（提示：不适用）
+    expect(voice.items.find((item) => item.id === "references")!.level).toBe("ok");
+    expect(voice.items.find((item) => item.id === "gpu")!.level).toBe("na");
+    expect(voice.level).toBe("error");
   });
 
   it("只认 GET：POST /api/doctor 回 405；路径不对回 404", { timeout: 60_000 }, async () => {

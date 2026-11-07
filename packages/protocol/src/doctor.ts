@@ -72,10 +72,16 @@ export interface DoctorMessage {
 
 /**
  * 一项可以带的一个动作按钮（网页认得这几种；不认得的不画）：
- * - open：跳到二狗的某一页，route 是网页的地址（"#/more/data-sources/looki"）；
+ * - open：跳到二狗的某一页，route 是网页的地址（"#/more/data-sources/looki"）；也可以是这台电脑上别的网页（http(s)://……，
+ *   比如服务管家的网页 http://127.0.0.1:7420/，413 的语音合成停了"去看看"跳它），网页新开一页打开；
  * - compact：现在压缩某个 agent 的对话（和会话 ⚙ 里"现在压缩"同一个接口，POST /api/agents/<agent id>/compact）
  */
 export type DoctorAction = { kind: "open"; route: string } | { kind: "compact"; agentId: string };
+
+/** open 的 route 是不是二狗之外的网页（http(s)://……，新开一页打开）；不是就是二狗自己的地址（#/……） */
+export function isExternalDoctorRoute(route: string): boolean {
+  return /^https?:\/\/[^\s]+$/i.test(route);
+}
 
 /** 动作的种类（网页按它挑按钮上的字） */
 export const DOCTOR_ACTION_KINDS = ["open", "compact"] as const;

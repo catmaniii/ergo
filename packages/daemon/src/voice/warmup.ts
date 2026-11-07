@@ -20,6 +20,8 @@
 // - 状态（VoiceModelsView）：识别引擎的清单（现在只有在用的那一个：faster-whisper，或者 Fun-ASR Nano）、两个模型各自的状态；变了就交给 onChange（守护进程推一条
 //   临时事件 voice_models），本机接口 GET /api/voice-models 取得到同样的。给人看的说明在 texts.ts。
 // -组件页装好、删掉语音识别模型时接入方式当场换（recognizer-switch.ts），recognizerChanged 清掉退避、预热新的那条。
+// - 体检（413，doctor.ts）直接读合成的状态：探活、试合成、真合成每次有了结果都记下时刻（speechCheckedAt），
+//   体检据此判这份状态新不新（太久没看过就自己当场探一次 /health）。
 import { nowIso, t, type VoiceModelState, type VoiceModelsView } from "@ergo/protocol";
 import type { Recognizer } from "./recognizer.ts";
 import type { ReferenceVoices } from "./reference-voices.ts";
@@ -67,6 +69,8 @@ export interface VoiceWarmup {
   readonly speech: SpeechSynthesizer;
   /** 两个模型现在的状态 */
   view(): VoiceModelsView;
+  /** 上次知道合成服务是什么样子的时刻（毫秒时间戳：探活、试合成、真合成有了结果）；还没看过是 undefined */
+  speechCheckedAt(): number | undefined;
   /** 开始预热（后台做，马上返回） */
   start(): void;
   /** 识别的接入方式换了：前一条的退避不算了，预热新的这一条 */
@@ -176,6 +180,11 @@ export function createVoiceWarmup(options: VoiceWarmupOptions): VoiceWarmup {
 
   /** 上次看到合成服务连得上吗（还没看过是 undefined） */
   let lastUp: boolean | undefined;
+  /** 上次知道合成服务是什么样子的时刻（体检看它新不新） */
+  let checkedAt: number | undefined;
+  const checked = () => {
+    checkedAt = Date.now();
+  };
   /** 合成的预热排着或者正在做 */
   let speechPending = false;
   /** 还没有参考音色、等着导入 */
@@ -197,6 +206,7 @@ export function createVoiceWarmup(options: VoiceWarmupOptions): VoiceWarmup {
       const health = await speech.health(aborter.signal);
       if (stopped) return;
       lastUp = health.up;
+      checked();
       if (!health.up) {
         log(`语音合成预热：${health.reason}，开了再预热`);
         setSpeech({ status: "off", reason: health.reason });
@@ -223,12 +233,14 @@ export function createVoiceWarmup(options: VoiceWarmupOptions): VoiceWarmup {
           { estimatedSeconds: 1, signal: aborter.signal },
         );
         if (stopped) return;
+        checked();
         const loadMs = Math.round(performance.now() - started);
         const alreadyLoaded = loadMs < ALREADY_LOADED_MS;
         log(`语音合成预热：试合成用了 ${(loadMs / 1000).toFixed(1)} 秒，${alreadyLoaded ? "模型之前已经加载好了" : "模型是这次加载的"}（${result.model}）`);
         setSpeech({ status: "ready", model: result.model, loadMs, alreadyLoaded });
       } catch (err) {
         if (stopped) return;
+        checked();
         const reason = err instanceof Error ? err.message : String(err);
         if (err instanceof SpeechServiceBusy) {
           // 显卡在给别的任务用（和别的程序共用，启动时常见）：按探活的间隔再试；只在开始忙时记一行
@@ -259,6 +271,7 @@ export function createVoiceWarmup(options: VoiceWarmupOptions): VoiceWarmup {
     try {
       const health = await speech.health(aborter.signal);
       if (stopped || speechPending) return;
+      checked();
       const flipped = health.up !== lastUp;
       lastUp = health.up;
       if (!health.up) {
@@ -290,9 +303,11 @@ export function createVoiceWarmup(options: VoiceWarmupOptions): VoiceWarmup {
       try {
         const result = await speech.synthesize(request, opts);
         lastUp = true;
+        checked();
         if (speechState.status !== "ready" && !stopped) setSpeech({ status: "ready", model: result.model });
         return result;
       } catch (err) {
+        if (err instanceof SpeechServiceBusy || err instanceof SpeechServiceOff) checked();
         if (err instanceof SpeechServiceOff && !stopped) {
           lastUp = false;
           if (speechState.status !== "off") setSpeech({ status: "off", reason: err.message });
@@ -311,6 +326,7 @@ export function createVoiceWarmup(options: VoiceWarmupOptions): VoiceWarmup {
   return {
     speech: gated,
     view,
+    speechCheckedAt: () => checkedAt,
     recognizerChanged() {
       if (stopped) return;
       clearTimeout(retryTimer);
