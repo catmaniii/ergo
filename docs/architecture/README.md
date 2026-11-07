@@ -124,7 +124,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 | `tasks/`、`sub-agents/`、`scheduled-jobs/`、`event-sources/`、`recovery/` | 任务（计划、执行、阶段验收、偏离和阈值、流程）、子 agent 并行、定时和事件触发、被杀后的恢复 |
 | `projects/`、`work-orders/`、`operations/`、`project-ops/`、`project-services/`、`scope-review/` | **项目系统**：档案和规范、工单派单、运营方案和运营接口、项目服务（经服务管家托管）、范围审视。外面只能引 `projects/api.ts` |
 | `cards/`、`inbox/`、`board/`、`activity/`、`ledger/` | 卡片类型和按钮闭环、待我处理、秘书眼里的看板、活动状态（新的要用户处理的卡往 `activity/card-waits.ts` 的 `CARD_WAITS` 加一行：说明带上卡片编号，网页标题上的"等你……"就能点，见 `web/src/state/activity-jump.ts`；建卡时同时放进待我处理）、token 账本 |
-| `plugins/`、`deletion/`、`data-sources/`、`components/`、`doctor/` | 插件宿主、删除参与方登记表、数据源和共用导入文件夹、按需下载的组件和下载器、体检（八项、内核登记的几项：主对话、模型近况（agent 管家的环形记录 `agent-manager/turn-log.ts`）、对话长度、托管的服务（服务管家的快照）、插件、网页文件；插件登记的体检项、二狗替插件生成的几项、秘书的只读 `check_health`） |
+| `plugins/`、`deletion/`、`data-sources/`、`components/`、`doctor/` | 插件宿主、删除参与方登记表、数据源和共用导入文件夹、按需下载的组件和下载器、体检（八项、内核登记的几项：主对话、模型近况（agent 管家的环形记录 `agent-manager/turn-log.ts`）、对话长度、托管的服务（服务管家的快照）、插件、网页文件；插件登记的体检项、二狗替插件生成的几项、秘书的只读 `check_health`；深度体检 `doctor/deep.ts`：cost 是 deep 的项——默认模型真发一句、ergo.db 只读完整性检查、数据源的 `probe`、Claude Code / Codex 的登录——点了才跑，结果留在内存里，GET / POST `/api/doctor/deep`） |
 | `materials/`、`memory/`、`quick-actions/` | 素材库（原话副本、关键词和向量索引）、记忆插件（每晚整理、记忆管理员、访谈）、快速动作 |
 | `reminders/`、`calendar/`、`voice/`、`browsing/`、`claude-code/`、`codex/`、`google/`、`looki/`、`phone/` | 各个插件（每个目录里有 `plugin.ts`，别的模块只从它的 `api.ts` 取东西） |
 | `scheduler/`、`workday/`、`backup/` | 调度器和可注入的时钟、内部作业；个人工作日历和节假日；备份、校验、恢复 |
@@ -461,7 +461,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 | `eventSubscribers.register` | 事件触发的订阅方 | 不再交给它 |
 | `apps.register` | 转发登记表（[转发本机服务的页面](#转发本机服务的页面)） | 之后 404，开着的管道断开 |
 | `agent.tools` / `agent.context` / `agent.hooks` / `agent.notes` 的 `register` | 给 agent 的工具、每轮的上下文块、钩子、输入附注 | 之后装配的 agent 不再有它；常驻的秘书手头这一条处理完就重新装配 |
-| `doctor.register` | 体检项（`doctor/checks.ts`，设置 · 体检上这个插件那一块） | 那一项没了；插件停用了整块不显示 |
+| `doctor.register` | 体检项（`doctor/checks.ts`，设置 · 体检上这个插件那一块；`cost: "deep"` 的只在深度体检里跑） | 那一项没了；插件停用了整块不显示 |
 | `effect(execute)` | 定时器、订阅这类：执行它、记下它返回的撤销函数 | 叫那个撤销函数 |
 | `lifecycle({ start, stop })` | 插件自己的启停 | 叫 `stop`（最先撤） |
 | `provide(key, value)` | 插件提供的服务 | 拿掉，别处取到 `undefined` |

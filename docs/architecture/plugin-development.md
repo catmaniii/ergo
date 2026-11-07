@@ -241,6 +241,10 @@ expect(listNotes(k.store.reader)).toEqual([]);
 
 - `id`：插件里不重复，小写英文、数字和连字符（`plugin` 和原来八项的 id 留给二狗）；`title`：名字的文案键（要参数时写 `{ key, params }`）；
 - `cost`：`passive` 只读内存、文件、事件，`local` 连本机端口、起本机进程。平时体检两种都跑：不联网、不调模型、不改东西；
+  `deep`（415 深度体检）：真试一遍——调模型、连外网、跑本机的外部程序、整库检查这类慢活。平时体检、秘书的 `check_health`、后台盯着都不跑它，
+  只有用户在体检页上点了"深度体检"才跑（`doctor/deep.ts`：同时最多两项、结果留在内存里、一分钟内不让再测）。例子：Claude Code、Codex 的"登录"
+  （`claude-code/deep-doctor.ts`、`codex/deep-doctor.ts`）。要连数据源上游的不用自己登记：数据源给一个只读的 `probe`（Looki 调 `/me`），
+  二狗替它在插件那一块生成"连一下：X"；
 - `timeoutMs`：默认 1500。超时、抛错、交回的东西不像样只算这一项"没查出来"，不影响别的项；`run(signal)` 要快，重活先在后台算好，这里只读结果；
 - `run` 交回 `DoctorFinding`：`level` 是 `ok`、`warn`（能用但打折扣）、`error`（用不了）、`unknown`（没查出来）、`na`（没开这个功能，不查）之一；`fact`、`fix` 是文案键 + 参数（键放插件自己的语言文件 `<插件>.doctor.*`，中英都加；时间、数字先按当前语言写好放进参数）；可选的 `since`（ISO）和一个 `action`（`{ kind: "open", route: "#/more/…" }` 跳页，`{ kind: "compact", agentId }` 现在压缩）。
 

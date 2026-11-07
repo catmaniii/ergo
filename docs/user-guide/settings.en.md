@@ -588,9 +588,22 @@ ergo itself has six more checks (they only read state that's already there; no e
 | Plugins | Whether any enabled plugin failed to load (details are in that plugin's own block); one that failed is a heads-up | See the reason in Settings · Plugins |
 | Web page files | Whether ergo's web page files are there; missing is broken (if ergo's pages won't open, telling ergo "run a checkup on yourself" still shows this check) | Running from source: run `npm run build:web` in the repository root. Installed program: reinstall (`ergo uninstall --keep-data`, then run the install command again; your data stays) |
 
+**Deep checkup:** Some things you only know by actually trying: whether the provider really is busy today, whether the Looki key still works. The **Deep checkup** block at the top of the page runs only when you tap it:
+
+- It sends one very short request to test the model (the reply is a few words; it costs less than a cent), goes online, and takes a little while (a few seconds to half a minute).
+- It runs the checks one by one and shows each result as it comes in; ones still running say **Testing…**. When done it says **Tested 3 minutes ago**; it only tests again when you tap **Test again**, and for a minute after a run the button is disabled (it counts down).
+- The results only live in ergo's memory and are gone after a restart. Opening the Checkup page or telling ergo "run a checkup" never runs these; ergo can read the latest results, but won't run them for you.
+
+| Check | What it tests | If it's wrong |
+|---|---|---|
+| Model (live request) | Sends one very short message with the default model in Settings and expects the full reply within 8 seconds; shows how long the first token and the whole reply took. A failed reply is told apart: wrong key, out of credit, rate-limited, provider busy (500, 503), timed out, can't connect. A wrong key, no credit, a busy provider or no connection is broken; rate-limited, timed out, or a first token after more than 5 seconds is a heads-up. Nothing is sent without a key | Follow the fix shown: check the key, top up, test again in a while, or switch models in Settings · Models |
+| Database integrity | Runs a read-only integrity check on `db\ergo.db` in the data folder (on a background thread, so the page doesn't freeze); shows the size and how long it took | If something's wrong, don't delete or move the data folder yet: make a backup in Settings · Backup, then restore the latest good snapshot |
+| Live check: a data source | Connects with the stored key (for Looki, one call that reads the account); shows the account and how long it took. A rejected key is broken; rate-limited, an error on their side, or no reply within 8 seconds is a heads-up; sources that aren't connected aren't tested | Open it in Settings · Data sources and enter the key again; otherwise test again in a while |
+| Sign-in (Claude Code, Codex) | Runs the tool's own sign-in check (`claude auth status`, `codex login status`; no session, no usage) to see whether you're signed in | If not, run `claude` or `codex login` in a terminal on this computer and sign in; ergo never touches your sign-in |
+
 **Good to know:**
 
-- The regular checkup only looks at this machine: it doesn't go online, call a model, or change any settings. It may connect to the ports of local services ergo uses (speech synthesis, for example).
+- The regular checkup only looks at this machine: it doesn't go online, call a model, or change any settings. It may connect to the ports of local services ergo uses (speech synthesis, for example). Live requests and going online only happen when you tap **Deep checkup**.
 - When one of the eight is wrong: ports, pi, the model key and disk space count as broken; the Node version, the service manager, components and outside access count as heads-up — except that outside access with no entry reachable from outside counts as broken.
 - Tell ergo "run a checkup on yourself" and it reads this page too, then tells you what's wrong and how to fix it. It only looks; it doesn't fix things for you.
 - **Outside access** saying **No outside access is registered in the service manager; if your phone already connects, you can ignore this** doesn't mean it isn't set up.
