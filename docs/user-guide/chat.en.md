@@ -99,7 +99,7 @@ Hold to talk works the same way: pick the attachments first, and it says **Hold 
 
 **Viewing attachments in the chat:**
 
-- **Images:** Click to enlarge. To close: click ×, click outside the image, press Esc or Back. The enlarged view has **Download** at the bottom.
+- **Images:** Click to enlarge. Pinch with two fingers (or use the scroll wheel on a computer) to zoom in and out, drag to look around once zoomed in, and double-click (double-tap) to zoom in or back out. To close: click ×, click outside the image, press Esc or Back. The enlarged view has **Download** at the bottom.
 - **File cards:** The type is at the top, with **Preview** and **Download** below. **Preview** shows the file the same way the built-in browser does:
   - Text: Markdown, plain text, tables (CSV and TSV, drawn as a table; long ones show the first 500 rows), JSON (neatly indented), and code or config files (monospaced). Markdown, tables and indented JSON have **View source** at the top right. For files over 1 MB only the beginning is shown, with a note at the top to download the full file. Text that isn't UTF-8 is read as GBK, so Chinese CSVs saved from Excel show correctly, with **GBK encoding** next to the type. If it's neither, it says it can't be previewed; download it and open it with an app on your device.
   - HTML and SVG up to 1 MB.

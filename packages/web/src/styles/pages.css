@@ -538,7 +538,9 @@ fieldset {
   line-height: 0;
 }
 /* 图片放大预览（ui/image-viewer.tsx）：盖住整页、在所有弹窗之上，深色底，图片按比例放到最大；
-   右上角的 × 和下面一行留出刘海、手势条的位置。深色底上一律白字，不跟风格换 */
+   右上角的 × 和下面一行留出刘海、手势条的位置。深色底上一律白字，不跟风格换。
+   捏合、拖动、双击、滚轮都由查看器自己做（touch-action: none，浏览器不滚、不缩放），图用 transform 放大挪动，
+   伸出查看器的部分裁掉；放大后图可以盖到 × 和下面一行底下，这两样在最上面（z-index），字带一点阴影，盖在亮图上也看得清 */
 .image-viewer {
   position: fixed;
   inset: 0;
@@ -548,6 +550,8 @@ fieldset {
   justify-content: center;
   padding: calc(env(safe-area-inset-top, 0px) + 64px) 12px calc(var(--safe-bottom) + 56px);
   background: rgba(0, 0, 0, 0.9);
+  overflow: hidden;
+  touch-action: none;
 }
 .image-viewer img {
   max-width: 100%;
@@ -555,6 +559,26 @@ fieldset {
   object-fit: contain;
   border-radius: var(--radius-m);
   cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+/* 松手弹回、双击换比例时带一点过渡；跟着手指和滚轮走的时候不带（ui/image-viewer.tsx 挂 settling） */
+.image-viewer img.settling {
+  transition: transform 0.2s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .image-viewer img.settling {
+    transition: none;
+  }
+}
+/* 放大了能拖：鼠标在图上显示抓手，按着拖时攥紧 */
+.image-viewer.zoomed img {
+  cursor: grab;
+}
+.image-viewer.zoomed.held,
+.image-viewer.zoomed.held img {
+  cursor: grabbing;
 }
 .image-viewer-close {
   position: absolute;
@@ -569,11 +593,21 @@ fieldset {
   font-size: 30px; /* 不跟字号：看大图时盖在图上的 44×44 圆钮，不跟字号 */
   line-height: 44px;
   text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   cursor: pointer;
+  z-index: 1;
 }
 .image-viewer-close:hover,
 .image-viewer-close:focus-visible {
   background: rgba(255, 255, 255, 0.32);
+}
+/* 放大后 × 多半盖在图上：底换成深的，亮图上也看得见 */
+.image-viewer.zoomed .image-viewer-close {
+  background: rgba(0, 0, 0, 0.45);
+}
+.image-viewer.zoomed .image-viewer-close:hover,
+.image-viewer.zoomed .image-viewer-close:focus-visible {
+  background: rgba(0, 0, 0, 0.65);
 }
 .image-viewer-bar {
   position: absolute;
@@ -586,6 +620,8 @@ fieldset {
   gap: 16px;
   color: rgba(255, 255, 255, 0.85);
   font-size: var(--fs-s);
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 1px 2px rgba(0, 0, 0, 0.9);
+  z-index: 1;
 }
 .image-viewer-name {
   min-width: 0;
