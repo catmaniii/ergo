@@ -154,7 +154,7 @@ import type {
   InterviewStatusView,
   MemorySummaryView,
 } from "../state/index.ts";
-import { copyWebSettings, nowIso, CUSTOM_PROVIDER_ID, DEFAULT_MEMORY_SETTINGS, MEMORY_CURATOR_CONVERSATION, DEFAULT_SECRETARY_SKILLS, DEFAULT_WEB_SETTINGS, effectiveModelChoice, effectiveWebQueue, framePreviewOf, IMPORT_NAME_PATTERN, MEDIA_FRAME_MAX_BYTES, MEDIA_TEXT_MAX_BYTES, mediaPreviewOf, MODEL_AGENTS, modelKeyOf, reopenScope, t, textPreviewOf, webSettingsProblem } from "../state/index.ts";
+import { copyWebSettings, nowIso, CUSTOM_PROVIDER_ID, DEFAULT_MEMORY_SETTINGS, MEMORY_CURATOR_CONVERSATION, DEFAULT_SECRETARY_SKILLS, DEFAULT_WEB_SETTINGS, effectiveModelChoice, effectiveWebQueue, framePreviewOf, IMPORT_NAME_PATTERN, MEDIA_FRAME_MAX_BYTES, MEDIA_TEXT_MAX_BYTES, mediaPreviewOf, MODEL_AGENTS, modelKeyOf, pdfPreviewOf, reopenScope, t, textPreviewOf, webSettingsProblem } from "../state/index.ts";
 import { demoParam, FAKE_SAFETY_START, fakeServerWebVersion } from "./fake-connection.ts";
 import { fakeMemoryClaim, fakeMemoryClaims, fakeMemoryQuestions, fakeMemoryStrategies, fakeMemorySummary } from "./fake-memory-graph.ts";
 import { FakeDataSources } from "./fake-data-sources.ts";
@@ -392,7 +392,8 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   /**
    * 照守护进程的内容接口：能预览的给文字（超过上限的截在字符边上；先按 UTF-8，不合法再按 GB18030 解，假附件按它记的编码）；
-   * HTML、SVG 只给名字、大小和 frame，超过上限的回太大；音频、视频只给名字、大小和 media；别的回不能预览，没有的回不在了
+   * HTML、SVG 只给名字、大小和 frame，超过上限的回太大；音频、视频只给名字、大小和 media；PDF 只给名字、大小和 pdf；
+   * 别的回不能预览，没有的回不在了
    */
   async mediaText(mediaId: string): Promise<MediaTextResult> {
     const fake = fakeMedia(mediaId);
@@ -406,6 +407,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     }
     const media = mediaPreviewOf(part);
     if (media) return { ok: true, view: { mediaId, name: part.name, mime: part.mime, text: "", bytes: part.size, truncated: false, sentAt: fake?.sentAt ?? "2026-10-07T21:30:00.000+08:00", media } };
+    if (pdfPreviewOf(part)) return { ok: true, view: { mediaId, name: part.name, mime: part.mime, text: "", bytes: part.size, truncated: false, sentAt: fake?.sentAt ?? "2026-10-07T21:30:00.000+08:00", pdf: true } };
     if (!textPreviewOf(part)) return { ok: false, code: "unsupported_type", message: `附件「${part.name}」是 ${part.mime}，不能预览，只能下载` };
     const sentAt = fake?.sentAt ?? "2026-10-07T21:30:00.000+08:00";
     if (fake?.text !== undefined) {
@@ -434,6 +436,13 @@ export class FakeDaemonHttp implements DaemonHttp {
       return made;
     }
     return fakeMedia(mediaId)?.sound ? fakeSoundUrl() : undefined;
+  }
+
+  /** 原型：PDF 的字节——刚上传的读本地文件，假附件现场生成（按界面语言写字），别的假附件没有内容 */
+  async mediaBytes(mediaId: string): Promise<ArrayBuffer | undefined> {
+    const uploaded = this.uploads.get(mediaId);
+    if (uploaded) return uploaded.arrayBuffer();
+    return fakeMedia(mediaId)?.pdf?.().buffer;
   }
 
   /**

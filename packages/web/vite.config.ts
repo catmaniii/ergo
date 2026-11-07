@@ -2,6 +2,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
 import { buildInfoPlugin } from "./build/build-info-plugin.ts";
+import { pdfjsPlugin } from "./build/pdfjs-plugin.ts";
 import { visualStylesPlugin } from "./build/visual-styles-plugin.ts";
 import { webVersionPlugin } from "./build/web-version-plugin.ts";
 
@@ -19,7 +20,8 @@ export default defineConfig(({ mode }) => ({
   // 视觉风格：风格清单生成的 token 样式表、内联脚本里的风格表、拷字体（build/visual-styles-plugin.ts）
   // 页面是哪一版：产物内容的哈希写进 index.html 的 <meta name="ergo-web-version">（build/web-version-plugin.ts）
   // 关于页：二狗的版本、更新日志（仓库根目录的 package.json、CHANGELOG.md）写进页面（build/build-info-plugin.ts）
-  plugins: [react(), buildInfoPlugin(), visualStylesPlugin(), viteSingleFile(), webVersionPlugin()],
+  // 报告页预览 PDF 用的 pdf.js：拷进产物的 pdfjs/<版本>/，不打进 index.html，打开 PDF 时才加载（build/pdfjs-plugin.ts）
+  plugins: [react(), buildInfoPlugin(), visualStylesPlugin(), pdfjsPlugin(), viteSingleFile(), webVersionPlugin()],
   build: {
     outDir: "dist",
     emptyOutDir: true,

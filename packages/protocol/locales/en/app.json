@@ -21,6 +21,7 @@
   "app.pageBubble.placeholder.files": "e.g. Attach the photos I took in Hangzhou last weekend",
   "app.pageBubble.placeholder.text": "e.g. Make the title “A weekend in Hangzhou”",
   "app.daemonHttp.historyFailed": "Couldn't load history (HTTP {status})",
+  "app.daemonHttp.mediaBytesFailed": "Couldn't load the file (HTTP {status})",
   "app.daemonHttp.httpFailed": "The daemon didn't answer (HTTP {status}); it may have just restarted — try again in a moment",
   "app.daemonHttp.notJson": "The daemon sent something that isn't data (it may have just restarted) — try again in a moment",
   "app.daemonHttp.fileGone": "Couldn't get the file (has the link expired?)",

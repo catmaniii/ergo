@@ -662,4 +662,6 @@ export const EN_CONVERSATIONS: Phrases = {
   "每天收邮件": "Daily email check",
   "收一遍工作邮箱和个人邮箱里昨天以来的新邮件：\n1. 挑出要我回的（同事、客户直接问我的），每封一句话说要回什么；\n2. 账单、快递通知归在一起，只列金额和日期；\n3. 广告不用管。\n结果写成一段：要回的在前，账单快递在后。":
     "Go through new mail in the work and personal inboxes since yesterday:\n1. Pick out the ones I need to answer (colleagues or clients asking me directly), one line each on what to reply;\n2. Group bills and delivery notices together, listing just amounts and dates;\n3. Ignore ads.\nWrite it up as one paragraph: replies first, then bills and deliveries.",
+  "周会纪要做成 PDF 了，还有房东发来的合同（加了密码）和一份扫描件，扫描件好像没传完": "I made the meeting notes into a PDF. Here's also the lease from the landlord (password-protected) and a scan, which doesn't seem to have finished uploading",
+  "纪要看过了，三件事都记下了。合同加了密码，我这边打不开；扫描件不完整，有空再传一次。": "Read the notes and noted all three things. The lease is password-protected, so I can't open it; the scan is incomplete, so please send it again when you get a chance.",
 };

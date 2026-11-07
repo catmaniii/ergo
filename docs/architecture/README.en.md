@@ -169,6 +169,7 @@ Both ports listen only on `127.0.0.1`:
 - **External port** (default 8811), the only target for tunnels, Tailscale and similar: it ignores source IP and Host and looks only at the device credential (cookie `__Host-ergo-device`). Without a valid credential only three things pass: the page itself (showing the pairing page), `/api/access`, and the pairing API; everything else gets 401. Endpoints added later are automatically behind this gate.
 - `/healthz`: whether the secretary is running, the web UI is built, and enabled plugins loaded (a plugin that failed to load means `degraded`, still 200).
 - `/fonts/`: fonts for the visual styles (credentials required on the external port too). The web UI makes no requests to external hosts at runtime.
+- `/pdfjs/`: pdf.js for previewing PDFs on the report page (the legacy build of pdfjs-dist, cmaps, standard_fonts, and the pure-JS versions of two image decoders), copied into `dist/pdfjs/<version>/` by the web build and loaded only when a PDF is opened (credentials required on the external port too). Script responses carry `Content-Security-Policy: default-src 'self'` (it only applies to the worker: no eval, no WebAssembly); the page's own headers and the media API's are unchanged, and the PDF bytes come from the media API.
 
 ### Device pairing
 

@@ -103,6 +103,18 @@ export function mediaPreviewOf(file: { name: string; mime: string }): MediaPrevi
   return undefined;
 }
 
+/**
+ * PDF 附件能不能在报告页预览：有扩展名的只看扩展名（.pdf），没有扩展名的看 part 上的类型（application/pdf）。
+ * 报告页用 pdf.js 在二狗自己的页面里画（网页按需加载），PDF 的字节照旧从媒体接口取（作为附件下载的那个响应，不内联、
+ * 响应头不变）；内容是不是真的 PDF 由 pdf.js 打开时认，打不开的报告页提示下载。守护进程的内容接口和 Web 的附件卡片、
+ * 报告页都按这一份判断
+ */
+export function pdfPreviewOf(file: { name: string; mime: string }): boolean {
+  const ext = fileExtensionOf(file.name);
+  if (ext) return ext === "pdf";
+  return (file.mime.split(";")[0] ?? "").trim().toLowerCase() === "application/pdf";
+}
+
 /** 在隔离的沙箱里预览的附件：HTML 在报告页的 <iframe sandbox> 里打开，SVG 用 <img> 显示 */
 export type FramePreview = "html" | "svg";
 

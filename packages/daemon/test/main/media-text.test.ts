@@ -2,6 +2,7 @@
 // 真的守护进程（临时数据目录）：附件经 HTTP 上传入库，再像 agent 发附件那样作为一条消息追加进秘书会话（名字、类型以消息里
 // 最近一次引用它的文件 part 为准）；测试扮演前端取内容。Markdown、纯文本、CSV、JSON、代码都给文字，不是 UTF-8 的按 GB18030 解；
 // 音频、视频只说用哪种播放器，媒体接口只对按内容认出的音视频内联（part 的扩展名定音频还是视频），声明成音视频、内容不是的照旧当附件下载。
+// PDF 只说交给 pdf.js（pdf: true，不给内容），报告页从媒体接口取字节：媒体接口对 PDF 照旧当附件下载，响应头一点不变。
 import fs from "node:fs";
 import path from "node:path";
 import { attachmentPartFrom, CHANNELS, HTTP_PATHS, type HttpErrorBody, MEDIA_TEXT_MAX_BYTES, type MediaTextView } from "@ergo/protocol";
@@ -13,6 +14,7 @@ import { pairDevice } from "../helpers/device.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { media } from "../helpers/http.ts";
 import { png } from "../helpers/images.ts";
+import { pdf } from "../helpers/pdf.ts";
 
 /** 开头像某种音视频容器的几个字节（后面补些不相干的，媒体接口只按开头认） */
 const MP4_HEAD = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftypisom", "latin1"), Buffer.alloc(64, 7)]);
@@ -299,6 +301,38 @@ describe("音频、视频附件", () => {
       const voice = await media.upload(test.url, Buffer.concat([content, Buffer.from("voice")]), { name: "语音", mime: type });
       const res = await media.download(test.url, voice.mediaId, { name: "语音" });
       expect({ type: res.headers["content-type"], disposition: res.headers["content-disposition"] }).toEqual({ type, disposition: expect.stringMatching(/^inline;/) });
+    }
+  });
+});
+
+describe("PDF 附件", () => {
+  it("内容接口只说交给 pdf.js 画（pdf，不给内容）；按扩展名认，没有扩展名的看类型；坏的、不是 PDF 的也一样（打不打得开由报告页说）", async () => {
+    const test = await startTestDaemon();
+    const notes = pdf([["Weekly notes"], ["Page two"]]);
+    for (const [content, name, mime] of [
+      [notes, "周会纪要.pdf", "application/pdf"],
+      [notes, "合同", "application/pdf"],
+      [Buffer.from("%PDF-1.4 只传了一半"), "扫描件.PDF", "application/octet-stream"],
+    ] as const) {
+      const id = await sendFile(test, content, name, mime);
+      const res = await media.text(test.url, id);
+      expect({ name, status: res.status, body: res.body }).toEqual({ name, status: 200, body: { mediaId: id, name, mime, text: "", bytes: content.length, truncated: false, sentAt: expect.any(String), pdf: true } });
+    }
+  });
+
+  it("报告页从媒体接口取字节：和下载同一个响应——整份原样、照旧当附件发（octet-stream、attachment、带 sandbox 的 CSP、不许嵌框），不按 PDF 内联", async () => {
+    const test = await startTestDaemon();
+    const notes = pdf([["Weekly notes"]]);
+    const id = await sendFile(test, notes, "周会纪要.pdf", "application/pdf");
+    for (const download of [true, false]) {
+      const res = await media.download(test.url, id, { name: "周会纪要.pdf", download });
+      expect(res.status).toBe(200);
+      expect(Buffer.compare(res.body, notes)).toBe(0);
+      expect(res.headers["content-type"]).toBe("application/octet-stream");
+      expect(res.headers["content-disposition"]).toMatch(/^attachment;/);
+      expect(res.headers["content-security-policy"]).toBe("default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox");
+      expect(res.headers["x-frame-options"]).toBe("DENY");
+      expect(res.headers["x-content-type-options"]).toBe("nosniff");
     }
   });
 });

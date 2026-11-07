@@ -15,6 +15,8 @@
  *   也不能把整页导航走；里面的链接在新窗口打开（鸿蒙 App 里交给系统浏览器）；
  * - SVG：用 <img> 显示（<img> 里的 SVG 不跑脚本），放在浅色底上（深色主题里透明底的线条也看得清）。
  * - 音频、视频：页面自带的播放器（MediaBody），放不了的提示下载。
+ * - PDF：pdf.js 在页面里一页页画（ui/pdf-view.tsx：按需加载 pdf.js，从媒体接口取字节；能选字、能缩放），
+ *   加了密码的、坏的提示下载；正文铺满报告页、在自己的框里滚动和缩放。
  * 显示什么由状态层的 reportPageView 推（state/attachments.ts）；标题栏的 ‹ 回到点进来的那个会话，直接打开的回秘书页。
  */
 import { memo, useEffect, useMemo, useState } from "react";
@@ -27,6 +29,7 @@ import { useStore } from "../app/store.tsx";
 import { type FileBody, type FramePreview, HTML_PREVIEW_SANDBOX, markdownChunks, type MediaPreview, type MediaTextResult, reportPageView, t } from "../state/index.ts";
 import { TopBar } from "../ui/common.tsx";
 import { T } from "../ui/i18n.tsx";
+import { PdfBody } from "../ui/pdf-view.tsx";
 
 /** 报告里的链接、图片、表格怎么画（其余照 react-markdown 默认） */
 const REPORT_MD: Components = {
@@ -218,10 +221,11 @@ export function ReportPage({ mediaId }: { mediaId: string }) {
   // "看原文"按着的是哪个媒体（换了文件回到渲染着看）
   const [rawOf, setRawOf] = useState<string>();
   const raw = page.kind === "ready" && page.canRaw && rawOf === mediaId;
-  const shown = page.kind === "ready" || page.kind === "frame" || page.kind === "media";
+  const shown = page.kind === "ready" || page.kind === "frame" || page.kind === "media" || page.kind === "pdf";
   const download = shown ? http.mediaUrl(mediaId, page.name, { download: true }) : undefined;
+  const variant = page.kind === "frame" ? ` report-page-${page.frame}` : page.kind === "pdf" ? " report-page-pdf" : "";
   return (
-    <div className={`chat-col report-page${page.kind === "frame" ? ` report-page-${page.frame}` : ""}`}>
+    <div className={`chat-col report-page${variant}`}>
       <TopBar title={shown ? page.name : t("pages.report.title")} onBack={back}>
         {shown &&
           (download ? (
@@ -278,6 +282,11 @@ export function ReportPage({ mediaId }: { mediaId: string }) {
               </div>
             )}
             <FramedBody src={http.mediaFrameUrl(mediaId, page.frame)} frame={page.frame} name={page.name} />
+          </article>
+        )}
+        {page.kind === "pdf" && (
+          <article className="report report-pdf">
+            <PdfBody key={mediaId} mediaId={mediaId} name={page.name} facts={page} download={download} />
           </article>
         )}
       </div>

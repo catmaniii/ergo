@@ -32,8 +32,8 @@ export default defineConfig({
         test: {
           name: "web",
           include: ["test/**/*.test.ts"],
-          // page-opens、open-snapshot-page、font-scale-page、image-viewer-page 要构建一遍再用真 Chrome 打开页面，放集成车道；build.test.ts 只构建、不写盘，留在快车道。
-          exclude: ["test/page-opens.test.ts", "test/open-snapshot-page.test.ts", "test/font-scale-page.test.ts", "test/image-viewer-page.test.ts"],
+          // page-opens、open-snapshot-page、font-scale-page、image-viewer-page、pdf-preview-page 要构建一遍再用真 Chrome 打开页面，放集成车道；build.test.ts、pdfjs-assets.test.ts 只构建、不写盘，留在快车道。
+          exclude: ["test/page-opens.test.ts", "test/open-snapshot-page.test.ts", "test/font-scale-page.test.ts", "test/image-viewer-page.test.ts", "test/pdf-preview-page.test.ts"],
           setupFiles: ["test/setup-locales.ts"],
           testTimeout: 15_000,
           hookTimeout: 15_000,

@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@ergo/protocol": "0.4.3",
+    "pdfjs-dist": "6.5.438",
     "qrcode-generator": "2.0.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",

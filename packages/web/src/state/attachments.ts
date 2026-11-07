@@ -4,8 +4,10 @@
 // 能预览的：
 // - 文本类（textPreviewOf）：Markdown、纯文本、JSON、CSV / TSV、代码和配置，画法和内置浏览器打开文件同一套（file-view.ts 的 fileBodyOf）；
 // - HTML、SVG（framePreviewOf，1 MB 以内）：报告页里 HTML 在沙箱框里打开，SVG 用 <img> 显示；
-// - 音频、视频（mediaPreviewOf）：报告页里用页面自带的播放器放，编码浏览器放不了的由播放器报错时提示下载（卡片上不事先判断）。
-// 报告页（pages/ReportPage.tsx）显示什么也在这里推：取到的内容怎么画（HTML、SVG 在框里看，音视频给播放器）、截断的提示、取不到时说什么。
+// - 音频、视频（mediaPreviewOf）：报告页里用页面自带的播放器放，编码浏览器放不了的由播放器报错时提示下载（卡片上不事先判断）；
+// - PDF（pdfPreviewOf）：报告页里用 pdf.js 一页页画，加了密码的、坏的由报告页打开时提示下载（卡片上不事先判断，也不为了写页数先下载）。
+// 报告页（pages/ReportPage.tsx）显示什么也在这里推：取到的内容怎么画（HTML、SVG 在框里看，音视频给播放器，PDF 交给 pdf.js）、
+// 截断的提示、取不到时说什么。
 import { sizeLabel } from "./detail-content.ts";
 import { FILE_RENDER_LABEL, type FileBody, fileBodyOf } from "./file-view.ts";
 import {
@@ -20,6 +22,7 @@ import {
   mediaPreviewOf,
   type MediaTextView,
   type MessagePart,
+  pdfPreviewOf,
   t,
   textPreviewOf,
   tTable,
@@ -70,16 +73,18 @@ export function attachmentCategory(name: string, mime: string): AttachmentCatego
   return "other";
 }
 
-/** 能怎么预览：按哪种文本画（Markdown、纯文本、JSON、表格、代码），在框里看 HTML、SVG，或者用播放器放音频、视频 */
-export type AttachmentPreview = FileRenderKind | FramePreview | MediaPreview;
+/** 能怎么预览：按哪种文本画（Markdown、纯文本、JSON、表格、代码），在框里看 HTML、SVG，用播放器放音频、视频，或者用 pdf.js 画 PDF */
+export type AttachmentPreview = FileRenderKind | FramePreview | MediaPreview | "pdf";
 
 /**
  * 一个文件附件能怎么预览：HTML、SVG 看扩展名，超过 MEDIA_FRAME_MAX_BYTES 的不预览（没法截一半看）；音频、视频看扩展名，
- * 多大都能放（播放器按需取一段段）；文本类按 textPreviewOf，超过 1 MB 的报告页只显示开头。不能预览是 undefined
+ * 多大都能放（播放器按需取一段段）；PDF 看扩展名（报告页取整个文件交给 pdf.js）；文本类按 textPreviewOf，超过 1 MB 的报告页
+ * 只显示开头。不能预览是 undefined
  */
 export function attachmentPreviewOf(part: Pick<FilePartValue, "name" | "mime" | "size">): AttachmentPreview | undefined {
   const frame = framePreviewOf(part);
   if (frame) return part.size <= MEDIA_FRAME_MAX_BYTES ? frame : undefined;
+  if (pdfPreviewOf(part)) return "pdf";
   return mediaPreviewOf(part) ?? textPreviewOf(part);
 }
 
@@ -210,16 +215,27 @@ export type ReportPageView =
   | { kind: "frame"; name: string; facts: string; frame: FramePreview; notice: string | undefined }
   /** 音频、视频：用页面自带的播放器放媒体接口的地址（能拖进度）；放不了时报告页提示下载 */
   | { kind: "media"; name: string; facts: string; media: MediaPreview }
+  /**
+   * PDF：报告页从媒体接口取整个文件，交给 pdf.js 一页页画；打开前不知道几页，facts 是没有页数的那一行，
+   * 打开了用 pdfFacts(page, 页数) 补上
+   */
+  | { kind: "pdf"; name: string; facts: string; size: string; sent: string | undefined }
   /** title、detail 说清楚怎么了、怎么办；note 是守护进程说的原因 */
   | { kind: "error"; title: string; detail: string; note: string };
 
-/** 报告页"类型"那一栏：文本类和内置浏览器同一套说法（file-view.ts 的 FILE_RENDER_LABEL），HTML、SVG、音频、视频另说 */
-const OTHER_LABEL: Readonly<Record<FramePreview | MediaPreview, string>> = tTable({
+/** 报告页"类型"那一栏：文本类和内置浏览器同一套说法（file-view.ts 的 FILE_RENDER_LABEL），HTML、SVG、音频、视频、PDF 另说 */
+const OTHER_LABEL: Readonly<Record<FramePreview | MediaPreview | "pdf", string>> = tTable({
   html: "state.attachments.render.html",
   svg: "state.attachments.render.svg",
   audio: "state.attachments.render.audio",
   video: "state.attachments.render.video",
+  pdf: "state.attachments.render.pdf",
 });
+
+/** PDF 报告页那一行：类型、几页（打开了才知道；不知道不写）、大小、什么时候发的 */
+export function pdfFacts(page: { size: string; sent: string | undefined }, pages?: number): string {
+  return [OTHER_LABEL.pdf, pages === undefined ? undefined : t("state.attachments.pdfPages", { count: pages }), page.size, page.sent].filter(Boolean).join(" · ");
+}
 
 /** HTML 预览顶上的说明：页面在沙箱里，拦着什么、放着什么（按当前语言现取） */
 export function htmlFrameNotice(): string {
@@ -295,6 +311,10 @@ export function reportPageView(result: MediaTextResult | undefined): ReportPageV
     };
   }
   if (view.media) return { kind: "media", name: view.name, facts: [OTHER_LABEL[view.media], sizeLabel(view.bytes), sent].filter(Boolean).join(" · "), media: view.media };
+  if (view.pdf) {
+    const size = sizeLabel(view.bytes);
+    return { kind: "pdf", name: view.name, facts: pdfFacts({ size, sent }), size, sent };
+  }
   const kind = textPreviewOf(view) ?? "plain";
   const { body, notices, canRaw } = fileBodyOf(kind, view.text, view.truncated);
   if (view.truncated) notices.unshift(t("state.attachments.truncated", { size: sizeLabel(view.bytes), limit: sizeLabel(MEDIA_TEXT_MAX_BYTES) }));

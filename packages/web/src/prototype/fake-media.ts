@@ -1,14 +1,18 @@
 // 原型里的假附件：聊天里的附件卡片、报告页用。文本类的带内容（报告页照真接口的规矩回：能预览的给文字，超过 1 MB 的截断；
 // Markdown、CSV 表格、JSON、代码，还有一份当作 Excel 导出、GBK 编码的流水；HTML、SVG 也带内容，报告页在沙箱框、<img> 里看），
-// 录音带一段现场合成的提示音（报告页的播放器真能放、能拖），视频没有内容（报告页说"原型里没有这个文件的内容"），
+// 录音带一段现场合成的提示音（报告页的播放器真能放、能拖），PDF 现场生成（fake-pdf.ts：三页的纪要能看能选字，
+// 还有一份加了密码的、一份坏的），视频没有内容（报告页说"原型里没有这个文件的内容"），
 // 别的只有名字、类型、大小。原型没有守护进程：下载给的是一段说明文字（data: 地址）。名字和内容都是明显虚构的。
 import type { FilePartValue } from "../state/index.ts";
 import { fakeFormat, fakeMoney, fakeText } from "./fake-content.ts";
+import { brokenPdf, fakePdf, type FakePdfLine } from "./fake-pdf.ts";
 
 /** 一个假附件：part 上的样子，文本类的再带内容 */
 export interface FakeMedia {
   readonly part: FilePartValue;
   readonly text?: string;
+  /** PDF：内容现场生成（按界面语言写字；fake-pdf.ts），报告页交给 pdf.js 画 */
+  readonly pdf?: () => Uint8Array<ArrayBuffer>;
   /** 当作 GBK（GB18030）编码存的（报告页那一行写明编码）；内容照样是这里的字 */
   readonly encoding?: "gb18030";
   /** 录音：内容是现场合成的一段提示音（fakeSoundUrl） */
@@ -316,6 +320,53 @@ export function fakeSoundUrl(): string {
   return (soundUrl ??= URL.createObjectURL(new Blob([chimeWav()], { type: "audio/wav" })));
 }
 
+/**
+ * 周会纪要（PDF，三页）：标题、打勾的几条、编号的几条、每页底下的页码。tr 把每句换成当前语言（量大小时原样用中文）
+ */
+function meetingPages(tr: (text: string) => string): FakePdfLine[][] {
+  const line = (style: FakePdfLine["style"], text: string): FakePdfLine => ({ style, text: tr(text) });
+  return [
+    [
+      line("title", "周会纪要（第 41 周）"),
+      line("note", "10 月 7 日 10:00 到 11:00，家里三个人"),
+      line("heading", "一、上周的事"),
+      line("check", "九月账单全部导入记账本，三张卡都对上了"),
+      line("check", "车险比价拿到两家报价，等你说继续"),
+      line("check", "训练计划改成每周三次，深蹲加到 60 kg"),
+      line("heading", "二、录音里说到的三件事"),
+      line("body", "1. 十一月去西安的高铁票订好了，酒店还在比价。"),
+      line("body", "2. 冰箱保修卡下个月到期，到期前一个月提醒。"),
+      line("body", "3. 周末整理一次家里的票据，扫描后存进记账本。"),
+    ],
+    [
+      line("heading", "三、这周要做"),
+      line("body", "1. 把信用卡账单导入记账本，周三前做完。"),
+      line("body", "2. 西安的酒店挑两家，周五一起定。"),
+      line("body", "3. 车险等两家报价都到了再比，不急。"),
+      line("heading", "四、下次周会"),
+      line("body", "10 月 14 日 10:00，还是在家里开。"),
+      line("note", "这份纪要是演示用的，人和事都是编的。"),
+    ],
+    [
+      line("heading", "附：怎么看这份 PDF"),
+      line("body", "双指捏合放大缩小，电脑上按住 Ctrl 滚滚轮。"),
+      line("body", "双击放大，再双击还原；放大后停一下，字会重新画清楚。"),
+      line("body", "按住文字能选中、复制，和网页上的字一样。"),
+    ],
+  ];
+}
+
+/** 每页底下的页码 */
+const PAGE_FOOTER = "第 {} 页，共 {} 页";
+const BROKEN_NOTE = "这份扫描件只传了一半";
+
+/** 周会纪要的 PDF：localize 时按界面语言写字（报告页现取），不然是中文原样（量附件大小） */
+function meetingPdf(localize: boolean, encrypted = false): Uint8Array<ArrayBuffer> {
+  const footer = (page: number, total: number) => (localize ? fakeFormat(PAGE_FOOTER, page, total) : PAGE_FOOTER.replace("{}", String(page)).replace("{}", String(total)));
+  return fakePdf(meetingPages(localize ? fakeText : (text) => text), footer, { encrypted });
+}
+const brokenScan = (localize: boolean) => brokenPdf(localize ? fakeText(BROKEN_NOTE) : BROKEN_NOTE);
+
 const file = (mediaId: string, name: string, mime: string, size: number): FilePartValue => ({ type: "file", mediaId, name, mime, size });
 const utf8Bytes = (text: string) => new TextEncoder().encode(text).length;
 const textFile = (mediaId: string, name: string, mime: string, text: string): FakeMedia => ({ part: file(mediaId, name, mime, utf8Bytes(text)), text });
@@ -349,6 +400,15 @@ export const FAKE_WORKOUT_JSON: FakeMedia = { ...textFile("sha256:fake-workout-j
 export const FAKE_REIMBURSE_PY: FakeMedia = { ...textFile("sha256:fake-reimburse-py", "calc_reimburse.py", "text/x-python", REIMBURSE_PY), sentAt: "2026-10-07T16:07:00.000+08:00" };
 /** 周会的录音（报告页里放合成的提示音） */
 export const FAKE_MEETING_AUDIO: FakeMedia = { part: file("sha256:fake-meeting-audio", "周会要点录音.wav", "audio/wav", SOUND_BYTES), sound: true, sentAt: "2026-10-07T16:05:00.000+08:00" };
+/** PDF：周会纪要（三页，能看能选字）、加了密码的合同（报告页说要密码）、只传了一半的扫描件（报告页说坏了）；大小按中文那一份量 */
+const pdfMedia = (mediaId: string, name: string, make: (localize: boolean) => Uint8Array<ArrayBuffer>): FakeMedia => ({
+  part: file(mediaId, name, "application/pdf", make(false).length),
+  pdf: () => make(true),
+  sentAt: "2026-10-07T16:20:00.000+08:00",
+});
+export const FAKE_MEETING_PDF = pdfMedia("sha256:fake-meeting-pdf", "周会纪要-第41周.pdf", (localize) => meetingPdf(localize));
+export const FAKE_LOCKED_PDF = pdfMedia("sha256:fake-locked-pdf", "租房合同-加了密码.pdf", (localize) => meetingPdf(localize, true));
+export const FAKE_BROKEN_PDF = pdfMedia("sha256:fake-broken-pdf", "扫描件-传了一半.pdf", brokenScan);
 
 const FAKE_MEDIA: Readonly<Record<string, FakeMedia>> = Object.fromEntries(
   [
@@ -360,6 +420,9 @@ const FAKE_MEDIA: Readonly<Record<string, FakeMedia>> = Object.fromEntries(
     FAKE_WORKOUT_JSON,
     FAKE_REIMBURSE_PY,
     FAKE_MEETING_AUDIO,
+    FAKE_MEETING_PDF,
+    FAKE_LOCKED_PDF,
+    FAKE_BROKEN_PDF,
     ...FAKE_VIDEOS,
     FAKE_ZIP,
     FAKE_HTML,

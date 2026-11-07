@@ -18,7 +18,8 @@
 // 文本类附件的内容（报告页用）：GET /api/media/<媒体 id>/text 回 JSON（MediaTextView，http-schema.ts），
 // 不让浏览器直接渲染文件。只按媒体 id 取（内容寻址，不接受路径）；名字和类型以消息里最近一次引用它的文件 part 为准，
 // 能预览的（parts.ts 的 textPreviewOf：Markdown、纯文本、JSON、CSV / TSV、代码和配置）才给，音频、视频只回名字、大小这些和
-// media（报告页的播放器放媒体接口），别的回 415（unsupported_type）。超过 MEDIA_TEXT_MAX_BYTES 的只给开头（truncated）；
+// media（报告页的播放器放媒体接口），PDF 只回名字、大小这些和 pdf（报告页从媒体接口取字节、用页面里的 pdf.js 画），
+// 别的回 415（unsupported_type）。超过 MEDIA_TEXT_MAX_BYTES 的只给开头（truncated）；
 // 先按严格的 UTF-8 解，不是合法的 UTF-8 再按 GB18030（GBK 的超集，Excel 导出的中文 CSV 常见）解，两种都截在字符边上；
 // 都解不出来、含 NUL 的回 422（undecodable），不吐乱码。
 // HTML、SVG 附件也能预览，在隔离的沙箱里看——内容接口对它们只回名字、大小这些和 frame（不给 text），报告页按 frame

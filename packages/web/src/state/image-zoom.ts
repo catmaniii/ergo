@@ -27,6 +27,24 @@ export interface ZoomPoint {
   readonly y: number;
 }
 
+/** 按下到松手挪了不到这么多（像素）才算点 */
+export const TAP_SLOP = 8;
+/** 双击：两次点隔得不超过这么久（毫秒）、离得不超过这么远（像素） */
+export const DOUBLE_TAP_MS = 300;
+export const DOUBLE_TAP_SLOP = 40;
+
+/** 一次点：什么时候（毫秒）、点在哪（视口坐标） */
+export interface Tap {
+  readonly at: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+/** 这一下和上一下凑不凑得成双击：隔得够近、离得够近 */
+export function isDoubleTap(last: Tap | undefined, now: Tap): boolean {
+  return last !== undefined && now.at - last.at <= DOUBLE_TAP_MS && Math.hypot(now.x - last.x, now.y - last.y) <= DOUBLE_TAP_SLOP;
+}
+
 /** 适应屏幕：1 倍、居中。每次打开都从这里开始 */
 export const ZOOM_FIT: ZoomView = { scale: 1, x: 0, y: 0 };
 /** 最大放到几倍 */
