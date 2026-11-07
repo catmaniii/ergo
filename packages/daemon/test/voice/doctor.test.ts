@@ -45,8 +45,8 @@ interface Fake {
   probe?: (url: string) => HealthProbe;
   /** 服务管家的网页（不给是本机的 MANAGER） */
   manager?: string;
-  /** 语音插件（预热）起来的时刻（毫秒）；不给是早就起来了 */
-  startedAt?: number;
+  /** 语音插件起来多久了（毫秒）；不给是早就起来了 */
+  upMs?: number;
 }
 
 /** 假的现状 + 记下当场探了哪些地址 */
@@ -67,7 +67,7 @@ function facts(fake: Fake): { facts: VoiceDoctorFacts; probed: string[] } {
       references: () => fake.references ?? { count: 1, current: "默认" },
       ffmpeg: () => ("ffmpeg" in fake ? fake.ffmpeg : "C:\\tools\\ffmpeg.exe"),
       now: () => NOW,
-      startedAt: () => fake.startedAt,
+      upMs: () => fake.upMs,
       probe: async (url) => {
         probed.push(url);
         if (!fake.probe) throw new Error(`这一项不该当场探：${url}`);
@@ -356,7 +356,7 @@ describe("刚启动的头一分钟（437）", () => {
       features: [COMPONENT_FEATURES.voiceInput],
       registered: { [speechPort]: { id: "audiocpp", name: "audio.cpp 语音合成" } },
       speech: state("waiting"),
-      startedAt: NOW - 20_000,
+      upMs: 20_000,
       probe: () => ({ reachable: false, reason: "1.5 秒没回应" }),
     };
     const starting = await run(fake, "speech");
@@ -367,7 +367,7 @@ describe("刚启动的头一分钟（437）", () => {
     expect(starting.action).toBeUndefined();
 
     // 起来过了一分钟还探不通：照常坏了，修法写开起来
-    const later = await run({ ...fake, startedAt: NOW - VOICE_STARTUP_GRACE_MS - 1_000 }, "speech");
+    const later = await run({ ...fake, upMs: VOICE_STARTUP_GRACE_MS + 1_000 }, "speech");
     expect(later).toMatchObject({ level: "error", action: { kind: "start", service: "audiocpp" } });
     expect(say(later.fact)).toBe(`连不上 127.0.0.1:${speechPort}（1.5 秒没回应）：你发语音时的回复都合成不了，退回只发文字`);
 
@@ -377,7 +377,7 @@ describe("刚启动的头一分钟（437）", () => {
 
   it("刚启动时预热记下的\"没开\"也先不算坏了（写预热记的原因）；试合成出错、忙照常报", async () => {
     const { speechUrl, recognizerUrl, speechPort } = await urls();
-    const base: Fake = { speechUrl, recognizerUrl, features: [COMPONENT_FEATURES.voiceReply], registered: { [speechPort]: { id: "audiocpp" } }, checkedAt: NOW - 5_000, startedAt: NOW - 30_000 };
+    const base: Fake = { speechUrl, recognizerUrl, features: [COMPONENT_FEATURES.voiceReply], registered: { [speechPort]: { id: "audiocpp" } }, checkedAt: NOW - 5_000, upMs: 30_000 };
     const off = await run({ ...base, speech: state("off", { reason: `语音合成服务 3 秒没回应（${speechUrl}）`, since: new Date(NOW - 10_000).toISOString() }) }, "speech");
     expect(off.level).toBe("unknown");
     expect(say(off.fact)).toBe(`二狗刚启动，语音合成这次没探通：语音合成服务 3 秒没回应（${speechUrl}）。刚启动时忙，这一眼先不算坏了`);
@@ -394,18 +394,18 @@ describe("刚启动的头一分钟（437）", () => {
       mode: "lsm",
       registered: { [recognizerPort]: { id: "ergo-asr", name: "二狗语音识别" } },
       recognizer: state("ready", { model: "large-v3", since: new Date(NOW - RECOGNIZER_FRESH_MS - 1_000).toISOString() }),
-      startedAt: NOW - 10_000,
+      upMs: 10_000,
       probe: () => ({ reachable: false, reason: "1.5 秒没回应" }),
     };
     const starting = await run(fake, "recognizer");
     expect(starting.level).toBe("unknown");
     expect(say(starting.fact)).toBe(`二狗刚启动，服务管家托管的识别服务（127.0.0.1:${recognizerPort}）这次没探通（1.5 秒没回应）。刚启动时忙，这一眼先不算坏了`);
-    expect((await run({ ...fake, startedAt: NOW - VOICE_STARTUP_GRACE_MS }, "recognizer")).level).toBe("error");
+    expect((await run({ ...fake, upMs: VOICE_STARTUP_GRACE_MS }, "recognizer")).level).toBe("error");
   });
 
   it("没查出来不拉低总状态：刚启动时语音那一块整块不是坏了", async () => {
     const { speechUrl, recognizerUrl, speechPort } = await urls();
-    const { facts: f } = facts({ speechUrl, recognizerUrl, features: [COMPONENT_FEATURES.voiceReply], registered: { [speechPort]: { id: "audiocpp" } }, speech: state("waiting"), startedAt: NOW - 20_000, probe: () => ({ reachable: false, reason: "1.5 秒没回应" }) });
+    const { facts: f } = facts({ speechUrl, recognizerUrl, features: [COMPONENT_FEATURES.voiceReply], registered: { [speechPort]: { id: "audiocpp" } }, speech: state("waiting"), upMs: 20_000, probe: () => ({ reachable: false, reason: "1.5 秒没回应" }) });
     const registry = createDoctorChecks();
     for (const check of voiceDoctorChecks(f)) registry.register({ ...check, plugin: "voice" });
     const probes = Object.fromEntries(DOCTOR_CHECKS.map((id) => [id, brokenPath])) as unknown as DoctorProbes;

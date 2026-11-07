@@ -77,8 +77,8 @@ export interface VoiceDoctorFacts {
   probe?(url: string, signal: AbortSignal): Promise<HealthProbe>;
   /** 此刻（毫秒）；不给是 Date.now（预热记的也是墙上的时间） */
   now?(): number;
-  /** 语音插件（预热）起来的时刻（毫秒）：之后 VOICE_STARTUP_GRACE_MS 以内探不通算没查出来；不给是早就起来了 */
-  startedAt?(): number | undefined;
+  /** 语音插件起来多久了（毫秒，按守护进程的时钟，测试拨得动）：VOICE_STARTUP_GRACE_MS 以内探不通算没查出来；不给是早就起来了 */
+  upMs?(): number | undefined;
 }
 
 /** 地址是不是这台电脑（平时体检只连本机） */
@@ -205,8 +205,8 @@ export function voiceDoctorChecks(facts: VoiceDoctorFacts): DoctorCheck[] {
   const inputOn = () => voiceInputOn(setup);
   /** 刚起来（VOICE_STARTUP_GRACE_MS 以内）：探不通这一眼不作数 */
   const starting = (): boolean => {
-    const started = facts.startedAt?.();
-    return started !== undefined && Number.isFinite(started) && now() - started < VOICE_STARTUP_GRACE_MS;
+    const up = facts.upMs?.();
+    return up !== undefined && Number.isFinite(up) && up < VOICE_STARTUP_GRACE_MS;
   };
 
   /** 这台电脑上有服务管家、里面登记在这个地址的端口上的那条（没有的不给按钮，修法照样写） */
