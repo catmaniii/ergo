@@ -484,7 +484,7 @@
   "ui.plugins.map.day.photos_other": "{count} 张照片",
   "ui.plugins.map.day.passing": "只有路上的点",
   "ui.plugins.map.day.empty": "这一天没有足迹",
-  "ui.plugins.map.day.latest": "看最近有足迹的一天（{date}）",
+  "ui.plugins.map.day.latest": "看 {date} 那天",
   "ui.plugins.map.day.notLinked": "在手机上的二狗 App 里点「开始记位置」，以后每天去过哪里就画在这里",
   "ui.plugins.map.day.goConnect": "去看看",
   "ui.plugins.map.day.list": "这一天",

@@ -504,7 +504,7 @@
   "ui.plugins.map.day.photos_other": "{count} photos",
   "ui.plugins.map.day.passing": "Only points along the way",
   "ui.plugins.map.day.empty": "No footprints on this day",
-  "ui.plugins.map.day.latest": "Show the latest day with footprints ({date})",
+  "ui.plugins.map.day.latest": "Go to {date}",
   "ui.plugins.map.day.notLinked": "Tap \"Start recording location\" in the ergo app on your phone, and the places you go each day will show up here",
   "ui.plugins.map.day.goConnect": "Take a look",
   "ui.plugins.map.day.list": "This day",

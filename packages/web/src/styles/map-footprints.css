@@ -52,12 +52,14 @@
 .map-day-note {
   display: flex;
   flex: 1 1 160px;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
   min-width: 0;
 }
 .map-day-summary {
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 4px;
   min-width: 0;
@@ -81,6 +83,7 @@ button.map-day-summary {
 }
 .map-day-note .btn {
   flex: none;
+  max-width: 100%;
 }
 .map-day-layer {
   display: inline-flex;
