@@ -8,8 +8,8 @@
 // 记录不多（一次同步一条），数据源页每次现读这个频道归并，不建派生视图。
 // 435：每隔几分钟的定期导入什么都没变的那次（新进来 0 条、没出错、上一条记下的也没出错）不进上面这个频道（每 30 分钟一条，
 // 数据源页每次现读会越读越慢），记在另一个内部频道 data_sources_quiet（data_source_quiet_sync，负载和同步记录一样），
-// 派生视图 data_source_quiet 每个数据源只留最后一次——以前只在内存里记，重启就回到最后记下的那次（Google 日历的"上次同步"
-// 停在 11-01、体检报 165 小时没同步成功）。整个断开时那一行删掉；和同步记录谁更晚按全局序号比（同一毫秒的也分得清）。
+// 派生视图 data_source_quiet 每个数据源只留最后一次——以前只在内存里记，重启就回到最后记下的那次（Google 日历一直没变时
+// "上次同步"停在好几天前、体检跟着报好几天没同步成功）。整个断开时那一行删掉；和同步记录谁更晚按全局序号比（同一毫秒的也分得清）。
 import { type DataSourcePurgeCounts, type DataSourceSyncTrigger, isDeletedEventPayload } from "@ergo/protocol";
 import type { DerivedView, EventStore, StoredEvent } from "../events/event-store.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";

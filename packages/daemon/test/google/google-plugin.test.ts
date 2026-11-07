@@ -414,7 +414,7 @@ describe("每 30 分钟定期导入", () => {
     expect(sourceOf(k)).toMatchObject({ count: 7, lastSync: { trigger: "scheduled", added: 1 } });
   });
 
-  // 435：11-07 体检报"Google · 日历 165 小时没同步成功了"，数据源页的上次同步停在 11-01 那次手动的——每 30 分钟的定期导入一直在跑、
+  // 435：体检报"Google · 日历好几天没同步成功了"，数据源页的上次同步停在好几天前那次手动的——每 30 分钟的定期导入一直在跑、
   // 一直是 +0，什么都没变的那几次以前只记在内存里，守护进程一重启就回到最后记下的那次
   it("什么都没变的那几次重启后照样是上次同步：页面、体检的上次成功都是最后那次，体检不报过期，整理前算刚同步过；同步记录的频道不多记（435）", async () => {
     const { k, remote } = await start();
@@ -428,7 +428,7 @@ describe("每 30 分钟定期导入", () => {
     expect(quietRecords(k)).toHaveLength(7);
     const fetched = remote.fetched.length;
 
-    // 重启：停机时离上次到点同步不到 30 分钟，开机不补跑（11-07 那次就是这样）
+    // 重启：停机时离上次到点同步不到 30 分钟，开机不补跑（出事那次就是这样）
     const dir = k.dir;
     await k.close();
     const { k: again } = await start({ at: new Date("2026-10-24T12:50:00+08:00"), dataDir: dir, remote });
