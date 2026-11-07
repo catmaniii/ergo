@@ -254,6 +254,9 @@ describe("主线压缩", () => {
         ECHO,
         ECHO,
       ],
+      // 窗口放大：压缩只由上面剧本里的"上下文溢出"触发。回显把整段上下文（连那段很长的材料）又写回会话，默认的 128k 窗口
+      // 第四句时已经贴着自动压缩的线，秘书多几个工具（433 地图）就越过去、多压一次；这条测的不是那条线
+      secretaryContextWindow: 1_000_000,
     });
     const frontend = await connect(td.url);
     const pid = td.daemon.secretary.pid;
