@@ -101,7 +101,7 @@ export function ServiceCard({ service: s, now, working, result, focus, logsOpen,
           <button
             key={action}
             type="button"
-            className={`btn small ${action === "start" ? "primary" : action === "force_stop" ? "danger" : "ghost"}`}
+            className={`btn small ${action === "start" ? "primary" : action === "force_stop" ? "ghost danger-text" : "ghost"}`}
             data-action={action}
             disabled={working}
             onClick={() => onAct(s, action)}
