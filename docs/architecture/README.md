@@ -126,7 +126,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 | `cards/`、`inbox/`、`board/`、`activity/`、`ledger/` | 卡片类型和按钮闭环、待我处理、秘书眼里的看板、活动状态（新的要用户处理的卡往 `activity/card-waits.ts` 的 `CARD_WAITS` 加一行：说明带上卡片编号，网页标题上的"等你……"就能点，见 `web/src/state/activity-jump.ts`；建卡时同时放进待我处理）、token 账本 |
 | `plugins/`、`deletion/`、`data-sources/`、`components/` | 插件宿主、删除参与方登记表、数据源和共用导入文件夹、按需下载的组件和下载器 |
 | `materials/`、`memory/`、`quick-actions/` | 素材库（原话副本、关键词和向量索引）、记忆插件（每晚整理、记忆管理员、访谈）、快速动作 |
-| `reminders/`、`calendar/`、`voice/`、`browsing/`、`claude-code/`、`codex/`、`google/`、`looki/`、`phone/` | 各个插件（每个目录里有 `plugin.ts`，别的模块只从它的 `api.ts` 取东西） |
+| `reminders/`、`calendar/`、`voice/`、`browsing/`、`claude-code/`、`codex/`、`google/`、`looki/`、`phone/`、`map/` | 各个插件（每个目录里有 `plugin.ts`，别的模块只从它的 `api.ts` 取东西） |
 | `scheduler/`、`workday/`、`backup/` | 调度器和可注入的时钟、内部作业；个人工作日历和节假日；备份、校验、恢复 |
 | `web/`、`typed-shell/`、`skills/`、`mcp/`、`toolkit/`、`apps/` | 联网工具、带类型的 bash 工具（git、构建……）、skill 库（`skills/change.ts`：负责人提交 skill 的卡，路子和 `mcp/change.ts` 一样，校验和导入共用 `library.ts`）、MCP 登记（用户写的和[项目自动转的](#项目自动转的-mcp)）、工具包、转发本机服务的页面 |
 | `prompts/`、`agent-settings/`、`model-settings/`、`assistant/`、`agent-roles/`、`i18n/` | 系统提示（md 文件，用户能改）、每个 agent 的 ⚙、模型设置、助理的名字、角色、多语言 |
@@ -169,7 +169,8 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 - **本机端口**（默认 8810）自动信任。每个 HTTP 请求和 WebSocket 握手都校验 Host 是 `127.0.0.1:<端口>` 或 `localhost:<端口>`（防 DNS 重绑定），带了 Origin 就必须是这两个源之一（防跨站请求）；`Origin: null` 一律不认。
 - **外网端口**（默认 8811）是隧道、Tailscale 这类入口的唯一目标：不看来源 IP、不看 Host，只看设备凭证（cookie `__Host-ergo-device`）。没有有效凭证只放行三样：页面本身（显示配对页）、`/api/access`、配对接口；别的一律 401。以后加的接口自动在这道门后面。
 - `/healthz`：秘书在不在运行、网页构建了没有、启用着的插件装没装上（没装上算 `degraded`、照旧回 200）。
-- `/fonts/`：视觉风格的字体（外网端口上同样要凭证）。网页运行时不请求任何外部地址。
+- `/fonts/`：视觉风格的字体（外网端口上同样要凭证）。网页运行时不请求任何外部地址——唯一的破例是地图页在国内用的高德 JS API（[ADR-0051](adr/0051-map-amap-js-and-osm-tiles.md)）。
+- `/tiles/osm/<z>/<x>/<y>`、`/_AMapService/…`：地图插件的 OpenStreetMap 瓦片转发（守护进程带二狗的 User-Agent 去取、按缓存头存进缓存区）和高德 JS API 的安全密钥代理（拼上密钥区里的安全密钥再转给高德，安全密钥不进页面）；插件没启用时回"地图插件没启用"，外网端口上同样要凭证（`gateway/map-routes.ts`）。
 
 ### 设备配对
 
@@ -484,6 +485,8 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 数据源（`ctx.dataSources.register`，插件开发手册第 7 节）在网页上分两层：`#/more/data-sources` 是卡片总览（`pages/more/DataSourcesPage.tsx`，没有输入框和操作按钮），`#/more/data-sources/<id>` 是单独全屏的详情（`pages/more/DataSourceDetail.tsx`：状态、设置、数据）。数据一块的两个标签对应数据源的两个可选方法：`stored`（已获取的，不进素材的自己列；进素材的内核按 `origin.dataSource` 列，`POST /api/materials/list` 的 `filter.dataSource` 同一份）和 `live`（现在能查到的：现查上游，只读，不写事件、不进素材、不进记忆、不经过模型）。接口是 `POST /api/data-sources/<id>/stored`、`POST /api/data-sources/<id>/live`，外网端口上和别的接口一样要设备凭证。
 
 Gmail 可以连几个账号（`google/gmail-accounts.ts`）。密钥区 `secrets/data-sources/google-gmail.json` 的 `values` 里是 `accounts`（几个账号的 id，逗号分开）和每个账号的 `account.<id>.address`、`.password`、`.enabled`（`on` / `off`）；id 是地址（小写）的哈希前 10 位，同一个地址断开再加还是它，事件里记 id（推不回地址）。一个值一格，不拼成一段 JSON：内核按格把出错原因里的密钥换成 `***`。邮件编号带账号（`<账号 id>.<邮箱>-<UIDVALIDITY>-<UID>`），几个账号的 UID 会撞。页面上是完整邮箱，日志和给模型的内容是打了码的；内核会把这一格里的完整邮箱从出错原因里换掉，所以插件写出错原因时用打码的。
+
+地图插件（`map/`，[ADR-0051](adr/0051-map-amap-js-and-osm-tiles.md)）：数据源 `amap`"高德地图"只用来填 Key（Web 端 Key、安全密钥、Web 服务 Key，先测再存），不导入、现在不给秘书工具；转发高德请求时插件经内核服务 `KERNEL.dataSourceSecrets` 现取自己那一格。坐标在 `packages/protocol/src/geo.ts`（WGS-84 和 GCJ-02 互转、在不在大陆），二狗里一律存、传 WGS-84，只在跟高德来回时转。
 
 ### 网页插件
 

@@ -78,6 +78,10 @@ const PAGES = [
   // 数据源详情（原型编的数据源）：连着的、没连的、手机来的、没有这个的；共用的导入文件夹
   "#/more/data-sources/google-calendar",
   "#/more/data-sources/looki",
+  // 地图（地图插件）：地图页、地址里带位置（新加坡）、设置 · 数据源 · 高德地图
+  "#/more/data-sources/amap",
+  "#/more/map",
+  "#/more/map/1.2834%2C103.8607%2C14",
   "#/more/data-sources/phone-location",
   "#/more/data-sources/没有这个",
   // 设备配对的二维码界面
@@ -665,6 +669,52 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     await page.close();
     expect(errors).toEqual([]);
   }, 60_000);
+
+  // 地图页（429）：演示页里当作填了高德 Key，国内那一处用假的高德（占位底图），新加坡用 OpenStreetMap（占位瓦片）；
+  // 点地点、地址里带位置都会自动换底图；OSM 有署名角标；深色时 OSM 的瓦片加滤镜；一个请求都不往外发（不连高德、不连 OSM）
+  for (const [name, viewport] of [
+    ["手机宽", { width: 390, height: 844 }],
+    ["电脑宽", { width: 1280, height: 800 }],
+  ] as const) {
+    test(`地图页${name}：国内高德、新加坡 OpenStreetMap，点地点、改地址自动换底图，有署名，深色加滤镜，不往外发请求`, async () => {
+      const { page, errors } = await open(viewport);
+      const outside: string[] = [];
+      page.on("request", (r) => {
+        if (!/^(?:file|data|blob):/.test(r.url())) outside.push(r.url());
+      });
+      await page.evaluate(`window.location.hash = "#/more/map"`);
+      const canvas = page.locator(".map-canvas");
+      await page.locator('.map-canvas[data-basemap="amap"]').waitFor({ timeout: 5000 });
+      expect(await page.locator(".map-badge").innerText()).toBe("高德地图");
+      await page.locator('[data-engine="amap"] .map-tiles img').first().waitFor({ timeout: 5000 });
+      expect(await page.locator('[data-engine="amap"] .map-mark[data-id="demo-west-lake"]').count()).toBe(1);
+      // 点新加坡：换成 OpenStreetMap，右下角有署名
+      await page.locator('[data-place="demo-marina-bay"]').click();
+      await page.locator('.map-canvas[data-basemap="osm"]').waitFor({ timeout: 5000 });
+      expect(await page.locator(".map-badge").innerText()).toBe("OpenStreetMap");
+      expect(await page.locator(".map-attribution").innerText()).toContain("© OpenStreetMap 贡献者");
+      await page.locator('[data-engine="osm"] .map-tiles img').first().waitFor({ timeout: 5000 });
+      // 放大一级：还是新加坡、还是 OSM
+      await page.locator('.map-zoom button[aria-label="放大"]').click();
+      expect(await canvas.getAttribute("data-basemap")).toBe("osm");
+      // 点回西湖：换回高德
+      await page.locator('[data-place="demo-west-lake"]').click();
+      await page.locator('.map-canvas[data-basemap="amap"]').waitFor({ timeout: 5000 });
+      // 地址里带着新加坡：跳过去、换成 OSM
+      await page.evaluate(`window.location.hash = "#/more/map/1.29%2C103.85%2C13"`);
+      await page.locator('.map-canvas[data-basemap="osm"]').waitFor({ timeout: 5000 });
+      // 深色：OSM 的瓦片那一层加滤镜
+      await page.evaluate(`localStorage.setItem("ergo-theme", "dark")`);
+      await page.reload();
+      await page.evaluate(`window.location.hash = "#/more/map/1.29%2C103.85%2C13"`);
+      await page.locator('.map-canvas[data-basemap="osm"]').waitFor({ timeout: 5000 });
+      expect(await page.locator(".map-osm.dark .map-tiles").evaluate((el) => getComputedStyle(el).filter)).toContain("invert");
+      await page.evaluate(`localStorage.removeItem("ergo-theme")`);
+      await page.close();
+      expect(outside).toEqual([]);
+      expect(errors).toEqual([]);
+    }, 60_000);
+  }
 
   // 日历插件停用时网页上没有日历入口；默认全开时都在
   for (const [name, viewport] of [
