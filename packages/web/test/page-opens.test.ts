@@ -671,7 +671,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
   }, 60_000);
 
   // 地图页（429）：演示页里当作填了高德 Key，国内那一处用假的高德（占位底图），新加坡用 OpenStreetMap（占位瓦片）；
-  // 点地点、地址里带位置都会自动换底图；OSM 有署名角标；深色时 OSM 的瓦片加滤镜；一个请求都不往外发（不连高德、不连 OSM）
+  // 点地点、地址里带位置都会自动换底图；OSM 有署名角标；深色时 OSM 的瓦片加滤镜；一个请求都不往外发（不连高德、不连 OSM）。
+  // 看足迹时一律 OpenStreetMap（431），这里先关掉"足迹"再看高德
   for (const [name, viewport] of [
     ["手机宽", { width: 390, height: 844 }],
     ["电脑宽", { width: 1280, height: 800 }],
@@ -682,6 +683,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       page.on("request", (r) => {
         if (!/^(?:file|data|blob):/.test(r.url())) outside.push(r.url());
       });
+      await page.evaluate(`localStorage.setItem("ergo-map-footprints", "off")`);
       await page.evaluate(`window.location.hash = "#/more/map"`);
       const canvas = page.locator(".map-canvas");
       await page.locator('.map-canvas[data-basemap="amap"]').waitFor({ timeout: 5000 });
@@ -756,6 +758,9 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       expect(await page.locator(".map-shapes circle").count()).toBe(3);
       expect(await page.locator(".map-shapes polyline").count()).toBe(1);
       expect(await page.locator(".map-day-summary").innerText()).toContain("待过 3 个地方");
+      // 看足迹时底图一律 OpenStreetMap，也不加载高德的脚本（演示页当作填了高德 Key，431 用户定的）
+      expect(await page.locator(".map-canvas").getAttribute("data-basemap")).toBe("osm");
+      expect(await page.locator(".map-canvas").getAttribute("data-amap")).toBe("idle");
       await details(page);
       // 前一天：空着，给最近有足迹的一天（四天前：家、健身房）
       await page.locator('.map-day-pick button[aria-label="前一天"]').click();
@@ -764,12 +769,67 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await page.locator(".map-day-note .btn").click();
       await page.locator('.map-mark[data-id="fp-stay-demo-fp-gym"]').waitFor({ timeout: 5000 });
       expect(await stays.count()).toBe(2);
-      // "足迹"开关：关了不画，开回来又有
+      // "足迹"开关：关了不画（国内换回高德），开回来又有（又是 OpenStreetMap）
       await page.locator(".map-day-layer").click();
       expect(await page.locator(".map-day-layer").getAttribute("aria-pressed")).toBe("false");
       expect(await page.locator('.map-mark[data-id^="fp-"]').count()).toBe(0);
+      await page.locator('.map-canvas[data-basemap="amap"]').waitFor({ timeout: 5000 });
       await page.locator(".map-day-layer").click();
       await stays.first().waitFor({ timeout: 5000 });
+      await page.locator('.map-canvas[data-basemap="osm"]').waitFor({ timeout: 5000 });
+      await page.close();
+      expect(outside).toEqual([]);
+      expect(errors).toEqual([]);
+    }, 60_000);
+  }
+
+  // 聊天里的地图卡片（431）：秘书主线里一张足迹卡（缩略图画在 OpenStreetMap 上：停留、照片、轨迹，下面写概况）、一张高德查的路线卡
+  // （不画缩略图，写走法和"数据来自高德地图"）；路线卡点开：地图页那一条写标题，路线画在（假的）高德底图上，"×"回到足迹；
+  // 足迹卡点开：看那一天，底图 OpenStreetMap、不加载高德的脚本；一个请求都不往外发
+  for (const [name, viewport] of [
+    ["手机宽", { width: 390, height: 844 }],
+    ["电脑宽", { width: 1280, height: 800 }],
+  ] as const) {
+    test(`聊天里的地图卡片${name}：足迹卡有缩略图、高德查的路线卡没有；点开进地图页看那一天、画这张卡`, async () => {
+      const { page, errors } = await open(viewport);
+      const outside: string[] = [];
+      page.on("request", (r) => {
+        if (!/^(?:file|data|blob):/.test(r.url())) outside.push(r.url());
+      });
+      await page.evaluate(`window.location.hash = "#/secretary"`);
+      const day = page.locator('.xcard-map[data-show="day"]');
+      await day.locator(".map-tiles img").first().waitFor({ timeout: 5000 });
+      expect(await day.locator('.map-host[data-basemap="osm"]').count()).toBe(1);
+      expect(await day.locator('.map-mark[data-kind="stay"]').count()).toBe(3);
+      expect(await day.locator(".map-shapes polyline").count()).toBe(1);
+      expect(await day.innerText()).toMatch(/待过 3 个地方 · 6 张照片[\s\S]*家、公司、杭州市西湖区北山街/);
+      expect(await day.locator(".map-attribution").innerText()).toContain("© OpenStreetMap 贡献者");
+      const route = page.locator('.xcard-map[data-show="lookup"][data-state="ready"]');
+      await route.waitFor({ timeout: 5000 });
+      expect(await route.locator(".map-card-thumb").count()).toBe(0);
+      expect(await route.innerText()).toMatch(/从公司到西湖边[\s\S]*步行、开车[\s\S]*数据来自高德地图[\s\S]*在高德地图上看/);
+
+      // 路线卡点开：画这张卡（高德查的只画在高德底图上）
+      await route.locator(".map-card-go").click();
+      await page.locator('.map-canvas[data-amap-results="shown"]').waitFor({ timeout: 5000 });
+      expect(await page.evaluate("location.hash")).toBe("#/more/map/card/c-map-route");
+      expect(await page.locator(".map-card-bar").innerText()).toMatch(/从公司到西湖边[\s\S]*数据来自高德地图/);
+      expect(await page.locator(".map-canvas").getAttribute("data-basemap")).toBe("amap");
+      expect(await page.locator(".map-canvas .map-shapes polyline").count()).toBe(2);
+      expect(await page.locator(".map-day-bar").count()).toBe(0);
+      // "×"：回到足迹
+      await page.locator('.map-card-bar button[aria-label="不看这张了"]').click();
+      await page.locator(".map-day-bar").waitFor({ timeout: 5000 });
+      expect(await page.evaluate("location.hash")).toBe("#/more/map");
+
+      // 足迹卡点开：看那一天，OpenStreetMap、不加载高德的脚本
+      await page.evaluate(`window.location.hash = "#/secretary"`);
+      await page.locator('.xcard-map[data-show="day"] .map-card-open').click();
+      await page.locator('.map-canvas .map-mark[data-kind="stay"]').first().waitFor({ timeout: 5000 });
+      const yesterday = (await page.evaluate(`(() => { const d = new Date(); d.setDate(d.getDate() - 1); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-"); })()`)) as string;
+      expect(await page.evaluate("location.hash")).toBe(`#/more/map/${yesterday}`);
+      expect(await page.locator(".map-day-date").inputValue()).toBe(yesterday);
+      expect(await page.locator(".map-canvas").getAttribute("data-basemap")).toBe("osm");
       await page.close();
       expect(outside).toEqual([]);
       expect(errors).toEqual([]);
