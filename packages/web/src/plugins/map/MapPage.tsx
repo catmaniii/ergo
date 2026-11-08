@@ -2,8 +2,8 @@
 // - 一开始看哪里：地址里带了位置看那里；没带看这台设备上次看的地方（存在浏览器里，只是方便）；都没有看整个中国；
 // - 演示页：上面一排两个地点（国内一处、新加坡一处），点了跳过去、底图跟着换，地图上标着它们；
 // - 地图上的东西（MapScene）：429 只有演示页的两个地点；430 我的足迹、431 聊天里的地图卡片、432 高德查到的地点和路线往里放。
-// - 我的足迹（430，DayFootprints.tsx）：标题栏下面一条选日期的，地图上画那一天的轨迹、停留、照片、常去的地方，点停留点看详情；
-//   地址里可以带日期（#/more/map/<YYYY-MM-DD>）。
+// - 我的足迹（430，DayFootprints.tsx）：标题栏里选日期的那一组（442 追加：和"地图"、"足迹"开关一行，不再单独一条；窄的时候写短的），
+//   地图上画那一天的轨迹、停留、照片、常去的地方，点停留点看详情；地址里可以带日期（#/more/map/<YYYY-MM-DD>）。
 // - 聊天里的地图卡片点开（431，#/more/map/card/<卡片编号>）：从手里的卡片状态取出这张卡，画它的点、线（和卡片同一份 card-scene.ts），
 //   视野挪到看全它；标题栏下面一条写卡片的标题和概况，"×"回到足迹。看卡片时不画足迹。高德查来的只在底图是高德时画（amap-results.ts）。
 // - 回到我现在的位置（442，LocateControl.tsx）：地图右下角一个按钮，两种底图都有；定到的蓝点、精度圈压在最上面。
@@ -16,7 +16,7 @@ import { type MapCardPayload, type MapConfigView, mapCardTitle, parseMapCardPath
 import { TopBar } from "../../ui/common.tsx";
 import { Icon } from "../../ui/icons.tsx";
 import type { PageColumnProps, PageSectionProps } from "../api.ts";
-import { FOOTPRINT_LABEL_ROOM, FOOTPRINT_PANEL_W, FOOTPRINT_WIDE_MIN, FootprintBar, FootprintPanel, FootprintToggle, useFootprints, useWidth } from "./DayFootprints.tsx";
+import { FOOTPRINT_BAR_FULL_MIN, FOOTPRINT_LABEL_ROOM, FOOTPRINT_PANEL_W, FOOTPRINT_WIDE_MIN, FootprintBar, FootprintPanel, FootprintToggle, useFootprints, useWidth } from "./DayFootprints.tsx";
 import { contentSummary } from "./card-scene.ts";
 import { shiftViewRight, withFootprints } from "./footprints.ts";
 import { LocateButton, useDockInset, useHere } from "./LocateControl.tsx";
@@ -90,7 +90,9 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
   // 我的足迹：取到一天就把视野挪到看得全它（宽的时候让开左边那一栏，右边给点旁边的字留地方），点了列表里的一行挪过去
   const fp = useFootprints(http, item);
   const stageRef = useRef<HTMLDivElement>(null);
-  const wide = useWidth(stageRef) >= FOOTPRINT_WIDE_MIN;
+  const stageWidth = useWidth(stageRef);
+  const wide = stageWidth >= FOOTPRINT_WIDE_MIN;
+  const barCompact = stageWidth < FOOTPRINT_BAR_FULL_MIN;
   const [listOpen, setListOpen] = useState(false);
   /** 现在看的是哪里（只挪不缩放时用它的级别） */
   const viewNow = useRef<MapView>(initial);
@@ -159,10 +161,13 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
 
   return (
     <div className="chat-col map-page">
+      {/* 选日期的那一组和"足迹"开关都在标题栏里，一行（442 追加，用户 2026-11-08 要求） */}
       <TopBar title={t("ui.plugins.map.title")} onBack={onBack}>
-        {!showCard && <FootprintToggle fp={fp} />}
+        {!showCard && <FootprintBar fp={fp} wide={wide} compact={barCompact} listOpen={listOpen} onList={() => setListOpen(!listOpen)} navigate={navigate} />}
+        {/* 标题栏最右边的开关：现在只有"足迹"；以后的"聊天窗开关"（444）也放这里 */}
+        <div className="map-bar-tools">{!showCard && <FootprintToggle fp={fp} compact={barCompact} />}</div>
       </TopBar>
-      {showCard ? (
+      {showCard && (
         <div className="map-card-bar" role="status">
           <Icon name="map" />
           <span className="map-card-bar-text">
@@ -173,8 +178,6 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
             <Icon name="cross" />
           </button>
         </div>
-      ) : (
-        <FootprintBar fp={fp} wide={wide} listOpen={listOpen} onList={() => setListOpen(!listOpen)} navigate={navigate} />
       )}
       {places.length > 0 && (
         <div className="map-places" role="toolbar" aria-label={t("ui.plugins.map.places")}>

@@ -17,7 +17,7 @@ After this chapter you'll know where the map page is, how to see a day's footpri
   - If you're outside mainland China, the map switches to OpenStreetMap.
 - The top left says which map is in use: **AMap** or **OpenStreetMap**.
 - When you stop moving, ergo picks: inside mainland China with an AMap key, AMap; abroad, and in Hong Kong, Macau and Taiwan, OpenStreetMap.
-- **Footprints are always shown on OpenStreetMap**: while **Footprints** at the top right of the title bar is on, the map inside China is OpenStreetMap too and AMap's map program isn't loaded (see "What map services can see" below); turn **Footprints** off and it switches back to AMap inside China.
+- **Footprints are always shown on OpenStreetMap**: while **Footprints** at the right end of the title bar is on, the map inside China is OpenStreetMap too and AMap's map program isn't loaded (see "What map services can see" below); turn **Footprints** off and it switches back to AMap inside China.
 - Next time it opens where you last looked (remembered in this device's browser).
 - With OpenStreetMap, the bottom right says "© OpenStreetMap contributors"; AMap prints its own logo and map approval number in a corner.
 - With the dark appearance, the map is dark too.
@@ -26,14 +26,14 @@ After this chapter you'll know where the map page is, how to see a day's footpri
 
 Once the ergo app on your phone records your location (Settings · Data sources · **Phone · Location**; tap **Start recording location** in the app) and is connected to your photo album, the map page can draw a day's footprints.
 
-- **Pick a day**: the strip under the title bar. The arrows go to the previous and next day; tap the date in the middle to pick one. The map opens on today; if today has no footprints yet it jumps to the latest day that has some. On a day with nothing it says **No footprints on this day**, and the button next to it goes to the latest earlier day with footprints.
+- **Pick a day**: in the title bar, right after **Map**. The arrows go to the previous and next day; tap the date in the middle to pick one; after it comes a summary of the day ("Stayed at 3 places · 6 photos"). On a phone, where the whole line doesn't fit, the date reads "11/07", the summary "3 places · 6 photos", and **Footprints** is just a pin icon. The map opens on today; if today has no footprints yet it jumps to the latest day that has some. On a day with nothing it says **No footprints on this day**, and the button next to it goes to the latest earlier day with footprints.
 - **What's drawn**:
   - A line: your locations that day, joined in time order. The part where you stayed in one place shrinks to a single point instead of a tangle, and the line breaks where nothing was recorded for an hour and a half or more, instead of drawing a straight line across the gap;
   - Pins: where you **stayed** — a run of locations all within 400 meters for at least 15 minutes counts as a stay (the same rule as the daily location summary in memory). Next to each pin: the name and how long you stayed in total. Named places ("Home", "Office") show their name; others show the place name your phone worked out; with neither, the time you arrived. Several visits to the same place (home in the morning and again at night) share one pin;
   - Small hollow dots: where photos were taken, with the time; photos taken close together (within half an hour and 100 meters) share a dot that says how many. Only the time and place — **no photos are shown**;
   - Circles: the areas of the frequent places you named. Places you didn't visit that day have their name in the circle.
 - **Details**: on a computer, a list of the day runs down the left of the map (each stay with its times and length, and photos taken outside stays); tap a row to go there, and tap a stay to open its details below it. On a phone, tap a pin and a card appears under the map; tap the "Stayed at 3 places…" line in the strip to see the day as a list. Details show the place's name, its place name, each visit's times, the total time, and how many photos you took there. Unnamed places have **Name this place**, which takes you to **Frequent places** under Settings · Data sources · **Phone · Location**.
-- **Turn it off**: **Footprints** at the top right of the title bar. Tap it and nothing is drawn; tap again and it's back (remembered in this device's browser).
+- **Turn it off**: **Footprints** at the right end of the title bar (a pin icon on a phone). Tap it and nothing is drawn; tap again and it's back (remembered in this device's browser).
 - A footprint card in a chat opens this page on that day (even if **Footprints** was off).
 
 Footprints are **drawn only inside ergo and never sent to any map service**: ergo on your computer works them out from what your phone sent, without going online. See "What map services can see" below.

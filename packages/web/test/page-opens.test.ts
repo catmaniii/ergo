@@ -799,14 +799,24 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       expect(await page.locator('.map-mark[data-id^="fp-place-"]').innerText()).toBe("健身房");
       expect(await page.locator(".map-shapes circle").count()).toBe(3);
       expect(await page.locator(".map-shapes polyline").count()).toBe(1);
-      expect(await page.locator(".map-day-summary").innerText()).toContain("待过 3 个地方");
+      // 选日期的那一组在标题栏里、和"地图"一行（442 追加）：手机宽写短的（"3 处 · 6 张"、11/06 这样的日期，开关只剩图标）
+      const phone = viewport.width < 600;
+      expect(await page.locator(".topbar .map-day-bar").count()).toBe(1);
+      expect(await page.locator(".map-page > .map-day-bar").count()).toBe(0);
+      expect(await page.locator(".map-day-summary").innerText()).toContain(phone ? "3 处 · 6 张" : "待过 3 个地方 · 6 张照片");
+      expect(await page.locator(".map-day-short").allInnerTexts()).toEqual(phone ? [yesterday.slice(5).replace("-", "/")] : []);
+      expect((await page.locator(".map-day-layer").innerText()).trim()).toBe(phone ? "" : "足迹");
+      // 一行放得下：标题栏里的东西都不出右边
+      const barRight = await page.evaluate(`Math.max(...[...document.querySelectorAll(".map-page > .topbar *")].map((e) => e.getBoundingClientRect().right))`);
+      expect(barRight).toBeLessThanOrEqual(viewport.width);
       // 看足迹时底图一律 OpenStreetMap，也不加载高德的脚本（演示页当作填了高德 Key，431 用户定的）
       expect(await page.locator(".map-canvas").getAttribute("data-basemap")).toBe("osm");
       expect(await page.locator(".map-canvas").getAttribute("data-amap")).toBe("idle");
       await details(page);
       // 前一天：空着，给最近有足迹的一天（四天前：家、健身房）
       await page.locator('.map-day-pick button[aria-label="前一天"]').click();
-      await page.getByText("这一天没有足迹").waitFor({ timeout: 5000 });
+      await expect.poll(() => page.locator(".map-day-summary").innerText(), { timeout: 5000 }).toBe(phone ? "没有足迹" : "这一天没有足迹");
+      expect(await page.locator(".map-day-note .btn").innerText()).toMatch(phone ? /^看 \d\d-\d\d$/ : /^看 \d\d-\d\d 那天$/);
       expect(await stays.count()).toBe(0);
       await page.locator(".map-day-note .btn").click();
       await page.locator('.map-mark[data-id="fp-stay-demo-fp-gym"]').waitFor({ timeout: 5000 });

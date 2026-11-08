@@ -7,10 +7,13 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 import { FootprintBar, FootprintPanel, type Footprints, FootprintToggle } from "../../src/plugins/map/DayFootprints.tsx";
-import { daySummary, durationLabel, footprintDay, groupPhotos, latestDayBefore, shiftViewRight, trackLines, withFootprints } from "../../src/plugins/map/footprints.ts";
+import { daySummary, daySummaryShort, durationLabel, footprintDay, groupPhotos, latestDayBefore, shiftViewRight, shortDateLabel, trackLines, withFootprints } from "../../src/plugins/map/footprints.ts";
 import { worldPoint } from "../../src/plugins/map/tiles.ts";
 import { demoMapDay } from "../../src/prototype/fake-footprints.ts";
-import { localDate, type MapDayStay, type MapDayView, nowIso, shiftMapDate } from "../../src/state/index.ts";
+import { activeLocale, activeLocaleFrom, localDate, type MapDayStay, type MapDayView, nowIso, setActiveLocale, shiftMapDate } from "../../src/state/index.ts";
+import { TEST_LOCALES } from "../setup-locales.ts";
+
+const zh = activeLocale();
 
 const iso = (hh: number, mm = 0) => nowIso(new Date(2026, 10, 6, hh, mm));
 const HOME = { lat: 30.28, lon: 120.1 };
@@ -168,12 +171,42 @@ describe("画出来的", () => {
     expect(bar).toContain('type="date"');
     expect(bar).toContain('value="2026-11-06"');
     expect(bar).toContain('max="2026-11-07"');
-    expect(bar).toMatch(/<button[^>]*class="map-day-summary"[^>]*>待过 2 个地方 · 4 张照片/);
+    expect(bar).toMatch(/<button[^>]*class="map-day-summary"[^>]*><span class="map-day-summary-text">待过 2 个地方 · 4 张照片/);
     const wide = renderToStaticMarkup(createElement(FootprintBar, { fp: fake(day()), wide: true, listOpen: false, onList: () => {}, navigate }));
     expect(wide).toMatch(/<span class="map-day-summary">待过 2 个地方/);
     const toggle = renderToStaticMarkup(createElement(FootprintToggle, { fp: fake(day()) }));
     expect(toggle).toContain('aria-pressed="true"');
     expect(toggle).toContain("足迹");
+  });
+
+  test("窄的时候（442 追加，放进标题栏）：日期写短的（11/06，系统的选日期框照样在）、概况写短的（整句在读屏和悬停提示里）、开关只剩图标", () => {
+    const bar = renderToStaticMarkup(createElement(FootprintBar, { fp: fake(day()), wide: false, compact: true, listOpen: false, onList: () => {}, navigate }));
+    expect(bar).toContain("data-compact");
+    expect(bar).toMatch(/<span class="map-day-short" aria-hidden="true">11\/06<\/span><input class="map-day-date" type="date"[^>]*value="2026-11-06"/);
+    expect(bar).toMatch(/<span class="map-day-summary-text">2 处 · 4 张<\/span>/);
+    expect(bar).toContain('aria-label="待过 2 个地方 · 4 张照片 · 看这一天的列表"');
+    expect(bar).toContain('title="待过 2 个地方 · 4 张照片"');
+    const compactBar = (fp: Footprints) => renderToStaticMarkup(createElement(FootprintBar, { fp, wide: false, compact: true, listOpen: false, onList: () => {}, navigate }));
+    expect(compactBar(fake(undefined, { loading: true }))).toContain("正在取…");
+    const empty = { ...day(), date: "2026-11-05", points: [], stays: [], photos: [], unlocatedPhotos: 0 };
+    expect(compactBar(fake(empty))).toMatch(/title="这一天没有足迹">没有足迹<\/span>.*>看 11-01<\/button>/);
+    expect(compactBar(fake({ ...empty, days: [], linked: { location: false, photos: false } }))).toMatch(/>手机没在记位置<\/span>.*>去看看<\/button>/);
+    // 别的年份带上年
+    expect(shortDateLabel("2025-12-31", "2026-11-07")).toBe("2025/12/31");
+    expect(shortDateLabel("2026-01-02", "2026-11-07")).toBe("01/02");
+    const toggle = renderToStaticMarkup(createElement(FootprintToggle, { fp: fake(day()), compact: true }));
+    expect(toggle).toContain('aria-label="足迹"');
+    expect(toggle).not.toMatch(/>足迹</);
+    // 英文
+    setActiveLocale(activeLocaleFrom(TEST_LOCALES, "en"));
+    try {
+      const en = renderToStaticMarkup(createElement(FootprintBar, { fp: fake(day()), wide: false, compact: true, listOpen: false, onList: () => {}, navigate }));
+      expect(en).toMatch(/<span class="map-day-summary-text">2 places · 4 photos<\/span>/);
+      const one = { ...day(), stays: day().stays.slice(0, 1), photos: day().photos.slice(0, 1), unlocatedPhotos: 0 };
+      expect(daySummaryShort(one, footprintDay(one))).toBe("1 place · 1 photo");
+    } finally {
+      setActiveLocale(zh);
+    }
   });
 
   test("那一条：取的中、取不到写原因、这一天空着给最近一天、没开始记位置说怎么开", () => {
