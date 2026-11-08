@@ -18,11 +18,12 @@ import { BrowsePage } from "./BrowsePage.tsx";
 import { BrowsePickCard } from "./BrowsePickCard.tsx";
 import { BrowseSidebar } from "./BrowseSidebar.tsx";
 import { connectBrowsing, setPageVoiceAvailable, turnBrowsingOn, useBrowseSide, usePageButtonSync } from "./page-browse.ts";
-import { pageRemoteSide, useRemoteSide } from "./page-side.ts";
+import { pageRemoteSide, useRemoteSide, useSideLinks } from "./page-side.ts";
 
-/** 侧边栏模式整页：秘书的主会话，状态由 App 从"浏览"页转过来 */
+/** 侧边栏模式整页：秘书的主会话，状态由 App 从"浏览"页转过来；里面点了二狗自己的页面（地图卡片……）交给"浏览"页那一份打开 */
 function SideModePage() {
   const view = useRemoteSide();
+  useSideLinks();
   return <BrowseSidebar control={pageRemoteSide()} view={view} />;
 }
 

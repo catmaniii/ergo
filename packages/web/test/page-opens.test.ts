@@ -2360,6 +2360,77 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
   }, 60_000);
 
 
+  // 浏览侧边栏（App 另开的 Web 组件，?ergo=side）里的地图卡片点开（447）：侧边栏这一页不认地址里的 #，记下要去的地址、调 App 的"收起"，
+  // App 把收起转给"浏览"页那一份（这里扮 App：侧边栏的 ergoSide.close 转成主页面的 __ergoBrowser side close），主页面跳到地图页画这张卡。
+  // 主页面的存储事件拦掉（真 App 里两个 Web 组件之间不一定有），只靠收起这条路也要跳得过去；侧边栏这一页自己的地址不变
+  test("浏览侧边栏里点地图卡片：侧边栏记下地址再收起，浏览页那一份跳到地图页画这张卡", async () => {
+    const context = await browser!.newContext({ viewport: { width: 390, height: 844 } });
+    let main: Page | undefined;
+    const closes: string[] = [];
+    await context.exposeBinding("__appSideClose", async () => {
+      closes.push("close");
+      await main?.evaluate(`window.__ergoBrowser(JSON.stringify({ type: "side", action: "close" }))`);
+    });
+    await context.addInitScript(`
+      if (new URLSearchParams(location.search).get("ergo") === "side") {
+        window.ergoSide = { close() { window.__appSideClose(); }, clearSelection() {}, ready() {} };
+      } else {
+        window.addEventListener("storage", (e) => e.stopImmediatePropagation(), true);
+        window.ergoNative = {
+          appVersion: () => "9.9.9",
+          log() {},
+          browserAttach: () => JSON.stringify({ url: "", title: "", progress: 0, loading: false, canGoBack: false, canGoForward: false }),
+          browserLayout() {},
+          browserLoad() {},
+          browserNav() {},
+          browserPage: (op) => Promise.resolve(op === "bubble" || op === "texts" ? '{"ok":true}' : ""),
+          browserFileChunk: () => Promise.resolve('{"ok":true}'),
+          browserFiles: () => Promise.resolve('{"ok":true}'),
+          browserChooser: () => Promise.resolve('{"ok":true}'),
+          browserSide() {},
+        };
+      }`);
+    const errors: string[] = [];
+    try {
+      main = await context.newPage();
+      main.on("pageerror", (e) => errors.push(`主页面：${String(e)}`));
+      await main.goto(`${pageUrl}#/browse`);
+      await main.locator(".browse-side-toggle").waitFor();
+      const side = await context.newPage();
+      side.on("pageerror", (e) => errors.push(`侧边栏：${String(e)}`));
+      await side.goto(`${pageUrl}?ergo=side`);
+      // 高德查的路线卡：没有缩略图，点"在高德地图上看"
+      const route = side.locator('.xcard-map[data-show="lookup"][data-state="ready"]');
+      await route.waitFor({ timeout: 10_000 });
+      await route.scrollIntoViewIfNeeded();
+      await route.locator(".map-card-go").click();
+      await main.locator('.map-canvas[data-amap-results="shown"]').waitFor({ timeout: 5000 });
+      expect(await main.evaluate("location.hash")).toBe("#/more/map/card/c-map-route");
+      expect(await main.locator(".map-card-bar").innerText()).toMatch(/从公司到西湖边/);
+      expect(closes).toEqual(["close"]);
+      expect(await side.evaluate("location.hash")).toBe("");
+      expect(await main.evaluate(`localStorage.getItem("ergo-side-goto")`)).toBeNull();
+      // 足迹卡的缩略图右上"看大地图"：看那一天
+      await main.evaluate(`window.location.hash = "#/browse"`);
+      await main.locator(".browse-side-toggle").waitFor();
+      const day = side.locator('.xcard-map[data-show="day"]');
+      await day.locator(".map-tiles img").first().waitFor({ timeout: 5000 });
+      await day.locator(".map-card-open").click();
+      await main.locator('.map-canvas .map-mark[data-kind="stay"]').first().waitFor({ timeout: 5000 });
+      expect(await main.evaluate("location.hash")).toMatch(/^#\/more\/map\/\d{4}-\d{2}-\d{2}$/);
+      expect(closes).toEqual(["close", "close"]);
+      // 不是二狗自己的地址（外部网页链接）不归这里管：主页面不跳
+      await main.evaluate(`window.location.hash = "#/browse"`);
+      await side.evaluate(`localStorage.setItem("ergo-side-goto", JSON.stringify({ hash: "https://example.cn/", at: Date.now() }))`);
+      await main.evaluate(`window.__ergoBrowser(JSON.stringify({ type: "side", action: "close" }))`);
+      await main.waitForTimeout(1000);
+      expect(await main.evaluate("location.hash")).toBe("#/browse");
+      expect(errors).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  }, 60_000);
+
   // 侧边栏模式那一页收到"浏览"页交来的外观（App 转的 window.__ergoSide），马上换风格、深浅色、主色；不写这一页的存储
   test("侧边栏模式：收到交来的外观马上换风格、深浅色、主色，不写存储", async () => {
     const { page, errors } = await open({ width: 390, height: 844 }, "?ergo=side");

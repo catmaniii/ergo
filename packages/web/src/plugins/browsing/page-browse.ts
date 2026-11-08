@@ -4,7 +4,8 @@
 // 它的样子画在网页里悬浮按钮旁边的气泡里（page-bubble.ts 交给页面桥）。
 // 浏览侧边栏（browse-side.ts）整个页面共用一份，开场接上 App 推过来的（浏览器的样子、页面桥报的选中的框）和连接
 // （守护进程推来的秘书的网页工具要办的事），报这台设备上浏览器的样子。宽屏侧边栏拖到多宽（stage-side-width.ts 的
-// BROWSE_SIDE_WIDTH）接到 localStorage。
+// BROWSE_SIDE_WIDTH）接到 localStorage。侧边栏里点了二狗自己的页面（地图卡片的"看大地图"，447）：侧边栏那一页记下地址再收起，
+// 收起经 App 转过来时这里照着跳（side-handoff.ts）。
 // 悬浮按钮背后就是秘书本人：悬浮按钮上的话经页面上的 store 发进秘书的主会话、秘书这一轮的回话从 store 的状态里认
 // （usePageButtonSync，App.tsx 的 Shell 里挂一次）；挑图片窗口（page-pick.ts）照 store 里这台设备的网页候选卡弹，对卡做动作也经 store；
 // 候选文件预备（page-stage.ts）整个页面共用一份，挑图片窗口和浏览侧边栏办守护进程转来的交文件都用它；缩略图凭取件码取守护进程缩好的小图。
@@ -53,6 +54,7 @@ import { pageNativeApp } from "../../app/page-native.ts";
 import { pageVoicePlayer } from "../../app/page-voice.ts";
 import { PagePickSync } from "./page-pick.ts";
 import { PageStage } from "./page-stage.ts";
+import { SIDE_GOTO_KEY, takeSideGoto } from "./side-handoff.ts";
 import { pageTheme } from "../../app/page-theme.ts";
 import { type StageSideWidthSetting, stageSideWidthSettingIn } from "../../app/stage-side-width.ts";
 import { useStore } from "../../app/store.tsx";
@@ -371,6 +373,28 @@ let pick: PagePickSync | undefined;
 
 let side: BrowseSide | undefined;
 
+/** 侧边栏记下的地址（side-handoff.ts）：有就跳过去（压一条记录，返回回到"浏览"）；交回跳了没有 */
+function followSideGoto(): boolean {
+  let hash: string | undefined;
+  try {
+    hash = takeSideGoto(window.localStorage, Date.now());
+  } catch {
+    return false;
+  }
+  if (hash === undefined) return false;
+  pushHash(window, hash);
+  return true;
+}
+
+/** 收起转过来了：马上取；侧边栏那一页写下的可能还没同步过来，过一会儿再取两次（取走了的不会再跳） */
+function followSideGotoSoon(): void {
+  if (followSideGoto()) return;
+  for (const ms of SIDE_GOTO_RETRY_MS) setTimeout(followSideGoto, ms);
+}
+
+/** 收起转过来时没取到，再取的几个时刻（毫秒） */
+const SIDE_GOTO_RETRY_MS = [200, 800];
+
 /**
  * 浏览侧边栏接上（建好连接后调一次，由浏览插件第一次装上时调，connectBrowsing）：App 有页面桥那一组才接。浏览器的编号这一页随机一个；
  * 跟着 App 推的浏览器样子、页面桥报的选中的框变，办守护进程推来的事
@@ -403,7 +427,15 @@ export function connectBrowseSide(connection: Pick<Connection, "browserStatus" |
   browser.subscribe((event) => {
     if (event.type === "state") created.browserChanged(event.state);
     else if (event.type === "page") created.pageEvent(event.event);
-    else if (event.type === "side") created.sideAction(event.action);
+    else if (event.type === "side") {
+      created.sideAction(event.action);
+      // 侧边栏里点了二狗自己的页面（地图卡片的"看大地图"……）：它记下地址再收起，这里照着跳（side-handoff.ts）
+      if (event.action === "close") followSideGotoSoon();
+    }
+  });
+  // 存储的 storage 事件先到就先跳（同一个 App 的两个 Web 组件共用存储；没有这个事件的，收起转过来时再取）
+  window.addEventListener("storage", (e) => {
+    if (e.key === SIDE_GOTO_KEY && e.newValue !== null) followSideGoto();
   });
   // 侧边栏开合变了：悬浮按钮跟着常驻右下角、不显示（随页面桥自己的那几句交过去）
   let open = created.snapshot().open;
