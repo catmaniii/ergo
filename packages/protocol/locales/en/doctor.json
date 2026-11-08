@@ -400,5 +400,21 @@
   "doctor.watch.unmute": "Remind me again",
   "doctor.watch.unmuting": "Turning back on…",
   "doctor.watch.unmuted": "Back on: {name} will go into the Inbox if it goes bad",
-  "doctor.watch.unmuteFailed": "Couldn't turn reminders back on: {error}"
+  "doctor.watch.unmuteFailed": "Couldn't turn reminders back on: {error}",
+  "doctor.check.balance.title": "DeepSeek balance",
+  "doctor.balance.noKey": "No {name} key is set, so the balance isn't checked",
+  "doctor.balance.notYet": "The {name} balance hasn't been checked yet: it's checked when you open the Usage page (the checkup only reads the last result and doesn't check on its own)",
+  "doctor.balance.fine": "{name} balance {amount} (checked {time})",
+  "doctor.balance.low": "{name} balance is running low: {amount}, below the {threshold} alert line (checked {time})",
+  "doctor.balance.unavailable": "{name} says the balance is insufficient and can't be used: {amount} (checked {time})",
+  "doctor.balance.failed": "Checking the {name} balance at {time} didn't work: {why}",
+  "doctor.balance.why.key": "the key is wrong (the provider rejected it)",
+  "doctor.balance.why.rate": "rate limited (checked too often)",
+  "doctor.balance.why.server": "the provider had an error",
+  "doctor.balance.why.timeout": "no reply in time",
+  "doctor.balance.why.network": "couldn't reach the provider",
+  "doctor.balance.why.bad": "the provider's reply couldn't be read",
+  "doctor.fix.balanceLow": "Top up on the {name} platform; if you need it right now, switch to another model in Settings · Models first",
+  "doctor.fix.balanceKey": "Check the {name} key in Settings · Models and enter it again",
+  "doctor.fix.balanceRetry": "Click Refresh on the Usage page to check again"
 }

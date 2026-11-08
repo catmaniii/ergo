@@ -379,5 +379,21 @@
   "doctor.watch.unmute": "恢复提醒",
   "doctor.watch.unmuting": "正在恢复…",
   "doctor.watch.unmuted": "恢复了：{name}再不正常会放进待办",
-  "doctor.watch.unmuteFailed": "没恢复成：{error}"
+  "doctor.watch.unmuteFailed": "没恢复成：{error}",
+  "doctor.check.balance.title": "DeepSeek 余额",
+  "doctor.balance.noKey": "没配 {name} 的 Key，不查余额",
+  "doctor.balance.notYet": "还没查过 {name} 的余额：打开消耗页时会查（体检只看查过的结果，不另去查）",
+  "doctor.balance.fine": "{name} 余额 {amount}（{time} 查的）",
+  "doctor.balance.low": "{name} 余额不多了：{amount}，低于 {threshold} 就提醒（{time} 查的）",
+  "doctor.balance.unavailable": "{name} 说余额不足，已经用不了：{amount}（{time} 查的）",
+  "doctor.balance.failed": "{time} 查 {name} 余额没成：{why}",
+  "doctor.balance.why.key": "Key 不对（服务商不认）",
+  "doctor.balance.why.rate": "被限流了（查得太频繁）",
+  "doctor.balance.why.server": "服务商那边出错",
+  "doctor.balance.why.timeout": "超时没回",
+  "doctor.balance.why.network": "连不上服务商",
+  "doctor.balance.why.bad": "服务商回的看不懂",
+  "doctor.fix.balanceLow": "到 {name} 开放平台充值；急用的话先在设置 · 模型里换一个",
+  "doctor.fix.balanceKey": "到设置 · 模型核对 {name} 的 Key，重新填一次",
+  "doctor.fix.balanceRetry": "到消耗页点「刷新」再查一次"
 }

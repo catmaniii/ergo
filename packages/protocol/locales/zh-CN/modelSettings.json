@@ -25,5 +25,6 @@
   "modelSettings.custom.noBaseUrl": "还没填自定义服务商的接口地址：先在设置 · 模型里填上，再来列它的模型",
   "modelSettings.custom.listFailed": "列不出这个服务商的模型：{error}",
   "modelSettings.custom.listBadResponse": "服务商回的格式不认（要 OpenAI 兼容的 {\"data\":[{\"id\":…}]}）：{status}",
-  "modelSettings.custom.listNotJson": "服务商回的不是 JSON：{status}"
+  "modelSettings.custom.listNotJson": "服务商回的不是 JSON：{status}",
+  "modelSettings.balance.toolTitle": "查余额"
 }

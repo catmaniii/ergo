@@ -213,6 +213,8 @@ describe("发起任务的三条路", () => {
       "[tool] view_board",
       // 只读的体检（和设置 · 体检同一份）
       "[tool] check_health",
+      // 只读的查余额（和消耗页顶上同一份，440）
+      "[tool] check_balance",
       "[tool] read_project_records",
       // 给出项目的服务的入口（放一张服务入口卡）
       "[tool] open_service",

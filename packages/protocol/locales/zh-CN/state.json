@@ -1737,5 +1737,6 @@
   "state.callSentence.lsm.tailnetOpen": "给「{service}」开 tailnet 入口",
   "state.callSentence.lsm.tailnetClose": "撤掉「{service}」的 tailnet 入口",
   "state.callSentence.lsm.restartSelf": "等空闲后重启二狗",
-  "state.callSentence.lsm.restartSelfWhy": "等空闲后重启二狗：{reason}"
+  "state.callSentence.lsm.restartSelfWhy": "等空闲后重启二狗：{reason}",
+  "state.callSentence.tool.check_balance": "查余额"
 }

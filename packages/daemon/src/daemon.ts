@@ -282,7 +282,7 @@ import {
   personalFilesView,
   registerCandidateDeletion,
 } from "./personal-files/index.ts";
-import { createModelSettings, type ModelSettingsService } from "./model-settings/index.ts";
+import { createModelSettings, createProviderBalances, deepseekBalanceKey, deepseekBalanceSource, type ModelSettingsService } from "./model-settings/index.ts";
 import { createHolidayUpdates, createWorkdayCalendarService, type HolidayUpdates, type WorkdayCalendarService, workdayCalendarAction } from "./workday/index.ts";
 import { createWatchCategoryService, type WatchCategoryService } from "./watch-categories/watch-categories.ts";
 import {
@@ -524,6 +524,11 @@ export interface StartDaemonOptions {
    * 给了 webAccess 时联网工具不经它（设置页上的"余额不足"仍取自这个客户端）
    */
   webDeepseekBaseUrl?: string;
+  /**
+   * 测试用：DeepSeek 查余额接口（消耗页顶上的余额，440）的地址换成本机的假服务；不填跟联网工具的地址（webDeepseekBaseUrl）走，
+   * 都不填是正式的 https://api.deepseek.com
+   */
+  deepseekBalanceBaseUrl?: string;
   /**
    * 测试用：项目的服务首页的缩略图怎么截（给地址回 JPEG，截不了的抛错）；不填用正式的（playwright-core 驱动无头浏览器，
    * 1280×800 排版、0.5 倍出图，见 project-services/thumbnails.ts）
@@ -1920,6 +1925,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       ...(options.catalogBaseUrl === undefined ? {} : { catalogBaseUrl: options.catalogBaseUrl }),
       log,
     });
+    // 消耗页顶上的服务商余额（440）：DeepSeek 的 Key 从 credentials 现取（网页上填了就地换；自定义服务商的地址是 api.deepseek.com 的
+    // 也算），只在这里用。几分钟内查过的用那一次，"刷新"马上重查；消耗页、秘书的 check_balance 查，体检只读缓存。不记 token 账本
+    const providerBalances = createProviderBalances({
+      sources: [deepseekBalanceSource({ key: () => deepseekBalanceKey(modelSettings.current(), credentials), baseUrl: options.deepseekBalanceBaseUrl ?? options.webDeepseekBaseUrl })],
+      now: () => clock.now(),
+      log,
+    });
     // 自定义（OpenAI 兼容）服务商（自定义服务商这一步）：设置服务建好了，之后拉起 agent、模型探查都现取这一块
     // （模型目录里没有这个 provider，子进程要先登记它；key 照旧只走 credentials）
     customProviderNow = () => modelSettings.customProvider();
@@ -2125,6 +2137,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       // 只读的体检工具（check_health）：和设置 · 体检同一份；末尾附最近一次深度体检的结果（只读，不跑）
       doctor,
       doctorDeep,
+      // 只读的查余额（check_balance，440）：和消耗页顶上那一块同一份
+      balance: providerBalances,
       // 提议定时任务：接下来几次按守护进程的时钟和工作日历算；pi 跑的写任务负责人那一行现在的模型；每次大概花多少按同类运行的历史用量
       scheduling: {
         now: () => new Date(clock.now()),
@@ -2998,6 +3012,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 地图卡片按编号取查地点、算路线查到的那一份：同样现取（只在地图插件的内存里）
         mapDrawing: { drawing: (lookup) => plugins.active(MAP_DRAWING).drawing(lookup) },
         ledger,
+        // 消耗页顶上的服务商余额（440）：GET 取、POST 刷新
+        balance: providerBalances,
         // 设置 · 语音（参考音色、两个模型的状态）、分段合成的段、Debug 工具集的语音组（经语音插件的服务现取）
         voice: () => plugins.service(VOICE),
         toolkits,
@@ -3145,6 +3161,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         assistantName: () => assistantName.current(),
         secretary: () => secretary.health(),
         turns: () => agents.recentTurns(),
+        // DeepSeek 余额（440）：只读余额服务内存里上一次查的，不另去查
+        balance: () => providerBalances.cached(),
         // 秘书在前，然后是活着的负责人、任务 agent（⚙ 认不得的——子 agent、一次性的——跳过）
         contextAgents: () =>
           [...new Set([SECRETARY_AGENT_ID, ...agents.live().map((agent) => agent.agentId)])].flatMap((agentId) => {

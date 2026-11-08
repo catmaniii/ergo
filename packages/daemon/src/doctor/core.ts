@@ -2,15 +2,17 @@
 // 排在原来八项后面。每项只读现成的状态，不联网、不调模型、不改东西：
 // - assistant 主对话：秘书子进程在不在线（secretary.health()，和网关的健康检查、服务管家看到的同一份）。掉线超过阈值 → 坏了；
 // - model-calls 模型近况：agent 管家记的最近各轮结局（model-calls.ts）；
+// - balance DeepSeek 余额（440）：余额服务内存里上一次查的结果（balance.ts，不另去查）；
 // - context 对话长度：秘书和活着的负责人、任务 agent 的上下文用量（context.ts，带"现在压缩"）；
 // - services 托管的服务：服务管家那一项拿到的快照里和二狗有关的服务（services.ts，cost local：等服务管家的命令行）；
 // - plugins 插件：启用着却没装上的插件汇一句（详情在各插件自己那一块）→ 注意；
 // - web 网页文件：网页的构建产物（index.html）在不在（网关的健康检查也看它）→ 不在算坏了。
 // 句子里提到秘书用用户给它起的名字（参数 name），不写"秘书"。
 import fs from "node:fs";
-import { formatList, type PluginInfo, t } from "@ergo/protocol";
+import { formatList, type PluginInfo, type ProviderBalanceView, t } from "@ergo/protocol";
 import type { TurnRecord } from "../agent-manager/turn-log.ts";
 import type { SecretaryHealth } from "../secretary/secretary.ts";
+import { judgeBalance } from "./balance.ts";
 import type { DoctorCheckRegistry, DoctorFinding } from "./checks.ts";
 import { type ContextAgentView, judgeContext } from "./context.ts";
 import { SUPERVISOR_PROBE_TIMEOUT_MS, type SupervisorStatus } from "./doctor.ts";
@@ -28,6 +30,8 @@ export interface CoreDoctorSources {
   secretary(): Pick<SecretaryHealth, "ok" | "status" | "downMs">;
   /** agent 管家记的最近各轮结局 */
   turns(): readonly TurnRecord[];
+  /** 服务商余额：余额服务内存里上一次查的（不查）；不给就没有"DeepSeek 余额"这一项 */
+  balance?(): ProviderBalanceView;
   /** 要看上下文用量的 agent：秘书在前，然后是活着的负责人、任务 agent（会话 ⚙ 那一份；认不得的不给） */
   contextAgents(): readonly ContextAgentView[];
   /** 服务管家的快照（和服务管家那一项共用一份） */
@@ -84,6 +88,8 @@ export function registerCoreDoctorChecks(registry: Pick<DoctorCheckRegistry, "re
   const offs = [
     registry.register({ id: "assistant", title: "doctor.check.assistant.title", cost: "passive", run: () => judgeAssistant(sources.secretary(), sources.assistantName()) }),
     registry.register({ id: "model-calls", title: "doctor.check.modelCalls.title", cost: "passive", run: () => judgeModelCalls(sources.turns(), sources.now()) }),
+    // DeepSeek 余额：紧跟模型近况，只读缓存
+    ...(sources.balance ? [registry.register({ id: "balance", title: "doctor.check.balance.title", cost: "passive", run: () => judgeBalance(sources.balance!()) })] : []),
     registry.register({ id: "context", title: "doctor.check.context.title", cost: "passive", run: () => judgeContext(sources.contextAgents(), sources.assistantName()) }),
     registry.register({
       id: "services",

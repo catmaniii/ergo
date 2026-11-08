@@ -21,6 +21,12 @@ describe("HTTP 接口的路径", () => {
     expect(parseHttpPath(HTTP_PATHS.doctorUnmute)).toEqual({ route: "doctor_unmute" });
     expect(parseHttpPath("/api/doctor/unmute/x")).toBeUndefined();
     expect(parseHttpPath("/api/doctor/x")).toBeUndefined();
+    // 消耗页顶上的余额（440）：GET 取、POST 刷新同一个地址
+    expect(HTTP_PATHS.usageBalance).toBe("/api/usage/balance");
+    expect(parseHttpPath(HTTP_PATHS.usageBalance)).toEqual({ route: "usage_balance" });
+    expect(parseHttpPath(pathOf(HTTP_PATHS.usage({ from: "2026-11-01", to: "2026-11-08" })))).toEqual({ route: "usage" });
+    expect(parseHttpPath("/api/usage/balance/x")).toBeUndefined();
+    expect(parseHttpPath("/api/usage/x")).toBeUndefined();
     // 目录授权：全部、删一条、一次清掉几条、使用记录
     expect(parseHttpPath(pathOf(HTTP_PATHS.folderGrants))).toEqual({ route: "folder_grants" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.folderGrant("fg-1")))).toEqual({ route: "folder_grant", grantId: "fg-1" });

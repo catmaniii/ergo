@@ -1818,5 +1818,6 @@
   "state.callSentence.lsm.tailnetOpen": "Open tailnet access to “{service}”",
   "state.callSentence.lsm.tailnetClose": "Close tailnet access to “{service}”",
   "state.callSentence.lsm.restartSelf": "Restart ergo when idle",
-  "state.callSentence.lsm.restartSelfWhy": "Restart ergo when idle: {reason}"
+  "state.callSentence.lsm.restartSelfWhy": "Restart ergo when idle: {reason}",
+  "state.callSentence.tool.check_balance": "Check the balance"
 }

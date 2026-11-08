@@ -58,6 +58,8 @@
 //
 // 消耗页：GET /api/usage?from=2026-10-01&to=2026-10-08 选定范围（含两头）按天、按 agent 的 token 汇总，
 // 秘书单列为系统开销，成本是用量乘配置里的单价（每次现读配置，粗估）。
+// 消耗页顶上的余额（440）：GET /api/usage/balance 取服务商余额（ProviderBalanceView；守护进程拿设置里 DeepSeek 的 Key 去查，
+// 几分钟内查过的用那一次，没配 Key 不查）；POST 是"刷新"，马上重查（离上一次开始查太近的不重查，回现在那一份），不带请求体。
 //
 // 设置里的语音页：参考音色（个人数据，数据目录的 voices 区）。GET /api/reference-voices 列出来（和现在用哪一个）；
 // POST /api/reference-voices 导入一个（名字、逐字稿、WAV 的 base64，同样的录音和名字再导一次拿到同一个）；
@@ -289,6 +291,8 @@ const MAP_CONFIG = "config";
 const MAP_DAY = "day";
 const MAP_DRAWING = "drawing";
 const USAGE = "usage";
+/** 消耗页顶上的余额（440）：/api/usage/balance */
+const USAGE_BALANCE = "balance";
 const REFERENCE_VOICES = "reference-voices";
 const SELECT = "select";
 const AUDIO = "audio";
@@ -476,6 +480,8 @@ export const HTTP_PATHS = {
   mapDrawing: (lookup: string) => `${api(MAP, MAP_DRAWING)}${query({ [HTTP_QUERY.lookup]: lookup })}`,
   /** 消耗页：from 到 to（YYYY-MM-DD，含两头）的用量汇总和粗估成本（GET，响应 UsageSummary） */
   usage: (range: { from: string; to: string }) => `${api(USAGE)}${query({ [HTTP_QUERY.from]: range.from, [HTTP_QUERY.to]: range.to })}`,
+  /** 消耗页顶上的服务商余额（440，ProviderBalanceView）：GET 取（缓存还新就用缓存，不然现查），POST 马上重查（防连点） */
+  usageBalance: api(USAGE, USAGE_BALANCE),
   /** 参考音色：GET 列出（ReferenceVoiceList），POST 导入一个（ImportReferenceVoiceBody → ReferenceVoice） */
   referenceVoices: api(REFERENCE_VOICES),
   /** 一个参考音色：DELETE 删掉（响应 ReferenceVoiceList） */
@@ -785,6 +791,7 @@ export type HttpRoute =
   | { route: "map_day" }
   | { route: "map_drawing" }
   | { route: "usage" }
+  | { route: "usage_balance" }
   | { route: "reference_voices" }
   | { route: "reference_voice"; voiceId: string }
   | { route: "reference_voice_select"; voiceId: string }
@@ -930,6 +937,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === MAP && id === MAP_DAY && tail === undefined) return { route: "map_day" };
   if (head === MAP && id === MAP_DRAWING && tail === undefined) return { route: "map_drawing" };
   if (head === USAGE && id === undefined) return { route: "usage" };
+  if (head === USAGE && id === USAGE_BALANCE && tail === undefined) return { route: "usage_balance" };
   if (head === REFERENCE_VOICES) {
     if (id === undefined) return { route: "reference_voices" };
     if (tail === undefined) return { route: "reference_voice", voiceId: id };

@@ -237,6 +237,11 @@ export interface StartTestDaemonOptions {
    * 永远不连真的 DeepSeek（测试环境里可能带着真的 DEEPSEEK_API_KEY）
    */
   webDeepseekBaseUrl?: string;
+  /**
+   * DeepSeek 查余额接口（消耗页顶上的余额，440）的地址：给本机假服务的地址（fake-deepseek-balance.ts）；不填是本机 1 号端口（连不上），
+   * 永远不连真的 DeepSeek（测试环境里可能带着真的 DEEPSEEK_API_KEY）
+   */
+  deepseekBalanceBaseUrl?: string;
   /** 项目的服务首页怎么截：不填是一律截不成（"测试里不截图"），永远不起浏览器 */
   serviceThumbnail?: (url: string, signal: AbortSignal) => Promise<Buffer>;
   /** 浏览器的路径（注入 agent 的 bash 环境的 AGENT_BROWSER_EXECUTABLE_PATH）：给假的路径；不填是没找到（不注入），不探测本机 */
@@ -279,6 +284,9 @@ export const NO_CATALOG_URL = "http://127.0.0.1:1";
 
 /** DeepSeek 的联网搜索、读网页接口默认的地址：本机 1 号端口，连不上（测试里永远不连真的 DeepSeek） */
 export const NO_DEEPSEEK_TOOLS_URL = "http://127.0.0.1:1";
+
+/** DeepSeek 查余额接口默认的地址：本机 1 号端口，连不上（测试里永远不连真的 DeepSeek） */
+export const NO_DEEPSEEK_BALANCE_URL = "http://127.0.0.1:1";
 
 /** 范围审视的默认剧本：每次审视都回"这段工作都在范围之内"（够一个子进程审视很多次） */
 export const NO_SCOPE_FINDINGS: readonly FauxStep[] = Array.from({ length: 30 }, () => ({ kind: "reply", text: '{"records":[]}' }) as const);
@@ -410,6 +418,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     speechUrl: options.speechUrl ?? NO_SPEECH_SERVICE_URL,
     webAccess: options.webAccess ?? fakeWebAccess(),
     webDeepseekBaseUrl: options.webDeepseekBaseUrl ?? NO_DEEPSEEK_TOOLS_URL,
+    deepseekBalanceBaseUrl: options.deepseekBalanceBaseUrl ?? NO_DEEPSEEK_BALANCE_URL,
     serviceThumbnail: options.serviceThumbnail ?? (() => Promise.reject(new Error("测试里不截图"))),
     browserPath: () => options.browserPath,
     log: options.log ?? (() => {}),

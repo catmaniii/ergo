@@ -1,10 +1,11 @@
 // token 账本与消耗页的 schema，用 TypeBox 定义，守护进程和 Web 共用生成的类型。
 // - 看板频道上的 token_totals 事件：一个任务（或定时作业）名下的用量合计，每次新的模型调用后推一条；
 // - 单价（每百万 token）：配置里的 tokenPrices（不分时段），没写的用框架自带的价格表（token-prices.ts，分高峰、空闲）；
-// - 消耗页：GET /api/usage?from=&to= 的响应（按天、按 agent 汇总，秘书单列为系统开销，未归属的另列，粗估成本）。
+// - 消耗页：GET /api/usage?from=&to= 的响应（按天、按 agent 汇总，秘书单列为系统开销，未归属的另列，粗估成本）；
+// - 消耗页顶上的服务商余额（440）：GET、POST /api/usage/balance 的响应（这票只有 DeepSeek，别的服务商以后挂同一份）。
 // 名字（角色、归属种类、调用用途、消耗页上的三类）和纯函数（合计、成本）在 usage.ts；自带价格表和高峰时段在 token-prices.ts。
 import { type Static, Type } from "typebox";
-import { LEDGER_OWNER_KINDS, LEDGER_PURPOSES, LEDGER_ROLES, USAGE_CATEGORIES, WEB_CALL_SERVICES } from "./usage.ts";
+import { BALANCE_PROBLEMS, LEDGER_OWNER_KINDS, LEDGER_PURPOSES, LEDGER_ROLES, USAGE_CATEGORIES, WEB_CALL_SERVICES } from "./usage.ts";
 import { LocalDate } from "./workday-calendar.ts";
 
 const Count = Type.Integer({ minimum: 0 });
@@ -195,3 +196,64 @@ export const UsageSummary = Type.Object({
   memoryBrief: UsageMemoryBrief,
 });
 export type UsageSummary = Static<typeof UsageSummary>;
+
+/** 一种币种的余额（440）：数照服务商回的原样（字符串，两位小数），不换算 */
+export const ProviderBalanceAmount = Type.Object({
+  /** 币种：DeepSeek 文档里是 CNY 或 USD */
+  currency: Type.String(),
+  /** 总的可用余额（含赠送和充值） */
+  total: Type.String(),
+  /** 其中没过期的赠送 */
+  granted: Type.String(),
+  /** 其中充值的 */
+  toppedUp: Type.String(),
+});
+export type ProviderBalanceAmount = Static<typeof ProviderBalanceAmount>;
+
+/** 最近一次查成的余额 */
+export const ProviderBalanceResult = Type.Object({
+  /** 服务商说余额够不够调接口（DeepSeek 的 is_available） */
+  available: Type.Boolean(),
+  balances: Type.Array(ProviderBalanceAmount),
+  /** 查成的时刻（协议时间） */
+  checkedAt: Type.String(),
+  /** 余额不多了：用不了了，或者每个币种都低于提醒线（lowBelow） */
+  low: Type.Boolean(),
+});
+export type ProviderBalanceResult = Static<typeof ProviderBalanceResult>;
+
+/** 最近一次没查成：原因、服务商回的状态码（超时、连不上没有）、什么时候 */
+export const ProviderBalanceFailure = Type.Object({
+  problem: Type.Enum(BALANCE_PROBLEMS),
+  status: Type.Optional(Type.Integer()),
+  at: Type.String(),
+});
+export type ProviderBalanceFailure = Static<typeof ProviderBalanceFailure>;
+
+/** 一个服务商的余额 */
+export const ProviderBalance = Type.Object({
+  /** 服务商登记表里的 id（deepseek） */
+  provider: Type.String(),
+  /** 给人看的名字 */
+  label: Type.String(),
+  /** 配了能查余额的 Key 没有；没配不查，result、failure 都没有 */
+  configured: Type.Boolean(),
+  /** 最近一次查成的（换了 Key 就清掉） */
+  result: Type.Optional(ProviderBalanceResult),
+  /** 最近一次没查成（之后查成了就没有）；result 还在时页面照旧显示上次查成的数 */
+  failure: Type.Optional(ProviderBalanceFailure),
+  /** 这个时刻之前点"刷新"不重查（防连点）；现在就能刷时没有 */
+  nextRefreshAt: Type.Optional(Type.String()),
+  /** 服务商开放平台的充值页（页面上"去充值"打开它，在 App 里走内置浏览器）；没有的不给 */
+  topUpUrl: Type.Optional(Type.String()),
+});
+export type ProviderBalance = Static<typeof ProviderBalance>;
+
+/** 消耗页顶上的余额（GET /api/usage/balance 取，缓存还新就用缓存；POST 马上重查） */
+export const ProviderBalanceView = Type.Object({
+  /** 能查余额的服务商（这票只有 DeepSeek） */
+  providers: Type.Array(ProviderBalance),
+  /** 低于多少算"余额不多了"，按币种（CNY: 10）；页面写提醒线、体检据此提醒 */
+  lowBelow: Type.Record(Type.String(), Type.Number()),
+});
+export type ProviderBalanceView = Static<typeof ProviderBalanceView>;
