@@ -135,6 +135,15 @@ describe("交给秘书的地图编号（查询跟着它走）", () => {
     // 国内高德的 Key 没填："自动"本来就是 OpenStreetMap
     expect(lookupBasemap({ ...mainland, auto: "osm", options: [{ id: "osm" }] }, {}, true)).toBe("osm");
   });
+
+  test("合了 446：国外填了谷歌的 Key，没开足迹画着谷歌就写 google；开着足迹没选过按自动也是 google，选了 OpenStreetMap 写 osm", () => {
+    const abroad = { region: "abroad" as const, rendered: "google", auto: "google", options: [{ id: "google" }, { id: "osm" }] };
+    expect(lookupBasemap(abroad, {}, false)).toBe("google");
+    expect(lookupBasemap({ ...abroad, rendered: "osm" }, {}, true)).toBe("google");
+    expect(lookupBasemap({ ...abroad, rendered: "osm" }, { abroad: "osm" }, true)).toBe("osm");
+    // 谷歌这一页加载失败（连不上、Key 被拒）：自动已经退回 OpenStreetMap
+    expect(lookupBasemap({ ...abroad, rendered: "osm", auto: "osm", options: [{ id: "google", failed: "load failed" }, { id: "osm" }] }, { abroad: "google" }, true)).toBe("osm");
+  });
 });
 
 describe("地图切换列哪几家", () => {

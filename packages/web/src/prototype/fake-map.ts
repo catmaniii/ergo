@@ -5,8 +5,8 @@
 // - 两个地点：国内一处（杭州西湖）、新加坡一处（滨海湾），点了跳过去，底图跟着换；
 // - 占位底图（demoTileUrl）：编的街区格子，不是真的地图；两种底图颜色不同，一眼分得出是哪一种。
 // - 聊天里地图卡片的那条路线（431，demoMapDrawing）：高德查的、从公司到西湖边，编的。
-// - "在地图上看"（447，demoMapFind）：网页上选中的一段字，带汉字的当国内地址、"高德"查到西湖边，不带的当国外、OpenStreetMap 查到滨海湾；
-//   写着"找不到"、nowhere 的回没找到。
+// - "在地图上看"（447，demoMapFind）：网页上选中的一段字，带汉字的当国内地址、"高德"查到西湖边，不带的当国外查到滨海湾（谷歌地图插件
+//   开着时"谷歌"查的，停用了 OpenStreetMap 查的）；写着"找不到"、nowhere 的回没找到。
 // 只在演示页里用（地图页 import.meta.env.MODE === "demo" 的分支、FakeDaemonHttp）。英文在 en/fake-map.ts。
 import type { MapDrawing, MapFindResult, MapProviderView } from "../state/index.ts";
 import { fakeFormat, fakeText } from "./fake-content.ts";
@@ -17,8 +17,8 @@ export const DEMO_AMAP_KEY = "demo-amap-key-not-real";
 export const DEMO_GOOGLE_KEY = "demo-google-key-not-real";
 
 /**
- * 登记了的两家地图服务（445 的插槽，GET /api/map/config 的 providers）：和守护进程自带的一样——高德（大陆、优先级 100，
- * "填好了"假的 Key）、OpenStreetMap（哪儿都管、0）。演示页里没有别的插件登记的
+ * 登记了的几家地图服务（445 的插槽，GET /api/map/config 的 providers）：守护进程自带的两家——高德（大陆、优先级 100，
+ * "填好了"假的 Key）、OpenStreetMap（哪儿都管、0）；google 为真时再加谷歌地图插件（446）登记的那一家（"填好了"假的 Key）
  */
 export function demoMapProviders(google = false): MapProviderView[] {
   return [
@@ -163,16 +163,19 @@ const DEMO_DRAWINGS: Readonly<Record<string, MapDrawing>> = {
   },
 };
 
-/** "在地图上看"查到的（demoMapFind 放进来的，编号 amap-p… / osm-p…） */
+/** "在地图上看"查到的（demoMapFind 放进来的，编号 amap-p… / google-p… / osm-p…） */
 const FOUND: Map<string, MapDrawing> = new Map();
 let foundSeq = 0;
 
-/** "在地图上看"（447，FakeDaemonHttp.mapFind）：带汉字的当国内地址（"高德"查到西湖边），不带的当国外（OpenStreetMap 查到滨海湾）；写着"找不到"、nowhere 的回没找到 */
-export function demoMapFind(text: string): MapFindResult {
+/**
+ * "在地图上看"（447，FakeDaemonHttp.mapFind）：带汉字的当国内地址（"高德"查到西湖边），不带的当国外查到滨海湾——google（谷歌地图插件开着）
+ * 时"谷歌"查的（446：守护进程"自动"时大陆外先问谷歌），不然 OpenStreetMap；写着"找不到"、nowhere 的回没找到
+ */
+export function demoMapFind(text: string, google = false): MapFindResult {
   const said = text.replace(/\s+/g, " ").trim();
   if (/找不到|nowhere/i.test(said)) return { ok: false, reason: fakeFormat("地图上没找到「{}」：选得具体些（带上城市、区）再试", said.slice(0, 40)) };
   const mainland = /\p{Script=Han}/u.test(said);
-  const source = mainland ? "amap" : "osm";
+  const source = mainland ? "amap" : google ? "google" : "osm";
   foundSeq += 1;
   const lookup = `${source}-p${foundSeq}`;
   const at = mainland ? { lat: 30.2598, lon: 120.1452 } : { lat: 1.2834, lon: 103.8607 };

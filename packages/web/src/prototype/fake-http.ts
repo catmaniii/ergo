@@ -695,8 +695,13 @@ export class FakeDaemonHttp implements DaemonHttp {
    * 谷歌地图插件停用了（?demo-plugins-off=google-maps）就没有谷歌那一家
    */
   mapConfig(): Promise<MapConfigView> {
+    return Promise.resolve({ amapKey: DEMO_AMAP_KEY, providers: demoMapProviders(this.googleMapsOn()) });
+  }
+
+  /** 演示页里谷歌地图插件开着没有（没停用就当填好了 Key） */
+  private googleMapsOn(): boolean {
     const google = this.pluginSettings?.pluginList().plugins.find((p) => p.name === "google-maps");
-    return Promise.resolve({ amapKey: DEMO_AMAP_KEY, providers: demoMapProviders(google === undefined || google.state === "running") });
+    return google === undefined || google.state === "running";
   }
 
   /** 地图页报底图的事（446）：原型里只当收到了（不数用量） */
@@ -714,10 +719,13 @@ export class FakeDaemonHttp implements DaemonHttp {
     return demoMapDrawing(lookup);
   }
 
-  /** "在地图上看"（447）：编的（带汉字的"高德"查到西湖边，不带的 OpenStreetMap 查到滨海湾，见 prototype/fake-map.ts），过 0.4 秒回 */
+  /**
+   * "在地图上看"（447）：编的（带汉字的"高德"查到西湖边，不带的查到滨海湾——谷歌地图插件开着时"谷歌"查的，和守护进程"自动"时大陆外
+   * 先问谷歌一样，停用了 OpenStreetMap 查的；见 prototype/fake-map.ts），过 0.4 秒回
+   */
   async mapFind(text: string): Promise<MapFindResult> {
     await new Promise((resolve) => setTimeout(resolve, 400));
-    return demoMapFind(text);
+    return demoMapFind(text, this.googleMapsOn());
   }
 
   /** 手机最近交来的一个位置点：编的（12 分钟前、西湖边，见 prototype/fake-footprints.ts）；手机插件停用了（?demo-plugins-off=phone）没有 */

@@ -195,7 +195,7 @@ Select an address or place name on a page ("478 Example Road, Xihu District, Han
 **Good to know:**
 
 - Whether it's an address is decided by simple rules: house numbers, road names, province/city/district, postcodes, and common English addresses. A short bit of text it isn't sure about (maybe a place name) still gets the two buttons; if nothing is found, it says so. Long paragraphs, web addresses and phone numbers don't.
-- **Show on map** picks a map service the same way ergo usually looks places up: AMap in mainland China if you've filled in its key, OpenStreetMap abroad. The place found is only kept on this computer for a little while and never saved.
+- **Show on map** picks a map service the same way ergo usually looks places up: AMap in mainland China if you've filled in its key, Google Maps abroad if you've filled in its keys (see [Google Maps outside China](map.en.md#google-maps-outside-china-enter-two-google-keys); what Google finds is only drawn on Google Maps), otherwise OpenStreetMap. The place found is only kept on this computer for a little while and never saved.
 - With the map plugin turned off, the two buttons don't appear.
 - The two buttons need the new ergo app (0.4.4 or later).
 

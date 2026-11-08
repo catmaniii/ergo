@@ -404,7 +404,7 @@ async function resolveByName(all: readonly LookupProvider[], text: string, city:
 }
 
 /** 工具的 map 参数（445）：地图上现在用的那家 */
-const MAP_ARG_DESCRIPTION = "用户在地图页上现在用的那家地图的编号（地图的上下文里写着：amap 高德、osm OpenStreetMap……）：结果要画在那家的地图上，先用它查；不知道就不写（按自动挑）";
+const MAP_ARG_DESCRIPTION = "用户在地图页上现在用的那家地图的编号（地图的上下文里写着：amap 高德、osm OpenStreetMap、google 谷歌地图……）：结果要画在那家的地图上，先用它查；不知道就不写（按自动挑）";
 
 /** map 参数的写法 */
 const mapArg = () => Type.Optional(Type.String({ minLength: 1, maxLength: 20, pattern: MAP_PROVIDER_ID.source, description: MAP_ARG_DESCRIPTION }));
