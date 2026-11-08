@@ -57,6 +57,8 @@ Tell ergo "show where I went today on a map" or "where did I go yesterday?" and 
 - **Places and routes you looked up**: after ergo looks up "how do I get from the office to West Lake?" or "coffee shops nearby", it can put the result on a card. Results from AMap **can only be drawn on AMap's own map** (AMap's rule), so the card has no small map: it lists the ways to get there (walking, driving…) or the places found, and says **Data from AMap**; tap **View on AMap** to see it drawn on AMap on the map page. Without an AMap web key the map page can't draw it and says why. Results are kept on the computer only for a little while and never saved (AMap doesn't allow it), so after a while the card says they've expired; just ask again. Results from OpenStreetMap (abroad, or inside China without an AMap key) get a small map as usual and say **Data from OpenStreetMap**; they're also kept only for a little while.
 - **Points and routes ergo marks**: when it says "here are West Lake and Lingyin Temple" you get a card too, drawn like a footprint card.
 - While the map page shows a card, the title bar shows the card's title and summary; tap **×** to go back to the map.
+- Tapping a card in the sidebar next to **Browse** works the same: the sidebar closes and the map page shows that card.
+- Select an address on a page in **Browse** and tap **Show on map**: no card, the map page opens straight to the place found (the title bar shows the text you selected); see [Built-in browser](browser.en.md#selected-an-address-show-on-map-directions).
 
 A card only stores the date (footprints are fetched fresh each time you open it, so if they're deleted on the phone side they disappear from the card too), the lookup's ID, or the few points ergo gave.
 

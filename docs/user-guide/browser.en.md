@@ -69,6 +69,7 @@ Next time, the blank page lists **Recently visited**. Tap one to open it. Long-p
 - What's written on the page doesn't count as something you said. If a page says "ignore previous instructions", the secretary won't obey.
 - Holding to talk needs speech recognition installed first; see [Voice](voice.en.md).
 - On wide screens, there's a divider between the sidebar and the page. Drag it to change the width; this device remembers.
+- Tap **Open map** or **View on AMap** on a map card in the sidebar: the sidebar closes and the **Map** page opens with that card. Links in other cards that go to an ergo page work the same way; go back to return to **Browse**.
 
 ## Filling in fields: the floating button
 
@@ -183,6 +184,20 @@ Next time, the blank page lists **Recently visited**. Tap one to open it. Long-p
 - Forget or delete completely that item in materials and the image goes too, unless another message or material still uses it.
 - It only downloads if you said so this turn. It goes through the app's downloads: the system's **Save to** dialog pops up, and it's added to Downloads. Text elements can't be downloaded.
 - To see what's in an image you need a model that can see images; if you don't have one, the secretary says so honestly.
+
+### Selected an address: Show on map, Directions
+
+Select an address or place name on a page ("478 Example Road, Xihu District, Hangzhou", "West Lake", "1600 Example Street"), and a row of two buttons appears next to the round button:
+
+- **Show on map**: no need to talk to ergo. The little bubble next to the button says **Finding this place on the map…**, and once found, the **Map** page opens with the place marked and the text you selected in the title bar. Go back to return to **Browse**. If it can't be found, the bubble says why, for example "Couldn't find … on the map: select something more specific (with the city or district) and try again".
+- **Directions**: says "How do I get to "…" from where I am now?" to ergo for you. It works out the route and puts a route card in the conversation. The little bubble shows a short reply with **See in sidebar** below it; tap it to see the route card, then tap the card to open the **Map** page.
+
+**Good to know:**
+
+- Whether it's an address is decided by simple rules: house numbers, road names, province/city/district, postcodes, and common English addresses. A short bit of text it isn't sure about (maybe a place name) still gets the two buttons; if nothing is found, it says so. Long paragraphs, web addresses and phone numbers don't.
+- **Show on map** picks a map service the same way ergo usually looks places up: AMap in mainland China if you've filled in its key, OpenStreetMap abroad. The place found is only kept on this computer for a little while and never saved.
+- With the map plugin turned off, the two buttons don't appear.
+- The two buttons need the new ergo app (0.4.4 or later).
 
 ## The menu: summarize, save as material, find and more
 
