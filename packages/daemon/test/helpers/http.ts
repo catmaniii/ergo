@@ -78,6 +78,7 @@ import {
   type UploadedMedia,
   type UploadStatus,
   type UsageSummary,
+  type ProviderBalanceView,
   type WebSettingsBody,
   type WebSettingsView,
   type WorkdayChange,
@@ -316,6 +317,10 @@ export const backupApi = {
 /** 消耗页：from 到 to（YYYY-MM-DD，含两头）按天、按 agent 的用量和粗估成本 */
 export const usageApi = {
   summary: (baseUrl: string, range: { from: string; to: string }) => requestJson<UsageSummary & HttpErrorBody>(baseUrl, HTTP_PATHS.usage(range)),
+  /** 消耗页顶上的服务商余额（440）：取（缓存还新就用缓存） */
+  balance: (baseUrl: string) => requestJson<ProviderBalanceView & HttpErrorBody>(baseUrl, HTTP_PATHS.usageBalance),
+  /** 余额的"刷新" */
+  refreshBalance: (baseUrl: string) => requestJson<ProviderBalanceView & HttpErrorBody>(baseUrl, HTTP_PATHS.usageBalance, { method: "POST", body: {} }),
 };
 
 /** 设置里的系统提示：全部、一份、保存、恢复默认 */

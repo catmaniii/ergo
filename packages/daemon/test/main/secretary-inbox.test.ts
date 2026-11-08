@@ -99,6 +99,8 @@ const SECRETARY_TOOLS = [
   "view_board",
   // 只读的体检（现查一遍，不对卡片做动作）
   "check_health",
+  // 只读的查余额（只查 DeepSeek 余额，不对卡片做动作，440）
+  "check_balance",
   "write",
   "write_task_brief",
   "ask_questions",
