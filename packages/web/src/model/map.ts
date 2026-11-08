@@ -55,6 +55,11 @@ export interface MapEngineEvents {
   onMoveEnd(view: MapView): void;
   /** 点了地图上的一个点 */
   onMarkClick?(id: string): void;
+  /**
+   * 建好以后这一家又不能用了（446：谷歌加载上以后才说浏览器用的 Key 不对，gm_authFailure）：reason 给人看。
+   * 地图页把这一家记成"这一页加载失败"（退回 OpenStreetMap、地图切换里标"连不上"、手动选的退回"自动"），和准备时抛错一样
+   */
+  onFailed?(reason: string): void;
 }
 
 /** 画地图的那一层：地图页只经这个接口用它，换底图时整个换掉 */

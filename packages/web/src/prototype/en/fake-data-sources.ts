@@ -3,6 +3,10 @@ import type { Phrases } from "./phrases.ts";
 
 export const EN_DATA_SOURCES: Phrases = {
   "高德地图": "AMap",
+  "谷歌地图": "Google Maps",
+  "填了 Key，地图页在大陆以外用谷歌地图，查大陆以外的地点、路线也用它（只在你问的时候把起点、终点、“附近”的那一处发给谷歌，查到的不存）。服务端用的 Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给谷歌": "With keys entered, the map page uses Google Maps outside mainland China, and so do place and route lookups there (only the start, the end or the “nearby” spot is sent to Google when you ask, and results aren't stored). The server key stays on this computer; where you go each day and where your photos were taken are never sent to Google",
+  "浏览器用的 Key：已填 · 服务端用的 Key：已填": "Browser key: set · Server key: set",
+  "填过的两个 Key 从这台电脑上删掉（Google Cloud 里的 Key 还在，不用了可以去那边删），地图页和查询在大陆以外改用 OpenStreetMap": "Both keys are deleted from this computer (they still exist in Google Cloud — delete them there if you're done); the map and lookups outside China switch to OpenStreetMap",
   "填了 Key，地图页在国内用高德地图，查国内的地点、路线也用它（只在你问的时候把起点、终点、\"附近\"的那一处发给高德；没填时国内也用 OpenStreetMap 查，店名和小路可能不全）。Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给高德":
     "With a key, the map page uses AMap inside mainland China, and looking up places and routes there uses it too (only when you ask, the start, the destination or the \"nearby\" spot goes to AMap; without a key, lookups in China also use OpenStreetMap, which may miss some shops and small roads). The key stays on this computer; where you went each day and where your photos were taken are never sent to AMap",
   "试查：在北京搜「天安门」（固定的词，不是你的位置）": "Test: search “Tiananmen” in Beijing (a fixed word, not your location)",

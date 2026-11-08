@@ -228,9 +228,11 @@ describe("插件登记的", () => {
     expect(host.ownerOf("cards", "map")?.name).toBe("map");
     // 445：自带的两种底图照"地图服务"插槽登记（mapBasemaps）
     expect(mapWebPlugin.owns).toEqual({ pages: ["map"], dataSources: ["amap"], cards: ["map"], mapBasemaps: ["amap", "osm"] });
+    // 446 起谷歌地图插件也登记一种（google，接在后面）
     expect(host.list("mapBasemaps").map((b) => [b.id, b.title])).toEqual([
       ["amap", "高德地图"],
       ["osm", "OpenStreetMap"],
+      ["google", "谷歌地图"],
     ]);
   });
 });

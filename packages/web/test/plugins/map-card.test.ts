@@ -144,12 +144,13 @@ describe("卡片画出来的样子", () => {
   });
 });
 
-describe("原型里的两张地图卡", () => {
-  test("昨天的足迹（画得出原型的假足迹）、从公司到西湖边（高德查的、取得到原型的假路线），都是已处理", async () => {
+describe("原型里的三张地图卡", () => {
+  test("昨天的足迹（画得出原型的假足迹）、从公司到西湖边（高德查的、取得到原型的假路线）、附近的 hawker centre（446：谷歌查的），都是已处理", async () => {
     const cards = FAKE_CARDS.filter((c) => c.type === "map");
     expect(cards.map((c) => [c.id, c.status])).toEqual([
       ["c-map-day", "handled"],
       ["c-map-route", "handled"],
+      ["c-map-hawker", "handled"],
     ]);
     expect(cards[0]!.payload).toEqual({ show: { kind: "day", date: yesterday } });
     expect(dayContent(demoMapDay(yesterday)).state).toBe("ready");

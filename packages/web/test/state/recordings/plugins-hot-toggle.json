@@ -65,6 +65,11 @@
             "name": "map",
             "title": "地图",
             "state": "running"
+          },
+          {
+            "name": "google-maps",
+            "title": "谷歌地图",
+            "state": "running"
           }
         ]
       }
@@ -86,9 +91,9 @@
           },
           "nextAt": "2099-10-08T09:00:00.000+08:00",
           "status": "pending",
-          "cardId": "c-e536afa3-585a-4c70-9f71-87a5101abd1c",
-          "createdAt": "2026-11-07T21:34:31.309+08:00",
-          "updatedAt": "2026-11-07T21:34:31.309+08:00"
+          "cardId": "c-a01c0be2-d21b-45e8-af64-3037e36f549b",
+          "createdAt": "2026-11-08T12:28:51.465+08:00",
+          "updatedAt": "2026-11-08T12:28:51.465+08:00"
         },
         "change": "created",
         "by": "user"
@@ -103,7 +108,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-e536afa3-585a-4c70-9f71-87a5101abd1c",
+          "id": "c-a01c0be2-d21b-45e8-af64-3037e36f549b",
           "type": "reminder",
           "typeVersion": 5,
           "version": 1,
@@ -119,7 +124,7 @@
             "nextAt": "2099-10-08T09:00:00.000+08:00"
           },
           "text": "简单提醒：交报告 · 10 月 8 日（周四）09:00",
-          "createdAt": "2026-11-07T21:34:31.309+08:00"
+          "createdAt": "2026-11-08T12:28:51.466+08:00"
         }
       }
     }
@@ -186,6 +191,11 @@
             "name": "map",
             "title": "地图",
             "state": "running"
+          },
+          {
+            "name": "google-maps",
+            "title": "谷歌地图",
+            "state": "running"
           }
         ]
       }
@@ -252,6 +262,11 @@
           {
             "name": "map",
             "title": "地图",
+            "state": "running"
+          },
+          {
+            "name": "google-maps",
+            "title": "谷歌地图",
             "state": "running"
           }
         ]
@@ -320,6 +335,11 @@
             "name": "map",
             "title": "地图",
             "state": "running"
+          },
+          {
+            "name": "google-maps",
+            "title": "谷歌地图",
+            "state": "running"
           }
         ]
       }
@@ -333,7 +353,7 @@
       "type": "plugin_data_purged",
       "payload": {
         "plugin": "reminders",
-        "at": "2026-11-07T21:34:31.395+08:00",
+        "at": "2026-11-08T12:28:51.545+08:00",
         "eventTypes": [
           "reminder"
         ],

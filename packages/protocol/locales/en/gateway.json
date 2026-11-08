@@ -50,6 +50,7 @@
   "gateway.http.badMaterialScope": "Bad materials range: {message}",
   "gateway.http.badMaterialDelete": "Bad parameters for deleting materials: {message}",
   "gateway.http.badMaterialList": "Bad parameters for the materials list: {message}",
+  "gateway.http.badMapBasemap": "Invalid basemap report: {message}",
   "gateway.http.badSavePage": "Bad parameters for saving the page: {message}",
   "gateway.http.noMaterial": "No such material (it may have been deleted)",
   "gateway.http.noMemoryGraph": "This version doesn't have the endpoints for reading memory conclusions yet",

@@ -64,3 +64,19 @@ export type MapFindBody = Static<typeof MapFindBody>;
 export type MapFindResult =
   | { readonly ok: true; readonly lookup: string; readonly source: string; readonly kind: "places" | "address"; readonly title: string }
   | { readonly ok: false; readonly reason: string };
+
+/**
+ * 地图页报一家底图的事（446，POST /api/map/basemap）：provider 是地图服务的编号；event：
+ * - loaded：建了一次这家的底图（谷歌按"一次地图加载"计费：守护进程数这个月的用量，到了免费量先停用这家的底图）；
+ * - auth_failed：这家拒了浏览器用的 Key（谷歌的 gm_authFailure：Key 不对、没开 Maps JavaScript API、网站限制没写这个地址、没开结算）。
+ * 只有编号和事，不带位置、不带 Key
+ */
+export const MapBasemapEventBody = Type.Object({
+  provider: Type.String({ minLength: 1, maxLength: 20 }),
+  event: Type.Union([Type.Literal("loaded"), Type.Literal("auth_failed")]),
+});
+export type MapBasemapEventBody = Static<typeof MapBasemapEventBody>;
+
+/** 报了以后：这家认不认得（没登记、停用了的是 false，不算错） */
+export const MapBasemapEventReply = Type.Object({ known: Type.Boolean() });
+export type MapBasemapEventReply = Static<typeof MapBasemapEventReply>;

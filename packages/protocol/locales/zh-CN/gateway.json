@@ -50,6 +50,7 @@
   "gateway.http.badMaterialScope": "素材范围不对：{message}",
   "gateway.http.badMaterialDelete": "删除素材的参数不对：{message}",
   "gateway.http.badMaterialList": "素材列表的参数不对：{message}",
+  "gateway.http.badMapBasemap": "报底图的参数不对：{message}",
   "gateway.http.badSavePage": "存网页的参数不对：{message}",
   "gateway.http.noMaterial": "没有这条素材（可能已经删了）",
   "gateway.http.noMemoryGraph": "这个版本还没有看记忆结论的接口",

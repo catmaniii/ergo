@@ -51,6 +51,8 @@ describe("地图插件（假瓦片、假高德走真实装配路径）", () => {
     expect(empty.providers?.map((p) => [p.id, p.ready, p.key])).toEqual([
       ["amap", false, undefined],
       ["osm", true, undefined],
+      // 446 起清单里有谷歌地图插件：没填 Key，底图用不了
+      ["google", false, undefined],
     ]);
     expect((await request(td.url, "/_AMapService/v3/geocode/regeo?key=x")).status).toBe(503);
 
