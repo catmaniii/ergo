@@ -739,9 +739,10 @@ export type { BackgroundAgentEntry, BackgroundAgentList, BackgroundAgentRow, Bac
 // 工具调用的完整参数和返回（详情页按调用 id 现取）
 export { TOOL_CALL_VALUE_MAX_BYTES } from "@ergo/protocol";
 export type { ToolCallDetail, ToolCallEffect, ToolCallEffectObject, ToolResultMedia, TruncatedValue } from "@ergo/protocol";
-// 文本类附件的预览：能不能预览（守护进程的内容接口和附件卡片共用一个判断）、报告页取到的内容和上限
-export { MEDIA_TEXT_MAX_BYTES, textPreviewOf } from "@ergo/protocol";
-export type { FilePartValue, HttpErrorCode, MediaTextView, TextPreviewMime } from "@ergo/protocol";
+// 文本类附件的预览：能不能预览、怎么画（守护进程的内容接口、附件卡片、报告页共用一个判断；扩展名清单和内置浏览器共用）、
+// 报告页取到的内容和上限；音频、视频附件在报告页用哪种播放器
+export { EXTENSION_KIND, fileExtensionOf, MEDIA_TEXT_MAX_BYTES, mediaPreviewOf, renderKindOf, textPreviewOf } from "@ergo/protocol";
+export type { FilePartValue, FileRenderKind, HttpErrorCode, MediaPreview, MediaTextView } from "@ergo/protocol";
 // HTML、SVG 附件在隔离的沙箱里预览：哪些能（按扩展名）、多大以内、报告页 <iframe sandbox> 的值
 export { framePreviewOf, HTML_PREVIEW_SANDBOX, MEDIA_FRAME_MAX_BYTES } from "@ergo/protocol";
 export type { FramePreview } from "@ergo/protocol";

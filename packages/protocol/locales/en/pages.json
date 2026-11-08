@@ -336,6 +336,8 @@
   "pages.report.download": "Download",
   "pages.report.noPrototypeFile": "No real file in the prototype",
   "pages.report.loading": "Loading the file…",
+  "pages.report.mediaFailed": "Your browser can't play this file's format. Download it and open it in a media player",
+  "pages.report.videoNoPicture": "No picture: the file may have sound only, or its video format may not play in your browser. To see the picture, download it and open it in a media player",
   "pages.secretary.moreActions": "More actions",
   "pages.secretary.mainSession": "Main session",
   "pages.secretary.mainSessionOf": "{name}'s main session",

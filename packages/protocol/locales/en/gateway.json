@@ -141,7 +141,7 @@
   "gateway.http.noSystemPrompts": "This version doesn't have system prompt settings yet",
   "gateway.http.noMedia": "No such media: {mediaId}",
   "gateway.http.noPreview": "Attachment “{name}” is {mime} and can't be previewed, only downloaded",
-  "gateway.http.notUtf8": "Attachment “{name}” isn't UTF-8 text and can't be previewed. Download it and open it with an app on your computer",
+  "gateway.http.undecodable": "Attachment “{name}” isn't UTF-8 or GBK text (it may be a binary file) and can't be previewed. Download it and open it with an app on your computer",
   "gateway.http.noAttachment": "No such attachment: {mediaId}",
   "gateway.http.attachmentGone": "The file for attachment “{name}” is gone",
   "gateway.http.wrongFrameKind": "Attachment “{name}” is {mime}, not {kind}, so it can't be previewed this way",

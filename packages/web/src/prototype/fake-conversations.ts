@@ -66,7 +66,21 @@ import {
   toolNatureOf,
   type VoiceRecord,
 } from "../state/index.ts";
-import { FAKE_BRIEF, FAKE_BRIEF_HTML, FAKE_DAILY, FAKE_HTML, FAKE_LEDGER_PART, FAKE_TREND_SVG, FAKE_VIDEOS, FAKE_ZIP } from "./fake-media.ts";
+import {
+  FAKE_BRIEF,
+  FAKE_BRIEF_HTML,
+  FAKE_DAILY,
+  FAKE_EXPENSES_CSV,
+  FAKE_HTML,
+  FAKE_LEDGER_PART,
+  FAKE_MEETING_AUDIO,
+  FAKE_REIMBURSE_PY,
+  FAKE_STATEMENT_CSV,
+  FAKE_TREND_SVG,
+  FAKE_VIDEOS,
+  FAKE_WORKOUT_JSON,
+  FAKE_ZIP,
+} from "./fake-media.ts";
 import { LONG_TASK_CARDS, LONG_TASK_HISTORY, markOf } from "./fake-long-tasks.ts";
 import { WORKFLOW_CARDS, WORKFLOW_HISTORY } from "./fake-workflow.ts";
 
@@ -1247,7 +1261,7 @@ const SECRETARY: MessageEnvelope[] = [
     tool("write", "草稿区/invoice-0927.json", { result: "写了 1 个文件" }),
     tool("bash", "python calc_reimburse.py invoice-0927.json --rate 0.85", { generic: true, result: "合计 ¥1,280.00 × 85% = ¥1,088.00" }),
     text("能报 ¥1,088.00（¥1,280.00 × 85%）。明细放在附件里。"),
-    { type: "file", mediaId: "sha256:fake-csv", name: "报销明细-0927.csv", mime: "text/csv", size: 1_284 },
+    FAKE_EXPENSES_CSV.part,
   ),
   msg(S, "user", at("10-06", "23:02"), text("忘掉我上个月说的关于换工作的那些话")),
   msg(S, "agent", at("10-06", "23:02"), text("找到 3 条相关的素材，核对一下再删："), cardRef("c-md-1")),
@@ -2047,13 +2061,29 @@ const SECRETARY_RELAY: MessageEnvelope[] = [
 ];
 
 /**
- * 附件卡片和报告页。三段录像一次发（同类多个按序号显示）、源码包和预览页（只能下载，HTML 照旧不预览）、
- * 超过 1 MB 的流水（报告页截断）、晚上的日报（Markdown，点开渲染着看：标题、列表、表格、外链）。附件见 fake-media.ts
+ * 附件卡片和报告页。三段录像一次发（同类多个按序号显示，报告页给播放器，原型里没有内容）、源码包（只能下载）和预览页（HTML，沙箱里看）、
+ * 银行导出的 GBK 编码流水（表格，写明编码）和周会录音（播放器真能放）、训练记录（JSON 格式化）和算报销的脚本（代码等宽）、
+ * 超过 1 MB 的流水（报告页截断）、晚上的日报（Markdown，点开渲染着看：标题、列表、表格、外链）。附件见 fake-media.ts。
+ * 后加的几条 id 写死，不经 msg() 编号，后面消息的 id 不变
  */
 const SECRETARY_ATTACHMENTS: MessageEnvelope[] = [
   msg(S, "user", at("10-07", "11:02"), ...FAKE_VIDEOS.map((v) => v.part), text("周会录像分成了三段，帮我整理成纪要")),
   msg(S, "agent", at("10-07", "11:03"), text("收到三段录像，整理好纪要发给你。")),
   msg(S, "agent", at("10-07", "15:20"), text("活动页做好了：源码打包在 zip 里，预览页是单独的 HTML，点开就能看。"), FAKE_ZIP.part, FAKE_HTML.part),
+  {
+    id: "msg-formats-ask",
+    conversation: S,
+    speaker: "user",
+    time: at("10-07", "16:05"),
+    parts: [FAKE_STATEMENT_CSV.part, FAKE_MEETING_AUDIO.part, text("银行导出的九月流水（Excel 存的），还有刚才周会的录音，帮我过一遍")],
+  },
+  {
+    id: "msg-formats-reply",
+    conversation: S,
+    speaker: "agent",
+    time: at("10-07", "16:07"),
+    parts: [text("流水看过了：九月房租、水电和那张高铁票都在里面，没有对不上的。录音里说的三件事记下了。顺手把这周的训练记录和算报销的脚本也发你："), FAKE_WORKOUT_JSON.part, FAKE_REIMBURSE_PY.part],
+  },
   msg(S, "agent", at("10-07", "18:40"), text("全年的账单流水导出来了，文件比较大，预览只显示开头一部分："), FAKE_LEDGER_PART),
   msg(S, "agent", at("10-07", "21:30"), text("今天的日报整理好了："), FAKE_DAILY.part),
 ];

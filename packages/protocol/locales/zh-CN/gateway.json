@@ -141,7 +141,7 @@
   "gateway.http.noSystemPrompts": "这个版本还没有系统提示的设置",
   "gateway.http.noMedia": "没有这个媒体：{mediaId}",
   "gateway.http.noPreview": "附件「{name}」是 {mime}，不能预览，只能下载",
-  "gateway.http.notUtf8": "附件「{name}」不是 UTF-8 编码的文本，预览不了；请下载后用本机的程序打开",
+  "gateway.http.undecodable": "附件「{name}」不是 UTF-8 或 GBK 编码的文本（也可能是二进制文件），预览不了；请下载后用本机的程序打开",
   "gateway.http.noAttachment": "没有这个附件：{mediaId}",
   "gateway.http.attachmentGone": "附件「{name}」的文件不在了",
   "gateway.http.wrongFrameKind": "附件「{name}」是 {mime}，不是 {kind}，不能这样预览",

@@ -28,8 +28,8 @@
 //   一条都没交过的，信从头补（信是这时才有的，不会翻出一大堆）。
 // - 会话里折成一行：交的通知上存一句话总结（任务做完的由这里拼："t-5「AI 日报」第 2 次运行做完了，交了 1 个文件"；
 //   负责人来信是它给的总结），秘书会话里显示它，点开看全文；交给秘书的照旧是全文。被打断后重新交的总结照旧。
-// - 交付的文件作为附件（想在聊天里点开日报看）：任务做完的那几件交付的文件里能预览的（
-//   textPreviewOf：Markdown、纯文本）、不超过附件上限的，由运行时入库（媒体库按内容寻址，同样的内容只存一份），作为一条给人看的
+// - 交付的文件作为附件（想在聊天里点开日报看）：任务做完的那几件交付的文件里能预览的 Markdown、纯文本
+//   （DELIVERY_ATTACH_MIMES，不随附件预览放宽）、不超过附件上限的，由运行时入库（媒体库按内容寻址，同样的内容只存一份），作为一条给人看的
 //   系统消息（只有文件 part，不排进秘书的输入队列）紧跟在通知后面、同一事务追加，用户点"预览"去报告页。只在第一次交的时候放：
 //   被打断后重新交、重启后补交的不再放一遍。不能预览的、太大的照旧只在通知的全文里写路径。
 // - 来信带的附件（letters.ts）：负责人用 tell_secretary 带来的文件写信时已经入库，交的时候照上面一样作为一排附件卡片
@@ -130,6 +130,11 @@ export function isRedeliveredNotice(message: MessageEnvelope): boolean {
 const SAID_MAX = 1000;
 /** 交付的文件最多列几个 */
 const FILES_MAX = 10;
+/**
+ * 交付的文件里哪些类型作为附件放进秘书会话：只放 Markdown 和纯文本（日报、说明这类给人读的）。附件预览后来放宽到了 CSV、JSON、
+ * 代码和配置（协议包的 textPreviewOf），这里的范围不跟着变——要放宽先定好是不是每次做完都想在聊天里看见它们
+ */
+const DELIVERY_ATTACH_MIMES: ReadonlySet<string> = new Set(["text/markdown", "text/plain"]);
 /** 找交付的文件最多看多少个目录项（产出区里装了一大堆依赖的不全翻） */
 const FILES_SCAN_MAX = 500;
 /** 找最后说的话时往回最多看多少条消息 */
@@ -569,8 +574,9 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
   };
 
   /**
-   * 交付的文件里作为附件放进秘书会话的：能预览的（textPreviewOf：Markdown、纯文本，类型按扩展名认，和发消息时一样）、
-   * 不超过附件上限的，最多 FILES_MAX 个，入库（媒体库按内容寻址：同样的内容只存一份）成文件 part。读不到、入库失败的跳过（照旧只在全文里写路径）
+   * 交付的文件里作为附件放进秘书会话的：能预览的 Markdown、纯文本（类型按扩展名认，和发消息时一样，是 DELIVERY_ATTACH_MIMES
+   * 里的；textPreviewOf 后来认得的 CSV、JSON、代码这些不放）、不超过附件上限的，最多 FILES_MAX 个，入库（媒体库按内容寻址：
+   * 同样的内容只存一份）成文件 part。读不到、入库失败的跳过（照旧只在全文里写路径）
    */
   const attachable = async (files: readonly string[]): Promise<FilePartValue[]> => {
     const media = options.media;
@@ -580,7 +586,7 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
       if (parts.length >= FILES_MAX) break;
       const name = path.basename(file);
       const mime = mimeFromName(name);
-      if (mime === undefined || textPreviewOf({ name, mime }) === undefined) continue;
+      if (mime === undefined || !DELIVERY_ATTACH_MIMES.has(mime) || textPreviewOf({ name, mime }) === undefined) continue;
       try {
         const stat = fs.statSync(file);
         if (!stat.isFile() || stat.size > media.maxUploadBytes) continue;

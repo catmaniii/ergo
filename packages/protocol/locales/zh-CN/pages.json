@@ -332,6 +332,8 @@
   "pages.report.download": "下载",
   "pages.report.noPrototypeFile": "原型里没有真文件",
   "pages.report.loading": "正在取文件内容…",
+  "pages.report.mediaFailed": "这个文件的编码浏览器放不了，下载后用播放器看",
+  "pages.report.videoNoPicture": "没有画面：可能只有声音，也可能是视频的编码浏览器放不了；要看画面请下载后用播放器看",
   "pages.secretary.moreActions": "更多操作",
   "pages.secretary.mainSession": "主线会话",
   "pages.secretary.mainSessionOf": "{name}的主线会话",

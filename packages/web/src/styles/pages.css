@@ -960,6 +960,28 @@ a.att-icon:hover {
   max-width: 100%;
   height: auto;
 }
+/*
+ * 音频、视频：页面自带的播放器，铺满正文宽；视频按自己的比例，最高不超过窗口的七成（竖拍的视频不用滚着看）；
+ * 放不了时一条提示，右边"下载"（窄屏换到下一行）
+ */
+.report-audio {
+  display: block;
+  width: 100%;
+}
+.report-video {
+  display: block;
+  width: 100%;
+  max-height: 70vh;
+  border-radius: var(--radius-m);
+  background: var(--fill);
+}
+.report-media-failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
 .report-error-title {
   font-family: var(--font-title);
   font-size: var(--fs-title);

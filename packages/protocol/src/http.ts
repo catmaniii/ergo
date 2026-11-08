@@ -11,12 +11,16 @@
 // 4. 收尾：POST /api/uploads/<上传 id>/complete，带原始上传字节的 sha256。不符就拒绝、不入库。
 //    图片入库前剥掉 EXIF，入库版本的 sha256 就是媒体 id（消息里的图片、文件 part 和素材都引用它）。
 //
-// 下载：GET /api/media/<媒体 id>，支持 Range（206）。
+// 下载：GET /api/media/<媒体 id>，支持 Range（206）。按内容认出是图片的在页面里直接显示；按内容认出是音频、视频容器的
+// 直接播放（语音消息、报告页的播放器）——当音频还是视频发看最近一次引用它的文件 part 的扩展名（parts.ts 的 mediaPreviewOf），
+// part 上写的类型、文件名本身不会让一个文件被内联；别的一律 application/octet-stream 作为附件下载。
 //
 // 文本类附件的内容（报告页用）：GET /api/media/<媒体 id>/text 回 JSON（MediaTextView，http-schema.ts），
 // 不让浏览器直接渲染文件。只按媒体 id 取（内容寻址，不接受路径）；名字和类型以消息里最近一次引用它的文件 part 为准，
-// 能预览的（parts.ts 的 textPreviewOf：Markdown、纯文本）才给，别的回 415（unsupported_type）。超过 MEDIA_TEXT_MAX_BYTES
-// 的只给开头（truncated）；按严格的 UTF-8 解，解不出来回 422（undecodable），不吐乱码。媒体接口本身的内联规矩不变。
+// 能预览的（parts.ts 的 textPreviewOf：Markdown、纯文本、JSON、CSV / TSV、代码和配置）才给，音频、视频只回名字、大小这些和
+// media（报告页的播放器放媒体接口），别的回 415（unsupported_type）。超过 MEDIA_TEXT_MAX_BYTES 的只给开头（truncated）；
+// 先按严格的 UTF-8 解，不是合法的 UTF-8 再按 GB18030（GBK 的超集，Excel 导出的中文 CSV 常见）解，两种都截在字符边上；
+// 都解不出来、含 NUL 的回 422（undecodable），不吐乱码。
 // HTML、SVG 附件也能预览，在隔离的沙箱里看——内容接口对它们只回名字、大小这些和 frame（不给 text），报告页按 frame
 // 用下面两个接口在框里显示；超过 MEDIA_FRAME_MAX_BYTES 的不预览（413 too_large），只能下载：
 // - GET /api/media/<媒体 id>/html：HTML 原样发出（末尾加一小段让链接在新窗口打开的脚本），带沙箱的 CSP（HTML_PREVIEW_SANDBOX，
@@ -26,7 +30,7 @@
 // - GET /api/media/<媒体 id>/svg：SVG 原样以 image/svg+xml 发出，带 default-src 'none'; style-src 'unsafe-inline'; sandbox，
 //   报告页用 <img> 显示（<img> 里的 SVG 不跑脚本）。
 // 两个都只按媒体 id 取，名字、类型同样以最近一次引用它的文件 part 为准，part 上不是这种的回 415；媒体接口 /api/media/<id>
-// 原来的规矩（只内联认得的图片和音频，别的一律作为附件下载）不变。
+// 的规矩（只内联按内容认得的图片和音视频，别的一律作为附件下载）不变。
 //
 // 设置里按会话、按时间段删除素材：POST /api/materials/scope 看范围里有几条（和有素材的会话），
 // POST /api/materials/delete 对范围内的全部素材执行一种删法（请求体带幂等键，重发只执行一次）。

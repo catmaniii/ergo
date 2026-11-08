@@ -1,4 +1,5 @@
-// 拼附件 part 的小工具（守护进程和 Web 共用；不引用 TypeBox）；文件附件能不能预览。
+// 拼附件 part 的小工具（守护进程和 Web 共用；不引用 TypeBox）；文件附件能不能预览、按什么预览。
+import { extensionKindOf, fileExtensionOf, type FileRenderKind, PAGE_EXTENSIONS, renderKindOf } from "./file-render.ts";
 import { t } from "./i18n/runtime.ts";
 import type { MessagePart } from "./schema.ts";
 
@@ -51,27 +52,55 @@ export function partLabel(part: MessagePart): string {
 }
 
 /**
- * 能预览的文本类附件：在报告页渲染着看，不用下载。本版只做 Markdown 和纯文本（csv、json、代码、PDF 列入规划）。
+ * 文本类附件能不能预览：能就给出怎么画（Markdown、纯文本、JSON、CSV / TSV 表格、代码），不能是 undefined。
+ * 报告页的画法和内置浏览器打开文件是同一套（file-render.ts）：
+ * - 浏览器会当页面跑的扩展名（PAGE_EXTENSIONS）不论 part 上写的什么类型都不按文本预览（媒体接口的安全边界不变；html、htm、svg
+ *   在隔离的沙箱里预览，见 framePreviewOf，别的只能下载）；
+ * - 扩展名在清单（EXTENSION_KIND）里的按扩展名定——附件的名字是用户的文件名，发消息时守护进程也是按扩展名补的类型
+ *   （media/file-types.ts 的 mimeFromName）；
+ * - 别的（没有扩展名、扩展名不认得）看 part 上的类型：text/plain、text/markdown 照旧能预览，text/csv、JSON 这些也认。
+ * 以前发过的附件也一样，所以历史消息里的附件自动有预览入口。守护进程的内容接口和 Web 的附件卡片、报告页都按这一份判断
  */
-export const TEXT_PREVIEW_MIMES = ["text/markdown", "text/plain"] as const;
-export type TextPreviewMime = (typeof TEXT_PREVIEW_MIMES)[number];
+export function textPreviewOf(file: { name: string; mime: string }): FileRenderKind | undefined {
+  const ext = fileExtensionOf(file.name);
+  if (PAGE_EXTENSIONS.has(ext)) return undefined;
+  return extensionKindOf(ext) ?? renderKindOf(ext, file.mime);
+}
+
+/** 能在报告页用页面自带的播放器放的附件：音频（<audio controls>）、视频（<video controls playsinline>） */
+export type MediaPreview = "audio" | "video";
+
+const MEDIA_OF_EXTENSION: Readonly<Record<string, MediaPreview>> = {
+  mp3: "audio",
+  m4a: "audio",
+  aac: "audio",
+  wav: "audio",
+  flac: "audio",
+  ogg: "audio",
+  oga: "audio",
+  opus: "audio",
+  weba: "audio",
+  mp4: "video",
+  m4v: "video",
+  mov: "video",
+  mkv: "video",
+  webm: "video",
+};
 
 /**
- * 浏览器会当页面跑的扩展名：part 上不论写的什么类型都不按文本预览（媒体接口的安全边界不变）。其中 html、htm、svg
- * 在隔离的沙箱里预览（framePreviewOf），别的只能下载
+ * 音频、视频附件能不能在报告页播放、按哪种放：有扩展名的看扩展名（.webm 既可能是视频也可能只有声音：part 上写的是 audio/*
+ * 按音频，别的按视频）；没有扩展名的看 part 上的类型（audio/*、video/*）。avi、wmv 这类浏览器放不了的只能下载。
+ * 只管网页上给不给播放器；媒体接口按不按音视频类型内联发出，由守护进程按内容认（认出是音视频容器才内联，part 上写的不算），
+ * 内容认出来了再用这里分音频还是视频
  */
-const ACTIVE_CONTENT_EXTENSIONS = new Set(["html", "htm", "xhtml", "svg", "svgz", "xml"]);
-
-/**
- * 文件附件能不能预览：能就给出按哪种渲染（Markdown 还是纯文本），不能是 undefined。只看 part 上的类型——发消息时守护进程
- * 已经按扩展名补好（media/file-types.ts 的 mimeFromName），以前发过的附件也一样，所以历史消息里的附件自动有预览入口。
- * 守护进程的内容接口和 Web 的附件卡片都按这一份判断
- */
-export function textPreviewOf(file: { name: string; mime: string }): TextPreviewMime | undefined {
-  const dot = file.name.lastIndexOf(".");
-  if (dot >= 0 && ACTIVE_CONTENT_EXTENSIONS.has(file.name.slice(dot + 1).toLowerCase())) return undefined;
+export function mediaPreviewOf(file: { name: string; mime: string }): MediaPreview | undefined {
+  const ext = fileExtensionOf(file.name);
   const mime = (file.mime.split(";")[0] ?? "").trim().toLowerCase();
-  return TEXT_PREVIEW_MIMES.find((m) => m === mime);
+  if (ext === "webm") return mime.startsWith("audio/") ? "audio" : "video";
+  if (ext) return Object.hasOwn(MEDIA_OF_EXTENSION, ext) ? MEDIA_OF_EXTENSION[ext] : undefined;
+  if (mime.startsWith("audio/")) return "audio";
+  if (mime.startsWith("video/")) return "video";
+  return undefined;
 }
 
 /** 在隔离的沙箱里预览的附件：HTML 在报告页的 <iframe sandbox> 里打开，SVG 用 <img> 显示 */
