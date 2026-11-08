@@ -8,18 +8,38 @@
 //   视野挪到看全它；标题栏下面一条写卡片的标题和概况，"×"回到足迹。看卡片时不画足迹。高德查来的只在底图是高德时画（amap-results.ts）。
 // - 回到我现在的位置（442，LocateControl.tsx）：地图右下角一个按钮，两种底图都有；定到的蓝点、精度圈压在最上面。
 //   位置不存：记"上次看哪里"时跳过定位挪过去的那一下。
+// - 地图页的二狗（444）：标题栏最右边一个二狗按钮开合右边的聊天窗（MapChat.tsx，秘书本人，和浏览侧边栏同一个东西）——地图页够宽（≥ 600）时
+//   挤压地图（地图 | 分隔条 | 聊天窗，分隔条能拖，宽度这台设备记住，和浏览侧边栏同一套 Splitter 和宽度规矩），窄的时候整屏盖住地图页；
+//   开合记在这台设备上（map-layout.ts）。聊天窗关着时地图右下角一个二狗悬浮按钮（MapFab.tsx，和浏览里的悬浮按钮同一个按钮、同一套规矩），
+//   点一下打字、按住说话，气泡里能"展开到右边"；"回到我现在的位置"排在它上面。聊天窗、悬浮按钮发的消息都带地图上下文（mapContext：
+//   现在看的中心、缩放、底图、看哪一天的足迹或哪张卡片）；
+// - 标题栏省空间（444 接着 442）："足迹"关着时不放选日期的那一组（只剩"地图"、"足迹"开关、二狗按钮）；看聊天里的地图卡片时，卡片的
+//   标题和概况也挪进标题栏（原来是标题栏下面单独一条）；
+// - 左边的面板能收起、关掉（444）：宽的时候这一天的列表收成左上角一个小按钮、或者关掉（点标题栏上这一天的概况再打开），窄的时候
+//   下面的卡片是能拖低、能关的抽屉；都记在这台设备上（map-layout.ts）。
 // 直接显示在导航里（MapSection）和收进"更多"（MapColumn）画的是同一页，后者左上角有返回。
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { pageVoicePlayer } from "../../app/page-voice.ts";
 import type { Navigate } from "../../app/route.ts";
 import { useStore } from "../../app/store.tsx";
-import { type MapCardPayload, type MapConfigView, mapCardTitle, parseMapCardPath, parseMapFocusItem, t } from "../../state/index.ts";
-import { TopBar } from "../../ui/common.tsx";
+import { clampChatSideWidth } from "../../app/stage-side-width.ts";
+import { pageVoiceOver } from "../../app/talk-button.ts";
+import { browserVoiceEnv } from "../../app/voice-browser.ts";
+import { NativeVoiceRecorder } from "../../app/voice-native-recorder.ts";
+import { VoiceRecorder } from "../../app/voice-recorder.ts";
+import { buttonTurnOf, CHANNELS, type MapCardPayload, type MapConfigView, type MapContext, mapCardTitle, parseMapCardPath, parseMapFocusItem, t } from "../../state/index.ts";
+import { Splitter, TopBar } from "../../ui/common.tsx";
 import { Icon } from "../../ui/icons.tsx";
-import type { PageColumnProps, PageSectionProps } from "../api.ts";
+import { useDraggedSideWidth } from "../../ui/side-width.ts";
+import { type PageColumnProps, type PageSectionProps, usePlugins } from "../api.ts";
 import { FOOTPRINT_BAR_FULL_MIN, FOOTPRINT_LABEL_ROOM, FOOTPRINT_PANEL_W, FOOTPRINT_WIDE_MIN, FootprintBar, FootprintPanel, FootprintToggle, useFootprints, useWidth } from "./DayFootprints.tsx";
 import { contentSummary } from "./card-scene.ts";
-import { shiftViewRight, withFootprints } from "./footprints.ts";
+import { shiftViewRight, shortDateLabel, spotTitle, withFootprints } from "./footprints.ts";
 import { LocateButton, useDockInset, useHere } from "./LocateControl.tsx";
+import { MapChat, MapChatToggle } from "./MapChat.tsx";
+import { MapFab } from "./MapFab.tsx";
+import { pageMapChatWidth, pageMapLayout } from "./map-layout.ts";
+import { MapTalk } from "./map-talk.ts";
 import { withHere } from "./locate.ts";
 import { useMapCardData } from "./MapCard.tsx";
 import { MapCanvas } from "./MapView.tsx";
@@ -51,6 +71,50 @@ function saveView(view: MapView): void {
 /** 两个视野差不多是同一处（不到 1 米、同一级）：定位挪过去之后地图报回来的那一下（换底图时来回转坐标差几厘米） */
 function sameView(a: MapView, b: MapView | undefined): boolean {
   return b !== undefined && Math.abs(a.lat - b.lat) < 1e-5 && Math.abs(a.lon - b.lon) < 1e-5 && Math.abs(a.zoom - b.zoom) < 0.01;
+}
+
+/** 地图页够宽（像素）时聊天窗挤压地图（分栏），窄的时候整屏盖住地图页 */
+export const MAP_CHAT_SPLIT_MIN = 600;
+
+/** 经度绕回 -180–180（OpenStreetMap 往东西拖过了头） */
+const wrapLon = (lon: number) => ((((lon + 180) % 360) + 360) % 360) - 180;
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+
+/** 页面上那一份布局（聊天窗开合、左边那一栏、下面的抽屉），改了跟着变 */
+function useMapLayout() {
+  const layout = pageMapLayout();
+  return { layout, view: useSyncExternalStore(layout.subscribe, layout.snapshot) };
+}
+
+/**
+ * 右下角二狗按钮背后的那一份（map-talk.ts）：录音接到"按住说话"的同一套后端（App 里是原生录音器），识别和浏览的悬浮按钮同一个接口，
+ * 发进秘书主会话（带地图上下文）；能不能说话跟着输入框的语音插槽（语音插件登记的）；离开地图页时收起、放掉录音器
+ */
+function useMapTalk(context: () => Omit<MapContext, "via" | "spoken">): MapTalk {
+  const { http, ui, sendMessage } = useStore();
+  const [talk] = useState(() => {
+    const env = browserVoiceEnv();
+    return new MapTalk({
+      voice: pageVoiceOver(
+        () => (env.native ? new NativeVoiceRecorder(env.native, env.now, { log: env.micLog, onTrouble: () => {} }) : new VoiceRecorder(env.media, env.now, { log: env.micLog })),
+        env.now,
+      ),
+      recognize: (audio) => http.pageVoice({ audio }),
+      context,
+      // 按着二狗按钮说话：二狗正在播的语音暂停（和聊天窗口里按住说话同一个播放器，地图的按钮单算一处）
+      capture: (on) => pageVoicePlayer().setCapturing(on, "map-button"),
+    });
+  });
+  // 发的时候现取地图上下文：每次渲染换上最新的那个函数
+  useEffect(() => talk.setContext(context));
+  useEffect(() => {
+    talk.connect({ say: (text, map) => sendMessage(CHANNELS.secretary, [{ type: "text", text }], undefined, undefined, map) });
+  }, [talk, sendMessage]);
+  useEffect(() => talk.secretaryChanged((key) => buttonTurnOf(ui, key)), [talk, ui]);
+  const voice = usePlugins().list("composerVoice").length > 0;
+  useEffect(() => talk.setVoice(voice), [talk, voice]);
+  useEffect(() => () => talk.hidden(), [talk]);
+  return talk;
 }
 
 /** 地址里的位置 → 看哪里（没写级别看 15 级） */
@@ -89,11 +153,25 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
 
   // 我的足迹：取到一天就把视野挪到看得全它（宽的时候让开左边那一栏，右边给点旁边的字留地方），点了列表里的一行挪过去
   const fp = useFootprints(http, item);
+  const pageRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const pageWidth = useWidth(pageRef);
   const stageWidth = useWidth(stageRef);
   const wide = stageWidth >= FOOTPRINT_WIDE_MIN;
-  const barCompact = stageWidth < FOOTPRINT_BAR_FULL_MIN;
+  // 标题栏横跨整页（聊天窗开着也是）：按整页的宽度收
+  const barCompact = pageWidth < FOOTPRINT_BAR_FULL_MIN;
   const [listOpen, setListOpen] = useState(false);
+  // 聊天窗开合、左边那一栏收起 / 关掉、下面的抽屉拖低（444，记在这台设备上）
+  const { layout, view: layoutView } = useMapLayout();
+  const split = pageWidth >= MAP_CHAT_SPLIT_MIN;
+  const chatOpen = layoutView.chatOpen && pageWidth > 0;
+  const chatWidth = useDraggedSideWidth(pageMapChatWidth());
+  const chatShownWidth = clampChatSideWidth(chatWidth.width, pageWidth);
+  /** 左边那一栏开着（定视野时让开它）：拿最新的（挪视野的 effect 里用，不因为它重挪） */
+  const panelOpen = useRef(layoutView.panel === "open");
+  useEffect(() => {
+    panelOpen.current = layoutView.panel === "open";
+  });
   /** 现在看的是哪里（只挪不缩放时用它的级别） */
   const viewNow = useRef<MapView>(initial);
   // 聊天里的地图卡片点开（431）：这张卡画什么
@@ -113,20 +191,20 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
     // 看卡片时不挪到足迹；关了卡片（回到 #/more/map）再挪回来
     if (!fp.fit || cardId !== undefined) return;
     const el = stageRef.current;
-    const panel = el && el.clientWidth >= FOOTPRINT_WIDE_MIN ? FOOTPRINT_PANEL_W : 0;
+    const panel = el && el.clientWidth >= FOOTPRINT_WIDE_MIN && panelOpen.current ? FOOTPRINT_PANEL_W : 0;
     const v = viewToFit(fp.fit.bounds, (el?.clientWidth ?? 390) - panel - FOOTPRINT_LABEL_ROOM, el?.clientHeight ?? 600);
     if (v) setJump({ view: shiftViewRight(v, (panel - FOOTPRINT_LABEL_ROOM) / 2) });
   }, [fp.fit, cardId]);
   useEffect(() => {
     if (!fp.focus) return;
     const el = stageRef.current;
-    const panel = el && el.clientWidth >= FOOTPRINT_WIDE_MIN ? FOOTPRINT_PANEL_W : 0;
+    const panel = el && el.clientWidth >= FOOTPRINT_WIDE_MIN && panelOpen.current ? FOOTPRINT_PANEL_W : 0;
     setJump({ view: shiftViewRight({ lat: fp.focus.lat, lon: fp.focus.lon, zoom: fp.focus.zoom ?? viewNow.current.zoom }, panel / 2) });
   }, [fp.focus]);
   // 看卡片时画卡片（高德查来的另交给 amapScene：只在底图是高德时画），不画足迹
   const showCard = cardId !== undefined;
   // "回到我现在的位置"（442）：挪过去时宽的、左边列着这一天时让开那一栏；挪过去的那一下不记成"上次看哪里"（位置不存）
-  const panelShown = !showCard && fp.shown && fp.day !== undefined && !fp.day.empty;
+  const panelShown = !showCard && fp.shown && fp.day !== undefined && !fp.day.empty && layoutView.panel === "open";
   const locateJump = useRef<MapView | undefined>(undefined);
   const here = useHere(
     http,
@@ -143,7 +221,7 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
       setJump({ view });
     },
   );
-  useDockInset(stageRef);
+  const dock = useDockInset(stageRef);
   const scene = useMemo(
     () =>
       withHere(
@@ -159,26 +237,68 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
   const cardTitle = cardPayload ? mapCardTitle(cardPayload) : undefined;
   const cardNote = cardId === undefined ? undefined : cardState === undefined ? t("ui.plugins.map.card.missing") : cardData ? contentSummary(cardData) : undefined;
 
+  // 聊天窗、二狗按钮发的消息带的地图上下文：这一刻看的中心、缩放、底图（地图那块现在画的那一种）、看哪一天的足迹或哪张卡片；
+  // 不带"回到我现在的位置"定到的点
+  const mapContext = (): Omit<MapContext, "via" | "spoken"> => {
+    const v = viewNow.current;
+    const basemap = stageRef.current?.querySelector(".map-canvas")?.getAttribute("data-basemap") || "loading";
+    const spot = fp.day?.spots.find((x) => x.key === fp.selected);
+    return {
+      lat: clamp(v.lat, -90, 90),
+      lon: clamp(wrapLon(v.lon), -180, 180),
+      zoom: clamp(v.zoom, 0, 22),
+      basemap: basemap.slice(0, 32),
+      ...(cardId !== undefined
+        ? { card: { id: cardId.slice(0, 64), ...(cardTitle ? { title: cardTitle.slice(0, 120) } : {}) } }
+        : fp.shown
+          ? { footprints: { date: fp.date, ...(spot ? { spot: spotTitle(spot).slice(0, 120) } : {}) } }
+          : {}),
+    };
+  };
+  const talk = useMapTalk(mapContext);
+  // 聊天窗顶上"现在在看"：地图 · 这张卡片、这一天的足迹
+  const watching =
+    cardId !== undefined
+      ? t("ui.plugins.map.chat.watchingCard", { title: cardTitle ?? t("ui.plugins.map.card.bar") })
+      : fp.shown
+        ? t("ui.plugins.map.chat.watchingDay", { date: shortDateLabel(fp.date, fp.today) })
+        : t("ui.plugins.map.chat.watchingMap");
+  const toggleChat = () => layout.setChatOpen(!layoutView.chatOpen);
+
+  const chat = chatOpen && <MapChat watching={watching} context={mapContext} cover={!split} onClose={() => layout.setChatOpen(false)} />;
   return (
-    <div className="chat-col map-page">
-      {/* 选日期的那一组和"足迹"开关都在标题栏里，一行（442 追加，用户 2026-11-08 要求） */}
+    <div className="chat-col map-page" ref={pageRef} data-chat={chatOpen ? (split ? "split" : "cover") : undefined}>
+      {/* 一行（442、444）：返回、"地图"、选日期的那一组（"足迹"开着时）或看着的卡片、最右边"足迹"开关和二狗按钮 */}
       <TopBar title={t("ui.plugins.map.title")} onBack={onBack}>
-        {!showCard && <FootprintBar fp={fp} wide={wide} compact={barCompact} listOpen={listOpen} onList={() => setListOpen(!listOpen)} navigate={navigate} />}
-        {/* 标题栏最右边的开关：现在只有"足迹"；以后的"聊天窗开关"（444）也放这里 */}
-        <div className="map-bar-tools">{!showCard && <FootprintToggle fp={fp} compact={barCompact} />}</div>
-      </TopBar>
-      {showCard && (
-        <div className="map-card-bar" role="status">
-          <Icon name="map" />
-          <span className="map-card-bar-text">
-            <b>{cardTitle ?? t("ui.plugins.map.card.bar")}</b>
-            {cardNote !== undefined && <span className="map-card-bar-note">{cardNote}</span>}
-          </span>
-          <button type="button" className="icon-btn" aria-label={t("ui.plugins.map.card.close")} title={t("ui.plugins.map.card.close")} onClick={() => navigate({ tab: "more", page: "map" })}>
-            <Icon name="cross" />
-          </button>
+        {!showCard && fp.shown && (
+          <FootprintBar
+            fp={fp}
+            wide={wide}
+            compact={barCompact}
+            listOpen={wide ? layoutView.panel === "open" : listOpen}
+            onList={() => (wide ? layout.setPanel("open") : setListOpen(!listOpen))}
+            listInWide={layoutView.panel !== "open"}
+            navigate={navigate}
+          />
+        )}
+        {showCard && (
+          <div className="map-card-bar" role="status">
+            <Icon name="map" />
+            <span className="map-card-bar-text">
+              <b>{cardTitle ?? t("ui.plugins.map.card.bar")}</b>
+              {cardNote !== undefined && <span className="map-card-bar-note">{cardNote}</span>}
+            </span>
+            <button type="button" className="icon-btn" aria-label={t("ui.plugins.map.card.close")} title={t("ui.plugins.map.card.close")} onClick={() => navigate({ tab: "more", page: "map" })}>
+              <Icon name="cross" />
+            </button>
+          </div>
+        )}
+        {/* 标题栏最右边的开关："足迹"、右边聊天窗的开合（444） */}
+        <div className="map-bar-tools">
+          {!showCard && <FootprintToggle fp={fp} compact={barCompact} />}
+          <MapChatToggle open={chatOpen} onToggle={toggleChat} />
         </div>
-      )}
+      </TopBar>
       {places.length > 0 && (
         <div className="map-places" role="toolbar" aria-label={t("ui.plugins.map.places")}>
           {places.map((p) => (
@@ -188,32 +308,62 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
           ))}
         </div>
       )}
-      <div className="map-stage" ref={stageRef}>
-        <MapCanvas
-          config={config}
-          scene={scene}
-          footprints={footprintsDrawn}
-          amapScene={amapScene}
-          initial={initial}
-          jump={jump}
-          onView={(v) => {
-            viewNow.current = v;
-            // 定位挪过去的那一下不记（那就是你现在的位置）；之后拖开了照常记
-            if (sameView(v, locateJump.current)) return;
-            locateJump.current = undefined;
-            if (import.meta.env.MODE !== "demo") saveView(v);
-          }}
-          onMarkClick={(id) => {
-            if (fp.markClick(id)) return;
-            const p = places.find((x) => x.id === id);
-            if (p) setJump({ view: { lat: p.lat, lon: p.lon, zoom: Math.max(p.zoom, 15) } });
-          }}
-          navigate={navigate}
-          notice={here.note === undefined ? undefined : { text: here.note, onClose: here.busy ? undefined : here.closeNote }}
-        />
-        <LocateButton here={here} />
-        {!showCard && <FootprintPanel fp={fp} wide={wide} listOpen={listOpen} onCloseList={() => setListOpen(false)} navigate={navigate} />}
+      <div className="map-body">
+        <div className="map-stage" ref={stageRef} data-fab={chatOpen ? undefined : ""}>
+          <MapCanvas
+            config={config}
+            scene={scene}
+            footprints={footprintsDrawn}
+            amapScene={amapScene}
+            initial={initial}
+            jump={jump}
+            onView={(v) => {
+              viewNow.current = v;
+              // 定位挪过去的那一下不记（那就是你现在的位置）；之后拖开了照常记
+              if (sameView(v, locateJump.current)) return;
+              locateJump.current = undefined;
+              if (import.meta.env.MODE !== "demo") saveView(v);
+            }}
+            onMarkClick={(id) => {
+              if (fp.markClick(id)) {
+                // 宽的时候点了停留点：左边那一栏收着、关着就打开（详情在那一栏里）
+                if (wide && layoutView.panel !== "open") layout.setPanel("open");
+                return;
+              }
+              const p = places.find((x) => x.id === id);
+              if (p) setJump({ view: { lat: p.lat, lon: p.lon, zoom: Math.max(p.zoom, 15) } });
+            }}
+            navigate={navigate}
+            notice={here.note === undefined ? undefined : { text: here.note, onClose: here.busy ? undefined : here.closeNote }}
+          />
+          <LocateButton here={here} />
+          <MapFab talk={talk} chatOpen={chatOpen} stageRef={stageRef} dock={dock} onExpand={() => layout.setChatOpen(true)} />
+          {!showCard && (
+            <FootprintPanel
+              fp={fp}
+              wide={wide}
+              listOpen={listOpen}
+              onCloseList={() => setListOpen(false)}
+              panel={layoutView.panel}
+              onPanel={(next) => layout.setPanel(next)}
+              drawer={layoutView.drawer}
+              onDrawer={(next) => layout.setDrawer(next)}
+              navigate={navigate}
+            />
+          )}
+        </div>
+        {/* 宽屏：地图和聊天窗中间的分隔条，拖着调聊天窗的宽度（松手记在这台设备上） */}
+        {chatOpen && split && (
+          <>
+            <Splitter label={t("ui.plugins.map.chat.resize")} onDrag={(dx) => chatWidth.onDrag(dx, chatShownWidth, pageWidth)} onDragEnd={() => chatWidth.onDragEnd(pageWidth)} />
+            <aside className="map-chat" style={{ width: chatShownWidth }}>
+              {chat}
+            </aside>
+          </>
+        )}
       </div>
+      {/* 窄的时候：整屏盖住地图页 */}
+      {chatOpen && !split && <aside className="map-chat map-chat-cover">{chat}</aside>}
     </div>
   );
 }

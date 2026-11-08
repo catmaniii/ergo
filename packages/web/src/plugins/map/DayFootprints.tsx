@@ -3,16 +3,21 @@
 // - 哪一天：地址里带了日期（#/more/map/2026-11-06，聊天里的足迹卡片点进来）看那一天；没带看今天，今天什么都没有就跳到最近有足迹的
 //   一天（只跳这一次）；左右箭头前一天、后一天，中间是日期选择；
 // - 取到以后把视野挪到看得全这一天（地址里带了"纬度,经度"的不挪，那是要看那一处）；
-// - 标题栏右边"足迹"开关：关了地图上不画（记在这台设备的浏览器里，只是方便）；
+// - 标题栏右边"足迹"开关：关了地图上不画（记在这台设备的浏览器里，只是方便）。默认关着（444，用户 2026-11-08：国内先看高德——
+//   开着足迹时底图一律 OpenStreetMap）；打开时把视野挪到看全这一天；从聊天里的足迹卡片、日期链接点进来照旧这次打开（不改记着的开关）；
+//   关着时标题栏上不放选日期的那一组；
 // - 宽的时候地图左边一栏列这一天（每段停留、不在停留里拍的照片），点一行跳过去；选中的停留在那一行下面展开详情。
-//   窄的时候（手机）点停留点，地图下面出一张详情卡；点概况那一句看这一天的列表；
+//   这一栏能收成左上角一个小按钮、能关掉（444；记在这台设备上，点小按钮、标题栏上这一天的概况再打开）。
+//   窄的时候（手机）点停留点，地图下面出一张详情卡；点概况那一句看这一天的列表；这张卡是抽屉：顶上的把手往下拖拖低（只露标题那一行，
+//   记在这台设备上），再往下拖关掉，往上拖拉高，点一下把手拖低 / 拉高；
 // - 取不到（手机插件没启用、日期不对）在那一条里写为什么，地图照样能看。
 // 足迹只在二狗里画，不发给任何地图服务（GET /api/map/day 是本机守护进程现算的）。
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type PointerEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { DaemonHttp } from "../../app/daemon-http.ts";
 import type { Navigate } from "../../app/route.ts";
 import { type LatLon, localDate, type MapDayView, parseMapDayItem, parseMapFocusItem, PHONE_LOCATION_SOURCE, shiftMapDate, t } from "../../state/index.ts";
 import { Icon } from "../../ui/icons.tsx";
+import type { MapDrawerState, MapPanelState } from "./map-layout.ts";
 import {
   coordsLabel,
   daySummary,
@@ -29,7 +34,7 @@ import {
   type TimelineEntry,
 } from "./footprints.ts";
 
-/** "足迹"开关记在哪（浏览器里，只是方便） */
+/** "足迹"开关记在哪（浏览器里，只是方便）：开着记 "on"，关着不留记号（444 起默认关着；以前关掉记的 "off" 照样算关着） */
 const LAYER_KEY = "ergo-map-footprints";
 /** 地图那一块宽过这么多（像素）时左边列这一天 */
 export const FOOTPRINT_WIDE_MIN = 720;
@@ -40,16 +45,16 @@ export const FOOTPRINT_LABEL_ROOM = 110;
 
 function layerShown(): boolean {
   try {
-    return localStorage.getItem(LAYER_KEY) !== "off";
+    return localStorage.getItem(LAYER_KEY) === "on";
   } catch {
-    return true;
+    return false;
   }
 }
 
 function saveLayer(shown: boolean): void {
   try {
-    if (shown) localStorage.removeItem(LAYER_KEY);
-    else localStorage.setItem(LAYER_KEY, "off");
+    if (shown) localStorage.setItem(LAYER_KEY, "on");
+    else localStorage.removeItem(LAYER_KEY);
   } catch {
     // 存不了（隐私模式）就算了
   }
@@ -162,6 +167,8 @@ export function useFootprints(http: DaemonHttp, item: string | undefined): Footp
       saveLayer(!shown);
       setShown(!shown);
       if (shown) setSelected(undefined);
+      // 打开时把视野挪到看全这一天（默认关着，打开了就是要看它）
+      else if (day && !day.empty) setFit({ bounds: day.bounds });
     },
     select(spot, jump) {
       setSelected(spot);
@@ -196,7 +203,24 @@ function openPicker(input: HTMLInputElement): void {
  * 选日期的那一组（442 追加：放进标题栏、和"地图"在一行，用户 2026-11-08 要求）：前一天、日期、后一天，这一天的概况。
  * compact 是窄的时候（手机）：日期写短的、概况写短的；"足迹"开关在标题栏最右边（FootprintToggle）
  */
-export function FootprintBar({ fp, wide, compact = false, listOpen, onList, navigate }: { fp: Footprints; wide: boolean; compact?: boolean; listOpen: boolean; onList(): void; navigate: Navigate }) {
+export function FootprintBar({
+  fp,
+  wide,
+  compact = false,
+  listOpen,
+  onList,
+  listInWide = false,
+  navigate,
+}: {
+  fp: Footprints;
+  wide: boolean;
+  compact?: boolean;
+  listOpen: boolean;
+  onList(): void;
+  /** 宽的时候左边那一栏收着、关着（444）：概况那一句能点，点了打开它 */
+  listInWide?: boolean;
+  navigate: Navigate;
+}) {
   const summary = fp.view && fp.day ? daySummary(fp.view, fp.day) : undefined;
   const shortSummary = compact && fp.view && fp.day ? daySummaryShort(fp.view, fp.day) : undefined;
   const latest = fp.view && fp.day?.empty ? latestDayBefore(fp.view.days, fp.date) : undefined;
@@ -217,8 +241,8 @@ export function FootprintBar({ fp, wide, compact = false, listOpen, onList, navi
     }
     return empty;
   })();
-  // 窄的时候概况那一句能点：看这一天的列表
-  const canList = !wide && summary !== undefined && fp.shown && (fp.day?.timeline.length ?? 0) > 0;
+  // 窄的时候概况那一句能点：看这一天的列表；宽的时候左边那一栏收着、关着也能点：打开它
+  const canList = (!wide || listInWide) && summary !== undefined && fp.shown && (fp.day?.timeline.length ?? 0) > 0;
   const date = <input className="map-day-date" type="date" value={fp.date} max={fp.today} aria-label={t("ui.plugins.map.day.date")} onChange={(e) => fp.pick(e.currentTarget.value)} onClick={compact ? (e) => openPicker(e.currentTarget) : undefined} />;
   return (
     <div className="map-day-bar" role="toolbar" aria-label={t("ui.plugins.map.day.toolbar")} data-loading={fp.loading ? "" : undefined} data-compact={compact ? "" : undefined}>
@@ -355,30 +379,141 @@ function DayList({ fp, entries, navigate }: { fp: Footprints; entries: readonly 
   );
 }
 
-/** 盖在地图上的：宽的时候左边一栏（列表 + 详情），窄的时候下面一张卡（选中的那一处，或者打开的列表） */
-export function FootprintPanel({ fp, wide, listOpen, onCloseList, navigate }: { fp: Footprints; wide: boolean; listOpen: boolean; onCloseList(): void; navigate: Navigate }) {
+/** 抽屉的把手往下拖多远算拖低 / 关掉、往上拖多远算拉高（像素）；挪不到这么多算点了一下 */
+const DRAWER_DRAG = 40;
+const DRAWER_TAP = 6;
+
+/**
+ * 窄的时候下面的抽屉（444）：顶上一条把手——往下拖拖低（只露标题那一行）、拖低了再往下拖关掉，往上拖拉高；点一下拖低 / 拉高。
+ * 拖着的时候抽屉跟着手指往下走（往上不走，松手才拉高）
+ */
+function Drawer({ drawer, onDrawer, onClose, list, children }: { drawer: MapDrawerState; onDrawer(next: MapDrawerState): void; onClose(): void; list: boolean; children: ReactNode }) {
+  const [drag, setDrag] = useState(0);
+  const start = useRef<{ y: number; id: number } | undefined>(undefined);
+  const low = drawer === "low";
+  const end = (e: PointerEvent<HTMLButtonElement>, cancel: boolean) => {
+    const s = start.current;
+    if (!s || s.id !== e.pointerId) return;
+    start.current = undefined;
+    setDrag(0);
+    if (cancel) return;
+    const dy = e.clientY - s.y;
+    if (Math.abs(dy) < DRAWER_TAP) return onDrawer(low ? "normal" : "low");
+    if (dy >= DRAWER_DRAG) return low ? onClose() : onDrawer("low");
+    if (dy <= -DRAWER_DRAG && low) onDrawer("normal");
+  };
+  return (
+    <div className="map-day-card" data-list={list ? "" : undefined} data-drawer={drawer} style={drag > 0 ? { transform: `translateY(${drag}px)` } : undefined}>
+      <button
+        type="button"
+        className="map-drawer-grip"
+        aria-label={low ? t("ui.plugins.map.side.raise") : t("ui.plugins.map.side.lower")}
+        title={low ? t("ui.plugins.map.side.raise") : t("ui.plugins.map.side.lower")}
+        aria-expanded={!low}
+        onPointerDown={(e) => {
+          start.current = { y: e.clientY, id: e.pointerId };
+          e.currentTarget.setPointerCapture(e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          const s = start.current;
+          if (s && s.id === e.pointerId) setDrag(Math.max(0, e.clientY - s.y));
+        }}
+        onPointerUp={(e) => end(e, false)}
+        onPointerCancel={(e) => end(e, true)}
+        onKeyDown={(e) => {
+          // 键盘：回车、空格由按钮的点击处理（拖低 / 拉高）
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            if (low) onClose();
+            else onDrawer("low");
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            onDrawer("normal");
+          }
+        }}
+        onClick={(e) => {
+          // 指针点的由 onPointerUp 处理；这里只接键盘的回车、空格（detail 是 0）
+          if (e.detail === 0) onDrawer(low ? "normal" : "low");
+        }}
+      >
+        <span className="map-drawer-grip-bar" />
+      </button>
+      <div className="map-day-card-body">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * 盖在地图上的：宽的时候左边一栏（列表 + 详情；开着、收成左上角一个小按钮、关掉，444），
+ * 窄的时候下面一张卡（选中的那一处，或者打开的列表；是能拖低、能关的抽屉，444）
+ */
+export function FootprintPanel({
+  fp,
+  wide,
+  listOpen,
+  onCloseList,
+  panel = "open",
+  onPanel,
+  drawer = "normal",
+  onDrawer,
+  navigate,
+}: {
+  fp: Footprints;
+  wide: boolean;
+  listOpen: boolean;
+  onCloseList(): void;
+  panel?: MapPanelState;
+  onPanel?: (next: MapPanelState) => void;
+  drawer?: MapDrawerState;
+  onDrawer?: (next: MapDrawerState) => void;
+  navigate: Navigate;
+}) {
   if (!fp.shown || !fp.day || fp.day.empty) return null;
   const day = fp.day;
   const spot = day.spots.find((s) => s.key === fp.selected);
   if (wide) {
+    if (panel === "closed") return null;
+    if (panel === "folded") {
+      return (
+        <button type="button" className="map-day-panel-tab" aria-expanded={false} aria-label={t("ui.plugins.map.side.open")} title={t("ui.plugins.map.side.open")} onClick={() => onPanel?.("open")}>
+          <Icon name="layers" />
+          <span>{t("ui.plugins.map.day.list")}</span>
+          <span className="map-day-panel-count">{day.timeline.length}</span>
+        </button>
+      );
+    }
     return (
       <aside className="map-day-panel" aria-label={t("ui.plugins.map.day.list")}>
-        <div className="map-day-panel-head">{t("ui.plugins.map.day.list")}</div>
+        <div className="map-day-panel-head">
+          <span className="map-day-panel-title">{t("ui.plugins.map.day.list")}</span>
+          {onPanel && (
+            <>
+              <button type="button" className="icon-btn map-day-panel-fold" aria-label={t("ui.plugins.map.side.fold")} title={t("ui.plugins.map.side.fold")} onClick={() => onPanel("folded")}>
+                <Icon name="collapse" />
+              </button>
+              <button type="button" className="icon-btn map-day-panel-close" aria-label={t("ui.plugins.map.side.close")} title={t("ui.plugins.map.side.close")} onClick={() => onPanel("closed")}>
+                <Icon name="cross" />
+              </button>
+            </>
+          )}
+        </div>
         <DayList fp={fp} entries={day.timeline} navigate={navigate} />
         <div className="map-day-privacy">{t("ui.plugins.map.day.privacy")}</div>
       </aside>
     );
   }
+  const setDrawer = onDrawer ?? (() => {});
   if (spot) {
+    const close = () => fp.select(undefined);
     return (
-      <div className="map-day-card">
-        <SpotDetail spot={spot} onClose={() => fp.select(undefined)} onFocus={() => fp.select(spot.key, "zoom")} navigate={navigate} />
-      </div>
+      <Drawer drawer={drawer} onDrawer={setDrawer} onClose={close} list={false}>
+        <SpotDetail spot={spot} onClose={close} onFocus={() => fp.select(spot.key, "zoom")} navigate={navigate} />
+      </Drawer>
     );
   }
   if (listOpen) {
     return (
-      <div className="map-day-card" data-list="">
+      <Drawer drawer={drawer} onDrawer={setDrawer} onClose={onCloseList} list>
         <div className="map-day-detail-head">
           <strong className="map-day-detail-title">{t("ui.plugins.map.day.list")}</strong>
           <button type="button" className="icon-btn" aria-label={t("ui.plugins.map.day.close")} title={t("ui.plugins.map.day.close")} onClick={onCloseList}>
@@ -387,7 +522,7 @@ export function FootprintPanel({ fp, wide, listOpen, onCloseList, navigate }: { 
         </div>
         <DayList fp={fp} entries={day.timeline} navigate={navigate} />
         <div className="map-day-privacy">{t("ui.plugins.map.day.privacy")}</div>
-      </div>
+      </Drawer>
     );
   }
   return null;
