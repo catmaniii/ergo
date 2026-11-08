@@ -2532,8 +2532,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       const side = await context.newPage();
       side.on("pageerror", (e) => errors.push(`侧边栏：${String(e)}`));
       await side.goto(`${pageUrl}?ergo=side`);
-      // 高德查的路线卡：没有缩略图，点"在高德地图上看"
-      const route = side.locator('.xcard-map[data-show="lookup"][data-state="ready"]');
+      // 高德查的路线卡：没有缩略图，点"在高德地图上看"（446 起演示里还有一张谷歌查的卡"附近的 hawker centre"：按标题挑路线这一张）
+      const route = side.locator('.xcard-map[data-show="lookup"][data-state="ready"]').filter({ hasText: "从公司到西湖边" });
       await route.waitFor({ timeout: 10_000 });
       await route.scrollIntoViewIfNeeded();
       await route.locator(".map-card-go").click();
@@ -2566,7 +2566,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
 
   // 网页上选中地址点"在地图上看"（447）：假的原生桥扮 App 和页面桥。浏览页交给页面桥的那几句带 map（地图插件开着；停用了不带）；
   // 页面桥报 element-map show：气泡里"在地图上找"，原型的假接口查到（带汉字的"高德"查到西湖边），浏览页跳到地图页看查到的那一处
-  // （#/more/map/lookup/<编号>，高德查的画在高德底图上，标题栏写查的那段字）；返回回到"浏览"
+  // （#/more/map/lookup/<编号>，高德查的画在高德底图上，标题栏写查的那段字）；返回回到"浏览"。合了 446：不带汉字的谷歌查、画在谷歌底图上
   test("浏览页：选中地址点在地图上看，不经对话直接跳到地图页看查到的那一处；地图插件停用时不给那两个按钮", async () => {
     const fake = `
       window.__texts = [];
@@ -2619,6 +2619,16 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await page.goBack();
       await page.locator(".browse-side-toggle").waitFor();
       expect(await page.evaluate("location.hash")).toBe("#/browse");
+      // 合了 446：不带汉字的（国外的地址）——演示页"填好了"谷歌的 Key，按"自动"谷歌查的（编号 google-p…），画在谷歌底图上
+      const abroad = { id: "x5", kind: "text", selected: true, text: { text: "10 Bayfront Avenue, Singapore 018956", total: 36 } };
+      await bridgeSays({ type: "element", element: abroad });
+      await bridgeSays({ type: "element-map", action: "show", element: abroad, page: where });
+      await page.locator('.map-canvas[data-basemap="google"][data-own-results="shown"]').waitFor({ timeout: 5000 });
+      expect(await page.evaluate("location.hash")).toMatch(/^#\/more\/map\/lookup\/google-p\d+$/);
+      expect(await page.locator(".map-card-bar").innerText()).toMatch(/10 Bayfront Avenue, Singapore 018956[\s\S]*数据来自 Google 地图/);
+      expect(await page.locator('[data-engine="google"] .map-google-marks .map-mark[data-kind="search"]').count()).toBe(1);
+      await page.goBack();
+      await page.locator(".browse-side-toggle").waitFor();
       expect(outside).toEqual([]);
       expect(errors).toEqual([]);
     } finally {
