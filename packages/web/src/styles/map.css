@@ -234,3 +234,88 @@
   justify-content: center;
   color: var(--muted);
 }
+
+/*
+ * 回到我现在的位置（442，plugins/map/LocateControl.tsx）：
+ * - 右下角一个钮，样子和右上放大缩小那一组一样（两种底图上都一样）；定到过之后图标是"跟你有关的颜色"（--you）；
+ *   窄的时候足迹的卡片盖在地图下面，钮和下面那句话跟着往上让（--map-dock 是卡片的高度，地图页量了挂在 .map-stage 上）；
+ * - 地图上：一个实心圆点（白边、--you），知道精度时一个同色的精度圈；
+ * - 要说的那句话放在下面那句提示的位置上（.map-locate-note），右边让开钮。
+ */
+.map-locate {
+  position: absolute;
+  z-index: 250;
+  right: 10px;
+  bottom: calc(36px + var(--map-dock, 0px));
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  box-shadow: var(--shadow-btn);
+  overflow: hidden;
+}
+.map-locate .icon-btn {
+  padding: 8px;
+}
+.map-locate .icon-btn[data-located] {
+  color: var(--you);
+}
+.map-locate .icon-btn[aria-busy="true"] .icon {
+  animation: map-locate-busy 1s ease-in-out infinite alternate;
+}
+@keyframes map-locate-busy {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.3;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-locate .icon-btn[aria-busy="true"] .icon {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+.map-stage .map-hint {
+  right: 60px;
+  bottom: calc(36px + var(--map-dock, 0px));
+}
+.map-locate-note .icon-btn {
+  flex: none;
+  padding: 4px;
+}
+
+/* 我现在的位置：18×18 的实心圆点。按钮本身 18×18、圆往下挪半个，按钮底边（两种底图都按它摆）正好在圆心 */
+.map-mark[data-kind="me"] {
+  width: 18px;
+  height: 18px;
+  cursor: default;
+}
+.map-osm .map-mark[data-kind="me"] {
+  margin: -18px 0 0 -9px;
+}
+.map-mark[data-kind="me"] .map-pin {
+  left: 0;
+  top: 9px;
+  width: 18px;
+  height: 18px;
+  border: 3px solid var(--surface);
+  border-radius: 50%;
+  background: var(--you);
+  box-shadow: var(--shadow-btn);
+  transform: none;
+}
+.map-mark[data-kind="me"] .map-pin::after {
+  content: none;
+}
+.map-mark[data-kind="me"] .map-mark-label {
+  left: 22px;
+  top: 8px;
+  color: var(--muted);
+}
+.map-circle-accuracy {
+  fill: var(--you);
+  fill-opacity: 0.15;
+  stroke: var(--you);
+  stroke-opacity: 0.5;
+}

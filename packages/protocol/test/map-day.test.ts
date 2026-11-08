@@ -13,6 +13,12 @@ describe("我的足迹的日期和地址", () => {
     expect(parseHttpPath("/api/map/config")).toEqual({ route: "map_config" });
   });
 
+  it("手机最近一个位置点（442）：/api/map/latest，拆成 map_latest；多一截的不认", () => {
+    expect(HTTP_PATHS.mapLatest).toBe("/api/map/latest");
+    expect(parseHttpPath(HTTP_PATHS.mapLatest)).toEqual({ route: "map_latest" });
+    expect(parseHttpPath("/api/map/latest/1")).toBeUndefined();
+  });
+
   it("日期：YYYY-MM-DD、月和日在范围里（闰年 2 月 29 日算）；不对的给一句话", () => {
     expect(["2026-11-06", "2024-02-29", "2026-12-31"].map(isMapDate)).toEqual([true, true, true]);
     expect(["2026-11-6", "2026-02-29", "2026-13-01", "2026-00-10", "2026-11-00", "../../x", "", "2026-11-06T00:00"].map(isMapDate)).toEqual(Array(8).fill(false));

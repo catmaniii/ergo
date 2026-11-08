@@ -5,7 +5,8 @@
 //   只在真要画高德地图时才加载（看国外、没填 Key 时一次都不连高德）；
 // - 坐标：二狗给的点是 WGS-84，交给高德之前转 GCJ-02（大陆内才转），从高德拿回的中心转回 WGS-84；
 // - 深色：高德自带的深色样式（amap://styles/dark）；
-// - 点用和 OSM 那一种同一个样子（fillMark），线、圈用高德的折线、圆，颜色取这套风格的 token。
+// - 点用和 OSM 那一种同一个样子（fillMark），线、圈用高德的折线、圆，颜色取这套风格的 token；
+//   "回到我现在的位置"（442）的蓝点也是这样交给高德（同样先转 GCJ-02），精度圈取 --you。
 // 用到的高德接口只有下面类型里写的这几样；测试和演示页换成假的（setAmapLoader），不连真的高德。
 import { AMAP_SERVICE_PREFIX, gcjToWgs, wgsToGcj } from "../../state/index.ts";
 import type { MapEngine, MapEngineEvents } from "./engine.ts";
@@ -46,7 +47,17 @@ export interface AmapNamespace {
   Map: new (container: HTMLElement, options: Record<string, unknown>) => AmapMap;
   Marker: new (options: { position: [number, number]; content: HTMLElement; anchor: string; zIndex?: number }) => AmapOverlay;
   Polyline: new (options: { path: [number, number][]; strokeColor: string; strokeWeight: number; strokeOpacity: number; lineJoin: string; lineCap: string }) => AmapOverlay;
-  Circle: new (options: { center: [number, number]; radius: number; strokeColor: string; strokeWeight: number; fillColor: string; fillOpacity: number }) => AmapOverlay;
+  Circle: new (options: {
+    center: [number, number];
+    radius: number;
+    strokeColor: string;
+    strokeWeight: number;
+    strokeOpacity?: number;
+    fillColor: string;
+    fillOpacity: number;
+    /** 高德原样留着的附加数据：记下是哪一个圈、哪一种（演示页的假高德按它画样式） */
+    extData?: { id: string; kind?: string };
+  }) => AmapOverlay;
 }
 
 /** 怎么拿到高德：Key、serviceHost → 命名空间 */
@@ -167,7 +178,20 @@ export function createAmapEngine(host: HTMLElement, AMap: AmapNamespace, options
       const line = tokenColor(root, "--primary", getComputedStyle(root).color);
       const next: AmapOverlay[] = [];
       for (const c of scene.circles) {
-        next.push(new AMap.Circle({ center: toAmap(c), radius: c.radius, strokeColor: line, strokeWeight: 1, fillColor: line, fillOpacity: 0.12 }));
+        // 定位的精度圈（442）和蓝点同色（--you："跟你有关的蓝"），别的范围圈用强调色
+        const color = c.kind === "accuracy" ? tokenColor(root, "--you", line) : line;
+        next.push(
+          new AMap.Circle({
+            center: toAmap(c),
+            radius: c.radius,
+            strokeColor: color,
+            strokeWeight: 1,
+            ...(c.kind === "accuracy" ? { strokeOpacity: 0.5 } : {}),
+            fillColor: color,
+            fillOpacity: c.kind === "accuracy" ? 0.15 : 0.12,
+            extData: { id: c.id, ...(c.kind ? { kind: c.kind } : {}) },
+          }),
+        );
       }
       for (const l of scene.lines) {
         if (l.points.length < 2) continue;
@@ -181,7 +205,8 @@ export function createAmapEngine(host: HTMLElement, AMap: AmapNamespace, options
         el.dataset.kind = m.kind ?? "place";
         fillMark(el, m.label);
         el.addEventListener("click", () => options.onMarkClick?.(m.id));
-        next.push(new AMap.Marker({ position: toAmap(m), content: el, anchor: "bottom-center", zIndex: 120 }));
+        // "我现在的位置"的蓝点压在别的点上面
+        next.push(new AMap.Marker({ position: toAmap(m), content: el, anchor: "bottom-center", zIndex: m.kind === "me" ? 130 : 120 }));
       }
       overlays = next;
       if (next.length > 0) map.add(next);

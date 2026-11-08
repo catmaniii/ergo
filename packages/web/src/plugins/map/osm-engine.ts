@@ -109,7 +109,7 @@ export function createOsmEngine(host: HTMLElement, options: OsmEngineOptions): M
     for (const c of scene.circles) {
       const p = screenPoint(c, center, zoom, w, h);
       const el = doc.createElementNS(SVG_NS, "circle");
-      el.setAttribute("class", "map-circle");
+      el.setAttribute("class", c.kind ? `map-circle map-circle-${c.kind}` : "map-circle");
       el.setAttribute("cx", p.x.toFixed(1));
       el.setAttribute("cy", p.y.toFixed(1));
       el.setAttribute("r", (c.radius / metersPerPixel(c.lat, zoom)).toFixed(1));

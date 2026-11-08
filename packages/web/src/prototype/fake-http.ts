@@ -78,6 +78,7 @@ import type {
   MapConfigView,
   MapDayView,
   MapDrawing,
+  MapLatestView,
   DeleteMaterialsResult,
   FileTextResult,
   FramePreview,
@@ -185,7 +186,7 @@ import { fakeAppFileText } from "./fake-app-files.ts";
 import { fakeMedia } from "./fake-media.ts";
 import { FAKE_MATERIAL_IMAGES, fakeMaterialConversations, fakeMaterialDetail, fakeMaterialsIn, fakeSaveWebPage } from "./fake-materials.ts";
 import { DEMO_AMAP_KEY, demoMapDrawing } from "./fake-map.ts";
-import { demoMapDay } from "./fake-footprints.ts";
+import { demoMapDay, demoMapLatest } from "./fake-footprints.ts";
 import { fakeServiceThumbnail } from "./fake-operations.ts";
 import { fakeProjectStandard } from "./fake-standard.ts";
 import { FakeSystemPrompts } from "./fake-system-prompts.ts";
@@ -699,6 +700,12 @@ export class FakeDaemonHttp implements DaemonHttp {
   /** 地图卡片的那条路线：编的（高德查的、从公司到西湖边，见 prototype/fake-map.ts） */
   mapDrawing(lookup: string): Promise<MapDrawing> {
     return demoMapDrawing(lookup);
+  }
+
+  /** 手机最近交来的一个位置点：编的（12 分钟前、西湖边，见 prototype/fake-footprints.ts）；手机插件停用了（?demo-plugins-off=phone）没有 */
+  mapLatest(): Promise<MapLatestView> {
+    const phone = this.pluginSettings?.pluginList().plugins.find((p) => p.name === "phone");
+    return Promise.resolve(phone !== undefined && phone.state !== "running" ? {} : demoMapLatest(new Date()));
   }
 
   referenceVoices(): Promise<ReferenceVoiceList> {

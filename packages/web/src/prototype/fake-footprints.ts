@@ -4,8 +4,9 @@
 // - 四天前：家、健身房两处停留；今天什么都没有（页面自己跳到最近有足迹的一天）；
 // - 起了名的常去的地方：家、公司、健身房（健身房昨天没去，只画范围圈）。
 // 坐标是编的（挑在西湖一带，演示页的底图是占位图，看不出真地方），停留按守护进程的口径算好了写死。
-// 只在演示页里用（FakeDaemonHttp.mapDay）。英文在 en/fake-footprints.ts。
-import { localDate, type MapDayPhoto, type MapDayPlace, type MapDayPoint, type MapDayStay, type MapDayView, nowIso, shiftMapDate } from "../state/index.ts";
+// - 手机最近交来的一个位置点（442，FakeDaemonHttp.mapLatest）：12 分钟前、西湖边。
+// 只在演示页里用（FakeDaemonHttp.mapDay、mapLatest）。英文在 en/fake-footprints.ts。
+import { localDate, type MapDayPhoto, type MapDayPlace, type MapDayPoint, type MapDayStay, type MapDayView, type MapLatestView, nowIso, shiftMapDate } from "../state/index.ts";
 
 interface Where {
   lat: number;
@@ -106,6 +107,17 @@ function shortDay(date: string): Pick<MapDayView, "points" | "stays" | "photos" 
     stay(date, points, [10, 20], [11, 40], "demo-fp-gym", { placeId: "demo-fp-gym", name: "健身房" }),
   ];
   return { points, stays, photos: [], unlocatedPhotos: 0 };
+}
+
+/** 手机"最近交来"的那个点在哪、几分钟前、精度（米） */
+const LATEST = { ...LAKE, minutesAgo: 12, accuracy: 35 };
+
+/**
+ * 演示页手机最近交来的一个位置点（442，地图页"回到我现在的位置"在这台设备定不了位时的退路）：12 分钟前、西湖边，精度 35 米。
+ * 只是演示退路的样子，和上面的足迹不连着（演示页今天的足迹是空的）
+ */
+export function demoMapLatest(now: Date): MapLatestView {
+  return { point: { at: nowIso(new Date(now.getTime() - LATEST.minutesAgo * 60_000)), lat: LATEST.lat, lon: LATEST.lon, accuracy: LATEST.accuracy } };
 }
 
 /** 演示页某一天的足迹（日期按这台设备的今天算：昨天一整天、四天前半天，别的日子什么都没有） */

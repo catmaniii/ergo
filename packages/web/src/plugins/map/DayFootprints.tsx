@@ -1,4 +1,5 @@
-// 地图页的"我的足迹"（430）：标题栏下面一条选日期的，地图上画那一天的足迹（footprints.ts 整理），点停留点看详情。
+// 地图页的"我的足迹"（430）：标题栏里选日期的那一组（442 追加：原来是标题栏下面单独一条，挪进标题栏、和"地图"一行；
+// 窄的时候日期、概况写短的，"足迹"开关只剩图标），地图上画那一天的足迹（footprints.ts 整理），点停留点看详情。
 // - 哪一天：地址里带了日期（#/more/map/2026-11-06，聊天里的足迹卡片点进来）看那一天；没带看今天，今天什么都没有就跳到最近有足迹的
 //   一天（只跳这一次）；左右箭头前一天、后一天，中间是日期选择；
 // - 取到以后把视野挪到看得全这一天（地址里带了"纬度,经度"的不挪，那是要看那一处）；
@@ -12,7 +13,21 @@ import type { DaemonHttp } from "../../app/daemon-http.ts";
 import type { Navigate } from "../../app/route.ts";
 import { type LatLon, localDate, type MapDayView, parseMapDayItem, parseMapFocusItem, PHONE_LOCATION_SOURCE, shiftMapDate, t } from "../../state/index.ts";
 import { Icon } from "../../ui/icons.tsx";
-import { coordsLabel, daySummary, durationLabel, FOOTPRINT_PREFIX, type FootprintDay, footprintDay, type FootprintSpot, latestDayBefore, spotTitle, stayRange, type TimelineEntry } from "./footprints.ts";
+import {
+  coordsLabel,
+  daySummary,
+  daySummaryShort,
+  durationLabel,
+  FOOTPRINT_PREFIX,
+  type FootprintDay,
+  footprintDay,
+  type FootprintSpot,
+  latestDayBefore,
+  shortDateLabel,
+  spotTitle,
+  stayRange,
+  type TimelineEntry,
+} from "./footprints.ts";
 
 /** "足迹"开关记在哪（浏览器里，只是方便） */
 const LAYER_KEY = "ergo-map-footprints";
@@ -165,40 +180,75 @@ export function useFootprints(http: DaemonHttp, item: string | undefined): Footp
   };
 }
 
-/** 标题栏下面那一条：前一天、日期、后一天，这一天的概况（"足迹"开关在标题栏右边：FootprintToggle） */
-export function FootprintBar({ fp, wide, listOpen, onList, navigate }: { fp: Footprints; wide: boolean; listOpen: boolean; onList(): void; navigate: Navigate }) {
+/** 地图那一块窄过这么多（像素）时，标题栏上的选日期收紧：日期写短的（11/08），概况写成"3 处 · 6 张"，"足迹"开关只剩图标 */
+export const FOOTPRINT_BAR_FULL_MIN = 600;
+
+/** 日期选择框：点了直接弹出系统的选日期（窄的时候框是透明的、盖在短日期上面） */
+function openPicker(input: HTMLInputElement): void {
+  try {
+    input.showPicker();
+  } catch {
+    // 有的浏览器不让（没有这个方法、不是用户点的）：照常聚焦，键盘也能改
+  }
+}
+
+/**
+ * 选日期的那一组（442 追加：放进标题栏、和"地图"在一行，用户 2026-11-08 要求）：前一天、日期、后一天，这一天的概况。
+ * compact 是窄的时候（手机）：日期写短的、概况写短的；"足迹"开关在标题栏最右边（FootprintToggle）
+ */
+export function FootprintBar({ fp, wide, compact = false, listOpen, onList, navigate }: { fp: Footprints; wide: boolean; compact?: boolean; listOpen: boolean; onList(): void; navigate: Navigate }) {
   const summary = fp.view && fp.day ? daySummary(fp.view, fp.day) : undefined;
+  const shortSummary = compact && fp.view && fp.day ? daySummaryShort(fp.view, fp.day) : undefined;
   const latest = fp.view && fp.day?.empty ? latestDayBefore(fp.view.days, fp.date) : undefined;
-  const note = ((): { text: string; action?: { label: string; run(): void } } | undefined => {
+  const note = ((): { text: string; full?: string; action?: { label: string; run(): void } } | undefined => {
     if (fp.error !== undefined) return { text: fp.error };
-    if (fp.loading) return { text: t("ui.plugins.map.day.loading") };
+    if (fp.loading) return compact ? { text: t("ui.plugins.map.day.loadingShort"), full: t("ui.plugins.map.day.loading") } : { text: t("ui.plugins.map.day.loading") };
     if (!fp.view || !fp.day) return undefined;
-    if (summary !== undefined) return { text: summary };
-    if (latest !== undefined) return { text: t("ui.plugins.map.day.empty"), action: { label: t("ui.plugins.map.day.latest", { date: latest.slice(5) }), run: () => fp.pick(latest) } };
-    if (!fp.view.linked.location) return { text: t("ui.plugins.map.day.notLinked"), action: { label: t("ui.plugins.map.day.goConnect"), run: () => navigate({ tab: "more", page: "data-sources", item: PHONE_LOCATION_SOURCE }) } };
-    return { text: t("ui.plugins.map.day.empty") };
+    if (summary !== undefined) return shortSummary !== undefined ? { text: shortSummary, full: summary } : { text: summary };
+    // 窄的时候：说法写短的（整句在悬停提示和读屏里）
+    const empty = compact ? { text: t("ui.plugins.map.day.emptyShort"), full: t("ui.plugins.map.day.empty") } : { text: t("ui.plugins.map.day.empty") };
+    if (latest !== undefined) {
+      const label = compact ? t("ui.plugins.map.day.latestShort", { date: latest.slice(5) }) : t("ui.plugins.map.day.latest", { date: latest.slice(5) });
+      return { ...empty, action: { label, run: () => fp.pick(latest) } };
+    }
+    if (!fp.view.linked.location) {
+      const text = compact ? { text: t("ui.plugins.map.day.notLinkedShort"), full: t("ui.plugins.map.day.notLinked") } : { text: t("ui.plugins.map.day.notLinked") };
+      return { ...text, action: { label: t("ui.plugins.map.day.goConnect"), run: () => navigate({ tab: "more", page: "data-sources", item: PHONE_LOCATION_SOURCE }) } };
+    }
+    return empty;
   })();
   // 窄的时候概况那一句能点：看这一天的列表
   const canList = !wide && summary !== undefined && fp.shown && (fp.day?.timeline.length ?? 0) > 0;
+  const date = <input className="map-day-date" type="date" value={fp.date} max={fp.today} aria-label={t("ui.plugins.map.day.date")} onChange={(e) => fp.pick(e.currentTarget.value)} onClick={compact ? (e) => openPicker(e.currentTarget) : undefined} />;
   return (
-    <div className="map-day-bar" role="toolbar" aria-label={t("ui.plugins.map.day.toolbar")} data-loading={fp.loading ? "" : undefined}>
+    <div className="map-day-bar" role="toolbar" aria-label={t("ui.plugins.map.day.toolbar")} data-loading={fp.loading ? "" : undefined} data-compact={compact ? "" : undefined}>
       <div className="map-day-pick">
         <button type="button" className="icon-btn" aria-label={t("ui.plugins.map.day.prev")} title={t("ui.plugins.map.day.prev")} onClick={() => fp.pick(shiftMapDate(fp.date, -1))}>
           <Icon name="back" />
         </button>
-        <input className="map-day-date" type="date" value={fp.date} max={fp.today} aria-label={t("ui.plugins.map.day.date")} onChange={(e) => fp.pick(e.currentTarget.value)} />
+        {compact ? (
+          // 窄的时候：看得见的是短日期，系统的选日期框透明地盖在上面（点了照样弹出选日期）
+          <span className="map-day-datebox">
+            <span className="map-day-short" aria-hidden="true">
+              {shortDateLabel(fp.date, fp.today)}
+            </span>
+            {date}
+          </span>
+        ) : (
+          date
+        )}
         <button type="button" className="icon-btn" aria-label={t("ui.plugins.map.day.next")} title={t("ui.plugins.map.day.next")} disabled={fp.date >= fp.today} onClick={() => fp.pick(shiftMapDate(fp.date, 1))}>
           <Icon name="forward" />
         </button>
       </div>
       <div className="map-day-note" role="status">
         {canList ? (
-          <button type="button" className="map-day-summary" aria-expanded={listOpen} aria-label={`${note?.text ?? ""} · ${t("ui.plugins.map.day.showList")}`} onClick={onList}>
-            {note?.text}
+          <button type="button" className="map-day-summary" aria-expanded={listOpen} aria-label={`${note?.full ?? note?.text ?? ""} · ${t("ui.plugins.map.day.showList")}`} title={note?.full} onClick={onList}>
+            <span className="map-day-summary-text">{note?.text}</span>
             <Icon name={listOpen ? "up" : "down"} />
           </button>
         ) : (
-          <span className="map-day-summary" data-error={fp.error === undefined ? undefined : ""}>
+          <span className="map-day-summary" data-error={fp.error === undefined ? undefined : ""} title={note?.full ?? (compact ? note?.text : undefined)}>
             {note?.text}
           </span>
         )}
@@ -212,12 +262,21 @@ export function FootprintBar({ fp, wide, listOpen, onList, navigate }: { fp: Foo
   );
 }
 
-/** "足迹"开关（放在标题栏右边）：关了地图上不画 */
-export function FootprintToggle({ fp }: { fp: Footprints }) {
+/** "足迹"开关（放在标题栏最右边）：关了地图上不画。窄的时候只剩图标（读屏、悬停照样说"足迹"） */
+export function FootprintToggle({ fp, compact = false }: { fp: Footprints; compact?: boolean }) {
+  const label = t("ui.plugins.map.day.layer");
   return (
-    <button type="button" className="chip map-day-layer" aria-pressed={fp.shown} title={t("ui.plugins.map.day.layerHint")} onClick={fp.toggle}>
+    <button
+      type="button"
+      className="chip map-day-layer"
+      aria-pressed={fp.shown}
+      aria-label={compact ? label : undefined}
+      title={t("ui.plugins.map.day.layerHint")}
+      data-compact={compact ? "" : undefined}
+      onClick={fp.toggle}
+    >
       <Icon name="pin" />
-      {t("ui.plugins.map.day.layer")}
+      {!compact && label}
     </button>
   );
 }

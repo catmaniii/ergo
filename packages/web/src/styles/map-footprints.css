@@ -1,6 +1,9 @@
 /*
  * 地图上的"我的足迹"（地图插件，plugins/map/DayFootprints.tsx、footprints.ts）：
- * - 标题栏下面一条：前一天、日期、后一天，这一天的概况，"足迹"开关；
+ * - 标题栏里（442 追加：原来是标题栏下面单独一条，挪进标题栏、和"地图"一行，地图往上多露出一行）：前一天、日期、后一天，
+ *   这一天的概况；最右边"足迹"开关（.map-bar-tools，以后的"聊天窗开关"也放那里）。窄的时候（地图那块不到 600 宽，
+ *   FOOTPRINT_BAR_FULL_MIN）日期写短的（11/08，系统的选日期框透明地盖在上面）、概况写成"3 处 · 6 张"、开关只剩图标；
+ *   还放不下的概况在末尾截成省略号（整句在悬停提示和读屏里）；
  * - 地图上：轨迹线、停留点（定位针，旁边写名字和待了多久）、照片小点（空心圆，旁边写几点拍的）、
  *   常去的地方（范围圈，这一天没去的另写名字）。足迹的点编号都以 fp- 开头，样式按 data-id、data-kind 挑；
  * - 宽的时候地图左边一栏列这一天，窄的时候地图下面一张卡（详情或列表）。
@@ -14,16 +17,19 @@
   min-height: 0;
 }
 
-/* ---- 选日期的一条 ---- */
+/* ---- 标题栏里选日期的那一组：标题不再占满，后面跟着它，右边是开关 ---- */
+.map-page > .topbar > .title {
+  flex: none;
+}
 .map-day-bar {
   display: flex;
-  flex: none;
-  flex-wrap: wrap;
+  flex: 1 1 auto;
   align-items: center;
-  gap: 6px 10px;
-  padding: 6px var(--space-page);
-  border-bottom: 1px solid var(--border);
-  background: var(--bar-bg);
+  gap: 10px;
+  min-width: 0;
+}
+.map-day-bar[data-compact] {
+  gap: 4px;
 }
 .map-day-pick {
   display: flex;
@@ -33,6 +39,9 @@
 }
 .map-day-pick .icon-btn {
   padding: 6px;
+}
+.map-day-bar[data-compact] .map-day-pick .icon-btn {
+  padding: 4px;
 }
 .map-day-pick .icon-btn:disabled {
   opacity: 0.35;
@@ -49,19 +58,46 @@
   font-size: var(--fs-s);
   color-scheme: light dark;
 }
+/* 窄的时候：看得见的是短日期，系统的选日期框透明地盖在它上面（点了照样弹出选日期） */
+.map-day-datebox {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+.map-day-short {
+  padding: 4px 6px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-num);
+  font-size: var(--fs-s);
+  white-space: nowrap;
+}
+.map-day-datebox .map-day-date {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.map-day-datebox:focus-within .map-day-short {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
 .map-day-note {
   display: flex;
-  flex: 1 1 160px;
-  flex-wrap: wrap;
+  flex: 1 1 auto;
   align-items: center;
   gap: 4px 8px;
   min-width: 0;
 }
 .map-day-summary {
-  display: inline-flex;
+  display: block;
   flex: 0 1 auto;
-  align-items: center;
-  gap: 4px;
   min-width: 0;
   padding: 0;
   border: 0;
@@ -70,10 +106,24 @@
   font: inherit;
   font-size: var(--fs-s);
   text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 button.map-day-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--text);
   cursor: pointer;
+}
+.map-day-summary-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+button.map-day-summary > .icon {
+  flex: none;
 }
 .map-day-bar[data-loading] .map-day-summary {
   opacity: 0.7;
@@ -84,19 +134,30 @@ button.map-day-summary {
 .map-day-note .btn {
   flex: none;
   max-width: 100%;
+  white-space: nowrap;
+}
+/* 标题栏最右边的开关 */
+.map-bar-tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
 }
 .map-day-layer {
   display: inline-flex;
   flex: none;
   align-items: center;
   gap: 4px;
-  margin-left: auto;
   padding: 4px 12px;
   border: 1px solid var(--card-border);
   background: var(--surface);
   color: var(--muted);
   cursor: pointer;
   font-size: var(--fs-s);
+}
+.map-day-layer[data-compact] {
+  padding: 6px 8px;
 }
 .map-day-layer[aria-pressed="true"] {
   border-color: var(--primary);

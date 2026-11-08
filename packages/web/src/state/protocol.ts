@@ -726,6 +726,8 @@ export type { LatLon, MapConfigView } from "@ergo/protocol";
 // 地图上的"我的足迹"（430）：某一天的点、停留、照片地点、常去的地方；地图页地址里的日期
 export { isMapDate, mapDayItem, parseMapDayItem, shiftMapDate } from "@ergo/protocol";
 export type { MapDayPhoto, MapDayPlace, MapDayPoint, MapDayStay, MapDayView } from "@ergo/protocol";
+// 地图页"回到我现在的位置"（442）的退路：手机最近交来的一个位置点
+export type { MapLatestPoint, MapLatestView } from "@ergo/protocol";
 // 聊天里的地图卡片（431）：负载、点开去地图页的哪里、标题；查地点和路线查到的能画的那一份
 export { MAP_CARD_ITEM, mapCardPath, mapCardTitle, parseMapCardPath } from "@ergo/protocol";
 export type { MapCardMark, MapCardPayload, MapCardShow, MapDrawing } from "@ergo/protocol";

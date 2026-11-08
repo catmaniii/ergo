@@ -219,6 +219,22 @@ export function daySummary(view: MapDayView, day: FootprintDay): string | undefi
   return parts.length === 0 ? undefined : parts.join(" · ");
 }
 
+/** 标题栏放不下整句时（窄的时候）的概况："3 处 · 6 张"；只有路上的点照写；什么都没有是 undefined */
+export function daySummaryShort(view: MapDayView, day: FootprintDay): string | undefined {
+  const parts: string[] = [];
+  if (day.spots.length > 0) parts.push(t("ui.plugins.map.day.placesShort", { count: day.spots.length }));
+  else if (view.points.length > 0) parts.push(t("ui.plugins.map.day.passing"));
+  const photos = view.photos.length + view.unlocatedPhotos;
+  if (photos > 0) parts.push(t("ui.plugins.map.day.photosShort", { count: photos }));
+  return parts.length === 0 ? undefined : parts.join(" · ");
+}
+
+/** 窄的时候标题栏上的日期：今年的写 11/08，别的年份带上年（2025/11/08） */
+export function shortDateLabel(date: string, today: string): string {
+  const [y, m, d] = date.split("-");
+  return y === today.slice(0, 4) ? `${m}/${d}` : `${y}/${m}/${d}`;
+}
+
 /** 视野往右让出 px 像素（左边盖着一栏时，让看全的东西落在剩下那一块的正中）：中心往西挪 px 像素对应的经度 */
 export function shiftViewRight<V extends { lat: number; lon: number; zoom: number }>(view: V, px: number): V {
   if (px === 0) return view;

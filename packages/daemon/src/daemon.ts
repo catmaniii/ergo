@@ -3007,8 +3007,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         calendar: { month: (month) => plugins.active(CALENDAR).month(month) },
         // 地图页现在能用什么：是地图插件的服务，现取；地图插件没启用时回"地图插件没启用"
         map: { config: () => plugins.active(MAP).config() },
-        // 我的足迹：同样是地图插件的服务、现取（它再现取手机插件的）；不联网
-        mapDay: { day: (date) => plugins.active(MAP_DAY).day(date) },
+        // 我的足迹、手机最近交来的一个位置点（442）：同样是地图插件的服务、现取（它再现取手机插件的）；不联网
+        mapDay: { day: (date) => plugins.active(MAP_DAY).day(date), latest: () => plugins.active(MAP_DAY).latest() },
         // 地图卡片按编号取查地点、算路线查到的那一份：同样现取（只在地图插件的内存里）
         mapDrawing: { drawing: (lookup) => plugins.active(MAP_DRAWING).drawing(lookup) },
         ledger,
