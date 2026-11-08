@@ -159,7 +159,7 @@ import { decodeUtf8, sizeLabel } from "../media/file-types.ts";
 import { sniffImage } from "../media/image.ts";
 import { MediaError, type MediaStore } from "../media/media-store.ts";
 import type { PromptLibrary } from "../prompts/index.ts";
-import type { ModelSettingsService } from "../model-settings/index.ts";
+import type { ModelSettingsService, ProviderBalanceService } from "../model-settings/index.ts";
 import type { SafetySettingsService } from "../config/safety-settings.ts";
 import type { AutostartSwitch } from "../lsm/autostart-switch.ts";
 import type { SetupStateService } from "../config/setup-state.ts";
@@ -272,6 +272,11 @@ export interface HttpApiOptions {
   mapDrawing: MapDrawingService;
   /** token 账本：消耗页的汇总和粗估成本 */
   ledger: TokenLedger;
+  /**
+   * 消耗页顶上的服务商余额（440）：GET /api/usage/balance 取（缓存还新就用缓存，不然现查）、POST 马上重查（防连点）。
+   * Key 只在余额服务里用，回的只有余额和原因
+   */
+  balance: Pick<ProviderBalanceService, "view" | "refresh">;
   /**
    * 语音插件的服务（现取）：设置里的语音页（参考音色、两个语音模型的状态）、分段合成里合成好的一段、
    * Debug 工具集的语音组（录一段送识别、合成念一句）。插件没在运行（回 undefined）、不给时这几个接口回 404"语音插件没启用"
@@ -707,6 +712,16 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             if (!isLocalDate(from) || !isLocalDate(to)) throw new HttpError("bad_request", t("gateway.http.badUsageRange", { from: HTTP_QUERY.from, to: HTTP_QUERY.to }));
             if (from > to) throw new HttpError("bad_request", t("gateway.http.rangeReversed", { from, to }));
             sendJson(res, 200, options.ledger.summary({ from, to }));
+          },
+        };
+      case "usage_balance":
+        return {
+          async GET(_req, res) {
+            sendJson(res, 200, await options.balance.view());
+          },
+          // "刷新"：不带请求体；离上一次开始查太近的不重查，照样回现在那一份（页面按 nextRefreshAt 灰掉按钮）
+          async POST(_req, res) {
+            sendJson(res, 200, await options.balance.refresh());
           },
         };
       case "reference_voices":

@@ -25,6 +25,7 @@ export * from "./task-detail.ts";
 export * from "./nav.ts";
 export * from "./language.ts";
 export * from "./usage.ts";
+export * from "./balance.ts";
 export * from "./material-browse.ts";
 export * from "./readable-ids.ts";
 export * from "./timeline.ts";

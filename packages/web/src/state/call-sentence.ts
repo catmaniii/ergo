@@ -55,6 +55,8 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = labelTable(
     web_fetch: "state.callSentence.tool.web_fetch",
     // 秘书的工具
     view_board: "state.callSentence.tool.view_board",
+    // 查 DeepSeek 余额（daemon 的 model-settings/balance-tool.ts，440）
+    check_balance: "state.callSentence.tool.check_balance",
     // 守护进程登记的是"列出待我处理"，界面上一律叫"待办"
     list_inbox: "state.callSentence.tool.list_inbox",
     show_card: "state.callSentence.tool.show_card",

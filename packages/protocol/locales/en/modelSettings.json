@@ -25,5 +25,6 @@
   "modelSettings.custom.noBaseUrl": "The custom provider's base URL isn't filled in yet: set it under Settings · Models first, then list its models",
   "modelSettings.custom.listFailed": "Couldn't list this provider's models: {error}",
   "modelSettings.custom.listBadResponse": "The provider's response isn't in a form we understand (expected OpenAI-compatible {\"data\":[{\"id\":…}]}): {status}",
-  "modelSettings.custom.listNotJson": "The provider didn't return JSON: {status}"
+  "modelSettings.custom.listNotJson": "The provider didn't return JSON: {status}",
+  "modelSettings.balance.toolTitle": "Check balance"
 }

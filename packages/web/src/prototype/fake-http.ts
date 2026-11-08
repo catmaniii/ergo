@@ -129,6 +129,7 @@ import type {
   ToolkitCatalog,
   UploadedMedia,
   UsageSummary,
+  ProviderBalanceView,
   VoiceModelsView,
   WebVersionView,
   AppUpdateView,
@@ -171,6 +172,7 @@ import { demoParam, FAKE_SAFETY_START, fakeServerWebVersion } from "./fake-conne
 import { fakeMemoryClaim, fakeMemoryClaims, fakeMemoryQuestions, fakeMemoryStrategies, fakeMemorySummary } from "./fake-memory-graph.ts";
 import { FakeDataSources } from "./fake-data-sources.ts";
 import { FakeDoctorDeep, fakeDoctorView, FakeDoctorWatch } from "./fake-doctor.ts";
+import { FakeBalance } from "./fake-balance.ts";
 import { FakeManagedServices } from "./fake-managed-services.ts";
 import { fakeAutostart, FakeComponents } from "./fake-components.ts";
 import { FAKE_HISTORY, FAKE_TAKEOVER_TASK } from "./fake-conversations.ts";
@@ -528,6 +530,17 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   usage(range: { from: string; to: string }): Promise<UsageSummary> {
     return Promise.resolve(fakeUsageSummary(range));
+  }
+
+  /** 消耗页顶上的余额（440）：编的 DeepSeek 余额，?demo-balance= 换样子（fake-balance.ts） */
+  private fakeBalance = new FakeBalance();
+
+  balance(): Promise<ProviderBalanceView> {
+    return Promise.resolve(this.fakeBalance.view());
+  }
+
+  refreshBalance(): Promise<ProviderBalanceView> {
+    return this.fakeBalance.refresh();
   }
 
   /** 原型的 skill 库和 MCP 登记；导入的记在这一页里 */

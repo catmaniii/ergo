@@ -8,6 +8,7 @@
 // 读个人档案（read_personal_file）紧跟在提议快速动作后面（写档案是快速动作 personal_file）。
 // 提交 skill（propose_skill，skills/change.ts）排在项目的那几样后面、待办的两个前面：只出"skill 变更"卡。
 // 只读的体检（check_health，doctor/tool.ts，409）排在查看板后面：用户说"体检一下"时现查一遍，交回不正常的项和怎么修。
+// 只读的查余额（check_balance，model-settings/balance-tool.ts，440）紧跟体检：用户问"DeepSeek 还剩多少钱"时用消耗页顶上那一份。
 // 带参调 MCP（mcp_call）排在插件给的 ask_memory 后面、别的内核工具前面——用户要动一个登记过的 MCP 时
 // 先看它（登记过就调，参数自由传；没登记、服务没起来时它自己会说清楚）。
 // 从组合根挪到这里。建、改、取消提醒由提醒插件、素材检索由记忆插件经 agent 贡献缝给秘书
@@ -25,6 +26,7 @@ import type { CardService } from "../cards/cards.ts";
 import type { DeepDoctorService } from "../doctor/deep.ts";
 import type { DoctorService } from "../doctor/doctor.ts";
 import { checkHealthTool } from "../doctor/tool.ts";
+import { checkBalanceTool, type ProviderBalanceService } from "../model-settings/index.ts";
 import { type PersonalFilesService, readPersonalFileTool } from "../personal-files/index.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { InboxService } from "../inbox/inbox.ts";
@@ -59,6 +61,8 @@ export interface SecretaryToolDeps {
   doctor?: Pick<DoctorService, "view">;
   /** 最近一次深度体检（415）：体检工具末尾只读它，不跑 */
   doctorDeep?: Pick<DeepDoctorService, "view">;
+  /** 服务商余额（消耗页顶上那一份，440）：只读的 check_balance；不给就没有这个工具 */
+  balance?: Pick<ProviderBalanceService, "view" | "refresh">;
   /** 提议定时任务：守护进程的时钟、工作日历、任务负责人的模型、同类运行的用量 */
   scheduling: Omit<ScheduleTaskToolDeps, "cards" | "runtimeRefusal">;
   now: () => string;
@@ -83,6 +87,8 @@ export function secretaryToolList(deps: SecretaryToolDeps): HostTool[] {
     viewBoardTool(store, boardKinds, () => projects.boardSection()),
     // 只读的体检：现查一遍，交回不正常的项和怎么修
     ...(deps.doctor ? [checkHealthTool(deps.doctor, deps.doctorDeep)] : []),
+    // 只读的查余额：DeepSeek 还剩多少钱（和消耗页顶上那一块同一份）
+    ...(deps.balance ? [checkBalanceTool(deps.balance)] : []),
     // 读项目档案、给出服务入口、启停项目的服务、调使用中的项目的操作、提转入使用（只出确认卡）
     ...projects.tools(),
     // 提交一个 skill（只出"skill 变更"卡，用户确认了运行时才写 skill 区）

@@ -79,6 +79,13 @@ export const WEB_CALL_SERVICES = ["deepseek"] as const;
 export type WebCallService = (typeof WEB_CALL_SERVICES)[number];
 export const WEB_CALL_SERVICE_LABEL: Readonly<Record<WebCallService, string>> = { deepseek: "DeepSeek" };
 
+/**
+ * 消耗页顶上的服务商余额（440，形状在 usage-schema.ts 的 ProviderBalanceView）没查成的原因：Key 不对（401、403）、
+ * 被限流（429）、服务商出错（5xx）、超时、连不上、回的看不懂（别的状态码，或者不是文档里的样子）
+ */
+export const BALANCE_PROBLEMS = ["key_invalid", "rate_limited", "server", "timeout", "network", "bad_response"] as const;
+export type BalanceProblem = (typeof BALANCE_PROBLEMS)[number];
+
 // 下面三句跟着当前语言（followLocale）
 /** 秘书的用量单列成这一项 */
 export let SYSTEM_OVERHEAD_LABEL = "";
@@ -137,6 +144,12 @@ export function usageCategory(role: LedgerRole, owned: boolean): UsageCategory {
 /** 大约多少钱（阶段预算、计划卡上写的）：不到一分也写一分 */
 export function approxMoney(cost: { amount: number; currency: string }): string {
   return `${currencySymbol(cost.currency)}${Math.max(cost.amount, 0.01).toFixed(2)}`;
+}
+
+/** 余额写成"¥110.00"（440）：服务商回的是字符串，按两位小数写；看不懂的原样跟在符号后面 */
+export function balanceMoney(currency: string, amount: string): string {
+  const n = Number(amount);
+  return `${currencySymbol(currency)}${amount.trim() !== "" && Number.isFinite(n) ? n.toFixed(2) : amount}`;
 }
 
 /** 货币的符号（认不得的原样写货币代码） */

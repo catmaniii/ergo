@@ -6,6 +6,7 @@
 // 上面的成本合计把它算进去（写明"含联网 ¥x"），按天、按 agent 的 token 表照旧只有模型调用。
 // 按 agent 那张表的系统开销一组里单列"记忆简报"一行（带了几次、估的 token、粗估的钱）：这些 token 已经算在秘书的输入里，
 // 不另加进合计。
+// 最上面是服务商余额（440，BalanceCard.tsx）：和时间范围无关，单独取（GET /api/usage/balance）。
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { tokensLabel } from "../../model/labels.ts";
@@ -35,6 +36,7 @@ import {
 import { Section, Segmented } from "../../ui/common.tsx";
 import { AssistantName, NamedText } from "../../ui/assistant-name.tsx";
 import { T } from "../../ui/i18n.tsx";
+import { BalanceCard } from "./BalanceCard.tsx";
 
 type RangeChoice = UsageRangePreset | "custom";
 
@@ -105,6 +107,7 @@ export function UsagePage() {
 
   return (
     <>
+      <BalanceCard />
       <Segmented<RangeChoice>
         value={choice}
         onChange={(v) => {
