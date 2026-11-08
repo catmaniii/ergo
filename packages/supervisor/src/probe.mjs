@@ -1,7 +1,7 @@
 // 探活。四档精度，一盏绿灯在不同档位下保证的东西完全不同——档位必须一路传到 WebUI。
 import fs from 'node:fs';
 import path from 'node:path';
-import { allProcesses, canConnect, listeningPorts } from './winproc.mjs';
+import { allProcesses, canConnect, listeningPorts, listenersViaCim } from './winproc.mjs';
 
 async function httpOk(url, timeoutMs = 3000) {
   try {
@@ -87,53 +87,114 @@ function verifyIdentity(svc, st, info) {
 export async function snapshot(services) {
   const first = await listeningPorts();
   const { pids: ports, binds } = first;
-  // 这一轮要看、netstat 却说没人听的端口：别急着信它（见 resolveFlakyListeners）
-  const wanted = new Set((services || []).flatMap((s) => [s?.probe?.port, ...(s?.probe?.extraPorts || [])]).filter(Number.isInteger));
-  const missing = [...wanted].filter((p) => !ports.has(p));
-  if (missing.length) await resolveFlakyListeners(missing, first);
-  const reachable = first.reachable || new Set();
   // 全量枚举顺带覆盖了端口反查到的 PID 和 pidFile 里的 PID，不用再单独收集一遍
   const procs = await allProcesses();
-  return { ports, binds, procs, allProcs: procs, reachable };
+  // 这一轮要看、netstat 却说没人听的端口：别急着信它（见 resolveFlakyListeners）
+  const wanted = [...new Set((services || []).flatMap((s) => [s?.probe?.port, ...(s?.probe?.extraPorts || [])]).filter(Number.isInteger))];
+  if (wanted.length) await resolveFlakyListeners(wanted, first, procs);
+  return {
+    ports, binds, procs, allProcs: procs,
+    reachable: first.reachable || new Set(), listeners: first.listeners, cacheOwned: first.cacheOwned || new Set(),
+  };
 }
 
-/** netstat 某一眼里，这个端口的监听行（状态是 LISTENING 的，和状态报错的 suspect 行）。 */
-const rowsFor = (s, p) => [
-  ...(s.pids.get(p) || []).map((pid) => ({ pid, addr: s.binds.get(p)?.[0] ?? '127.0.0.1' })),
-  ...(s.suspect?.get(p) || []),
-];
+/** netstat 这一眼里，这个端口的监听行（状态是 LISTENING 的，和状态报错的 suspect 行）。 */
+const rowsFor = (s, p) => [...(s.listeners?.get(p) || []), ...(s.suspect?.get(p) || [])];
 
 /**
- * netstat 说没人听的端口，先真连一下再下结论。
+ * netstat 说没人听的端口，先真连一下再下结论；netstat 这一轮说不清，就换个读法认监听者。
  *
  * 2026-10-29 实测（开机后整机如此，管理器自己的 7420、RDP、SMB 都中）：同一个一直在听的端口，
  * 连抽 20 次 netstat，这一行有 30%~70% 的时候根本不在表里，在的时候状态也乱报（CLOSED / FIN_WAIT_1）；
  * 真连接却次次成功。于是好好的服务每几秒被判「端口没人在听」，刚起来的永远等不到就绪，重试撞上「已经有一份在跑」。
  *  - 连不上：真没人听（停机时「端口空了」也靠这一条，不受影响）；
- *  - 连得上：再多看几眼 netstat，哪一眼里找到它的监听行（什么状态都算）就用那一眼的 PID——
- *    三元校验要 PID，不能光凭「连得上」就认。看了几眼都找不到就照旧当没人听（宁可漏判，不瞎认进程）。
- * 只连自己托管的端口，不去每 5 秒敲一遍别人的 RDP、SMB。netstat 正常时这里一次都不会走到。
+ *  - 连得上、或这一轮 netstat 有状态报错的行：netstat 这一轮说不清，后台查 Get-NetTCPConnection（refreshCimInBackground）。
+ *    三元校验要 PID，也只有它能看全「同一端口几个进程在听」（2026-11-02：两个残留的测试服务绑着 127.0.0.1:8799，
+ *    把本机访问和公网隧道全劫走了，netstat 这边一行都看不到）；
+ *  - 还是认不出：记进 reachable，交给 probeService / runningEvidence 降级处理（不猜 PID）。
+ * 只连自己托管的端口，不去每 5 秒敲一遍别人的 RDP、SMB。netstat 正常时不会起 PowerShell。
+ *
+ * 缓存的行可能旧了（最多一两分钟），所以它的权限比这一轮 netstat 看到的小（mergeOwners）：
+ * netstat 这一轮有行，owners 就只认 netstat，缓存的只用来多说一句「还有谁在听」，进不了强杀名单；
+ * netstat 一行都没有才拿缓存认身份，且记进 cacheOwned，这一轮不判孤儿（判了冲突清理就会动手）。
  */
-async function resolveFlakyListeners(missing, first, { retries = 6 } = {}) {
-  const live = [];
-  await Promise.all(missing.map(async (p) => {
+async function resolveFlakyListeners(wanted, first, procs) {
+  const live = new Set();
+  await Promise.all(wanted.filter((p) => !first.pids.has(p)).map(async (p) => {
     const addr = first.suspect?.get(p)?.[0]?.addr ?? '127.0.0.1';
-    if (await canConnect(p, addr)) live.push(p);
+    if (await canConnect(p, addr)) live.add(p);
   }));
+  if (!live.size && !first.suspect?.size) return;
+  refreshCimInBackground(wanted);
+  first.listeners ||= new Map();
+  first.cacheOwned = new Set();
   const pending = new Set(live);
-  const take = (s) => {
-    for (const p of pending) {
-      const rows = rowsFor(s, p);
-      if (!rows.length) continue;
-      first.pids.set(p, [...new Set(rows.map((r) => r.pid))]);
-      first.binds.set(p, [...new Set(rows.map((r) => r.addr))]);
-      pending.delete(p);
-    }
-  };
-  take(first);
-  for (let i = 0; i < retries && pending.size; i++) take(await listeningPorts());
-  // 连得上、几眼 netstat 里都没有它的行：确实有人在听，只是认不出是谁。交给 probeService / runningEvidence 降级处理
+  for (const p of wanted) {
+    if (!first.pids.has(p) && !live.has(p)) continue;   // 连不上、netstat 也没有：真没人听，表里的残影不算数
+    const fresh = rowsFor(first, p).filter((r) => procs.has(r.pid));
+    const { owners, rows, cacheOnly } = mergeOwners(fresh, validRows(cim.age() < CIM_MAX_AGE_MS ? cim.map?.get(p) : null, procs));
+    if (!rows.length) continue;
+    first.pids.set(p, owners);
+    first.binds.set(p, [...new Set(rows.map((r) => r.addr))]);
+    first.listeners.set(p, rows);
+    if (cacheOnly) first.cacheOwned.add(p);
+    pending.delete(p);
+  }
   first.reachable = pending;
+}
+
+// 后台查到的监听者。一次查询 13~16 秒，探活循环 5 秒一轮，只能这么用：查询不等、用上一次的结果。
+const CIM_TTL_MS = 120000;          // 多久查一次（只在 netstat 说不清的时候才会查）
+const CIM_MAX_AGE_MS = 300000;      // 太旧的不用：netstat 好了一阵又坏了，之前的结果早就过时了
+const cim = {
+  ports: new Set(), map: null, at: 0, running: false,
+  age() { return Date.now() - this.at; },
+};
+
+function refreshCimInBackground(wanted) {
+  for (const p of wanted) cim.ports.add(p);
+  if (cim.running || cim.age() < CIM_TTL_MS) return;
+  cim.running = true;
+  listenersViaCim([...cim.ports])
+    .then((m) => { if (m.size) cim.map = m; cim.at = Date.now(); })
+    .catch(() => { cim.at = Date.now(); })
+    .finally(() => { cim.running = false; });
+}
+
+/**
+ * 缓存的行还算不算数：进程还活着，启动时间也对得上（第一次用时记下，PID 被复用、进程被杀后这一行就不算了）。
+ * 不看「它还在不在听这个端口」——这正是查不到的；所以这些行的权限才要受 mergeOwners 限制。
+ */
+export function validRows(rows, procs) {
+  return (rows || []).filter((r) => {
+    const info = procs?.get(r.pid);
+    if (!info) return false;
+    r.start ??= info.start;
+    return r.start === info.start;
+  });
+}
+
+/** fresh：这一轮 netstat 看到的；cached：后台查到的。owners 决定认谁（和强杀杀谁），rows 只用来说清谁在听。 */
+export function mergeOwners(fresh, cached) {
+  const rows = [...fresh, ...cached.filter((c) => !fresh.some((f) => f.pid === c.pid && f.addr === c.addr))];
+  return {
+    owners: [...new Set((fresh.length ? fresh : cached).map((r) => r.pid))],
+    rows,
+    cacheOnly: !fresh.length && cached.length > 0,
+  };
+}
+
+/**
+ * 同一端口不止一个进程在听时，说清谁绑在哪。Windows 允许这样：具体地址 + 通配地址可以共存，SO_REUSEADDR（Python 的
+ * http.server 默认开）还能让几个进程绑同一个地址。连 127.0.0.1 的走绑得更具体的那个，不一定是这个服务。
+ * 这里只点名、不动手：确实有合法的共享端口，杀错的代价比多一行警告大得多。
+ */
+export function sharedPortNote(port, snap) {
+  const rows = snap?.listeners?.get(port) || [];
+  const pids = new Set(rows.map((r) => r.pid));
+  if (pids.size < 2) return '';
+  const who = (r) => `${r.addr} → ${snap.procs?.get(r.pid)?.name || '未知进程'} (${r.pid})`;
+  return `⚠ 端口 ${port} 有 ${pids.size} 个进程在听：${rows.map(who).join('，')}——本机访问打到绑得更具体的那个，不一定是它`;
 }
 
 /**
@@ -220,7 +281,7 @@ export async function probeService(svc, st, snap, linkStatus) {
   }
 
   const owners = port ? (snap.ports.get(port) || []) : [];
-  const pid = owners[0] ?? null;
+  const pid = owners.includes(st.pid) ? st.pid : (owners[0] ?? null);
   const info = pid ? snap.procs.get(pid) : null;
 
   if (!owners.length && snap.reachable?.has(port)) {
@@ -240,7 +301,9 @@ export async function probeService(svc, st, snap, linkStatus) {
   }
 
   const tri = triCheck(st, snap, port);
-  const orphan = st.pid != null && !tri.match;
+  // 监听者只有缓存这一个来源时不判孤儿：缓存可能旧了，判了冲突清理就会动手
+  const orphan = st.pid != null && !tri.match && !snap.cacheOwned?.has(port);
+  const shared = sharedPortNote(port, snap);
 
   if (tier === 'health') {
     const h = await httpOk(svc.probe.health.url, svc.probe.health.timeoutMs ?? 3000);
@@ -248,7 +311,8 @@ export async function probeService(svc, st, snap, linkStatus) {
       tier, ok: h.ok, pid, pidStart: info?.start ?? null,
       orphan, orphanWhy: orphan ? tri.why : null, degradedObservation,
       listening: true, health: h.ok ? 'ok' : 'failing',
-      bindAddrs: snap.binds?.get(port) || [], detail: h.detail,
+      bindAddrs: snap.binds?.get(port) || [], portShared: shared || null,
+      detail: shared ? `${h.detail} · ${shared}` : h.detail,
     };
   }
 
@@ -256,7 +320,7 @@ export async function probeService(svc, st, snap, linkStatus) {
     tier, ok: true, pid, pidStart: info?.start ?? null,
     orphan, orphanWhy: orphan ? tri.why : null, degradedObservation,
     listening: true, health: null,
-    bindAddrs: snap.binds?.get(port) || [],
-    detail: `端口 ${port} 由 ${info?.name || '未知进程'} (${pid}) 监听`,
+    bindAddrs: snap.binds?.get(port) || [], portShared: shared || null,
+    detail: shared || `端口 ${port} 由 ${info?.name || '未知进程'} (${pid}) 监听`,
   };
 }
