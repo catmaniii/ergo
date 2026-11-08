@@ -6,6 +6,7 @@
 //   页面桥点了、长按了、气泡上点了什么之后再交一遍（"让二狗选"除外：等框的列表回来面板变了再交）；
 // - 拦下的选文件对话框画不出来（页面桥不在）：交给系统的选择器；
 // -有浏览侧边栏时太长的回话（字多、行多）下面给"去侧边栏看"（more），没有侧边栏、不长的不给。
+/// -右下角常驻的悬浮按钮：气泡跟着 corner、写着"对二狗说"、提示说这一页；按下不重交；浏览侧边栏开合随页面桥自己的那几句交过去（fab），变了重交。
 // 候选不在气泡里（挑图片窗口见 page-pick.test.ts）。
 // 气泡上的字跟着当前语言；悬浮按钮出来、选中的框变了时把页面桥自己的那几句（当前语言的）交给它。
 // 说到助理的那几句用用户起的名字（纯文字换好名字，另给按名字切开的几段，页面桥画成名字标签）；名字标签的颜色按现在的
@@ -373,6 +374,56 @@ describe("语音插件没启用", () => {
     expect(texts.assistant?.templates?.["bridge.fab.label"]).toBe("让{name}帮忙：点一下打字");
     expect(texts["bridge.talkTo.ergo"]).toBe("对小美说");
     expect(bridgeTexts({ name: "小美" })["bridge.fab.label"]).toBe("让小美帮忙：点一下打字，按住说话");
+  });
+});
+
+describe("右下角常驻的悬浮按钮（浏览侧边栏关着时）", () => {
+  const target: CommandTarget = { page: PAGE, fields: [], corner: true };
+
+  test("气泡跟着 corner（贴着右下角的按钮），写着对二狗说（名字画成名字标签，和页面桥先自己画的一样），提示说这一页", () => {
+    expect(bubbleView({ kind: "bar", target })).toEqual({ kind: "input", fieldId: "corner", label: "对二狗说", labelParts: ["对", { name: "二狗" }, "说"], placeholder: "比如：这一页讲了什么" });
+    expect(bubbleView({ kind: "bar", target }, false, "小美")).toMatchObject({ label: "对小美说", labelParts: ["对", { name: "小美" }, "说"] });
+    expect(bubbleView({ kind: "listening", target, levels: [0.3] })).toEqual({ kind: "listening", fieldId: "corner", label: "对二狗说", labelParts: ["对", { name: "二狗" }, "说"], levels: [0.3] });
+    expect(bubbleView({ kind: "busy", target, said: "总结一下", note: "thinking" })).toMatchObject({ kind: "busy", fieldId: "corner", said: "总结一下" });
+    const long = "这一页讲的是报名须知，".repeat(13);
+    expect(bubbleView({ kind: "reply", target, text: long, failed: false }, true)).toMatchObject({ kind: "reply", fieldId: "corner", system: false, more: true });
+  });
+
+  test("按下不重交气泡（页面桥先自己画打字框、在听）；开打字框、在听、松手之后照常再交", () => {
+    setup();
+    const before = page.views.length;
+    push({ type: "page", event: { type: "corner-voice", phase: "press", page: PAGE } });
+    expect(page.views.length).toBe(before);
+    push({ type: "page", event: { type: "corner-open", page: PAGE } });
+    expect(page.views.at(-1)).toMatchObject({ kind: "input", fieldId: "corner" });
+    commands.dismiss();
+    push({ type: "page", event: { type: "corner-voice", phase: "start", page: PAGE } });
+    expect(page.views.at(-1)).toMatchObject({ kind: "listening", fieldId: "corner" });
+  });
+
+  test("侧边栏开合随页面桥自己的那几句交过去（fab）：关着常驻、开着不常驻，变了重交，一样的不交；没有侧边栏不说", () => {
+    expect(bridgeTexts({ name: "二狗" }).fab).toBeUndefined();
+    expect(bridgeTexts({ name: "二狗", corner: true }).fab).toEqual({ corner: true, inset: 0 });
+    expect(bridgeTexts({ name: "二狗", corner: false, inset: 23.6 }).fab).toEqual({ corner: false, inset: 24 });
+    let look: BridgeLook = { name: "二狗", corner: true, inset: 0 };
+    commands = new PageCommands({ page, recognize: () => Promise.resolve({ ok: true, text: "x" }), voice: silentVoice, browserPage: () => PAGE, browserId: () => "b-0123456789abcdef" });
+    sync = new PageBubbleSync({ commands, page, look: () => look });
+    // 新的一页装上页面桥（报一次没选中）：交过去，常驻右下角
+    push({ type: "page", event: { type: "selected", field: null, page: PAGE } });
+    expect(page.sentTexts.at(-1)?.fab).toEqual({ corner: true, inset: 0 });
+    const sent = page.sentTexts.length;
+    // 打开侧边栏：重交，不常驻
+    look = { ...look, corner: false };
+    sync.lookChanged();
+    expect(page.sentTexts).toHaveLength(sent + 1);
+    expect(page.sentTexts.at(-1)?.fab).toEqual({ corner: false, inset: 0 });
+    // 一样的不交
+    sync.lookChanged();
+    expect(page.sentTexts).toHaveLength(sent + 1);
+    // 收起侧边栏、宽屏网页延伸到手势条底下：重交，常驻、让开 20
+    look = { ...look, corner: true, inset: 20 };
+    sync.lookChanged();
+    expect(page.sentTexts.at(-1)?.fab).toEqual({ corner: true, inset: 20 });
   });
 });
 

@@ -27,6 +27,9 @@
  *   所以它们开着时浏览器先藏起来（Web 留着，关上原样回来；宽屏侧边栏展开着时下拉菜单贴着浏览器的右上角弹，清除浏览数据的对话框开着时
  *   侧边栏也藏起来）；查找栏在顶栏下面（浏览器跟着变矮，照样看得见高亮）。页面底部的短提示也会被原生网页盖住，这一页的提示（存好了、
  *   清好了……）写在顶栏上，过一会儿消失。空白页的最近访问和菜单里的完整浏览记录同一套：长按删、多选删、清空全部。
+ * - 侧边栏关着时网页右下角常驻二狗的悬浮按钮（和框旁边的是同一个：一样大、点一下打字、按住说话），选中网页元素时挂到元素旁边；
+ *   侧边栏开着时只在选中的元素旁边有（page-bridge/rules.ts 的 fabSpot）。开合随页面桥自己的那几句交过去（page-browse.ts）；
+ *   右下角要让开的手势区这一页量：浏览器摆到了页面最底下时是 --safe-bottom。窄屏侧边栏照旧整屏盖住、不分栏。
  * -（设置里改了界面风格，侧边栏要重启 App 才跟着变）：报给 App 的侧边栏样子里带着这一页现在的外观
  *   （外观、风格、主色，app/theme.ts 的 appearance），外观变了也重报；侧边栏那一页收到就照着换（side-remote.ts）。
  * 不在 App 里打开这个地址（#/browse）只有一句说明。
@@ -45,6 +48,7 @@ import {
   pageNativeBrowser,
   pageBrowseFind,
   pagePageCommands,
+  setBrowseFabInset,
   setBrowseSideWide,
   useBrowseFile,
   useBrowseFind,
@@ -221,6 +225,9 @@ function useNativeFrames(browser: NativeBrowser, side: BrowseSide | undefined, b
       lastLayout.current = layout;
       browser.layout(layout);
     }
+    // 网页右下角常驻的悬浮按钮让开手势区：浏览器摆到了页面最底下（宽屏没有底部导航，App 把网页延伸到了手势条底下）时让开 --safe-bottom
+    const reachesBottom = rect.y + rect.height >= box.viewport.height - 1;
+    setBrowseFabInset(reachesBottom ? Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--safe-bottom")) || 0 : 0);
     if (!reportSide || !side) return;
     // 窄屏整屏盖住时侧边栏的网页也延伸到了手势条底下：底部让开的那一截照这一页的
     const safeBottom = frames.cover ? getComputedStyle(document.documentElement).getPropertyValue("--safe-bottom").trim() : "";

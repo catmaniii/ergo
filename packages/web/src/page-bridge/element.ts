@@ -55,6 +55,8 @@ export interface ElementButtonDeps {
   startTracking(): void;
   /** 收起开着的、别人的气泡（用户转去指别的元素了） */
   closeBubble(): void;
+  /** 圆钮出来了、收起了（右下角常驻的悬浮按钮让给它、再回来） */
+  shownChanged?(): void;
 }
 
 export interface ElementButton {
@@ -62,6 +64,8 @@ export interface ElementButton {
   owns(id: string): boolean;
   /** 圆钮在哪（显示着才有） */
   rect(): Rect | undefined;
+  /** 圆钮显示着 */
+  shown(): boolean;
   /** 现在的元素（选中的文字是这一刻的） */
   fresh(): PickedElement | undefined;
   mark(next: PageBridgeMark): void;
@@ -243,6 +247,7 @@ export function createElementButton(deps: ElementButtonDeps): ElementButton {
     setMark("idle");
     button.classList.remove("on");
     deps.send({ type: "element", element: null });
+    deps.shownChanged?.();
   };
 
   const show = (found: Omit<PickedElement, "id">, el: Element, x: number, y: number) => {
@@ -258,6 +263,7 @@ export function createElementButton(deps: ElementButtonDeps): ElementButton {
     place();
     button.classList.add("on");
     deps.send({ type: "element", element: pick });
+    deps.shownChanged?.();
     arm();
   };
 
@@ -469,6 +475,7 @@ export function createElementButton(deps: ElementButtonDeps): ElementButton {
 
   return {
     owns: (id) => current?.pick.id === id,
+    shown: () => current !== undefined,
     rect() {
       if (!current) return undefined;
       const r = button.getBoundingClientRect();

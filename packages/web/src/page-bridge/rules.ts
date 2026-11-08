@@ -1,5 +1,5 @@
 // 页面桥里不碰 DOM 的规矩：哪些 input 算文本框、哪些框是密码类（不列、不填、不出悬浮按钮）、标签文字怎么收拾、
-// 悬浮按钮摆在框的哪边；还有按钮旁边的小气泡摆在哪、波形的竖条多高、按住说话怎么算取消；按住说话时气泡在
+// 悬浮按钮摆在框的哪边、这一刻该贴着元素还是常驻右下角还是不显示（fabSpot、placeCornerButton，地图也用）；还有按钮旁边的小气泡摆在哪、波形的竖条多高、按住说话怎么算取消；按住说话时气泡在
 // 按钮上方（placeListening）、挑图片窗口摆在哪（placePickWindow）；还有能点的东西是什么种类（clickRoleOf）、文字怎么收拾
 // （cleanElementText）、超过上限先列哪些（chooseClickables）、哪些 target 开新窗口（opensNewWindow）；还有能填、能交、
 // 能选的控件是什么种类（FieldRole）、现在的值怎么截（previewText）、下拉框的选项怎么收拾（optionTexts）。
@@ -134,6 +134,46 @@ export function placeButton(anchor: Rect, viewport: { width: number; height: num
   if (anchor.bottom + BUTTON_GAP + s <= viewport.height - EDGE) return { x, y: anchor.bottom + BUTTON_GAP };
   if (anchor.top - BUTTON_GAP - s >= EDGE) return { x, y: anchor.top - BUTTON_GAP - s };
   return { x: clampX(anchor.right - s - EDGE), y: clampY(anchor.bottom - s - EDGE) };
+}
+
+// ---------- 悬浮按钮在哪：贴着选中的元素、常驻右下角、不显示 ----------
+
+/**
+ * 悬浮按钮这一刻该在哪（四种情况）：选中了网页元素（文本框有焦点、点了上传处、长按出了圆钮）就贴到元素旁边，侧边栏开不开都一样；
+ * 没选中时侧边栏关着常驻右下角、开着不显示（侧边栏里就能和二狗说话）。浏览和地图（右边的二狗聊天窗）共用这一条
+ */
+export type FabSpot = "anchor" | "corner" | "none";
+
+export function fabSpot(at: { selected: boolean; sideOpen: boolean }): FabSpot {
+  if (at.selected) return "anchor";
+  return at.sideOpen ? "none" : "corner";
+}
+
+/** 右下角的按钮离右边、底边多远（CSS 像素）：照谷歌地图右下角的按钮 */
+export const CORNER_GAP = 16;
+/** 让开网页自己的底部栏、悬浮按钮时最多往上挪看得见的部分的几成：再高就不让了（盖住一点，不跑到屏幕中间去） */
+export const CORNER_LIFT_SHARE = 0.4;
+/** 让开的东西和按钮之间留多少 */
+const CORNER_CLEARANCE = 8;
+
+/**
+ * 右下角的按钮摆在哪（左上角，视口坐标）：area 是看得见的部分；inset 是底下再让开多少（系统手势区：网页延伸到手势条底下时那一截）；
+ * obstacles 是网页自己固定在屏幕上的东西（底部栏、右下角的客服按钮……，宿主量好的视口坐标）——盖住按钮的就挪到它上面，
+ * 挪了再看有没有盖住的，最多往上挪看得见的部分的 CORNER_LIFT_SHARE；挪不下就留在原处（盖住一点，不跑到屏幕中间）。
+ * 按钮不拖动，固定在右下角
+ */
+export function placeCornerButton(area: Rect, inset = 0, obstacles: readonly Rect[] = [], size = BUTTON_SIZE): { x: number; y: number } {
+  const x = Math.max(area.left + EDGE, area.right - CORNER_GAP - size);
+  const base = Math.max(area.top + EDGE, area.bottom - CORNER_GAP - Math.max(0, inset) - size);
+  const highest = Math.max(area.top + EDGE, base - (area.bottom - area.top) * CORNER_LIFT_SHARE);
+  let y = base;
+  for (let round = 0; round <= obstacles.length; round++) {
+    const hit = obstacles.filter((r) => r.left < x + size && r.right > x && r.top < y + size && r.bottom > y);
+    if (hit.length === 0) return { x, y };
+    y = Math.min(...hit.map((r) => r.top)) - CORNER_CLEARANCE - size;
+    if (y < highest) return { x, y: base };
+  }
+  return { x, y: base };
 }
 
 // ---------- 悬浮按钮旁边的小气泡 ----------

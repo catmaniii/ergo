@@ -10,8 +10,10 @@
 // -能点的东西是什么种类（提交表单的按钮先认，再看 role、标签）、文字怎么收拾（空白并成一个、最长 200）、
 //   超过上限时先列哪些（屏幕上看得见的、上半屏的优先，再按离屏幕远近；交出去的照页面上的先后）、哪些 target 会开新窗口。
 // -哪些种类是框（文本框、上传框、下拉框）、现在的值怎么截（空白并成一个、前 40 字、空的不写）、下拉框的选项怎么收拾。
+// - 悬浮按钮这一刻在哪（四种情况：侧边栏开合 × 选没选中）；右下角的按钮摆在哪（离右边、底边 16，让开手势区，网页的底部栏、
+//   右下角的按钮盖住它就挪到上面，最多挪看得见的部分的四成，挪不下留在原处）。
 import { describe, expect, test } from "vitest";
-import { BUTTON_SIZE, cleanElementLabel, ELEMENT_LABEL_MAX, elementSourceOf, placeElementButton,
+import { BUTTON_SIZE, cleanElementLabel, CORNER_GAP, ELEMENT_LABEL_MAX, elementSourceOf, fabSpot, placeCornerButton, placeElementButton,
   BUBBLE_EDGE,
   BUBBLE_GAP,
   BUBBLE_MAX_HEIGHT,
@@ -367,5 +369,45 @@ describe("长按元素的圆钮摆在哪", () => {
     expect(cleanElementLabel("  一只\n  猫 ")).toBe("一只 猫");
     expect(cleanElementLabel(null)).toBe("");
     expect(cleanElementLabel("字".repeat(400)).length).toBe(ELEMENT_LABEL_MAX);
+  });
+});
+
+describe("悬浮按钮在哪：四种情况", () => {
+  test("侧边栏关着：没选中在右下角，选中了贴到元素旁边；侧边栏开着：没选中不显示，选中了照样贴到元素旁边", () => {
+    expect(fabSpot({ sideOpen: false, selected: false })).toBe("corner");
+    expect(fabSpot({ sideOpen: false, selected: true })).toBe("anchor");
+    expect(fabSpot({ sideOpen: true, selected: false })).toBe("none");
+    expect(fabSpot({ sideOpen: true, selected: true })).toBe("anchor");
+  });
+});
+
+describe("右下角的按钮摆在哪", () => {
+  const phone = { left: 0, top: 0, right: 390, bottom: 844 };
+  const corner = { x: 390 - CORNER_GAP - BUTTON_SIZE, y: 844 - CORNER_GAP - BUTTON_SIZE };
+
+  test("离右边、底边各 16（和贴框的按钮一样大）；让开手势区；看得见的部分（输入法弹起、缩放）挪了跟着挪", () => {
+    expect(CORNER_GAP).toBe(16);
+    expect(placeCornerButton(phone)).toEqual(corner);
+    expect(placeCornerButton(phone, 24)).toEqual({ x: corner.x, y: corner.y - 24 });
+    expect(placeCornerButton({ left: 0, top: 0, right: 390, bottom: 500 })).toEqual({ x: corner.x, y: 500 - 16 - BUTTON_SIZE });
+    expect(placeCornerButton({ left: 100, top: 200, right: 300, bottom: 600 })).toEqual({ x: 300 - 16 - BUTTON_SIZE, y: 600 - 16 - BUTTON_SIZE });
+  });
+
+  test("网页自己的底部栏盖住了就挪到它上面（留 8）；没盖住的不管", () => {
+    const bar = { left: 0, top: 780, right: 390, bottom: 844 };
+    expect(placeCornerButton(phone, 0, [bar])).toEqual({ x: corner.x, y: 780 - 8 - BUTTON_SIZE });
+    const leftButton = { left: 10, top: 790, right: 60, bottom: 840 };
+    expect(placeCornerButton(phone, 0, [leftButton])).toEqual(corner);
+  });
+
+  test("挪上去又碰到右下角的客服按钮：再挪到它上面", () => {
+    const bar = { left: 0, top: 780, right: 390, bottom: 844 };
+    const help = { left: 320, top: 700, right: 380, bottom: 760 };
+    expect(placeCornerButton(phone, 0, [bar, help])).toEqual({ x: corner.x, y: 700 - 8 - BUTTON_SIZE });
+  });
+
+  test("要挪得比看得见的部分的四成还高（网页底部一大块浮层）就不挪，留在原处", () => {
+    const sheet = { left: 0, top: 400, right: 390, bottom: 844 };
+    expect(placeCornerButton(phone, 0, [sheet])).toEqual(corner);
   });
 });

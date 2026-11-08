@@ -24,6 +24,8 @@
 // 长按网页元素或右键时，系统菜单照常，多出一个二狗圆钮，让二狗处理这个元素；做什么由用户说了算：圆钮上打的字、
 // 说的话也是这种消息（via: "button"），带上这个元素（PickedElement）；秘书这一轮的工具不收窄，多两样通用能力——取元素的内容（element_file）、
 // 在设备上下载它（element_download）。元素的地址、文字是网页上的，交给秘书时标成外部数据。
+// 浏览侧边栏关着时悬浮按钮常驻网页右下角（没挂在框上）：在它上面打的字、说的话也是这种消息（via: "button"），带 corner、不带框——
+// 说的是这一页（或者别的事），这一轮没有目标框，要填框、交文件按编号来（先看能点的东西）。
 import { type Static, Type } from "typebox";
 import { forModel, t, tTable } from "./i18n/runtime.ts";
 import { PAGE_CANDIDATES_MAX, PAGE_FILE_MAX_BYTES, PageChooser, PageCommandFile, PageField, PageFieldValue, pageUrlForModel } from "./page-commands.ts";
@@ -103,6 +105,8 @@ export const BrowsingContext = Type.Object({
   chooser: Type.Optional(PageChooser),
   /** 圆钮上发的：长按、右键认出来的元素 */
   element: Type.Optional(PickedElement),
+  /** 右下角常驻的悬浮按钮上发的（浏览侧边栏关着、按钮没挂在框上）：不带框，说的是这一页 */
+  corner: Type.Optional(Type.Literal(true)),
 });
 export type BrowsingContext = Static<typeof BrowsingContext>;
 
@@ -110,7 +114,7 @@ export type BrowsingContext = Static<typeof BrowsingContext>;
  * 记在消息上的网页上下文（MessageEnvelope.browsing）：哪个浏览器（秘书的网页工具据此找到发消息的那台设备）、网页的标题和地址、
  * 选中的框的说法（"「标题」（单行文本）"，没选中就没有）。悬浮按钮发的另记 via、目标框（field，不带内容）、
  * 拦下的对话框（chooser）、是不是说的（spoken）；选中的框那时的内容（value，侧边栏、悬浮按钮都记）。
- * 圆钮上发的另记元素（element）
+ * 圆钮上发的另记元素（element），右下角常驻的悬浮按钮上发的另记 corner
  */
 export const BrowsingMark = Type.Object({
   browser: Type.String(),
@@ -123,6 +127,7 @@ export const BrowsingMark = Type.Object({
   spoken: Type.Optional(Type.Literal(true)),
   value: Type.Optional(PageFieldValue),
   element: Type.Optional(PickedElement),
+  corner: Type.Optional(Type.Literal(true)),
 });
 export type BrowsingMark = Static<typeof BrowsingMark>;
 
@@ -355,16 +360,21 @@ export function browsingMarkOf(context: BrowsingContext): BrowsingMark {
       : {}),
     ...(value && selected?.kind !== "file" ? { value } : {}),
     ...(context.via === "button" && context.element ? { element: context.element } : {}),
+    ...(context.via === "button" && context.corner && !selected && !context.chooser && !context.element ? { corner: true as const } : {}),
   };
 }
 
 /**
  * 会话里侧边栏发的那条消息下面的小字："在网页「X」上说"（网页没标题写地址，去掉 http(s)://；还没打开网页时"在浏览侧边栏里说"）。
  * 悬浮按钮发的网页指令的写法："在网页「X」的「标题」上打字"、"……的上传框上说"；
- * 圆钮发的："在网页「X」的图片上说"
+ * 圆钮发的："在网页「X」的图片上说"；右下角常驻的悬浮按钮发的："在网页「X」上用悬浮按钮打字"
  */
-export function browsingLabel(mark: Pick<BrowsingMark, "title" | "url" | "via" | "field" | "chooser" | "spoken" | "element">): string {
+export function browsingLabel(mark: Pick<BrowsingMark, "title" | "url" | "via" | "field" | "chooser" | "spoken" | "element" | "corner">): string {
   const page = mark.title.trim() || mark.url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+  if (mark.via === "button" && mark.corner) {
+    const title = (page || t("protocol.browsing.label.untitled")).slice(0, 40);
+    return t(mark.spoken ? "protocol.browsing.label.cornerSpoke" : "protocol.browsing.label.cornerTyped", { page: title });
+  }
   if (mark.via === "button") {
     const name = mark.field ? mark.field.label || mark.field.placeholder || "" : "";
     const where = mark.element

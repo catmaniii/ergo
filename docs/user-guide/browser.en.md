@@ -97,6 +97,14 @@ Next time, the blank page lists **Recently visited**. Tap one to open it. Long-p
 - "Make this a bit more polite"
 - "Fill in the address I mentioned yesterday"
 
+**When the sidebar is closed: the ergo button in the corner**
+
+- With the sidebar closed and no text box tapped, an ergo button stays in the bottom-right corner of the page. It's the same button as the one next to fields: same size, tap to type, hold to talk.
+- Its bubble says **Talk to ergo**. What you say is about this page, not a particular field. For example "What's this page about?" or "Save this page as material".
+- When you tap into a text box, tap an upload button or long-press an element, the button moves next to it, and comes back to the corner afterwards.
+- With the sidebar open there's no corner button; just talk in the sidebar. Tapping into a field still shows the button next to it.
+- The button keeps clear of the page's own bottom bar and corner buttons. It stays in the corner and can't be dragged.
+
 **Good to know:**
 
 - Filling replaces everything already in the field. The secretary can see what's in the field now, so you can ask it to edit.

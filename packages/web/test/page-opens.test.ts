@@ -10,7 +10,7 @@
 // 语音也是插件：停用语音插件（?demo-plugins-off=voice）后输入框没有话筒、设置里没有语音，#/more/voice 写没启用，每一页照样打得开。
 // 加了停用浏览插件的（"浏览"、侧边栏模式写没启用）。
 // 每套风格量聊天里工具调用、来信、回忆记忆的横条（和"在想什么"同一列、右边留空、窄窗口下箭头露全点得到），
-// 侧边栏模式收到交来的外观马上换风格。
+// 侧边栏模式收到交来的外观马上换风格；"浏览"页把浏览侧边栏开合交给页面桥（关着悬浮按钮常驻右下角）。
 // 小屏和手机上，会话缩小后点开的分支整块留在视口里。
 // 标题上的"等你……"手机、电脑都看得到、点得到，点了跳到要处理的那张卡、闪一下，再点一次再闪；卡在别的页的跳过去；答完就不再等你。
 // 同一个 agent 不管从哪进去都是同一个对话框（标题栏、阶段条、输入框都在）；老的 #/tasks/<任务> 跳过去并定位；做完收成一行；背后的 agent 的列表和只读对话。
@@ -1988,6 +1988,52 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       expect(problems).toEqual([]);
     }, 60_000);
   }
+
+  // 浏览页把浏览侧边栏开合交给页面桥：假的原生桥（有内置浏览器、页面桥那一组、侧边栏），记下交给页面桥的那几句（texts）。
+  // 页面桥装上（报一次没选中）后交的 fab.corner 是"侧边栏关着"（悬浮按钮常驻右下角）；点顶栏的二狗按钮展开侧边栏重交、变成不常驻，再点收起变回来
+  test("浏览页：浏览侧边栏开合交给页面桥（关着悬浮按钮常驻右下角，开着不常驻）", async () => {
+    const context = await browser!.newContext({ viewport: { width: 390, height: 844 } });
+    await context.addInitScript(`
+      window.__texts = [];
+      window.ergoNative = {
+        appVersion: () => "9.9.9",
+        log() {},
+        browserAttach: () => JSON.stringify({ url: "", title: "", progress: 0, loading: false, canGoBack: false, canGoForward: false }),
+        browserLayout() {},
+        browserLoad() {},
+        browserNav() {},
+        browserPage(op, args) {
+          if (op === "texts") window.__texts.push(JSON.parse(args)[0]);
+          return Promise.resolve(op === "bubble" || op === "texts" ? '{"ok":true}' : "");
+        },
+        browserFileChunk: () => Promise.resolve('{"ok":true}'),
+        browserFiles: () => Promise.resolve('{"ok":true}'),
+        browserChooser: () => Promise.resolve('{"ok":true}'),
+        browserSide() {},
+      };`);
+    const page = await context.newPage();
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    try {
+      await page.goto(`${pageUrl}#/browse`);
+      const toggle = page.locator(".browse-side-toggle");
+      await toggle.waitFor();
+      // 页面桥装上：报一次没选中（App 原样转过来）
+      const bridgeSays = (event: object) => page.evaluate(`window.__ergoBrowser(${JSON.stringify(JSON.stringify({ type: "page", json: JSON.stringify({ nonce: "n", ...event }) }))})`);
+      await bridgeSays({ type: "selected", field: null, page: { title: "示例", url: "https://example.cn/a" } });
+      const lastFab = async () => (await page.evaluate(`(() => { const t = window.__texts.at(-1); return t ? JSON.parse(t).fab : null; })()`)) as unknown;
+      expect(await lastFab()).toEqual({ corner: true, inset: 0 });
+      await toggle.click();
+      expect(await toggle.getAttribute("aria-pressed")).toBe("true");
+      expect(await lastFab()).toEqual({ corner: false, inset: 0 });
+      await toggle.click();
+      expect(await lastFab()).toEqual({ corner: true, inset: 0 });
+      expect(errors).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  }, 60_000);
+
 
   // 侧边栏模式那一页收到"浏览"页交来的外观（App 转的 window.__ergoSide），马上换风格、深浅色、主色；不写这一页的存储
   test("侧边栏模式：收到交来的外观马上换风格、深浅色、主色，不写存储", async () => {

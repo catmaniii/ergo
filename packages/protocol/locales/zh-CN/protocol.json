@@ -56,6 +56,8 @@
   "protocol.browsing.label.buttonSpoke": "在网页「{page}」的{where}上说",
   "protocol.browsing.label.sidebarPage": "在网页「{page}」上说",
   "protocol.browsing.label.sidebar": "在浏览侧边栏里说",
+  "protocol.browsing.label.cornerTyped": "在网页「{page}」上用悬浮按钮打字",
+  "protocol.browsing.label.cornerSpoke": "在网页「{page}」上用悬浮按钮说",
   "protocol.scheduledJobs.state.active": "运营中",
   "protocol.scheduledJobs.state.paused": "已暂停",
   "protocol.scheduledJobs.state.cancelled": "已取消",
