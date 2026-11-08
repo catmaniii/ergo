@@ -114,7 +114,7 @@ const rowsFor = (s, p) => [...(s.listeners?.get(p) || []), ...(s.suspect?.get(p)
  *  - 还是认不出：记进 reachable，交给 probeService / runningEvidence 降级处理（不猜 PID）。
  * 只连自己托管的端口，不去每 5 秒敲一遍别人的 RDP、SMB。netstat 正常时不会起 PowerShell。
  *
- * 缓存的行可能旧了（最多一两分钟），所以它的权限比这一轮 netstat 看到的小（mergeOwners）：
+ * 缓存的行可能旧了（通常一两分钟，查不了的时候最多 CIM_MAX_AGE_MS 五分钟），所以它的权限比这一轮 netstat 看到的小（mergeOwners）：
  * netstat 这一轮有行，owners 就只认 netstat，缓存的只用来多说一句「还有谁在听」，进不了强杀名单；
  * netstat 一行都没有才拿缓存认身份，且记进 cacheOwned，这一轮不判孤儿（判了冲突清理就会动手）。
  */
