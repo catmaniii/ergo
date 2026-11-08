@@ -3,7 +3,8 @@
 //   聊天页不加载高德的脚本），右下角"看大地图"；地图下面写概况（"待过 3 个地方 · 6 张照片"）和去过的几处（"家、公司、西湖边"）；
 // - 查地点、算路线的结果（432 高德、433 OpenStreetMap）：按编号现取，只在守护进程的内存里留一会儿，过期了写"过期了，再问一次"；
 //   写明数据来自哪家。OpenStreetMap 查来的和上面一样画缩略图；**高德查来的不画缩略图**（只能画在高德的地图上，amap-results.ts），
-//   只写查到的（几处的名字、走法）和"在高德地图上看"（点开的地图页只在底图是高德时画）；
+//   只写查到的（几处的名字、走法）和"在高德地图上看"（点开的地图页只在底图是高德时画）；445 起别家（谷歌……）查来的同样，
+//   写"在<那一家>上看"；
 // - 点开去哪：足迹卡去 #/more/map/<日期>（地图页看那一天），别的去 #/more/map/card/<卡片编号>（地图页画这张卡）。
 // 数据怎么来：足迹按日期现取（GET /api/map/day），查到的按编号现取（GET /api/map/drawing），点和路线就在卡上（card-scene.ts 整理）。
 import { useEffect, useMemo, useState } from "react";
@@ -14,7 +15,8 @@ import { CARD_TYPE_LABEL } from "../../model/cards.ts";
 import { type MapCardPayload, type MapCardShow, mapCardPath, mapCardTitle, t } from "../../state/index.ts";
 import type { CardProps } from "../../ui/cards/CardShell.tsx";
 import { Icon } from "../../ui/icons.tsx";
-import { amapOnlyShow } from "./amap-results.ts";
+import { usePlugins } from "../api.ts";
+import { AMAP_RESULT_SOURCE, ownBasemapShow } from "./amap-results.ts";
 import { dayContent, drawingContent, type MapCardData, shownContent } from "./card-scene.ts";
 import { MapThumb } from "./MapThumb.tsx";
 import { MAP_PAGE } from "./route.ts";
@@ -49,13 +51,17 @@ export function mapCardHref(cardId: string, show: MapCardShow): string {
 export function MapCard({ state, payload }: CardProps<MapCardPayload>) {
   const { http } = useStore();
   const data = useMapCardData(http, payload.show) ?? { state: "loading" };
-  return <MapCardView cardId={state.card.id} payload={payload} data={data} />;
+  // 只能画在某一家的地图上的：那一家的名字（地图服务插槽里登记的底图，445）
+  const own = ownBasemapShow(payload.show);
+  const ownName = usePlugins().get("mapBasemaps", own ?? "")?.title;
+  return <MapCardView cardId={state.card.id} payload={payload} data={data} ownName={ownName} />;
 }
 
-export function MapCardView({ cardId, payload, data }: { cardId: string; payload: MapCardPayload; data: MapCardData }) {
+export function MapCardView({ cardId, payload, data, ownName }: { cardId: string; payload: MapCardPayload; data: MapCardData; ownName?: string | undefined }) {
   const title = mapCardTitle(payload);
   const href = mapCardHref(cardId, payload.show);
-  const amapOnly = amapOnlyShow(payload.show);
+  const own = ownBasemapShow(payload.show);
+  const amapOnly = own !== undefined;
   const content = data.state === "ready" ? data.content : undefined;
   const note = data.state === "loading" ? t("ui.plugins.map.card.loading") : data.state === "ready" ? undefined : data.text;
   return (
@@ -91,7 +97,7 @@ export function MapCardView({ cardId, payload, data }: { cardId: string; payload
         {amapOnly && content && (
           <a className="map-card-go" href={href}>
             <Icon name="map" />
-            {t("ui.plugins.map.card.openAmap")}
+            {own === AMAP_RESULT_SOURCE ? t("ui.plugins.map.card.openAmap") : t("ui.plugins.map.card.openOwn", { name: ownName ?? own })}
           </a>
         )}
       </div>

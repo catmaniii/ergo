@@ -5,7 +5,10 @@
 // - 我的足迹（430，DayFootprints.tsx）：标题栏里选日期的那一组（442 追加：和"地图"、"足迹"开关一行，不再单独一条；窄的时候写短的），
 //   地图上画那一天的轨迹、停留、照片、常去的地方，点停留点看详情；地址里可以带日期（#/more/map/<YYYY-MM-DD>）。
 // - 聊天里的地图卡片点开（431，#/more/map/card/<卡片编号>）：从手里的卡片状态取出这张卡，画它的点、线（和卡片同一份 card-scene.ts），
-//   视野挪到看全它；标题栏下面一条写卡片的标题和概况，"×"回到足迹。看卡片时不画足迹。高德查来的只在底图是高德时画（amap-results.ts）。
+//   视野挪到看全它；标题栏下面一条写卡片的标题和概况，"×"回到足迹。看卡片时不画足迹。高德（445 起别家）查来的只在底图是那一家时画
+//   （amap-results.ts）。
+// - 地图切换（445，MapSwitch.tsx）：标题栏右边那一格（.map-bar-tools）的最前面，"地图：自动 / 高德 / OpenStreetMap……"，宽的时候一个下拉、窄的时候收进 ⋮；
+//   按区域记在这台设备上，地图那块（MapCanvas）照它挑底图、报回现在的样子。
 // - 回到我现在的位置（442，LocateControl.tsx）：地图右下角一个按钮，两种底图都有；定到的蓝点、精度圈压在最上面。
 //   位置不存：记"上次看哪里"时跳过定位挪过去的那一下。
 // - 地图页的二狗（444）：标题栏最右边一个二狗按钮开合右边的聊天窗（MapChat.tsx，秘书本人，和浏览侧边栏同一个东西）——地图页够宽（≥ 600）时
@@ -42,6 +45,7 @@ import { pageMapChatWidth, pageMapLayout } from "./map-layout.ts";
 import { MapTalk } from "./map-talk.ts";
 import { withHere } from "./locate.ts";
 import { useMapCardData } from "./MapCard.tsx";
+import { MapSwitch, useBasemapSwitch } from "./MapSwitch.tsx";
 import { MapCanvas } from "./MapView.tsx";
 import { DEFAULT_VIEW, EMPTY_SCENE, type MapScene, type MapView, parseSavedView, viewToFit } from "./scene.ts";
 import { demoMapPlaces } from "../../prototype/fake-map.ts";
@@ -155,6 +159,8 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
 
   // 我的足迹：取到一天就把视野挪到看得全它（宽的时候让开左边那一栏，右边给点旁边的字留地方），点了列表里的一行挪过去
   const fp = useFootprints(http, item);
+  // 地图切换（445）：这台设备按区域记的手动选择、地图那块报回来的样子
+  const basemapSwitch = useBasemapSwitch();
   const pageRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const pageWidth = useWidth(pageRef);
@@ -203,7 +209,7 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
     const panel = el && el.clientWidth >= FOOTPRINT_WIDE_MIN && panelOpen.current ? FOOTPRINT_PANEL_W : 0;
     setJump({ view: shiftViewRight({ lat: fp.focus.lat, lon: fp.focus.lon, zoom: fp.focus.zoom ?? viewNow.current.zoom }, panel / 2) });
   }, [fp.focus]);
-  // 看卡片时画卡片（高德查来的另交给 amapScene：只在底图是高德时画），不画足迹
+  // 看卡片时画卡片（高德、别家查来的另交给 ownScene：只在底图是那一家时画），不画足迹
   const showCard = cardId !== undefined;
   // "回到我现在的位置"（442）：挪过去时宽的、左边列着这一天时让开那一栏；挪过去的那一下不记成"上次看哪里"（位置不存）
   const panelShown = !showCard && fp.shown && fp.day !== undefined && !fp.day.empty && layoutView.panel === "open";
@@ -232,7 +238,7 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
       ),
     [base, showCard, cardContent, fp.shown, fp.day, here.scene],
   );
-  const amapScene = cardContent?.amapOnly ? cardContent.scene : undefined;
+  const ownScene = cardContent?.ownBasemap === undefined ? undefined : { source: cardContent.ownBasemap, scene: cardContent.scene };
   // "足迹"开着就当画着足迹（还没取到、这一天空着也算）：底图一律 OpenStreetMap，也不为它加载高德的脚本（scene.ts 的 AMAP_WITH_FOOTPRINTS）；
   // 看的是足迹卡也一样（按卡上写的认，不等取到）
   const footprintsDrawn = showCard ? cardPayload?.show.kind === "day" : fp.shown;
@@ -270,7 +276,7 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
   const chat = chatOpen && <MapChat watching={watching} context={mapContext} cover={!split} onClose={() => layout.setChatOpen(false)} />;
   return (
     <div className="chat-col map-page" ref={pageRef} data-chat={chatOpen ? (split ? "split" : "cover") : undefined}>
-      {/* 一行（442、444）：返回、"地图"、选日期的那一组（"足迹"开着时）或看着的卡片、最右边"足迹"开关和二狗按钮 */}
+      {/* 一行（442、444、445）：返回、"地图"、选日期的那一组（"足迹"开着时）或看着的卡片、最右边地图切换、"足迹"开关和二狗按钮 */}
       <TopBar title={t("ui.plugins.map.title")} onBack={onBack}>
         {!showCard && fp.shown && (
           <FootprintBar
@@ -295,8 +301,9 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
             </button>
           </div>
         )}
-        {/* 标题栏最右边的开关："足迹"、右边聊天窗的开合（444） */}
+        {/* 标题栏最右边那一格：地图切换（445）、"足迹"、右边聊天窗的开合（444，二狗按钮在最右，和"浏览"顶栏一致） */}
         <div className="map-bar-tools">
+          <MapSwitch sw={basemapSwitch} compact={barCompact} footprints={footprintsDrawn} />
           {!showCard && <FootprintToggle fp={fp} compact={barCompact} />}
           <MapChatToggle open={chatOpen} onToggle={toggleChat} />
         </div>
@@ -316,7 +323,8 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
             config={config}
             scene={scene}
             footprints={footprintsDrawn}
-            amapScene={amapScene}
+            ownScene={ownScene}
+            switcher={basemapSwitch}
             initial={initial}
             jump={jump}
             onView={(v) => {

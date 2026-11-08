@@ -48,6 +48,8 @@
   "map.lookup.here": "Current location",
   "map.lookup.source.amap": "AMap",
   "map.lookup.source.osm": "OpenStreetMap",
+  "map.provider.amap": "AMap",
+  "map.provider.osm": "OpenStreetMap",
   "map.lookup.drawing.search": "Search “{keyword}”",
   "map.lookup.drawing.near": "“{keyword}” near {place}",
   "map.lookup.drawing.nearAll": "Near {place}",

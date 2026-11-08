@@ -19,7 +19,9 @@
 .map-body > .map-stage {
   flex: 1 1 auto;
   min-width: 0;
-  /* 地图里的层（瓦片、点、按钮）自成一层：中间的分隔条压进地图那几像素时在它们上面 */
+  /* 地图里的层（瓦片、点、按钮、署名、提示，z-index 200 上下；二狗按钮 260、气泡 270）自成一层，只在这一块里比：
+     中间的分隔条压进地图那几像素时在它们上面，地图切换的底部弹层（445，.modal-mask，挂在 body 上）、
+     窄屏整屏盖住的聊天窗（.map-chat-cover，z-index 400，在 .map-body 外面）都盖得住它们 */
   isolation: isolate;
 }
 

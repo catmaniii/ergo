@@ -13,6 +13,7 @@ export type {
   ChatItemSlot,
   DataSourceSlot,
   DetailSlot,
+  MapBasemapSlot,
   PageColumnProps,
   PageSectionProps,
   PageSlot,
@@ -24,3 +25,5 @@ export type {
   TabSlot,
 } from "./slots.ts";
 export { usePlugins, useRouteAvailable } from "./react.tsx";
+// 地图服务的底图（445）要照着写的引擎外形
+export type { MapCircle, MapEngine, MapEngineEvents, MapEngineFactory, MapEngineOptions, MapLine, MapMark, MapScene, MapView } from "../model/map.ts";

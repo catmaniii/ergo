@@ -10,6 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { type AmapUsageView, localDate } from "@ergo/protocol";
 import { writeFileAtomic } from "../util/atomic-file.ts";
+import type { MapUsageFinding, MapUsageMessage } from "./api.ts";
 
 /** 两类：搜地点、地址和路线 */
 export type AmapUsageKind = "search" | "lbs";
@@ -92,18 +93,10 @@ export function openAmapUsage(options: { file: string; now: () => number; log: (
 export const amapUsageFile = (mapDir: string) => path.join(mapDir, AMAP_USAGE_FILE);
 
 /** 一句话：文案键 + 参数（和体检的 DoctorMessage 一样） */
-export interface UsageMessage {
-  key: string;
-  params?: Readonly<Record<string, string | number>>;
-}
+export type UsageMessage = MapUsageMessage;
 
-/** 体检里"高德的用量"那一项（和 409 的 DoctorFinding 同形：五种结果之一、事实、怎么修、动作） */
-export interface AmapUsageFinding {
-  level: "ok" | "warn" | "error" | "na";
-  fact: UsageMessage;
-  fix?: UsageMessage;
-  action?: { kind: "open"; route: string };
-}
+/** 体检里"高德的用量"那一项（和 409 的 DoctorFinding 同形：五种结果之一、事实、怎么修、动作；445 起是插槽的 MapUsageFinding） */
+export type AmapUsageFinding = MapUsageFinding;
 
 /** 设置 · 数据源 · 高德地图的地址（体检的"去看看"） */
 const AMAP_SOURCE_ROUTE = "#/more/data-sources/amap";

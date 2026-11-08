@@ -390,6 +390,7 @@ export const notesWebPlugin: WebPluginDefinition = {
   | `calendar` | 日历的图例、格子里的小标、一天的一节 | 提醒 |
   | `composerVoice` / `background` | 输入框的语音模式 / 整页挂一份的后台部件 | 语音 |
   | `dataSources` | 设置 · 数据源里一个数据源下面的设置（填 Key、地址，测试连接；或者手机 App 里的按钮），键是数据源 id | 手机（"从手机通讯录挑人""连上手机日历"）、Google（Google · 日历：填私密地址） |
+  | `mapBasemaps` | 地图页的一种底图（地图服务插槽的网页一半，键是地图服务的编号）：`title`、`prepare(key)` 加载脚本、交回建引擎的函数；停用时撤掉，地图页退回下一家 | 地图插件自带的高德、OpenStreetMap（`packages/web/src/plugins/map/basemaps.ts`） |
 
 - 给人看的字走 `t()`、写成取值函数（`get title() { return t("ui.plugins.notes.title"); }`）；只 import `plugins/api.ts`、`state/index.ts` 和核心的模块。
 - 核心里去它那一页的链接用 `useRouteAvailable` 判断（插件停用时不出）。
@@ -417,6 +418,41 @@ export const notesWebPlugin: WebPluginDefinition = {
 - **内核取插件的东西也走服务**：`plugins.service(KEY)` 现取（插件没在运行是 `undefined`），替插件接前端请求时用 `plugins.active(KEY)`（没在运行抛 `not_allowed`"X插件没启用"）。
 - **不互相 import 内部**：守护进程里，插件目录之外（内核、别的插件）只 import 它的 `api.ts`，例外只有插件清单列它（还有写明的个别几处）。每个插件一条边界测试照抄日历的 `packages/daemon/test/calendar/boundary.test.ts`：组合根里不出现它、目录之外只 import `api.ts`。网页里：插件只 import `plugins/api.ts`、状态层的 `state/index.ts` 和核心的模块（`app/`、`ui/`、`model/`、`util/`……），不 import 别的插件和清单，核心不 import 插件——`packages/web/test/plugins/boundary.test.ts` 扫 import 检查，加插件时把它的目录加进那条测试的列表。
 - 两个插件要共享的东西放内核或者放提供方的 `api.ts`（纯函数也行：记忆读存进素材的网页只用浏览插件 `api.ts` 里的 `savedPageOf`，不用 `wants`）。
+
+### 插件开的插槽：接一家地图（445）
+
+一个插件能把自己的一部分做成**插槽**，让别的插件往里登记：它提供一个"登记表"服务（`register` 交回撤销函数），别的插件 `needs` 它、在 `setup` 里登记，撤销函数交给 `ctx.effect`——停用、移除时宿主替它撤掉，提供方自动退回下一家；提供方停了，登记了的插件跟着停（`needs`，记成停用了，要再启用它）。地图插件的"地图服务"插槽（`packages/daemon/src/map/api.ts` 的 `MAP_PROVIDERS`、`MapProvider`）是这样的：
+
+<!-- 摘自 packages/daemon/test/helpers/fake-map-provider.ts -->
+```ts
+  const provider: MapProvider = {
+    id: FAKE_WORLD_MAP,
+    title: "假世界地图",
+    regions: ["abroad"],
+    manualRegions: ["abroad", "mainland"],
+    priority: 50,
+    ownBasemapOnly: true,
+    basemap: () => (state.basemap ? { ready: true, key: FAKE_WORLD_MAP_BROWSER_KEY } : { ready: false }),
+    lookup: () => (state.lookup ? { ready: true, provider: lookup } : { ready: false, why: "没填查询用的 Key" }),
+    // …
+  };
+  const plugin: PluginDefinition = {
+    name: FAKE_WORLD_MAP_PLUGIN,
+    title: "假世界地图",
+    needs: [MAP_PROVIDERS],
+    setup(ctx) {
+      const slot = ctx.use(MAP_PROVIDERS);
+      ctx.effect(() => slot.register(provider));
+    },
+  };
+```
+
+- **管哪儿、谁先**：`regions` 是选"自动"时管的区域（`mainland` 中国大陆、`abroad` 大陆以外，按点在不在大陆分），`priority` 是同一个区域里的先后（数大的先：高德 100、OpenStreetMap 0，谷歌写 50 就是"大陆外、高于 OpenStreetMap"）；`manualRegions` 是用户在地图页的地图切换里手动选它时还能用的区域（谷歌在大陆也能手动选，它自己转 GCJ-02；高德大陆外不列）。
+- **底图**（`basemap()`）：此刻能不能用、页面加载它的脚本要的浏览器用的 Key（会进页面，只放本来就在页面上的那一种）、Key 不对的那一句。网页那一半在网页插槽 `mapBasemaps` 登记同一个编号（`MapBasemapSlot`：`title`、`prepare(key)` 加载脚本、交回建引擎的函数，引擎照 `packages/web/src/model/map.ts` 的 `MapEngine` 写，坐标一律 WGS-84 进出、要转的自己转）。
+- **查询**（`lookup()`）：能查交回 `LookupProvider`（查地点、周边、地址 ↔ 位置、路线，结果统一成 432/433 的形状，坐标 WGS-84 进出，出错抛 `MapLookupError`，都从 `map/api.ts` 拿），查不了交回给模型的一句原因。秘书的查地点、算路线工具按"自动"挑；工具的 `map` 参数是用户地图上现在用的那家，先问它，查不了时退回同区域下一家、回答里说一句。
+- **规矩**：`ownBasemapOnly` 的（高德、谷歌）查来的只画在它自己的底图上；用户自己的足迹一律 OpenStreetMap，不加载商业地图的脚本（地图页管，插件不用管）。
+- **用量**（`usage`）：每月离免费量多远（照 432 的高德用量：八成注意、到了坏了），地图插件替它在体检的"地图"那一块登记一项"<编号>-usage"。
+- **测**：`packages/daemon/test/helpers/fake-map-provider.ts` 是一个只给测试的假"第三家"，`packages/daemon/test/map/providers.test.ts`（假内核：接进来、跟着地图走、停用退回）、`packages/daemon/test/main/map-providers.test.ts`（主切面）、`packages/web/test/plugins/map-providers.test.ts`（网页那一半）照着写。
 
 ## 7. 数据契约
 
@@ -947,6 +983,10 @@ export const remindersPlugin: PluginDefinition = {
 | `KERNEL.dataSourceUsage`、`DataSourceUsageSwitch` | `packages/daemon/src/plugins/kernel.ts` | 数据源的按需查、导入现在开没开（工具由插件自己给的数据源调用时看开关：地图插件的高德；内核服务） |
 | `PullableSync` | `packages/daemon/src/data-sources/service.ts` | 整理之前同步时一个数据源的那一次：开始了（同步的结果）、刚同步过、连接出错没同步 |
 | `fakeDataSourcePlugin` | `packages/daemon/test/helpers/fake-data-source.ts` | 测试用的假数据源插件 |
+| `MAP_PROVIDERS`、`MapProvider`、`MapProviders`、`LookupProvider`、`MapLookupError` | `packages/daemon/src/map/api.ts` | 地图服务插槽：登记一家地图（管哪儿、优先级、底图、查询、用量）；查询的统一外形和出错 |
+| `MapBasemapSlot` | `packages/web/src/plugins/slots.ts` | 地图服务插槽的网页一半：地图页的一种底图 |
+| `MapEngine`、`MapEngineFactory`、`MapScene` | `packages/web/src/model/map.ts` | 画地图的那一层、建引擎的函数、地图上画什么 |
+| `fakeWorldMapPlugin` | `packages/daemon/test/helpers/fake-map-provider.ts` | 测试用的假"第三家"地图服务插件 |
 | `DataSourceSchedule`、`DataSourceItem` | `packages/daemon/src/data-sources/api.ts` | 定期导入的时间（提醒那一套或每隔几分钟）、数据源下面的一样 |
 | `IntervalSchedule`、`JobSchedule` | `packages/daemon/src/scheduler/internal-jobs.ts` | 内部作业的"每隔几分钟"、内部作业的时间表 |
 | `createGooglePlugin`、`googlePlugin` | `packages/daemon/src/google/plugin.ts` | Google 插件（第一个真的数据源插件） |

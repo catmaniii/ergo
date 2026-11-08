@@ -9,7 +9,7 @@ After this chapter you'll know where the map page is, how to talk to ergo on the
 **Where:** **Map** in the navigation. On a phone, it's under **More** when there's no room.
 
 - Drag to move, pinch (scroll wheel on a computer) to zoom, double-tap to zoom in one level; the buttons at the top right zoom in and out too.
-- The title bar is a single line: **Map**, the day picker (while **Footprints** is on), and at the right end the **Footprints** switch and the ergo button, so you see as much map as possible.
+- The title bar is a single line: **Map**, the day picker (while **Footprints** is on), and at the right end the map picker (**Map: Automatic**, ⋮ on a phone), the **Footprints** switch and the ergo button, so you see as much map as possible.
 - **Show my location**: the crosshair button at the bottom right, above the ergo button (on both AMap and OpenStreetMap). Tap it and the map moves to where you are now, zooms in to street level and draws a dot; when it knows how accurate the fix is, a faint circle goes around the dot (you're somewhere inside it). Tap it again within a minute to go straight back there. Where the location comes from:
   - in the ergo app on a HarmonyOS phone, the app's own location (it asks for location permission the first time);
   - in a browser (`http://127.0.0.1:8810` on the computer, or an https address), the browser's location; the browser asks whether to allow it;
@@ -18,7 +18,8 @@ After this chapter you'll know where the map page is, how to talk to ergo on the
   - If you're outside mainland China, the map switches to OpenStreetMap.
 - The top left says which map is in use: **AMap** or **OpenStreetMap**.
 - When you stop moving, ergo picks: inside mainland China with an AMap key, AMap; abroad, and in Hong Kong, Macau and Taiwan, OpenStreetMap.
-- **Footprints are always shown on OpenStreetMap**: while **Footprints** at the right end of the title bar is on, the map inside China is OpenStreetMap too and AMap's map program isn't loaded (see "What map services can see" below); turn **Footprints** off and it switches back to AMap inside China. **Footprints** is off by default, so inside China the map opens on AMap.
+- **Choose the map yourself**: **Map: Automatic**, first in the group at the right of the title bar (under ⋮ on a phone). It lists the maps you can use for the side you're looking at (inside or outside mainland China): **Automatic**, plus every map whose key is entered and working — inside China that's AMap and OpenStreetMap, outside it's only OpenStreetMap for now (AMap isn't offered abroad; a map plugin you install later, such as Google Maps, shows up here too). Your pick sticks and is remembered on this device, **separately for inside and outside mainland China**; pick **Automatic** again to go back to the rules above. If the map you picked stops working (its key broke, its plugin was turned off, or this device can't reach it), the map goes back to Automatic and says "… isn't available right now, so the map is back to Automatic". A map this device can't reach is marked **Can't connect** in the list. Footprints are still always on OpenStreetMap, whatever you picked.
+- **Footprints are always shown on OpenStreetMap**: while **Footprints** at the right of the title bar is on, the map inside China is OpenStreetMap too and AMap's map program isn't loaded (see "What map services can see" below); turn **Footprints** off and it switches back to AMap inside China. **Footprints** is off by default, so inside China the map opens on AMap.
 - Next time it opens where you last looked (remembered in this device's browser).
 - With OpenStreetMap, the bottom right says "© OpenStreetMap contributors"; AMap prints its own logo and map approval number in a corner.
 - With the dark appearance, the map is dark too.
@@ -35,7 +36,7 @@ ergo on the map page is the same ergo as always: the same conversation as the **
 
 Once the ergo app on your phone records your location (Settings · Data sources · **Phone · Location**; tap **Start recording location** in the app) and is connected to your photo album, the map page can draw a day's footprints.
 
-- **Turn it on**: **Footprints** at the right end of the title bar (a pin icon on a phone) is off by default. Tap it and the day is drawn, the map moves to show all of it, and the day picker appears in the title bar. Tap again to turn it off (remembered in this device's browser).
+- **Turn it on**: **Footprints** at the right of the title bar (a pin icon on a phone) is off by default. Tap it and the day is drawn, the map moves to show all of it, and the day picker appears in the title bar. Tap again to turn it off (remembered in this device's browser).
 - **Pick a day**: in the title bar, right after **Map**. The arrows go to the previous and next day; tap the date in the middle to pick one; after it comes a summary of the day ("Stayed at 3 places · 6 photos"). On a phone, where the whole line doesn't fit, the date reads "11/07", the summary "3 places · 6 photos", and **Footprints** is just a pin icon. The map opens on today; if today has no footprints yet it jumps to the latest day that has some. On a day with nothing it says **No footprints on this day**, and the button next to it goes to the latest earlier day with footprints.
 - **What's drawn**:
   - A line: your locations that day, joined in time order. The part where you stayed in one place shrinks to a single point instead of a tangle, and the line breaks where nothing was recorded for an hour and a half or more, instead of drawing a straight line across the gap;
@@ -90,7 +91,7 @@ Just ask ergo:
 - "Any coffee shops nearby?", "What's to eat near the office?", "Hawker centres nearby?": names, addresses and distances, nearest first;
 - "Where's Xixi Wetland?", "How do I get to Xixi Wetland?", "Where am I now?"
 
-**Who looks it up:** ergo picks by place; you don't have to.
+**Who looks it up:** ergo picks by place; you don't have to. If you picked a map yourself (**Map: …**) and ergo knows which map you're looking at, it asks that one first (places and routes it finds can only be drawn on that provider's own map); if that one can't look things up (say, its lookup key isn't entered), ergo uses the next one for that side and says so in the answer. When ergo doesn't know which map you picked (you asked by voice, or the map page isn't open), it picks by the rules below.
 
 - **Inside mainland China**: with the **Web service key** in, AMap — driving with live traffic, plus bus and subway transfers and fares.
 - **Abroad** (places like Singapore, and Hong Kong, Macau and Taiwan): OpenStreetMap's free services, no key needed. **No transit and no live traffic**: driving times are estimated from road speed limits, and ergo gives driving and walking; for nearby places say what you're looking for ("coffee shop", "hawker centre") — it can't list everything nearby.

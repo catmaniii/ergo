@@ -226,6 +226,11 @@ describe("插件登记的", () => {
     expect({ order: page.order, icon: page.icon, navLabel: page.navLabel, title: page.title, column: typeof page.Column }).toEqual({ order: 85, icon: "map", navLabel: "地图", title: "地图", column: "function" });
     expect(navItemsFor({ browse: false, plugins: host.list("pages") }).slice(-3)).toEqual(["memory", "map", "settings"]);
     expect(host.ownerOf("cards", "map")?.name).toBe("map");
-    expect(mapWebPlugin.owns).toEqual({ pages: ["map"], dataSources: ["amap"], cards: ["map"] });
+    // 445：自带的两种底图照"地图服务"插槽登记（mapBasemaps）
+    expect(mapWebPlugin.owns).toEqual({ pages: ["map"], dataSources: ["amap"], cards: ["map"], mapBasemaps: ["amap", "osm"] });
+    expect(host.list("mapBasemaps").map((b) => [b.id, b.title])).toEqual([
+      ["amap", "高德地图"],
+      ["osm", "OpenStreetMap"],
+    ]);
   });
 });

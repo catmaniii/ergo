@@ -504,7 +504,9 @@ Gmail 可以连几个账号（`google/gmail-accounts.ts`）。密钥区 `secrets
 
 查地点、算路线（[ADR-0053](adr/0053-map-lookup-on-demand.md)、[ADR-0055](adr/0055-map-lookup-osm-abroad.md)）：五个工具由地图插件自己经 `ctx.agent.tools.register` 给秘书，插件在运行就有（`map/lookup-tools.ts`：`map_search_places`、`map_route`、`map_geocode`、`map_reverse_geocode` 联网、只往下拉，`map_my_places` 不联网）。工具只认 `map/lookup.ts` 的 `LookupProvider`，`map/service.ts` 每次现给能用的几家：高德（`map/amap-lookup.ts`，只管大陆）能用时排在前面，OpenStreetMap（`map/osm-lookup.ts`：Nominatim 查地点、OSRM 算路线，哪儿都管）一直在——有高德时国内走高德、国外走 OpenStreetMap，没有高德时国内也走 OpenStreetMap。`amap` 的按需查开关还在（`usages.query.ownTools`：内核不替它给工具），插件经内核服务 `KERNEL.dataSourceUsage` 现看。OpenStreetMap 的规矩在 `map/osm-client.ts`：每家一队、两次之间至少 1.1 秒、带二狗的 User-Agent、成功的结果在内存里缓存一天；"家""公司"取手机插件的常去的地方、"附近"取手机最近一个位置点（`wants: [PHONE]`，`namedPlaces`、`latestPoint`），坐标不写进给模型的结果。查到的不落盘、不进素材；能画的那一份只在内存里留两小时（`map/lookup-results.ts`，编号写进工具结果）。每月的用量记在插件自己的存储 `map/amap-usage.json`（只有次数），体检项"高德的用量"经 409 的 `ctx.doctor` 登记（`map/doctor.ts`）。`defineHostTool` 能写 `network`、`pullOnly`，联网开关照登记走。
 
-聊天里的地图卡片（[ADR-0054](adr/0054-map-chat-cards.md)）：秘书的 `show_on_map`（`map/show-on-map.ts`，只给秘书）把某一天的足迹、一组点、一条路线、查地点和路线的结果画成卡片类型 `map`（`map/card.ts`，出来就是已处理）。卡上只存日期、编号或秘书给的点；查到的那一份按编号经 `GET /api/map/drawing?lookup=`（服务 `MAP_DRAWING`，`map/drawing.ts`）从地图插件的内存里取，过期了 404。网页的缩略图（`plugins/map/MapThumb.tsx`）用地图页那一套 OpenStreetMap 引擎自己画，聊天页不加载高德的脚本；底图一律经 `scene.ts` 的 `chooseBasemap` 挑，画着足迹时一律 OpenStreetMap（`AMAP_WITH_FOOTPRINTS`）。高德查来的只画在高德地图上（`plugins/map/amap-results.ts`：卡上不画缩略图，地图页经 `MapCanvas` 的 `amapScene` 只在底图是高德时画）。卡片点开去 `#/more/map/<日期>` 或 `#/more/map/card/<卡片编号>`。
+聊天里的地图卡片（[ADR-0054](adr/0054-map-chat-cards.md)）：秘书的 `show_on_map`（`map/show-on-map.ts`，只给秘书）把某一天的足迹、一组点、一条路线、查地点和路线的结果画成卡片类型 `map`（`map/card.ts`，出来就是已处理）。卡上只存日期、编号或秘书给的点；查到的那一份按编号经 `GET /api/map/drawing?lookup=`（服务 `MAP_DRAWING`，`map/drawing.ts`）从地图插件的内存里取，过期了 404。网页的缩略图（`plugins/map/MapThumb.tsx`）用地图页那一套 OpenStreetMap 引擎自己画，聊天页不加载高德的脚本；底图一律经 `scene.ts` 的 `chooseBasemap` 挑，画着足迹时一律 OpenStreetMap（`AMAP_WITH_FOOTPRINTS`）。高德（和别家）查来的只画在它自己的地图上（`plugins/map/amap-results.ts`：卡上不画缩略图，地图页经 `MapCanvas` 的 `ownScene` 只在底图是那一家时画）。卡片点开去 `#/more/map/<日期>` 或 `#/more/map/card/<卡片编号>`。
+
+地图服务插槽（445，[ADR-0056](adr/0056-map-provider-slot.md)）：地图插件把"一家地图服务"做成插槽，别的插件（446 的谷歌地图）能登记一家。守护进程一半是服务 `MAP_PROVIDERS`（`map/api.ts` 的 `MapProvider`：`regions` 选"自动"时管的区域——`mainland` 中国大陆、`abroad` 大陆以外；`manualRegions` 手动选它时能用的区域；`priority` 同一区域里的先后；`ownBasemapOnly`；`basemap()` 底图此刻能不能用、浏览器用的 Key；`lookup()` 能查交回 `LookupProvider`、不能查交回原因；`usage` 每月用量），别的插件 `needs` 它、在 `setup` 里经 `ctx.effect` 登记，停用、移除时撤掉、退回下一家；登记表在 `map/providers.ts`。高德（大陆、100）、OpenStreetMap（哪儿都管、0）是地图插件自己登记的两家，"自动"时的挑法和原来一样。`GET /api/map/config` 多了 `providers`（组合根把 `providerViews()` 拼进 `config()` 的结果）。秘书的四个查询工具多了可选参数 `map`（用户地图上现在用的那家）：先问它，查不了、管不了时按"自动"挑并在回答里说一句；拿不到（语音、没开地图页）就不写、按"自动"。每家写了 `usage` 的，地图插件替它在体检登记"<编号>-usage"。网页一半是插槽 `mapBasemaps`（`MapBasemapSlot`：`title`、`prepare(key)` 加载脚本、交回建引擎的函数；引擎和画什么的类型在核心 `packages/web/src/model/map.ts`），地图插件自带的两种在 `plugins/map/basemaps.ts`。挑法在 `plugins/map/providers.ts`："自动"是管这个区域、能用的里优先级最大的；地图切换（`plugins/map/MapSwitch.tsx`，标题栏的 `.map-bar-tools` 里）按区域记在这台设备上（`localStorage` 的 `ergo-map-choice`），记着的那家用不了退回"自动"并说一句；看足迹时一律 OpenStreetMap。
 
 ### 网页插件
 
@@ -521,6 +523,7 @@ Gmail 可以连几个账号（`google/gmail-accounts.ts`）。密钥区 `secrets
 | `composerVoice` | 输入框的语音模式 | 一律打字 |
 | `background` | 不画东西、只跑钩子（比如自动播放） | 不跑 |
 | `tabs` | 主导航里的页签（现在只有"浏览"） | 导航里没有这一项 |
+| `mapBasemaps` | 地图页的一种底图（地图服务插槽的网页一半，445） | 地图页退回下一家；手动选了它的退回"自动"并说一句 |
 
 插件在定义里写明它拥有哪些位置（`owns`），装配时登记的要和它一一对上；插件只 import `plugins/api.ts` 和核心，插件清单 `plugins/manifest.ts` 只由 `App.tsx` 引（`test/plugins/boundary.test.ts` 守着）。原型里地址带 `?demo-plugins-off=memory,reminders` 能看停用后的样子。
 
