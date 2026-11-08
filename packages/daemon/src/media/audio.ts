@@ -26,12 +26,30 @@ export function sniffAudio(head: Uint8Array): AudioInfo | undefined {
   if (ascii(head, 0, "RIFF") && ascii(head, 8, "WAVE")) return { mime: "audio/wav" };
   if (ascii(head, 0, "fLaC")) return { mime: "audio/flac" };
   if (ascii(head, 0, "ID3")) return { mime: "audio/mpeg" };
-  if (head[0] === 0xff && head[1] !== undefined) {
-    // ADTS 封装的 AAC（FF F1 / FF F9），MPEG 音频帧（FF E? / FF F? 里剩下的）
-    if ((head[1] & 0xf6) === 0xf0) return { mime: "audio/aac" };
-    if ((head[1] & 0xe0) === 0xe0) return { mime: "audio/mpeg" };
-  }
+  // 没有容器、直接是帧的 AAC（ADTS）和 MP3：同步字只有 11～12 位，随便一个二进制文件开头碰上的机会不小（约两百分之一），
+  // 所以整个帧头的各个字段都要是合法值才认，不然 .bin 之类的附件会被当成音频
+  if (adtsHeader(head)) return { mime: "audio/aac" };
+  if (mpegAudioHeader(head)) return { mime: "audio/mpeg" };
   return undefined;
+}
+
+/** ADTS 帧头（7 字节）：FF F1 / FF F9，采样率序号 0～12，帧长至少是帧头本身那么长 */
+function adtsHeader(head: Uint8Array): boolean {
+  if (head.length < 7 || head[0] !== 0xff || (head[1]! & 0xf6) !== 0xf0) return false;
+  const sampleRateIndex = (head[2]! >> 2) & 0x0f;
+  const frameLength = ((head[3]! & 0x03) << 11) | (head[4]! << 3) | (head[5]! >> 5);
+  return sampleRateIndex <= 12 && frameLength >= 7;
+}
+
+/** MPEG 音频帧头（4 字节）：版本、层、码率、采样率、加重都不能是保留值或"不定码率" */
+function mpegAudioHeader(head: Uint8Array): boolean {
+  if (head.length < 4 || head[0] !== 0xff || (head[1]! & 0xe0) !== 0xe0) return false;
+  const version = (head[1]! >> 3) & 0x03;
+  const layer = (head[1]! >> 1) & 0x03;
+  const bitrateIndex = head[2]! >> 4;
+  const sampleRateIndex = (head[2]! >> 2) & 0x03;
+  const emphasis = head[3]! & 0x03;
+  return version !== 1 && layer !== 0 && bitrateIndex !== 0 && bitrateIndex !== 15 && sampleRateIndex !== 3 && emphasis !== 2;
 }
 
 /** 能装视频的容器认成的音频类型 → 当视频发时的类型 */

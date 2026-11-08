@@ -90,6 +90,7 @@ describe("媒体上传", () => {
   it("下载支持 Range：返回 206 和正确的字节段；超出范围回 416", async () => {
     const { url } = await startTestDaemon();
     const bytes = randomBytes(1_000);
+    bytes[0] = 0; // 随机字节开头碰上 FF F?、FF E? 时会被当成 AAC / MP3 认出来（这条测的是普通附件），开头钉死成 0
     const { mediaId } = await media.upload(url, bytes, { name: "段.bin", mime: "application/octet-stream" });
 
     const middle = await media.download(url, mediaId, { range: "bytes=100-199" });

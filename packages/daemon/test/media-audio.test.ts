@@ -13,9 +13,35 @@ describe("认音频", () => {
     ["FLAC", bytes("fLaC", [0, 0, 0, 0x22]), "audio/flac"],
     ["MP3（ID3 头）", bytes("ID3", [4, 0, 0]), "audio/mpeg"],
     ["MP3（帧头）", bytes([0xff, 0xfb, 0x90, 0x44]), "audio/mpeg"],
-    ["AAC（ADTS）", bytes([0xff, 0xf1, 0x50, 0x80]), "audio/aac"],
+    ["AAC（ADTS）", bytes([0xff, 0xf1, 0x50, 0x80, 0x02, 0x1f, 0xfc]), "audio/aac"],
   ])("%s", (_name, head, mime) => {
     expect(sniffAudio(head)).toEqual({ mime });
+  });
+
+  it("开头碰巧是 FF F?、FF E? 的二进制文件不当音频：帧头里有保留值、或者短得放不下帧头", () => {
+    // 采样率序号 15（保留）
+    expect(sniffAudio(bytes([0xff, 0xf1, 0x3c, 0x80, 0x02, 0x1f, 0xfc]))).toBeUndefined();
+    // 帧长 0
+    expect(sniffAudio(bytes([0xff, 0xf1, 0x50, 0x80, 0x00, 0x00, 0x00]))).toBeUndefined();
+    // MPEG：码率序号 15（不合法）、采样率序号 3（保留）、版本 01（保留）、层 00（保留）
+    expect(sniffAudio(bytes([0xff, 0xfb, 0xf0, 0x44]))).toBeUndefined();
+    expect(sniffAudio(bytes([0xff, 0xfb, 0x9c, 0x44]))).toBeUndefined();
+    expect(sniffAudio(bytes([0xff, 0xeb, 0x90, 0x44]))).toBeUndefined();
+    expect(sniffAudio(bytes([0xff, 0xf9, 0x50, 0x80, 0x02, 0x1f, 0xfc]))).toEqual({ mime: "audio/aac" }); // F9 是 MPEG-2 的 ADTS，照样认
+    expect(sniffAudio(bytes([0xff, 0xf1]))).toBeUndefined();
+  });
+
+  it("开头是 FF 的随机字节，认成音频的从约八分之一降到二十分之一以下", () => {
+    let seed = 20261108;
+    const next = () => (seed = (seed * 1103515245 + 12345) >>> 0) >>> 24;
+    let hits = 0;
+    for (let i = 0; i < 10_000; i++) {
+      const head = Uint8Array.from({ length: 12 }, () => next());
+      head[0] = 0xff; // 都挑最容易误认的：第一个字节就是 FF
+      if (sniffAudio(head)) hits++;
+    }
+    // 开头是 FF 的随机字节，以前约八分之一会被认成 AAC 或 MP3；现在要整个帧头合法
+    expect(hits).toBeLessThan(1_000);
   });
 
   it("不是音频的不认：图片、文字、空的", () => {
