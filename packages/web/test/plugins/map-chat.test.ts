@@ -255,31 +255,35 @@ describe("二狗按钮在哪", () => {
   });
 });
 
-describe("左边那一栏收起、关掉；手机上的抽屉", () => {
-  const today = localDate(new Date());
-  const view = demoMapDay(shiftMapDate(today, -1));
-  const fp = (extra: Partial<Footprints> = {}): Footprints => ({
-    date: view.date,
-    today,
-    view,
-    day: footprintDay(view),
-    loading: false,
-    error: undefined,
-    shown: true,
-    selected: undefined,
-    fit: undefined,
-    focus: undefined,
-    pick: () => {},
-    toggle: () => {},
-    select: () => {},
-    jumpTo: () => {},
-    markClick: () => false,
-    ...extra,
-  });
-  const navigate = () => {};
-  const panel = (props: Partial<Parameters<typeof FootprintPanel>[0]>) =>
-    renderToStaticMarkup(createElement(FootprintPanel, { fp: fp(), wide: true, listOpen: false, onCloseList: () => {}, navigate, onPanel: () => {}, onDrawer: () => {}, ...props }));
+/** 原型的假足迹（昨天）当成这一天 */
+const today = localDate(new Date());
+const view = demoMapDay(shiftMapDate(today, -1));
+const fp = (extra: Partial<Footprints> = {}): Footprints => ({
+  date: view.date,
+  today,
+  view,
+  day: footprintDay(view),
+  loading: false,
+  error: undefined,
+  shown: true,
+  selected: undefined,
+  fit: undefined,
+  focus: undefined,
+  pick: () => {},
+  toggle: () => {},
+  select: () => {},
+  jumpTo: () => {},
+  markClick: () => false,
+  ...extra,
+});
+const navigate = () => {};
+/** 左边那一栏画成什么（默认宽的、开着） */
+const panel = (props: Partial<Parameters<typeof FootprintPanel>[0]>) =>
+  renderToStaticMarkup(createElement(FootprintPanel, { fp: fp(), wide: true, listOpen: false, onCloseList: () => {}, navigate, onPanel: () => {}, onDrawer: () => {}, ...props }));
+/** 标题栏上选日期那一组（宽的时候） */
+const wideBar = (listInWide: boolean) => renderToStaticMarkup(createElement(FootprintBar, { fp: fp(), wide: true, listOpen: !listInWide, onList: () => {}, listInWide, navigate }));
 
+describe("左边那一栏收起、关掉；手机上的抽屉", () => {
   test("宽的时候：开着有收起、关掉；收起后是左上角一个小按钮（写着这一天几条）；关掉什么都不画", () => {
     const open = panel({ panel: "open" });
     expect(open).toContain('class="map-day-panel"');
@@ -306,8 +310,7 @@ describe("左边那一栏收起、关掉；手机上的抽屉", () => {
   });
 
   test("宽的时候那一栏收着、关着：标题栏上的概况能点（打开它）；开着时不能点", () => {
-    const bar = (listInWide: boolean) => renderToStaticMarkup(createElement(FootprintBar, { fp: fp(), wide: true, listOpen: !listInWide, onList: () => {}, listInWide, navigate }));
-    expect(bar(true)).toMatch(/<button[^>]*class="map-day-summary"/);
-    expect(bar(false)).not.toMatch(/<button[^>]*class="map-day-summary"/);
+    expect(wideBar(true)).toMatch(/<button[^>]*class="map-day-summary"/);
+    expect(wideBar(false)).not.toMatch(/<button[^>]*class="map-day-summary"/);
   });
 });

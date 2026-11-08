@@ -337,6 +337,22 @@ async function titleBarOneLine(page: Page, width: number) {
   expect(Math.max(...inside.map(([r]) => r))).toBeLessThanOrEqual(width);
   expect(Math.max(...inside.map(([, b]) => b))).toBeLessThanOrEqual(bar.y + bar.height + 1);
 }
+// 地图的二狗按钮按住说话只依赖语音插件（444 追加）：浏览插件停用时照样能说（识别走内核的 /api/talk-voice，演示页里是假的识别）；
+// 语音插件停用时长按写一句"语音插件没启用"，点一下照样打字。麦克风是假的：getUserMedia 换成一个振荡器的声音
+const FAKE_MIC = [
+  `navigator.mediaDevices.getUserMedia = async () => {`,
+  `  const ctx = new AudioContext(); const osc = ctx.createOscillator(); const dest = ctx.createMediaStreamDestination();`,
+  `  osc.frequency.value = 440; osc.connect(dest); osc.start(); return dest.stream;`,
+  `};`,
+].join("\n");
+/** 按住二狗按钮 ms 毫秒再松开 */
+async function holdFab(page: Page, ms: number) {
+  const fab = (await boxOf(page, ".map-fab"))!;
+  await page.mouse.move(fab.x + fab.width / 2, fab.y + fab.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(ms);
+  await page.mouse.up();
+}
 const WEST_LAKE = { latitude: 30.2604, longitude: 120.1433, accuracy: 40 };
 const MARINA_BAY = { latitude: 1.2847, longitude: 103.8591, accuracy: 30 };
 
@@ -1067,9 +1083,9 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       const stage = (await boxOf(page, ".map-stage"))!;
       expect(Math.round(stage.x + stage.width - (fab.x + fab.width))).toBe(16);
       expect(fab.width).toBe(36);
-      const locate = (await boxOf(page, ".map-locate"))!;
-      expect(locate.y + locate.height).toBeLessThanOrEqual(fab.y);
-      expect(Math.abs(locate.x + locate.width / 2 - (fab.x + fab.width / 2))).toBeLessThan(2);
+      const locateBox = (await boxOf(page, ".map-locate"))!;
+      expect(locateBox.y + locateBox.height).toBeLessThanOrEqual(fab.y);
+      expect(Math.abs(locateBox.x + locateBox.width / 2 - (fab.x + fab.width / 2))).toBeLessThan(2);
       // 点一下：气泡里打字，发出去
       await page.locator(".map-fab").click();
       const bubble = page.locator(".map-talk");
@@ -1172,6 +1188,50 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }
     expect(outside).toEqual([]);
     expect(errors).toEqual([]);
+  }, 60_000);
+
+  // 地图的二狗按钮按住说话只依赖语音插件（444 追加）：假麦克风 FAKE_MIC、按住的帮手 holdFab 在文件上面
+  test("地图的二狗按钮：浏览插件停用、语音插件开着时按住说话照样认出来、发进对话（标着是说的）；语音插件停用时只能打字", async () => {
+    const on = await openMap({ width: 390, height: 844 }, { search: "?demo-plugins-off=browsing", init: FAKE_MIC });
+    try {
+      const { page } = on;
+      // 按住：先是在听（波形、秒数），松开送识别，认出来的字发出去，气泡里"在想"
+      const fab = (await boxOf(page, ".map-fab"))!;
+      await page.mouse.move(fab.x + fab.width / 2, fab.y + fab.height / 2);
+      await page.mouse.down();
+      await page.locator('.map-talk[data-kind="listening"]').waitFor({ timeout: 5000 });
+      expect(await page.locator(".map-talk-hint").innerText()).toBe("松开发送，上滑取消");
+      await page.waitForTimeout(900);
+      await page.mouse.up();
+      await expect.poll(() => page.locator(".map-talk-said").first().innerText().catch(() => ""), { timeout: 10_000 }).toBe("西湖边有什么好吃的");
+      expect(await page.locator(".map-talk-text[data-failed]").count()).toBe(0);
+      await page.locator('.map-talk button[aria-label="展开到右边"]').click();
+      const chat = page.locator(".map-chat-cover");
+      await chat.waitFor({ timeout: 5000 });
+      await expect.poll(() => chat.innerText(), { timeout: 5000 }).toMatch(/西湖边有什么好吃的[\s\S]*在地图上用悬浮按钮说/);
+    } finally {
+      await on.context.close();
+    }
+    expect(on.outside).toEqual([]);
+    expect(on.errors).toEqual([]);
+
+    const off = await openMap({ width: 390, height: 844 }, { search: "?demo-plugins-off=voice", init: FAKE_MIC });
+    try {
+      const { page } = off;
+      // 按钮的读屏说明不说"按住说话"；长按写一句没启用，不录
+      expect(await page.locator(".map-fab").evaluate((host) => host.shadowRoot?.querySelector(".fab")?.getAttribute("aria-label"))).toBe("让二狗帮忙：点一下打字");
+      await holdFab(page, 900);
+      await page.locator('.map-talk[data-kind="reply"] .map-talk-text[data-failed]').waitFor({ timeout: 5000 });
+      expect(await page.locator(".map-talk-text").innerText()).toBe("语音插件没启用：点一下按钮打字");
+      expect(await page.locator('.map-talk[data-kind="listening"]').count()).toBe(0);
+      // 点一下：照样打字
+      await page.locator(".map-fab").click();
+      await page.locator(".map-talk textarea").waitFor({ timeout: 5000 });
+    } finally {
+      await off.context.close();
+    }
+    expect(off.outside).toEqual([]);
+    expect(off.errors).toEqual([]);
   }, 60_000);
 
   test("地图页手机宽的抽屉：点停留出详情卡，点把手拖低（只露标题那一行，记着，二狗按钮跟着往下），往下拖关掉；英文", async () => {

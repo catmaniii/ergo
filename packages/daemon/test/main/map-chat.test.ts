@@ -3,19 +3,24 @@
 // - 记进消息（MessageEnvelope.map，坐标留 6 位小数），历史分页里也带着；秘书页签里发的不带；
 // - 交给秘书的输入后面跟一段：在地图页上说的、看的是哪里（中心、缩放、底图）、哪一天的足迹（选中哪一处）或哪张卡片、
 //   "这里"多半指地图看的这一带、用 show_on_map 画给他看；悬浮按钮上的另写回话要短；
-// - 地图插件停用后照样能发（消息上照记），但秘书那里没有这段。
+// - 地图插件停用后照样能发（消息上照记），但秘书那里没有这段；
+// - 二狗按钮上按住说的一段认成字走内核的 POST /api/talk-voice（444 追加）：只依赖语音插件——浏览插件停用时照样认得出
+//   （浏览插件那个入口 /api/page-command/voice 照旧回"内置浏览器插件没启用"），语音插件停用时回"没认出说了什么：语音插件没启用"；
+//   只听到串词、没听清回原因；坏的请求 400；外网端口要凭证。
 // 真实装配路径（startTestDaemon），假模型（faux 剧本：echo_context 把秘书看到的上下文原样说出来），瓦片、高德指向本机的假服务（不联网）。
-import { CHANNELS, EVENT_TYPES, type HistoryPage, HTTP_PATHS, type MapContext, type MessageEnvelope, type MessageEventPayload } from "@ergo/protocol";
+import { CHANNELS, EVENT_TYPES, type HistoryPage, HTTP_PATHS, type MapContext, type MessageEnvelope, type MessageEventPayload, type PageVoiceResult } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { MAP_PLUGIN } from "../../src/map/api.ts";
 import { createMapPlugin } from "../../src/map/plugin.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
+import { httpRequest } from "../helpers/browser-http.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { stripTimeMarkers } from "../helpers/echo.ts";
 import { startFakeAmap, startFakeOsm } from "../helpers/fake-map.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { pluginsApi, requestJson } from "../helpers/http.ts";
 import { waitUntil } from "../helpers/process.ts";
+import { fakeWavRecording } from "../helpers/voice.ts";
 
 const { secretary: SECRETARY } = CHANNELS;
 const ECHO: FauxStep = { kind: "echo_context" };
@@ -88,5 +93,31 @@ describe("地图页的二狗：聊天窗、悬浮按钮里发的消息带地图�
     expect(input).toContain("看看这里");
     expect(input).not.toContain("地图页上");
     expect(osm.requests).toEqual([]);
+  });
+});
+
+/** 插件清单里除了这几个的（startTestDaemon 的 plugins：只装这些） */
+const ALL_PLUGINS = ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"];
+const without = (...names: string[]) => ALL_PLUGINS.filter((p) => !names.includes(p));
+const recording = (text: string) => ({ audio: { base64: Buffer.from(fakeWavRecording({ text })).toString("base64"), mime: "audio/wav" } });
+
+describe("地图的二狗按钮上按住说的：内核的识别接口，只依赖语音插件", () => {
+  it("浏览插件停用、语音插件开着：认得出（浏览插件那个入口照旧回没启用）；没听清回原因；坏的请求 400；外网端口要凭证", { timeout: 90_000 }, async () => {
+    const td = await startTestDaemon({ plugins: without("browsing"), secretary: [] });
+    expect(td.daemon.plugins.report()).toMatchObject({ disabled: ["browsing"] });
+    const talk = (body: unknown) => requestJson<PageVoiceResult & { message?: string }>(td.url, HTTP_PATHS.talkVoice, { method: "POST", body });
+    expect((await talk(recording("西湖边有什么好吃的"))).body).toEqual({ ok: true, text: "西湖边有什么好吃的" });
+    expect((await talk(recording(""))).body).toEqual({ ok: false, reason: "没听清，再说一次？" });
+    expect((await talk({ audio: "x" })).status).toBe(400);
+    // 浏览插件的那个入口：对外照旧
+    const page = await requestJson<{ message: string }>(td.url, HTTP_PATHS.pageVoice, { method: "POST", body: recording("名字写张三") });
+    expect([page.status, page.body.message]).toEqual([400, "内置浏览器插件没启用"]);
+    expect((await httpRequest(td.externalUrl, HTTP_PATHS.talkVoice, { method: "POST", body: JSON.stringify(recording("在吗")) })).status).toBe(401);
+  });
+
+  it("语音插件停用：回\"没认出说了什么：语音插件没启用\"（网页上这时只能打字，不会来问）", { timeout: 90_000 }, async () => {
+    const td = await startTestDaemon({ plugins: without("voice"), secretary: [] });
+    const res = await requestJson<PageVoiceResult>(td.url, HTTP_PATHS.talkVoice, { method: "POST", body: recording("看看这里") });
+    expect([res.status, res.body]).toEqual([200, { ok: false, reason: "没认出说了什么：语音插件没启用" }]);
   });
 });
