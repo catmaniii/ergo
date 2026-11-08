@@ -36,7 +36,7 @@ export async function listeningPorts() {
     ({ stdout } = await pexec('netstat', ['-ano', '-p', 'TCP'], {
       maxBuffer: 16 * 1024 * 1024, windowsHide: true, timeout: 15000,
     }));
-  } catch { return { pids: new Map(), binds: new Map(), suspect: new Map() }; }
+  } catch { return { pids: new Map(), binds: new Map(), suspect: new Map(), listeners: new Map() }; }
   return parseNetstat(stdout);
 }
 
@@ -48,12 +48,14 @@ export async function listeningPorts() {
  * （管理器自己的 7420、RDP、SMB、tailscaled 全中），可它们照样在接连接。只认 LISTENING 的话，
  * 好好的服务每隔几秒被判「端口没人在听」，刚起来的服务永远等不到就绪，重试又撞上「已经有一份在跑」。
  * 所以：状态是 LISTENING 的直接算；外部地址是通配、状态却不对的归进 suspect，由调用方真连一下再算。
- * @returns {{pids: Map<number, number[]>, binds: Map<number, string[]>, suspect: Map<number, {pid: number, addr: string}[]>}}
+ * listeners 是 LISTENING 行的「进程 + 地址」配对：同一端口多个进程在听时要靠它说清谁绑在哪。
+ * @returns {{pids: Map<number, number[]>, binds: Map<number, string[]>, suspect: Map<number, {pid: number, addr: string}[]>, listeners: Map<number, {pid: number, addr: string}[]>}}
  */
 export function parseNetstat(stdout) {
   const pids = new Map();
   const binds = new Map();
   const suspect = new Map();
+  const listeners = new Map();
   const add = (m, k, v) => { if (!m.has(k)) m.set(k, []); if (!m.get(k).includes(v)) m.get(k).push(v); };
   for (const line of String(stdout).split(/\r?\n/)) {
     const parts = line.trim().split(/\s+/);
@@ -67,12 +69,62 @@ export function parseNetstat(stdout) {
     if (/^LISTENING$/i.test(state)) {
       add(pids, port, pid);
       add(binds, port, addr);
+      if (!listeners.has(port)) listeners.set(port, []);
+      listeners.get(port).push({ pid, addr });
     } else if (/^(0\.0\.0\.0|\[::\]):0$/.test(foreign)) {
       if (!suspect.has(port)) suspect.set(port, []);
       suspect.get(port).push({ pid, addr });
     }
   }
-  return { pids, binds, suspect };
+  return { pids, binds, suspect, listeners };
+}
+
+/**
+ * Get-NetTCPConnection 的行 → 端口 → 监听者。地址按 netstat 的写法，IPv6 加方括号。
+ * start 是查询当时这个 PID 的启动时间（Start 列，和 allProcesses 的 start 同一个写法），没给就是 null。
+ */
+export function listenersFromCim(rows) {
+  const map = new Map();
+  for (const r of rows || []) {
+    const port = Number(r.LocalPort);
+    const pid = Number(r.OwningProcess);
+    if (!Number.isInteger(port) || !Number.isInteger(pid) || pid === 0) continue;
+    const a = String(r.LocalAddress ?? '');
+    const addr = a.includes(':') ? `[${a}]` : a;
+    const start = r.Start == null ? null : String(r.Start);
+    if (!map.has(port)) map.set(port, []);
+    if (!map.get(port).some((x) => x.pid === pid && x.addr === addr)) map.get(port).push({ pid, addr, start });
+  }
+  return map;
+}
+
+/**
+ * 连接表的另一个读法。netstat 丢行、状态乱报的时候（见 parseNetstat），Get-NetTCPConnection 不带 -State 仍然列得全，
+ * 只是 State 是空的（2026-11-02 实测 10/10；带 -State Listen 反而什么都查不到）。
+ * 慢：一次 13~16 秒（同一天实测，直查 MSFT_NetTCPConnection 也一样，慢的是查询本身），绝不能在探活循环里等它，
+ * 调用方在后台定时跑（probe.mjs 的 createCimCache）。查不了返回 null（和「查到了、一个都没有」的空 Map 分开），调用方留着上一次的结果、过期后退回别的线索。
+ */
+export async function listenersViaCim(ports) {
+  const wanted = new Set([...ports].filter((p) => Number.isInteger(p) && p > 0 && p < 65536));
+  if (!wanted.size) return new Map();
+  try {
+    // 全查一遍再自己筛，不用 -LocalPort：列表里只要有一个端口没连接，PowerShell 就以失败退出（-ErrorAction 管不了退出码），
+    // 整个结果都丢了——而托管的服务总有停着的。全查和按端口查一样慢（慢的是查询本身）。
+    // 同一个 PowerShell 里顺手记下每个 PID 当时的启动时间（Win32_Process，和 allProcesses 同一个写法，几十毫秒）：
+    // 结果要在缓存里放几分钟，探活拿它核「还是不是查到的那个进程」（probe.mjs 的 validRows）。到第一次用时才记，
+    // 中间 PID 被别的进程复用了就会被当成监听者认进账本，停机时还会被强杀。查的时候进程已经没了的行直接丢掉。
+    const rows = await psJson(
+      `$w=@(${[...wanted].join(',')}); ` +
+      `$r=@(Get-NetTCPConnection -ErrorAction SilentlyContinue | Where-Object { $_.RemotePort -eq 0 -and $_.State -ne 'Bound' -and $_.OwningProcess -gt 0 -and $w -contains [int]$_.LocalPort }); ` +
+      `$ids=@($r | ForEach-Object { [int]$_.OwningProcess } | Sort-Object -Unique); $st=@{}; ` +
+      `if ($ids.Count) { Get-CimInstance Win32_Process -Filter (($ids | ForEach-Object { "ProcessId=$_" }) -join ' or ') -ErrorAction SilentlyContinue | ` +
+      `ForEach-Object { $st[[int]$_.ProcessId] = $(if ($_.CreationDate) { $_.CreationDate.ToString('o') } else { '' }) } }; ` +
+      `$r | Where-Object { $st.ContainsKey([int]$_.OwningProcess) } | ` +
+      `ForEach-Object { @{ LocalAddress=[string]$_.LocalAddress; LocalPort=[int]$_.LocalPort; OwningProcess=[int]$_.OwningProcess; Start=$st[[int]$_.OwningProcess] } }`,
+      { timeout: 45000 },
+    );
+    return listenersFromCim(rows.filter((r) => wanted.has(Number(r.LocalPort))));
+  } catch { return null; }
 }
 
 /** 真连一下。netstat 的状态靠不住的时候（见 parseNetstat），这才是「有没有人在听」的事实。 */

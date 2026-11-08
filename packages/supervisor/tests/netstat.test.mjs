@@ -4,8 +4,8 @@ import test from 'node:test';
 import assert from 'node:assert';
 import net from 'node:net';
 import http from 'node:http';
-import { parseNetstat, canConnect } from '../src/winproc.mjs';
-import { probeService } from '../src/probe.mjs';
+import { parseNetstat, canConnect, listenersFromCim } from '../src/winproc.mjs';
+import { probeService, sharedPortNote, validRows, mergeOwners, createCimCache } from '../src/probe.mjs';
 import { runningEvidence } from '../src/supervisor.mjs';
 
 // 和那天的真输出同构：监听 socket 被报成 CLOSED / FIN_WAIT_1，外部地址仍是通配
@@ -76,4 +76,119 @@ test('还在不在跑：连得上就算在跑；要强杀的进程从「命令�
   assert.equal(e.running, true);
   assert.deepEqual(e.pids, [77]);
   assert.equal(runningEvidence({ probe: { port: 5000 } }, { pid: null }, { ...snap, reachable: new Set() }, { outLog }).running, false);
+});
+
+test('netstat 的 LISTENING 行留着「进程 + 地址」配对；Get-NetTCPConnection 的行归成同样的形状，IPv6 加方括号', () => {
+  const { listeners } = parseNetstat(['  TCP    0.0.0.0:8799    0.0.0.0:0    LISTENING    100', '  TCP    127.0.0.1:8799  0.0.0.0:0    LISTENING    200'].join('\r\n'));
+  assert.deepEqual(listeners.get(8799), [{ pid: 100, addr: '0.0.0.0' }, { pid: 200, addr: '127.0.0.1' }]);
+  const m = listenersFromCim([
+    { LocalAddress: '0.0.0.0', LocalPort: 8799, OwningProcess: 100, Start: 's100' },
+    { LocalAddress: '127.0.0.1', LocalPort: 8799, OwningProcess: 200, Start: 's200' },
+    { LocalAddress: '::', LocalPort: 3389, OwningProcess: 300, Start: '' },      // 系统进程没有启动时间：空串照样带着
+    { LocalAddress: '::', LocalPort: 3389, OwningProcess: 300, Start: '' },      // 重复行只算一次
+    { LocalAddress: '0.0.0.0', LocalPort: 135, OwningProcess: 0 },               // PID 0 不是进程
+    { LocalAddress: '127.0.0.1', LocalPort: 5000, OwningProcess: 400 },          // 没给启动时间：null（validRows 不认）
+  ]);
+  assert.deepEqual(m.get(8799), [{ pid: 100, addr: '0.0.0.0', start: 's100' }, { pid: 200, addr: '127.0.0.1', start: 's200' }]);
+  assert.deepEqual(m.get(3389), [{ pid: 300, addr: '[::]', start: '' }]);
+  assert.deepEqual(m.get(5000), [{ pid: 400, addr: '127.0.0.1', start: null }]);
+  assert.equal(m.has(135), false);
+});
+
+test('端口被共享（2026-11-02：测试服务绑着 127.0.0.1:8799，drama 绑 0.0.0.0）：状态里点名，PID 认账本里那个，不把入侵者记成自己', async () => {
+  const srv = http.createServer((q, r) => { r.statusCode = 404; r.end('x'); });
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const { port } = srv.address();
+  const svc = { id: 'web', probe: { tier: 'health', port, health: { url: `http://127.0.0.1:${port}/`, timeoutMs: 2000 } } };
+  const rows = [{ pid: 222, addr: '127.0.0.1' }, { pid: 111, addr: '0.0.0.0' }];     // 入侵者排在前面
+  const snap = {
+    ports: new Map([[port, [222, 111]]]), binds: new Map([[port, ['127.0.0.1', '0.0.0.0']]]), listeners: new Map([[port, rows]]),
+    procs: new Map([[111, { name: 'node.exe' }], [222, { name: 'python3.11.exe' }]]), allProcs: new Map(),
+  };
+  const p = await probeService(svc, { pid: 111 }, snap, null);
+  assert.equal(p.pid, 111);
+  assert.equal(p.ok, false);                 // 健康检查确实打到了别人那儿
+  assert.match(p.detail, /HTTP 404 · ⚠ 端口 \d+ 有 2 个进程在听：127\.0\.0\.1 → python3\.11\.exe \(222\)，0\.0\.0\.0 → node\.exe \(111\)/);
+  assert.equal(p.portShared, sharedPortNote(port, snap));
+  await new Promise((r) => srv.close(r));
+  // 同一个进程绑 IPv4 + IPv6 不算共享
+  assert.equal(sharedPortNote(port, { listeners: new Map([[port, [{ pid: 1, addr: '0.0.0.0' }, { pid: 1, addr: '[::]' }]]]) }), '');
+});
+
+test('后台查到的行：进程死了、PID 被复用了都不算数；启动时间按查询当时记的核，不是第一次用时', () => {
+  const procs = new Map([[1, { start: 'a' }], [2, { start: 'b' }], [4, { start: 'reused-before-first-use' }], [5, { start: '' }], [6, { start: 'x' }]]);
+  const rows = [
+    { pid: 1, addr: '0.0.0.0', start: 'a' },
+    { pid: 2, addr: '127.0.0.1', start: 'b' },
+    { pid: 3, addr: '127.0.0.1', start: 'c' },
+    { pid: 4, addr: '127.0.0.1', start: 'd' },      // 查完、还没用上，PID 就被别的进程复用了：第一次用也不认
+    { pid: 5, addr: '[::]', start: '' },            // 系统进程两边都没有启动时间：照旧认
+    { pid: 6, addr: '127.0.0.1', start: null },     // 查询时没记下启动时间：核不了，不认
+  ];
+  assert.deepEqual(validRows(rows, procs).map((r) => r.pid), [1, 2, 5]);       // 3 已经没了
+  procs.set(2, { start: 'reused' });
+  assert.deepEqual(validRows(rows, procs).map((r) => r.pid), [1, 5]);          // 2 换人了
+  assert.equal(rows[3].start, 'd', '不改缓存里的行');
+  assert.deepEqual(validRows(null, procs), []);
+});
+
+test('缓存的权限比 netstat 小：netstat 这一轮有行就只认它（缓存只用来点名，进不了强杀名单）；没行才用缓存，并标出来不判孤儿', () => {
+  const drama = { pid: 100, addr: '0.0.0.0' };
+  const stray = { pid: 200, addr: '127.0.0.1' };
+  let m = mergeOwners([drama], [drama, stray]);
+  assert.deepEqual(m.owners, [100]);
+  assert.deepEqual(m.rows, [drama, stray]);
+  assert.equal(m.cacheOnly, false);
+  m = mergeOwners([], [drama, stray]);
+  assert.deepEqual(m.owners, [100, 200]);
+  assert.equal(m.cacheOnly, true);
+  m = mergeOwners([], []);
+  assert.deepEqual([m.owners, m.rows, m.cacheOnly], [[], [], false]);
+});
+
+test('监听者只有缓存这一个来源、又对不上账本：不判孤儿（判了冲突清理就会动手），只把 PID 认过来', async () => {
+  const srv = http.createServer((q, r) => r.end('x'));
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const { port } = srv.address();
+  const svc = { id: 'web', probe: { tier: 'health', port, health: { url: `http://127.0.0.1:${port}/`, timeoutMs: 2000 } } };
+  const base = {
+    ports: new Map([[port, [222]]]), binds: new Map(), listeners: new Map([[port, [{ pid: 222, addr: '127.0.0.1' }]]]),
+    procs: new Map([[111, { name: 'cmd.exe' }], [222, { name: 'node.exe' }]]), allProcs: new Map(),
+  };
+  let p = await probeService(svc, { pid: 111 }, { ...base, cacheOwned: new Set([port]) }, null);
+  assert.deepEqual([p.orphan, p.pid, p.ok], [false, 222, true]);
+  p = await probeService(svc, { pid: 111 }, { ...base, cacheOwned: new Set() }, null);      // netstat 亲眼看到的：照旧判
+  assert.equal(p.orphan, true);
+  await new Promise((r) => srv.close(r));
+});
+
+test('后台查询的节流和新旧：查不了时旧结果按它自己的时间过期（不因为又查了一次就算新的）；查到空的也换上；同时只跑一次', async () => {
+  let t = 0;
+  const answers = [];
+  let calls = 0;
+  const cache = createCimCache({ now: () => t, ttlMs: 100, maxAgeMs: 300, query: async () => { calls++; return answers.shift(); } });
+  const row = { pid: 1, addr: '127.0.0.1', start: 'a' };
+
+  answers.push(new Map([[8799, [row]]]));
+  const first = cache.refresh([8799]);
+  assert.equal(cache.refresh([8799]), first, '正在查的时候不再起第二个');
+  await first;
+  assert.deepEqual(cache.rows(8799), [row]);
+  assert.equal(cache.refresh([8799]), null, '刚查过：节流期内不查');
+  assert.equal(calls, 1);
+
+  // 查不了（null）、查询本身抛错：旧结果留着，但它还是 t=0 时查的，到点照样过期
+  t = 150; answers.push(null); await cache.refresh([8799]);
+  t = 260; answers.push(Promise.reject(new Error('powershell 挂了'))); await cache.refresh([8799]);
+  assert.equal(calls, 3);
+  assert.deepEqual(cache.rows(8799), [row], '还没过期：用旧的');
+  t = 301;
+  assert.deepEqual(cache.rows(8799), [], '过期了：不因为后来又「查」了两次就算新的');
+
+  // 查到了、一个都没有：换上空的，不留着旧的去认已经不在听的进程
+  t = 400; answers.push(new Map([[8799, [row]]])); await cache.refresh([8799]);
+  assert.deepEqual(cache.rows(8799), [row]);
+  t = 520; answers.push(new Map()); await cache.refresh([8799, 8800]);
+  assert.deepEqual(cache.rows(8799), []);
+  assert.equal(calls, 5);
 });

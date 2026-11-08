@@ -201,7 +201,11 @@ test('登记方掉线、重新接入：服务照跑；重新接入时推一次�
   const s = full.services.find((x) => x.id === ID);
   assert.equal(s.state, 'RUNNING');
   assert.equal(s.up, true);
-  assert.equal(s.pid, firstPid, '还是原来那个进程');
+  // 还是原来那个进程。netstat 看不到监听者的机器上（这台 2026-10-29 起就是），start 时还认不出谁在听，回的是管理器套的
+  // cmd 包装层的 PID；后台查连接表（probe.mjs 的 createCimCache）查到真正在听的那个以后，账本换成它——包装层的子进程，
+  // 同一个服务、没被重启。重启过的话包装层也是新的，对不上
+  const procs = await allProcesses();
+  assert.ok(s.pid === firstPid || procs.get(s.pid)?.ppid === firstPid, `还是原来那个进程（启动时 ${firstPid}，现在 ${s.pid}）`);
 });
 
 test('管理器重启也不影响它：包装层被收走后服务照跑，新起的管理器按端口把它认领回来', async () => {
