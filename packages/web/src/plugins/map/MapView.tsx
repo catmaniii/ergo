@@ -111,8 +111,8 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, initial
   const [settled, setSettled] = useState<MapView>(initial);
   const [prepared, setPrepared] = useState<Readonly<Record<string, Prepared>>>({});
   const loadingRef = useRef(new Set<string>());
-  /** 手动选的那一家不能用了、退回了"自动"：说一句（哪一家） */
-  const [fellBack, setFellBack] = useState<string>();
+  /** 手动选的那一家不能用了、退回了"自动"：说一句（哪个区域的哪一家） */
+  const [fellBack, setFellBack] = useState<{ readonly region: MapRegion; readonly id: string }>();
 
   // 登记了的底图（插件停用时那一条撤掉）；version 变了重取
   const plugins = usePlugins();
@@ -227,13 +227,15 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, initial
   const broken = ready && choiceBroken(region, chosen, providers, page);
   useEffect(() => {
     if (!broken || chosen === undefined || switcher === undefined) return;
-    setFellBack(chosen);
+    setFellBack({ region, id: chosen });
     switcher.setChoice(region, undefined);
   }, [broken, chosen, region, switcher]);
-  // 又手动选了别的：那一句不用再说
+  // 这个区域又手动选了别的：那一句不用再说
   useEffect(() => {
-    if (chosen !== undefined && chosen !== fellBack) setFellBack(undefined);
-  }, [chosen, fellBack]);
+    if (fellBack !== undefined && fellBack.region === region && chosen !== undefined && chosen !== fellBack.id) setFellBack(undefined);
+  }, [chosen, fellBack, region]);
+  /** 那一句只在退回的那个区域、还是"自动"时说 */
+  const fellBackShown = fellBack !== undefined && fellBack.region === region && chosen === undefined ? fellBack.id : undefined;
 
   // 挑完的样子报给地图页（地图切换照它画）
   const options = switchEntries(region, providers, page).map((e) => ({ ...e, title: titleOf(e.id) }));
@@ -265,7 +267,7 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, initial
 
   const hint = ((): Hint | undefined => {
     if (!ready) return undefined;
-    if (fellBack !== undefined) return { text: t("ui.plugins.map.switch.fellBack", { name: titleOf(fellBack) }), onClose: () => setFellBack(undefined) };
+    if (fellBackShown !== undefined) return { text: t("ui.plugins.map.switch.fellBack", { name: titleOf(fellBackShown) }), onClose: () => setFellBack(undefined) };
     if (rendered !== OSM_BASEMAP) return undefined;
     if (ownExtra) return ownHint(ownScene.source);
     // 看足迹时本来就用 OpenStreetMap（AMAP_WITH_FOOTPRINTS）：不催着填高德的 Key
@@ -318,7 +320,7 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, initial
         </div>
       )}
       {hint && !notice && (
-        <div className="map-hint" role="status" data-fell-back={fellBack === undefined ? undefined : ""}>
+        <div className="map-hint" role="status" data-fell-back={fellBackShown === undefined ? undefined : ""}>
           <span>{hint.text}</span>
           {hint.action && (
             <button type="button" className="btn small" onClick={hint.action.run}>
