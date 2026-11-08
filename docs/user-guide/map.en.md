@@ -2,14 +2,15 @@
 
 ergo has a map: AMap inside mainland China, OpenStreetMap abroad (say, in Singapore), switching automatically as you look around. Where you went on a given day, how long you stayed and where you took photos can be drawn on it; tell ergo "show where I went today on a map" and a map card appears in the chat. You can also just ask ergo "how long from home to the office?" or "any coffee shops nearby?" and it looks it up for you: AMap inside China, the free OpenStreetMap services abroad; the places and routes it finds can be put on a card too.
 
-After this chapter you'll know where the map page is, how to see a day's footprints, how map cards in chats work, how to get a clearer map inside China (enter an AMap key), how to have ergo look up places and routes, and what map services can see.
+After this chapter you'll know where the map page is, how to talk to ergo on the map, how to see a day's footprints, how map cards in chats work, how to get a clearer map inside China (enter an AMap key), how to have ergo look up places and routes, and what map services can see.
 
 ## Open the map
 
 **Where:** **Map** in the navigation. On a phone, it's under **More** when there's no room.
 
 - Drag to move, pinch (scroll wheel on a computer) to zoom, double-tap to zoom in one level; the buttons at the top right zoom in and out too.
-- **Show my location**: the crosshair button at the bottom right (on both AMap and OpenStreetMap). Tap it and the map moves to where you are now, zooms in to street level and draws a dot; when it knows how accurate the fix is, a faint circle goes around the dot (you're somewhere inside it). Tap it again within a minute to go straight back there. Where the location comes from:
+- The title bar is a single line: **Map**, the day picker (while **Footprints** is on), and at the right end the **Footprints** switch and the ergo button, so you see as much map as possible.
+- **Show my location**: the crosshair button at the bottom right, above the ergo button (on both AMap and OpenStreetMap). Tap it and the map moves to where you are now, zooms in to street level and draws a dot; when it knows how accurate the fix is, a faint circle goes around the dot (you're somewhere inside it). Tap it again within a minute to go straight back there. Where the location comes from:
   - in the ergo app on a HarmonyOS phone, the app's own location (it asks for location permission the first time);
   - in a browser (`http://127.0.0.1:8810` on the computer, or an https address), the browser's location; the browser asks whether to allow it;
   - when this device can't give a location (permission not granted, no fix within 10 seconds, or the Android app and LAN addresses, which can't use web location), ergo falls back to the latest location your phone sent, says "Couldn't get this device's location. This is where your phone was 12 minutes ago" under the map, and writes the time next to the dot; if your phone never sent one either, it says "Can't find your location".
@@ -17,15 +18,24 @@ After this chapter you'll know where the map page is, how to see a day's footpri
   - If you're outside mainland China, the map switches to OpenStreetMap.
 - The top left says which map is in use: **AMap** or **OpenStreetMap**.
 - When you stop moving, ergo picks: inside mainland China with an AMap key, AMap; abroad, and in Hong Kong, Macau and Taiwan, OpenStreetMap.
-- **Footprints are always shown on OpenStreetMap**: while **Footprints** at the right end of the title bar is on, the map inside China is OpenStreetMap too and AMap's map program isn't loaded (see "What map services can see" below); turn **Footprints** off and it switches back to AMap inside China.
+- **Footprints are always shown on OpenStreetMap**: while **Footprints** at the right end of the title bar is on, the map inside China is OpenStreetMap too and AMap's map program isn't loaded (see "What map services can see" below); turn **Footprints** off and it switches back to AMap inside China. **Footprints** is off by default, so inside China the map opens on AMap.
 - Next time it opens where you last looked (remembered in this device's browser).
 - With OpenStreetMap, the bottom right says "© OpenStreetMap contributors"; AMap prints its own logo and map approval number in a corner.
 - With the dark appearance, the map is dark too.
+
+## Talk to ergo on the map
+
+ergo on the map page is the same ergo as always: the same conversation as the **Secretary** page and the sidebar next to **Browse**, so what you say here shows up there too. The difference is that everything you say from the map page carries **what you're looking at on the map**: the map's center, how far it's zoomed in, whether it's AMap or OpenStreetMap, which day's footprints you're looking at (and which place you picked), and which map card is open. So you can just say "any good food around here?", "draw this route" or "how long did I stay here that day?": ergo knows "here" means this part of the map (not where you are yourself — your location isn't sent along), and puts places and routes it wants to show you on map cards.
+
+- **The chat on the right**: tap the ergo button at the right end of the title bar to open it, and tap again to close. On a computer (when the map page is wide enough) it sits on the right and the map makes room instead of being covered; drag the divider between them to resize. On a phone it covers the whole map page; tap **›** at the top or use the phone's back gesture to close it. Whether it's open and how wide you dragged it are remembered on this device.
+- **The ergo button at the bottom right**: while the chat is closed there's a round ergo button at the bottom right of the map (the same one as on web pages in **Browse**), with **Show my location** above it. Tap it and a small box opens above it for typing; press and hold to talk, let go to send, and slide up before letting go to cancel (only typing when the voice plugin is disabled). ergo's reply, a sentence or two, shows in the box and in the conversation; **Open on the right** at the top right of the box opens the chat on the right with the whole conversation. The button isn't shown while the chat is open.
+- In the conversation, what you said on the map page is marked **Said on the map** or **Typed / Said with the floating button on the map**.
 
 ## Your footprints: where you went on a day
 
 Once the ergo app on your phone records your location (Settings · Data sources · **Phone · Location**; tap **Start recording location** in the app) and is connected to your photo album, the map page can draw a day's footprints.
 
+- **Turn it on**: **Footprints** at the right end of the title bar (a pin icon on a phone) is off by default. Tap it and the day is drawn, the map moves to show all of it, and the day picker appears in the title bar. Tap again to turn it off (remembered in this device's browser).
 - **Pick a day**: in the title bar, right after **Map**. The arrows go to the previous and next day; tap the date in the middle to pick one; after it comes a summary of the day ("Stayed at 3 places · 6 photos"). On a phone, where the whole line doesn't fit, the date reads "11/07", the summary "3 places · 6 photos", and **Footprints** is just a pin icon. The map opens on today; if today has no footprints yet it jumps to the latest day that has some. On a day with nothing it says **No footprints on this day**, and the button next to it goes to the latest earlier day with footprints.
 - **What's drawn**:
   - A line: your locations that day, joined in time order. The part where you stayed in one place shrinks to a single point instead of a tangle, and the line breaks where nothing was recorded for an hour and a half or more, instead of drawing a straight line across the gap;
@@ -33,8 +43,8 @@ Once the ergo app on your phone records your location (Settings · Data sources 
   - Small hollow dots: where photos were taken, with the time; photos taken close together (within half an hour and 100 meters) share a dot that says how many. Only the time and place — **no photos are shown**;
   - Circles: the areas of the frequent places you named. Places you didn't visit that day have their name in the circle.
 - **Details**: on a computer, a list of the day runs down the left of the map (each stay with its times and length, and photos taken outside stays); tap a row to go there, and tap a stay to open its details below it. On a phone, tap a pin and a card appears under the map; tap the "Stayed at 3 places…" line in the strip to see the day as a list. Details show the place's name, its place name, each visit's times, the total time, and how many photos you took there. Unnamed places have **Name this place**, which takes you to **Frequent places** under Settings · Data sources · **Phone · Location**.
-- **Turn it off**: **Footprints** at the right end of the title bar (a pin icon on a phone). Tap it and nothing is drawn; tap again and it's back (remembered in this device's browser).
-- A footprint card in a chat opens this page on that day (even if **Footprints** was off).
+- **Fold or close it**: on a computer, the list on the left has **fold** and **×** at the top — folded, it shrinks to a small **This day** button at the top left that opens it again; closed, tap the "Stayed at 3 places…" line in the title bar to bring it back. On a phone the card under the map is a drawer: drag the little bar at its top down (or tap it) to lower it until only the title line shows, drag down again to close it, and drag up to raise it. Folded, closed and lowered are all remembered on this device.
+- A footprint card in a chat opens this page on that day (even if **Footprints** was off, without changing the switch you left it at).
 
 Footprints are **drawn only inside ergo and never sent to any map service**: ergo on your computer works them out from what your phone sent, without going online. See "What map services can see" below.
 
@@ -45,7 +55,7 @@ Tell ergo "show where I went today on a map" or "where did I go yesterday?" and 
 - **Footprint card**: the title says which day ("Where you went on 11/6"), a small map below shows that day's track, stays and photo spots, and under it "Stayed at 3 places · 6 photos" and the places you went. The small map can't be dragged; tap it (or **Open map** at its top right) to see that day on the map page. The small map uses OpenStreetMap, just like the map page does for footprints.
 - **Places and routes you looked up**: after ergo looks up "how do I get from the office to West Lake?" or "coffee shops nearby", it can put the result on a card. Results from AMap **can only be drawn on AMap's own map** (AMap's rule), so the card has no small map: it lists the ways to get there (walking, driving…) or the places found, and says **Data from AMap**; tap **View on AMap** to see it drawn on AMap on the map page. Without an AMap web key the map page can't draw it and says why. Results are kept on the computer only for a little while and never saved (AMap doesn't allow it), so after a while the card says they've expired; just ask again. Results from OpenStreetMap (abroad, or inside China without an AMap key) get a small map as usual and say **Data from OpenStreetMap**; they're also kept only for a little while.
 - **Points and routes ergo marks**: when it says "here are West Lake and Lingyin Temple" you get a card too, drawn like a footprint card.
-- While the map page shows a card, the strip under the title bar shows the card's title; tap **×** to go back to your footprints.
+- While the map page shows a card, the title bar shows the card's title and summary; tap **×** to go back to the map.
 
 A card only stores the date (footprints are fetched fresh each time you open it, so if they're deleted on the phone side they disappear from the card too), the lookup's ID, or the few points ergo gave.
 
