@@ -18,6 +18,7 @@
 // 组合根（daemon.ts）在查过之后才加载（它会加载 koffi 这类只在 Windows 上能用的东西，别的系统上一加载就是一堆报错）。
 // 端口被占、数据目录已经有实例在跑也是一句话（StartupProblem、DaemonAlreadyRunning 的 message），不打调用栈。
 import "./i18n/boot.ts";
+import "./util/network-defaults.ts";
 import os from "node:os";
 import type { Daemon } from "./daemon.ts";
 import { preflight } from "./preflight.ts";

@@ -1,6 +1,7 @@
 // 一次性子进程的入口：模型探查（设置里的"模型"）——列出模型目录里某个服务商的模型，或者做一次连通测试。
 // 由守护进程用 `node model-probe-main.ts` 拉起（runtime/model-probe.ts）：stdin 读一行请求（ModelProbeRequest），
 // 做完在 stdout 写一行结果（{ ok: true, result } 或 { ok: false, error }），然后退出。不开会话、不写任何文件。
+import "../../util/network-defaults.ts";
 import { installBuiltinLocales } from "../../i18n/builtin.ts";
 import { CHILD_LANGUAGE_ENV, type ModelProbeRequest } from "../host-protocol.ts";
 import { encodeLine, readJsonLines } from "../line-channel.ts";

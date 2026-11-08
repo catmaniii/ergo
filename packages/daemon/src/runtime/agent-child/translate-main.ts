@@ -1,6 +1,7 @@
 // 一次性子进程的入口：翻斜杠命令的说明。由守护进程用 `node translate-main.ts` 拉起（runtime/translation.ts）：
 // stdin 读一行请求（TranslationRequest），做完在 stdout 写一行结果（{ ok: true, result } 或 { ok: false, error }），然后退出。
 // 不开会话、不写任何文件。
+import "../../util/network-defaults.ts";
 import { installBuiltinLocales } from "../../i18n/builtin.ts";
 import { CHILD_LANGUAGE_ENV } from "../host-protocol.ts";
 import { encodeLine, readJsonLines } from "../line-channel.ts";
