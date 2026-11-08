@@ -145,6 +145,7 @@ import type { CalendarService } from "../calendar/api.ts";
 import type { MapDayService, MapDrawingService, MapService } from "../map/api.ts";
 import { latestAttachment } from "../conversation/attachments-view.ts";
 import { historyPage, isConversationChannel } from "../conversation/history.ts";
+import { createTalkVoice } from "../conversation/talk-voice.ts";
 import { RequestRejected } from "../errors.ts";
 import type { LanguageService } from "../i18n/index.ts";
 import type { BulkMaterialDeletion, MaterialBrowser, MemoryGraphReader, MemorySettingsService } from "../memory/index.ts";
@@ -1558,6 +1559,18 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             sendJson(res, 200, await voice().speak(body.value.text));
           },
         };
+      case "talk_voice":
+        return {
+          // 二狗按钮上按住说的一段认成字（444，地图右下角的二狗按钮用）：内核的，只依赖语音插件，不经浏览插件；没认出也是 200（ok: false 和原因）
+          async POST(req, res) {
+            const body = checkHttpBody(PageVoiceBody, await readJson(req, MAX_PAGE_VOICE_BODY));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badRecording", { message: body.message }));
+            const audio = Buffer.from(body.value.audio.base64, "base64");
+            if (audio.length === 0) throw new HttpError("bad_request", t("gateway.http.audioEmpty"));
+            if (audio.length > PAGE_COMMAND_AUDIO_MAX_BYTES) throw new HttpError("too_large", t("gateway.http.audioTooLong"));
+            sendJson(res, 200, await talkVoice(audio, body.value.audio.mime));
+          },
+        };
       case "page_voice":
         return {
           // 悬浮按钮上按住说的一段：认出来的字回给二狗的网页，它再作为一条消息发进秘书的主会话；没认出也是 200（ok: false 和原因）
@@ -1726,6 +1739,8 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
     if (!options.localFolders) throw new HttpError("not_found", t("gateway.http.noLocalFolders"));
     return options.localFolders;
   };
+  /** 二狗按钮上按住说的一段认成字（内核的，conversation/talk-voice.ts）：语音插件现取 */
+  const talkVoice = createTalkVoice(() => options.voice?.());
   /** 语音插件的服务：没在运行时 404"语音插件没启用" */
   const voice = (): VoiceApi => {
     const api = options.voice?.();

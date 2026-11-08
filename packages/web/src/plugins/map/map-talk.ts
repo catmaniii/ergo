@@ -3,7 +3,7 @@
 // - 点一下：按钮上方的气泡里打字，点发送——这句话作为一条消息发进秘书的主会话，带地图上下文（MapContext，via: "button"），
 //   秘书页、右边的聊天窗里都看得到；
 // - 按住：按下就备好录音器、算开始语音输入（二狗正在播的语音暂停），按够 0.35 秒开始录（气泡里画实时的波形），松手送识别
-//   （和浏览的悬浮按钮同一个识别：POST /api/page-command/voice），认出来的字发进秘书的主会话（标着是说的）；上滑或划开后松手取消；
+//   （内核的 POST /api/talk-voice：和浏览的悬浮按钮同一段识别，只依赖语音插件、不经浏览插件），认出来的字发进秘书的主会话（标着是说的）；上滑或划开后松手取消；
 //   语音插件没启用时不录，写一句"语音插件没启用：点一下按钮打字"；
 // - 发出去以后气泡里"二狗在想……"，秘书正忙时"排在后面"；这一轮说完了，它最后说的那句显示在气泡里（state/page-button.ts 的
 //   buttonTurnOf 从秘书会话的权威事件里认）；成了的过一会儿收起；
@@ -30,7 +30,7 @@ export interface MapTalkLink {
 
 export interface MapTalkDeps {
   voice: PageVoice;
-  /** 按住说的一段送识别（POST /api/page-command/voice） */
+  /** 按住说的一段送识别（POST /api/talk-voice） */
   recognize(audio: { base64: string; mime: string }): Promise<PageVoiceResult>;
   /** 这一刻地图看的是哪里（发的时候现取；spoken 是按住说的）：via 由这里补上 */
   context(): Omit<MapContext, "via" | "spoken">;

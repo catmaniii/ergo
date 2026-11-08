@@ -87,7 +87,8 @@ function useMapLayout() {
 }
 
 /**
- * 右下角二狗按钮背后的那一份（map-talk.ts）：录音接到"按住说话"的同一套后端（App 里是原生录音器），识别和浏览的悬浮按钮同一个接口，
+ * 右下角二狗按钮背后的那一份（map-talk.ts）：录音接到"按住说话"的同一套后端（App 里是原生录音器），识别走内核的 POST /api/talk-voice
+ * （和浏览的悬浮按钮同一段识别、剔串词，conversation/talk-voice.ts；只依赖语音插件，浏览插件停用照样能说），
  * 发进秘书主会话（带地图上下文）；能不能说话跟着输入框的语音插槽（语音插件登记的）；离开地图页时收起、放掉录音器
  */
 function useMapTalk(context: () => Omit<MapContext, "via" | "spoken">): MapTalk {
@@ -99,7 +100,8 @@ function useMapTalk(context: () => Omit<MapContext, "via" | "spoken">): MapTalk 
         () => (env.native ? new NativeVoiceRecorder(env.native, env.now, { log: env.micLog, onTrouble: () => {} }) : new VoiceRecorder(env.media, env.now, { log: env.micLog })),
         env.now,
       ),
-      recognize: (audio) => http.pageVoice({ audio }),
+      // 内核的识别接口（POST /api/talk-voice）：只依赖语音插件，不经浏览插件
+      recognize: (audio) => http.talkVoice({ audio }),
       context,
       // 按着二狗按钮说话：二狗正在播的语音暂停（和聊天窗口里按住说话同一个播放器，地图的按钮单算一处）
       capture: (on) => pageVoicePlayer().setCapturing(on, "map-button"),

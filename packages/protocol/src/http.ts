@@ -156,6 +156,9 @@
 // 回识别出的文字和耗时；POST /api/debug/speak 用当前参考音色合成念一句，回 WAV（base64）和耗时。都不经会话（不进秘书的上下文），
 // 识别不了、合成不了也回 200（ok: false 和原因）。外网端口上和别的接口一样要设备凭证。
 //
+// 二狗按钮上按住说的一段认成字（444，内核的，地图右下角的二狗按钮用；请求体、响应体和悬浮按钮的同一个 PageVoiceBody → PageVoiceResult）：
+// POST /api/talk-voice。只依赖语音插件（语音插件没在运行时 200、ok: false"没认出说了什么：语音插件没启用"），不经会话；外网端口上要设备凭证。
+//
 // 网页上下指令（请求体和响应体见 page-commands.ts）：POST /api/page-command 交一次指令（打的字或录的一段语音、页面和框），
 // 回要填的字、要交的文件和一句话（页面助手出错、没认出说了什么也是 200，ok: false 和原因）；GET /api/page-files/<取件码> 下载要交的
 // 一个文件（取件码几分钟内有效，只认这次指令选中的文件）；GET / PUT /api/local-folders 看、改授权的文件夹（叫这个名字），
@@ -359,6 +362,7 @@ const DEBUG = "debug";
 const RECOGNIZE = "recognize";
 const SPEAK = "speak";
 const PAGE_COMMAND = "page-command";
+const TALK_VOICE = "talk-voice";
 const PAGE_FILES = "page-files";
 const VOICE = "voice";
 const PAGE_THUMB = "thumb";
@@ -724,6 +728,8 @@ export const HTTP_PATHS = {
    * （原来的 POST /api/page-command 一次性页面助手、POST /api/page-command/pick 不再有）
    */
   pageVoice: api(PAGE_COMMAND, VOICE),
+  /** 二狗按钮上按住说的一段认成字（POST，请求体 PageVoiceBody，响应 PageVoiceResult；444）：内核的，只依赖语音插件，不经浏览插件 */
+  talkVoice: api(TALK_VOICE),
   /** 要交进上传框的一个文件（GET，凭取件码） */
   pageFile: (token: string) => api(PAGE_FILES, token),
   /**
@@ -875,6 +881,7 @@ export type HttpRoute =
   | { route: "debug_recognize" }
   | { route: "debug_speak" }
   | { route: "page_voice" }
+  | { route: "talk_voice" }
   | { route: "page_file"; token: string }
   | { route: "page_file_thumb"; token: string }
   | { route: "local_folders" }
@@ -1040,6 +1047,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
     if (id === SPEAK) return { route: "debug_speak" };
   }
   if (head === PAGE_COMMAND && id === VOICE && tail === undefined) return { route: "page_voice" };
+  if (head === TALK_VOICE && id === undefined) return { route: "talk_voice" };
   if (head === PAGE_FILES && id !== undefined && tail === undefined) return { route: "page_file", token: id };
   if (head === PAGE_FILES && id !== undefined && tail === PAGE_THUMB && item === undefined) return { route: "page_file_thumb", token: id };
   if (head === LOCAL_FOLDERS && id === undefined) return { route: "local_folders" };

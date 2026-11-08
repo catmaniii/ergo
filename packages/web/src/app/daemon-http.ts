@@ -329,6 +329,8 @@ export interface DaemonHttp {
   debugSpeak(text: string): Promise<DebugSpeakResult>;
   /** 悬浮按钮上按住说的一段送识别：回认出来的字；没认出回 ok: false 和原因，接口本身出错抛错 */
   pageVoice(body: PageVoiceBody): Promise<PageVoiceResult>;
+  /** 二狗按钮上按住说的一段认成字（地图右下角的二狗按钮用，444）：内核的接口，只依赖语音插件；没认出回 ok: false 和原因，接口本身出错抛错 */
+  talkVoice(body: PageVoiceBody): Promise<PageVoiceResult>;
   /** 要交进上传框的一个文件的地址（凭取件码） */
   pageFileUrl(token: string): string;
   /** 候选的缩略图的地址（凭取件码；守护进程缩好的小图，挑图片窗口、会话里的候选卡用它，不下原图） */
@@ -968,6 +970,10 @@ export class HttpDaemonClient implements DaemonHttp {
 
   pageVoice(body: PageVoiceBody): Promise<PageVoiceResult> {
     return this.post<PageVoiceResult>(HTTP_PATHS.pageVoice, body);
+  }
+
+  talkVoice(body: PageVoiceBody): Promise<PageVoiceResult> {
+    return this.post<PageVoiceResult>(HTTP_PATHS.talkVoice, body);
   }
 
   pageFileUrl(token: string): string {
