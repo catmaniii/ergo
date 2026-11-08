@@ -5,7 +5,9 @@
 // - 取足迹时不往外发请求：填了高德的 Key，假 OSM、假高德照样一个请求都没收到，守护进程一次 fetch 都没叫；
 // - 只给本机和已配对的设备：外网端口没凭证 401；
 // - 日期写法不对 400；手机插件停用 400"数据源-手机插件没启用"；地图插件停用 400"地图插件没启用"。
-import { AMAP_SOURCE_ID, type DataSourcePushResult, type HttpErrorBody, HTTP_PATHS, type MapDayView, nowIso, PHONE_LOCATION_SOURCE, PHONE_PHOTOS_SOURCE } from "@ergo/protocol";
+// - GET /api/map/latest（442）：手机最近交来的一个位置点（时间、坐标、精度），不往外发；外网端口 401；手机插件停用时没有 point（200），
+//   地图插件停用 400。
+import { AMAP_SOURCE_ID, type DataSourcePushResult, type HttpErrorBody, HTTP_PATHS, type MapDayView, type MapLatestView, nowIso, PHONE_LOCATION_SOURCE, PHONE_PHOTOS_SOURCE } from "@ergo/protocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MAP_PLUGIN } from "../../src/map/api.ts";
 import { createMapPlugin } from "../../src/map/plugin.ts";
@@ -23,6 +25,7 @@ let n = 0;
 const key = () => `t430-${++n}`;
 const push = (url: string, id: string, data: unknown) => requestJson<DataSourcePushResult & HttpErrorBody>(url, HTTP_PATHS.dataSourcePush(id), { method: "POST", body: { data, idempotencyKey: key() } });
 const dayOf = (url: string, date: string) => requestJson<MapDayView & HttpErrorBody>(url, HTTP_PATHS.mapDay(date));
+const latestOf = (url: string) => requestJson<MapLatestView & HttpErrorBody>(url, HTTP_PATHS.mapLatest);
 
 /** 每隔 10 分钟一个点：从 from 到 to（含），在 where 附近 */
 function every10(d: number, from: [number, number], to: [number, number], where: { lat: number; lon: number }) {
@@ -91,9 +94,17 @@ describe("我的足迹（GET /api/map/day，假瓦片、假高德走真实装配
     expect(day.body.points).toHaveLength(13 + 2 + 25 + 28);
     expect(day.body.photos).toEqual([{ id: expect.any(String), at: at(6, 14, 5), lat: LAKE.lat, lon: LAKE.lon }]);
     expect(day.body).toMatchObject({ date: "2026-11-06", unlocatedPhotos: 1, places: [{ name: "家", radius: 200 }], days: ["2026-11-06"], linked: { location: true, photos: true } });
+    // 手机最近交来的一个位置点（442，地图页"回到我现在的位置"的退路）：只这一个点，同样不往外发
+    const latest = await latestOf(td.url);
+    expect(latest.status).toBe(200);
+    expect(latest.body).toEqual({ point: { at: at(6, 22, 0), lat: expect.closeTo(HOME.lat - 0.0002, 9), lon: expect.closeTo(HOME.lon + 0.0002, 9), accuracy: 40 } });
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(osm.requests).toEqual([]);
+    expect(amap.requests).toEqual([]);
 
     // 只给本机和已配对的设备
     expect((await request(td.externalUrl, HTTP_PATHS.mapDay("2026-11-06"))).status).toBe(401);
+    expect((await request(td.externalUrl, HTTP_PATHS.mapLatest)).status).toBe(401);
     // 日期写法不对
     const bad = await requestJson<HttpErrorBody>(td.url, "/api/map/day?date=..%2F..%2Fconfig");
     expect(bad.status).toBe(400);
@@ -106,6 +117,9 @@ describe("我的足迹（GET /api/map/day，假瓦片、假高德走真实装配
     expect(phoneOff.status).toBe(400);
     expect(phoneOff.body.message).toBe("数据源-手机插件没启用");
     expect((await requestJson(td.url, HTTP_PATHS.mapConfig)).status).toBe(200);
+    // 最近一个点：手机插件停用时不算错，只是没有 point
+    expect(await latestOf(td.url)).toMatchObject({ status: 200, body: {} });
+    expect((await latestOf(td.url)).body.point).toBeUndefined();
     expect((await pluginsApi.act(td.url, "phone", { action: "enable", idempotencyKey: key() })).status).toBe(200);
     expect((await dayOf(td.url, "2026-11-06")).body.stays).toHaveLength(3);
 
@@ -114,5 +128,8 @@ describe("我的足迹（GET /api/map/day，假瓦片、假高德走真实装配
     const mapOff = await dayOf(td.url, "2026-11-06");
     expect(mapOff.status).toBe(400);
     expect(mapOff.body.message).toBe("地图插件没启用");
+    const latestOff = await latestOf(td.url);
+    expect(latestOff.status).toBe(400);
+    expect(latestOff.body.message).toBe("地图插件没启用");
   });
 });

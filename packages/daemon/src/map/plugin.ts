@@ -10,6 +10,7 @@
 // - 停用时：页面、接口写"地图插件没启用"，排队等着取的瓦片不取了；Key 留在密钥区，启用后接着用。
 // - 我的足迹（430，day.ts）：GET /api/map/day 某一天的点、停留、照片地点、常去的地方，经"手机"插件的服务现算（可选依赖 wants：
 //   手机插件没启用时那一句写"手机插件没启用"，地图照样能看）；只在二狗里画，不发给任何地图服务。
+//   GET /api/map/latest（442）手机最近交来的一个位置点：地图页"回到我现在的位置"在这台设备定不了位时的退路。
 // - 聊天里的地图卡片（431）：给秘书的"画在地图上"（show-on-map.ts：某一天的足迹、一组点、一条路线、查地点和路线的结果），
 //   画成卡片类型 map（card.ts，数据契约：停用也认得）；查地点、算路线的结果按编号经 GET /api/map/drawing 取（drawing.ts，只在内存里）。
 //   移除并连数据删时地图卡片的每个版本也删掉。
@@ -35,7 +36,7 @@ import { KERNEL } from "../plugins/kernel.ts";
 import type { AmapHosts } from "./amap.ts";
 import { MAP, MAP_DAY, MAP_DRAWING, MAP_PLUGIN } from "./api.ts";
 import { mapCardType } from "./card.ts";
-import { createMapDay } from "./day.ts";
+import { createMapDay, createMapLatest } from "./day.ts";
 import { registerAmapDoctor } from "./doctor.ts";
 import { createMapDrawings } from "./drawing.ts";
 import type { OsmHosts } from "./osm-lookup.ts";
@@ -156,7 +157,8 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
       // 体检：高德的用量（409 的插件体检项；插件宿主没有 ctx.doctor 时不登记）
       registerAmapDoctor(ctx, () => service.amapUsageFinding());
       const day = createMapDay(() => ctx.optional(PHONE));
-      ctx.provide(MAP_DAY, { day });
+      // 地图页"回到我现在的位置"的退路（442）：手机最近交来的一个位置点，同样现取手机插件
+      ctx.provide(MAP_DAY, { day, latest: createMapLatest(() => ctx.optional(PHONE)) });
       // 聊天里的地图卡片（431）：查地点、算路线（432 高德、433 OpenStreetMap）放在内存里的那一份按编号取；秘书的"画在地图上"
       const lookups = options.lookups ?? (() => service.lookups);
       ctx.provide(MAP_DRAWING, createMapDrawings(lookups));

@@ -42,7 +42,7 @@
 // - geo.ts：地图的坐标（WGS-84 和高德的 GCJ-02 互转、在不在中国大陆、两点距离），纯函数；map.ts / map-schema.ts：地图插件的瓦片转发、
 //   高德安全密钥代理的地址，地图页要的设置（GET /api/map/config）的 schema。
 // - map-day.ts / map-day-schema.ts：地图上的"我的足迹"（GET /api/map/day?date=：某天的点、停留、照片地点、常去的地方，430）的日期、
-//   地图页地址里的日期，和响应的 schema。
+//   地图页地址里的日期，和响应的 schema；手机最近交来的一个位置点（GET /api/map/latest，地图页"回到我现在的位置"的退路，442）的 schema。
 // - map-card.ts / map-card-schema.ts：聊天里的地图卡片（431：卡片类型 map 的负载、点开去地图页的哪里）和查地点、算路线查到的能画的那一份
 //   （GET /api/map/drawing?lookup=）的 schema；map-lookup.ts：查地点、算路线（432、433）查到的能画的那一份（来源高德或 OpenStreetMap）、
 //   设置里高德那一块的用量。

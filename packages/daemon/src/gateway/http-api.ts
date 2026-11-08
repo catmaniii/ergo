@@ -262,7 +262,8 @@ export interface HttpApiOptions {
   map: Pick<MapService, "config">;
   /**
    * 我的足迹（GET /api/map/day?date=）：某一天的点、停留、照片地点、常去的地方。是地图插件的服务，组合根经插件宿主现取，
-   * 地图插件没启用时抛"地图插件没启用"；日期写法不对、手机插件没启用也抛 RequestRejected（都回 400 带这句）
+   * 地图插件没启用时抛"地图插件没启用"；日期写法不对、手机插件没启用也抛 RequestRejected（都回 400 带这句）。
+   * 还有手机最近交来的一个位置点（GET /api/map/latest，442：地图页"回到我现在的位置"的退路；手机插件没启用时没有 point，不算错）
    */
   mapDay: MapDayService;
   /**
@@ -691,6 +692,12 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         return {
           GET(_req, res, url) {
             sendJson(res, 200, options.mapDay.day(url.searchParams.get(HTTP_QUERY.date) ?? ""));
+          },
+        };
+      case "map_latest":
+        return {
+          GET(_req, res) {
+            sendJson(res, 200, options.mapDay.latest());
           },
         };
       case "map_drawing":

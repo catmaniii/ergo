@@ -4,9 +4,10 @@
 // - 网关的 /tiles/<源>/<z>/<x>/<y>：转发 OpenStreetMap 的瓦片（带缓存）；
 // - 网关的 /_AMapService/…：高德 JS API 的安全密钥代理（拼上安全密钥再转给高德）；
 // - GET /api/map/config：地图页现在能用什么（高德 Web 端的 Key；安全密钥不给）。
-// 另一个服务（430）"我的足迹"给 GET /api/map/day（和秘书的"画在地图上"）：某一天的点、停留、照片地点、常去的地方。
+// 另一个服务（430）"我的足迹"给 GET /api/map/day（和秘书的"画在地图上"）：某一天的点、停留、照片地点、常去的地方；
+// 还给 GET /api/map/latest（442）：手机最近交来的一个位置点（地图页"回到我现在的位置"在这台设备定不了位时用）。
 // 第三个（431）给 GET /api/map/drawing：聊天里的地图卡片按编号取查地点、算路线（432）查到的点和线。
-import type { MapConfigView, MapDayView, MapDrawing, MapTileAddress } from "@ergo/protocol";
+import type { MapConfigView, MapDayView, MapDrawing, MapLatestView, MapTileAddress } from "@ergo/protocol";
 import { serviceKey } from "../plugins/host.ts";
 
 /** 插件名（配置 plugins.disabled 里写的、网页插件的名字） */
@@ -45,6 +46,11 @@ export interface MapDayService {
    * 不联网、不调任何地图服务）。日期写法不对、手机插件没启用抛 RequestRejected（接口回 400 带这句）
    */
   day(date: string): MapDayView;
+  /**
+   * 手机最近交来的一个位置点（442，GET /api/map/latest）：只这一个点，不给轨迹；经手机插件现取，不联网。
+   * 手机还没交来过、手机插件没启用时没有 point（不抛错：地图页拿它当退路，没有就说拿不到）
+   */
+  latest(): MapLatestView;
 }
 
 /** 地图插件提供的"我的足迹"服务 */

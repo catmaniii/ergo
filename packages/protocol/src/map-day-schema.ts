@@ -71,3 +71,21 @@ export const MapDayView = Type.Object({
   linked: Type.Object({ location: Type.Boolean(), photos: Type.Boolean() }),
 });
 export type MapDayView = Static<typeof MapDayView>;
+
+/**
+ * 手机最近交来的一个位置点（GET /api/map/latest 的响应，442）：地图页"回到我现在的位置"在这台设备定不了位时退一步用它，
+ * 写明是多久以前手机交来的。只这一个点（不给轨迹）；at 是手机记下它的时间（协议时间），accuracy 是精度（米，App 报了才有）。
+ * 手机还没交来过位置、手机插件没启用时没有 point
+ */
+export const MapLatestPoint = Type.Object({
+  at: Type.String(),
+  lat: Type.Number(),
+  lon: Type.Number(),
+  accuracy: Type.Optional(Type.Number({ minimum: 0 })),
+});
+export type MapLatestPoint = Static<typeof MapLatestPoint>;
+
+export const MapLatestView = Type.Object({
+  point: Type.Optional(MapLatestPoint),
+});
+export type MapLatestView = Static<typeof MapLatestView>;

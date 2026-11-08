@@ -149,4 +149,34 @@ describe("我的足迹（地图插件经手机插件取）", () => {
     await k.settings.act(MAP_PLUGIN, { action: "disable", idempotencyKey: key() });
     expect(k.host.service(MAP_DAY)).toBeUndefined();
   });
+
+  it("手机最近交来的一个位置点（442）：只这一个点（时间、坐标、精度），不联网；手机插件停用、还没交来过时没有 point", async () => {
+    const { k, osm, amap } = await setup();
+    osm.requests.length = 0;
+    amap.requests.length = 0;
+    const spies = watchOutgoing();
+    const latest = k.host.service(MAP_DAY)!.latest();
+    expect(spies.map((s) => s.mock.calls.length)).toEqual(spies.map(() => 0));
+    expect(osm.requests).toEqual([]);
+    expect(amap.requests).toEqual([]);
+    // 11-06 22:00 在家（每隔 10 分钟一个点，最后一个往西南偏了一点），精度 40 米；11-03 那天的比它早，不算
+    expect(latest).toEqual({ point: { at: at(6, 22, 0), lat: expect.closeTo(HOME.lat - 0.0002, 9), lon: expect.closeTo(HOME.lon + 0.0002, 9), accuracy: 40 } });
+    expect(Object.keys(latest.point!)).toEqual(["at", "lat", "lon", "accuracy"]);
+
+    await k.settings.act("phone", { action: "disable", idempotencyKey: key() });
+    expect(k.host.service(MAP_DAY)!.latest()).toEqual({});
+  });
+
+  it("手机还没交来过位置：没有 point", async () => {
+    const k = await startPluginKernel({
+      plugins: [phonePlugin, createMapPlugin({ osmUpstream: "http://127.0.0.1:1", timeoutMs: 1000 })],
+      services: [
+        extraService(KERNEL.layout, ({ dir }) => dataDirLayout(dir)),
+        extraService(KERNEL.dataSourceSecrets, ({ dir }) => createDataSourceSecrets({ dir: dataDirLayout(dir).dataSourceSecrets, log: () => {} })),
+        extraService(KERNEL.personalFiles, () => files),
+      ],
+      at: new Date(2026, 10, 7, 9),
+    });
+    expect(k.host.service(MAP_DAY)!.latest()).toEqual({});
+  });
 });
