@@ -119,8 +119,7 @@ describe("DeepSeek 查余额：照官方文档的字段", () => {
     for (const [reply, problem, status] of cases) {
       const { balances } = await setup(reply);
       const failure = deepseek(await balances.view()).failure;
-      expect(failure, problem).toMatchObject({ problem });
-      expect(failure?.status, problem).toBe(status);
+      expect({ problem: failure?.problem, status: failure?.status }).toEqual({ problem, status });
     }
     // 端口上没人听：连不上
     const port = await freePort();

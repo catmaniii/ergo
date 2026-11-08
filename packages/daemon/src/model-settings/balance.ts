@@ -92,6 +92,8 @@ interface Entry {
 
 const fingerprintOf = (key: string) => createHash("sha256").update(key).digest("hex").slice(0, 16);
 
+const viewOf = (providers: ProviderBalance[]): ProviderBalanceView => ({ providers, lowBelow: { ...BALANCE_LOW_BELOW } });
+
 export function createProviderBalances(options: ProviderBalanceOptions): ProviderBalanceService {
   const now = options.now ?? Date.now;
   const timeoutMs = options.timeoutMs ?? BALANCE_TIMEOUT_MS;
@@ -165,8 +167,6 @@ export function createProviderBalances(options: ProviderBalanceOptions): Provide
       ...(nextAt !== undefined && nextAt > now() ? { nextRefreshAt: nowIso(new Date(nextAt)) } : {}),
     };
   };
-
-  const viewOf = (providers: ProviderBalance[]): ProviderBalanceView => ({ providers, lowBelow: { ...BALANCE_LOW_BELOW } });
 
   const settle = async (force: boolean): Promise<ProviderBalanceView> => {
     const providers = await Promise.all(

@@ -54,9 +54,12 @@ describe("消耗页顶上的 DeepSeek 余额（440）", () => {
     expect(tooSoon.status).toBe(200);
     expect(fake.requests).toHaveLength(1);
 
-    // 体检：读查过的那一次，正常，事实写总余额
-    const fine = coreItem((await doctorApi.view(td.url)).body, "balance");
+    // 体检：读查过的那一次，正常，事实写总余额；这一项紧跟"模型近况"（不适用的挪到最后，所以不看它们）
+    const doctor = (await doctorApi.view(td.url)).body;
+    const fine = coreItem(doctor, "balance");
     expect(fine).toMatchObject({ level: "ok" });
+    const ids = doctor.groups.find((group) => group.id === DOCTOR_CORE_GROUP)!.items.filter((item) => item.level !== "na").map((item) => item.id);
+    expect(ids.indexOf("balance")).toBe(ids.indexOf("model-calls") + 1);
     expect(fine?.text.fact).toContain("¥110.00");
     expect(fake.requests).toHaveLength(1);
 
