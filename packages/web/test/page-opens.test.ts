@@ -80,6 +80,7 @@ const PAGES = [
   "#/more/data-sources/looki",
   // 地图（地图插件）：地图页、地址里带位置（新加坡）、设置 · 数据源 · 高德地图
   "#/more/data-sources/amap",
+  "#/more/data-sources/google-maps",
   "#/more/map",
   "#/more/map/1.2834%2C103.8607%2C14",
   "#/more/data-sources/phone-location",
@@ -322,6 +323,8 @@ async function dotOffset(page: Page) {
   return { dx: dot.x + dot.width / 2 - (canvas.x + canvas.width / 2), dy: dot.y + dot.height / 2 - (canvas.y + canvas.height / 2), x: dot.x };
 }
 const WEST_LAKE = { latitude: 30.2604, longitude: 120.1433, accuracy: 40 };
+/** 停用谷歌地图插件（446）：429、442、445 那几条照没有谷歌时的样子测（新加坡"自动"是 OpenStreetMap） */
+const NO_GOOGLE = "?demo-plugins-off=google-maps";
 const MARINA_BAY = { latitude: 1.2847, longitude: 103.8591, accuracy: 30 };
 
 async function bodyText(page: Page): Promise<string> {
@@ -714,13 +717,14 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
 
   // 地图页（429）：演示页里当作填了高德 Key，国内那一处用假的高德（占位底图），新加坡用 OpenStreetMap（占位瓦片）；
   // 点地点、地址里带位置都会自动换底图；OSM 有署名角标；深色时 OSM 的瓦片加滤镜；一个请求都不往外发（不连高德、不连 OSM）。
-  // 看足迹时一律 OpenStreetMap（431），这里先关掉"足迹"再看高德
+  // 看足迹时一律 OpenStreetMap（431），这里先关掉"足迹"再看高德。446 起演示页也"填好了"谷歌地图（新加坡"自动"用谷歌）：
+  // 这几条照 429、445 的样子测，停用谷歌地图插件（?demo-plugins-off=google-maps）；谷歌在的样子见后面 446 的几条
   for (const [name, viewport] of [
     ["手机宽", { width: 390, height: 844 }],
     ["电脑宽", { width: 1280, height: 800 }],
   ] as const) {
     test(`地图页${name}：国内高德、新加坡 OpenStreetMap，点地点、改地址自动换底图，有署名，深色加滤镜，不往外发请求`, async () => {
-      const { page, errors } = await open(viewport);
+      const { page, errors } = await open(viewport, NO_GOOGLE);
       const outside: string[] = [];
       page.on("request", (r) => {
         if (!/^(?:file|data|blob):/.test(r.url())) outside.push(r.url());
@@ -764,7 +768,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
   // 国内列"自动 / 高德地图 / OpenStreetMap"，国外只列"自动 / OpenStreetMap"（高德大陆外不列）；选了记在这台设备上、国内国外分开记，
   // 刷新还在；记着的那一家在这里用不了时退回"自动"、说一句；一个请求都不往外发
   test("地图切换手机宽：国内选 OpenStreetMap 换底图、记在这台设备上（刷新还在），国外照旧自动、只列能用的；选回自动换回高德", async () => {
-    const { page, errors } = await open({ width: 390, height: 844 });
+    const { page, errors } = await open({ width: 390, height: 844 }, NO_GOOGLE);
     const outside: string[] = [];
     page.on("request", (r) => {
       if (!/^(?:file|data|blob):/.test(r.url())) outside.push(r.url());
@@ -812,7 +816,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
   }, 60_000);
 
   test("地图切换电脑宽：标题栏一个下拉\"地图：自动\"，贴着它弹出；选了写它的名字；记着的那一家在这里用不了时退回自动、说一句能关上；英文", async () => {
-    const { page, errors } = await open({ width: 1280, height: 800 });
+    const { page, errors } = await open({ width: 1280, height: 800 }, NO_GOOGLE);
     await page.evaluate(`localStorage.setItem("ergo-map-footprints", "off")`);
     // 记着在国外用高德（高德大陆外用不了：比如那一家插件停了、Key 坏了）
     await page.evaluate(`localStorage.setItem("ergo-map-choice", JSON.stringify({ abroad: "amap" }))`);
@@ -836,11 +840,139 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     await note.locator('button[aria-label="关上"]').click();
     expect(await page.locator(".map-hint[data-fell-back]").count()).toBe(0);
     // 英文
-    await page.goto(pageUrl + "?lang=en");
+    await page.goto(pageUrl + `${NO_GOOGLE}&lang=en`);
     await page.evaluate(`window.location.hash = "#/more/map"`);
     await page.locator(".map-canvas:not([data-basemap=loading])").waitFor({ timeout: 5000 });
     expect(await page.locator(".topbar button.map-switch-btn").innerText()).toBe("Map: OpenStreetMap");
     await page.close();
+    expect(errors).toEqual([]);
+  }, 60_000);
+
+  // 谷歌地图（446）：演示页"填好了"谷歌地图的 Key（谷歌是假的、瓦片是编的占位图）。新加坡"自动"用谷歌（优先级 50 高于 OpenStreetMap）；
+  // 地图切换里国外列"自动 / 谷歌地图 / OpenStreetMap"，国内也列谷歌（手动选它时大陆的点转 GCJ-02，点照样画得上）；
+  // 谷歌说 Key 不对（扮谷歌叫 gm_authFailure）：退回"自动"、说一句，切换里标"连不上"；一个请求都不往外发
+  test("谷歌地图手机宽：新加坡自动用谷歌、切换里国内国外都列它；国内手动选谷歌点照样画上；谷歌拒了 Key 退回自动、标连不上", async () => {
+    const { page, errors } = await open({ width: 390, height: 844 });
+    const outside: string[] = [];
+    page.on("request", (r) => {
+      if (!/^(?:file|data|blob):/.test(r.url())) outside.push(r.url());
+    });
+    await page.evaluate(`localStorage.setItem("ergo-map-footprints", "off")`);
+    await page.evaluate(`window.location.hash = "#/more/map"`);
+    await page.locator('.map-canvas[data-basemap="amap"]').waitFor({ timeout: 5000 });
+    // 新加坡：自动用谷歌
+    await page.locator('[data-place="demo-marina-bay"]').click();
+    await page.locator('.map-canvas[data-basemap="google"][data-choice="auto"]').waitFor({ timeout: 5000 });
+    expect(await page.locator(".map-badge").innerText()).toBe("谷歌地图");
+    await page.locator('[data-engine="google"] .map-google-demo-tiles img').first().waitFor({ timeout: 5000 });
+    expect(await page.locator('[data-engine="google"] .map-google-marks .map-mark[data-id="demo-marina-bay"]').count()).toBe(1);
+    // OpenStreetMap 的署名不画（谷歌自己画它的标志）
+    expect(await page.locator(".map-attribution a").count()).toBe(0);
+    const sheet = page.locator(".map-switch-sheet");
+    await page.locator('button.map-switch-more[aria-label="地图：自动"]').click();
+    await sheet.waitFor({ timeout: 5000 });
+    expect(await sheet.locator(".map-switch-head").innerText()).toBe("在国外用哪家地图");
+    expect(await sheet.locator(".map-switch-item").evaluateAll((els) => els.map((e) => e.getAttribute("data-id")))).toEqual(["auto", "google", "osm"]);
+    expect(await sheet.locator('.map-switch-item[data-id="auto"]').innerText()).toContain("现在是谷歌地图");
+    await page.locator('.modal button[aria-label="关闭"]').click();
+    // 国内：自动照旧高德；切换里也列谷歌，选了它就用谷歌（大陆的点转 GCJ-02 画上）
+    await page.locator('[data-place="demo-west-lake"]').click();
+    await page.locator('.map-canvas[data-basemap="amap"]').waitFor({ timeout: 5000 });
+    await page.locator('button.map-switch-more[aria-label="地图：自动"]').click();
+    expect(await sheet.locator(".map-switch-item").evaluateAll((els) => els.map((e) => e.getAttribute("data-id")))).toEqual(["auto", "amap", "google", "osm"]);
+    await sheet.locator('.map-switch-item[data-id="google"]').click();
+    await page.locator('.map-canvas[data-basemap="google"][data-choice="google"]').waitFor({ timeout: 5000 });
+    expect(await page.evaluate(`localStorage.getItem("ergo-map-choice")`)).toBe('{"mainland":"google"}');
+    expect(await page.locator('[data-engine="google"] .map-google-marks .map-mark[data-id="demo-west-lake"]').count()).toBe(1);
+    // 谷歌说 Key 不对：退回自动、说一句；切换里谷歌标"连不上"、点不了
+    await page.evaluate(`window.gm_authFailure()`);
+    await page.locator('.map-canvas[data-basemap="amap"][data-choice="auto"]').waitFor({ timeout: 5000 });
+    expect(await page.locator(".map-hint[data-fell-back]").innerText()).toContain("谷歌地图现在用不了，换回了“自动”");
+    await page.locator('button.map-switch-more[aria-label="地图：自动"]').click();
+    const google = sheet.locator('.map-switch-item[data-id="google"]');
+    expect(await google.innerText()).toContain("连不上");
+    expect(await google.isDisabled()).toBe(true);
+    await page.close();
+    expect(outside).toEqual([]);
+    expect(errors).toEqual([]);
+  }, 60_000);
+
+  test("谷歌地图电脑宽：新加坡用谷歌，深色时重建成深色；停用谷歌地图插件退回 OpenStreetMap；英文的名字", async () => {
+    const { page, errors } = await open({ width: 1280, height: 800 });
+    await page.evaluate(`localStorage.setItem("ergo-map-footprints", "off")`);
+    await page.evaluate(`localStorage.setItem("ergo-theme", "dark")`);
+    await page.reload();
+    await page.evaluate(`window.location.hash = "#/more/map/1.2834%2C103.8607%2C14"`);
+    await page.locator('.map-canvas[data-basemap="google"]').waitFor({ timeout: 5000 });
+    expect(await page.locator(".map-google-demo.dark").count()).toBe(1);
+    expect(await page.locator(".topbar button.map-switch-btn").innerText()).toBe("地图：自动");
+    await page.evaluate(`localStorage.removeItem("ergo-theme")`);
+    // 停用谷歌地图插件：新加坡退回 OpenStreetMap
+    await page.goto(pageUrl + NO_GOOGLE);
+    await page.evaluate(`window.location.hash = "#/more/map/1.2834%2C103.8607%2C14"`);
+    await page.locator('.map-canvas[data-basemap="osm"]').waitFor({ timeout: 5000 });
+    // 英文
+    await page.goto(pageUrl + "?lang=en");
+    await page.evaluate(`window.location.hash = "#/more/map/1.2834%2C103.8607%2C14"`);
+    await page.locator('.map-canvas[data-basemap="google"]').waitFor({ timeout: 5000 });
+    expect(await page.locator(".map-badge").innerText()).toBe("Google Maps");
+    await page.close();
+    expect(errors).toEqual([]);
+  }, 60_000);
+
+  // 设置 · 数据源 · 谷歌地图（446）：两个密码框、加限制的说明、每一项的用量、"超了还接着用"；测试并保存（原型里填什么都算过）；
+  // 停用谷歌地图插件时写"没启用"
+  test("设置 · 数据源 · 谷歌地图电脑宽：两个 Key、限制的说明、这个月的用量、超了还接着用；英文；插件停用时那一块不画", async () => {
+    const { page, errors } = await open({ width: 1280, height: 800 });
+    await page.evaluate(`window.location.hash = "#/more/data-sources/google-maps"`);
+    const panel = page.locator("[data-google-maps-panel]");
+    await panel.waitFor({ timeout: 5000 });
+    expect(await panel.locator('input[type="password"]').count()).toBe(2);
+    expect(await panel.innerText()).toMatch(/浏览器用的 Key[\s\S]*网站限制[\s\S]*服务端用的 Key[\s\S]*IP 地址/);
+    expect(await panel.locator(".google-maps-usage-rows li").count()).toBe(6);
+    expect(await panel.locator('[data-sku="textSearch"]').innerText()).toMatch(/搜地点\s*23 \/ 5,000/);
+    await panel.locator('[data-field="serverKey"] input').fill("AIza-demo-typed-key-not-real-000000");
+    await panel.locator("button.primary").click();
+    await panel.locator(".hint[role=status]").waitFor({ timeout: 5000 });
+    expect(await panel.locator(".hint[role=status]").innerText()).toContain("测过了，存好了");
+    expect(await panel.locator('[data-field="serverKey"] input').inputValue()).toBe("");
+    const overage = panel.locator('[data-field="allowOverage"] input');
+    expect(await overage.isChecked()).toBe(false);
+    await overage.click();
+    await expect.poll(() => overage.isChecked(), { timeout: 5000 }).toBe(true);
+    await page.goto(pageUrl + "?lang=en");
+    await page.evaluate(`window.location.hash = "#/more/data-sources/google-maps"`);
+    await page.locator("[data-google-maps-panel]").waitFor({ timeout: 5000 });
+    expect(await page.locator("[data-google-maps-panel]").innerText()).toContain("Google Maps keys saved");
+    // 停用谷歌地图插件：这一页照样打得开，填 Key 的那一块不画（网页那一半撤了）
+    await page.goto(pageUrl + NO_GOOGLE);
+    await page.evaluate(`window.location.hash = "#/more/data-sources/google-maps"`);
+    await page.locator('[data-block="status"]').waitFor({ timeout: 5000 });
+    expect(await page.locator("[data-google-maps-panel]").count()).toBe(0);
+    await page.close();
+    expect(errors).toEqual([]);
+  }, 60_000);
+
+  // "附近的 hawker centre"的回答（446）：演示的秘书主线里谷歌查的那一段——一段话、一张谷歌查的地图卡（不画缩略图，写"数据来自 Google 地图"、
+  // "在谷歌地图上看"），点开进地图页、画在谷歌底图上
+  test("附近的 hawker centre 手机宽：回答里一张谷歌查的地图卡，写数据来自 Google 地图；点开画在谷歌底图上", async () => {
+    const { page, errors } = await open({ width: 390, height: 844 });
+    const outside: string[] = [];
+    page.on("request", (r) => {
+      if (!/^(?:file|data|blob):/.test(r.url())) outside.push(r.url());
+    });
+    await page.evaluate(`window.location.hash = "#/secretary"`);
+    const card = page.locator('.xcard-map[data-show="lookup"][data-state="ready"]').filter({ hasText: "附近的 hawker centre" });
+    await card.waitFor({ timeout: 5000 });
+    expect(await card.locator(".map-card-thumb").count()).toBe(0);
+    expect(await card.innerText()).toMatch(/Maxwell Food Centre[\s\S]*数据来自 Google 地图[\s\S]*在谷歌地图上看/);
+    expect(await bodyText(page)).toContain("附近有 4 个 hawker centre，最近的是");
+    await card.locator(".map-card-go").click();
+    await page.locator('.map-canvas[data-basemap="google"][data-own-results="shown"]').waitFor({ timeout: 5000 });
+    expect(await page.locator(".map-card-bar").innerText()).toMatch(/附近的 hawker centre[\s\S]*数据来自 Google 地图/);
+    expect(await page.locator('[data-engine="google"] .map-google-marks .map-mark[data-kind="search"]').count()).toBe(4);
+    await page.close();
+    expect(outside).toEqual([]);
     expect(errors).toEqual([]);
   }, 60_000);
 
@@ -940,7 +1072,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       expect(await day.locator(".map-shapes polyline").count()).toBe(1);
       expect(await day.innerText()).toMatch(/待过 3 个地方 · 6 张照片[\s\S]*家、公司、杭州市西湖区北山街/);
       expect(await day.locator(".map-attribution").innerText()).toContain("© OpenStreetMap 贡献者");
-      const route = page.locator('.xcard-map[data-show="lookup"][data-state="ready"]');
+      // 446 起演示里还有一张谷歌查的卡（附近的 hawker centre）：按标题挑路线这一张
+      const route = page.locator('.xcard-map[data-show="lookup"][data-state="ready"]').filter({ hasText: "从公司到西湖边" });
       await route.waitFor({ timeout: 5000 });
       expect(await route.locator(".map-card-thumb").count()).toBe(0);
       expect(await route.innerText()).toMatch(/从公司到西湖边[\s\S]*步行、开车[\s\S]*数据来自高德地图[\s\S]*在高德地图上看/);
@@ -1000,8 +1133,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await expect.poll(async () => Math.abs((await dotOffset(page)).dx), { timeout: 5000 }).toBeLessThan(3);
       await context.close();
 
-      // 人在新加坡：挪过去后底图换成 OpenStreetMap（429 的规则），钮还在原处
-      const sg = await openMap({ width: 390, height: 844 }, { geo: MARINA_BAY, footprintsOff: true });
+      // 人在新加坡：挪过去后底图换成 OpenStreetMap（429 的规则；谷歌地图插件停用着，谷歌在时见 446 那几条），钮还在原处
+      const sg = await openMap({ width: 390, height: 844 }, { geo: MARINA_BAY, footprintsOff: true, search: NO_GOOGLE });
       await sg.page.locator('.map-canvas[data-basemap="amap"]').waitFor({ timeout: 5000 });
       await locate(sg.page);
       await sg.page.locator('.map-canvas[data-basemap="osm"]').waitFor({ timeout: 5000 });

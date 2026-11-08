@@ -166,10 +166,11 @@ describe("网页插件登记一种底图（mapBasemaps）", () => {
   test("地图插件自带高德、OpenStreetMap；别的插件登记的接在后面；它停用了那一条撤掉，地图插件的照旧", () => {
     const host = createWebPluginHost({ plugins: [...WEB_PLUGIN_MANIFEST, fakeWorld], log: () => {} });
     host.apply(undefined);
-    expect(host.list("mapBasemaps").map((b) => b.id)).toEqual(["amap", "osm", "worldmap"]);
+    // 446 起清单里有谷歌地图插件（google）
+    expect(host.list("mapBasemaps").map((b) => b.id)).toEqual(["amap", "osm", "google", "worldmap"]);
     expect(host.ownerOf("mapBasemaps", "worldmap")?.name).toBe("fake-world-map");
     host.disable("fake-world-map");
-    expect(host.list("mapBasemaps").map((b) => b.id)).toEqual(["amap", "osm"]);
+    expect(host.list("mapBasemaps").map((b) => b.id)).toEqual(["amap", "osm", "google"]);
     expect(host.unavailable("mapBasemaps", "worldmap")).toBe("假世界地图");
     host.enable("fake-world-map");
     expect(host.get("mapBasemaps", "worldmap")?.title).toBe("假世界地图");

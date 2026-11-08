@@ -171,6 +171,22 @@ function about(name: string): Omit<PluginInfo, "state" | "needs" | "neededBy" | 
       },
     };
   }
+  // 谷歌地图插件（446）：地图服务插槽里的谷歌那一家（大陆外的底图、查地点、算路线），设置 · 数据源里填两个 Key；拥有的只有密钥区那一格和用量
+  if (name === "google-maps") {
+    return {
+      name,
+      title: say("谷歌地图", "Google Maps"),
+      summary: say(
+        "大陆以外的地图、查地点、算路线用谷歌地图（Google Maps Platform，要在 设置 · 数据源 · 谷歌地图 填两个 Key：浏览器用的、服务端用的）；有公交、开车带实时路况。地图页的地图切换里国内国外都能手动选它（大陆的点自动转坐标）。停用、移除时退回 OpenStreetMap",
+        "Maps, place search and routes outside mainland China use Google Maps (Google Maps Platform; enter two keys in Settings · Data sources · Google Maps: a browser key and a server key), with transit and live traffic for driving. You can also pick it by hand in the map switch, in China too (coordinates are converted automatically). Disabled or removed, it falls back to OpenStreetMap",
+      ),
+      brings: { tools: [], cards: [], jobs: [] },
+      removal: {
+        deletes: [say("填过的两个谷歌 Key", "The two Google keys you entered"), say("每月用了谷歌几次的计数、超了免费量放没放开", "The monthly counts of Google requests and whether going over the free usage is allowed")],
+        keeps: [say("聊天里说到过的地点（那是聊天记录）", "Places mentioned in chats (that's chat history)")],
+      },
+    };
+  }
   // Claude Code 插件（运行时；网页的那一半是设置 · Claude Code）。不拥有数据，没有连数据删
   if (name === "claude-code") {
     return {
@@ -244,7 +260,7 @@ export class FakePlugins {
   private readonly states = new Map<string, PluginState>();
 
   constructor(off: ReadonlySet<string>, removed: ReadonlySet<string>) {
-    for (const name of ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"]) this.states.set(name, removed.has(name) ? "removed" : off.has(name) ? "disabled" : "running");
+    for (const name of ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"]) this.states.set(name, removed.has(name) ? "removed" : off.has(name) ? "disabled" : "running");
   }
 
   /** 插件频道上的临时事件 plugin_status 的负载 */
@@ -273,6 +289,8 @@ export class FakePlugins {
           ? { events: 128, cards: 0, inboxItems: 0, files: 1 }
         : name === "map"
           ? { events: 0, cards: 0, inboxItems: 0, files: 3 }
+        : name === "google-maps"
+          ? { events: 0, cards: 0, inboxItems: 0, files: 2 }
         : { events: name === "reminders" ? 12 : 3, cards: name === "reminders" ? 4 : 1, inboxItems: 2, files: 0 };
     return { changed, ...(purged ? { purged } : {}), plugins: this.view().plugins };
   }

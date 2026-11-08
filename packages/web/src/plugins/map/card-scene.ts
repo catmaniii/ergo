@@ -69,9 +69,10 @@ function modeLabel(mode: string | undefined): string | undefined {
   return mode === "driving" ? t("ui.plugins.map.card.mode.driving") : mode === "transit" ? t("ui.plugins.map.card.mode.transit") : mode === "walking" ? t("ui.plugins.map.card.mode.walking") : undefined;
 }
 
-/** 数据从哪来："数据来自 OpenStreetMap"、"数据来自高德地图"（两家都要求标明来源） */
+/** 数据从哪来："数据来自 OpenStreetMap"、"数据来自高德地图"、"数据来自 Google 地图"（几家都要求标明来源；谷歌要写 Google Maps，446） */
 export function sourceLine(source: string): string {
   if (source === "osm") return t("ui.plugins.map.card.source.osm");
+  if (source === "google") return t("ui.plugins.map.card.source.google");
   return source === "amap" ? t("ui.plugins.map.card.source.amap") : t("ui.plugins.map.card.source.other", { source });
 }
 

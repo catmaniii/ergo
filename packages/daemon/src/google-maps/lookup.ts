@@ -4,8 +4,8 @@
 // - 附近说了找什么（"附近的 hawker centre"）：同样 Text Search，locationBias 是中心和半径的圈、rankPreference DISTANCE，
 //   回来的再按离中心多远排、去掉圈外的（bias 只是偏向，不是限定）；
 // - 附近不说找什么：Places Nearby Search，locationRestriction 圈、rankPreference DISTANCE（它不收关键字，只收种类）；
-// - 地点要的字段：places.id（place ID，条款许长期存，这票也不存）、displayName、formattedAddress、shortFormattedAddress、location、
-//   primaryTypeDisplayName——都在 Text Search Pro / Nearby Search Pro 档；
+// - 地点要的字段：places.id（place ID，条款许长期存，这票也不存）、displayName、formattedAddress、location、primaryTypeDisplayName
+//   ——都在 Text Search Pro / Nearby Search Pro 档；
 // - 地址 → 位置、位置 → 地址：Geocoding API（address= / latlng=，language 跟着界面的语言）；
 // - 路线：Routes API computeRoutes，要折线（polyline.encodedPolyline）。开车 routingPreference TRAFFIC_AWARE（用时带实时路况，算 Pro 档）；
 //   步行；公交 computeAlternativeRoutes 拿最多 3 个方案，每一步的 travelMode、距离、transitDetails（上下车站、线路名、车的种类、几站），
@@ -19,7 +19,7 @@ import type { GoogleClient } from "./client.ts";
 import { decodePolyline } from "./polyline.ts";
 
 /** 地点要的字段（Pro 档；不要营业时间、评分这些 Enterprise 档的） */
-export const PLACE_FIELDS = ["places.id", "places.displayName", "places.formattedAddress", "places.shortFormattedAddress", "places.location", "places.primaryTypeDisplayName"].join(",");
+export const PLACE_FIELDS = ["places.id", "places.displayName", "places.formattedAddress", "places.location", "places.primaryTypeDisplayName"].join(",");
 /** 开车、步行的路线要的字段 */
 export const ROUTE_FIELDS = ["routes.duration", "routes.staticDuration", "routes.distanceMeters", "routes.polyline.encodedPolyline"].join(",");
 /** 公交的路线要的字段 */
@@ -64,15 +64,13 @@ function placeOf(v: unknown): PlaceHit | undefined {
   const name = str(obj(p.displayName).text);
   if (!where || name === "") return undefined;
   const id = str(p.id);
-  const address = str(p.shortFormattedAddress) || str(p.formattedAddress);
-  const full = str(p.formattedAddress);
+  // 完整地址（带城市、国家）：模型看得出在哪个城市
+  const address = str(p.formattedAddress);
   const type = str(obj(p.primaryTypeDisplayName).text);
   return {
     ...(id === "" ? {} : { id }),
     name,
     ...(address === "" ? {} : { address }),
-    // 短地址之外的完整地址（带城市、国家）放进"省市区"那一格，模型看得出在哪个城市
-    ...(full !== "" && full !== address ? { area: full } : {}),
     ...(type === "" ? {} : { type }),
     lat: where.lat,
     lon: where.lon,

@@ -75,6 +75,8 @@ import type {
   LocaleDictionaryView,
   LocaleListView,
   CalendarMonthView,
+  MapBasemapEventBody,
+  MapBasemapEventReply,
   MapConfigView,
   MapDayView,
   MapDrawing,
@@ -674,9 +676,18 @@ export class FakeDaemonHttp implements DaemonHttp {
     }
   }
 
-  /** 地图页：原型里当作填好了高德的 Key（演示页的高德是假的，不连高德，见 prototype/fake-map.ts） */
+  /**
+   * 地图页：原型里当作填好了高德的 Key、谷歌地图的 Key（446；演示页的高德、谷歌都是假的，不连它们，见 prototype/fake-map.ts）；
+   * 谷歌地图插件停用了（?demo-plugins-off=google-maps）就没有谷歌那一家
+   */
   mapConfig(): Promise<MapConfigView> {
-    return Promise.resolve({ amapKey: DEMO_AMAP_KEY, providers: demoMapProviders() });
+    const google = this.pluginSettings?.pluginList().plugins.find((p) => p.name === "google-maps");
+    return Promise.resolve({ amapKey: DEMO_AMAP_KEY, providers: demoMapProviders(google === undefined || google.state === "running") });
+  }
+
+  /** 地图页报底图的事（446）：原型里只当收到了（不数用量） */
+  mapBasemap(body: MapBasemapEventBody): Promise<MapBasemapEventReply> {
+    return Promise.resolve({ known: body.provider === "google" });
   }
 
   /** 我的足迹：编的（昨天一整天、四天前半天，见 prototype/fake-footprints.ts） */

@@ -30,6 +30,7 @@ import type {
   DataSourceStoredBody,
   DataSourceStoredPage,
   DataSourceView,
+  GoogleMapsSourcePanel,
   ImportFolderActionBody,
   ImportFolderActionResult,
   LookiArchiveView,
@@ -184,6 +185,27 @@ function initial(): DataSourcesView {
         panel: amapPanel(),
         disconnectNote: "填过的 Key 和安全密钥从这台电脑上删掉，地图页在国内改用 OpenStreetMap",
         hasLive: true,
+      },
+      // 谷歌地图（446）：演示页当作两个 Key 都填好了（地图页在新加坡用"谷歌"，fake-map.ts）；按需查开着、带着这个月每一项的用量（编的）
+      {
+        id: "google-maps",
+        title: "谷歌地图",
+        summary: "填了 Key，地图页在大陆以外用谷歌地图，查大陆以外的地点、路线也用它（只在你问的时候把起点、终点、“附近”的那一处发给谷歌，查到的不存）。服务端用的 Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给谷歌",
+        plugin: "google-maps",
+        pluginTitle: "谷歌地图",
+        available: true,
+        connection: "connected",
+        account: "浏览器用的 Key：已填 · 服务端用的 Key：已填",
+        hasSecrets: true,
+        usages: [{ usage: "query", on: true }],
+        sensitive: [],
+        count: 0,
+        syncing: false,
+        canSync: false,
+        files: [],
+        configurable: true,
+        panel: googleMapsPanel(false),
+        disconnectNote: "填过的两个 Key 从这台电脑上删掉（Google Cloud 里的 Key 还在，不用了可以去那边删），地图页和查询在大陆以外改用 OpenStreetMap",
       },
       {
         id: "demo-camera",
@@ -437,6 +459,22 @@ function amapPanel(): AmapSourcePanel {
   return { kind: "amap", lookup: true, usage: { month: nowIso().slice(0, 7), search: 37, lbs: 212, searchLimit: 5000, lbsLimit: 150000 } };
 }
 
+/** 谷歌地图那一块（446）：两个 Key 都填了，这个月每一项用了几次（编的，离免费量都还远） */
+function googleMapsPanel(allowOverage: boolean): GoogleMapsSourcePanel {
+  return {
+    kind: "google-maps",
+    browserKey: true,
+    serverKey: true,
+    usage: {
+      month: nowIso().slice(0, 7),
+      counts: { dynamicMaps: 46, textSearch: 23, nearbySearch: 4, geocoding: 31, routesEssentials: 12, routesPro: 9 },
+      limits: { dynamicMaps: 10000, textSearch: 5000, nearbySearch: 5000, geocoding: 10000, routesEssentials: 10000, routesPro: 5000 },
+    },
+    allowOverage,
+    over: [],
+  };
+}
+
 function liveAnswer(id: string, source?: DataSourceView): Omit<DataSourceLiveResult, "state" | "at"> | undefined {
   switch (id) {
     // 试查一下（432）：搜固定的地点；搜到的是编的
@@ -502,6 +540,12 @@ export class FakeDataSources {
           if (id === "phone-location") return this.phonePlaces(source, body.values);
           if (id === "google-gmail") return this.configureGmail(source, body.values);
           // 高德地图：原型里填什么都算测过了（不连高德）；账号那一行写两组各填了没有
+          // 谷歌地图（446）：原型里填什么都算测过了（不连谷歌）；"超了还接着用"只改那一块的开关
+          if (id === "google-maps") {
+            const allow = body.values.allowOverage;
+            change({ connection: "connected", account: "浏览器用的 Key：已填 · 服务端用的 Key：已填", hasSecrets: true, ...(allow === undefined ? {} : { panel: googleMapsPanel(allow === "on") }) });
+            return { view: structuredClone(this.state) };
+          }
           if (id === "amap") {
             const both = "地图：已填 · 查地点和路线：已填";
             change({ connection: "connected", account: body.values.serviceKey !== undefined || source.account === both ? both : "地图：已填 · 查地点和路线：没填", hasSecrets: true });

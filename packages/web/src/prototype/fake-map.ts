@@ -1,5 +1,7 @@
 // 原型的地图（429）：演示页不连守护进程、不连高德和 OpenStreetMap，地图页用编的东西——
 // - 当作填好了高德的 Key（DEMO_AMAP_KEY，假的）：国内那一处用"高德"（演示页里的高德是假的，plugins/map/demo-amap.ts 拿占位底图画）；
+// - 当作填好了谷歌地图的 Key（446，DEMO_GOOGLE_KEY，假的）：新加坡那一处"自动"用"谷歌"（演示页里的谷歌是假的，
+//   plugins/google-maps/demo-google.ts 拿占位底图画）；谷歌地图插件停用了（?demo-plugins-off=google-maps）就没有这一家；
 // - 两个地点：国内一处（杭州西湖）、新加坡一处（滨海湾），点了跳过去，底图跟着换；
 // - 占位底图（demoTileUrl）：编的街区格子，不是真的地图；两种底图颜色不同，一眼分得出是哪一种。
 // - 聊天里地图卡片的那条路线（431，demoMapDrawing）：高德查的、从公司到西湖边，编的。
@@ -9,15 +11,19 @@ import { fakeText } from "./fake-content.ts";
 
 /** 演示页里"填好了"的高德 Key（假的，安装版的产物里不该有它：DEMO_SENTINELS） */
 export const DEMO_AMAP_KEY = "demo-amap-key-not-real";
+/** 演示页里"填好了"的谷歌浏览器用的 Key（446，假的，安装版的产物里不该有它：DEMO_SENTINELS） */
+export const DEMO_GOOGLE_KEY = "demo-google-key-not-real";
 
 /**
  * 登记了的两家地图服务（445 的插槽，GET /api/map/config 的 providers）：和守护进程自带的一样——高德（大陆、优先级 100，
  * "填好了"假的 Key）、OpenStreetMap（哪儿都管、0）。演示页里没有别的插件登记的
  */
-export function demoMapProviders(): MapProviderView[] {
+export function demoMapProviders(google = false): MapProviderView[] {
   return [
     { id: "amap", title: fakeText("高德地图"), regions: ["mainland"], manualRegions: ["mainland"], priority: 100, ownBasemapOnly: true, basemap: true, ready: true, key: DEMO_AMAP_KEY, lookup: true },
     { id: "osm", title: "OpenStreetMap", regions: ["mainland", "abroad"], manualRegions: ["mainland", "abroad"], priority: 0, ownBasemapOnly: false, basemap: true, ready: true, lookup: true },
+    // 谷歌地图插件（446）登记的：大陆外、优先级 50，手动时大陆也能用
+    ...(google ? [{ id: "google", title: fakeText("谷歌地图"), regions: ["abroad" as const], manualRegions: ["abroad" as const, "mainland" as const], priority: 50, ownBasemapOnly: true, basemap: true, ready: true, key: DEMO_GOOGLE_KEY, lookup: true }] : []),
   ];
 }
 
@@ -49,6 +55,7 @@ export function demoBasemapNote(): string {
 const PALETTE = {
   osm: { ground: "#f2efe9", street: "#ffffff", edge: "#d9d2c5", park: "#cfe8c4", water: "#aad3df" },
   amap: { ground: "#eef1f6", street: "#ffffff", edge: "#d4dae6", park: "#d3ecd0", water: "#9ec7f0" },
+  google: { ground: "#f5f5f5", street: "#ffffff", edge: "#dadce0", park: "#c8e6c9", water: "#a4cdf5" },
 } as const;
 
 /** 一个整数的哈希（编街道、公园用：同一个位置每次一样） */
@@ -62,7 +69,7 @@ function hash(a: number, b: number, c: number): number {
  * 一张占位瓦片（SVG 的 data: 地址）：每张分成 4×4 格，格子随机是街区、公园或水；街道按全局的行列号定，横竖连得上。
  * 是编的，不对应任何真实的地方
  */
-export function demoTileUrl(style: "osm" | "amap", z: number, x: number, y: number): string {
+export function demoTileUrl(style: "osm" | "amap" | "google", z: number, x: number, y: number): string {
   const c = PALETTE[style];
   const cells: string[] = [];
   for (let i = 0; i < 4; i++) {
@@ -97,6 +104,22 @@ export function demoTileUrl(style: "osm" | "amap", z: number, x: number, y: numb
  * 高德查来的只能画在高德的地图上：卡片上不画缩略图，点开的地图页用（演示页里假的）高德底图画
  */
 const DEMO_DRAWINGS: Readonly<Record<string, MapDrawing>> = {
+  // 新加坡牛车水一带的 hawker centre（446：谷歌地图查的，只能画在谷歌的地图上；地名是公开的地点，坐标是大概的）
+  "google-p1": {
+    id: "google-p1",
+    kind: "places",
+    source: "google",
+    title: "附近的 hawker centre",
+    at: "2026-10-07T12:06:00.000+08:00",
+    marks: [
+      { id: "here", lat: 1.2805, lon: 103.845, label: "当前位置", kind: "here" },
+      { id: "p1", lat: 1.28036, lon: 103.84476, label: "Maxwell Food Centre", kind: "search" },
+      { id: "p2", lat: 1.2794, lon: 103.8465, label: "Amoy Street Food Centre", kind: "search" },
+      { id: "p3", lat: 1.2826, lon: 103.8429, label: "Chinatown Complex Food Centre", kind: "search" },
+      { id: "p4", lat: 1.28069, lon: 103.85036, label: "Lau Pa Sat", kind: "search" },
+    ],
+    lines: [],
+  },
   "amap-r2": {
     id: "amap-r2",
     kind: "route",

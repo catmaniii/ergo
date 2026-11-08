@@ -6,6 +6,7 @@
 // - 手动选了某家（地图切换，MapSwitch.tsx）：这个区域用它；它不能用了（Key 坏了、插件停了、这台设备加载不上）把这个区域退回"自动"，
 //   说一句（fellBack）。挑完的样子（这个区域、用的谁、"自动"会挑谁、能选哪几家）报给地图页（switcher.report），地图切换照它画；
 // - 外站的脚本（高德、谷歌）只在第一次真要用那一家时加载；加载着的那一会儿先画 OpenStreetMap；加载不上就不再试（换了 Key 重试），写一句为什么；
+//   建好以后那一家又说不能用了（446：谷歌的 gm_authFailure，引擎报 onFailed）也一样记成加载失败；
 // - 没填 Key 而看的是国内：照样用 OpenStreetMap，写一句"填了高德 Key 国内地图更清楚"，点了去设置 · 数据源 · 高德地图；
 // - 署名：OpenStreetMap 时右下角写"© OpenStreetMap 贡献者"（链到它的版权页）；高德地图自己画它的标志和审图号，不遮；
 // - 深色：跟着页面的外观（OSM 的瓦片加滤镜，高德换深色样式）；
@@ -192,6 +193,12 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, initial
         setSettled(v);
       },
       onMarkClick: (id: string) => latest.current.onMarkClick?.(id),
+      // 建好以后这一家又说不能用了（谷歌说 Key 不对）：记成这一页加载失败，下一轮退回 OpenStreetMap（446）
+      onFailed: (reason: string) => {
+        const id = rendered;
+        const key = keyOf(id);
+        setPrepared((before) => ({ ...before, [id]: { key, state: "failed", reason } }));
+      },
     };
     let engine: MapEngine;
     try {
