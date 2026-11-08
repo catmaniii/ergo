@@ -441,6 +441,11 @@ describe("录像覆盖不到的：卡片", () => {
     expect(cardStatus(card(type))).toEqual({ key: "pending", text: said, level: "you" });
   });
 
+  test("地图卡片要直接看缩略图：收到了也照旧整张画，不收成一行，下面照旧能点开详情", () => {
+    const map = card("map", { text: "地图：10 月 7 日去过的地方", status: "handled" });
+    expect(lineOf(map)).toEqual({ form: "card", open: "link" });
+  });
+
   test("简单提醒、服务入口不用你做决定：没处理也不醒目、不写状态", () => {
     expect([cardAskOf("reminder"), cardAskOf("service_entry")]).toEqual([null, null]);
     const reminder = card("reminder", { text: "简单提醒：交房租 · 每月 8 日 09:00" });

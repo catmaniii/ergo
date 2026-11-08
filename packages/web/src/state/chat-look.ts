@@ -19,6 +19,7 @@
 // - 卡片：标题是卡片种类，卡片纯文本的第一行（开头和标题重复的"种类："去掉），后面状态——没处理的按种类写"等你确认""等你批准"
 //   "等你回答"……（CARD_ASK，跟你有关的颜色），处理过的写结果（"已批准"）、关掉的"已关闭"、过期的"已过期"（平和）；
 //   简单提醒、服务入口不用你做决定，不写状态。打不开详情的卡（还没收到这张卡）照旧整张画（form card）；
+//   要在对话里直接看的卡（地图卡片的缩略图，CARD_STAYS_WHOLE）像图片附件一样照旧整张画；
 // - 时间线记录：标题是记录种类（偏离、越界、操作记录、重做……），摘要，后面时间；越界这类警示的、没做成的操作醒目；原来的第二行说明在详情里；
 // - 系统说明：标题"说明"，第一行；
 // - 分支摘要：标题"回退"，摘要的第一句；恢复了哪些文件在详情里。
@@ -108,8 +109,11 @@ export type ChatLook =
       readonly open: ChatOpen | undefined;
     }
   | ChatLine
-  /** 打不开详情的卡片（还没收到这张卡）：照旧整张画，按钮在卡上 */
-  | { readonly form: "card"; readonly open: undefined }
+  /**
+   * 照旧整张画的卡片，按钮在卡上：打不开详情的（还没收到这张卡，open 是 undefined）；要直接看的（地图卡片，CARD_STAYS_WHOLE），
+   * 能开详情的卡下面照旧"详情"（open 是 link）
+   */
+  | { readonly form: "card"; readonly open: "link" | undefined }
   | { readonly form: "divider"; readonly open: undefined }
   | { readonly form: "deleted"; readonly open: undefined }
   /** 插件没启用、这条内容暂时看不到：一行占位，样子同"已删除"，点不开 */
@@ -221,6 +225,12 @@ function toolLine(item: Extract<ChatItem, { kind: "tool_group" }>): ChatLine {
     open: item.detail ? "row" : undefined,
   });
 }
+
+/**
+ * 对话里照旧整张画、不收成一行的卡：卡本身就是要看的内容（地图卡片的缩略地图，出来就是已处理、没有要你点的），
+ * 像图片、文件附件一样留在对话里；收成一行就看不到图了
+ */
+export const CARD_STAYS_WHOLE: ReadonlySet<string> = new Set<CardType>(["map"]);
 
 /** 卡片没处理时等你做什么：确认（默认）、批准、回答、决定（几个选一个）、核对、挑、过目；不用你做决定的（提醒、服务入口）是 null */
 export type CardAsk = "confirm" | "approve" | "answer" | "decide" | "check" | "pick" | "review";
@@ -392,6 +402,7 @@ export function chatLook(item: ChatItem): ChatLook {
     case "recall":
       return line({ kind: "recall", title: TITLE.recall, text: item.keyLine, dim: item.recall.count === 0, recallFirst: firstRecallMaterial(item.calls.map((c) => c.part)), open: row });
     case "card":
+      if (item.card && CARD_STAYS_WHOLE.has(item.card.type)) return { form: "card", open: detail ? "link" : undefined };
       return item.card && detail ? cardLine(item, item.card) : { form: "card", open: undefined };
     case "system":
       // 分支摘要：标题"回退"，摘要的第一句

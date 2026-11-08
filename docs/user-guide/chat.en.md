@@ -202,6 +202,8 @@ To back out, press Esc or click elsewhere. On a phone, tapping a row selects it;
 
 Reminders and service entries don't need your decision, so they show no status.
 
+Map cards don't fold into a line: the small map is the point, so the whole card stays in the session, with **Quote** and **Details ›** below it. See [Map cards in chats](map.en.md#map-cards-in-chats).
+
 | The card says | When it appears | Buttons |
 |---|---|---|
 | **Reminder** | You asked it to remind you | **Cancel reminder**, **Delete**, **Edit**. See [Reminders](calendar-reminders.en.md) |

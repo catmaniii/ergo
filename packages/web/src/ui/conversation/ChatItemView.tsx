@@ -199,11 +199,11 @@ export function ChatItemView({ item, actions }: { item: ChatItem; actions: ChatI
       return plugin === undefined ? null : <UnavailableLine text={t("state.chatItems.unavailable", { plugin })} />;
     }
     case "card":
-      // 收到了这张卡的收成一行，点进详情处理；还没收到、打不开详情的照旧整张画
+      // 收到了这张卡的收成一行，点进详情处理；还没收到、打不开详情的照旧整张画；地图卡片这种要直接看的照旧整张画，下面照旧"引用 · 详情"
       if (look.form === "line") return <LineItem look={look} onOpen={openLine} mark={item.id} />;
       return (
         <div className="msg assistant">
-          <Part part={{ type: "card_ref", cardId: item.cardId }} mark={item.id} onQuote={onQuote} />
+          <Part part={{ type: "card_ref", cardId: item.cardId }} mark={item.id} onDetail={look.open === "link" ? open?.(item.id) : undefined} onQuote={onQuote} />
         </div>
       );
     case "system": {
