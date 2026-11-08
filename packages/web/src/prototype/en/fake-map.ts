@@ -2,6 +2,7 @@
 import type { Phrases } from "./phrases.ts";
 
 export const EN_MAP: Phrases = {
+  "高德地图": "AMap",
   "杭州 · 西湖": "Hangzhou · West Lake",
   "新加坡 · 滨海湾": "Singapore · Marina Bay",
   "演示底图：编的街区，不是真的地图": "Demo basemap: made-up streets, not a real map",

@@ -5,9 +5,11 @@
 // 只有类型，不在运行时引用 React（宿主 host.ts 在 Node 里也能跑）。
 // （语音插件）加了三种：输入框的语音模式（composerVoice）、整个页面挂一份的后台部件（background）、核心的设置页里由插件画的那几页（settingsPages）。
 // 加了数据源（dataSources）：设置 · 数据源里一个数据源下面由插件画的那一块（填 API Key、地址，测试连接）。
+// 加了地图服务的底图（mapBasemaps，445）：地图页能画的一种底图，地图插件自带高德、OpenStreetMap，别的插件（谷歌地图）能再登记一种。
 import type { ComponentType, ReactNode } from "react";
 import type { MorePage, Navigate, Route } from "../app/route.ts";
 import type { RecordedVoice } from "../app/voice-session.ts";
+import type { MapEngineFactory } from "../model/map.ts";
 import type { BoardEntry } from "../model/types.ts";
 import type { CalendarCell, CalendarDayDetail, ChatItem, ChatItemKind, DataSourceItemView, DataSourcesView, DataSourceView, DetailContent, DetailKind } from "../state/index.ts";
 import type { CardProps } from "../ui/cards/CardShell.tsx";
@@ -174,6 +176,23 @@ export interface DataSourceSlot {
   readonly Panel: ComponentType<{ source: DataSourceView; onView(view: DataSourcesView): void; onDisconnectItem?: ((item: DataSourceItemView) => void) | undefined }>;
 }
 
+/**
+ * 地图服务的底图（445，地图插件开的"地图服务"插槽的网页一半）：地图页能画的一种底图。键是地图服务的编号，和守护进程那一半
+ * 登记的一样（amap、osm、google）。地图页按守护进程报的（GET /api/map/config 的 providers：管哪儿、优先级、浏览器用的 Key、
+ * 现在能不能用）和这里登记了的挑一家画、列地图切换；插件停用时这一条撤掉，地图页退回下一家（手动选了它的退回"自动"并说一句）。
+ * 坐标一律 WGS-84 进出，要转的（大陆里的 GCJ-02）由它的引擎自己转；用户自己的足迹一律 OpenStreetMap，不为它加载商业地图的脚本。
+ */
+export interface MapBasemapSlot {
+  readonly id: string;
+  /** 名字（角标、地图切换里写的；取值函数） */
+  readonly title: string;
+  /**
+   * 准备这一家的底图：要从外站加载脚本的（高德、谷歌）在这里加载，同一个 Key 只加载一次；交回建引擎的函数。加载不上抛错
+   * （message 给人看：地图页写"X 没加载上（原因）"、地图切换里这一家标"连不上"）。key 是守护进程给的浏览器用的 Key（不用 Key 的不给）
+   */
+  prepare(key: string | undefined): MapEngineFactory | Promise<MapEngineFactory>;
+}
+
 /** 全部插槽 */
 export interface SlotMap {
   pages: PageSlot;
@@ -188,6 +207,7 @@ export interface SlotMap {
   boardEntries: BoardEntrySlot;
   calendar: CalendarSlot;
   dataSources: DataSourceSlot;
+  mapBasemaps: MapBasemapSlot;
 }
 
 export type SlotName = keyof SlotMap;
@@ -206,6 +226,7 @@ export const SLOT_KEYS: { readonly [K in SlotName]: (entry: SlotMap[K]) => strin
   boardEntries: (e) => e.kind,
   calendar: (e) => e.id,
   dataSources: (e) => e.id,
+  mapBasemaps: (e) => e.id,
 };
 
 export const SLOT_NAMES = Object.keys(SLOT_KEYS) as SlotName[];

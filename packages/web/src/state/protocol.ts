@@ -726,6 +726,9 @@ export type { MapCardMark, MapCardPayload, MapCardShow, MapDrawing } from "@ergo
 // 查地点、算路线（432）：设置 · 数据源 · 高德地图那一块要的（Web 服务 Key 填了没有、这个月的用量）、查到的能画的那一份
 export { isAmapSourcePanel, MAP_ROUTE_MODES } from "@ergo/protocol";
 export type { AmapSourcePanel, AmapUsageView, MapLookupDrawing, MapLookupLine, MapLookupMark, MapRouteMode } from "@ergo/protocol";
+// 地图服务插槽（445）：区域、登记了的几家、地图页按区域记的手动切换
+export { MAP_LOOKUP_SOURCES, MAP_PROVIDER_ID, MAP_REGIONS, mapRegionOf } from "@ergo/protocol";
+export type { MapChoice, MapProviderView, MapRegion } from "@ergo/protocol";
 // 负责人背后的 agent
 export type { BackgroundAgentEntry, BackgroundAgentList, BackgroundAgentRow, BackgroundAgentState, BackgroundAgentStep, BackgroundAgentsEventPayload, BackgroundAgentTranscript } from "@ergo/protocol";
 // 工具调用的完整参数和返回（详情页按调用 id 现取）

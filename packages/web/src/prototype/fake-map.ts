@@ -4,11 +4,22 @@
 // - 占位底图（demoTileUrl）：编的街区格子，不是真的地图；两种底图颜色不同，一眼分得出是哪一种。
 // - 聊天里地图卡片的那条路线（431，demoMapDrawing）：高德查的、从公司到西湖边，编的。
 // 只在演示页里用（地图页 import.meta.env.MODE === "demo" 的分支、FakeDaemonHttp）。英文在 en/fake-map.ts。
-import type { MapDrawing } from "../state/index.ts";
+import type { MapDrawing, MapProviderView } from "../state/index.ts";
 import { fakeText } from "./fake-content.ts";
 
 /** 演示页里"填好了"的高德 Key（假的，安装版的产物里不该有它：DEMO_SENTINELS） */
 export const DEMO_AMAP_KEY = "demo-amap-key-not-real";
+
+/**
+ * 登记了的两家地图服务（445 的插槽，GET /api/map/config 的 providers）：和守护进程自带的一样——高德（大陆、优先级 100，
+ * "填好了"假的 Key）、OpenStreetMap（哪儿都管、0）。演示页里没有别的插件登记的
+ */
+export function demoMapProviders(): MapProviderView[] {
+  return [
+    { id: "amap", title: fakeText("高德地图"), regions: ["mainland"], manualRegions: ["mainland"], priority: 100, ownBasemapOnly: true, basemap: true, ready: true, key: DEMO_AMAP_KEY, lookup: true },
+    { id: "osm", title: "OpenStreetMap", regions: ["mainland", "abroad"], manualRegions: ["mainland", "abroad"], priority: 0, ownBasemapOnly: false, basemap: true, ready: true, lookup: true },
+  ];
+}
 
 /** 地图页上的一个地点：点了跳过去 */
 export interface DemoMapPlace {

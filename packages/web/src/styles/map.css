@@ -319,3 +319,104 @@
   stroke: var(--you);
   stroke-opacity: 0.5;
 }
+
+/*
+ * 地图切换（445，plugins/map/MapSwitch.tsx）：标题栏最右边那一格（.map-bar-tools）里。
+ * 宽的时候一个下拉按钮（.map-switch-btn，"地图：自动 ▾"）+ 贴着它的弹出菜单（.popup.row-menu.map-switch-menu）；
+ * 窄的时候 ⋮（.map-switch-more）+ 底部弹层（.map-switch-sheet）。菜单上面一行写区域，下面"自动"和能用的几家（单选、带勾），
+ * 连不上的灰掉、下面一行小字；最后一两句说明。只用 token，十一套风格跟着换皮。
+ */
+.map-switch-btn {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 220px;
+  padding: 4px 10px;
+  border: 1px solid var(--card-border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-size: var(--fs-s);
+}
+.map-switch-btn.on,
+.map-switch-more.on {
+  background: var(--fill);
+}
+.map-switch-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.map-switch-menu {
+  min-width: 232px;
+  max-width: 300px;
+}
+.map-switch-sheet {
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  margin: 6px -6px 0;
+}
+.map-switch-head {
+  padding: 6px 10px 4px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.map-switch-menu .map-switch-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-s);
+  background: none;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fs-s);
+}
+.map-switch-sheet .map-switch-item {
+  padding: 12px 10px;
+  font-size: var(--fs-body);
+}
+.map-switch-menu .map-switch-item:hover:not(:disabled) {
+  background: var(--fill);
+}
+.map-switch-menu .map-switch-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+  background: none;
+}
+.map-switch-label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.map-switch-label small {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.map-switch-check {
+  flex: none;
+  width: 18px;
+  text-align: center;
+  color: var(--primary);
+  font-weight: 700;
+}
+.map-switch-note {
+  padding: 4px 10px 6px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+}
+/* 提示那一句能关上（手动选的那一家用不了、换回了"自动"） */
+.map-hint .icon-btn {
+  flex: none;
+}
