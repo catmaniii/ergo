@@ -9,6 +9,7 @@
 // - 拦下的选文件对话框：让二狗选（问页面桥要框的列表）、这一轮的目标是这个对话框；发出去之后收起不取消对话框（秘书还要交给它），
 //   发之前收起告诉 App 取消；自己选交给系统的选择器；
 // -长按元素的圆钮：打字、说话走同一套，用户的话原样发，带着元素（这一刻选中的字）；没有框要操作；按钮的样子标在元素的编号上；页面桥报的元素按形状核对；
+/// -右下角常驻的悬浮按钮（浏览侧边栏关着时）：打字、说话走同一套，带这一页、不带框，网页上下文写 corner；按钮的样子标在 corner 上；不预先备录音器；
 // - 原生桥：页面桥报的话按形状核对（发送带着的框、框里的内容，挑图片窗口上点的），形状不对的不认；文件分段交、App 回的不对当失败；
 //   挑图片窗口画成什么样（pick）、放掉预备的文件（discard，新版 App 才有）、返回手势收起窗口（pick-close）。
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -274,6 +275,65 @@ describe("长按元素的圆钮", () => {
     expect(parsePageEvent(JSON.stringify({ type: "element-open", element: IMAGE, page: PAGE }))).toEqual({ type: "element-open", element: IMAGE, page: PAGE });
     expect(parsePageEvent(JSON.stringify({ type: "element-voice", phase: "fly", element: IMAGE, page: PAGE }))).toBeUndefined();
     expect(parsePageEvent(JSON.stringify({ type: "bubble", action: "send", text: "说", element: IMAGE }))).toEqual({ type: "bubble", action: "send", text: "说", element: IMAGE });
+  });
+});
+
+const openCorner = () => pageEvent({ type: "corner-open", page: PAGE });
+const voiceCorner = (phase: "press" | "start" | "stop" | "cancel") => pageEvent({ type: "corner-voice", phase, page: PAGE });
+
+describe("右下角常驻的悬浮按钮（浏览侧边栏关着时）", () => {
+  test("点一下打字：发进秘书的主会话，带这一页、不带框，网页上下文写 corner；按钮的样子标在 corner 上；回话进气泡", () => {
+    openCorner();
+    expect(commands.snapshot()).toMatchObject({ kind: "bar", target: { page: PAGE, fields: [], corner: true } });
+    // 不预先备录音器（右下角的按钮一直在，不能一直占着话筒）
+    expect(voice.log).toEqual([]);
+    bubbleEvent({ action: "send", text: "  这一页讲了什么 " });
+    expect(said).toEqual([{ text: "这一页讲了什么", browsing: { browser: BROWSER, page: PAGE, via: "button", corner: true } }]);
+    expect(said[0]!.browsing.selected).toBeUndefined();
+    expect(page.marks).toEqual(["corner:busy"]);
+    turn(1, { phase: "replied", text: "讲的是上传照片" });
+    expect(commands.snapshot()).toMatchObject({ kind: "reply", text: "讲的是上传照片", failed: false });
+    expect(page.marks).toEqual(["corner:busy", "corner:idle"]);
+    vi.advanceTimersByTime(REPLY_HIDE_MS);
+    expect(commands.snapshot().kind).toBe("idle");
+  });
+
+  test("按住说话：按下备好录音器、按够了开始、松手送识别，认出来的字发进去，标着是说的；上滑取消不发、按钮回到平常", async () => {
+    recognized = { ok: true, text: "把这一页存进素材" };
+    voiceCorner("press");
+    expect(voice.log).toEqual(["prepare:press"]);
+    expect(captures).toEqual([true]);
+    voiceCorner("start");
+    expect(commands.snapshot()).toMatchObject({ kind: "listening", target: { corner: true } });
+    voiceCorner("stop");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(said).toEqual([{ text: "把这一页存进素材", browsing: { browser: BROWSER, page: PAGE, via: "button", spoken: true, corner: true } }]);
+    expect(page.marks).toContain("corner:busy");
+    commands.dismiss();
+    expect(page.marks.at(-1)).toBe("corner:idle");
+
+    said = [];
+    page.marks = [];
+    voiceCorner("press");
+    voiceCorner("start");
+    voiceCorner("cancel");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(said).toEqual([]);
+    expect(commands.snapshot().kind).toBe("idle");
+    expect(page.marks).toEqual(["corner:idle"]);
+  });
+
+  test("在办的时候再点、再按不接；页面桥报的 corner-open、corner-voice 按形状核对（要有这一页，阶段认得）", () => {
+    openCorner();
+    bubbleEvent({ action: "send", text: "总结一下" });
+    openCorner();
+    voiceCorner("start");
+    expect(commands.snapshot()).toMatchObject({ kind: "busy", said: "总结一下" });
+    expect(parsePageEvent(JSON.stringify({ type: "corner-open", page: PAGE, field: TITLE }))).toEqual({ type: "corner-open", page: PAGE });
+    expect(parsePageEvent(JSON.stringify({ type: "corner-open" }))).toBeUndefined();
+    expect(parsePageEvent(JSON.stringify({ type: "corner-open", page: { title: "x", url: "javascript:alert(1)" } }))).toBeUndefined();
+    expect(parsePageEvent(JSON.stringify({ type: "corner-voice", phase: "stop", page: PAGE }))).toEqual({ type: "corner-voice", phase: "stop", page: PAGE });
+    expect(parsePageEvent(JSON.stringify({ type: "corner-voice", phase: "fly", page: PAGE }))).toBeUndefined();
   });
 });
 

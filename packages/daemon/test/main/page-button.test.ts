@@ -8,7 +8,8 @@
 // - 替上传框找照片（原来页面助手的本事）：子文件夹概况、看图、给候选成一张网页候选卡（按钮所在的框）；会话里、网页上的挑图片窗口里
 //   都能挑，只认第一次（先到先得、在交的那一下再点回"正在交"）；没交进去原因记在卡上、还能再点；
 // - 互相知道：悬浮按钮里挑过图之后，在侧边栏说"换一批"，秘书（同一个会话）给同一个框新的一组候选。
-// -悬浮按钮那一轮也能看网页上能点的东西、按编号点（不要求选中框），交给秘书的输入里写着这两个工具。
+/// -悬浮按钮那一轮也能看网页上能点的东西、按编号点（不要求选中框），交给秘书的输入里写着这两个工具。
+// -浏览侧边栏关着时常驻网页右下角的悬浮按钮（没挂在框上）：记 corner、不带框，输入里写清没有目标框、说的是这一页、回话要短。
 // 真实装配路径（startTestDaemon），假模型（faux 剧本），设备是假的（另一个模拟前端，报浏览器、答请求、在挑图片窗口里点）。
 import fs from "node:fs";
 import path from "node:path";
@@ -195,6 +196,43 @@ describe("悬浮按钮上的话进秘书的主会话", () => {
     expect(texts.at(-1)).toBe("agent:填好了");
   });
 });
+
+describe("右下角常驻的悬浮按钮（浏览侧边栏关着、没挂在框上）上的话", () => {
+  it("记着网页和 corner、不带框；输入里写清没有目标框、说的是这一页、回话要短；读网页照常转给设备，不按编号的填字回没有选中的框；会话里的小字写用悬浮按钮", async () => {
+    const { url } = await startTestDaemon({ secretary: [call("browse_read_page", {}), call("browse_fill", { text: "张三" }), ECHO] });
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    const device = fakeDevice(frontend, (req) => (req.op === "read" ? { ok: true, page: PAGE, text: "报名须知：带身份证" } : { ok: true }));
+    // 设备上选中的框不算（右下角的按钮那一轮没有目标框）
+    await device.report({ page: PAGE, selected: AVATAR });
+
+    const sent = await tell(frontend, "这一页讲了什么", button(undefined, { corner: true }));
+    device.stop();
+
+    const message = messagesOf(frontend).find((m) => m.id === sent.messageId);
+    expect(message?.browsing).toEqual({ browser: BROWSER, title: PAGE.title, url: PAGE.url, via: "button", corner: true });
+    expect(browsingLabel(message!.browsing!)).toBe("在网页「报名 · 示例」上用悬浮按钮打字");
+    expect(browsingLabel({ ...message!.browsing!, spoken: true })).toBe("在网页「报名 · 示例」上用悬浮按钮说");
+
+    expect(device.requests.map((r) => r.op)).toEqual(["read"]);
+    const context = lastEcho(frontend);
+    expect(context).toContain("这一页讲了什么\n（这句是用户在「浏览」里网页「报名 · 示例」（地址 https://form.example.cn/apply）上，网页右下角的二狗悬浮按钮上点它打的字：按钮没挂在哪个框上，用户说的是这一页（或者别的事），这一轮没有目标框。");
+    expect(context).toContain("回话要短，一两句话");
+    expect(context).not.toContain("这一轮要操作的就是这个框");
+    expect(toolResultOf(context, "browse_fill")).toContain("没有选中的框");
+  });
+
+  it("框、选文件对话框、元素带着时不算右下角（corner 不记）", async () => {
+    const { url } = await startTestDaemon({ secretary: [say("好")] });
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    const sent = await tell(frontend, "名字写成张三", button(NAME, { corner: true }));
+    const message = messagesOf(frontend).find((m) => m.id === sent.messageId);
+    expect(message?.browsing).toMatchObject({ via: "button", field: NAME });
+    expect(message?.browsing?.corner).toBeUndefined();
+  });
+});
+
 
 describe("悬浮按钮那一轮看能点的、按编号点", () => {
   it("对着框按着说的那一轮：看、点都转给设备（设备上没有选中的框也行），输入里写着能用这两个", async () => {
