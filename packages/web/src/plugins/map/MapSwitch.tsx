@@ -6,6 +6,7 @@
 // - 查地点、算路线跟着现在用的那家走（秘书查的时候拿到地图上用的是谁才这样；拿不到按"自动"）；看足迹时一律 OpenStreetMap，菜单里写一句。
 // useBasemapSwitch 把"记着的、改它、地图那块报上来的样子"放在一起：地图页建一份，交给 MapCanvas（switcher）和这个开关。
 import { useCallback, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { type MapChoice, type MapRegion, t } from "../../state/index.ts";
 import { Sheet } from "../../ui/common.tsx";
 import { Icon } from "../../ui/icons.tsx";
@@ -50,8 +51,8 @@ export function useBasemapSwitch(): BasemapSwitch {
   return useMemo(() => ({ choice, setChoice, report, status }), [choice, setChoice, report, status]);
 }
 
-/** 菜单里的几项（下拉、底部弹层共用） */
-function SwitchItems({ status, current, footprints, onPick }: { status: BasemapStatus; current: string | undefined; footprints: boolean; onPick(id: string | undefined): void }) {
+/** 菜单里的几项（下拉、底部弹层共用；标题栏以后有别的 ⋮ 收纳菜单时可以把它放进去） */
+export function MapSwitchItems({ status, current, footprints, onPick }: { status: BasemapStatus; current: string | undefined; footprints: boolean; onPick(id: string | undefined): void }) {
   const item = (id: string | undefined, label: string, note: string | undefined, disabled: boolean) => {
     const checked = current === id;
     return (
@@ -101,7 +102,7 @@ export function MapSwitch({ sw, compact = false, footprints = false }: { sw: Bas
     sw.setChoice(status.region, id);
     close();
   };
-  const items = <SwitchItems status={status} current={current} footprints={footprints} onPick={pick} />;
+  const items = <MapSwitchItems status={status} current={current} footprints={footprints} onPick={pick} />;
   return (
     <>
       <button
@@ -131,11 +132,15 @@ export function MapSwitch({ sw, compact = false, footprints = false }: { sw: Bas
       </button>
       {open &&
         (compact ? (
-          <Sheet title={t("ui.plugins.map.switch.title")} onClose={close}>
-            <div className="map-switch-menu map-switch-sheet" role="menu" aria-label={t("ui.plugins.map.switch.title")}>
-              {items}
-            </div>
-          </Sheet>
+          // 底部弹层挂到 body 上：画在标题栏里会被地图上的钮、署名（层级更高）盖住
+          createPortal(
+            <Sheet title={t("ui.plugins.map.switch.title")} onClose={close}>
+              <div className="map-switch-menu map-switch-sheet" role="menu" aria-label={t("ui.plugins.map.switch.title")}>
+                {items}
+              </div>
+            </Sheet>,
+            document.body,
+          )
         ) : (
           <PopupMenu anchor={anchor} align="end" className="row-menu map-switch-menu" label={t("ui.plugins.map.switch.title")} onClose={close}>
             {items}

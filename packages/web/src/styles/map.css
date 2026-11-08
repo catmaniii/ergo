@@ -416,6 +416,10 @@
   font-size: var(--fs-xs);
   line-height: 1.45;
 }
+/* 地图那一块自成一层：里面的钮、署名、提示（z-index 200 上下）只在这一块里比，地图切换的底部弹层（.modal-mask）盖得住它们 */
+.map-stage {
+  isolation: isolate;
+}
 /* 提示那一句能关上（手动选的那一家用不了、换回了"自动"） */
 .map-hint .icon-btn {
   flex: none;
