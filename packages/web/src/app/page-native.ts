@@ -1,7 +1,19 @@
 // 这个页面是不是开在鸿蒙 App 里：把 app/native-app.ts 接到页面的 window 上。
 // 单独一个文件，app/native-app.ts 就不碰浏览器的全局变量，能在 Node 里测。
 import type { ReportAppVersionParams } from "../state/index.ts";
-import { appBottomReserve, type BackScope, detectNativeApp, followBackInApp, followInsetsInApp, followLocaleInApp, followThemeInApp, type InsetsScope, type NativeApp, nativeAppReport } from "./native-app.ts";
+import {
+  appBottomReserve,
+  type BackScope,
+  detectNativeApp,
+  followBackInApp,
+  followInsetsInApp,
+  followLocaleInApp,
+  followThemeInApp,
+  type InsetsScope,
+  type NativeApp,
+  nativeAppReport,
+  videoFullscreenAllowed,
+} from "./native-app.ts";
 import type { AppUpdateScope } from "./native-app-update.ts";
 import type { NativeBrowserScope } from "./native-browser.ts";
 import type { NativeVoiceScope } from "./native-voice.ts";
@@ -24,6 +36,11 @@ export function pageAppReport(): ReportAppVersionParams | undefined {
   if (typeof window === "undefined") return undefined;
   reported ??= { report: nativeAppReport(window) };
   return reported.report;
+}
+
+/** 视频播放器给不给全屏按钮（ui/video-viewer.tsx）：浏览器里给；在 App 里（有原生桥）要新版 App 接住了全屏才给 */
+export function pageVideoFullscreen(): boolean {
+  return videoFullscreenAllowed(pageAppReport() !== undefined, pageNativeApp());
 }
 
 /**

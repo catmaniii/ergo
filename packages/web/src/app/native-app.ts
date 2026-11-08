@@ -16,6 +16,8 @@
 // 网页开场、换了语言时把当前语言的这几句交过去（appTexts、followLocaleInApp）；旧版 App 没有，照旧中文。
 // 有手机这一组方法（新版 App）时 NativeApp.phone 是它的包装（native-phone.ts）：从通讯录挑人、读手机日历；没有时这两样做不了。
 // 有 installAppUpdate（新版安卓 App）时 NativeApp.appUpdate 是它的包装（native-app-update.ts）：在 App 里更新 App；没有时退回成从二狗下载 APK。
+// 有 videoFullscreen（新版 App，票 407）时 NativeApp.videoFullscreen 是 true：App 接住了网页的全屏（标准 Fullscreen API，
+// 安卓 onShowCustomView、鸿蒙 onFullScreenEnter），视频播放器的全屏按钮点了是真全屏；旧版 App 没有，播放器藏掉全屏按钮（videoFullscreenAllowed）。
 // App 的版本（nativeAppReport）：连上守护进程后报上去，够不够新由守护进程判断（ADR-0047）；页面上的提示条看本机版本和协议包的最低版本。
 import { activeLocale, APP_VERSION_MAX_LENGTH, appPlatformOf, type AppPlatform, onLocaleChange, type ReportAppVersionParams, t, type ThemeChoice } from "../state/index.ts";
 import { appObject, exposeToApp } from "./app-names.ts";
@@ -55,6 +57,8 @@ export interface NativeApp {
   readonly phone?: NativePhone;
   /** 在 App 里更新 App（安卓，票 399）：下载二狗带的安装包、调起系统安装；旧版 App 和鸿蒙没有 */
   readonly appUpdate?: NativeAppUpdate;
+  /** App 接住了网页的全屏（视频播放器自带的全屏按钮点了是真全屏，票 407）；旧版 App 没有这一项 */
+  readonly videoFullscreen?: true;
 }
 
 /** 交给 App 的原生的字：二狗现在用的语言、harmony.* 的 key → 当前语言的句子（缺的已经用中文补上） */
@@ -123,6 +127,9 @@ export function nativeAppReport(scope: { ergoNative?: unknown } & UserAgentScope
   return { version: typeof version === "string" ? version.slice(0, APP_VERSION_MAX_LENGTH) : "", ...(platform === undefined ? {} : { platform }) };
 }
 
+/** 原生桥上说明"App 能真全屏"的方法名（无参数、回 true；两个 App 的原生桥上也叫它，票 407） */
+export const NATIVE_VIDEO_FULLSCREEN_METHOD = "videoFullscreen";
+
 /**
  * 页面的全局对象里有没有 App 注入的原生桥；没有、形状不对、App 拒绝了这个页面都返回 undefined。
  * 有原生录音时在 scope 上登记 App 推送用的 __ergoVoice，有原生浏览器时登记 __ergoBrowser。
@@ -141,6 +148,8 @@ export function detectNativeApp(scope: { ergoNative?: unknown } & UserAgentScope
   const setTexts = typeof raw.setTexts === "function" ? (texts: NativeAppTexts) => void callBridge(raw, "setTexts", JSON.stringify(texts)) : undefined;
   const phone = wrapNativePhone(raw);
   const appUpdate = wrapNativeAppUpdate(raw, scope);
+  // 有这个方法就说明 App 能真全屏（方法本身无参数、回 true，网页不用调它）
+  const videoFullscreen = typeof raw[NATIVE_VIDEO_FULLSCREEN_METHOD] === "function";
   return {
     platform: appPlatformOf(scope.navigator?.userAgent ?? ""),
     version,
@@ -155,7 +164,17 @@ export function detectNativeApp(scope: { ergoNative?: unknown } & UserAgentScope
     ...(setTexts ? { setTexts } : {}),
     ...(phone ? { phone } : {}),
     ...(appUpdate ? { appUpdate } : {}),
+    ...(videoFullscreen ? { videoFullscreen: true as const } : {}),
   };
+}
+
+/**
+ * 视频播放器给不给全屏按钮：不在 App 里（浏览器，电脑、手机）照给，本来就是真全屏；在 App 里要有 videoFullscreen（新版 App 接住了全屏）
+ * 才给——旧版 App 没接，全屏按钮点了没反应，藏掉（controlsList="nofullscreen"），只用铺满页面的大播放器。
+ * inApp 看有没有原生桥（App 拒绝了这个页面、读不到版本时也算在 App 里），app 是认出来的 App 能做的事
+ */
+export function videoFullscreenAllowed(inApp: boolean, app: Pick<NativeApp, "videoFullscreen"> | undefined): boolean {
+  return !inApp || app?.videoFullscreen === true;
 }
 
 /** App 原生的字的 key 都以它开头（共享协议包 locales/<语言>/harmony.json） */

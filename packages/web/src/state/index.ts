@@ -103,6 +103,7 @@ export * from "./stage-graph.ts";
 export * from "./stage-codes.ts";
 export * from "./plan-outline.ts";
 export * from "./attachments.ts";
+export * from "./chat-video.ts";
 export * from "./file-view.ts";
 export * from "./stage-boxes.ts";
 export * from "./stage-observed.ts";

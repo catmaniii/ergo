@@ -524,6 +524,8 @@ export const EN_CONVERSATIONS: Phrases = {
   "我理解是转给「记账本」的负责人？这是我推断的，你确认了我才发：": "I take that to mean the “Ledger” owner? That's my guess, so I'll only send it once you confirm:",
   "周会录像分成了三段，帮我整理成纪要": "The team meeting recording is in three parts. Please turn it into minutes.",
   "收到三段录像，整理好纪要发给你。": "Got all three parts. I'll send the minutes when they're ready.",
+  "新投影仪投出来的测试画面，颜色正不正？还有一段老摄像机录的生日会，我这儿打不开": "Here's the test pattern from the new projector. Do the colors look right? There's also a birthday party clip from an old camcorder that won't open for me.",
+  "测试画面看着正常：彩条的颜色和顺序都对，白块走过去也没有拖影。生日会那段是老摄像机的编码，网页里放不了，下载到电脑上用播放器看。": "The test pattern looks fine: the color bars are right and in order, and the white block moves across without ghosting. The birthday clip uses an old camcorder format that won't play in the browser. Download it and open it in a media player on your computer.",
   "银行导出的九月流水（Excel 存的），还有刚才周会的录音，帮我过一遍": "Here's the September statement exported from the bank (saved from Excel) and the recording of the team meeting just now. Can you go through them?",
   "流水看过了：九月房租、水电和那张高铁票都在里面，没有对不上的。录音里说的三件事记下了。顺手把这周的训练记录和算报销的脚本也发你：": "I went through the statement: September's rent, utilities and that train ticket are all there, and nothing is off. I noted the three things from the recording. Here are this week's workout log and the reimbursement script too:",
   "活动页做好了：源码打包在 zip 里，预览页是单独的 HTML，点开就能看。": "The event page is done. The source is zipped up and the preview is a separate HTML file you can just open.",

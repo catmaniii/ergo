@@ -405,6 +405,7 @@ fieldset {
 .msg.assistant .part-text,
 .msg.assistant .part-files,
 .msg.assistant .part-image,
+.msg.assistant .part-file,
 /* 收成一行的过程条目那一格：和对话气泡最宽的那个宽度一样（下面 .tool-sum），› 在这个宽度的最右端 */
 .msg.assistant .part-line {
   max-width: 92%;
@@ -533,11 +534,10 @@ fieldset {
   display: block;
   line-height: 0;
 }
-/* 图片放大预览（ui/image-viewer.tsx）：盖住整页、在所有弹窗之上，深色底，图片按比例放到最大；
-   右上角的 × 和下面一行留出刘海、手势条的位置。深色底上一律白字，不跟风格换。
-   捏合、拖动、双击、滚轮都由查看器自己做（touch-action: none，浏览器不滚、不缩放），图用 transform 放大挪动，
-   伸出查看器的部分裁掉；放大后图可以盖到 × 和下面一行底下，这两样在最上面（z-index），字带一点阴影，盖在亮图上也看得清 */
-.image-viewer {
+/* 看大图、放视频共用的外壳（ui/media-viewer.tsx）：盖住整页、在所有弹窗之上，深色底，内容（图、播放器）放在中间那块框里；
+   右上角的 × 和下面一行留出刘海、手势条的位置。深色底上一律白字，不跟风格换。× 和下面一行在内容上面（z-index），
+   字带一点阴影，图放大后盖在亮图上也看得清 */
+.media-viewer {
   position: fixed;
   inset: 0;
   z-index: 60;
@@ -547,6 +547,10 @@ fieldset {
   padding: calc(env(safe-area-inset-top, 0px) + 64px) 12px calc(var(--safe-bottom) + 56px);
   background: rgba(0, 0, 0, 0.9);
   overflow: hidden;
+}
+/* 图片（ui/image-viewer.tsx）：按比例放到最大；捏合、拖动、双击、滚轮都由查看器自己做（touch-action: none，浏览器不滚、不缩放），
+   图用 transform 放大挪动，伸出查看器的部分裁掉；放大后图可以盖到 × 和下面一行底下 */
+.image-viewer {
   touch-action: none;
 }
 .image-viewer img {
@@ -576,7 +580,34 @@ fieldset {
 .image-viewer.zoomed.held img {
   cursor: grabbing;
 }
-.image-viewer-close {
+/* 视频（ui/video-viewer.tsx）：浏览器自带控件的播放器，按视频的比例放到最大——宽不超过框、高不超过框
+   （框是查看器去掉上下留白的那块，cqw / cqh 量它；--video-ratio 是宽高比，读到元数据之前按 16:9）。
+   小视频也放大到铺满框；全屏用控件上的按钮（浏览器自带的 Fullscreen API） */
+.video-viewer {
+  container-type: size;
+}
+.video-viewer video {
+  display: block;
+  aspect-ratio: var(--video-ratio, 16 / 9);
+  width: min(100cqw, 100cqh * var(--video-ratio, 16 / 9));
+  height: auto;
+  max-height: 100cqh;
+  border-radius: var(--radius-m);
+  background: #000;
+}
+/* 旧版 App 里不能全屏（ui/video-viewer.tsx 挂 no-fullscreen，同时 controlsList="nofullscreen"）：Chromium 只把全屏按钮置灰，
+   这里拿掉它（App 都是 Chromium 内核，认这个伪元素） */
+.video-viewer video.no-fullscreen::-webkit-media-controls-fullscreen-button {
+  display: none;
+}
+.video-viewer-failed {
+  max-width: 28em;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: var(--fs-m);
+  line-height: 1.6;
+  text-align: center;
+}
+.media-viewer-close {
   position: absolute;
   top: calc(env(safe-area-inset-top, 0px) + 12px);
   right: 12px;
@@ -593,19 +624,19 @@ fieldset {
   cursor: pointer;
   z-index: 1;
 }
-.image-viewer-close:hover,
-.image-viewer-close:focus-visible {
+.media-viewer-close:hover,
+.media-viewer-close:focus-visible {
   background: rgba(255, 255, 255, 0.32);
 }
 /* 放大后 × 多半盖在图上：底换成深的，亮图上也看得见 */
-.image-viewer.zoomed .image-viewer-close {
+.image-viewer.zoomed .media-viewer-close {
   background: rgba(0, 0, 0, 0.45);
 }
-.image-viewer.zoomed .image-viewer-close:hover,
-.image-viewer.zoomed .image-viewer-close:focus-visible {
+.image-viewer.zoomed .media-viewer-close:hover,
+.image-viewer.zoomed .media-viewer-close:focus-visible {
   background: rgba(0, 0, 0, 0.65);
 }
-.image-viewer-bar {
+.media-viewer-bar {
   position: absolute;
   left: 12px;
   right: 12px;
@@ -619,13 +650,13 @@ fieldset {
   text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 1px 2px rgba(0, 0, 0, 0.9);
   z-index: 1;
 }
-.image-viewer-name {
+.media-viewer-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.image-viewer-bar a {
+.media-viewer-bar a {
   flex: none;
   color: #fff;
 }
@@ -701,6 +732,90 @@ fieldset {
   border: 1px solid var(--border);
   background: var(--fill);
   object-fit: contain;
+}
+/* 聊天里的视频（ui/conversation/parts.tsx 的 VideoView）：像图片一样，第一帧按比例、限宽限高和图片一样，中间播放键、
+   右下角时长。第一帧还没取到时先占一块 16:9 的底（播放器藏着），取到了按视频自己的比例画。
+   播放键、时长盖在画面上：深色半透明底、白字，不跟风格换（画面什么颜色都有） */
+.part-video {
+  margin: 0;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.video-thumb {
+  position: relative;
+  display: block;
+  width: min(100%, 240px);
+  aspect-ratio: 16 / 9;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: var(--fill);
+  overflow: hidden;
+  line-height: 0;
+  cursor: pointer;
+}
+.video-thumb video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+}
+.video-thumb.video-thumb-ready {
+  width: auto;
+  aspect-ratio: auto;
+  background: #000;
+}
+.video-thumb.video-thumb-ready video {
+  position: static;
+  display: block;
+  max-width: min(100%, 320px);
+  max-height: 360px;
+  width: auto;
+  height: auto;
+  opacity: 1;
+  object-fit: contain;
+}
+.video-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 22px; /* 不跟字号：画面中间 48×48 的圆形播放键里的三角，不跟字号 */
+  padding-left: 3px;
+  box-sizing: border-box;
+}
+.video-thumb:focus-visible .video-play {
+  background: rgba(0, 0, 0, 0.68);
+}
+@media (hover: hover) {
+  .video-thumb:hover .video-play {
+    background: rgba(0, 0, 0, 0.68);
+  }
+}
+.video-duration {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 1px 6px;
+  border-radius: var(--radius-s, 4px);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-family: var(--font-num);
+  font-size: max(11px * var(--fs-k), 11px);
+  line-height: 1.5;
 }
 /*
  * 附件卡片：一组附件排成一横排，装不下换行；每张竖排三层——类型图标（方块里写类型，按类别上色）、标题、"预览""下载"。
@@ -784,6 +899,14 @@ a.att-icon:hover {
   margin-right: 4px;
   font-family: var(--font-num);
   color: var(--primary);
+}
+/* 标题下面多的一行小字（聊天里放不了的视频退回卡片时："网页里放不了，下载看"） */
+.att-note {
+  max-width: 100%;
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+  color: var(--muted);
+  text-align: center;
 }
 /* 英文的"Preview""Download"一行放不下，折成两行（中文一行放得下，和原来一样） */
 .att-btns {
