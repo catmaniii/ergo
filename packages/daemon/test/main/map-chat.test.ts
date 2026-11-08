@@ -103,8 +103,9 @@ describe("地图页的二狗：聊天窗、悬浮按钮里发的消息带地图�
   });
 });
 
+/** 清单里的全部插件（446 起多了谷歌地图 google-maps，排在最后） */
+const ALL_PLUGINS = ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"];
 /** 插件清单里除了这几个的（startTestDaemon 的 plugins：只装这些） */
-const ALL_PLUGINS = ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"];
 const without = (...names: string[]) => ALL_PLUGINS.filter((p) => !names.includes(p));
 const recording = (text: string) => ({ audio: { base64: Buffer.from(fakeWavRecording({ text })).toString("base64"), mime: "audio/wav" } });
 
