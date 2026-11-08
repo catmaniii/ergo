@@ -59,6 +59,7 @@ export const EN_HTTP: Phrases = {
   "原型里的假音色": "Fake voice in the demo",
   "D:\\文档": "D:\\documents",
   "把我周末在杭州拍的照片贴上来": "Post the photos I took in Hangzhou over the weekend",
+  "西湖边有什么好吃的": "Any good food around West Lake?",
   "原型里的假照片 {}": "Fake photo {} in the demo",
   "要写完整的路径（比如 D:\\照片）：{}": "Must be a full path (like D:\\photos): {}",
   "最多授权 20 个文件夹": "20 authorized folders at most",
