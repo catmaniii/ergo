@@ -3,10 +3,12 @@
 // 数据目录是临时目录、两个端口是系统挑的（不碰真的 8810 / 8811、不碰真的 ~/.ergo）：磁盘那项报得出数据目录所在卷的数；
 // 这个临时数据目录里没装组件、没配 key、临时程序目录里没有 lsm.mjs，所以对应的三项是坏的，报的仍是查出来的事实。
 // 412：记忆插件那一块（它自己登记的六项）经组合根接上，记忆系统那一项经记忆插件槽读会意自己报的健康。
+// 437：语音插件起来的头一分钟合成探不通算没查出来，拨守护进程的时钟过了一分钟才照常坏了。
 import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, DOCTOR_CHECKS, type DoctorCheckView } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
+import { ManualClock } from "../helpers/clock.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { pairDevice } from "../helpers/device.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
@@ -169,7 +171,15 @@ describe("体检的接口（319b）", () => {
     fs.writeFileSync(path.join(svc, "registry", "manager.yaml"), ["bind: 127.0.0.1", "port: 17420", ""].join("\n"));
     fs.writeFileSync(path.join(svc, "registry", "services", "my-tts.yaml"), ["id: my-tts", "name: 我的语音合成", "probe:", "  tier: health", "  port: 1", ""].join("\n"));
     // 组件页的"按住说话"算能用（别处配了识别）；"用语音回复"认不出（合成停着）
-    const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined, LSM_DATA_DIR: svc }, components: { probes: fakeProbes({ provided: { "voice-recognizer": "测试里配的识别" } }) } });
+    const clock = new ManualClock(Date.now());
+    const td = await startTestDaemon({ clock, env: { DEEPSEEK_API_KEY: undefined, LSM_DATA_DIR: svc }, components: { probes: fakeProbes({ provided: { "voice-recognizer": "测试里配的识别" } }) } });
+    // 437：刚起来的头一分钟探不通不作数——没查出来，写"二狗刚启动"，不给"开起来"
+    const starting = (await doctorApi.view(td.url)).body.groups.find((group) => group.id === "voice")!.items.find((item) => item.id === "speech")!;
+    expect(starting.level).toBe("unknown");
+    expect(starting.text.fact).toContain("二狗刚启动");
+    expect(starting.action).toBeUndefined();
+    // 过了这一分钟（拨守护进程的时钟）还探不通：照常坏了
+    clock.advanceTo(clock.now() + 61_000);
     const view = (await doctorApi.view(td.url)).body;
     const voice = view.groups.find((group) => group.id === "voice")!;
     expect(voice.items.map((item) => item.id).toSorted()).toEqual(["ffmpeg", "gpu", "plugin", "recognizer", "references", "speech"]);

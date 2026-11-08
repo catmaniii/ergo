@@ -23,7 +23,7 @@ export type DoctorCheckId = (typeof DOCTOR_CHECKS)[number];
 
 /**
  * 每一项查出来的事实，形状按 id 各不同：
- * - ports：配置里的两个端口（本机、外网）和"127.0.0.1 上有人在听、而且听的是二狗自己"没有；
+ * - ports：配置里的两个端口（本机、外网）和"127.0.0.1 上有人在听、而且听的是二狗自己"没有（437 加了 unverified：连得上、没核出是自己的）；
  * - node：现在跑的 Node 版本（不带 v）和 ADR-0031 那条线（pi 测过的大版本，现在是 22）；
  * - pi：读到的 pi 版本（读不到就没有）；
  * - supervisor：服务管家有没有回应、它的端口（读得到才有）；
@@ -39,7 +39,18 @@ export type DoctorCheckId = (typeof DOCTOR_CHECKS)[number];
  * disk 的 supervisor（服务管家的数据和日志所在卷，和数据目录不在一个卷上才有：两个卷都要剩 1 GB 以上）
  */
 export interface DoctorCheckDataById {
-  ports: { local: number; external: number; localUp: boolean; externalUp: boolean };
+  ports: {
+    local: number;
+    external: number;
+    /** 连得上（有人在听）；连得上、占用者核出来不是自己的也是 true，见 unverified */
+    localUp: boolean;
+    externalUp: boolean;
+    /**
+     * 437：连得上、却没核出是二狗自己在听的端口（只在有时才带）：pids 空的是查不到占用者（只报通不通，照样算好），
+     * 不空的是查到的占用者里没有二狗自己（netstat 靠不住，算注意，不算"没人在听"）
+     */
+    unverified?: Array<{ port: number; pids: number[] }>;
+  };
   node: { running: string; expected: string };
   pi: { version?: string };
   supervisor: { running: boolean; port?: number; link?: DoctorLinkState };

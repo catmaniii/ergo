@@ -27,15 +27,20 @@ export function doctorText(message: DoctorMessage): string {
  * 八项各自的事实写成一句话：顶层那句的键和参数（参数里嵌的小句——"在听，是二狗自己"、缺的功能的名字——已经按当前语言写好）
  */
 const FACT: { readonly [Id in DoctorCheckId]: (data: DoctorCheckDataById[Id]) => DoctorMessage } = {
-  ports: (data) => ({
-    key: "doctor.fact.ports",
-    params: {
-      local: data.local,
-      external: data.external,
-      localState: t(data.localUp ? "doctor.fact.portsUp" : "doctor.fact.portsDown"),
-      externalState: t(data.externalUp ? "doctor.fact.portsUp" : "doctor.fact.portsDown"),
-    },
-  }),
+  ports: (data) => {
+    // 437：连得上、没核出是二狗自己的照实说（查不到是谁 / 查到的是别的进程），不说"没人在听"
+    const state = (port: number, up: boolean): string => {
+      if (!up) return t("doctor.fact.portsDown");
+      const unverified = data.unverified?.find((entry) => entry.port === port);
+      if (unverified === undefined) return t("doctor.fact.portsUp");
+      if (unverified.pids.length === 0) return t("doctor.fact.portsUpUnknown");
+      return t("doctor.fact.portsUpOther", { pids: formatList(unverified.pids.map(String)) });
+    };
+    return {
+      key: "doctor.fact.ports",
+      params: { local: data.local, external: data.external, localState: state(data.local, data.localUp), externalState: state(data.external, data.externalUp) },
+    };
+  },
   node: (data) => ({ key: "doctor.fact.node", params: { running: data.running, expected: data.expected } }),
   pi: (data) => (data.version === undefined ? { key: "doctor.fact.piMissing" } : { key: "doctor.fact.pi", params: { version: data.version } }),
   supervisor: (data) => {

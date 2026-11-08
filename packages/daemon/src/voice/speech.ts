@@ -14,6 +14,7 @@
 import path from "node:path";
 import { t } from "@ergo/protocol";
 import { isPlaceholder, type SpeechTimeoutConfig } from "../config/config.ts";
+import { loopTimeoutSignal } from "../util/loop-time.ts";
 import { readWav } from "./wav.ts";
 
 export interface SpeechRequest {
@@ -133,7 +134,8 @@ export function createAudioCppSynthesizer(options: AudioCppOptions): SpeechSynth
       return { wav: bytes, model: await actualModel(signal) };
     },
     async health(signal) {
-      const timer = AbortSignal.timeout(HEALTH_TIMEOUT_MS);
+      // 限时只数事件循环给了的时间（437）：刚启动时事件循环忙，墙上的 3 秒先到点，预热就把开着的服务记成"没开"
+      const { signal: timer, clear } = loopTimeoutSignal(HEALTH_TIMEOUT_MS);
       try {
         const res = await fetch(`${url}/health`, { signal: signal ? AbortSignal.any([signal, timer]) : timer });
         await res.arrayBuffer();
@@ -141,6 +143,8 @@ export function createAudioCppSynthesizer(options: AudioCppOptions): SpeechSynth
       } catch (err) {
         if (timer.aborted) return { up: false, reason: t("voice.speech.healthTimeout", { seconds: HEALTH_TIMEOUT_MS / 1000, url }) };
         return { up: false, reason: failureOf(err, url, HEALTH_TIMEOUT_MS, timer).message };
+      } finally {
+        clear();
       }
     },
   };

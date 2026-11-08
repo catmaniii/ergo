@@ -139,7 +139,7 @@ tailnet 网关的登记里也要给它的启动参数加上 `--data-dir <目录>
 | `lsm validate` | 只校验注册表，不碰任何进程 |
 | `lsm start <id>` | 启动（先按依赖把它依赖的服务起来） |
 | `lsm stop <id> [--when-idle] [--force]` | 停止；`--when-idle` 等它空闲再停；`--force` 不等，10 秒内没停下就杀进程树 |
-| `lsm restart <id> [--when-idle]` | 重启 |
+| `lsm restart <id> [--when-idle]` | 重启：旧进程退干净、新进程起来才回「已重启（新进程 PID …）」；`--when-idle` 服务正忙时先回「等它空闲后重启」，管理器等它空闲退出后拉起来（等不到空闲就两边撤，它照常跑） |
 | `lsm profile <场景>` / `lsm profile-stop <场景>` | 按场景起停一组服务 |
 | `lsm autostart [<id> on\|off]` | 开机自启名单：不带参数列出，带参数加入 / 移出 |
 | `lsm scan` | 哨兵巡检：谁在跑但没纳管、哪些自启任务该摘 |

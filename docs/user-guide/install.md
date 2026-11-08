@@ -303,7 +303,7 @@ cd packages\supervisor
 node bin\lsm.mjs restart ergo-daemon --when-idle   # 等手上的任务做完再重启
 ```
 
-只改了网页时不用重启守护进程。
+回「✓ ergo-daemon 已重启（新进程 PID …）」才是换好了；二狗正忙时回「⏸ … 等它空闲后重启」，它忙完自己退出、服务管家再把它拉起来（`ergo status` 看），等一小时还在忙就撤销这次重启、它照常跑。只改了网页时不用重启守护进程。
 
 ## 装完之后
 

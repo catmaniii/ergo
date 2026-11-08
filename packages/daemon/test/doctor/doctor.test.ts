@@ -21,6 +21,7 @@ import {
   SUPERVISOR_PROBE_TIMEOUT_MS,
 } from "../../src/doctor/doctor.ts";
 import { builtinCatalogs } from "../../src/i18n/index.ts";
+import { startedInRequest } from "../helpers/event-loop.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 import { freePort } from "../helpers/ports.ts";
 
@@ -151,7 +152,12 @@ describe("正式用的探测器", () => {
     const [local, external, dead] = await Promise.all([freePort(), freePort(), freePort()]);
     await hold(local);
     await hold(external);
-    expect(await portsProbe(() => ({ local, external }))()).toEqual({ local, external, localUp: true, externalUp: true });
+    // 真的找占用者（netstat、系统的连接表）：找得到就是这个进程；找不到也只是"没核"，不会说是别的进程
+    const real = await portsProbe(() => ({ local, external }))();
+    expect(real).toMatchObject({ local, external, localUp: true, externalUp: true });
+    expect((real.unverified ?? []).filter((entry) => entry.pids.length > 0)).toEqual([]);
+    // 占用者核出来是自己（注入的）：干干净净
+    expect(await portsProbe(() => ({ local, external }), { owners: async () => [process.pid] })()).toEqual({ local, external, localUp: true, externalUp: true });
     // 外网端口上没人听：这一项就不健康
     expect(await portsProbe(() => ({ local, external: dead }))()).toMatchObject({ local, external: dead, localUp: true, externalUp: false });
   });
@@ -266,5 +272,77 @@ describe("外网入口的依据：只看本机记着的，不真连出去", () =
     const missing = path.join(makeTempDir("ergo-doctor-svc-"), "nope");
     expect(probe(missing, 1)).toEqual({ configured: true, kind: "paired", devices: 1 });
     expect(probe(missing)).toEqual({ configured: false });
+  });
+});
+
+/** 体检页上"二狗本身"里端口那一项 */
+const portsItem = (view: DoctorView) => view.groups.flatMap((group) => group.items).find((item) => item.id === "ports")!;
+
+describe("端口：连得上就不判没人在听（437）", () => {
+  // 2026-11-08 真机：curl 8810、8811 次次 200，体检却报"两个端口都没人在听"。真原因是点体检时各项检查把事件循环卡了约 1.9 秒，
+  // 连接早就连上了、还没轮到处理，500 毫秒的 setTimeout 先到点。占用者那一步（netstat 看不到、系统的连接表报状态 0）另外会核不出来或核错。
+
+  it("像 GET /api/doctor 那样在请求里起头、刚连就被卡住 800 毫秒：连接其实早连上了，照样算在听（不是 500 毫秒到点的\"没人在听\"）", async () => {
+    const [local, external] = await Promise.all([freePort(), freePort()]);
+    await hold(local);
+    await hold(external);
+    const data = await startedInRequest(portsProbe(() => ({ local, external }), { owners: async () => [process.pid] }), 800);
+    expect(data).toEqual({ local, external, localUp: true, externalUp: true });
+  });
+
+  it("连得上、查不到占用者：算好（只报通不通），句子说没核，不说没人在听", async () => {
+    const [local, external] = await Promise.all([freePort(), freePort()]);
+    await hold(local);
+    await hold(external);
+    const data = await portsProbe(() => ({ local, external }), { owners: async () => [] })();
+    expect(data).toEqual({ local, external, localUp: true, externalUp: true, unverified: [{ port: local, pids: [] }, { port: external, pids: [] }] });
+    const view = await createDoctor({ probes: fakeProbes({ ports: () => data }) }).view();
+    expect(checkOf(view, "ports")).toMatchObject({ ok: true });
+    const item = portsItem(view);
+    expect(item.level).toBe("ok");
+    expect(item.text.fact).toBe(`本机端口 ${local}：在听（查不到是哪个程序在听，没核是不是二狗自己）；外网端口 ${external}：在听（查不到是哪个程序在听，没核是不是二狗自己）`);
+    // 找占用者抛错也一样：当查不到
+    const thrown = await portsProbe(() => ({ local, external }), {
+      owners: async () => {
+        throw new Error("netstat 跑不了");
+      },
+    })();
+    expect(thrown).toMatchObject({ localUp: true, externalUp: true, unverified: [{ port: local, pids: [] }, { port: external, pids: [] }] });
+  });
+
+  it("连得上、查到的占用者里没有自己（netstat 报错行）：最多算注意，句子写查到的 PID，修法是过一会儿再查，不是\"没人在听\"", async () => {
+    const [local, external] = await Promise.all([freePort(), freePort()]);
+    await hold(local);
+    await hold(external);
+    const other = process.pid + 1;
+    const data = await portsProbe(() => ({ local, external }), { owners: async (port) => (port === local ? [other] : [process.pid]) })();
+    expect(data).toEqual({ local, external, localUp: true, externalUp: true, unverified: [{ port: local, pids: [other] }] });
+    const view = await createDoctor({ probes: fakeProbes({ ports: () => data }) }).view();
+    expect(checkOf(view, "ports")).toEqual({ id: "ports", ok: false, data, fix: "doctor.fix.portsUnverified" });
+    const item = portsItem(view);
+    expect(item.level).toBe("warn");
+    expect(item.text.fact).toBe(`本机端口 ${local}：在听，但查到在听的是 PID ${other}，不是二狗自己；外网端口 ${external}：在听，是二狗自己`);
+    expect(item.text.fact).not.toContain("没人在听");
+    expect(item.text.fix).toContain("再查一遍");
+    expect(view.level).toBe("warn");
+  });
+
+  it("真没人在听（连两次都被拒）：照旧是坏了，修法照旧", async () => {
+    const [local, dead] = await Promise.all([freePort(), freePort()]);
+    await hold(local);
+    let asked = 0;
+    const data = await portsProbe(() => ({ local, external: dead }), {
+      owners: async () => {
+        asked += 1;
+        return [process.pid];
+      },
+    })();
+    expect(data).toEqual({ local, external: dead, localUp: true, externalUp: false });
+    expect(asked).toBe(1); // 连不上的不去找占用者
+    const view = await createDoctor({ probes: fakeProbes({ ports: () => data }) }).view();
+    const item = portsItem(view);
+    expect(item.level).toBe("error");
+    expect(item.text.fact).toContain(`外网端口 ${dead}：没人在听`);
+    expect(checkOf(view, "ports").fix).toBe("doctor.fix.ports");
   });
 });

@@ -14,9 +14,10 @@ import { createDoctor, type DoctorProbes } from "../../src/doctor/doctor.ts";
 import { createDoctorChecks, type DoctorCheck, type DoctorFinding, runDoctorCheck } from "../../src/doctor/checks.ts";
 import type { RegisteredService } from "../../src/lsm/registered.ts";
 import type { VoiceSetup } from "../../src/plugins/kernel.ts";
-import { findFfmpeg, type HealthProbe, probeHealth, RECOGNIZER_FRESH_MS, type VoiceDoctorFacts, voiceDoctorChecks, voiceReplyOn } from "../../src/voice/doctor.ts";
+import { findFfmpeg, type HealthProbe, probeHealth, RECOGNIZER_FRESH_MS, type VoiceDoctorFacts, voiceDoctorChecks, voiceReplyOn, VOICE_STARTUP_GRACE_MS } from "../../src/voice/doctor.ts";
 import { createVoiceWarmup } from "../../src/voice/warmup.ts";
 import { unavailableRecognizer } from "../../src/voice/recognizer.ts";
+import { startedInRequest } from "../helpers/event-loop.ts";
 import { freePort } from "../helpers/ports.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -44,6 +45,8 @@ interface Fake {
   probe?: (url: string) => HealthProbe;
   /** 服务管家的网页（不给是本机的 MANAGER） */
   manager?: string;
+  /** 语音插件起来多久了（毫秒）；不给是早就起来了 */
+  upMs?: number;
 }
 
 /** 假的现状 + 记下当场探了哪些地址 */
@@ -64,6 +67,7 @@ function facts(fake: Fake): { facts: VoiceDoctorFacts; probed: string[] } {
       references: () => fake.references ?? { count: 1, current: "默认" },
       ffmpeg: () => ("ffmpeg" in fake ? fake.ffmpeg : "C:\\tools\\ffmpeg.exe"),
       now: () => NOW,
+      upMs: () => fake.upMs,
       probe: async (url) => {
         probed.push(url);
         if (!fake.probe) throw new Error(`这一项不该当场探：${url}`);
@@ -335,6 +339,81 @@ describe("当场探一次本机端口（probeHealth）", () => {
     expect(await probeHealth(sick, new AbortController().signal)).toEqual({ reachable: false, reason: "/health 回了 HTTP 503" });
     const slow = await fakeService(200, "{}", 1_000);
     expect(await probeHealth(slow, new AbortController().signal, 200)).toEqual({ reachable: false, reason: "0.2 秒没回应" });
+  });
+
+  it("限时只数事件循环给了的时间（437）：在请求里起头、马上被卡住 800 毫秒，/health 早回来了也不报\"没回应\"", async () => {
+    const ok = await fakeService(200, JSON.stringify({ ok: true }));
+    expect(await startedInRequest(() => probeHealth(ok, new AbortController().signal, 300), 800)).toEqual({ reachable: true, body: { ok: true } });
+  });
+});
+
+describe("刚启动的头一分钟（437）", () => {
+  it("今天的情形：重启后 20 秒，预热还没看过合成服务，当场探 1.5 秒没回应 → 没查出来（不是坏了），说刚启动、过一会儿再查，不给\"开起来\"", async () => {
+    const { speechUrl, recognizerUrl, speechPort } = await urls();
+    const fake: Fake = {
+      speechUrl,
+      recognizerUrl,
+      features: [COMPONENT_FEATURES.voiceInput],
+      registered: { [speechPort]: { id: "audiocpp", name: "audio.cpp 语音合成" } },
+      speech: state("waiting"),
+      upMs: 20_000,
+      probe: () => ({ reachable: false, reason: "1.5 秒没回应" }),
+    };
+    const starting = await run(fake, "speech");
+    expect(starting.probed).toEqual([speechUrl]);
+    expect(starting.level).toBe("unknown");
+    expect(say(starting.fact)).toBe(`二狗刚启动，语音合成这次没探通：127.0.0.1:${speechPort} 1.5 秒没回应。刚启动时忙，这一眼先不算坏了`);
+    expect(say(starting.fix)).toContain("再查一遍");
+    expect(starting.action).toBeUndefined();
+
+    // 起来过了一分钟还探不通：照常坏了，修法写开起来
+    const later = await run({ ...fake, upMs: VOICE_STARTUP_GRACE_MS + 1_000 }, "speech");
+    expect(later).toMatchObject({ level: "error", action: { kind: "start", service: "audiocpp" } });
+    expect(say(later.fact)).toBe(`连不上 127.0.0.1:${speechPort}（1.5 秒没回应）：你发语音时的回复都合成不了，退回只发文字`);
+
+    // 刚启动、探通了：照常说
+    expect((await run({ ...fake, probe: () => ({ reachable: true }) }, "speech")).level).toBe("ok");
+  });
+
+  it("刚启动时预热记下的\"没开\"也先不算坏了（写预热记的原因）；试合成出错、忙照常报", async () => {
+    const { speechUrl, recognizerUrl, speechPort } = await urls();
+    const base: Fake = { speechUrl, recognizerUrl, features: [COMPONENT_FEATURES.voiceReply], registered: { [speechPort]: { id: "audiocpp" } }, checkedAt: NOW - 5_000, upMs: 30_000 };
+    const off = await run({ ...base, speech: state("off", { reason: `语音合成服务 3 秒没回应（${speechUrl}）`, since: new Date(NOW - 10_000).toISOString() }) }, "speech");
+    expect(off.level).toBe("unknown");
+    expect(say(off.fact)).toBe(`二狗刚启动，语音合成这次没探通：语音合成服务 3 秒没回应（${speechUrl}）。刚启动时忙，这一眼先不算坏了`);
+    expect((await run({ ...base, speech: state("error", { reason: "模型 id 不对" }) }, "speech")).level).toBe("error");
+    expect((await run({ ...base, speech: state("busy") }, "speech")).level).toBe("warn");
+  });
+
+  it("识别（服务管家托管的、audio.cpp 的）刚启动时当场探不通也算没查出来；过了一分钟照常坏了", async () => {
+    const { speechUrl, recognizerUrl, recognizerPort } = await urls();
+    const fake: Fake = {
+      speechUrl,
+      recognizerUrl,
+      features: [COMPONENT_FEATURES.voiceInput],
+      mode: "lsm",
+      registered: { [recognizerPort]: { id: "ergo-asr", name: "二狗语音识别" } },
+      recognizer: state("ready", { model: "large-v3", since: new Date(NOW - RECOGNIZER_FRESH_MS - 1_000).toISOString() }),
+      upMs: 10_000,
+      probe: () => ({ reachable: false, reason: "1.5 秒没回应" }),
+    };
+    const starting = await run(fake, "recognizer");
+    expect(starting.level).toBe("unknown");
+    expect(say(starting.fact)).toBe(`二狗刚启动，服务管家托管的识别服务（127.0.0.1:${recognizerPort}）这次没探通（1.5 秒没回应）。刚启动时忙，这一眼先不算坏了`);
+    expect((await run({ ...fake, upMs: VOICE_STARTUP_GRACE_MS }, "recognizer")).level).toBe("error");
+  });
+
+  it("没查出来不拉低总状态：刚启动时语音那一块整块不是坏了", async () => {
+    const { speechUrl, recognizerUrl, speechPort } = await urls();
+    const { facts: f } = facts({ speechUrl, recognizerUrl, features: [COMPONENT_FEATURES.voiceReply], registered: { [speechPort]: { id: "audiocpp" } }, speech: state("waiting"), upMs: 20_000, probe: () => ({ reachable: false, reason: "1.5 秒没回应" }) });
+    const registry = createDoctorChecks();
+    for (const check of voiceDoctorChecks(f)) registry.register({ ...check, plugin: "voice" });
+    const probes = Object.fromEntries(DOCTOR_CHECKS.map((id) => [id, brokenPath])) as unknown as DoctorProbes;
+    const view = await createDoctor({ probes, checks: registry, now: () => NOW }).view({ include: (check) => check.group === "voice" });
+    const voice = view.groups.find((group) => group.id === "voice")!;
+    expect(voice.items.find((item) => item.id === "speech")!.level).toBe("unknown");
+    expect(voice.level).not.toBe("error");
+    expect(view.level).not.toBe("error");
   });
 });
 

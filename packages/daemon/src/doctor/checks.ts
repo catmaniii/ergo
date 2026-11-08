@@ -13,6 +13,7 @@
 // @i18n-ignore-file log：登记出错的说明是给开发者看的（编程错误）
 import { DOCTOR_FIX_UNKNOWN, DOCTOR_LEVELS, type DoctorAction, type DoctorLevel, type DoctorMessage, doctorOpensUrl } from "@ergo/protocol";
 import { oneLine } from "../util/text.ts";
+import { afterLoopTime } from "../util/loop-time.ts";
 
 /** 一项检查的开销：passive 只读内存、文件、事件；local 连本机端口、起本机进程；deep 深度体检才跑（真调模型、连外网、慢活，415） */
 export const DOCTOR_COSTS = ["passive", "local", "deep"] as const;
@@ -137,9 +138,10 @@ export function validFinding(value: unknown): DoctorFinding | undefined {
 export async function runDoctorCheck(check: DoctorCheck, log?: (line: string) => void): Promise<DoctorFinding> {
   const timeoutMs = check.timeoutMs ?? DOCTOR_CHECK_TIMEOUT_MS;
   const controller = new AbortController();
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  // 限时只数事件循环给了的时间（437，loop-time.ts）：体检时事件循环被别的项卡住的那一段，不算在这一项头上
+  let cancel: (() => void) | undefined;
   const timedOut = new Promise<"timeout">((resolve) => {
-    timer = setTimeout(() => resolve("timeout"), timeoutMs);
+    cancel = afterLoopTime(timeoutMs, () => resolve("timeout"));
   });
   try {
     // 同步抛的错也接住：放进 then 里跑
@@ -157,6 +159,6 @@ export async function runDoctorCheck(check: DoctorCheck, log?: (line: string) =>
     log?.(`体检项 ${check.id} 查的时候出错，算没查出来：${describe(err)}`);
     return unknownFinding({ key: "doctor.unknown.failed", params: { message: oneLine(describe(err), ERROR_TEXT_MAX) } });
   } finally {
-    clearTimeout(timer);
+    cancel?.();
   }
 }

@@ -55,7 +55,8 @@ describe("体检后台盯着（416）", () => {
     for (let i = 1; i <= 5; i += 1) await failTurn(frontend, `第 ${i} 句`);
     const view = (await doctorApi.view(td.url)).body;
     expect(itemOf(view, DOCTOR_CORE_GROUP, "model-calls")?.level).toBe("error");
-    expect(itemOf(view, "voice", "speech")?.level).toBe("error");
+    // 437：语音插件起来的头一分钟探不通不作数（没查出来）；后台盯着头 5 分钟本来不查，过了这一分钟就照常是坏了
+    expect(itemOf(view, "voice", "speech")?.level).toBe("unknown");
     // 体检接口带上后台盯着那一段：每 5 分钟、还没有不再提醒的
     expect(view.watch).toEqual({ everyMinutes: 5, muted: [] });
 
@@ -63,6 +64,7 @@ describe("体检后台盯着（416）", () => {
     clock.advance(WATCH_STARTUP_GRACE_MS - 60_000);
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(problems(td)).toEqual([]);
+    expect(itemOf((await doctorApi.view(td.url)).body, "voice", "speech")?.level).toBe("error");
     // 过了缓冲，一轮一轮地拨（每次拨完等这一轮查完：正在查的就等它，查完了再查一轮也一样）
     clock.advance(60_000);
     await td.daemon.doctorWatch.round();

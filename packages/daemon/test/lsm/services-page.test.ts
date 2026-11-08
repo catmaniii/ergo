@@ -5,11 +5,17 @@
 // - 没有正常停止 / 重启办法的：先发普通的，服务管家回 no-capability 再发强制的，结果写 forced；有办法的照常、不改强制；
 // - 不是和二狗有关的 id：操作、日志都回 not-related，不发指令；
 // - 没接入、没连上、服务管家太老、取列表失败照实说；日志截短、擦掉像密钥的。
+// - 二狗在用的语音端口照配置算（437：真机配置只写了 recognizer.python，识别是二狗自己拉起的，8091 上的 ergo-asr 不算）。
+import fs from "node:fs";
+import path from "node:path";
+import { ergoRelated } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
+import { loadConfig } from "../../src/config/config.ts";
 import type { LsmManage, LsmManagedService, LsmManageReply } from "../../src/lsm/link.ts";
 import { createManagedServices } from "../../src/lsm/services-page.ts";
 import { voicePortsInUse } from "../../src/lsm/voice-ports.ts";
 import { fakeSecret } from "../helpers/fake-secrets.ts";
+import { makeTempDir } from "../helpers/temp-dir.ts";
 
 function svc(id: string, extra: Partial<LsmManagedService> = {}): LsmManagedService {
   return { id, title: id, port: null, state: "STOPPED", up: false, autostart: false, capabilities: ["start"], protected: false, protectedWhy: [], ...extra };
@@ -243,5 +249,30 @@ describe("二狗在用的语音端口", () => {
     expect(voicePortsInUse(voiceConfig("lsm", "http://192.168.1.9:8090", "http://192.168.1.9:8091"), { voiceOn: true })).toEqual({});
     expect(voicePortsInUse(voiceConfig("lsm"), { voiceOn: false })).toEqual({});
     expect(voicePortsInUse(voiceConfig("lsm"), { voiceOn: true, speechUrl: "http://127.0.0.1:1" })).toEqual({ speechPort: 1, recognizerPort: 18091 });
+  });
+
+  it("437 真机的配置形状：voice 里只写了 recognizer.python（没写 mode）→ 识别是二狗自己拉起的，服务管家里登记在 8091 的 ergo-asr 不算二狗在用的；写了 mode: lsm 才算", () => {
+    const dir = makeTempDir("ergo-437-voice-");
+    const configFile = path.join(dir, "config", "ergo.json");
+    fs.mkdirSync(path.dirname(configFile), { recursive: true });
+    const load = (voice: unknown) => {
+      fs.writeFileSync(configFile, JSON.stringify({ voice }));
+      return loadConfig({ env: { ERGO_DATA_DIR: dir }, homeDir: dir });
+    };
+    const services = [
+      { id: "ergo-daemon", port: 8810, state: "RUNNING" },
+      { id: "audiocpp", port: 8090, state: "RUNNING" },
+      { id: "ergo-asr", port: 8091, state: "RUNNING" },
+    ];
+    const live = load({ recognizer: { python: "C:\\Python311\\python.exe" } });
+    expect(live.voice.recognizer.mode).toBe("spawn");
+    const livePorts = voicePortsInUse(live.voice, { voiceOn: true });
+    expect(livePorts).toEqual({ speechPort: 8090 });
+    expect([...ergoRelated(services, { self: "ergo-daemon", ...livePorts }).keys()]).toEqual(["ergo-daemon", "audiocpp"]);
+    // 改成服务管家托管的识别（url 不写用默认的 8091）：ergo-asr 就列出来了
+    const lsm = load({ recognizer: { python: "C:\\Python311\\python.exe", mode: "lsm" } });
+    const lsmPorts = voicePortsInUse(lsm.voice, { voiceOn: true });
+    expect(lsmPorts).toEqual({ speechPort: 8090, recognizerPort: 8091 });
+    expect(ergoRelated(services, { self: "ergo-daemon", ...lsmPorts }).get("ergo-asr")).toEqual(["recognizer"]);
   });
 });
