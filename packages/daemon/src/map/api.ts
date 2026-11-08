@@ -3,14 +3,15 @@
 // 地图插件的服务给三处用：
 // - 网关的 /tiles/<源>/<z>/<x>/<y>：转发 OpenStreetMap 的瓦片（带缓存）；
 // - 网关的 /_AMapService/…：高德 JS API 的安全密钥代理（拼上安全密钥再转给高德）；
-// - GET /api/map/config：地图页现在能用什么（高德 Web 端的 Key；安全密钥不给）、登记了的几家地图服务（445）。
+// - GET /api/map/config：地图页现在能用什么（高德 Web 端的 Key；安全密钥不给）、登记了的几家地图服务（445）；
+// - POST /api/map/basemap：地图页报一家底图的事（446：建了一次——谷歌按"一次地图加载"计费；那家拒了浏览器用的 Key），转给登记的那一家。
 // 另一个服务（430）"我的足迹"给 GET /api/map/day（和秘书的"画在地图上"）：某一天的点、停留、照片地点、常去的地方；
 // 还给 GET /api/map/latest（442）：手机最近交来的一个位置点（地图页"回到我现在的位置"在这台设备定不了位时用）。
 // 第三个（431）给 GET /api/map/drawing：聊天里的地图卡片按编号取查地点、算路线（432）查到的点和线。
 // 第四个（445）是"地图服务"插槽：别的插件（照插件契约 needs: [MAP_PROVIDERS]）经它登记一家地图服务——管哪个区域、优先级、底图
 // （浏览器用的 Key）、查询（LookupProvider，下面从 lookup.ts 转出来）、用量。登记交回撤销函数，交给 ctx.effect，插件停用、移除时
 // 自动撤掉、退回下一家。网页那一半是网页插槽 mapBasemaps（packages/web/src/plugins/slots.ts）。
-import type { MapConfigView, MapDayView, MapDrawing, MapLatestView, MapProviderView, MapRegion, MapTileAddress } from "@ergo/protocol";
+import type { MapBasemapEventBody, MapBasemapEventReply, MapConfigView, MapDayView, MapDrawing, MapLatestView, MapProviderView, MapRegion, MapTileAddress } from "@ergo/protocol";
 import { serviceKey, type Undo } from "../plugins/host.ts";
 import type { LookupProvider } from "./lookup.ts";
 
@@ -37,6 +38,11 @@ export interface MapService {
    * 页面按它挑底图、列地图切换；只带浏览器用的 Key，别的密钥不在这里
    */
   providerViews(): MapProviderView[];
+  /**
+   * 地图页报一家底图的事（POST /api/map/basemap，446）：转给登记的那一家（MapProvider.basemapEvent）。没登记的、不收的交回 known: false，
+   * 不算错（插件刚停用、旧页面）
+   */
+  basemapEvent(body: MapBasemapEventBody): MapBasemapEventReply;
   /**
    * 一张瓦片（网关的 /tiles/）：先看缓存，过期了带条件请求问上游，上游不通时有旧的给旧的。
    * signal 是浏览器那边断了（看别处去了）：还在排队的不再去取，已经在取的取完照样存下
@@ -154,6 +160,11 @@ export interface MapProvider {
   readonly toolNote?: string;
   /** 每月的用量（接近免费量时体检提示）；不收费、不限量的不写 */
   readonly usage?: MapUsageCheck;
+  /**
+   * 地图页报这一家底图的事（446，POST /api/map/basemap）：loaded 建了一次（按"一次地图加载"计费的据此数用量）、auth_failed 这家拒了
+   * 浏览器用的 Key（记下：basemap() 不再交 Key、写原因）。要快、不联网；不按次计费、自己测得出 Key 的（高德、OpenStreetMap）不写
+   */
+  basemapEvent?(event: MapBasemapEventBody["event"]): void;
 }
 
 /** 地图服务插槽：登记一家（交回撤销函数）、列出登记了的（按登记的先后） */

@@ -35,6 +35,8 @@ describe("地图服务插槽：假\"第三家\"走真实装配路径", () => {
     expect(config.providers?.map((p) => [p.id, p.priority, p.ready, p.key])).toEqual([
       ["amap", 100, false, undefined],
       ["osm", 0, true, undefined],
+      // 446 起清单里有谷歌地图插件：没填 Key，底图用不了
+      ["google", 50, false, undefined],
       [FAKE_WORLD_MAP, 50, true, FAKE_WORLD_MAP_BROWSER_KEY],
     ]);
 
@@ -59,7 +61,7 @@ describe("地图服务插槽：假\"第三家\"走真实装配路径", () => {
     // 设置 · 插件里停用它：页面的 providers 退回两家，再查走 OpenStreetMap
     const off = await pluginsApi.act(td.url, FAKE_WORLD_MAP_PLUGIN, { action: "disable", idempotencyKey: key() });
     expect(off.status).toBe(200);
-    expect((await mapApi.config(td.url)).body.providers?.map((p) => p.id)).toEqual(["amap", "osm"]);
+    expect((await mapApi.config(td.url)).body.providers?.map((p) => p.id)).toEqual(["amap", "osm", "google"]);
     const second = await ask("再找一下");
     expect(second).toContain("OpenStreetMap找到 4 个");
     expect(fake.state.asked).toHaveLength(1);

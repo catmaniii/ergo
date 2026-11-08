@@ -65,6 +65,11 @@
             "name": "map",
             "title": "地图",
             "state": "running"
+          },
+          {
+            "name": "google-maps",
+            "title": "谷歌地图",
+            "state": "running"
           }
         ]
       }
@@ -132,6 +137,11 @@
             "name": "map",
             "title": "地图",
             "state": "running"
+          },
+          {
+            "name": "google-maps",
+            "title": "谷歌地图",
+            "state": "running"
           }
         ]
       }
@@ -198,6 +208,11 @@
           {
             "name": "map",
             "title": "地图",
+            "state": "running"
+          },
+          {
+            "name": "google-maps",
+            "title": "谷歌地图",
             "state": "running"
           }
         ]

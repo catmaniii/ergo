@@ -57,6 +57,8 @@
 // 只在守护进程的内存里留一会儿（高德的协议不许存），过期了回 404。
 // 地图页的"回到我现在的位置"（442）：GET /api/map/latest 手机最近交来的一个位置点（时间、坐标、精度；没交来过、手机插件没启用时
 // 没有 point）——这台设备定不了位时退一步用它。只给这一个点，不给轨迹；不发给任何地图服务。
+// 地图页报底图的事（446）：POST /api/map/basemap { provider, event }——建了一次某家的底图（谷歌按"一次地图加载"计费，守护进程据此数用量）、
+// 那家拒了浏览器用的 Key（谷歌的 gm_authFailure：守护进程记下，地图页不再拿这个 Key）。只有编号和事，不带位置。
 //
 // 消耗页：GET /api/usage?from=2026-10-01&to=2026-10-08 选定范围（含两头）按天、按 agent 的 token 汇总，
 // 秘书单列为系统开销，成本是用量乘配置里的单价（每次现读配置，粗估）。
@@ -291,6 +293,7 @@ const MAP_CONFIG = "config";
 const MAP_DAY = "day";
 const MAP_DRAWING = "drawing";
 const MAP_LATEST = "latest";
+const MAP_BASEMAP = "basemap";
 const USAGE = "usage";
 const REFERENCE_VOICES = "reference-voices";
 const SELECT = "select";
@@ -479,6 +482,11 @@ export const HTTP_PATHS = {
   mapDrawing: (lookup: string) => `${api(MAP, MAP_DRAWING)}${query({ [HTTP_QUERY.lookup]: lookup })}`,
   /** 地图页的"回到我现在的位置"：手机最近交来的一个位置点（GET，响应 MapLatestView；没交来过、手机插件没启用时没有 point，地图插件没启用 400） */
   mapLatest: api(MAP, MAP_LATEST),
+  /**
+   * 地图页报一家底图的事（446）：建了一次（计费的"一次地图加载"）、Key 被那家拒了（POST，请求体 MapBasemapEventBody，响应 MapBasemapEventReply；
+   * 地图插件没启用 400）
+   */
+  mapBasemap: api(MAP, MAP_BASEMAP),
   /** 消耗页：from 到 to（YYYY-MM-DD，含两头）的用量汇总和粗估成本（GET，响应 UsageSummary） */
   usage: (range: { from: string; to: string }) => `${api(USAGE)}${query({ [HTTP_QUERY.from]: range.from, [HTTP_QUERY.to]: range.to })}`,
   /** 参考音色：GET 列出（ReferenceVoiceList），POST 导入一个（ImportReferenceVoiceBody → ReferenceVoice） */
@@ -790,6 +798,7 @@ export type HttpRoute =
   | { route: "map_day" }
   | { route: "map_drawing" }
   | { route: "map_latest" }
+  | { route: "map_basemap" }
   | { route: "usage" }
   | { route: "reference_voices" }
   | { route: "reference_voice"; voiceId: string }
@@ -936,6 +945,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === MAP && id === MAP_DAY && tail === undefined) return { route: "map_day" };
   if (head === MAP && id === MAP_DRAWING && tail === undefined) return { route: "map_drawing" };
   if (head === MAP && id === MAP_LATEST && tail === undefined) return { route: "map_latest" };
+  if (head === MAP && id === MAP_BASEMAP && tail === undefined) return { route: "map_basemap" };
   if (head === USAGE && id === undefined) return { route: "usage" };
   if (head === REFERENCE_VOICES) {
     if (id === undefined) return { route: "reference_voices" };

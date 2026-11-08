@@ -53,6 +53,7 @@ import {
   SetupMarkBodySchema,
   InterviewStartBody,
   LanguageBody,
+  MapBasemapEventBody,
   t,
   checkHttpBody,
   FOLDER_GRANT_USES_DEFAULT,
@@ -256,10 +257,10 @@ export interface HttpApiOptions {
    */
   calendar: CalendarService;
   /**
-   * 地图页现在能用什么（GET /api/map/config）：是地图插件的服务，组合根经插件宿主现取，
+   * 地图页现在能用什么（GET /api/map/config）、地图页报底图的事（POST /api/map/basemap，446）：是地图插件的服务，组合根经插件宿主现取，
    * 地图插件没启用时抛 not_allowed"地图插件没启用"（回 400 带这句）
    */
-  map: Pick<MapService, "config">;
+  map: Pick<MapService, "config" | "basemapEvent">;
   /**
    * 我的足迹（GET /api/map/day?date=）：某一天的点、停留、照片地点、常去的地方。是地图插件的服务，组合根经插件宿主现取，
    * 地图插件没启用时抛"地图插件没启用"；日期写法不对、手机插件没启用也抛 RequestRejected（都回 400 带这句）。
@@ -686,6 +687,15 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         return {
           GET(_req, res) {
             sendJson(res, 200, options.map.config());
+          },
+        };
+      case "map_basemap":
+        return {
+          // 地图页报底图的事（446）：建了一次（谷歌按次计费）、Key 被拒了；转给地图插件（没启用时回"地图插件没启用"）
+          async POST(req, res) {
+            const body = checkHttpBody(MapBasemapEventBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badMapBasemap", { message: body.message }));
+            sendJson(res, 200, options.map.basemapEvent(body.value));
           },
         };
       case "map_day":

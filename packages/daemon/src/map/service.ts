@@ -191,6 +191,12 @@ export function createMapService(options: MapServiceOptions): MapPluginService {
       return { ...(key === undefined ? {} : { amapKey: key }), ...(problem === undefined ? {} : { amapProblem: problem }) };
     },
     providerViews: () => providers.views(),
+    basemapEvent: (body) => {
+      const provider = providers.list().find((p) => p.id === body.provider);
+      if (provider?.basemapEvent === undefined) return { known: false };
+      provider.basemapEvent(body.event);
+      return { known: true };
+    },
     tile: (address, signal) => tiles.get(address, signal),
     amapService: (path, search, signal, userAgent?: string) => amap.proxy(path, search, signal, userAgent),
     amapStatus: (secrets) => {

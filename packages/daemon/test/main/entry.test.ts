@@ -36,7 +36,7 @@ describe("ergo-daemon 入口", () => {
     }
     expect(health.secretary).toBe("idle");
     // 插件：入口经组合根和插件清单装好了插件（走的是正式的装配路径）
-    expect(health.plugins).toEqual({ running: ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"], disabled: [], skipped: [] });
+    expect(health.plugins).toEqual({ running: ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"], disabled: [], skipped: [] });
     // 插件都装上了：不降级（Web UI 没构建时整体不健康，和插件无关）
     expect(health.status).toBe(health.webUi === true ? "ok" : "unhealthy");
   });

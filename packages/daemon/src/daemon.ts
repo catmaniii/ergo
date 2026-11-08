@@ -2998,6 +2998,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
             const map = plugins.active(MAP);
             return { ...map.config(), providers: map.providerViews() };
           },
+          // 地图页报底图的事（446：建了一次、Key 被拒了）：转给登记的那一家
+          basemapEvent: (body) => plugins.active(MAP).basemapEvent(body),
         },
         // 我的足迹、手机最近交来的一个位置点（442）：同样是地图插件的服务、现取（它再现取手机插件的）；不联网
         mapDay: { day: (date) => plugins.active(MAP_DAY).day(date), latest: () => plugins.active(MAP_DAY).latest() },

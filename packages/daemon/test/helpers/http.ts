@@ -83,6 +83,7 @@ import {
   type WorkdayChange,
   type WorkdayChangeResult,
   type WorkdayMonthView,
+  type MapBasemapEventReply,
   type MapConfigView,
   type MapDrawing,
   type UserNameResult,
@@ -285,10 +286,12 @@ export const calendarApi = {
   month: (baseUrl: string, month: string) => requestJson<CalendarMonthView & HttpErrorBody>(baseUrl, HTTP_PATHS.calendarMonth(month)),
 };
 
-/** 地图页现在能用什么（429）；地图卡片按编号取查到的那一份（431） */
+/** 地图页现在能用什么（429）；地图卡片按编号取查到的那一份（431）；地图页报底图的事（446） */
 export const mapApi = {
   config: (baseUrl: string) => requestJson<MapConfigView & HttpErrorBody>(baseUrl, HTTP_PATHS.mapConfig),
   drawing: (baseUrl: string, lookup: string) => requestJson<MapDrawing & HttpErrorBody>(baseUrl, HTTP_PATHS.mapDrawing(lookup)),
+  /** 地图页报底图的事（446）：建了一次、Key 被拒了 */
+  basemap: (baseUrl: string, body: unknown) => requestJson<MapBasemapEventReply & HttpErrorBody>(baseUrl, HTTP_PATHS.mapBasemap, { method: "POST", body }),
 };
 
 /** 工具调用的完整参数和返回：按调用 id 取 */
