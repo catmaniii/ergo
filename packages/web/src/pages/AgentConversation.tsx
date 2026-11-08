@@ -134,6 +134,7 @@ export function AgentDialog({
   panel,
   dialogs,
   zoomOnlyZoomedOut = false,
+  quotable = false,
   children,
 }: {
   wide: boolean;
@@ -157,6 +158,8 @@ export function AgentDialog({
   dialogs?: ReactNode;
   /** 标题栏的 ▤ 只在缩小后出现（任务的负责人会话，项目的、流程的一直显示） */
   zoomOnlyZoomedOut?: boolean;
+  /** 卡片详情里能"引用"到输入框（会话不是只读的）；只读的不给 */
+  quotable?: boolean;
   children: ReactNode;
 }) {
   const frameWidth = useContext(FrameWidth);
@@ -175,6 +178,9 @@ export function AgentDialog({
     pageProjectSide().set(next);
   };
   const showArchive = archive ? () => detail.show({ type: "archive", title: archive.label }) : undefined;
+  // 卡片详情里的"引用"：引用到这个会话的输入框（和会话组件的 onQuote 同一个，只读的会话没有）
+  const { quoteCard } = useStore();
+  const quote = quotable && conversation ? (cardId: string) => quoteCard(conversation, cardId) : undefined;
   // 手机竖屏：缩放、这个 agent 的设置收进"⋯"
   const zoomLevel = useZoomLevel();
   const phoneSettings = useAgentSettingsSheet(maintainerId ?? "", false, !wide && maintainerId !== undefined);
@@ -187,7 +193,7 @@ export function AgentDialog({
         ...(maintainerId !== undefined ? [{ label: t("ui.agentSettings.gear"), pick: phoneSettings.open }] : []),
       ];
   return (
-    <DetailLayout wide={wide} detail={detail} conversation={conversation} stages={stages} panel={panel} archive={archive?.body}>
+    <DetailLayout wide={wide} detail={detail} conversation={conversation} stages={stages} panel={panel} archive={archive?.body} onQuote={quote}>
       <div className="chat-col" data-agent-dialog={maintainerId ?? ""}>
         <TaskHead
           {...head}
@@ -598,6 +604,7 @@ export function TaskConversation({ task, wide, at, onBack }: { task: Task; wide:
       wide={wide}
       title={task.title}
       onBack={onBack}
+      quotable={taskAcceptsMessages(task)}
       conversation={conversation}
       conversationRef={conversationRef}
       detail={detail}

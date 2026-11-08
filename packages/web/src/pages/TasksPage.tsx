@@ -916,6 +916,7 @@ function ProtoTaskDetail({ taskId, wide, at, onBack }: { taskId: string; wide: b
       wide={wide}
       title={task.title}
       onBack={onBack}
+      quotable={task.status !== "archived"}
       conversation={detail.maintainer}
       conversationRef={conversationRef}
       detail={pane}

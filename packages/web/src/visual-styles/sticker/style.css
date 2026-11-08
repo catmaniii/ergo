@@ -498,7 +498,8 @@
 :root[data-style="sticker"] .app.wide .msg.assistant .msg-part {
   max-width: min(100%, 560px);
 }
-:root[data-style="sticker"] .app.wide .msg.assistant .part-text {
+:root[data-style="sticker"] .app.wide .msg.assistant .part-text,
+:root[data-style="sticker"] .app.wide .msg.assistant .part-line {
   max-width: min(92%, 520px);
 }
 :root[data-style="sticker"] .app.wide .conv-scroll {

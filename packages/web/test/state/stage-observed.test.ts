@@ -23,7 +23,7 @@ describe("一行说完系统查到的个数", () => {
     ["对外发的按工具数（工具的名字照守护进程记的，没记的照界面的），文件按新建、修改、删除数", counts({ sent: [{ tool: "git_push", n: 1 }, { tool: "http_request", title: "发 HTTP 请求", n: 2 }], created: 1, modified: 2, deleted: 1 }), "git 推送 1 次、发 HTTP 请求 2 次；新建 1 个、修改 2 个、删除 1 个文件"],
     ["没对外发、只改了文件", counts({ created: 2 }), "没有对外发送；新建 2 个文件"],
     ["什么都没做也照实说（「没有发任何消息」「一张都没删」）", counts(), "没有对外发送；没改文件"],
-    ["认不得的工具（MCP 的）写原名", counts({ sent: [{ tool: "mcp__mail__send", n: 1 }] }), "mcp__mail__send 1 次；没改文件"],
+    ["守护进程没记名字的 MCP 工具写 MCP 名和工具名", counts({ sent: [{ tool: "mcp__mail__send", n: 1 }] }), "MCP mail：send 1 次；没改文件"],
   ] as const)("%s", (_name, c, text) => {
     expect(observedLine(c)).toBe(text);
   });

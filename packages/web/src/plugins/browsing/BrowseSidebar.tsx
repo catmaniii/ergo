@@ -12,6 +12,7 @@
  */
 import { type BrowseSideView, type SidebarControl, watchingText } from "./browse-side.ts";
 import { useSecretaryReading } from "../../app/secretary-unread.ts";
+import { useStore } from "../../app/store.tsx";
 import { CHANNELS, type InboxPlace, selectedFieldText, t } from "../../state/index.ts";
 import { useAssistantName } from "../../ui/assistant-name.tsx";
 import { Conversation, useConversationPane } from "../../ui/conversation/Conversation.tsx";
@@ -29,8 +30,9 @@ export function BrowseSidebar({ control, view }: { control: SidebarControl; view
   const { bar } = reading;
   const watching = watchingText(view.page);
   const close = () => control.setOpen(false);
+  const { quoteCard } = useStore();
   return (
-    <DetailLayout wide={false} detail={detail} conversation={CHANNELS.secretary}>
+    <DetailLayout wide={false} detail={detail} conversation={CHANNELS.secretary} onQuote={(cardId) => quoteCard(CHANNELS.secretary, cardId)}>
       <div className="browse-side" aria-label={t("pages.browseSidebar.label", { name })}>
         <div className="browse-side-watch">
           <div className="browse-side-watch-row">

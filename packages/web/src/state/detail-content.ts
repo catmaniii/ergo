@@ -30,6 +30,7 @@ import {
   voiceDurationLabel,
 } from "./protocol.ts";
 import { agentVoiceBubble } from "./agent-voice.ts";
+import { branchFilesLine } from "./runtimes.ts";
 import { selectTask } from "./board.ts";
 import { stageLabelIn } from "./stage-codes.ts";
 import { taskStages } from "./task-detail.ts";
@@ -71,6 +72,11 @@ export interface TextDetail {
   readonly task: string | undefined;
   /** 文字以外的部分：图片、文件、引用的卡片 */
   readonly attachments: readonly MessagePart[];
+  /**
+   * 分支摘要：运行时把它改过的文件恢复到撤回点没有（"恢复了 a.ts、b.ts"，Claude Code 的文件检查点）——对话里那一行只写摘要的第一句，
+   * 这一句在详情里写。别的、撤回不动文件的运行时没有
+   */
+  readonly branchFiles?: string;
   /** 语音：谁说的（用户的是语音转写，agent 的是语音回复）、时长；用户的还有识别状态 */
   readonly voice: { readonly speaker: "user" | "agent"; readonly duration: string; readonly status?: string } | undefined;
   /**
@@ -311,8 +317,8 @@ export function detailContent(state: UiState, items: readonly ChatItem[], ref: D
       return textOf("reply", item.text, item.parts);
     case "system": {
       const detail = textOf("system", item.text, item.parts);
-      // 分支摘要：种类写"分支摘要"
-      if (item.branch) return { ...detail, label: t("state.detailContent.branchSummary") };
+      // 分支摘要：种类写"分支摘要"，恢复了哪些文件写在全文下面
+      if (item.branch) return { ...detail, label: t("state.detailContent.branchSummary"), ...(item.branch.files ? { branchFiles: branchFilesLine(item.branch.files) } : {}) };
       // 写给 agent 的来信：种类写"任务做完""负责人来信"……，不是"系统说明"
       return item.letter ? asLetter(detail, item.letter) : detail;
     }
@@ -665,7 +671,8 @@ function textDetail(state: UiState, base: TextBase, tag: Exclude<TextDetailTag, 
     letter: undefined,
     summary: undefined,
     task: taskTitle(state, base.scope),
-    attachments: parts.filter((p) => p.type !== "text" && p.type !== "reasoning"),
+    // 分支摘要那一段就是全文，不另列
+    attachments: parts.filter((p) => p.type !== "text" && p.type !== "reasoning" && p.type !== "branch_summary"),
     voice: undefined,
     toolCall: undefined,
   };

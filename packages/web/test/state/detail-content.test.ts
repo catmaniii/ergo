@@ -131,6 +131,20 @@ function runGrantOf(parts: MessagePart[]): string | undefined {
 }
 
 describe("录像覆盖不到的", () => {
+  test("分支摘要：对话里只一行，详情里是整段摘要和恢复了哪些文件；摘要本身不算附件", () => {
+    const summary = "做到第 2 步，改了 a.ts。\n没有对外发东西。";
+    const state = replay([messageFrame(1, "s1", "system", [{ type: "branch_summary", branchId: "b1", summary, files: { restored: ["src/a.ts"] } }])]);
+    const items = chatItems(state, TM);
+    const d = open(state, items, items[0]!.id);
+    if (d.kind !== "text") throw new Error(`应当是文本详情，实际是 ${d.kind}`);
+    expect([d.label, d.text, d.branchFiles, d.attachments]).toEqual(["分支摘要", summary, "文件恢复到了撤回点：a.ts（Bash 改的追不到）", []]);
+    // 没交代文件的（运行时不管文件）没有那一行
+    const plain = replay([messageFrame(1, "s1", "system", [{ type: "branch_summary", branchId: "b1", summary }])]);
+    const plainItems = chatItems(plain, TM);
+    const p = open(plain, plainItems, plainItems[0]!.id);
+    expect(p.kind === "text" && p.branchFiles).toBeUndefined();
+  });
+
   test("语音连同引用的卡片和附件一起发（2026-10-10 起）：会话里是一条语音，详情里列出卡片和附件", () => {
     const image: MessagePart = { type: "image", mediaId: "a".repeat(64), name: "猫.png", mime: "image/png", width: 8, height: 8, asMaterial: true };
     const voice: MessagePart = { type: "voice", voiceId: "v-1", mediaId: "b".repeat(64), mime: "audio/webm", durationMs: 2600, waveform: [] };

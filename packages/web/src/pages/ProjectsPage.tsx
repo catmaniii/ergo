@@ -398,6 +398,7 @@ function ProjectDialog({ view, wide, job, focus, at }: { view: ProjectView; wide
       wide={wide}
       title={p.name}
       onBack={goBackFromProject}
+      quotable={p.state !== "archived"}
       conversation={conversation}
       conversationRef={conversationRef}
       detail={detail}

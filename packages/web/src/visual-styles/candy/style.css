@@ -287,7 +287,8 @@
 }
 /*
  * 秘书的会话：个人助理的话前面一个圆形字头像（设计稿 d-chat：36 的紫圆、快乐体，名字的第一个字，会话外层挂的 --assistant-initial），
- * 这一列（想法、工具调用也是）都往右让出头像的位置。回复、语音的头像贴着底（和时间一行，设计稿如此），卡片的贴着顶
+ * 这一列（想法、工具调用也是）都往右让出头像的位置。回复、语音的头像贴着底（和时间一行，设计稿如此），整张画的卡片贴着顶；
+ * 收成一行的卡片（.msg-line）不画头像，和工具调用那几行一样
  */
 :root[data-style="candy"] .conv[data-mode="secretary"] .msg.assistant {
   position: relative;
@@ -295,7 +296,7 @@
 }
 :root[data-style="candy"] .conv[data-mode="secretary"] .zi.ck-reply .msg.assistant::before,
 :root[data-style="candy"] .conv[data-mode="secretary"] .zi.ck-voice .msg.assistant::before,
-:root[data-style="candy"] .conv[data-mode="secretary"] .zi.ck-card .msg.assistant::before {
+:root[data-style="candy"] .conv[data-mode="secretary"] .zi.ck-card .msg.assistant:not(.msg-line)::before {
   content: var(--assistant-initial);
   position: absolute;
   bottom: 0;
@@ -312,7 +313,7 @@
   font-size: calc(17px * var(--fs-k));
   line-height: 1;
 }
-:root[data-style="candy"] .conv[data-mode="secretary"] .zi.ck-card .msg.assistant::before {
+:root[data-style="candy"] .conv[data-mode="secretary"] .zi.ck-card .msg.assistant:not(.msg-line)::before {
   top: 0;
   bottom: auto;
 }

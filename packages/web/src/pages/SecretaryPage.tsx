@@ -29,7 +29,7 @@ const SECRETARY_INBOX: InboxPlace = { kind: "secretary" };
 export function SecretaryPage({ wide, at }: { wide: boolean; at?: string | undefined }) {
   const [conversationRef, detail] = useConversationPane(wide, CHANNELS.secretary);
   // 秘书的活动状态（秘书的 agent id 和它的会话 id 一样是 secretary）：干活中写着在做什么，等你批准时写着批什么
-  const { ui } = useStore();
+  const { ui, quoteCard } = useStore();
   const activity = agentActivity(ui, CHANNELS.secretary);
   const jump = activityJump(ui, CHANNELS.secretary);
   const name = useAssistantName();
@@ -37,7 +37,8 @@ export function SecretaryPage({ wide, at }: { wide: boolean; at?: string | undef
   const { bar } = reading;
   const modelKey = useModelKey();
   return (
-    <DetailLayout wide={wide} detail={detail} conversation={CHANNELS.secretary}>
+    // 卡片详情里的"引用"：引用到秘书的输入框
+    <DetailLayout wide={wide} detail={detail} conversation={CHANNELS.secretary} onQuote={(cardId) => quoteCard(CHANNELS.secretary, cardId)}>
       <div className="chat-col">
         {/* 副标题：设了"我的名字"是"<名字>的主线会话"，没设照旧（宽屏写"主线会话"，窄屏没有） */}
         {/* 手机竖屏：标题栏分两行，第二行是副标题和活动状态，按钮都收进 ⋯ */}

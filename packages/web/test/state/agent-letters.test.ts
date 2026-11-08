@@ -49,6 +49,11 @@ const text = (t: string): MessagePart => ({ type: "text", text: t });
 /** 条目的种类、要点那一行、来信的种类（不是来信的写 -） */
 const lines = (items: readonly ChatItem[]) => items.map((it) => [it.kind, it.keyLine, letterOf(it)?.kind ?? "-"]);
 const letterOf = (it: ChatItem) => (it.kind === "system" || it.kind === "user" ? it.letter : undefined);
+/** 对话层里这一条的样子：收成一行的写是哪一种（letter、note……），别的写形态 */
+const lineKind = (it: ChatItem) => {
+  const look = chatLook(it);
+  return look.form === "line" ? look.kind : look.form;
+};
 
 describe("回放：定时任务跑完自动播报，通知后面跟着日报附件（task-done-voice）", () => {
   const inputs = load("task-done-voice");
@@ -61,7 +66,7 @@ describe("回放：定时任务跑完自动播报，通知后面跟着日报附�
     expect(letterOf(notice)).toEqual({ kind: "task_done", ...LETTER_LOOK.task_done, summary: SUMMARY });
     expect(LETTER_LOOK.task_done).toEqual({ label: "任务做完", icon: "✅" });
     expect(notice).toMatchObject({ kind: "system", keyLine: `任务做完：${SUMMARY}`, content: "context", detail: "text" });
-    expect(chatLook(notice)).toEqual({ form: "letter", letter: letterOf(notice), open: "row" });
+    expect(chatLook(notice)).toMatchObject({ form: "line", kind: "letter", title: "任务做完", text: SUMMARY, icon: "✅", time: notice.time, open: "row" });
     // 秘书的会话：通知、语音气泡（回复收进了气泡，工具调用不算）、附件（挪到秘书这一轮的回复后面）
     expect(lines(items).map(([kind, , letter]) => `${kind} ${letter}`)).toEqual(["system task_done", "voice -", "system -"]);
   });
@@ -71,7 +76,8 @@ describe("回放：定时任务跑完自动播报，通知后面跟着日报附�
     expect(attached).toMatchObject({ kind: "system", keyLine: "系统：[附件：ai-news.md]" });
     if (attached.kind !== "system") throw new Error("不是系统消息");
     expect(attached.letter).toBeUndefined();
-    expect(chatLook(attached)).toEqual({ form: "note", open: "whole" });
+    // 只有附件的系统消息：那一行是空的（界面不画），只画附件
+    expect(chatLook(attached)).toMatchObject({ form: "line", kind: "note", text: "" });
     const files = attached.parts.flatMap((p) => (p.type === "file" ? [p] : []));
     expect(fileCards(files)).toMatchObject([{ label: "MD", category: "doc", title: "ai-news.md", preview: "text/markdown", iconAction: "preview" }]);
   });
@@ -111,7 +117,11 @@ describe("回放：普通任务的 agent 做到一半给秘书发一条、接着
       ["reply", "回复：《晴天》下好了，要我念给你听吗？", "-"],
     ]);
     expect(letterOf(items[0]!)).toEqual({ kind: "maintainer_letter", label: "负责人来信", icon: "✉️", summary: "先下了 mp3" });
-    expect(items.slice(0, 2).map((it) => chatLook(it).form)).toEqual(["letter", "letter"]);
+    expect(items.slice(0, 2).map(lineKind)).toEqual(["letter", "letter"]);
+    expect(items.slice(0, 2).map((it) => chatLook(it)).map((l) => l.form === "line" && [l.title, l.text])).toEqual([
+      ["负责人来信", "先下了 mp3"],
+      ["任务做完", "t-1「去把《晴天》的音频下下来」做完了"],
+    ]);
   });
 
   test("点开负责人来信：全文是谁说的、原话，和要秘书怎么做", () => {
@@ -141,7 +151,7 @@ describe("来信的标记认形状（事件日志里的消息写好了就不改�
     expect(first.parts[0]).toMatchObject({ type: "text", text: expect.stringMatching(new RegExp(`^【${OTHER_WORD}来信】`)) });
     expect(lines(items)[0]).toEqual(["system", "负责人来信：先下了 mp3", "maintainer_letter"]);
     expect(letterOf(items[0]!)).toEqual({ kind: "maintainer_letter", label: "负责人来信", icon: "✉️", summary: "先下了 mp3" });
-    expect(chatLook(items[0]!).form).toBe("letter");
+    expect(lineKind(items[0]!)).toBe("letter");
   });
 
   test("没存总结的也照常折，总结取正文第一句", () => {
@@ -170,7 +180,7 @@ describe("秘书转达的话（那一句）", () => {
     ]);
     expect(letterOf(items[1]!)).toEqual({ kind: "secretary_relay", label: relayLabel(), icon: "📨", summary: "以后把 GitHub 热门也加上" });
     expect(chatLook(items[0]!)).toEqual({ form: "user", open: "whole" });
-    expect(chatLook(items[1]!)).toMatchObject({ form: "letter", open: "row" });
+    expect(chatLook(items[1]!)).toMatchObject({ form: "line", kind: "letter", title: relayLabel(), text: "以后把 GitHub 热门也加上", icon: "📨", open: "row" });
     // 底色照旧是用户输入（是用户的意思，经秘书转来）
     expect(items[1]!.content).toBe("user");
     expect(detailContent(state, items, { type: "item", id: "r2" })).toMatchObject({ kind: "text", tag: "user", label: relayLabel(), letter: "secretary_relay", summary: "早报里的天气", text: "早报里的天气\n换成北京的" });
@@ -245,7 +255,8 @@ describe("交给 agent 的长通知折成一行", () => {
 
   test("截图那一段：对话层一行，总结写清楚是哪一步，整行点开", () => {
     expect(letterOf(notice)).toEqual({ kind: "notice", label: "系统说明", icon: LETTER_LOOK.notice.icon, summary: "接着做第 3 阶段：第一波实现" });
-    expect(chatLook(notice)).toEqual({ form: "letter", letter: letterOf(notice), open: "row" });
+    // 交给 agent 的长通知：标题写"通知"，一句话是总结
+    expect(chatLook(notice)).toMatchObject({ form: "line", kind: "letter", title: "通知", text: "接着做第 3 阶段：第一波实现", icon: LETTER_LOOK.notice.icon, open: "row" });
   });
 
   test("点详情：全文原样，种类写系统说明，上面一行是总结，照 Markdown 画", () => {
@@ -280,7 +291,8 @@ describe("交给 agent 的长通知折成一行", () => {
       messageFrame(TM, 4, { id: "s2", speaker: "system", parts: [text(LONG)] }),
     );
     const list = chatItems(other, TM);
-    expect(list.map((it) => [it.kind, letterOf(it)?.kind ?? "-", chatLook(it).form])).toEqual([
+    // 不折成来信的说明照样收成一行（"说明"，第一行），用户的话、回复照旧
+    expect(list.map((it) => [it.kind, letterOf(it)?.kind ?? "-", lineKind(it)])).toEqual([
       ["system", "-", "note"],
       ["user", "-", "user"],
       ["reply", "-", "reply"],
@@ -309,7 +321,7 @@ describe("交给 agent 的长通知折成一行", () => {
 
   test("秘书的会话一样", () => {
     const own = frames(messageFrame(SECRETARY, 1, { id: "n1", speaker: "system", parts: [text(LONG)] }, { agentInput: true }));
-    expect(chatLook(chatItems(own, SECRETARY)[0]!).form).toBe("letter");
+    expect(lineKind(chatItems(own, SECRETARY)[0]!)).toBe("letter");
   });
 
 });

@@ -12,7 +12,8 @@
  * - 单次工具调用：被拦下的写 Agent 想做什么、为什么没有执行、系统回给 Agent 的原话，
  *   执行了的写 Agent 想做什么、守卫怎么判的；参数按字段画（ValueView），原始参数折进"给开发者看"，
  *   返回能展开，被截断的注明。完整参数和返回每次打开现取（不缓存），取不到的退回摘要；
- * - 卡片：整张卡照会话里的画法；时间线记录：种类、一句话、详细说明，操作记录还有凭什么执行的和结果。
+ * - 卡片：整张卡照会话里的画法（按钮能点：会话里卡片收成了一行，在这里处理），头上"引用"（把卡片引用到输入框，只读的会话没有）；
+ *   时间线记录：种类、一句话、详细说明，操作记录还有凭什么执行的和结果；分支摘要的全文下面写恢复了哪些文件。
  * 规则核对、修补经过、敏感片段高亮这几样没有对应的数据，不画。
  * 流程计划卡的详情换成计划详情（涉及的敏感信息、步骤、版本差异、计划审查、检测项全览，
  * WorkflowPlanDetail.tsx）；计划台账里点开的计划按卡片打开（会话没翻到那张卡也看得了）；长程任务的阶段详情
@@ -51,7 +52,7 @@ import {
   workOrderLabel,
 } from "../../state/index.ts";
 import { clockLabel } from "../../util/time.ts";
-import { NamedText, useNamedPlain } from "../assistant-name.tsx";
+import { NamedText, useAssistantName, useNamedPlain } from "../assistant-name.tsx";
 import { CardPanel } from "../cards/CardPanel.tsx";
 import { FileCards, PartView } from "../conversation/parts.tsx";
 import { labelOf, ValueView } from "./ValueView.tsx";
@@ -75,6 +76,7 @@ export function DetailPane({
   stages,
   panel,
   archive,
+  onQuote,
 }: {
   detail?: DetailTarget | undefined;
   /** 详情所在的会话（按它取条目，现查）；原型里没有会话假数据的任务没有（只开得了"⋯"里的几样） */
@@ -93,6 +95,8 @@ export function DetailPane({
   panel?: ((panel: TaskPanel) => ReactNode) | undefined;
   /** 档案（手机上滑进来的那一页），对话框给 */
   archive?: ReactNode;
+  /** 卡片详情的"引用"：把卡片引用到这个会话的输入框（只读的会话没有输入框，不给） */
+  onQuote?: ((cardId: string) => void) | undefined;
 }) {
   const { ui } = useStore();
   // 停用的网页插件拥有的条目换成占位，和会话里一样
@@ -161,14 +165,14 @@ export function DetailPane({
         ) : detail.type === "branch" ? (
           conversation ? <BranchDetail conversation={conversation} branchId={detail.branchId} /> : <div className="page-placeholder">{t("ui.detailPane.unavailable")}</div>
         ) : (
-          content && <DetailBody content={content} onOpen={onOpen} runs={runs} />
+          content && <DetailBody content={content} onOpen={onOpen} runs={runs} onQuote={onQuote} />
         )}
       </div>
     </div>
   );
 }
 
-function DetailBody({ content, onOpen, runs }: { content: DetailContent; onOpen?: ((id: string) => void) | undefined; runs: OpenRuns }) {
+function DetailBody({ content, onOpen, runs, onQuote }: { content: DetailContent; onOpen?: ((id: string) => void) | undefined; runs: OpenRuns; onQuote?: ((cardId: string) => void) | undefined }) {
   // 网页插件登记了这种详情的画法（调用记忆）：交给它，挂着的内部工具调用照常接在后面
   const plugins = usePlugins();
   const Plugged = content.kind === "missing" || content.kind === "tool_call" ? undefined : plugins.get("details", content.kind)?.Body;
@@ -223,6 +227,11 @@ function DetailBody({ content, onOpen, runs }: { content: DetailContent; onOpen?
       if (content.cardType === "workflow_plan")
         return (
           <>
+            {onQuote && (
+              <div className="dt-quote-bar">
+                <QuoteCard cardId={content.cardId} onQuote={onQuote} />
+              </div>
+            )}
             <WorkflowPlanDetail cardId={content.cardId} />
             <InternalCalls calls={content.internalCalls} onOpen={onOpen} />
           </>
@@ -232,6 +241,7 @@ function DetailBody({ content, onOpen, runs }: { content: DetailContent; onOpen?
           <div className="dt-head">
             <span className="tag tag-plan">{isCardType(content.cardType) ? CARD_TYPE_LABEL[content.cardType] : t("ui.detailPane.card")}</span>
             <span className={`dt-status${content.pending ? "" : " ok"}`}>{content.status}</span>
+            {onQuote && <QuoteCard cardId={content.cardId} onQuote={onQuote} />}
           </div>
           <div className="dt-title">
             <NamedText text={content.title} />
@@ -250,6 +260,16 @@ function DetailBody({ content, onOpen, runs }: { content: DetailContent; onOpen?
         </>
       );
   }
+}
+
+/** 卡片详情头上的"引用"：把这张卡引用到输入框（会话里卡片收成了一行，引用挪到这里） */
+function QuoteCard({ cardId, onQuote }: { cardId: string; onQuote: (cardId: string) => void }) {
+  const name = useAssistantName();
+  return (
+    <button type="button" className="link quote-btn dt-quote" title={t("ui.parts.quoteHint", { name })} onClick={() => onQuote(cardId)}>
+      {t("ui.parts.quote")}
+    </button>
+  );
 }
 
 // ───────────────────────── 文本 ─────────────────────────
@@ -282,6 +302,8 @@ function TextDetail({ content }: { content: Extract<DetailContent, { kind: "text
         ) : (
           <div className="dt-doc">{content.tag === "system" ? <NamedText text={content.text} /> : content.text}</div>
         )}
+        {/* 分支摘要：运行时把文件恢复到撤回点的，写恢复了哪些（会话里那一行只写摘要的第一句） */}
+        {content.branchFiles && <div className="muted dt-note">{content.branchFiles}</div>}
       </Section>
       {content.attachments.length > 0 && (
         <Section title={t("ui.detailPane.attachments")}>

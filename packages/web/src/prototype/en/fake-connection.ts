@@ -87,4 +87,5 @@ export const EN_CONNECTION: Phrases = {
   "示例音色": "Sample voice",
   "（原型）收到。我先把你说的拆成几步：第一步看看现在的情况，第二步列出要改的地方，第三步一项一项改完再告诉你。": "(Demo) Got it. Let me split this into steps: first see how things stand, then list what to change, then change them one by one and tell you.",
   "这里是假数据，接上守护进程后是真实的回复；说着的时候可以点输入框旁的“停止”，也可以接着发话——发的话先排队，这一轮说完再交给我。": "This is fake data. With the daemon connected, this is a real reply. While it's talking you can click “Stop” next to the input, or keep sending. What you send waits in line and reaches me after this turn.",
+  "（原型）先想一下怎么回：这是假数据，接上守护进程后这里是模型真实的想法。": "(Demo) Thinking about how to reply: this is fake data. With the daemon connected, the model's real thoughts show here.",
 };

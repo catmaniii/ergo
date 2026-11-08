@@ -87,6 +87,8 @@ describe("对话层：调用记忆单独一行", () => {
     expect(group.kind === "tool_group" && group.steps.map((s) => (s.kind === "thinking" ? s.text : s.call.part.callId))).toEqual(["然后算账", "w1"]);
     // N 是去重后的素材条数（读的是检索到的那条，不另算）
     expect([recall.id, recall.keyLine, recall.recall.count, recall.content, recall.detail]).toEqual(["recall:m-s1#0", "回忆了 2 条记忆", 2, "tool", "recall"]);
+    // 对话里那一行按第一条记忆的素材 id 取标题（取到了写"回忆了 2 条：<标题>"，界面里取）
+    expect(chatLook(recall)).toMatchObject({ form: "line", kind: "recall", title: "记忆", text: "回忆了 2 条记忆", dim: false, recallFirst: "mat-1" });
     expect(group.keyLine).toBe("调用了 1 个工具：写文件");
     // 按调用、思考的 id 都找得到这一行
     expect(locateChatItem(items, "m-r1#0")).toMatchObject({ item: { id: "recall:m-s1#0" }, call: { id: "m-r1#0" } });
@@ -94,7 +96,7 @@ describe("对话层：调用记忆单独一行", () => {
     expect(locateChatItem(items, "recall:m-s1#0")).toEqual({ item: recall });
   });
 
-  test("那一行的样子：记忆图标那一种（recall_line）、写回忆了几条，整行点开；查了没找到的写没找到", () => {
+  test("那一行的样子：收成一行，标题“记忆”、写回忆了几条，整行点开；查了没找到的写没找到、淡一点", () => {
     const items = chatItems(
       replay([
         messageFrame(1, "u1", "user", [text("我说过火星基地吗")]),
@@ -105,7 +107,7 @@ describe("对话层：调用记忆单独一行", () => {
     );
     const line = items[1]!;
     expect(line.keyLine).toBe("查了记忆，没找到相关的");
-    expect(chatLook(line)).toEqual({ form: "recall_line", text: "查了记忆，没找到相关的", found: false, open: "row" });
+    expect(chatLook(line)).toMatchObject({ form: "line", kind: "recall", title: "记忆", text: "查了记忆，没找到相关的", dim: true, recallFirst: undefined, open: "row" });
   });
 
   test("被拦下、出错的记忆调用照旧留在调用了 N 个工具里（状况看得见）；只有工具调用的一段里，顺利执行的内部工具跟着调用记忆那一行挂着", () => {

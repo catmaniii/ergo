@@ -1398,9 +1398,9 @@
   bottom: calc(1px / var(--s));
   left: calc(10px / var(--s));
 }
-/* 框里的每一条：去掉自己的底色和左边那道，字小一号 */
+/* 框里的每一条（收成一行的记录、说明也是）：去掉自己的底色和左边那道，字小一号 */
 .zi-grp-open .tool,
-.zi-grp-open .mevent,
+.zi-grp-open .tool-sum,
 .zi-grp-open .sys-note {
   margin: 0;
   padding: 3px 0;
@@ -1415,7 +1415,7 @@
 }
 /* 风格给工具行加的框线、阴影（水墨、纸张、格子、夜间是 :root[data-style] .tool）在框里也去掉：框里一条一行（二狗加的） */
 :root .zh .zi-grp-open .tool,
-:root .zh .zi-grp-open .mevent {
+:root .zh .zi-grp-open .tool-sum {
   border: none;
   box-shadow: none;
   background: none;

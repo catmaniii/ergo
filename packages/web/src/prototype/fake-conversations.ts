@@ -32,6 +32,7 @@ import {
   type Disposition,
   EVENT_TYPES,
   type InterviewCardPayload,
+  type McpChangeCardPayload,
   type InterviewFilesCardPayload,
   type MemoryDeleteCardPayload,
   type PersonalFileCardPayload,
@@ -160,14 +161,20 @@ function card(id: string, type: CardType, payload: unknown, o: Partial<Card> = {
 }
 
 /**
- * 假卡片的纯文本（不认识这种卡的前端显示它；缩放的要点层也取它的第一行）：种类加负载里的标题、名字或目标，
- * 都没有就写"（原型的假卡片）"
+ * 假卡片的纯文本（不认识这种卡的前端显示它；对话里收成一行时那一句、缩放的要点层也取它的第一行）：种类加负载里的标题、名字或目标，
+ * 提问卡是第一个问题、提醒卡是提醒的内容（守护进程也这么写），都没有就写"（原型的假卡片）"
  */
 function fakeCardText(type: CardType, payload: unknown): string {
   const p = (payload ?? {}) as Record<string, unknown>;
-  const what = [p.title, p.name, p.taskTitle, p.goal, p.stageTitle, p.toolTitle].find((x): x is string => typeof x === "string" && x !== "");
+  const first = type === "questions" && Array.isArray(p.questions) ? (p.questions[0] as { question?: unknown } | undefined)?.question : undefined;
+  const what = [p.title, p.name, p.taskTitle, p.goal, p.stageTitle, p.toolTitle, first, type === "reminder" ? p.text : undefined].find((x): x is string => typeof x === "string" && x !== "");
   return what ? `${CARD_TYPE_LABEL[type]}：${what}` : "（原型的假卡片）";
 }
+
+/** 记账本的负责人提交 MCP 登记、skill 时写的提交人 */
+const LEDGER_SUBMITTER = { kind: "project" as const, projectId: "p-ledger", projectName: "记账本", maintainerId: "project-ledger" };
+/** 记账本的负责人提交的 skill 的触发说明 */
+const LEDGER_SKILL_DESCRIPTION = "导信用卡月结单时用: 从邮箱取附件，按商户归类，重复的流水不入账";
 
 export const MAINTAINERS = {
   // 任务「家庭照片整理与去重」是项目「相册库」的内部任务，负责人就是项目的（真任务的详情按它取会话）
@@ -1039,6 +1046,78 @@ export const FAKE_CARDS: Card[] = [
       },
     } satisfies RuntimeQuestionPayload,
     { urgency: "blocking", createdAt: at("10-06", "16:50") },
+  ),
+  // 记账本的负责人导信用卡账单那一段（LEDGER_LINES、fake-branches.ts 的记账本那次回退）：对话里几种卡各收成一行——
+  // 问你从哪个月起（答过了）、登记读邮箱的 MCP（批准了）、把导账单的做法记成 skill（等你批准）、写账本库（等你批准）
+  card(
+    "c-q-ledger",
+    "questions",
+    {
+      intro: "导信用卡账单之前先问一句：",
+      questions: [{ id: "q1", question: "信用卡账单从哪个月开始导？", options: ["从 10 月起", "把 9 月的也补上"], recommended: "从 10 月起" }],
+    } satisfies QuestionsPayload,
+    { status: "handled", outcome: { action: "answer" }, handledAt: at("10-07", "07:32"), createdAt: at("10-07", "07:31") },
+  ),
+  card(
+    "c-mcp-ledger",
+    "mcp_change",
+    {
+      action: "add",
+      name: "demo-mail",
+      registration: {
+        title: "示例邮箱",
+        command: "npx",
+        args: ["-y", "@example/demo-mail-mcp"],
+        env: { DEMO_MAIL_TOKEN: { fromEnv: "DEMO_MAIL_TOKEN" } },
+        tools: {
+          search_messages: { title: "搜邮件", readOnlyOrIdempotent: true, network: true },
+          get_attachment: { title: "取附件", readOnlyOrIdempotent: true, network: true },
+        },
+      },
+      submitter: LEDGER_SUBMITTER,
+      why: "月结单在邮箱里，要读邮件和附件",
+      check: { ok: true, tools: ["search_messages", "get_attachment"], time: at("10-07", "07:34") },
+      applied: true,
+    } satisfies McpChangeCardPayload,
+    { status: "handled", outcome: { action: "approve" }, handledAt: at("10-07", "07:34"), createdAt: at("10-07", "07:33"), text: "项目「记账本」的负责人要登记 MCP「demo-mail」（月结单在邮箱里，要读邮件和附件）" },
+  ),
+  card(
+    "c-skill-ledger",
+    "skill_change",
+    {
+      action: "add",
+      name: "import-card-bills",
+      description: LEDGER_SKILL_DESCRIPTION,
+      submitter: LEDGER_SUBMITTER,
+      why: "以后每月都这样导，记成 skill 下次照做",
+      source: {
+        path: "/demo/ledger/.skill-drafts/import-card-bills",
+        dirName: "import-card-bills",
+        skillMd: `---\nname: import-card-bills\ndescription: >-\n  ${LEDGER_SKILL_DESCRIPTION}\n---\n\n# 导信用卡账单\n`,
+        files: [{ path: "SKILL.md", bytes: 318 }],
+        fileCount: 1,
+        totalBytes: 318,
+        scriptCount: 0,
+        excluded: [],
+        linked: [],
+        fingerprint: "1".repeat(64),
+      },
+    } satisfies SkillChangeCardPayload,
+    { urgency: "non_blocking", createdAt: at("10-07", "07:44"), text: "项目「记账本」的负责人要把 skill「import-card-bills」加进 skill 库（以后每月都这样导，记成 skill 下次照做）" },
+  ),
+  card(
+    "c-appr-ledger",
+    "approval",
+    {
+      approvalId: "a-proto-ledger",
+      source: "项目「记账本」",
+      tool: "write",
+      toolTitle: "写文件",
+      argsSummary: "ledger.db",
+      categoryTitles: ["删除或覆盖"],
+      reason: "这一步要覆盖账本库 ledger.db，按你的设置要先问你。",
+    } satisfies ApprovalPayload,
+    { urgency: "blocking", createdAt: at("10-07", "07:55"), text: "审批（项目「记账本」）：写文件「ledger.db」 · 删除或覆盖" },
   ),
 ];
 
@@ -2272,6 +2351,56 @@ const LEDGER_LATEST: MessageEnvelope[] = [
   ),
 ];
 
+/**
+ * 记账本的负责人导信用卡账单：对话里过程条目收成一行的那几种都在这一段——秘书转达的那句（来信）、问你从哪个月起
+ * （提问卡，答过了）、想法、登记读邮箱的 MCP（MCP 登记变更卡，批准了）、登记好的记录和说明、回忆月结单（调用记忆）、往项目外写了个文件
+ * （越界的记录）、把做法记成 skill（skill 变更卡，等你批准）。后面还有一次回退（分支摘要）和接着做的一组调用（MCP 工具、被拦下的、
+ * 等你批准的、正在执行的）加一张审批卡，在 fake-branches.ts 的 appendRollbackDemo 里。id、调用 id 写死，不经 msg()、tool() 编号
+ */
+const lm = (id: string, speaker: Speaker, time: string, ...parts: MessagePart[]): MessageEnvelope => ({ id, conversation: L, speaker, time, parts });
+/** 回忆以前怎么导月结单（调用记忆）：编号写死，后面调用的编号不挪 */
+const LEDGER_RECALL = ((): MessagePart => {
+  const part = recallSearch("月结单 导入 去重", "看以前的月结单是怎么导、怎么去重的，照着导信用卡的", [{ id: "mat-fake-recent-14", kind: "fed_material", keyword: true, semantic: 0.71 }]);
+  callNo -= 1;
+  return { ...part, callId: "call-ledger-recall" } as MessagePart;
+})();
+const LEDGER_LINES: MessageEnvelope[] = [
+  { ...lm("msg-ledger-relay", "user", at("10-07", "07:30"), text("下个月起信用卡账单也要导入")), relayedBy: "secretary" },
+  lm("msg-ledger-ask", "agent", at("10-07", "07:31"), text("好。先问一句："), cardRef("c-q-ledger")),
+  lm(
+    "msg-ledger-mcp",
+    "agent",
+    at("10-07", "07:33"),
+    think("信用卡月结单都在邮箱里，你上次说别再让你手动下载。工具包里还没有读邮箱的 MCP，先提一张登记变更，批准了再用。"),
+    text("从 10 月起导。月结单在邮箱里，得先登记一个读邮箱的 MCP，提了一张登记变更："),
+    cardRef("c-mcp-ledger"),
+  ),
+  lm("msg-ledger-mcp-note", "system", at("10-07", "07:34"), text("MCP「demo-mail」登记好了，自检通过：search_messages、get_attachment。")),
+  lm(
+    "msg-ledger-recall",
+    "agent",
+    at("10-07", "07:36"),
+    LEDGER_RECALL,
+    text("照九月导甲银行月结单的做法来：按商户归类，同一笔流水只入一次。"),
+  ),
+  lm("msg-ledger-skill", "agent", at("10-07", "07:44"), text("导入的做法想记成 skill，以后每月照做，交给你批准："), cardRef("c-skill-ledger")),
+];
+// MCP 登记好了的记录排在那条说明前面；往项目外写了个文件的越界记录排在交 skill 那条前面
+RECORDS_BEFORE.set("msg-ledger-mcp-note", [
+  { record: { id: "rec-ledger-mcp", kind: "mcp", summary: "你批准了 MCP「demo-mail」的登记，自检通过，暴露 2 个工具", time: at("10-07", "07:34") } },
+]);
+RECORDS_BEFORE.set("msg-ledger-skill", [
+  {
+    record: {
+      id: "rec-ledger-scope",
+      kind: "out_of_scope",
+      summary: "往项目外的「示例目录/下载」写了一个临时文件，没有授权",
+      detail: "范围审视：这一段把邮件附件先存到了项目外的「示例目录/下载」，立项书和你的授权里都没有这个目录，记为越界。",
+      time: at("10-07", "07:42"),
+    },
+  },
+]);
+
 // 记忆管理员的整页对话的会话：03:00 那条唤醒、它自己的整理日记，里面有"回忆了 N 条记忆"那一行
 // （画法；2026-10-23 用户报过这一页的行点不开——原型里也得有，page-opens 才能守着）
 const CURATOR_MESSAGES: MessageEnvelope[] = [
@@ -2520,7 +2649,7 @@ const SECRETARY_HAWKER: MessageEnvelope[] = [
 
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
-  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_COMMUTE, ...SECRETARY_MAP, ...SECRETARY_HAWKER, ...SECRETARY_VOICE, ...SECRETARY_VOICE_RETRY, ...SECRETARY_RELAY, ...SECRETARY_ATTACHMENTS, ...SECRETARY_ATTACHMENT_FIRST, ...PHOTOS, ...BILLS, ...LEDGER_EARLIER, ...LEDGER, ...LEDGER_LATEST, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX, ...CURATOR_MESSAGES, ...TAX_QUESTION, ...TAKEOVER, ...REMOTE].flatMap((m) => [
+  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_COMMUTE, ...SECRETARY_MAP, ...SECRETARY_HAWKER, ...SECRETARY_VOICE, ...SECRETARY_VOICE_RETRY, ...SECRETARY_RELAY, ...SECRETARY_ATTACHMENTS, ...SECRETARY_ATTACHMENT_FIRST, ...PHOTOS, ...BILLS, ...LEDGER_EARLIER, ...LEDGER, ...LEDGER_LATEST, ...LEDGER_LINES, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX, ...CURATOR_MESSAGES, ...TAX_QUESTION, ...TAKEOVER, ...REMOTE].flatMap((m) => [
     ...(RECORDS_BEFORE.get(m.id) ?? []).map((payload) => ({ channel: m.conversation, type: EVENT_TYPES.timelineRecord, payload })),
     { channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id), ...(AGENT_INPUTS.has(m.id) ? { agentInput: true } : {}) } },
   ]),

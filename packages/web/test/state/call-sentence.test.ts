@@ -13,6 +13,7 @@ import {
   type EventFrame,
   fallbackLine,
   hasCallTemplate,
+  mcpToolOf,
   type MessageEnvelope,
   type MessagePart,
   replay,
@@ -245,22 +246,36 @@ describe("通用 bash：按拆出来的命令说", () => {
 });
 
 describe("没有模板的：中文名 · 参数值，截到 60 字（三处统一）", () => {
-  test("参数摘要里的“参数名=”去掉，几个值用 · 隔开；MCP 工具写原名", () => {
+  test("参数摘要里的“参数名=”去掉，几个值用 · 隔开；MCP 工具写得出是哪个 MCP 的哪个工具", () => {
     expect(callSentence({ tool: "submit_receipt", argsSummary: "outcome=done summary=加好了 export.md" })).toEqual({ text: "交回执 · done · 加好了 export.md", said: false });
-    expect(say("mcp__github__create_issue", "title=登录超时 repo=me/app")).toBe("mcp__github__create_issue · 登录超时 · me/app");
-    expect(say("mcp__demo__ping", "")).toBe("mcp__demo__ping");
+    expect(say("mcp__github__create_issue", "title=登录超时 repo=me/app")).toBe("MCP github：create_issue · 登录超时 · me/app");
+    expect(say("mcp__demo__ping", "")).toBe("MCP demo：ping");
+    // MCP 名里带单个下划线、工具名里带下划线的照样拆得开（MCP 名和工具名之间是两个下划线）
+    expect(say("mcp__demo_mail__search_messages", "query=月结单")).toBe("MCP demo_mail：search_messages · 月结单");
+    // 秘书带参调 MCP（mcp_call，tool 写 <MCP 名>/<工具名>）说成一样的；没写 MCP 名的退回"中文名 · 参数值"
+    expect(callSentence({ tool: "mcp_call", argsSummary: 'tool=github/list_issues args={"repo":"me/app"} why=看新 issue' })).toEqual({ text: "MCP github：list_issues", said: true });
+    expect(say("mcp_call", "tool=list_issues")).toBe("调用 MCP 工具 · list_issues");
     expect(say("dispatch_work_order", "→ 相册库 W-21：扫描重复照片")).toBe("派工单 · → 相册库 W-21：扫描重复照片");
   });
 
   test("截到 60 字（截掉的用“…”顶最后一个字）", () => {
     const line = fallbackLine("mcp__notes__append", `text=${"很长的一段笔记".repeat(12)}`);
     expect(line).toHaveLength(60);
-    expect(line.startsWith("mcp__notes__append · 很长的一段笔记")).toBe(true);
+    expect(line.startsWith("MCP notes：append · 很长的一段笔记")).toBe(true);
     expect(line.endsWith("…")).toBe(true);
   });
 
-  test("中文名照守护进程登记的 title；没登记的写原名", () => {
-    expect([toolLabel("read"), toolLabel("git_push"), toolLabel("web_fetch"), toolLabel("create_reminder"), toolLabel("mcp__x__y")]).toEqual(["读文件", "git 推送", "读网页", "建简单提醒", "mcp__x__y"]);
+  test("中文名照守护进程登记的 title；MCP 工具写 MCP 名和工具名；别的没登记的写原名", () => {
+    expect([toolLabel("read"), toolLabel("git_push"), toolLabel("web_fetch"), toolLabel("create_reminder"), toolLabel("mcp__x__y"), toolLabel("some_new_tool")]).toEqual([
+      "读文件",
+      "git 推送",
+      "读网页",
+      "建简单提醒",
+      "MCP x：y",
+      "some_new_tool",
+    ]);
+    expect(mcpToolOf("mcp__github__create_issue")).toEqual({ server: "github", tool: "create_issue" });
+    expect([mcpToolOf("read"), mcpToolOf("mcp__only")]).toEqual([undefined, undefined]);
     // 有模板的工具都有中文名（退回时要用）
     for (const tool of ["read", "write", "edit", "ls", "grep", "find", "bash", "git_commit", "web_search", "view_board", "search_materials", "start_workflow", "create_task"]) {
       expect(Object.hasOwn(TOOL_LABELS, tool)).toBe(true);
@@ -322,7 +337,7 @@ describe("要点层那一行：前缀四种，读了密钥文件的加 🔒", ()
     ["问过你不加", part({ disposition: "ask_first", categoryTitles: ["越出项目目录"] }), "写 notes.md"],
     ["出错不加", part({ outcome: "error" }), "写 notes.md"],
     ["读了密钥文件", part({ tool: "read", argsSummary: ".env", readsSecretFile: true }), "🔒 读 .env"],
-    ["没有模板的同样加前缀", part({ tool: "mcp__x__send", argsSummary: "to=张三", outcome: "denied", disposition: "ask_first" }), "✕ mcp__x__send · 张三"],
+    ["没有模板的同样加前缀", part({ tool: "mcp__x__send", argsSummary: "to=张三", outcome: "denied", disposition: "ask_first" }), "✕ MCP x：send · 张三"],
   ])("%s", (_name, p, expected) => {
     expect(callKeyLine(p)).toBe(expected);
   });

@@ -10,9 +10,6 @@
 import type {
   ApprovalCardPayload,
   BuildDoneCardPayload,
-  Card,
-  CardAction,
-  CardType,
   CharterCardPayload,
   CharterChangeCardPayload,
   StandardBackfillCardPayload,
@@ -28,86 +25,9 @@ import type {
   SuggestTaskCardPayload,
   WorkOrderCardPayload,
 } from "../state/index.ts";
-import { t, tTable } from "../state/index.ts";
 
-export const CARD_TYPE_LABEL: Readonly<Record<CardType, string>> = tTable({
-  plan: "model.cards.type.plan",
-  approval: "model.cards.type.approval",
-  questions: "model.cards.type.questions",
-  progress: "model.cards.type.progress",
-  quick_action: "model.cards.type.quickAction",
-  suggest_task: "model.cards.type.suggestTask",
-  suggest_project: "model.cards.type.suggestProject",
-  reminder: "model.cards.type.reminder",
-  charter: "model.cards.type.charter",
-  work_order: "model.cards.type.workOrder",
-  plan_change: "model.cards.type.planChange",
-  parallel: "model.cards.type.parallel",
-  memory_delete: "model.cards.type.memoryDelete",
-  pairing: "model.cards.type.pairing",
-  toolkit_change: "model.cards.type.toolkitChange",
-  mcp_change: "model.cards.type.mcpChange",
-  skill_change: "model.cards.type.skillChange",
-  workflow_plan: "model.cards.type.workflowPlan",
-  archive_list: "model.cards.type.archiveList",
-  build_done: "model.cards.type.buildDone",
-  go_live: "model.cards.type.goLive",
-  charter_change: "model.cards.type.charterChange",
-  standard_change: "model.cards.type.standardChange",
-  standard_backfill: "model.cards.type.standardBackfill",
-  operations_change: "model.cards.type.operationsChange",
-  service_entry: "model.cards.type.serviceEntry",
-  browse_pick: "model.cards.type.browsePick",
-  personal_file: "model.cards.type.personalFile",
-  personal_file_suggest: "model.cards.type.personalFileSuggest",
-  interview: "model.cards.type.interview",
-  interview_files: "model.cards.type.interviewFiles",
-  runtime_question: "model.cards.type.runtimeQuestion",
-  schedule_task: "model.cards.type.scheduleTask",
-  map: "model.cards.type.map",
-});
-
-/** 卡片动作处理完以后显示的结果文字 */
-export const CARD_ACTION_LABEL: Readonly<Record<CardAction, string>> = tTable({
-  confirm: "model.cards.action.confirm",
-  reject: "model.cards.action.reject",
-  approve: "model.cards.action.approve",
-  deny: "model.cards.action.deny",
-  answer: "model.cards.action.answer",
-  ack: "model.cards.action.ack",
-  execute: "model.cards.action.execute",
-  cancel: "model.cards.action.cancel",
-  start_task: "model.cards.action.startTask",
-  start_workflow: "model.cards.action.startWorkflow",
-  kickoff: "model.cards.action.kickoff",
-  dismiss: "model.cards.action.dismiss",
-  save: "model.cards.action.save",
-  cancel_reminder: "model.cards.action.cancelReminder",
-  confirm_start: "model.cards.action.confirmStart",
-  confirm_later: "model.cards.action.confirmLater",
-  dispatch: "model.cards.action.dispatch",
-  return: "model.cards.action.return",
-  parallel: "model.cards.action.parallel",
-  sequential: "model.cards.action.sequential",
-  delete: "model.cards.action.delete",
-  decide: "model.cards.action.decide",
-  put_in_use: "model.cards.action.putInUse",
-  keep_building: "model.cards.action.keepBuilding",
-  abandon: "model.cards.action.abandon",
-  start: "model.cards.action.start",
-  later: "model.cards.action.later",
-  decline: "model.cards.action.decline",
-  overwrite: "model.cards.action.overwrite",
-  rename: "model.cards.action.rename",
-  allow_folder: "model.cards.action.allowFolder",
-});
-
-/** 卡片的处理结果写成一句话："已确认：勾掉 1 项授权"；系统让它作废的写作废的说明（重做之后"已经重做过，这张卡作废了"） */
-export function outcomeLabel(card: Card): string {
-  if (!card.outcome) return card.status === "expired" ? (card.expiredNote ?? t("model.cards.expired")) : card.status === "dismissed" ? t("model.cards.dismissed") : "";
-  const label = CARD_ACTION_LABEL[card.outcome.action];
-  return card.outcome.note ? t("model.cards.outcomeWithNote", { label, note: card.outcome.note }) : label;
-}
+// 卡片种类、处理结果的说法放在状态层（对话里收成一行的卡片要用），这里转出去，界面照旧从这里取
+export { CARD_ACTION_LABEL, CARD_TYPE_LABEL, outcomeLabel } from "../state/index.ts";
 
 /** 计划确认卡（负载的 schema 在共享协议包） */
 export type PlanPayload = PlanCardPayload;

@@ -423,7 +423,7 @@ All three are on by default. Flipping one saves it right away, it applies on all
 
 ## How ergo uses memory when it replies
 
-When ergo checks memory, an extra line appears in the chat: **Recalled 3 memories ›**.
+When ergo checks memory, an extra line appears in the chat: **Memory　Recalled 3: <title of the first memory> ›**. If the title can't be fetched it says **Recalled 3 memories**.
 
 Open it to see **Memories used this time**:
 

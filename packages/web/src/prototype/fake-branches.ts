@@ -60,7 +60,7 @@ import {
   startRollbackLabel,
   toolNatureOf,
 } from "../state/index.ts";
-import { at } from "./fake-conversations.ts";
+import { at, MAINTAINERS } from "./fake-conversations.ts";
 import { FAKE_CLAUDE_MAINTAINERS } from "./fake-runtimes.ts";
 import { markOf } from "./fake-long-tasks.ts";
 
@@ -126,12 +126,68 @@ const AFTER: MessageEnvelope[] = [
   ),
 ];
 
-/** 原型开头就有的那次回退：被放弃的一段、session_branch、分支摘要、新分支上的一轮 */
+// ---------- 记账本的负责人也演过一次回退（对话里过程条目收成一行的那段的后半：分支摘要、接着做的一组调用和一张审批卡） ----------
+
+const LEDGER = MAINTAINERS.ledger;
+const ledgerMessage = (id: string, speaker: MessageEnvelope["speaker"], time: string, ...parts: MessagePart[]): MessageEnvelope => ({ id, conversation: LEDGER, speaker, time, parts });
+
+/** 一次调用，结局随意（被拦下、等你批准、正在执行……） */
+function call(callId: string, name: string, argsSummary: string, o: { outcome: "done" | "blocked" | "running"; categories?: string[]; disposition?: "do" | "ask_first" | "never"; generic?: boolean; result?: string }): MessagePart {
+  const categories = o.categories ?? [];
+  const part = {
+    type: "tool_call" as const,
+    callId,
+    tool: name,
+    argsSummary,
+    categoryTitles: categories,
+    disposition: o.disposition ?? ("do" as const),
+    withinGrant: false,
+    genericBash: o.generic ?? false,
+    outcome: o.outcome,
+    ...(o.result === undefined ? {} : { resultSummary: o.result }),
+    ...markOf(categories),
+  };
+  return { ...part, nature: toolNatureOf(part) };
+}
+
+/** 被放弃的那一段：顺手把 10 月的分类按商户重排了 */
+const LEDGER_ABANDONED: MessageEnvelope[] = [
+  ledgerMessage("msg-rbl-ask", "user", at("10-07", "07:50"), text("顺手把 10 月的分类按商户重排一遍")),
+  ledgerMessage("msg-rbl-do", "agent", at("10-07", "07:51"), tool("call-rbl-1", "write", "rules/categories.yaml", "按商户重排了 23 条规则", [DELETE]), text("10 月的分类按商户重排好了，规则文件改了 23 条。")),
+];
+
+const LEDGER_SUMMARY = [
+  "用户让顺手把 10 月的分类按商户重排，已经改了 rules/categories.yaml 里的 23 条规则（本机，备份里找得回来）。",
+  "用户撤回了这一段：分类规则先别动，接着导信用卡账单。",
+  "风险点：规则文件停在重排后的样子，下次汇总前要核一遍。",
+].join("\n");
+
+/** 新分支：接着导信用卡账单——用登记好的 MCP 搜邮件、取附件，删项目外的临时文件被拦下，写账本库等你批准，导入脚本还在跑 */
+const LEDGER_AFTER: MessageEnvelope[] = [
+  ledgerMessage("msg-rbl-redo", "user", at("10-07", "07:54"), text("分类先别动，接着把信用卡账单导进来")),
+  ledgerMessage(
+    "msg-rbl-import",
+    "agent",
+    at("10-07", "07:55"),
+    call("call-rbl-2", "mcp__demo-mail__search_messages", "query=信用卡 月结单 after=2026-10-01", { outcome: "done", result: "找到 2 封" }),
+    call("call-rbl-3", "mcp__demo-mail__get_attachment", "message=demo-1 name=信用卡-10.pdf", { outcome: "done", result: "取到 1 个附件" }),
+    call("call-rbl-4", "delete", "示例目录/下载/信用卡-10.pdf", { outcome: "blocked", categories: [DELETE], disposition: "never", result: "被拦下：项目外的目录不能删" }),
+    call("call-rbl-5", "write", "ledger.db", { outcome: "blocked", categories: [DELETE], disposition: "ask_first", result: "等你批准" }),
+    call("call-rbl-6", "bash", "python import.py --source mail --month 2026-10", { outcome: "running", generic: true }),
+  ),
+  ledgerMessage("msg-rbl-approval", "agent", at("10-07", "07:55"), { type: "card_ref", cardId: "c-appr-ledger" }),
+];
+
+/** 原型开头就有的那几次回退：被放弃的一段、session_branch、分支摘要、新分支上的一轮（秘书主线一次，记账本的负责人一次） */
 export function appendRollbackDemo(log: FakeBranchLog): void {
   for (const m of ABANDONED) log.append(S, EVENT_TYPES.message, { message: m } satisfies MessageEventPayload);
   const cut = log.frames(S).find((f) => f.type === EVENT_TYPES.message && (f.payload as MessageEventPayload).message.id === "msg-rb-ask")!.seq;
   commitRollback(log, S, SINGLE_BRANCH, { messageId: "msg-rb-ask" }, cut, "b1", SUMMARY_TEXT, at("10-07", "22:09"));
   for (const m of AFTER) log.append(S, EVENT_TYPES.message, { message: m } satisfies MessageEventPayload);
+  for (const m of LEDGER_ABANDONED) log.append(LEDGER, EVENT_TYPES.message, { message: m } satisfies MessageEventPayload);
+  const ledgerCut = log.frames(LEDGER).find((f) => f.type === EVENT_TYPES.message && (f.payload as MessageEventPayload).message.id === "msg-rbl-ask")!.seq;
+  commitRollback(log, LEDGER, fakeBranchTree(log, LEDGER), { messageId: "msg-rbl-ask" }, ledgerCut, "b1", LEDGER_SUMMARY, at("10-07", "07:53"));
+  for (const m of LEDGER_AFTER) log.append(LEDGER, EVENT_TYPES.message, { message: m } satisfies MessageEventPayload);
 }
 
 /** 这个会话现在的会话树（最新一条 session_branch 带的；没回退过是只有一条分支的） */

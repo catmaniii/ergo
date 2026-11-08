@@ -48,20 +48,6 @@
   right: 33px;
 }
 
-/* ---------- 会话里"调用了 N 个工具 · …  ›"这类一行小字：不换行，字截成省略号，行尾的 › 紧跟着、露全 ---------- */
-:root[data-font-scale="up"] .tool-sum {
-  flex-wrap: nowrap;
-}
-:root[data-font-scale="up"] .tool-sum > :is(.tool-sum-text, .tool-sum-tag) {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-:root[data-font-scale="up"] .tool-sum > :is(.tool-dot, .tool-more) {
-  flex: none;
-}
-
 /* ---------- 列表的一行（设置、"更多"、待办、弹出菜单）：最矮 max(44px, 1.6em)，调小了照样好点 ---------- */
 :root[data-font-scale] :is(.menu-item, .inbox-main, [role="menuitem"]) {
   min-height: max(44px, 1.6em);

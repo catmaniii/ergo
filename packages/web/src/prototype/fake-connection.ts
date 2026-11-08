@@ -678,7 +678,7 @@ export class FakeConnection implements Connection {
     const [input, ...more] = inputs;
     if (input === undefined) return;
     this.emit(conversation, EVENT_TYPES.turnStart, { inputMessageId: input, ...(more.length > 0 ? { moreInputMessageIds: more } : {}) });
-    const turn: FakeTurn = { inputs, replyId: `a-${input}`, text: "", said: 0, timer: undefined };
+    const turn: FakeTurn = { inputs, replyId: `a-${input}`, thought: "", text: "", thought_said: 0, said: 0, timer: undefined };
     let attempt = 0;
     turn.timer = setInterval(() => {
       if (attempt < (mode === "retrying" ? 2 : 3)) {
@@ -700,18 +700,30 @@ export class FakeConnection implements Connection {
     this.turns.set(conversation, turn);
   }
 
-  /** 原型的一轮回复：turn_start，一段一段推流式增量，说完了定稿、turn_end，再把排着的一起交出去 */
+  /**
+   * 原型的一轮回复：turn_start，先流一段思考（对话里"正在想…"），再一段一段推回复的流式增量，说完了定稿、turn_end，
+   * 再把排着的一起交出去
+   */
   private startTurn(conversation: string, inputs: readonly string[], source: string): void {
     const [input, ...more] = inputs;
     if (input === undefined) return;
     // 一段一段流出去的是已经按语言换好的字（半句话查不了表）
     const text = fakeText(source);
+    const thought = fakeText(FAKE_THOUGHT);
     this.emit(conversation, EVENT_TYPES.turnStart, { inputMessageId: input, ...(more.length > 0 ? { moreInputMessageIds: more } : {}) });
-    const turn: FakeTurn = { inputs, replyId: `a-${input}`, text, said: 0, timer: undefined };
+    const turn: FakeTurn = { inputs, replyId: `a-${input}`, thought, text, thought_said: 0, said: 0, timer: undefined };
     turn.timer = setInterval(() => {
+      // 先想：思考是第 0 段，回复是第 1 段
+      const thinking = thought.slice(turn.thought_said, turn.thought_said + 4);
+      if (thinking) {
+        const delta = { part: 0, type: "reasoning" as const, offset: turn.thought_said, text: thinking };
+        turn.thought_said += thinking.length;
+        this.deliver?.({ kind: "frame", frame: { channel: conversation, seq: this.seqs[conversation] ?? 0, type: EVENT_TYPES.stream, payload: { messageId: turn.replyId, deltas: [delta] } } });
+        return;
+      }
       const step = text.slice(turn.said, turn.said + 4);
       if (!step) return this.endTurn(conversation, "completed");
-      const delta = { part: 0, type: "text" as const, offset: turn.said, text: step };
+      const delta = { part: 1, type: "text" as const, offset: turn.said, text: step };
       turn.said += step.length;
       this.deliver?.({ kind: "frame", frame: { channel: conversation, seq: this.seqs[conversation] ?? 0, type: EVENT_TYPES.stream, payload: { messageId: turn.replyId, deltas: [delta] } } });
     }, 120);
@@ -725,8 +737,10 @@ export class FakeConnection implements Connection {
     clearInterval(turn.timer);
     this.turns.delete(conversation);
     const said = turn.text.slice(0, turn.said);
-    if (said) {
-      const message: MessageEnvelope = { id: turn.replyId, conversation: conversation as MessageEnvelope["conversation"], speaker: "agent", time: nowIso(), parts: [{ type: "text", text: said }], ...(outcome === "aborted" ? { stopped: true as const } : {}) };
+    const thought = turn.thought.slice(0, turn.thought_said);
+    if (said || thought) {
+      const parts: MessagePart[] = [...(thought ? [{ type: "reasoning" as const, text: thought }] : []), ...(said ? [{ type: "text" as const, text: said }] : [])];
+      const message: MessageEnvelope = { id: turn.replyId, conversation: conversation as MessageEnvelope["conversation"], speaker: "agent", time: nowIso(), parts, ...(outcome === "aborted" ? { stopped: true as const } : {}) };
       this.emit(conversation, EVENT_TYPES.message, { message } satisfies MessageEventPayload);
     }
     if (outcome === "aborted") {
@@ -1855,13 +1869,20 @@ function later(ms: number, f: () => void): void {
 interface FakeTurn {
   readonly inputs: readonly string[];
   readonly replyId: string;
+  /** 先想的那一段（流成思考：对话里那一行写"正在想…"），想完了再说 */
+  readonly thought: string;
   readonly text: string;
+  /** 想到第几个字 */
+  thought_said: number;
   said: number;
   timer: ReturnType<typeof setInterval> | undefined;
 }
 
 /** 原型里"模型服务忙"时服务商回的原文 */
 const BUSY_ERROR = "503 Service Unavailable";
+
+/** 原型的回复之前先想的那一段（流成思考，对话里那一行写"正在想…"，想完了才开始说） */
+const FAKE_THOUGHT = "（原型）先想一下怎么回：这是假数据，接上守护进程后这里是模型真实的想法。";
 
 /** 原型的回复（一段一段流出来，说得够久，能在它说着的时候停止、排队） */
 const FAKE_REPLY =

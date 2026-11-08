@@ -165,6 +165,41 @@ export function recallLine(summary: RecallSummary): string {
   return summary.known ? t("state.memoryRecall.none") : t("state.memoryRecall.lineCalls", { count: summary.calls });
 }
 
+/** 那一行的标题最多几个字（超出的截掉、写"…"；放不下的界面再省略） */
+export const RECALL_TITLE_MAX = 40;
+
+/**
+ * 对话里那一行（收成一行之后）：取到了第一条记忆的标题就写"回忆了 N 条：<标题>"，取不到（还在取、删了、取失败）照旧
+ * recallLine；没找到、认不出条数的不带标题
+ */
+export function recallLineTitled(summary: RecallSummary, title: string | undefined): string {
+  const head = title?.trim();
+  return summary.count > 0 && head ? t("state.memoryRecall.lineTitled", { count: summary.count, title: head }) : recallLine(summary);
+}
+
+/** 这一串调用记忆用到的第一条记忆（按先后，第一次找到、读到的第一条）的素材 id；一条都没有的是 undefined */
+export function firstRecallMaterial(parts: readonly ToolCallPart[]): string | undefined {
+  for (const part of parts) {
+    const id = recallEntryOf(part).hits?.[0]?.materialId;
+    if (id !== undefined) return id;
+  }
+  return undefined;
+}
+
+/**
+ * 一条记忆的标题（对话里那一行"回忆了 N 条：<标题>"用）：本人的话取第一行，不是本人的话取说明（存的网页的标题、附件的文件名……），
+ * 截到 RECALL_TITLE_MAX 字
+ */
+export function recallTitle(view: MaterialDetailView): string {
+  const own = view.segments.find((s) => s.source === "self" && s.text !== undefined && s.text.trim() !== "")?.text;
+  const line = (own ?? descriptionOf(view))
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => l !== "");
+  if (line === undefined) return "";
+  return line.length > RECALL_TITLE_MAX ? `${line.slice(0, RECALL_TITLE_MAX)}…` : line;
+}
+
 /** 怎么找出来的："关键词命中"、"语义相近（0.71）"、"关键词命中，语义也相近（0.66）"；读全文的（都没有）是 undefined */
 export function recallHowLabel(hit: Pick<RecallHit, "keyword" | "semantic">): string | undefined {
   const score = hit.semantic === undefined ? undefined : hit.semantic.toFixed(2);

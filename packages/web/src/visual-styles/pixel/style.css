@@ -502,7 +502,8 @@
   border-left: none;
 }
 /* 个人助理的话一行不拉太长（设计稿 306 / 354） */
-:root[data-style="pixel"] .msg.assistant .part-text {
+:root[data-style="pixel"] .msg.assistant .part-text,
+:root[data-style="pixel"] .msg.assistant .part-line {
   max-width: 86%;
 }
 /* 气泡里的链接：设计稿是草地绿（a { color: --accent }）；你那条粉色气泡里跟着字色（绿字压在粉上不够） */
@@ -516,7 +517,8 @@
 :root[data-style="pixel"] .app.wide .msg.assistant .msg-part {
   max-width: min(100%, 560px);
 }
-:root[data-style="pixel"] .app.wide .msg.assistant .part-text {
+:root[data-style="pixel"] .app.wide .msg.assistant .part-text,
+:root[data-style="pixel"] .app.wide .msg.assistant .part-line {
   max-width: min(92%, 520px);
 }
 :root[data-style="pixel"] .app.wide .conv-scroll {

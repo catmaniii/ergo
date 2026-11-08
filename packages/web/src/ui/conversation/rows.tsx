@@ -1,33 +1,15 @@
-// 聊天区精简：对话层里思考、回复、工具调用组这三种怎么画。长什么样由状态层的 chatLook（state/chat-look.ts）给出。
-// 思考、回复是 ThinkingRow、AssistantBubble；
-// 工具调用那一行小字是用户要的汇总行，样子借工具行的圆点和行尾的 ›。
-// agent 之间的来信也是一行（LetterLine），借工具调用那一行的样子（.tool-sum），11 套风格里跟着各自的工具调用行走。
-// 调用记忆也是一行"回忆了 N 条记忆 ›"，同样借 .tool-sum（在记忆插件里：plugins/memory/RecallLine.tsx）。
+// 聊天区精简：对话层里回复和收成一行的那几种怎么画。长什么样由状态层的 chatLook（state/chat-look.ts）给出。
+// 回复是 AssistantBubble（Markdown）；思考、工具调用组、调用记忆、agent 之间的来信、卡片、时间线记录、系统说明、分支摘要
+// 都是一行（ChatLineView）：图标、标题、一句话、句子后面的小签和时间、行尾 ›。样子借工具调用那一行（.tool-sum），
+// 11 套风格里跟着各自的 .tool-sum 走。调用记忆那一行在记忆插件里（plugins/memory/RecallLine.tsx），也用 ChatLineView。
+import type { ReactNode } from "react";
 import { useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { type AgentLetter, type ChatLook, REPLY_OPEN_BY_DEFAULT, t } from "../../state/index.ts";
+import { type ChatLine, type ChatLook, REPLY_OPEN_BY_DEFAULT, t } from "../../state/index.ts";
+import { clockLabel } from "../../util/time.ts";
 import { NamedText } from "../assistant-name.tsx";
-
-/**
- * 思考：一行字，点一下在原地显示全文、再点收起；旁边"详情 ›"。
- * label 是收着时的那一行（"💭 Agent 的想法（点开看）"，正在想时"💭 Agent 正在想…"，字轻轻明暗）
- */
-export function ThinkingRow({ text, label, live, onDetail }: { text: string; label: string; live: boolean; onDetail?: (() => void) | undefined }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="thinking">
-      <button type="button" className={`thinking-toggle${live && !open ? " think-live" : ""}`} onClick={() => setOpen(!open)} aria-expanded={open}>
-        {open && text ? text : label}
-      </button>
-      {onDetail && (
-        <button type="button" className="link thinking-more" onClick={onDetail}>
-          {t("ui.rows.details")}
-        </button>
-      )}
-    </div>
-  );
-}
+import { Icon } from "../icons.tsx";
 
 /**
  * 回复里的图片（![名字](地址)）：没有演示图，只写名字（MD_PARTS），
@@ -64,48 +46,63 @@ export function AssistantBubble({ text, look, onDetail }: { text: string; look: 
   );
 }
 
-/**
- * 工具调用组：一行小字"调用了 N 个工具"，后面是小签（"· 1 次被拦下"、"· 1 次做完告诉你"），行尾 ›；整行点开组的详情。
- * 不是气泡。出了状况的整行醒目（左边那道和圆点换成被拦下的颜色，只有等你批准、问过你的换成跟你有关的颜色）；
- * 还有调用在执行时圆点一闪一闪（.tool-running）
- */
-export function ToolGroupLine({ look, onOpen }: { look: Extract<ChatLook, { form: "tool_line" }>; onOpen?: (() => void) | undefined }) {
-  const cls = `tool-sum${look.alert ? ` tool-sum-${look.alert}` : ""}${look.running ? " tool-running" : ""}`;
-  return (
-    <button type="button" className={cls} onClick={onOpen} disabled={!onOpen}>
-      <span className="tool-dot" />
-      <span className="tool-sum-text">{look.text}</span>
-      {look.tags.map((tag) => (
-        <span key={tag.key} className={`tool-sum-tag tst-${tag.level}`}>
-          · {tag.text}
-        </span>
-      ))}
-      {onOpen && <span className="tool-more">›</span>}
-    </button>
-  );
+/** 一行最前面的图标：调用记忆是记忆的图标，来信是它的种类图标，分支摘要是回退的图标，别的是一个圆点（颜色按种类） */
+function LineIcon({ look }: { look: ChatLine }) {
+  if (look.kind === "recall") return <Icon name="layers" />;
+  if (look.kind === "branch") return <Icon name="reload" />;
+  if (look.kind === "letter" && look.icon) return <>{look.icon}</>;
+  return <span className="tool-dot" />;
+}
+
+/** 来信、调用记忆那两行原来的类名（风格、测试按它认），别的种类没有 */
+function kindClass(look: ChatLine): string {
+  if (look.kind === "recall") return ` recall-line${look.dim ? " recall-none" : ""}`;
+  if (look.kind === "letter") return " letter-line";
+  return "";
 }
 
 /**
- * agent 之间的来信：一行——图标、种类、一句话总结（放不下的省略）、时间、"详情 ›"，整行点开看全文
- * （宽屏右边的详情栏、手机上的详情页，照工具调用那一行）。种类、总结里的名字占位按现在的名字显示
+ * 收成一行的一条：图标、标题（有最小宽度，常见的短标题后面的句子对齐）、一句话（放不下省略，不换行）、
+ * 句子后面的"等 N 步"、小签、时间（句子先省略，它们留着），行尾 ›（整行一样宽，› 在最右端，几种的 › 在同一条竖线上）。
+ * 整行点开这一条的详情（宽屏右边的详情栏、手机上的详情页）；打不开详情的不画 ›、点不了。
+ * 出了状况的醒目（被拦下一类 / 跟你有关的一类）；工具调用还有在执行的圆点一闪一闪，正在想的思考字轻轻明暗。
+ * text：界面另外取到的说法（调用记忆取到第一条的标题之后），不给就是 look.text。名字占位按现在的名字显示
  */
-export function LetterLine({ letter, time, onOpen }: { letter: AgentLetter; time: string | undefined; onOpen?: (() => void) | undefined }) {
+export function ChatLineView({ look, onOpen, text }: { look: ChatLine; onOpen?: (() => void) | undefined; text?: string | undefined }) {
+  const cls = [
+    "tool-sum chat-line",
+    `line-${look.kind}`,
+    kindClass(look).trim(),
+    look.alert ? `tool-sum-${look.alert}` : "",
+    look.live && look.kind === "tool" ? "tool-running" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const tail: ReactNode[] = [];
+  if (look.steps !== undefined) tail.push(<span key="steps" className="line-steps">{t("state.chatLook.steps", { count: look.steps })}</span>);
+  for (const tag of look.tags)
+    tail.push(
+      <span key={tag.key} className={`tool-sum-tag tst-${tag.level}`}>
+        · {tag.text}
+      </span>,
+    );
+  if (look.time !== undefined) tail.push(<span key="time" className="line-time">· {clockLabel(look.time)}</span>);
   return (
-    <button type="button" className={`tool-sum letter-line letter-${letter.kind}`} onClick={onOpen} disabled={!onOpen}>
-      <span className="letter-icon" aria-hidden="true">
-        {letter.icon}
+    <button type="button" className={cls} onClick={onOpen} disabled={!onOpen} {...(look.cardType ? { "data-card-type": look.cardType } : {})}>
+      <span className="line-icon" aria-hidden="true">
+        <LineIcon look={look} />
       </span>
-      {/* 折起来的长通知只写总结（"系统说明"几个字说明不了什么，手机上留给总结），种类在详情里写 */}
-      {letter.kind !== "notice" && (
-        <span className="letter-kind">
-          <NamedText text={letter.label} />
+      <span className="line-title">
+        <NamedText text={look.title} />
+      </span>
+      {/* 一句话和后面的"等 N 步"、小签、时间：句子先省略，缩没了后面那一段才省略（pages.css 的 .line-body） */}
+      <span className="line-body">
+        <span className={`tool-sum-text${look.live && look.kind === "thinking" ? " think-live" : ""}`}>
+          <NamedText text={text ?? look.text} />
         </span>
-      )}
-      <span className="letter-sum">
-        <NamedText text={letter.summary} />
+        {tail.length > 0 && <span className="line-tail">{tail.flatMap((node, i) => (i === 0 ? [node] : [" ", node]))}</span>}
       </span>
-      {time && <span className="letter-time">{time}</span>}
-      {onOpen && <span className="letter-more">{t("ui.rows.details")}</span>}
+      {onOpen && <span className="tool-more">›</span>}
     </button>
   );
 }

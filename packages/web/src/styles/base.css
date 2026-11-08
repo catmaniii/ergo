@@ -353,32 +353,14 @@ button:disabled {
   overflow-y: auto;
 }
 /*
- * 思考一行字、点开在原地显示全文，旁边"详情 ›"；回复按 Markdown 画（ui/conversation/rows.tsx）。
- * .thinking 的横排、.thinking-toggle、.bubble.md 和 Markdown 的排版
+ * .thinking 现在只剩缩小后组里一段思考那一块（ChatItemView 的 ZoomBlockView）；对话里的思考收成一行（pages.css 的 .tool-sum）。
+ * 回复按 Markdown 画（ui/conversation/rows.tsx）：.bubble.md 和 Markdown 的排版
  * （限定在 .bubble.md 里，免得碰到阶段抽屉 .md 和详情页的 .dt-doc.md）
  */
 .thinking {
   display: flex;
   align-items: baseline;
   gap: 8px;
-}
-.thinking > .thinking-toggle {
-  flex: 1;
-  cursor: pointer;
-}
-.thinking-more {
-  flex: none;
-}
-/* 想法的开关做成按钮（能点、读屏也认得），样子还是一行字 */
-.thinking-toggle {
-  background: none;
-  border: none;
-  padding: 0;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  white-space: pre-wrap;
-  cursor: pointer;
 }
 .bubble.md {
   white-space: normal;

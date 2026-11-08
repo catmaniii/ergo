@@ -16,7 +16,8 @@
 // bash 是命令原文，文件工具是路径（搜索带上模式："模式 · 路径"），联网搜索是查询词、读网页是网址，别的工具是"参数名=值 参数名=值"
 // （不是字符串的值写成 JSON）。模板按工具名查，按这个写法拆出参数（不改协议）；拆不出要的参数（参数缺失、
 // 摘要被截断、彻底删除过）就退回。工具的中文名照守护进程登记的 title 抄一份在这里；
-// MCP 工具（mcp__<MCP 名>__<工具名>）前端不知道中文名，写原名。纯函数。
+// MCP 工具（mcp__<MCP 名>__<工具名>）前端不知道中文名，写成看得出是哪个 MCP 的哪个工具的说法（"MCP github：list_issues"），
+// 秘书带参调 MCP 的那个工具（mcp_call，参数 tool 写 <MCP 名>/<工具名>）也这么说。纯函数。
 // 句子和工具名按当前语言（state.callSentence.*；英文的说法同样是动词加对象）。
 import { describeWorkdayChange, MEMORY_COMMAND_LABEL, type MessagePart, PURGED_TEXT, REPEAT_KINDS, type RepeatRule, describeRepeatRule, t, TELL_SECRETARY_CAPABILITY, tTable, type WorkdayChange } from "./protocol.ts";
 import { bashSentence } from "./shell-sentence.ts";
@@ -116,6 +117,8 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = labelTable(
     request_toolkit_change: "state.callSentence.tool.request_toolkit_change",
     // 登记 MCP
     request_mcp_change: "state.callSentence.tool.request_mcp_change",
+    // 秘书带参调一个登记过的 MCP 工具
+    mcp_call: "state.callSentence.tool.mcp_call",
     // 提交 skill
     request_skill_change: "state.callSentence.tool.request_skill_change",
     propose_skill: "state.callSentence.tool.propose_skill",
@@ -139,9 +142,17 @@ function labelTable(keys: Readonly<Record<string, string>>, more: Readonly<Recor
   return Object.freeze(table);
 }
 
-/** 工具的中文名；没登记的（MCP 工具、以后加的）写原名 */
+/** MCP 工具（mcp__<MCP 名>__<工具名>）拆出 MCP 名和工具名；不是 MCP 工具的是 undefined */
+export function mcpToolOf(tool: string): { readonly server: string; readonly tool: string } | undefined {
+  const m = /^mcp__(.+?)__(.+)$/.exec(tool);
+  return m ? { server: m[1]!, tool: m[2]! } : undefined;
+}
+
+/** 工具的中文名；MCP 工具写"MCP <MCP 名>：<工具名>"；别的没登记的（以后加的）写原名 */
 export function toolLabel(tool: string): string {
-  return Object.hasOwn(TOOL_LABELS, tool) ? TOOL_LABELS[tool]! : tool;
+  if (Object.hasOwn(TOOL_LABELS, tool)) return TOOL_LABELS[tool]!;
+  const mcp = mcpToolOf(tool);
+  return mcp ? t("state.callSentence.mcpTool", mcp) : tool;
 }
 
 /** 一次调用说成的那一句；said 是有模板说成了人话的，否则是退回的"中文名 · 参数值" */
@@ -601,6 +612,13 @@ const TEMPLATES: Readonly<Record<string, Template>> = {
     const a = summaryArgs(s, ["summary", "text"]);
     const said = a.summary || a.text;
     return said && t("state.callSentence.tellSecretary", { capability: TELL_SECRETARY_CAPABILITY, text: cutTo(said, TELL_SECRETARY_HEAD) });
+  },
+
+  // 秘书带参调 MCP：tool 写 <MCP 名>/<工具名>，说成和 MCP 工具一样的"MCP <MCP 名>：<工具名>"
+  mcp_call: (s) => {
+    const a = summaryArgs(s, ["tool", "args", "why"]);
+    const cut = a.tool ? a.tool.indexOf("/") : -1;
+    return a.tool && cut > 0 ? t("state.callSentence.mcpTool", { server: a.tool.slice(0, cut), tool: a.tool.slice(cut + 1) }) : undefined;
   },
 
   propose_quick_action: (s, named) => {
