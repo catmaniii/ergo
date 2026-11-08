@@ -4657,7 +4657,10 @@ a.att-icon:hover {
   font-family: var(--font-title);
   font-size: var(--fs-m);
 }
-.balance-refresh {
+/* 去充值、刷新靠右；手机上放不下时整组换到下一行 */
+.balance-actions {
+  display: flex;
+  gap: 8px;
   margin-left: auto;
 }
 .balance-amounts {

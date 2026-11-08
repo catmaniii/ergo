@@ -244,6 +244,8 @@ export const ProviderBalance = Type.Object({
   failure: Type.Optional(ProviderBalanceFailure),
   /** 这个时刻之前点"刷新"不重查（防连点）；现在就能刷时没有 */
   nextRefreshAt: Type.Optional(Type.String()),
+  /** 服务商开放平台的充值页（页面上"去充值"打开它，在 App 里走内置浏览器）；没有的不给 */
+  topUpUrl: Type.Optional(Type.String()),
 });
 export type ProviderBalance = Static<typeof ProviderBalance>;
 

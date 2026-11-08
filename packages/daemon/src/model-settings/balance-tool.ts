@@ -45,6 +45,7 @@ function entryText(entry: ProviderBalance, lowBelow: Readonly<Record<string, num
         ? `能用，但余额不多了（低于 ${threshold} 算不多）`
         : "能用";
     lines.push(`${entry.label} 余额（${agoText(result.checkedAt, now)}）：${amounts.length > 0 ? amounts.join("；") : "没有余额记录"}。${state}。`);
+    if (result.low && entry.topUpUrl) lines.push(`充值在 ${entry.label} 开放平台：${entry.topUpUrl}（消耗页顶上的「去充值」也能打开）。`);
   }
   return lines.join("\n");
 }

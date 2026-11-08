@@ -16,6 +16,12 @@ import { providerOf } from "./providers.ts";
 /** 查余额的路径 */
 export const DEEPSEEK_BALANCE_PATH = "/user/balance";
 
+/**
+ * 开放平台的充值页：官方文档错误码页 402（余额不足）那一行的 "Top up" 链接（https://api-docs.deepseek.com/quick_start/error_codes ，
+ * 2026-11-08 读）。页面上"去充值"打开它
+ */
+export const DEEPSEEK_TOP_UP_URL = "https://platform.deepseek.com/top_up";
+
 /** DeepSeek 接口的主机名：自定义服务商的地址是它的，Key 也能查余额 */
 const DEEPSEEK_HOST = new URL(DEEPSEEK_BASE_URL).hostname;
 
@@ -79,6 +85,7 @@ export function deepseekBalanceSource(options: DeepSeekBalanceOptions): BalanceS
     get label() {
       return providerOf("deepseek")?.label ?? "DeepSeek";
     },
+    topUpUrl: DEEPSEEK_TOP_UP_URL,
     key: options.key,
     async query(key, signal) {
       let res: Response;

@@ -18,6 +18,7 @@ import {
   CHECK_BALANCE_TOOL,
   checkBalanceTool,
   createProviderBalances,
+  DEEPSEEK_TOP_UP_URL,
   deepseekBalanceKey,
   deepseekBalanceSource,
   isDeepSeekUrl,
@@ -58,7 +59,10 @@ describe("DeepSeek 查余额：照官方文档的字段", () => {
       configured: true,
       result: { available: true, balances: [{ currency: "CNY", total: "110.00", granted: "10.00", toppedUp: "100.00" }], checkedAt: expect.any(String), low: false },
       nextRefreshAt: expect.any(String),
+      // 开放平台的充值页（官方文档错误码页 402 那一行的 Top up 链接）
+      topUpUrl: DEEPSEEK_TOP_UP_URL,
     });
+    expect(DEEPSEEK_TOP_UP_URL).toBe("https://platform.deepseek.com/top_up");
     expect(view.lowBelow).toEqual({ CNY: 10, USD: 1.5 });
     expect(fake.requests).toEqual([{ method: "GET", path: "/user/balance", authorization: `Bearer ${KEY}` }]);
   });
@@ -188,7 +192,7 @@ describe("缓存和刷新", () => {
 
   it("没配 Key：不查，configured 是 false；换了 Key 上一次的作废、用新 Key 重查", async () => {
     const { fake, state, balances } = await setup(undefined, { key: undefined });
-    expect(deepseek(await balances.view())).toEqual({ provider: "deepseek", label: "DeepSeek", configured: false });
+    expect(deepseek(await balances.view())).toEqual({ provider: "deepseek", label: "DeepSeek", configured: false, topUpUrl: DEEPSEEK_TOP_UP_URL });
     expect(await balances.refresh()).toEqual(await balances.view());
     expect(fake.requests).toHaveLength(0);
 
@@ -243,6 +247,10 @@ describe("秘书的 check_balance", () => {
     const lowBelow = { CNY: 10, USD: 1.5 };
     const amounts = [{ currency: "CNY", total: "7.35", granted: "0.00", toppedUp: "7.35" }];
     expect(balanceReport({ providers: [{ ...base, result: { available: true, balances: amounts, checkedAt: at, low: true } }], lowBelow }, T0)).toContain("能用，但余额不多了（低于 ¥10 算不多）");
+    // 余额不多、不足时说去哪充值（有充值页的）；够用时不说
+    const withTopUp = { ...base, topUpUrl: DEEPSEEK_TOP_UP_URL };
+    expect(balanceReport({ providers: [{ ...withTopUp, result: { available: false, balances: amounts, checkedAt: at, low: true } }], lowBelow }, T0)).toContain(`充值在 DeepSeek 开放平台：${DEEPSEEK_TOP_UP_URL}`);
+    expect(balanceReport({ providers: [{ ...withTopUp, result: { available: true, balances: amounts, checkedAt: at, low: false } }], lowBelow }, T0)).not.toContain("充值在");
     expect(balanceReport({ providers: [{ ...base, result: { available: false, balances: amounts, checkedAt: at, low: true } }], lowBelow }, T0)).toContain("接口已经用不了了");
     const failed = balanceReport({ providers: [{ ...base, result: { available: true, balances: amounts, checkedAt: at, low: true }, failure: { problem: "timeout", at } }], lowBelow }, T0);
     expect(failed).toContain("这次没查成——超时没回。下面是上一次查成的：");

@@ -30,7 +30,8 @@ export class FakeBalance {
     const mode = demoParam("demo-balance");
     const currency = isEnglishContent() ? "USD" : "CNY";
     const lowBelow = { CNY: 10, USD: 1.5 };
-    const base = { provider: "deepseek", label: "DeepSeek" };
+    // 充值页是 DeepSeek 开放平台真的地址（公开的，和守护进程的 DEEPSEEK_TOP_UP_URL 一样）
+    const base = { provider: "deepseek", label: "DeepSeek", topUpUrl: "https://platform.deepseek.com/top_up" };
     if (mode === "none") return { providers: [{ ...base, configured: false }], lowBelow };
     const kind = mode === "low" ? "low" : mode === "out" ? "out" : "normal";
     const a = AMOUNTS[kind];

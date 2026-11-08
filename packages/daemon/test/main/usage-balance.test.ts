@@ -44,6 +44,7 @@ describe("消耗页顶上的 DeepSeek 余额（440）", () => {
         configured: true,
         result: { available: true, balances: [{ currency: "CNY", total: "110.00", granted: "10.00", toppedUp: "100.00" }], checkedAt: expect.any(String), low: false },
         nextRefreshAt: expect.any(String),
+        topUpUrl: "https://platform.deepseek.com/top_up",
       },
     ]);
     expect(fake.requests).toEqual([{ method: "GET", path: "/user/balance", authorization: `Bearer ${KEY}` }]);
@@ -105,7 +106,7 @@ describe("消耗页顶上的 DeepSeek 余额（440）", () => {
     const fake = await startFakeDeepSeekBalance();
     const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined, CUSTOM_MODEL_API_KEY: undefined }, deepseekBalanceBaseUrl: fake.baseUrl });
     const view = await usageApi.balance(td.url);
-    expect(view.body.providers).toEqual([{ provider: "deepseek", label: "DeepSeek", configured: false }]);
+    expect(view.body.providers).toEqual([{ provider: "deepseek", label: "DeepSeek", configured: false, topUpUrl: "https://platform.deepseek.com/top_up" }]);
     expect((await usageApi.refreshBalance(td.url)).body.providers[0]?.configured).toBe(false);
     expect(fake.requests).toHaveLength(0);
     expect(coreItem((await doctorApi.view(td.url)).body, "balance")).toMatchObject({ level: "na" });

@@ -1948,5 +1948,6 @@
   "pages.usage.balance.why.timeout": "{name} didn't reply in time; refresh again in a while",
   "pages.usage.balance.why.network": "couldn't reach {name}; check that this computer is online",
   "pages.usage.balance.why.bad": "{name} sent a reply that couldn't be read",
-  "pages.usage.balance.free": "Checking the balance is free and uses no tokens"
+  "pages.usage.balance.free": "Checking the balance is free and uses no tokens",
+  "pages.usage.balance.topUp": "Top up"
 }

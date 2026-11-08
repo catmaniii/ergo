@@ -1894,5 +1894,6 @@
   "pages.usage.balance.why.timeout": "{name} 超时没回，等一会儿再刷新",
   "pages.usage.balance.why.network": "连不上 {name}，看看这台电脑能不能上网",
   "pages.usage.balance.why.bad": "{name} 回的看不懂",
-  "pages.usage.balance.free": "查余额不花钱，不算 token"
+  "pages.usage.balance.free": "查余额不花钱，不算 token",
+  "pages.usage.balance.topUp": "去充值"
 }

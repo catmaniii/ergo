@@ -6,13 +6,20 @@
 // - 刚刷过（nextRefreshAt 之前）按钮灰着；正在查写"正在查…"；
 // - 打开页面先写"正在查余额…"（取数据在 effect 里）；
 // - 原型编的余额（prototype/fake-balance.ts）：?demo-balance= 换样子，英文是美元；英文里没有中文，界面上不出现"秘书"。
+// - "去充值"：有充值页才有；余额不足时是主色，别的时候不抢眼；点了打开充值页——App 里有原生内置浏览器（鸿蒙 App、新版安卓 App，
+//   浏览插件启用着）在"浏览"页签里打开并切过去；电脑浏览器里新标签页；没有内置浏览器的 App（旧版安卓 App、浏览插件停用）
+//   新开窗口（App 接住交给系统浏览器）。
 import { type ComponentProps, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { Connection } from "../../src/app/connection.ts";
 import type { DaemonHttp } from "../../src/app/daemon-http.ts";
 import { StoreProvider } from "../../src/app/store.tsx";
-import { BalanceCard, ProviderBalanceBlock } from "../../src/pages/more/BalanceCard.tsx";
+import { openInNativeBrowser } from "../../src/app/browser-shell.ts";
+import { pushHash } from "../../src/app/history-nav.ts";
+import { setPageNativeOpener } from "../../src/app/native-open.ts";
+import type { NativeBrowser } from "../../src/app/native-browser.ts";
+import { BalanceCard, openTopUp, ProviderBalanceBlock } from "../../src/pages/more/BalanceCard.tsx";
 import { hasChinese } from "../../src/prototype/fake-content.ts";
 import { FakeBalance } from "../../src/prototype/fake-balance.ts";
 import { activeLocaleFrom, balanceAgo, balanceLowLine, balanceRefreshWait, balanceStatus, balanceWhy, DEFAULT_LANGUAGE, type ProviderBalance, setActiveLocale } from "../../src/state/index.ts";
@@ -21,6 +28,8 @@ import { TEST_LOCALES } from "../setup-locales.ts";
 vi.mock("../../src/app/build-info.ts", () => ({ APP_VERSION: "0.0.0-test", CHANGELOG: "", PAGE_WEB_VERSION: undefined }));
 
 const NOW = Date.parse("2026-11-08T10:00:00+08:00");
+const TOP_UP = "https://platform.deepseek.com/top_up";
+const ORIGIN = "http://127.0.0.1:8810";
 const LOW_BELOW = { CNY: 10, USD: 1.5 };
 const ago = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
 const noop = () => {};
@@ -37,6 +46,7 @@ function entry(extra: Partial<ProviderBalance> = {}): ProviderBalance {
     label: "DeepSeek",
     configured: true,
     result: { available: true, balances: [{ currency: "CNY", total: "110.00", granted: "10.00", toppedUp: "100.00" }], checkedAt: ago(3), low: false },
+    topUpUrl: TOP_UP,
     ...extra,
   };
 }
@@ -116,6 +126,72 @@ describe("余额那一块的几种样子", () => {
   });
 });
 
+/** "去充值"按钮：class、title（充值页）、字 */
+const button = (html: string) => /<button[^>]*class="([^"]*balance-topup[^"]*)"[^>]*title="([^"]*)"[^>]*>([^<]*)<\/button>/.exec(html);
+
+/** 假的页面 window：打开新窗口记下来，地址里的 hash 能改（切页签用的 pushHash） */
+function fakeWindow() {
+  const opened: Array<[string, string | undefined, string | undefined]> = [];
+  const win = {
+    location: { origin: ORIGIN, hash: "#/more/usage" },
+    history: { state: null as unknown, replaceState(state: unknown) { win.history.state = state; } },
+    open(url: string, target?: string, features?: string) {
+      opened.push([url, target, features]);
+      return null;
+    },
+  };
+  vi.stubGlobal("window", win);
+  return { win, opened };
+}
+
+describe("去充值", () => {
+  test("有充值页才有按钮；余额不足时是主色，能用、不多了时不抢眼；没配 Key 没有", () => {
+    const ok = button(render(entry()));
+    expect(ok?.[1]).toBe("btn small balance-topup ghost");
+    expect(ok?.[2]).toBe(TOP_UP);
+    expect(ok?.[3]).toBe("去充值");
+    expect(button(render(entry({ result: { available: true, balances: [{ currency: "CNY", total: "7.35", granted: "0.00", toppedUp: "7.35" }], checkedAt: ago(1), low: true } })))?.[1]).toBe("btn small balance-topup ghost");
+    expect(button(render(entry({ result: { available: false, balances: [{ currency: "CNY", total: "0.00", granted: "0.00", toppedUp: "0.00" }], checkedAt: ago(1), low: true } })))?.[1]).toBe("btn small balance-topup primary");
+    const { topUpUrl: _none, ...noTopUp } = entry();
+    expect(render(noTopUp)).not.toContain("balance-topup");
+    expect(render({ provider: "deepseek", label: "DeepSeek", configured: false, topUpUrl: TOP_UP })).not.toContain("balance-topup");
+    inEnglish();
+    expect(button(render(entry()))?.[3]).toBe("Top up");
+  });
+
+  test("App 里有原生内置浏览器（鸿蒙 App；新版安卓 App 同样）：交给浏览插件登记的打开办法，在\"浏览\"里打开、切到\"浏览\"页签，不新开窗口", () => {
+    const { win, opened } = fakeWindow();
+    const loaded: string[] = [];
+    const browser = { load: (url: string) => loaded.push(url) } as unknown as NativeBrowser;
+    // 浏览插件装上时登记的就是这一套（plugins/browsing/page-browse.ts 的 openInPageNativeBrowser）：原生浏览器打开、切到 #/browse
+    const off = setPageNativeOpener((url) => openInNativeBrowser(browser, url, ORIGIN, () => pushHash(win as never, "#/browse")));
+    try {
+      openTopUp(TOP_UP);
+    } finally {
+      off();
+    }
+    expect(loaded).toEqual([TOP_UP]);
+    expect(win.location.hash).toBe("#/browse");
+    expect(opened).toEqual([]);
+  });
+
+  test("电脑浏览器（没有内置浏览器）：新标签页打开，不动地址", () => {
+    const { win, opened } = fakeWindow();
+    openTopUp(TOP_UP);
+    expect(opened).toEqual([[TOP_UP, "_blank", "noopener,noreferrer"]]);
+    expect(win.location.hash).toBe("#/more/usage");
+  });
+
+  test("没有内置浏览器的 App（旧版安卓 App，或者浏览插件停用了）：照样新开窗口，App 接住交给系统浏览器", () => {
+    const { opened } = fakeWindow();
+    // 浏览插件停用：登记的打开办法撤掉了
+    const off = setPageNativeOpener(() => true);
+    off();
+    openTopUp(TOP_UP);
+    expect(opened).toEqual([[TOP_UP, "_blank", "noopener,noreferrer"]]);
+  });
+});
+
 describe("余额的纯函数", () => {
   test("状态、几分钟前、原因、提醒线、还要等几秒", () => {
     expect(balanceStatus({ available: true, low: false })).toBe("available");
@@ -144,7 +220,7 @@ describe("原型编的余额", () => {
     vi.stubGlobal("location", { search: "?demo-balance=out" });
     expect(fake.view().providers[0]!.result).toMatchObject({ available: false, low: true });
     vi.stubGlobal("location", { search: "?demo-balance=none" });
-    expect(fake.view().providers[0]).toEqual({ provider: "deepseek", label: "DeepSeek", configured: false });
+    expect(fake.view().providers[0]).toEqual({ provider: "deepseek", label: "DeepSeek", configured: false, topUpUrl: TOP_UP });
     vi.stubGlobal("location", { search: "?demo-balance=failed" });
     expect(fake.view().providers[0]).toMatchObject({ failure: { problem: "timeout" }, result: { available: true } });
     vi.unstubAllGlobals();

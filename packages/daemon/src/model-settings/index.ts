@@ -18,4 +18,4 @@ export {
   type ProviderBalanceService,
 } from "./balance.ts";
 export { CHECK_BALANCE_TOOL, balanceReport, checkBalanceTool } from "./balance-tool.ts";
-export { DEEPSEEK_BALANCE_PATH, type DeepSeekBalanceOptions, deepseekBalanceKey, deepseekBalanceSource, isDeepSeekUrl, parseDeepSeekBalance } from "./deepseek-balance.ts";
+export { DEEPSEEK_BALANCE_PATH, DEEPSEEK_TOP_UP_URL, type DeepSeekBalanceOptions, deepseekBalanceKey, deepseekBalanceSource, isDeepSeekUrl, parseDeepSeekBalance } from "./deepseek-balance.ts";

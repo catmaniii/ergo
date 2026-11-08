@@ -46,6 +46,8 @@ export interface BalanceSource {
   readonly provider: string;
   /** 给人看的名字 */
   readonly label: string;
+  /** 开放平台的充值页（页面上"去充值"、秘书的工具说去哪充值）；没有的不给 */
+  readonly topUpUrl?: string;
   /** 用哪个 Key 查（每次现取；没配是 undefined） */
   key(): string | undefined;
   /** 查一次：signal 在超时时置位。没成抛 BalanceFailed（别的错按"连不上"算） */
@@ -155,12 +157,12 @@ export function createProviderBalances(options: ProviderBalanceOptions): Provide
   };
 
   const entryView = (source: BalanceSource, current: { entry: Entry } | undefined): ProviderBalance => {
-    if (!current) return { provider: source.provider, label: source.label, configured: false };
+    const base = { provider: source.provider, label: source.label, ...(source.topUpUrl === undefined ? {} : { topUpUrl: source.topUpUrl }) };
+    if (!current) return { ...base, configured: false };
     const { entry } = current;
     const nextAt = entry.startedAt === undefined ? undefined : entry.startedAt + BALANCE_REFRESH_GAP_MS;
     return {
-      provider: source.provider,
-      label: source.label,
+      ...base,
       configured: true,
       ...(entry.result === undefined ? {} : { result: entry.result }),
       ...(entry.failure === undefined ? {} : { failure: entry.failure }),
