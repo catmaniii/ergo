@@ -45,7 +45,7 @@ describe("英文的说法", () => {
   it("等我只有一种说法，等你这个状态只有一种说法", () => {
     expect(hits(/Waiting on me/)).toEqual([]);
     // "等你处理"那一栏的名字（手册的章节名、锚点用的是它）；别的"等你"都写 Waiting for you
-    expect(hits(/[Ww]aiting on you/).toSorted()).toEqual(["ui.inboxBar.count", "ui.inboxBar.label", "ui.marks.waitingOnYou"]);
+    expect(hits(/[Ww]aiting on you/).toSorted()).toEqual(["state.markChip.waiting", "ui.inboxBar.count", "ui.inboxBar.label"]);
     expect(EN["state.board.status.waiting"]).toBe(EN["pages.tasks.status.waiting"]);
     expect(EN["model.labels.taskStatus.waitingForUser"]).toBe(EN["protocol.tasks.state.waitingForUser"]);
     expect(EN["state.stageGraph.look.waiting"]).toBe(EN["protocol.activity.state.waitingForUser"]);

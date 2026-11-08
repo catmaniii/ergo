@@ -52,4 +52,6 @@ export const EN_BRANCHES: Phrases = {
   "取到 1 个附件": "Got 1 attachment",
   "示例目录/下载/信用卡-10.pdf": "demo-folder/Downloads/credit-card-10.pdf",
   "被拦下：项目外的目录不能删": "Blocked: can't delete in a folder outside the project",
+  "自动纠偏：写 ledger.db 之前没先备份，先让负责人备份当天的账本库，再回来写": "Auto-corrected: ledger.db was about to be written without a backup; the owner backs up today's ledger first, then comes back to write",
+  "违反时序规则「先备份再改账目」：写 ledger.db 之前先有当天的备份": "Broke the order rule “back up before changing the books”: there must be a backup from today before writing ledger.db",
 };

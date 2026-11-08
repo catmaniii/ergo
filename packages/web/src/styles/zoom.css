@@ -4,7 +4,8 @@
  * 补上缩小后条外的装饰（×N、左侧任务卡、计划底色带和竖排标签、任务的完整情况、阶段的书脊、重开后废弃的旧历史）。
  * 颜色、字号、圆角、间距一律用 token（风格清单 src/visual-styles/：已有的照用，缩放自己的是 --zoom-*），
  * 各套风格可以覆盖；白字、阴影颜色也用 token。
- * 缩放控制器（ui/zoom/zoom.ts）把 --s、--o0、--o1、--o2、--sl、--colw、--vpw 和 data-level 写在 .zh 上。
+ * 缩放控制器（ui/zoom/zoom.ts）把 --s、--o0、--o1、--o2、--sl、--colw、--vpw、--zx、--zxl 和 data-level 写在 .zh 上
+ * （--zx、--zxl：窄屏缩小后内容往左挪了多少，实时的和这一档的）。
  */
 
 /* ---------- 内容类型底色（要点层、全局层、图例） ---------- */
@@ -217,6 +218,8 @@
   --sl: 1;
   --colw: 0px;
   --vpw: 0px;
+  --zx: 0px;
+  --zxl: 0px;
   --gutter1: 0px;
   --od: 0;
   --rgap: 0px;
@@ -362,9 +365,10 @@
 /*
  * 左侧标注用满这一档（--sl）左边的留白：从最左边那列竖排的任务名右边，到书脊（没有书脊就到条）为止。
  * 按这一档的比例算，不按捏合中的实时比例，捏合过程中不重新折行。标注整体按 --ds 排版，所以换算回 DS 像素。
+ * 窄屏缩小后内容往左挪了 --zxl（这一档挪的，缩放控制器写入）：左边少这么多，右边多这么多
  */
 .zd-left {
-  width: calc(((var(--vpw, 400px) - var(--colw, 400px) * var(--sl, 0.45)) / 2 - 10px - var(--band-px) - var(--spine-px, 0px)) / var(--ds));
+  width: calc(((var(--vpw, 400px) - var(--colw, 400px) * var(--sl, 0.45)) / 2 - var(--zxl, 0px) - 10px - var(--band-px) - var(--spine-px, 0px)) / var(--ds));
 }
 /* 分叉节点：从回退点往右伸出的小方块 */
 .zd-fork {
@@ -378,13 +382,13 @@
 }
 /*
  * 右侧标注一直用到离屏幕右缘 8px：按这一档（--sl）实际的右侧留白算宽度。
- * 条的右缘在屏幕上距视口右缘 (vpw - colw·sl)/2，再减去标注和条之间的间距。
+ * 条的右缘在屏幕上距视口右缘 (vpw - colw·sl)/2（窄屏缩小后再加上往左挪的 --zxl），再减去标注和条之间的间距。
  * 标注整体按 --ds 排版，所以换算回 DS 像素。
  */
 .zd-right {
   transform-origin: 0 0;
   left: calc(100% + var(--rgap));
-  width: calc(((var(--vpw, 400px) - var(--colw, 400px) * var(--sl, 0.45)) / 2 - var(--rgap-px) - 8px) / var(--ds));
+  width: calc(((var(--vpw, 400px) - var(--colw, 400px) * var(--sl, 0.45)) / 2 + var(--zxl, 0px) - var(--rgap-px) - 8px) / var(--ds));
 }
 /* 每条标注自己定位：默认与它所指的那一行齐平 */
 .zh[data-level="1"] .zd-right > *,
@@ -421,6 +425,80 @@
   border-radius: calc(var(--radius-m) / var(--ds));
   white-space: normal;
   line-height: 1.3;
+}
+/*
+ * 标注的字（ui/zoom/marks.tsx）：前一段（种类或样式、结果、⚠类别）和一句具体的。一行放得下就接着写，放不下最多两行：
+ * 前一段最多占一行（放不下截掉后面的，打头的种类或样式留着），那句话接在它后面，同一行放不下就折到第二行，再截。
+ * "等 N 次"、批了没有接在那句话后面；接上之后两行放不下（ZoomHistory 的 fitChipPins 量了标 data-pin）才换成
+ * 浮在第二行右边的那一份（.zd-chip-pin）：第一行照常排满，那句话在第二行它的前面截掉，它跟在省略号后面，不会空出一截。
+ * 只有一段的（验收结论）照常折行截两行
+ */
+.zd-chip-body {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  /* 长路径、长英文词放不下时从中间断开，不撑出列 */
+  overflow-wrap: anywhere;
+}
+.zd-chip-flow {
+  display: block;
+}
+.zd-chip:not(.zd-chip-solo) .zd-chip-head {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: top;
+}
+/* 前一段和那句话之间的" · "跟着前一段：那句话折到第二行时行首不带它（不换行的空格，行尾不吞） */
+.zd-chip:not(.zd-chip-solo) .zd-chip-head::after {
+  content: "\a0·\a0";
+}
+/* "等 N 次"、批了没有不从中间断开：放不下整个挪到下一行 */
+.zd-chip-said > .zd-chip-more,
+.zd-chip-said > .zd-chip-tail {
+  white-space: nowrap;
+}
+.zd-chip-said > .zd-chip-more::before {
+  content: " ";
+}
+.zd-chip-said > .zd-chip-tail::before {
+  content: " · ";
+}
+.zd-chip-pin {
+  display: none;
+}
+/*
+ * 钉住的：先浮一个零宽、一行高的占位，"等 N 次"浮在它下面，就落在第二行右边。
+ * 那句话里的路径、英文词也不整个挪到下一行，每行排满，第二行截掉时是满的。放得下的照常按词折行
+ */
+.zd-chip[data-pin] .zd-chip-flow::before {
+  content: "";
+  float: right;
+  height: 1lh;
+}
+.zd-chip[data-pin] .zd-chip-pin {
+  display: block;
+  float: right;
+  clear: right;
+  margin-left: 0.3em;
+  white-space: nowrap;
+}
+.zd-chip-pin .zd-chip-more + .zd-chip-tail {
+  margin-left: 0.3em;
+}
+.zd-chip-pin .zd-chip-tail::before {
+  content: "· ";
+}
+.zd-chip[data-pin] .zd-chip-said {
+  word-break: break-all;
+}
+.zd-chip[data-pin] .zd-chip-said > .zd-chip-more,
+.zd-chip[data-pin] .zd-chip-said > .zd-chip-tail {
+  display: none;
 }
 /* 连着几块的标注一样：只在第一块标，后面跟 ×N */
 .zd-repeat {
@@ -800,7 +878,8 @@
  */
 .zh-band {
   position: absolute;
-  left: calc(var(--colw) / 2 - var(--vpw) / (2 * var(--s)));
+  /* 窄屏缩小后内容往左挪了 --zx（屏幕像素），视口左缘在内容坐标里跟着往右 --zx / s */
+  left: calc(var(--colw) / 2 - var(--vpw) / (2 * var(--s)) + var(--zx, 0px) / var(--s));
   width: calc(var(--vpw) / var(--s));
   z-index: -1;
   pointer-events: none;
@@ -968,7 +1047,8 @@
   position: absolute;
   top: 0;
   right: calc(100% + 4px / var(--s));
-  width: calc(var(--gutter1) * 0.92);
+  /* 窄屏缩小后左边少了往左挪的那一截（--zxl） */
+  width: calc((var(--gutter1) - var(--zxl, 0px) / var(--ds)) * 0.92);
   transform-origin: 100% 0;
   transform: scale(calc(var(--ds) / var(--s)));
   text-align: right;

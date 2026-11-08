@@ -1379,6 +1379,8 @@
   "state.workflowView.part.check": "当下必须满足",
   "state.workflowView.part.message": "报出来的话",
   "state.zoomDecor.operationChip": "{label}：{short}",
+  "state.markChip.waiting": "待你处理",
+  "state.markChip.more": "等 {count} 次",
   "state.zoomDecor.spine.ok": "验收通过",
   "state.zoomDecor.spine.retry": "退回",
   "state.zoomDecor.spine.failed": "未通过",

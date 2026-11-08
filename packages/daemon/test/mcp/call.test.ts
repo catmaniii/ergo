@@ -72,8 +72,8 @@ describe("mcp_call：登记过就调", () => {
     expect(s.called()).toMatchObject([
       { outcome: "done", server: "album", serverTitle: "旅行相册", tool: "person.rename", toolTitle: "改名字", args: { id: "p2", name: "爸爸" }, why: "用户说第二个人叫爸爸", result: { ok: true, text: "已把 p2 改名成 爸爸" } },
     ]);
-    // 时间线：一句话 + 明细（参数、为什么、结果）
-    expect(s.timeline()).toMatchObject([{ kind: "mcp_call", summary: expect.stringContaining("调了 person.rename") }]);
+    // 时间线：一句话（"「MCP」工具：结果"，种类已经写着 MCP 调用，不再说是秘书用 MCP 调的）+ 明细（参数、为什么、结果）
+    expect(s.timeline()).toMatchObject([{ kind: "mcp_call", summary: "「旅行相册」person.rename：已把 p2 改名成 爸爸" }]);
     expect(s.timeline()[0]!.detail).toContain('"id":"p2"');
     expect(s.timeline()[0]!.detail).toContain("用户说第二个人叫爸爸");
     expect(s.timeline()[0]!.detail).toContain("已把 p2 改名成 爸爸");
@@ -96,7 +96,7 @@ describe("mcp_call：登记过就调", () => {
     // 服务进程真的收到了这次调用（缺的那个参数也在）
     expect(mcpLog(s.logFile).filter((e) => e.call !== undefined)).toEqual([{ call: "person.rename", args: { id: "p2" } }]);
     expect(s.called()).toMatchObject([{ outcome: "failed", result: { ok: false, text: "改名字要写 name" } }]);
-    expect(s.timeline()[0]!.summary).toContain("没做成");
+    expect(s.timeline()[0]!.summary).toBe("「旅行相册」person.rename 没做成：改名字要写 name");
   });
 
   it("服务进程不认识这个工具（登记里有、服务进程回错）：错误原样带回来", async () => {

@@ -18,6 +18,7 @@ import {
   locateChatItem,
   revealTargetId,
   MARK_KIND_LABEL,
+  markChip,
   markChipText,
   relayLabel,
   type MessageEnvelope,
@@ -647,7 +648,8 @@ describe("秘书转达的话", () => {
       ["r1", "user", "⟦个人助理⟧转达：以后把 GitHub 热门也加上", true, [["relay", "⟦个人助理⟧转达", "以后把 GitHub 热门也加上"]]],
     ]);
     expect(MARK_KIND_LABEL.relay).toBe(relayLabel());
-    expect(markChipText(items[1]!.marks[0]!)).toBe("⟦个人助理⟧转达");
+    // 缩小后右侧的标注：种类，后面接转达的那句话的开头
+    expect(markChipText(markChip(state, items[1]!.marks[0]!))).toBe("⟦个人助理⟧转达 · 以后把 GitHub 热门也加上");
     // 要点层也有它
     expect(gistView(state, TM).map((r) => (r.kind === "marks" ? r.marks.map((m) => m.kind) : `收起 ${r.count}`))).toEqual(["收起 1", ["relay"]]);
     expect(detailContent(state, items, { type: "item", id: "r1" })).toMatchObject({ kind: "text", tag: "user", label: "⟦个人助理⟧转达", text: "以后把 GitHub 热门也加上\n每天放在最后" });

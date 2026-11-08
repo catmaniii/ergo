@@ -264,7 +264,7 @@ When you let go, it snaps to the nearest layer.
 **What to look at when zoomed out:**
 
 - **Bar colors:** The legend below explains them. In the **Classic** style, blue is what you said, purple is thinking, grey is replies, orange is cards, pink is notes and records. Green is tool calls, in three grades: light, dark and with a red ring, meaning look only, acting, and changing or deleting.
-- **Labels on the right:** Such as **⚠ Deleting or overwriting** and **⚠ Sending or publishing in my name**, with a line pointing to the item concerned. When several in a row are the same, only the first is labeled, with ×N.
+- **Labels on the right:** A line points to the item concerned. Each label says what it is first (Blocked, Tell me when done, ⚠ Deleting or overwriting, Approval, Deviation, MCP call…), then one concrete sentence, such as **Blocked · Delete demo-folder/Downloads/credit-card-10.pdf**, **MCP call · “Travel album” person.rename: renamed p2 to Dad** or **Approval · Write ledger.db · Waiting on you**. A long label wraps to a second line and is cut after that; on a phone the first part takes one line and the sentence the other. Hover over a label for the full text, or tap the item for its details. When several in a row start the same way, only the first is labeled: ×N if they're identical, otherwise the first sentence with "(N times)".
 - **↶ on the left:** Roll back. See [Rolling back](#rolling-back).
 - **⑂ on the right:** Abandoned branches. See [Session branches](#session-branches).
 - **Background shading and vertical text:** The secretary's are split by day; owners' by task or work order.

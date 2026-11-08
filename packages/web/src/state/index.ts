@@ -74,6 +74,7 @@ export * from "./system-prompts.ts";
 export * from "./agent-settings.ts";
 export * from "./slash-commands.ts";
 export * from "./runtimes.ts";
+export * from "./mark-chip.ts";
 export * from "./zoom-decor.ts";
 export * from "./abandoned-branch.ts";
 export * from "./workflow-view.ts";

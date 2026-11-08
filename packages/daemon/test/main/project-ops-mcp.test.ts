@@ -258,7 +258,7 @@ describe("项目转入使用自动转成 MCP", () => {
     // 时间线记在调用者自己的会话上，写明是谁调的
     const records = () => recordsOf(frontend, owner).map((r) => r.record).filter((r) => r.kind === "project_op");
     await waitUntil(() => records().length === 4, { describe: () => `等时间线：${JSON.stringify(records())}` });
-    expect(records()[0]!.summary).toBe(`${who}调了项目「记账本」的操作 add_expense（记好了：午饭 32 元）`);
+    expect(records()[0]!.summary).toBe(`${who}调了「记账本」add_expense：记好了：午饭 32 元`);
     // 转给负责人的工单写明是谁要的
     const order = td.daemon.tasks.list().find((t) => t.title === "加一个分类")!;
     expect(order).toBeDefined();
@@ -361,7 +361,7 @@ describe("项目转入使用自动转成 MCP", () => {
     // 凭证只进转发程序：agent 和它起的 bash 碰不到
     expect(done).toContain("agent=[]");
     expect(calledEvents(td).map((e) => [e.op, e.by, e.caller])).toEqual([["month_report", "agent", "项目「周报」的负责人"]]);
-    expect(recordsOf(frontend, PM2).map((r) => r.record).find((r) => r.kind === "project_op")!.summary).toContain("项目「周报」的负责人调了项目「记账本」的操作 month_report");
+    expect(recordsOf(frontend, PM2).map((r) => r.record).find((r) => r.kind === "project_op")!.summary).toContain("项目「周报」的负责人调了「记账本」month_report：");
 
     // 接口：没凭证、凭证错 401；外网端口 403（带对的凭证也不行）；对的凭证只认自己项目的工具；测试标记这条路带不了
     const token = tokenOf(td);

@@ -1,9 +1,9 @@
 // 会话缩放的数学部分（ui/zoom/zoom.ts）：档位（levelOf，对数空间里最近的一档）、
 // 三层的不透明度（layerOpacity，交叉淡入淡出）、松手吸附（snap）、锚点公式（缩放时焦点下面那一点内容不动）、
-// 对数空间插值的动画、写给 CSS 的变量。手势和观感靠用户评审，这里不测。
+// 对数空间插值的动画、写给 CSS 的变量、窄屏（手机）缩小后条往左挪和要点层收窄。手势和观感靠用户评审，这里不测。
 // 缩放控制器要的几个元素换成假的（只留它读写的那几个属性），requestAnimationFrame 换成手动推进的。
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { layerOpacity, levelOf, MIN_SCALE, PRESETS, ZoomController, type ZoomLevel } from "../../src/ui/zoom/zoom.ts";
+import { layerOpacity, levelOf, MIN_SCALE, NARROW_GIST_SCALE, NARROW_MAX, PRESETS, ZoomController, type ZoomLevel } from "../../src/ui/zoom/zoom.ts";
 
 describe("档位：在对数空间里落到最近的一档（1 对话层、0.45 要点层、0.15 全局层）", () => {
   // 分界是相邻两档的几何平均：√(1 × 0.45) ≈ 0.6708，√(0.45 × 0.15) ≈ 0.2598
@@ -64,8 +64,8 @@ describe("三层的不透明度：随比例交叉淡入淡出", () => {
   });
 });
 
-/** 缩放控制器读写的几个元素：视口（宽、滚动位置）、撑高度的 sizer、整体缩放的内容、写 CSS 变量的根 */
-function fakeDom(width = 400) {
+/** 缩放控制器读写的几个元素：视口（宽、滚动位置）、撑高度的 sizer、整体缩放的内容、写 CSS 变量的根。默认是电脑宽 */
+function fakeDom(width = 800) {
   const vars = new Map<string, string>();
   const viewport = { clientWidth: width, scrollTop: 0 };
   const sizer = { style: { height: "" } };
@@ -243,16 +243,17 @@ describe("跨档改了布局时换算焦点（二狗：工具调用组对话层�
 
 describe("写给 CSS 的变量", () => {
   test("比例、三层不透明度、这一档的预设比例、档位；内容按自身宽度回推居中", () => {
-    const { ctl, vars, root, content } = fakeDom(400);
+    const { ctl, vars, root, content } = fakeDom(800);
     expect(vars.get("--s")).toBe("1.0000");
     expect(vars.get("--o0")).toBe("1.000");
     expect(root.dataset.level).toBe("0");
     ctl.set(0.45, 0, 0);
     expect(vars.get("--o1")).toBe("1.000");
     expect(vars.get("--sl")).toBe("0.45");
-    expect(vars.get("--colw")).toBe("400px");
+    expect(vars.get("--colw")).toBe("800px");
     expect(root.dataset.level).toBe("1");
-    expect(content.style.transform).toBe("translateX(110.00px) scale(0.4500)");
+    expect(content.style.transform).toBe("translateX(220.00px) scale(0.4500)");
+    expect(vars.get("--zx")).toBe("0.00px");
   });
 
   test("跨档时通知一次（同一档里来回不通知）", () => {
@@ -261,5 +262,79 @@ describe("写给 CSS 的变量", () => {
     ctl.onLevelChange((l) => levels.push(l));
     for (const s of [0.9, 0.8, 0.6, 0.5, 0.4, 0.2, 0.18, 0.5, 1]) ctl.set(s, 0, 0);
     expect(levels).toEqual([1, 2, 1, 0]);
+  });
+});
+
+describe("窄屏（手机）：缩小后条往左挪、要点层收窄，右侧标注那一列宽出来；电脑宽照旧居中", () => {
+  /** 内容的左内边距 12px（--space-page）：挪的时候按条的左缘算 */
+  beforeEach(() => {
+    vi.stubGlobal("getComputedStyle", () => ({ paddingLeft: "12px" }));
+  });
+
+  test("要点层停在哪：窄于 600 的停在 0.4，电脑宽照旧 0.45；全局层都是 0.15；宽是 0（jsdom 里量不到）不算窄", () => {
+    expect(NARROW_MAX).toBe(600);
+    expect(NARROW_GIST_SCALE).toBe(0.4);
+    expect(fakeDom(390).ctl.presetOf(1)).toBe(0.4);
+    expect(fakeDom(390).ctl.presetOf(2)).toBe(0.15);
+    expect(fakeDom(800).ctl.presetOf(1)).toBe(0.45);
+    expect(fakeDom(0).ctl.presetOf(1)).toBe(0.45);
+  });
+
+  test.each<[number, number]>([
+    [0.6, 0.4],
+    [0.3, 0.4],
+    [0.25, 0.15],
+  ])("窄屏松手：从 %f 吸到 %f", (from, to) => {
+    const { ctl } = fakeDom(390);
+    ctl.setContentHeight(8000, 0);
+    ctl.set(from, 0, 0);
+    ctl.snap(0, 0);
+    runToEnd();
+    expect(ctl.s).toBeCloseTo(to, 9);
+  });
+
+  test("挪多少：居中时条左边多出 leftRoom 的那一截；--sl 和这一档挪的 --zxl 按 0.4 算", () => {
+    const { ctl, vars, content } = fakeDom(390);
+    ctl.setLeftRoom(70);
+    ctl.set(0.4, 0, 0);
+    // 居中量 390 × 0.6 / 2 = 117，条左缘 117 + 12 × 0.4 = 121.8，留 70：挪 51.8
+    expect(vars.get("--zx")).toBe("51.80px");
+    expect(vars.get("--zxl")).toBe("51.80px");
+    expect(vars.get("--sl")).toBe("0.4");
+    expect(content.style.transform).toBe("translateX(65.20px) scale(0.4000)");
+  });
+
+  test("捏合过程中连续地挪：对话层附近（居中时左边还没留到 leftRoom）不挪，越小挪得越多", () => {
+    const { ctl, vars } = fakeDom(390);
+    ctl.setLeftRoom(70);
+    expect(vars.get("--zx")).toBe("0.00px");
+    ctl.set(0.75, 0, 0);
+    expect(vars.get("--zx")).toBe("0.00px");
+    ctl.set(0.5, 0, 0);
+    // 97.5 + 6 − 70
+    expect(vars.get("--zx")).toBe("33.50px");
+    ctl.set(0.15, 0, 0);
+    // 165.75 + 1.8 − 70
+    expect(vars.get("--zx")).toBe("97.55px");
+  });
+
+  test("电脑宽、没给 leftRoom 的不挪", () => {
+    const wide = fakeDom(800);
+    wide.ctl.setLeftRoom(70);
+    wide.ctl.set(0.45, 0, 0);
+    expect(wide.vars.get("--zx")).toBe("0.00px");
+    expect(wide.content.style.transform).toBe("translateX(220.00px) scale(0.4500)");
+    const none = fakeDom(390);
+    none.ctl.set(0.4, 0, 0);
+    expect(none.vars.get("--zx")).toBe("0.00px");
+  });
+
+  test("leftRoom 变了（会话里多了书脊、左侧卡）：按现在的比例马上重新摆", () => {
+    const { ctl, vars } = fakeDom(390);
+    ctl.setLeftRoom(70);
+    ctl.set(0.4, 0, 0);
+    ctl.setLeftRoom(110);
+    expect(vars.get("--zx")).toBe("11.80px");
+    expect(ctl.s).toBe(0.4);
   });
 });

@@ -20,6 +20,9 @@ export {
   // agent 这一轮出错时留的那条系统说明（阶段详情算"要你看一眼"）
   isTurnFailedNote,
   isTimelineRecordKind,
+  // MCP 调用、项目接口记录的那一句（缩小后的标注把以前的写法改写成它）
+  mcpCallSummary,
+  projectOpSummary,
   pickMessageScope,
   QUICK_ACTION_BASIS_LABEL,
   TIMELINE_RECORD_KIND_INFO,
