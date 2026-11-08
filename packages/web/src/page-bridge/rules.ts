@@ -119,6 +119,7 @@ export const ADDRESS_TEXT_MAX = 120;
 const PLACE_NAME_MAX = 30;
 /** 拿不准的英文最多几个词 */
 const PLACE_WORDS_MAX = 6;
+// @i18n-ignore-start data：认地址、地名用的字和标点（中文地址的写法），不是给人看的
 /** 网址、邮箱 */
 const URLISH = /(https?:\/\/|www\.|[\w.+-]+@[\w-]+\.[a-z]{2,})/i;
 /** 只有数字和符号（电话、价钱、时间、编号） */
@@ -175,6 +176,7 @@ export function mapQueryOf(text: string): string {
     .replace(/[。，,;；.!！?？、\s]+$/, "")
     .slice(0, ADDRESS_TEXT_MAX);
 }
+// @i18n-ignore-end
 
 /** 地图那两个小按钮离圆钮多远 */
 export const MAP_CHIPS_GAP = 6;
