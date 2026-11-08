@@ -1,6 +1,7 @@
 // agent 子进程入口：由守护进程用 `node main.ts` 拉起，stdin / stdout 上跑 agent 宿主协议。
 // 收到"启动"之前什么都不做（守护进程先把本进程放进 Job 对象，再送"启动"）。
 // @i18n-ignore-file log：宿主协议上报回去的出错说明（守护进程记日志）
+import "../../util/network-defaults.ts";
 import { installBuiltinLocales } from "../../i18n/builtin.ts";
 import { CHILD_LANGUAGE_ENV, errorReport, failedScopeReview, HOST_PROTOCOL_VERSION, type AgentReport, type HostCommand } from "../host-protocol.ts";
 import { encodeLine, readJsonLines } from "../line-channel.ts";

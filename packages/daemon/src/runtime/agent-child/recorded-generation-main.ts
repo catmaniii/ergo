@@ -2,6 +2,7 @@
 // Claude Code 的范围审视）。由守护进程用 `node recorded-generation-main.ts` 拉起（runtime/recorded-generation.ts）：stdin 读一行请求
 // （RecordedGenerationRequest，凭据在里面），做完在 stdout 写一行结果（{ ok: true, result } 或 { ok: false, error }），然后退出。
 // 不开会话、不写任何文件。
+import "../../util/network-defaults.ts";
 import { installBuiltinLocales } from "../../i18n/builtin.ts";
 import { CHILD_LANGUAGE_ENV, type RecordedGenerationRequest } from "../host-protocol.ts";
 import { encodeLine, readJsonLines } from "../line-channel.ts";
