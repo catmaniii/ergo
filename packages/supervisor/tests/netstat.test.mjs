@@ -5,7 +5,7 @@ import assert from 'node:assert';
 import net from 'node:net';
 import http from 'node:http';
 import { parseNetstat, canConnect, listenersFromCim } from '../src/winproc.mjs';
-import { probeService, sharedPortNote, validRows, mergeOwners } from '../src/probe.mjs';
+import { probeService, sharedPortNote, validRows, mergeOwners, createCimCache } from '../src/probe.mjs';
 import { runningEvidence } from '../src/supervisor.mjs';
 
 // 和那天的真输出同构：监听 socket 被报成 CLOSED / FIN_WAIT_1，外部地址仍是通配
@@ -150,4 +150,35 @@ test('监听者只有缓存这一个来源、又对不上账本：不判孤儿�
   p = await probeService(svc, { pid: 111 }, { ...base, cacheOwned: new Set() }, null);      // netstat 亲眼看到的：照旧判
   assert.equal(p.orphan, true);
   await new Promise((r) => srv.close(r));
+});
+
+test('后台查询的节流和新旧：查不了时旧结果按它自己的时间过期（不因为又查了一次就算新的）；查到空的也换上；同时只跑一次', async () => {
+  let t = 0;
+  const answers = [];
+  let calls = 0;
+  const cache = createCimCache({ now: () => t, ttlMs: 100, maxAgeMs: 300, query: async () => { calls++; return answers.shift(); } });
+  const row = { pid: 1, addr: '127.0.0.1', start: 'a' };
+
+  answers.push(new Map([[8799, [row]]]));
+  const first = cache.refresh([8799]);
+  assert.equal(cache.refresh([8799]), first, '正在查的时候不再起第二个');
+  await first;
+  assert.deepEqual(cache.rows(8799), [row]);
+  assert.equal(cache.refresh([8799]), null, '刚查过：节流期内不查');
+  assert.equal(calls, 1);
+
+  // 查不了（null）、查询本身抛错：旧结果留着，但它还是 t=0 时查的，到点照样过期
+  t = 150; answers.push(null); await cache.refresh([8799]);
+  t = 260; answers.push(Promise.reject(new Error('powershell 挂了'))); await cache.refresh([8799]);
+  assert.equal(calls, 3);
+  assert.deepEqual(cache.rows(8799), [row], '还没过期：用旧的');
+  t = 301;
+  assert.deepEqual(cache.rows(8799), [], '过期了：不因为后来又「查」了两次就算新的');
+
+  // 查到了、一个都没有：换上空的，不留着旧的去认已经不在听的进程
+  t = 400; answers.push(new Map([[8799, [row]]])); await cache.refresh([8799]);
+  assert.deepEqual(cache.rows(8799), [row]);
+  t = 520; answers.push(new Map()); await cache.refresh([8799, 8800]);
+  assert.deepEqual(cache.rows(8799), []);
+  assert.equal(calls, 5);
 });

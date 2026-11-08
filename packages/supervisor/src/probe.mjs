@@ -108,7 +108,7 @@ const rowsFor = (s, p) => [...(s.listeners?.get(p) || []), ...(s.suspect?.get(p)
  * 连抽 20 次 netstat，这一行有 30%~70% 的时候根本不在表里，在的时候状态也乱报（CLOSED / FIN_WAIT_1）；
  * 真连接却次次成功。于是好好的服务每几秒被判「端口没人在听」，刚起来的永远等不到就绪，重试撞上「已经有一份在跑」。
  *  - 连不上：真没人听（停机时「端口空了」也靠这一条，不受影响）；
- *  - 连得上、或这一轮 netstat 有状态报错的行：netstat 这一轮说不清，后台查 Get-NetTCPConnection（refreshCimInBackground）。
+ *  - 连得上、或这一轮 netstat 有状态报错的行：netstat 这一轮说不清，后台查 Get-NetTCPConnection（createCimCache）。
  *    三元校验要 PID，也只有它能看全「同一端口几个进程在听」（2026-11-02：两个残留的测试服务绑着 127.0.0.1:8799，
  *    把本机访问和公网隧道全劫走了，netstat 这边一行都看不到）；
  *  - 还是认不出：记进 reachable，交给 probeService / runningEvidence 降级处理（不猜 PID）。
@@ -125,14 +125,14 @@ async function resolveFlakyListeners(wanted, first, procs) {
     if (await canConnect(p, addr)) live.add(p);
   }));
   if (!live.size && !first.suspect?.size) return;
-  refreshCimInBackground(wanted);
+  cim.refresh(wanted);   // 不等：一次十几秒，这一轮用上一次的结果
   first.listeners ||= new Map();
   first.cacheOwned = new Set();
   const pending = new Set(live);
   for (const p of wanted) {
     if (!first.pids.has(p) && !live.has(p)) continue;   // 连不上、netstat 也没有：真没人听，表里的残影不算数
     const fresh = rowsFor(first, p).filter((r) => procs.has(r.pid));
-    const { owners, rows, cacheOnly } = mergeOwners(fresh, validRows(cim.age() < CIM_MAX_AGE_MS ? cim.map?.get(p) : null, procs));
+    const { owners, rows, cacheOnly } = mergeOwners(fresh, validRows(cim.rows(p), procs));
     if (!rows.length) continue;
     first.pids.set(p, owners);
     first.binds.set(p, [...new Set(rows.map((r) => r.addr))]);
@@ -146,20 +146,42 @@ async function resolveFlakyListeners(wanted, first, procs) {
 // 后台查到的监听者。一次查询 13~16 秒，探活循环 5 秒一轮，只能这么用：查询不等、用上一次的结果。
 const CIM_TTL_MS = 120000;          // 多久查一次（只在 netstat 说不清的时候才会查）
 const CIM_MAX_AGE_MS = 300000;      // 太旧的不用：netstat 好了一阵又坏了，之前的结果早就过时了
-const cim = {
-  ports: new Set(), map: null, at: 0, running: false,
-  age() { return Date.now() - this.at; },
-};
 
-function refreshCimInBackground(wanted) {
-  for (const p of wanted) cim.ports.add(p);
-  if (cim.running || cim.age() < CIM_TTL_MS) return;
-  cim.running = true;
-  listenersViaCim([...cim.ports])
-    .then((m) => { if (m.size) cim.map = m; cim.at = Date.now(); })
-    .catch(() => { cim.at = Date.now(); })
-    .finally(() => { cim.running = false; });
+/**
+ * 后台查询的结果和节流。两个时间分开记：
+ *  - 上次「去查」的时间：节流用，查成查不成都算，CIM_TTL_MS 内不再起 PowerShell；
+ *  - 手上这份结果是什么时候查的：判新旧用，只有查成了才换。
+ * 原来合成一个、查询一失败（或者一个都没查到）就只把时间改成现在、结果不换——旧结果就又「新」了五分钟，
+ * 一直查不了就一直算新的。现在：查不了（query 给 null）旧结果照旧按它自己的时间过期，过期就退回 reachable 降级；
+ * 查到了哪怕是空的也换上（空 = 这些端口现在没人在听，留着旧的反而会认出已经不在听的进程）。
+ * query、now 只为测试可换。
+ */
+export function createCimCache({ query = listenersViaCim, now = Date.now, ttlMs = CIM_TTL_MS, maxAgeMs = CIM_MAX_AGE_MS } = {}) {
+  const ports = new Set();
+  let map = null;
+  let at = 0;
+  let triedAt = -Infinity;
+  let running = null;
+  return {
+    /** 需要时在后台查一次，不等；返回正在跑的那次（测试等它用），没起就是 null。 */
+    refresh(wanted) {
+      for (const p of wanted) ports.add(p);
+      if (running || now() - triedAt < ttlMs) return running;
+      const startedAt = now();
+      triedAt = startedAt;
+      running = Promise.resolve()
+        .then(() => query([...ports]))
+        .then((m) => { if (m) { map = m; at = startedAt; } }, () => {})
+        .finally(() => { running = null; });
+      return running;
+    },
+    /** 这个端口在手上那份结果里的监听者；没有结果、或者结果太旧了，就是空的。 */
+    rows(port) {
+      return map && now() - at < maxAgeMs ? (map.get(port) || []) : [];
+    },
+  };
 }
+const cim = createCimCache();
 
 /**
  * 缓存的行还算不算数：进程还活着，启动时间也对得上（第一次用时记下，PID 被复用、进程被杀后这一行就不算了）。

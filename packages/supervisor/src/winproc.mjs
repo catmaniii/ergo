@@ -98,7 +98,7 @@ export function listenersFromCim(rows) {
  * 连接表的另一个读法。netstat 丢行、状态乱报的时候（见 parseNetstat），Get-NetTCPConnection 不带 -State 仍然列得全，
  * 只是 State 是空的（2026-11-02 实测 10/10；带 -State Listen 反而什么都查不到）。
  * 慢：一次 13~16 秒（同一天实测，直查 MSFT_NetTCPConnection 也一样，慢的是查询本身），绝不能在探活循环里等它，
- * 调用方在后台定时跑（probe.mjs 的 refreshCimInBackground）。查不了就返回空，调用方退回别的线索。
+ * 调用方在后台定时跑（probe.mjs 的 createCimCache）。查不了返回 null（和「查到了、一个都没有」的空 Map 分开），调用方留着上一次的结果、过期后退回别的线索。
  */
 export async function listenersViaCim(ports) {
   const wanted = new Set(ports);
@@ -108,7 +108,7 @@ export async function listenersViaCim(ports) {
     // 整个结果都丢了——而托管的服务总有停着的。全查和按端口查一样慢（慢的是查询本身）。
     const rows = await psJson("Get-NetTCPConnection -ErrorAction SilentlyContinue | Where-Object { $_.RemotePort -eq 0 -and $_.State -ne 'Bound' } | Select-Object LocalAddress,LocalPort,OwningProcess", { timeout: 45000 });
     return listenersFromCim(rows.filter((r) => wanted.has(Number(r.LocalPort))));
-  } catch { return new Map(); }
+  } catch { return null; }
 }
 
 /** 真连一下。netstat 的状态靠不住的时候（见 parseNetstat），这才是「有没有人在听」的事实。 */
