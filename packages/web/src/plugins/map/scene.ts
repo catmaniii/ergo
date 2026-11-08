@@ -24,8 +24,11 @@ export interface MapMark {
   readonly lon: number;
   /** 旁边写的字（地名、"14:20 · 停留 2 小时"） */
   readonly label?: string;
-  /** 种类：样式按它分（地点、停留、照片、搜到的、现在在哪） */
-  readonly kind?: "place" | "stay" | "photo" | "search" | "here";
+  /**
+   * 种类：样式按它分（地点、停留、照片、搜到的、现在在哪）。me 是地图页"回到我现在的位置"（442）定到的那一点：蓝点，不是定位针
+   * （here 是查路线时"从当前位置"那一头，照旧是针）
+   */
+  readonly kind?: "place" | "stay" | "photo" | "search" | "here" | "me";
 }
 
 /** 一条线：轨迹、路线 */
@@ -35,13 +38,15 @@ export interface MapLine {
   readonly kind?: "track" | "route";
 }
 
-/** 一个圈：常去的地方的范围 */
+/** 一个圈：常去的地方的范围；定位的精度圈（442） */
 export interface MapCircle {
   readonly id: string;
   readonly lat: number;
   readonly lon: number;
   /** 半径（米） */
   readonly radius: number;
+  /** 种类：不写是范围（强调色）；accuracy 是"回到我现在的位置"的精度圈（和蓝点同色） */
+  readonly kind?: "accuracy";
 }
 
 /** 地图上画的全部东西 */

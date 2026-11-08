@@ -6,6 +6,8 @@
 //   地址里可以带日期（#/more/map/<YYYY-MM-DD>）。
 // - 聊天里的地图卡片点开（431，#/more/map/card/<卡片编号>）：从手里的卡片状态取出这张卡，画它的点、线（和卡片同一份 card-scene.ts），
 //   视野挪到看全它；标题栏下面一条写卡片的标题和概况，"×"回到足迹。看卡片时不画足迹。高德查来的只在底图是高德时画（amap-results.ts）。
+// - 回到我现在的位置（442，LocateControl.tsx）：地图右下角一个按钮，两种底图都有；定到的蓝点、精度圈压在最上面。
+//   位置不存：记"上次看哪里"时跳过定位挪过去的那一下。
 // 直接显示在导航里（MapSection）和收进"更多"（MapColumn）画的是同一页，后者左上角有返回。
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Navigate } from "../../app/route.ts";
@@ -17,6 +19,8 @@ import type { PageColumnProps, PageSectionProps } from "../api.ts";
 import { FOOTPRINT_LABEL_ROOM, FOOTPRINT_PANEL_W, FOOTPRINT_WIDE_MIN, FootprintBar, FootprintPanel, FootprintToggle, useFootprints, useWidth } from "./DayFootprints.tsx";
 import { contentSummary } from "./card-scene.ts";
 import { shiftViewRight, withFootprints } from "./footprints.ts";
+import { LocateButton, useDockInset, useHere } from "./LocateControl.tsx";
+import { withHere } from "./locate.ts";
 import { useMapCardData } from "./MapCard.tsx";
 import { MapCanvas } from "./MapView.tsx";
 import { DEFAULT_VIEW, EMPTY_SCENE, type MapScene, type MapView, parseSavedView, viewToFit } from "./scene.ts";
@@ -42,6 +46,11 @@ function saveView(view: MapView): void {
   } catch {
     // 存不了（隐私模式）就算了
   }
+}
+
+/** 两个视野差不多是同一处（不到 1 米、同一级）：定位挪过去之后地图报回来的那一下（换底图时来回转坐标差几厘米） */
+function sameView(a: MapView, b: MapView | undefined): boolean {
+  return b !== undefined && Math.abs(a.lat - b.lat) < 1e-5 && Math.abs(a.lon - b.lon) < 1e-5 && Math.abs(a.zoom - b.zoom) < 0.01;
 }
 
 /** 地址里的位置 → 看哪里（没写级别看 15 级） */
@@ -114,9 +123,32 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
   }, [fp.focus]);
   // 看卡片时画卡片（高德查来的另交给 amapScene：只在底图是高德时画），不画足迹
   const showCard = cardId !== undefined;
+  // "回到我现在的位置"（442）：挪过去时宽的、左边列着这一天时让开那一栏；挪过去的那一下不记成"上次看哪里"（位置不存）
+  const panelShown = !showCard && fp.shown && fp.day !== undefined && !fp.day.empty;
+  const locateJump = useRef<MapView | undefined>(undefined);
+  const here = useHere(
+    http,
+    () => {
+      const el = stageRef.current;
+      const width = el?.clientWidth ?? 390;
+      return { width: width - (panelShown && width >= FOOTPRINT_WIDE_MIN ? FOOTPRINT_PANEL_W : 0), height: el?.clientHeight ?? 600 };
+    },
+    (v) => {
+      const el = stageRef.current;
+      const panel = panelShown && el && el.clientWidth >= FOOTPRINT_WIDE_MIN ? FOOTPRINT_PANEL_W : 0;
+      const view = shiftViewRight(v, panel / 2);
+      locateJump.current = view;
+      setJump({ view });
+    },
+  );
+  useDockInset(stageRef);
   const scene = useMemo(
-    () => (showCard ? withFootprints(base, cardContent && !cardContent.amapOnly ? cardContent.scene : undefined) : withFootprints(base, fp.shown ? fp.day?.scene : undefined)),
-    [base, showCard, cardContent, fp.shown, fp.day],
+    () =>
+      withHere(
+        showCard ? withFootprints(base, cardContent && !cardContent.amapOnly ? cardContent.scene : undefined) : withFootprints(base, fp.shown ? fp.day?.scene : undefined),
+        here.scene,
+      ),
+    [base, showCard, cardContent, fp.shown, fp.day, here.scene],
   );
   const amapScene = cardContent?.amapOnly ? cardContent.scene : undefined;
   // "足迹"开着就当画着足迹（还没取到、这一天空着也算）：底图一律 OpenStreetMap，也不为它加载高德的脚本（scene.ts 的 AMAP_WITH_FOOTPRINTS）；
@@ -163,6 +195,9 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
           jump={jump}
           onView={(v) => {
             viewNow.current = v;
+            // 定位挪过去的那一下不记（那就是你现在的位置）；之后拖开了照常记
+            if (sameView(v, locateJump.current)) return;
+            locateJump.current = undefined;
             if (import.meta.env.MODE !== "demo") saveView(v);
           }}
           onMarkClick={(id) => {
@@ -171,7 +206,9 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
             if (p) setJump({ view: { lat: p.lat, lon: p.lon, zoom: Math.max(p.zoom, 15) } });
           }}
           navigate={navigate}
+          notice={here.note === undefined ? undefined : { text: here.note, onClose: here.busy ? undefined : here.closeNote }}
         />
+        <LocateButton here={here} />
         {!showCard && <FootprintPanel fp={fp} wide={wide} listOpen={listOpen} onCloseList={() => setListOpen(false)} navigate={navigate} />}
       </div>
     </div>

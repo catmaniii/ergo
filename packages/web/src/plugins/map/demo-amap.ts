@@ -87,7 +87,9 @@ export function fakeAmap(tileUrl: (z: number, x: number, y: number) => string): 
           scene.lines.push({ id: `l${scene.lines.length}`, points: (o.options.path as [number, number][]).map(([lon, lat]) => ({ lat, lon })) });
         } else {
           const [lon, lat] = o.options.center as [number, number];
-          scene.circles.push({ id: `c${scene.circles.length}`, lat, lon, radius: o.options.radius as number });
+          // 精度圈（442）照它的种类画样式（高德的 extData 原样带着）
+          const kind = (o.options.extData as { kind?: string } | undefined)?.kind === "accuracy" ? ("accuracy" as const) : undefined;
+          scene.circles.push({ id: `c${scene.circles.length}`, lat, lon, radius: o.options.radius as number, ...(kind ? { kind } : {}) });
         }
       }
       this.engine.setScene(scene);

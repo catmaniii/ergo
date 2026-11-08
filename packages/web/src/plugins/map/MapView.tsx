@@ -5,7 +5,8 @@
 // - 没填 Key 而看的是国内：照样用 OpenStreetMap，写一句"填了高德 Key 国内地图更清楚"，点了去设置 · 数据源 · 高德地图；
 // - 署名：OpenStreetMap 时右下角写"© OpenStreetMap 贡献者"（链到它的版权页）；高德地图自己画它的标志和审图号，不遮；
 // - 深色：跟着页面的外观（OSM 的瓦片加滤镜，高德换深色样式）；
-// - 放大、缩小的按钮在右上（手机上捏合、电脑上滚轮也行）；
+// - 放大、缩小的按钮在右上（手机上捏合、电脑上滚轮也行）；"回到我现在的位置"在右下（442，地图页画，LocateControl.tsx），
+//   它要说的那句话（notice）放在下面那句提示的位置上；
 // - 画着用户自己的足迹时一律 OpenStreetMap、不加载高德的脚本（scene.ts 的 AMAP_WITH_FOOTPRINTS，用户 2026-11-07 定）；
 // - 高德查来的地点和路线（amapScene，431 的地图卡片点开）只画在高德的地图上（高德的协议不许脱离它的服务展示）：底图是 OpenStreetMap 时
 //   不画，写一句为什么（没填 Key 去填、拖到国外了回国内、高德没加载上）。
@@ -69,9 +70,14 @@ export interface MapCanvasProps {
   onView?(view: MapView): void;
   onMarkClick?(id: string): void;
   navigate: Navigate;
+  /**
+   * 地图页"回到我现在的位置"（442）要说的那句话（正在找、拿不到这台设备的位置……）：放在下面那句提示的位置上，有它时先不显示提示；
+   * onClose 有了才有"关上"
+   */
+  notice?: { text: string; onClose?: (() => void) | undefined } | undefined;
 }
 
-export function MapCanvas({ config, scene, footprints = false, amapScene, initial, jump, onView, onMarkClick, navigate }: MapCanvasProps) {
+export function MapCanvas({ config, scene, footprints = false, amapScene, initial, jump, onView, onMarkClick, navigate, notice }: MapCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<MapEngine | undefined>(undefined);
   /** 现在看的地方（换底图时带过去）；停下来时更新 */
@@ -194,7 +200,17 @@ export function MapCanvas({ config, scene, footprints = false, amapScene, initia
           <Icon name="minus" />
         </button>
       </div>
-      {hint && (
+      {notice && (
+        <div className="map-hint map-locate-note" role="status">
+          <span>{notice.text}</span>
+          {notice.onClose && (
+            <button type="button" className="icon-btn" aria-label={t("ui.plugins.map.locate.close")} title={t("ui.plugins.map.locate.close")} onClick={notice.onClose}>
+              <Icon name="cross" />
+            </button>
+          )}
+        </div>
+      )}
+      {hint && !notice && (
         <div className="map-hint" role="status">
           <span>{hint.text}</span>
           {hint.action && (
