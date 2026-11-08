@@ -841,6 +841,184 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }, 60_000);
   }
 
+  // 回到我现在的位置（442）：地图右下角一个钮，高德、OpenStreetMap 两种底图上都有。位置都是假的：浏览器定位用 playwright 的假定位
+  // （给了权限、没给），或者换掉 navigator.geolocation（超时、记下有没有被问）；鸿蒙 App 用假的原生桥（phonePlaceHere）；
+  // 手机最近交来的点是原型的（12 分钟前、西湖边），?demo-plugins-off=phone 时没有。一个请求都不往外发
+  /** 开一个地图页：geo 是浏览器定位给的位置（给了就给权限），init 是页面加载前跑的脚本；footprints 关掉"足迹"（国内看高德） */
+  async function openMap(viewport: { width: number; height: number }, opts: { geo?: { latitude: number; longitude: number; accuracy: number }; init?: string; search?: string; footprintsOff?: boolean } = {}) {
+    const context = await browser!.newContext({ viewport, ...(opts.geo ? { geolocation: opts.geo, permissions: ["geolocation"] } : {}) });
+    if (opts.init) await context.addInitScript(opts.init);
+    const page = await context.newPage();
+    const errors: string[] = [];
+    const outside: string[] = [];
+    page.on("pageerror", (e) => errors.push(`没接住的错误：${String(e)}`));
+    page.on("console", (m) => {
+      if (m.type() === "error" && !m.text().startsWith("Failed to load resource")) errors.push(`控制台报错：${m.text()}`);
+    });
+    page.on("request", (r) => {
+      if (!/^(?:file|data|blob):/.test(r.url())) outside.push(r.url());
+    });
+    await page.goto(pageUrl + (opts.search ?? ""));
+    if (opts.footprintsOff) await page.evaluate(`localStorage.setItem("ergo-map-footprints", "off")`);
+    await page.evaluate(`window.location.hash = "#/more/map"`);
+    await page.locator(".map-canvas:not([data-basemap=loading])").waitFor({ timeout: 5000 });
+    return { context, page, errors, outside };
+  }
+  /** 点"回到我现在的位置"，等它取完 */
+  async function locate(page: Page, label = "回到我现在的位置") {
+    await page.locator(`.map-locate button[aria-label="${label}"]`).click();
+    await page.locator(".map-locate button:not([aria-busy])").waitFor({ timeout: 15_000 });
+  }
+  /** 蓝点在不在地图那块正中间（差几个像素以内）、右边离左边那一栏多远 */
+  async function dotOffset(page: Page) {
+    const dot = (await page.locator('.map-mark[data-kind="me"] .map-pin').boundingBox())!;
+    const canvas = (await page.locator(".map-canvas").boundingBox())!;
+    return { dx: dot.x + dot.width / 2 - (canvas.x + canvas.width / 2), dy: dot.y + dot.height / 2 - (canvas.y + canvas.height / 2), x: dot.x };
+  }
+  const WEST_LAKE = { latitude: 30.2604, longitude: 120.1433, accuracy: 40 };
+  const MARINA_BAY = { latitude: 1.2847, longitude: 103.8591, accuracy: 30 };
+
+  test("回到我现在的位置手机宽：高德底图上有钮，浏览器给了位置就挪过去放大到街道级，画蓝点和精度圈；在新加坡定到的换成 OpenStreetMap、钮照样在", async () => {
+    const { context, page, errors, outside } = await openMap({ width: 390, height: 844 }, { geo: WEST_LAKE, footprintsOff: true });
+    try {
+      await page.locator('.map-canvas[data-basemap="amap"]').waitFor({ timeout: 5000 });
+      const button = page.locator('.map-locate button[aria-label="回到我现在的位置"]');
+      expect(await button.count()).toBe(1);
+      expect(await page.locator('.map-mark[data-kind="me"]').count()).toBe(0);
+      await locate(page);
+      // 还在国内：照样是高德（演示页的假高德），蓝点、精度圈画在高德那一层上，在地图正中
+      expect(await page.locator(".map-canvas").getAttribute("data-basemap")).toBe("amap");
+      expect(await page.locator('[data-engine="amap-demo"] .map-mark[data-kind="me"]').count()).toBe(1);
+      expect(await page.locator('[data-engine="amap-demo"] .map-shapes circle.map-circle-accuracy').count()).toBe(1);
+      const at = await dotOffset(page);
+      expect(Math.abs(at.dx)).toBeLessThan(3);
+      expect(Math.abs(at.dy)).toBeLessThan(3);
+      expect(await page.locator(".map-locate-note").count()).toBe(0);
+      expect(await button.getAttribute("data-located")).toBe("");
+      // 拖开再点：一分钟内直接回到那里（不再问浏览器）
+      await page.locator(".map-zoom button[aria-label='缩小']").click();
+      await page.mouse.move(200, 500);
+      await page.mouse.down();
+      await page.mouse.move(80, 380, { steps: 5 });
+      await page.mouse.up();
+      expect(Math.abs((await dotOffset(page)).dx)).toBeGreaterThan(50);
+      await locate(page);
+      expect(Math.abs((await dotOffset(page)).dx)).toBeLessThan(3);
+      await context.close();
+
+      // 人在新加坡：挪过去后底图换成 OpenStreetMap（429 的规则），钮还在原处
+      const sg = await openMap({ width: 390, height: 844 }, { geo: MARINA_BAY, footprintsOff: true });
+      await sg.page.locator('.map-canvas[data-basemap="amap"]').waitFor({ timeout: 5000 });
+      await locate(sg.page);
+      await sg.page.locator('.map-canvas[data-basemap="osm"]').waitFor({ timeout: 5000 });
+      expect(await sg.page.locator('[data-engine="osm"] .map-mark[data-kind="me"]').count()).toBe(1);
+      expect(await sg.page.locator('[data-engine="osm"] .map-shapes circle.map-circle-accuracy').count()).toBe(1);
+      expect(await sg.page.locator('.map-locate button[aria-label="回到我现在的位置"]').count()).toBe(1);
+      await sg.context.close();
+      expect(sg.outside).toEqual([]);
+      expect(sg.errors).toEqual([]);
+    } finally {
+      await context.close();
+    }
+    expect(outside).toEqual([]);
+    expect(errors).toEqual([]);
+  }, 60_000);
+
+  test("回到我现在的位置电脑宽：开着足迹（OpenStreetMap、左边列这一天），挪过去时让开左边那一栏；深色下钮、蓝点照样在", async () => {
+    const { context, page, errors, outside } = await openMap({ width: 1280, height: 800 }, { geo: WEST_LAKE, init: `localStorage.setItem("ergo-theme", "dark")` });
+    try {
+      await page.locator(".map-day-panel").waitFor({ timeout: 5000 });
+      await locate(page);
+      expect(await page.locator(".map-canvas").getAttribute("data-basemap")).toBe("osm");
+      const panel = (await page.locator(".map-day-panel").boundingBox())!;
+      const at = await dotOffset(page);
+      // 蓝点在左边那一栏右边那块的正中：比整块的正中往右挪半栏
+      expect(at.x).toBeGreaterThan(panel.x + panel.width);
+      expect(Math.abs(at.dx - 316 / 2)).toBeLessThan(4);
+      expect(await page.locator('.map-mark[data-kind="me"]').count()).toBe(1);
+      expect(await page.locator(".map-osm.dark").count()).toBe(1);
+    } finally {
+      await context.close();
+    }
+    expect(outside).toEqual([]);
+    expect(errors).toEqual([]);
+  }, 60_000);
+
+  test("回到我现在的位置：浏览器没给权限，用手机 12 分钟前交来的点、说一句、点旁边写几点交来的，能关上；足迹的详情卡盖住下面时钮往上让", async () => {
+    const { context, page, errors, outside } = await openMap({ width: 390, height: 844 });
+    try {
+      // 开着足迹：点一个停留出详情卡，钮挪到卡片上面
+      await page.locator('.map-mark[data-kind="stay"]').nth(2).click();
+      const card = page.locator(".map-day-card");
+      await card.waitFor({ timeout: 5000 });
+      await page.waitForTimeout(200);
+      const cardBox = (await card.boundingBox())!;
+      const buttonBox = (await page.locator(".map-locate button").boundingBox())!;
+      expect(buttonBox.y + buttonBox.height).toBeLessThanOrEqual(cardBox.y);
+      await card.locator('button[aria-label="关上"]').click();
+      await locate(page);
+      const note = page.locator(".map-locate-note");
+      expect(await note.innerText()).toBe("没拿到这台设备的位置（没给定位权限），这是 12 分钟前手机交来的位置");
+      expect(await page.locator('.map-mark[data-kind="me"] .map-mark-label').innerText()).toMatch(/^手机 · \d\d:\d\d$/);
+      expect(await page.locator("circle.map-circle-accuracy").count()).toBe(1);
+      await note.locator('button[aria-label="关上"]').click();
+      expect(await note.count()).toBe(0);
+      expect(await page.locator('.map-mark[data-kind="me"]').count()).toBe(1);
+    } finally {
+      await context.close();
+    }
+    expect(outside).toEqual([]);
+    expect(errors).toEqual([]);
+  }, 60_000);
+
+  test("回到我现在的位置：浏览器超时（英文）、什么都没有（手机插件停用）各说一句", async () => {
+    const timeout = `navigator.geolocation.getCurrentPosition = (ok, fail) => setTimeout(() => fail({ code: 3, message: "timeout" }), 10);`;
+    const en = await openMap({ width: 390, height: 844 }, { init: timeout, search: "?lang=en" });
+    try {
+      await locate(en.page, "Show my location");
+      expect(await en.page.locator(".map-locate-note").innerText()).toBe("Couldn't get this device's location (timed out). This is where your phone was 12 minutes ago");
+      expect(await en.page.locator('.map-mark[data-kind="me"] .map-mark-label').innerText()).toMatch(/^Phone · \d\d:\d\d$/);
+    } finally {
+      await en.context.close();
+    }
+    expect(en.outside).toEqual([]);
+    expect(en.errors).toEqual([]);
+
+    const none = await openMap({ width: 390, height: 844 }, { search: "?demo-plugins-off=phone", footprintsOff: true });
+    try {
+      await locate(none.page);
+      expect(await none.page.locator(".map-locate-note").innerText()).toBe("拿不到你现在的位置：这台设备没给（没给定位权限），手机也还没交来过位置");
+      expect(await none.page.locator('.map-mark[data-kind="me"]').count()).toBe(0);
+    } finally {
+      await none.context.close();
+    }
+    expect(none.outside).toEqual([]);
+    expect(none.errors).toEqual([]);
+  }, 60_000);
+
+  test("回到我现在的位置：在鸿蒙 App 里（假的原生桥）用 App 的定位，不问浏览器；App 不报精度，只画蓝点", async () => {
+    const app = [
+      `window.__asked = 0;`,
+      `navigator.geolocation.getCurrentPosition = (ok, fail) => { window.__asked += 1; fail({ code: 1 }); };`,
+      `const no = () => Promise.resolve(JSON.stringify({ ok: false, state: "unavailable" }));`,
+      `window.ergoNative = { appVersion: () => "9.9.9", log() {}, phoneContactsPick: no, phoneCalendarState: () => JSON.stringify({ granted: false, asked: false }), phoneCalendarPrepare: no, phoneCalendarRead: no,`,
+      `  phonePlaceHere: () => Promise.resolve(JSON.stringify({ ok: true, lat: 30.2604, lon: 120.1433, address: { spot: "北山街" } })), phonePlaceFind: no };`,
+    ].join("\n");
+    const { context, page, errors, outside } = await openMap({ width: 390, height: 844 }, { init: app, footprintsOff: true });
+    try {
+      await locate(page);
+      expect(await page.locator('.map-mark[data-kind="me"]').count()).toBe(1);
+      expect(await page.locator("circle.map-circle-accuracy").count()).toBe(0);
+      expect(await page.locator(".map-locate-note").count()).toBe(0);
+      expect(await page.evaluate("window.__asked")).toBe(0);
+      expect(await page.locator(".map-canvas").getAttribute("data-basemap")).toBe("amap");
+    } finally {
+      await context.close();
+    }
+    expect(outside).toEqual([]);
+    expect(errors).toEqual([]);
+  }, 60_000);
+
   // 日历插件停用时网页上没有日历入口；默认全开时都在
   for (const [name, viewport] of [
     ["手机宽", { width: 390, height: 844 }],
