@@ -10,14 +10,8 @@
 // 才拦得下 Ctrl + 滚轮的整页缩放）；用 transform 画。算术在 state/image-zoom.ts。
 // 拖过、捏过之后松手浏览器照样派 click，这种不算"点"，不关；点图外面的深色底才关。每次打开都从 1 倍开始。
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
-import { doubleTapZoom, isZoomed, panBy, pinchStep, settle, wheelFactor, ZOOM_FIT, zoomAt, type ZoomBox, type ZoomPoint, type ZoomView } from "../state/index.ts";
+import { doubleTapZoom, isDoubleTap, isZoomed, panBy, pinchStep, settle, TAP_SLOP, type Tap, wheelFactor, ZOOM_FIT, zoomAt, type ZoomBox, type ZoomPoint, type ZoomView } from "../state/index.ts";
 import { isViewerControl, MediaViewer } from "./media-viewer.tsx";
-
-/** 按下到松手挪了不到这么多（像素）才算点 */
-const TAP_SLOP = 8;
-/** 双击：两次点隔得不超过这么久（毫秒）、离得不超过这么远（像素） */
-const DOUBLE_TAP_MS = 300;
-const DOUBLE_TAP_SLOP = 40;
 
 /** 视口坐标的一点 */
 interface ClientPoint {
@@ -37,7 +31,7 @@ interface Gesture {
   moved: boolean;
   multi: boolean;
   /** 上一次在图上的点：等第二下凑成双击 */
-  lastTap: { at: number; x: number; y: number } | undefined;
+  lastTap: Tap | undefined;
 }
 
 /** 放图的框（查看器去掉上下留白的那块）、它的中心（视口坐标，算术的原点），和图在 1 倍时画出来的大小 */
@@ -185,13 +179,12 @@ export function ImageViewer({ src, name, onClose }: { src: string; name: string;
       g.lastTap = undefined;
       return;
     }
-    const p = { x: e.clientX, y: e.clientY };
-    const last = g.lastTap;
-    if (last && e.timeStamp - last.at <= DOUBLE_TAP_MS && Math.hypot(p.x - last.x, p.y - last.y) <= DOUBLE_TAP_SLOP) {
+    const tapped: Tap = { at: e.timeStamp, x: e.clientX, y: e.clientY };
+    if (isDoubleTap(g.lastTap, tapped)) {
       g.lastTap = undefined;
-      show(doubleTapZoom(viewRef.current, toZoom(f, p), f.box), true);
+      show(doubleTapZoom(viewRef.current, toZoom(f, tapped), f.box), true);
     } else {
-      g.lastTap = { at: e.timeStamp, x: p.x, y: p.y };
+      g.lastTap = tapped;
     }
   };
 

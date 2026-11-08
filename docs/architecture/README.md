@@ -170,6 +170,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 - **外网端口**（默认 8811）是隧道、Tailscale 这类入口的唯一目标：不看来源 IP、不看 Host，只看设备凭证（cookie `__Host-ergo-device`）。没有有效凭证只放行三样：页面本身（显示配对页）、`/api/access`、配对接口；别的一律 401。以后加的接口自动在这道门后面。
 - `/healthz`：秘书在不在运行、网页构建了没有、启用着的插件装没装上（没装上算 `degraded`、照旧回 200）。
 - `/fonts/`：视觉风格的字体（外网端口上同样要凭证）。网页运行时不请求任何外部地址——唯一的破例是地图页在国内用的高德 JS API（[ADR-0051](adr/0051-map-amap-js-and-osm-tiles.md)）。
+- `/pdfjs/`：报告页预览 PDF 用的 pdf.js（pdfjs-dist 的 legacy 构建、cmaps、standard_fonts、两个图片解码器的纯 JS 版），网页构建时拷进 `dist/pdfjs/<版本>/`，页面打开 PDF 时才加载（外网端口上同样要凭证）。脚本的响应带 `Content-Security-Policy: default-src 'self'`（只对 worker 起作用：不许 eval、不许 WebAssembly）；页面本身、媒体接口的响应头不变，PDF 的字节从媒体接口取。
 - `/tiles/osm/<z>/<x>/<y>`、`/_AMapService/…`：地图插件的 OpenStreetMap 瓦片转发（守护进程带二狗的 User-Agent 去取、按缓存头存进缓存区）和高德 JS API 的安全密钥代理（拼上密钥区里的安全密钥再转给高德，安全密钥不进页面）；插件没启用时回"地图插件没启用"，外网端口上同样要凭证（`gateway/map-routes.ts`）。
 
 ### 设备配对

@@ -1,6 +1,6 @@
 // HTTP 接口的路径：怎么拼（HTTP_PATHS）和怎么拆（parseHttpPath）只写在协议包里，两边对得上。
 import { describe, expect, it } from "vitest";
-import { attachmentPartFrom, framePreviewOf, HTTP_PATHS, HTTP_QUERY, imagePartFrom, mediaPreviewOf, parseHttpPath, SERVICE_THUMBNAIL_REFRESH_MS, serviceThumbnailSeen, textPreviewOf } from "../src/index.ts";
+import { attachmentPartFrom, framePreviewOf, HTTP_PATHS, HTTP_QUERY, imagePartFrom, mediaPreviewOf, parseHttpPath, pdfPreviewOf, SERVICE_THUMBNAIL_REFRESH_MS, serviceThumbnailSeen, textPreviewOf } from "../src/index.ts";
 
 const pathOf = (url: string) => new URL(url, "http://127.0.0.1:8810").pathname;
 const queryOf = (url: string) => Object.fromEntries(new URL(url, "http://127.0.0.1:8810").searchParams);
@@ -242,6 +242,21 @@ describe("能在报告页播放的音频、视频附件", () => {
     expect(mediaPreviewOf({ name: "录音", mime: "audio/webm" })).toBe("audio");
     expect(mediaPreviewOf({ name: "录像", mime: "Video/MP4" })).toBe("video");
     expect(mediaPreviewOf({ name: "附件", mime: "text/plain" })).toBeUndefined();
+  });
+});
+
+describe("在报告页用 pdf.js 画的 PDF 附件", () => {
+  it("有扩展名的只看扩展名（.pdf，大小写不论）：part 上写的什么类型都一样；别的扩展名写成 application/pdf 也不算", () => {
+    expect(pdfPreviewOf({ name: "周会纪要.pdf", mime: "application/pdf" })).toBe(true);
+    expect(pdfPreviewOf({ name: "扫描件.PDF", mime: "application/octet-stream" })).toBe(true);
+    for (const name of ["合同.docx", "图.png", "说明.txt", "pdf"]) expect({ name, pdf: pdfPreviewOf({ name, mime: "application/pdf" }) }).toEqual({ name, pdf: name === "pdf" });
+  });
+
+  it("没有扩展名的看 part 上的类型（带参数、大小写不同也认）；PDF 不按文本、音视频、沙箱预览", () => {
+    expect(pdfPreviewOf({ name: "合同", mime: "Application/PDF; name=a" })).toBe(true);
+    expect(pdfPreviewOf({ name: "合同", mime: "application/octet-stream" })).toBe(false);
+    const part = { name: "周会纪要.pdf", mime: "application/pdf" };
+    expect([textPreviewOf(part), mediaPreviewOf(part), framePreviewOf(part)]).toEqual([undefined, undefined, undefined]);
   });
 });
 

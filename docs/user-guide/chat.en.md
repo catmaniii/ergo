@@ -107,7 +107,8 @@ Hold to talk works the same way: pick the attachments first, and it says **Hold 
   - Text: Markdown, plain text, tables (CSV and TSV, drawn as a table; long ones show the first 500 rows), JSON (neatly indented), and code or config files (monospaced). Markdown, tables and indented JSON have **View source** at the top right. For files over 1 MB only the beginning is shown, with a note at the top to download the full file. Text that isn't UTF-8 is read as GBK, so Chinese CSVs saved from Excel show correctly, with **GBK encoding** next to the type. If it's neither, it says it can't be previewed; download it and open it with an app on your device.
   - HTML and SVG up to 1 MB.
   - Audio (mp3, m4a, aac, wav, flac, ogg, opus): it plays right there, and you can drag to any point. If your browser can't play a file's format, it says so and suggests downloading it to play in a media player. **Download** is still there.
-  - Anything else (PDF, Word, archives, avi…) says **Download only**, and clicking the icon downloads it.
+  - PDF: pages are shown one after another, and you can press and hold text to select and copy it. Pinch with two fingers (or hold Ctrl and scroll on a computer) to zoom, and double-click (double-tap) to zoom in or back out; pause after zooming and the text redraws sharp. Password-protected or damaged PDFs can't be opened here; it says why, so tap **Download** and open it in a PDF reader.
+  - Anything else (Word, archives, avi…) says **Download only**, and clicking the icon downloads it.
 
 **Things you can just say:**
 

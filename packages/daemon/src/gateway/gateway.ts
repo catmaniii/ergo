@@ -4,7 +4,8 @@
 //   没有凭证只能拿到页面本身、查"我有没有被信任"、发配对请求（external.ts）。本机信任只看从哪个端口进来，不看来源 IP。
 // 两个端口提供同样的东西：
 // - Web UI 的静态文件（单文件构建产物 index.html，每次请求重新读，重新构建后不用重启；原样发出，不往页面里塞任何密钥或令牌）；
-//   视觉风格的字体在构建产物的 fonts/ 下，按 /fonts/ 提供（fonts.ts）；
+//   视觉风格的字体在构建产物的 fonts/ 下，按 /fonts/ 提供（fonts.ts）；报告页预览 PDF 用的 pdf.js 在 pdfjs/ 下，
+//   按 /pdfjs/ 提供（pdfjs.ts，页面打开 PDF 时才取）；
 // - 地图（429，map-routes.ts）：/tiles/<源>/<z>/<x>/<y> 转发 OpenStreetMap 的瓦片（带缓存），/_AMapService/… 是高德 JS API 的
 //   安全密钥代理（拼上安全密钥再转给高德，安全密钥不进页面）；都是地图插件的服务现取，插件没启用时回"地图插件没启用"；
 //   网页是哪一版（web-version.ts）：订阅的响应里带着，index.html 换了一版时在活动状态频道上推一条临时的 web_version，
@@ -123,6 +124,7 @@ import { FONTS_PREFIX, serveFont } from "./fonts.ts";
 import { isMapPath, serveMap } from "./map-routes.ts";
 import { type HttpApi, sendError, sendJson } from "./http-api.ts";
 import { checkLocalRequest } from "./local-origin.ts";
+import { PDFJS_PREFIX, servePdfjs } from "./pdfjs.ts";
 import { DEFAULT_WEB_VERSION_POLL_MS, watchWebVersion } from "./web-version.ts";
 
 export const LOCAL_HOST = "127.0.0.1";
@@ -381,6 +383,8 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     if (isMapPath(pathname)) return serveMap(req, res, url, options.map?.(), log);
     // 视觉风格的字体：构建产物 fonts/ 下的样式表、woff2、许可证
     if (pathname.startsWith(FONTS_PREFIX)) return serveFont(req, res, options.webRoot, pathname);
+    // 报告页预览 PDF 用的 pdf.js：构建产物 pdfjs/ 下的脚本、cmap、字体、许可证
+    if (pathname.startsWith(PDFJS_PREFIX)) return servePdfjs(req, res, options.webRoot, pathname);
     // 认不出的地址：浏览器打开的给页面（旧地址、主屏快捷方式照样进得了二狗，前端按 hash 显示默认页），
     // 脚本、程序发的请求照旧 404
     if (isNavigation(req.headers)) return servePage(res);

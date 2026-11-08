@@ -749,6 +749,8 @@ export type { FilePartValue, FileRenderKind, HttpErrorCode, MediaPreview, MediaT
 // HTML、SVG 附件在隔离的沙箱里预览：哪些能（按扩展名）、多大以内、报告页 <iframe sandbox> 的值
 export { framePreviewOf, HTML_PREVIEW_SANDBOX, MEDIA_FRAME_MAX_BYTES } from "@ergo/protocol";
 export type { FramePreview } from "@ergo/protocol";
+// PDF 附件在报告页用 pdf.js 画：哪些能（按扩展名）
+export { pdfPreviewOf } from "@ergo/protocol";
 // agent 之间的来信：哪些消息在会话里折成一行、一句话总结从哪来（守护进程写通知时用同一份标记）
 export { firstSentence, LETTER_SUMMARY_MAX, LETTER_TAGS, letterKindOf, letterSummaryOf, NOTICE_FOLD, stageBriefOf } from "@ergo/protocol";
 export type { AgentLetterKind } from "@ergo/protocol";

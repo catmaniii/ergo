@@ -1141,6 +1141,164 @@ a.att-icon:hover {
   justify-content: space-between;
   gap: 8px 12px;
 }
+/*
+ * PDF（ui/pdf-view.tsx）：正文铺满报告页（不限宽），上面一行"PDF · 几页 · 大小 · 发出时间"，下面是能滚动、能缩放的框。
+ * 框里放大后横竖都能滚：单指滚动交给浏览器，双指捏合页面自己管（touch-action 不给浏览器捏合）；滚动条的位置一直留着
+ * （scrollbar-gutter），出现滚动条时框不变窄、不重排。页是白纸（PDF 本来就画在白底上，深色主题里也一样，和 HTML、SVG 预览
+ * 的白底同理），四周一圈细边；缩放手势途中整份文档按 transform 缩放（.pdf-doc），停下来再重排、重画
+ */
+.report-page-pdf .scroll {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.report-pdf {
+  flex: 1;
+  min-height: 0;
+  max-width: none;
+  padding: 0;
+  gap: 0;
+}
+.report-pdf-facts {
+  padding: 8px var(--space-page) 6px;
+}
+.report-pdf .page-placeholder {
+  flex: 1;
+}
+.report-pdf-problem {
+  margin: 4px var(--space-page) var(--space-page);
+}
+.pdf-view {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
+  scrollbar-gutter: stable;
+  background: var(--fill);
+}
+.pdf-sizer {
+  position: relative;
+  overflow: hidden;
+}
+.pdf-doc {
+  position: absolute;
+  transform-origin: 0 0;
+}
+.pdf-doc.settling {
+  transition: transform 0.2s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pdf-doc.settling {
+    transition: none;
+  }
+}
+.pdf-page-back,
+.pdf-page {
+  position: absolute;
+}
+.pdf-page-back {
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--border);
+}
+/* 文字层的宽高 pdf.js 写成 round(down, …, var(--scale-round-x))：按 1 像素取整 */
+.pdf-page {
+  overflow: hidden;
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+}
+.pdf-page-base,
+.pdf-page-detail {
+  position: absolute;
+  inset: 0;
+}
+.pdf-page-base canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.pdf-page-detail canvas {
+  position: absolute;
+}
+.pdf-page-failed {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-s);
+}
+/*
+ * 文字层：pdf.js 的 TextLayer 把每段字画成透明的 <span>，位置按百分比、字号按 --total-scale-factor（每个 PDF 单位几个 CSS 像素，
+ * 页上写的）和它量出来的 --font-height、--scale-x 算，和页上的字对齐，能拖选、长按选中复制。规则照抄 pdfjs-dist 的
+ * web/pdf_viewer.css 里 .textLayer 那几条（去掉了搜索高亮这些用不到的），选中的颜色改用主色
+ */
+.pdf-page .textLayer {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  text-align: initial;
+  opacity: 1;
+  line-height: 1;
+  letter-spacing: normal;
+  word-spacing: normal;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: var(--text);
+  z-index: 0;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+.pdf-page .textLayer :is(span, br) {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.pdf-page .textLayer > :not(.markedContent),
+.pdf-page .textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+.pdf-page .textLayer .markedContent {
+  display: contents;
+}
+.pdf-page .textLayer span[role="img"] {
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+.pdf-page .textLayer ::selection {
+  background: color-mix(in srgb, var(--primary) 35%, transparent);
+  color: transparent;
+}
+.pdf-page .textLayer br::selection {
+  background: transparent;
+}
+.pdf-page .textLayer .endOfContent {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  z-index: 0;
+  cursor: default;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.pdf-page .textLayer.selecting .endOfContent {
+  top: 0;
+}
 .report-error-title {
   font-family: var(--font-title);
   font-size: var(--fs-title);

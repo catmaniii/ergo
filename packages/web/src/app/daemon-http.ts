@@ -45,6 +45,12 @@ export interface DaemonHttp {
    */
   mediaPlayUrl(mediaId: string, name: string): string | undefined;
   /**
+   * PDF 附件的整个文件（报告页交给 pdf.js 画）：从媒体接口取（和"下载"同一个地址：同源、带着凭证，媒体按内容寻址，
+   * 浏览器缓存着的直接用），边取边经 onProgress 报取了多少（总数不知道时是 undefined）。
+   * 没有真文件（原型的假附件也没有内容）时为 undefined；取不到抛错，取消用 signal
+   */
+  mediaBytes(mediaId: string, name: string, options?: { signal?: AbortSignal; onProgress?: (loaded: number, total: number | undefined) => void }): Promise<ArrayBuffer | undefined>;
+  /**
    * 内置浏览器里渲染文件时取内容：守护进程转发的服务里的文件（/apps/…，同源，带着凭证），只读开头 1 MB；
    * 不是能渲染的文本（网页）回 page，取不到回 error（不抛错）。原型里是几份编的样例（prototype/fake-app-files.ts）
    */
@@ -399,6 +405,14 @@ export class HttpDaemonClient implements DaemonHttp {
 
   mediaPlayUrl(mediaId: string, name: string): string {
     return this.mediaUrl(mediaId, name);
+  }
+
+  async mediaBytes(mediaId: string, name: string, options: { signal?: AbortSignal; onProgress?: (loaded: number, total: number | undefined) => void } = {}): Promise<ArrayBuffer> {
+    const res = await fetch(this.mediaUrl(mediaId, name, { download: true }), options.signal ? { signal: options.signal } : {});
+    if (!res.ok) throw new Error(t("app.daemonHttp.mediaBytesFailed", { status: res.status }));
+    const total = Number(res.headers.get("content-length")) || undefined;
+    if (!res.body || !options.onProgress) return res.arrayBuffer();
+    return readWithProgress(res.body, total, options.onProgress);
   }
 
   appFileText(url: string, signal?: AbortSignal): Promise<FileTextResult> {
@@ -1052,6 +1066,27 @@ export class HttpDaemonClient implements DaemonHttp {
     if (!res.ok) throw new Error((json as Partial<HttpErrorBody>).message ?? `HTTP ${res.status}`);
     return json as T;
   }
+}
+
+/** 边读边报进度地把响应体读完（总数知道时直接放进一块，不知道时最后拼起来） */
+async function readWithProgress(body: ReadableStream<Uint8Array>, total: number | undefined, onProgress: (loaded: number, total: number | undefined) => void): Promise<ArrayBuffer> {
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let loaded = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    loaded += value.length;
+    onProgress(loaded, total);
+  }
+  const out = new Uint8Array(loaded);
+  let at = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, at);
+    at += chunk.length;
+  }
+  return out.buffer;
 }
 
 /** 文件内容的 base64（分段转，长录音也不爆调用栈） */

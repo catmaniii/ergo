@@ -77,6 +77,7 @@ export * from "./runtimes.ts";
 export * from "./mark-chip.ts";
 export * from "./zoom-decor.ts";
 export * from "./image-zoom.ts";
+export * from "./pdf-view.ts";
 export * from "./abandoned-branch.ts";
 export * from "./workflow-view.ts";
 export * from "./ltl.ts";

@@ -83,6 +83,7 @@ import {
   framePreviewOf,
   type FramePreview,
   mediaPreviewOf,
+  pdfPreviewOf,
   HTML_PREVIEW_SANDBOX,
   MEDIA_FRAME_MAX_BYTES,
   ImportReferenceVoiceBody,
@@ -1865,7 +1866,8 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
    * 文本类附件的内容：只按媒体 id 取（内容寻址，不接受路径）；名字、类型以消息里最近一次引用它的 part 为准，
    * 能预览的（协议包的 textPreviewOf：Markdown、纯文本、JSON、CSV / TSV、代码和配置）才给。超过上限的只读开头那么多（截在字符边上）；
    * 先按 UTF-8，不是合法的 UTF-8 再按 GB18030（GBK 的超集）解，只猜这两种；都解不出来如实报错，不吐乱码。
-   * 音频、视频（协议包的 mediaPreviewOf）不给内容，告诉报告页用哪种播放器（播放器直接放媒体接口的地址）
+   * 音频、视频（协议包的 mediaPreviewOf）不给内容，告诉报告页用哪种播放器（播放器直接放媒体接口的地址）；
+   * PDF（协议包的 pdfPreviewOf）也不给内容，告诉报告页用 pdf.js 画（报告页从媒体接口取字节，媒体接口照旧当附件发）
    */
   const mediaText = (mediaId: string): MediaTextView => {
     const { attachment, info } = previewable(mediaId);
@@ -1879,6 +1881,8 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
     // 音频、视频：放得了放不了由报告页的播放器说（编码浏览器不支持时提示下载）
     const playable = attachment.kind === "file" ? mediaPreviewOf(attachment) : undefined;
     if (playable) return { mediaId, name, mime, text: "", bytes: info.size, truncated: false, sentAt: attachment.time, media: playable };
+    // PDF：打不打得开（坏的、加了密码的）由报告页的 pdf.js 说
+    if (attachment.kind === "file" && pdfPreviewOf(attachment)) return { mediaId, name, mime, text: "", bytes: info.size, truncated: false, sentAt: attachment.time, pdf: true };
     if (attachment.kind !== "file" || !textPreviewOf(attachment)) throw new HttpError("unsupported_type", t("gateway.http.noPreview", { name, mime }));
     const truncated = info.size > MEDIA_TEXT_MAX_BYTES;
     const decoded = decodePreviewText(media.readHead(mediaId, MEDIA_TEXT_MAX_BYTES), { cut: truncated });

@@ -21,6 +21,7 @@
   "app.pageBubble.placeholder.files": "比如：把我周末在杭州拍的照片贴上来",
   "app.pageBubble.placeholder.text": "比如：标题写成周末杭州游记",
   "app.daemonHttp.historyFailed": "取历史失败（HTTP {status}）",
+  "app.daemonHttp.mediaBytesFailed": "取文件失败（HTTP {status}）",
   "app.daemonHttp.httpFailed": "守护进程没答上来（HTTP {status}），它可能刚重启，稍等一下再试",
   "app.daemonHttp.notJson": "守护进程回的不是数据（可能刚重启），稍等一下再试",
   "app.daemonHttp.fileGone": "文件取不到了（取件码过期？）",

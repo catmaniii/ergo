@@ -1,6 +1,7 @@
 // 聊天里的文件附件画成卡片——类型图标（方块里写类型，按类别上色）、标题、"预览""下载"；一条消息里连着的几个附件排成一横排。
 // 能预览的（Markdown、纯文本、JSON、CSV / TSV、代码和配置，音频、视频）点图标去报告页，不能预览的点图标直接下载并标明"仅下载"；
-// 按 part 上的名字和类型判断，历史消息里的附件也一样。HTML、SVG（1 MB 以内）也能预览，在报告页的沙箱框（HTML）、<img>（SVG）里看。
+// 按 part 上的名字和类型判断，历史消息里的附件也一样。HTML、SVG（1 MB 以内）也能预览，在报告页的沙箱框（HTML）、<img>（SVG）里看；
+// PDF 在报告页用 pdf.js 画（打开了才知道几页）。
 // 报告页显示什么：取到的内容怎么画（和内置浏览器打开文件同一套：表格、格式化的 JSON、等宽代码；HTML、SVG 在框里看，音视频给播放器）、
 // 按 GBK 解的写明编码、截断的提示、取不到时说什么。
 import fs from "node:fs";
@@ -19,6 +20,7 @@ import {
   type MediaTextView,
   type MessagePart,
   partRuns,
+  pdfFacts,
   replay,
   reportPageView,
   type UiInput,
@@ -112,6 +114,16 @@ describe("附件卡片", () => {
       expect(card!.iconHint).toBe(`点开播放「${part.name}」`);
     }
     expect(fileCards([file("老录像.avi", "video/x-msvideo")])[0]).toMatchObject({ preview: undefined, iconAction: "download", iconHint: "仅下载：AVI 文件不能在这里预览，点了直接下载" });
+  });
+
+  test("PDF 能预览（报告页用 pdf.js 画）：图标写 PDF、文档色，点图标去报告页；按扩展名认，没有扩展名的看类型；多大都给", () => {
+    for (const part of [file("周会纪要.pdf", "application/pdf"), file("扫描件.PDF", "application/octet-stream", 80_000_000), file("合同", "application/pdf")]) {
+      const [card] = fileCards([part]);
+      expect({ name: part.name, preview: card!.preview, iconAction: card!.iconAction, hint: card!.iconHint }).toEqual({ name: part.name, preview: "pdf", iconAction: "preview", hint: `点开预览「${part.name}」` });
+    }
+    expect(fileCards([file("周会纪要.pdf", "application/pdf")])[0]).toMatchObject({ label: "PDF", category: "doc" });
+    // 扩展名不是 pdf 的，part 上写成 PDF 也不认
+    expect(fileCards([file("合同.docx", "application/pdf")])[0]!.preview).toBeUndefined();
   });
 
   test("不能预览的（zip、pptx、docx、avi……）只能下载：点图标就是下载，图标上标明仅下载", () => {
@@ -335,6 +347,13 @@ describe("报告页", () => {
       facts: "视频 · 174.6 MB",
       media: "video",
     });
+  });
+
+  test("PDF：交给 pdf.js 画（pdf），一行写类型、大小、什么时候发的；打开了补上页数", () => {
+    const page = reportPageView({ ok: true, view: view({ name: "周会纪要.pdf", mime: "application/pdf", text: "", bytes: 5_427, pdf: true }) });
+    expect(page).toEqual({ kind: "pdf", name: "周会纪要.pdf", facts: "PDF · 5.3 KB · 10-13 21:30 发出", size: "5.3 KB", sent: "10-13 21:30 发出" });
+    expect(page.kind === "pdf" && pdfFacts(page, 3)).toBe("PDF · 3 页 · 5.3 KB · 10-13 21:30 发出");
+    expect(pdfFacts({ size: "1.0 KB", sent: undefined }, 1)).toBe("PDF · 1 页 · 1.0 KB");
   });
 
   test("截断了：顶上一条提示，只显示前 1 MB、完整版点下载", () => {

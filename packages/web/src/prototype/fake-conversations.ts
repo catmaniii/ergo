@@ -72,8 +72,11 @@ import {
   FAKE_DAILY,
   FAKE_EXPENSES_CSV,
   FAKE_HTML,
+  FAKE_BROKEN_PDF,
   FAKE_LEDGER_PART,
+  FAKE_LOCKED_PDF,
   FAKE_MEETING_AUDIO,
+  FAKE_MEETING_PDF,
   FAKE_OLD_CAMERA_VIDEO,
   FAKE_PROJECTOR_VIDEO,
   FAKE_REIMBURSE_PY,
@@ -2067,6 +2070,7 @@ const SECRETARY_RELAY: MessageEnvelope[] = [
  * 投影仪的测试画面和老摄像机录的生日会（视频在聊天里直接显示第一帧、点开大播放器；老摄像机那段浏览器解不了，退回卡片提示下载）、
  * 源码包（只能下载）和预览页（HTML，沙箱里看）、
  * 银行导出的 GBK 编码流水（表格，写明编码）和周会录音（播放器真能放）、训练记录（JSON 格式化）和算报销的脚本（代码等宽）、
+ * 三份 PDF（周会纪要能看能选字，加了密码的合同、传了一半的扫描件报告页提示下载）、
  * 超过 1 MB 的流水（报告页截断）、晚上的日报（Markdown，点开渲染着看：标题、列表、表格、外链）。附件见 fake-media.ts。
  * 后加的几条 id 写死，不经 msg() 编号，后面消息的 id 不变
  */
@@ -2101,6 +2105,20 @@ const SECRETARY_ATTACHMENTS: MessageEnvelope[] = [
     speaker: "agent",
     time: at("10-07", "16:07"),
     parts: [text("流水看过了：九月房租、水电和那张高铁票都在里面，没有对不上的。录音里说的三件事记下了。顺手把这周的训练记录和算报销的脚本也发你："), FAKE_WORKOUT_JSON.part, FAKE_REIMBURSE_PY.part],
+  },
+  {
+    id: "msg-pdf-ask",
+    conversation: S,
+    speaker: "user",
+    time: at("10-07", "16:20"),
+    parts: [FAKE_MEETING_PDF.part, FAKE_LOCKED_PDF.part, FAKE_BROKEN_PDF.part, text("周会纪要做成 PDF 了，还有房东发来的合同（加了密码）和一份扫描件，扫描件好像没传完")],
+  },
+  {
+    id: "msg-pdf-reply",
+    conversation: S,
+    speaker: "agent",
+    time: at("10-07", "16:22"),
+    parts: [text("纪要看过了，三件事都记下了。合同加了密码，我这边打不开；扫描件不完整，有空再传一次。")],
   },
   msg(S, "agent", at("10-07", "18:40"), text("全年的账单流水导出来了，文件比较大，预览只显示开头一部分："), FAKE_LEDGER_PART),
   msg(S, "agent", at("10-07", "21:30"), text("今天的日报整理好了："), FAKE_DAILY.part),

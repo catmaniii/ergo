@@ -731,4 +731,6 @@ export const EN_CONVERSATIONS: Phrases = {
   "「旅行相册」filter.set：只显示 p2 的 128 张照片": "“Travel album” filter.set: showing only p2's 128 photos",
   '参数：{"id":"p2","name":"爸爸"}\n为什么：用户说第二个人叫爸爸\n结果：已把 p2 改名成 爸爸': 'Arguments: {"id":"p2","name":"Dad"}\nWhy: The user says the second person is Dad\nResult: Renamed p2 to Dad',
   '参数：{"personId":"p2"}\n为什么：用户要只看他的照片\n结果：只显示 p2 的 128 张照片': 'Arguments: {"personId":"p2"}\nWhy: The user wants only his photos\nResult: Showing only p2\'s 128 photos',
+  "周会纪要做成 PDF 了，还有房东发来的合同（加了密码）和一份扫描件，扫描件好像没传完": "I made the meeting notes into a PDF. Here's also the lease from the landlord (password-protected) and a scan, which doesn't seem to have finished uploading",
+  "纪要看过了，三件事都记下了。合同加了密码，我这边打不开；扫描件不完整，有空再传一次。": "Read the notes and noted all three things. The lease is password-protected, so I can't open it; the scan is incomplete, so please send it again when you get a chance.",
 };
