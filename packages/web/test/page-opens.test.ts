@@ -902,8 +902,9 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await locate(page);
       // 还在国内：照样是高德（演示页的假高德），蓝点、精度圈画在高德那一层上，在地图正中
       expect(await page.locator(".map-canvas").getAttribute("data-basemap")).toBe("amap");
-      expect(await page.locator('[data-engine="amap-demo"] .map-mark[data-kind="me"]').count()).toBe(1);
-      expect(await page.locator('[data-engine="amap-demo"] .map-shapes circle.map-circle-accuracy').count()).toBe(1);
+      // 蓝点、精度圈在挪过去之后的下一帧才画上：等它们出来再数
+      await expect.poll(() => page.locator('[data-engine="amap-demo"] .map-mark[data-kind="me"]').count(), { timeout: 5000 }).toBe(1);
+      await expect.poll(() => page.locator('[data-engine="amap-demo"] .map-shapes circle.map-circle-accuracy').count(), { timeout: 5000 }).toBe(1);
       // 挪过去、重画在下一帧：等它停下来再量
       await expect.poll(async () => { const at = await dotOffset(page); return Math.max(Math.abs(at.dx), Math.abs(at.dy)); }, { timeout: 5000 }).toBeLessThan(3);
       expect(await page.locator(".map-locate-note").count()).toBe(0);
@@ -924,8 +925,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await sg.page.locator('.map-canvas[data-basemap="amap"]').waitFor({ timeout: 5000 });
       await locate(sg.page);
       await sg.page.locator('.map-canvas[data-basemap="osm"]').waitFor({ timeout: 5000 });
-      expect(await sg.page.locator('[data-engine="osm"] .map-mark[data-kind="me"]').count()).toBe(1);
-      expect(await sg.page.locator('[data-engine="osm"] .map-shapes circle.map-circle-accuracy').count()).toBe(1);
+      await expect.poll(() => sg.page.locator('[data-engine="osm"] .map-mark[data-kind="me"]').count(), { timeout: 5000 }).toBe(1);
+      await expect.poll(() => sg.page.locator('[data-engine="osm"] .map-shapes circle.map-circle-accuracy').count(), { timeout: 5000 }).toBe(1);
       expect(await sg.page.locator('.map-locate button[aria-label="回到我现在的位置"]').count()).toBe(1);
       await sg.context.close();
       expect(sg.outside).toEqual([]);
