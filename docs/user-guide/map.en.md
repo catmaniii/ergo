@@ -17,6 +17,7 @@ After this chapter you'll know where the map page is, how to see a day's footpri
   - If you're outside mainland China, the map switches to OpenStreetMap.
 - The top left says which map is in use: **AMap** or **OpenStreetMap**.
 - When you stop moving, ergo picks: inside mainland China with an AMap key, AMap; abroad, and in Hong Kong, Macau and Taiwan, OpenStreetMap.
+- **Choose the map yourself**: **Map: Automatic** at the right end of the title bar (under ⋮ on a phone). It lists the maps you can use for the side you're looking at (inside or outside mainland China): **Automatic**, plus every map whose key is entered and working — inside China that's AMap and OpenStreetMap, outside it's only OpenStreetMap for now (AMap isn't offered abroad; a map plugin you install later, such as Google Maps, shows up here too). Your pick sticks and is remembered on this device, **separately for inside and outside mainland China**; pick **Automatic** again to go back to the rules above. If the map you picked stops working (its key broke, its plugin was turned off, or this device can't reach it), the map goes back to Automatic and says "… isn't available right now, so the map is back to Automatic". A map this device can't reach is marked **Can't connect** in the list. Footprints are still always on OpenStreetMap, whatever you picked.
 - **Footprints are always shown on OpenStreetMap**: while **Footprints** at the right end of the title bar is on, the map inside China is OpenStreetMap too and AMap's map program isn't loaded (see "What map services can see" below); turn **Footprints** off and it switches back to AMap inside China.
 - Next time it opens where you last looked (remembered in this device's browser).
 - With OpenStreetMap, the bottom right says "© OpenStreetMap contributors"; AMap prints its own logo and map approval number in a corner.
@@ -80,7 +81,7 @@ Just ask ergo:
 - "Any coffee shops nearby?", "What's to eat near the office?", "Hawker centres nearby?": names, addresses and distances, nearest first;
 - "Where's Xixi Wetland?", "How do I get to Xixi Wetland?", "Where am I now?"
 
-**Who looks it up:** ergo picks by place; you don't have to.
+**Who looks it up:** ergo picks by place; you don't have to. If you picked a map yourself (**Map: …**) and ergo knows which map you're looking at, it asks that one first (places and routes it finds can only be drawn on that provider's own map); if that one can't look things up (say, its lookup key isn't entered), ergo uses the next one for that side and says so in the answer. When ergo doesn't know which map you picked (you asked by voice, or the map page isn't open), it picks by the rules below.
 
 - **Inside mainland China**: with the **Web service key** in, AMap — driving with live traffic, plus bus and subway transfers and fares.
 - **Abroad** (places like Singapore, and Hong Kong, Macau and Taiwan): OpenStreetMap's free services, no key needed. **No transit and no live traffic**: driving times are estimated from road speed limits, and ergo gives driving and walking; for nearby places say what you're looking for ("coffee shop", "hawker centre") — it can't list everything nearby.
