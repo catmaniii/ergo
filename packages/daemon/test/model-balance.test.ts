@@ -276,5 +276,8 @@ describe("体检：DeepSeek 余额（只读缓存）", () => {
   it("上一次没查成：Key 不对是注意（去设置 · 模型），超时这类是没查出来", () => {
     expect(judgeBalance({ providers: [{ ...base, failure: { problem: "key_invalid", status: 401, at } }], lowBelow })).toMatchObject({ level: "warn", fix: { key: "doctor.fix.balanceKey" }, action: { route: "#/more/models" } });
     expect(judgeBalance({ providers: [{ ...base, failure: { problem: "timeout", at } }], lowBelow })).toMatchObject({ level: "unknown", fact: { key: "doctor.balance.failed", params: { why: "超时没回" } } });
+    // 以前查成过、这次说 Key 不对（Key 被停用了）：照样注意；以前查成过、这次超时：照上次查成的判
+    expect(judgeBalance({ providers: [{ ...base, result: result("110.00"), failure: { problem: "key_invalid", status: 401, at } }], lowBelow })).toMatchObject({ level: "warn", fix: { key: "doctor.fix.balanceKey" } });
+    expect(judgeBalance({ providers: [{ ...base, result: result("110.00"), failure: { problem: "timeout", at } }], lowBelow })).toMatchObject({ level: "ok" });
   });
 });

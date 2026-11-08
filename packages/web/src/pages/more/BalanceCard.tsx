@@ -114,7 +114,13 @@ export function BalanceCard() {
     );
   };
 
-  if (!view) return error ? <div className="hint balance-error">{t("pages.usage.balance.loadFailed", { reason: error })}</div> : <div className="muted balance-loading">{t("pages.usage.balance.loading")}</div>;
+  if (!view) {
+    return (
+      <div className="balance">
+        {error ? <div className="hint balance-error">{t("pages.usage.balance.loadFailed", { reason: error })}</div> : <div className="muted balance-loading">{t("pages.usage.balance.loading")}</div>}
+      </div>
+    );
+  }
   return (
     <div className="balance">
       {view.providers.map((entry) => (

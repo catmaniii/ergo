@@ -4686,13 +4686,9 @@ a.att-icon:hover {
   font-size: var(--fs-xs);
 }
 .balance-failed,
-.balance-out {
+.balance-out,
+.balance-card + .balance-error {
   margin-top: 6px;
-}
-.balance-nokey,
-.balance-loading,
-.balance-error {
-  margin-bottom: 12px;
 }
 /* 消耗 */
 .stat-row {
