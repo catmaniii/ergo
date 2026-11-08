@@ -7,7 +7,9 @@
 // - 手动（这台设备按区域记的，MapChoice）：选了、而且这一页上能选它（selectable）就用它，不然照"自动"——记着的那一家不能用了，
 //   地图页把这个区域退回"自动"并说一句（choiceBroken）；
 // - 画着用户自己的足迹时一律 OpenStreetMap，不管选了谁（AMAP_WITH_FOOTPRINTS，用户 2026-11-07 定；不为它加载商业地图的脚本）；
-// - 某一家查来的地点、路线只画在它自己的底图上（ownBasemapOf）：OpenStreetMap 的哪儿都能画，别家的（高德、谷歌……）一律只画在它自己的上。
+// - 某一家查来的地点、路线只画在它自己的底图上（ownBasemapOf）：OpenStreetMap 的哪儿都能画，别家的（高德、谷歌……）一律只画在它自己的上；
+// - 交给秘书的地图编号（查询跟着它走，lookupBasemap）：平常是真画着的那一家；看足迹时底图固定 OpenStreetMap，查询不跟它——
+//   写这个区域手动选的那一家，没选过按"自动"（国内即高德），用户 2026-11-08 定。
 import { type MapChoice, type MapConfigView, type MapProviderView, MAP_PROVIDER_ID, MAP_REGIONS, type MapRegion } from "../../state/index.ts";
 
 /** 自带两家的编号（和守护进程登记的一样） */
@@ -140,4 +142,26 @@ export function withChoice(choice: MapChoice, region: MapRegion, id: string | un
 /** 这一家查来的只能画在哪家的底图上：OpenStreetMap 的哪儿都能画（undefined）；别家的只画在它自己的上（不知道条款的一律这样） */
 export function ownBasemapOf(source: string): string | undefined {
   return source === OSM ? undefined : source;
+}
+
+/** 地图那块报上来的、挑交给秘书的地图编号要的那几样（MapView.tsx 的 BasemapStatus） */
+export interface LookupBasemapStatus {
+  readonly region: MapRegion;
+  readonly rendered: string;
+  readonly auto: string;
+  readonly options: readonly { readonly id: string; readonly failed?: string }[];
+}
+
+/**
+ * 地图上下文里交给秘书的地图编号（秘书照它把查询工具的 map 写成这一家，查询跟着地图走，444 × 445 的接线）：
+ * - 平常是真画着的那一家（rendered）；
+ * - 画着足迹时底图一律 OpenStreetMap（AMAP_WITH_FOOTPRINTS），查询不跟着写 osm（用户 2026-11-08 定：国内开着足迹也照样用高德查）——
+ *   写这个区域手动选的那一家（还在能选的里、这一页没加载失败），没选过（或选的那家现在选不了）写"自动"会挑的那家（国内即高德）。
+ *   足迹的点不会因此给那家：交出去的只是这个编号，秘书查的还是用户问的那一处
+ */
+export function lookupBasemap(status: LookupBasemapStatus, choice: MapChoice, footprints: boolean): string {
+  if (!footprints) return status.rendered;
+  const chosen = choice[status.region];
+  if (chosen !== undefined && status.options.some((o) => o.id === chosen && o.failed === undefined)) return chosen;
+  return status.auto;
 }

@@ -46,6 +46,7 @@ import { MapTalk } from "./map-talk.ts";
 import { withHere } from "./locate.ts";
 import { useMapCardData } from "./MapCard.tsx";
 import { MapSwitch, useBasemapSwitch } from "./MapSwitch.tsx";
+import { lookupBasemap } from "./providers.ts";
 import { MapCanvas } from "./MapView.tsx";
 import { DEFAULT_VIEW, EMPTY_SCENE, type MapScene, type MapView, parseSavedView, viewToFit } from "./scene.ts";
 import { demoMapPlaces } from "../../prototype/fake-map.ts";
@@ -247,10 +248,13 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
 
   // 聊天窗、二狗按钮发的消息带的地图上下文：这一刻看的中心、缩放、底图、看哪一天的足迹或哪张卡片；不带"回到我现在的位置"定到的点。
   // 底图是地图服务插槽（445）里那一家的编号——地图那块报给地图切换的"真画着的那一家"（basemapSwitch.status.rendered），
-  // 秘书照它把查询工具的 map 写成这一家（查询跟着地图走）；还没画上是 loading。它是 state，变了就重渲染、这个函数跟着换新的
+  // 秘书照它把查询工具的 map 写成这一家（查询跟着地图走）；还没画上是 loading。画着足迹时底图固定 OpenStreetMap，这里不跟着写 osm，
+  // 写这个区域手动选的那家、没选过按"自动"（国内即高德，providers.ts 的 lookupBasemap，用户 2026-11-08 定）。
+  // 它是 state，变了就重渲染、这个函数跟着换新的
   const mapContext = (): Omit<MapContext, "via" | "spoken"> => {
     const v = viewNow.current;
-    const basemap = basemapSwitch.status?.rendered ?? "loading";
+    const status = basemapSwitch.status;
+    const basemap = status === undefined ? "loading" : lookupBasemap(status, basemapSwitch.choice, footprintsDrawn);
     const spot = fp.day?.spots.find((x) => x.key === fp.selected);
     return {
       lat: clamp(v.lat, -90, 90),

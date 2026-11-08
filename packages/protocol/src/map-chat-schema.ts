@@ -35,7 +35,9 @@ export const MapContext = Type.Object({
   zoom: Type.Number({ minimum: 0, maximum: 22 }),
   /**
    * 底图：地图页现在真画着的那一家地图服务的编号（445 插槽里的 id：amap、osm，446 的 google……；还没画上是 loading）。
-   * 守护进程交给秘书时写明，秘书查地点、算路线时把工具的 map 写成它（查询跟着地图走）
+   * 守护进程交给秘书时写明，秘书查地点、算路线时把工具的 map 写成它（查询跟着地图走）。
+   * 开着"足迹"时底图一律画 OpenStreetMap，这里不写 osm，写这个区域手动选的那一家、没选过是"自动"挑的那家（国内即高德；
+   * 用户 2026-11-08 定，447 附带）——查询照样用它，交给秘书的那段照实写"看足迹时底图是 OpenStreetMap"
    */
   basemap: Type.String({ minLength: 1, maxLength: MAP_BASEMAP_MAX }),
   footprints: Type.Optional(MapContextFootprints),

@@ -56,6 +56,8 @@ export interface BasemapStatus {
   readonly region: MapRegion;
   /** 真画着的那一家 */
   readonly rendered: string;
+  /** "自动"会挑的那一家（编号；看足迹时也照没看足迹算：底图虽然一律 OpenStreetMap，查询照它走，447） */
+  readonly auto: string;
   /** "自动"会挑的那一家的名字 */
   readonly autoTitle: string;
   /** 这个区域能手动选的几家（不含"自动"） */
@@ -244,9 +246,9 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, initial
   const report = switcher?.report;
   useEffect(() => {
     if (!ready || report === undefined) return;
-    report({ region, rendered, autoTitle, options });
+    report({ region, rendered, auto: pick.auto, autoTitle, options });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- options 按 optionsKey 认（每次渲染都是新数组）
-  }, [ready, report, region, rendered, autoTitle, optionsKey]);
+  }, [ready, report, region, rendered, pick.auto, autoTitle, optionsKey]);
 
   const settingsAction = { label: t("ui.plugins.map.hint.goSettings"), run: () => navigate({ tab: "more", page: "data-sources", item: AMAP_SOURCE_ID }) };
 

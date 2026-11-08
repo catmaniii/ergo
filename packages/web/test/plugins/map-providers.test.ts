@@ -20,6 +20,7 @@ import {
   type BasemapPage,
   choiceBroken,
   EVERY_BASEMAP,
+  lookupBasemap,
   ownBasemapOf,
   parseMapChoice,
   pickBasemap,
@@ -64,7 +65,7 @@ const sw = (choice: BasemapSwitch["choice"]): BasemapSwitch => ({
   choice,
   setChoice: () => {},
   report: () => {},
-  status: { region: "abroad", rendered: "worldmap", autoTitle: "假世界地图", options: [{ id: "worldmap", title: "假世界地图" }, { id: "osm", title: "OpenStreetMap" }] },
+  status: { region: "abroad", rendered: "worldmap", auto: "worldmap", autoTitle: "假世界地图", options: [{ id: "worldmap", title: "假世界地图" }, { id: "osm", title: "OpenStreetMap" }] },
 });
 
 describe("几家从哪来", () => {
@@ -111,6 +112,28 @@ describe("用哪一家", () => {
     expect(choiceBroken("abroad", "nobody", THREE, EVERY_BASEMAP)).toBe(true);
     expect(selectable(OSM, "mainland", EVERY_BASEMAP)).toBe(true);
     expect(selectable({ ...OSM, basemap: false }, "mainland", EVERY_BASEMAP)).toBe(false);
+  });
+});
+
+describe("交给秘书的地图编号（查询跟着它走）", () => {
+  // 地图那块报上来的：国内开着足迹，底图一律 OpenStreetMap；"自动"会挑高德；能手动选的高德、假第三家、OpenStreetMap
+  const mainland = { region: "mainland" as const, rendered: "osm", auto: "amap", options: [{ id: "amap" }, { id: "worldmap" }, { id: "osm" }] };
+  test("没开足迹：就是真画着的那一家", () => {
+    expect(lookupBasemap({ ...mainland, rendered: "amap" }, {}, false)).toBe("amap");
+    expect(lookupBasemap({ ...mainland, rendered: "osm" }, { mainland: "osm" }, false)).toBe("osm");
+  });
+
+  test("开着足迹（底图一律 OpenStreetMap）：不跟着写 osm——写这个区域选的那家，没选过按自动（国内即高德）；选的那家现在选不了也按自动", () => {
+    expect(lookupBasemap(mainland, {}, true)).toBe("amap");
+    expect(lookupBasemap(mainland, { mainland: "worldmap" }, true)).toBe("worldmap");
+    expect(lookupBasemap(mainland, { mainland: "osm" }, true)).toBe("osm");
+    // 国外选的不管国内
+    expect(lookupBasemap(mainland, { abroad: "osm" }, true)).toBe("amap");
+    // 选的那家这一页加载失败了、不在能选的里了
+    expect(lookupBasemap({ ...mainland, options: [{ id: "amap" }, { id: "worldmap", failed: "script failed" }, { id: "osm" }] }, { mainland: "worldmap" }, true)).toBe("amap");
+    expect(lookupBasemap(mainland, { mainland: "nobody" }, true)).toBe("amap");
+    // 国内高德的 Key 没填："自动"本来就是 OpenStreetMap
+    expect(lookupBasemap({ ...mainland, auto: "osm", options: [{ id: "osm" }] }, {}, true)).toBe("osm");
   });
 });
 

@@ -4,6 +4,8 @@
 // 底图写的是地图服务插槽（445）里那一家的编号（amap、osm、google……，地图页地图切换报上来的"真画着的那一家"）：这段写明
 // "地图上用的是 X（编号 id）"，让秘书查地点、算路线时把工具的 map 参数写成它——查询跟着地图走（lookup-tools.ts 的 map），
 // 查来的结果才画得到用户正看着的这张地图上。还没画上（loading）、不是编号的写法时不写 map，按自动挑。
+// 开着"足迹"时底图一律画 OpenStreetMap，地图页交来的编号不跟着写 osm，是这个区域手动选的那一家（没选过是"自动"挑的，国内即高德；
+// 用户 2026-11-08 定，网页 providers.ts 的 lookupBasemap）：这段照实写"看足迹时底图是 OpenStreetMap，这一带查询用 X"。
 // 给模型看的话，照旧只用中文（多语言第 6 条）。
 import { MAP_PROVIDER_ID, type MapMark } from "@ergo/protocol";
 import { MAP_TOOL } from "./lookup-tools.ts";
@@ -30,7 +32,15 @@ export function mapChatNote(mark: MapMark): string {
   const loading = mark.basemap === BASEMAP_LOADING;
   /** 是地图服务的编号（工具的 map 认的写法）才叫秘书照它查；别的写法（不认得的）只照原样写底图 */
   const id = !loading && MAP_PROVIDER_ID.test(mark.basemap) ? mark.basemap : undefined;
-  const basemap = loading ? "底图还没画上" : id ? `地图上用的是${basemapText(id)}（地图服务编号 ${id}）` : `底图是${mark.basemap}`;
+  /** 开着足迹：底图一律 OpenStreetMap，编号是这一带查询用的那一家（不是画着的） */
+  const footprints = mark.footprints !== undefined;
+  const basemap = loading
+    ? "底图还没画上"
+    : id
+      ? footprints
+        ? `看足迹时底图一律画 OpenStreetMap，这一带查地点用的地图服务是${basemapText(id)}（地图服务编号 ${id}）`
+        : `地图上用的是${basemapText(id)}（地图服务编号 ${id}）`
+      : `底图是${mark.basemap}`;
   const view = `地图现在看的中心在纬度 ${coord(mark.lat)}、经度 ${coord(mark.lon)}（WGS-84），缩放 ${Math.round(mark.zoom * 10) / 10} 级（3 级看全国、11 级看一个城市、17 级看街道），${basemap}`;
   const looking = mark.card
     ? `看的是聊天里的一张地图卡片${mark.card.title ? `「${mark.card.title}」` : ""}（卡片 ${mark.card.id}）`
@@ -43,7 +53,9 @@ export function mapChatNote(mark: MapMark): string {
     ...(id === undefined
       ? []
       : [
-          `查地点、地址、算路线（${MAP_TOOL.search}、${MAP_TOOL.geocode}、${MAP_TOOL.reverse}、${MAP_TOOL.route}）时把 map 写成"${id}"：查询跟着他地图上用的这一家走，查来的结果才画得到这张地图上。`,
+          footprints
+            ? `查地点、地址、算路线（${MAP_TOOL.search}、${MAP_TOOL.geocode}、${MAP_TOOL.reverse}、${MAP_TOOL.route}）时把 map 写成"${id}"：查询跟着他这一带用的那家地图走（看足迹时底图固定是 OpenStreetMap，查询不跟它）。`
+            : `查地点、地址、算路线（${MAP_TOOL.search}、${MAP_TOOL.geocode}、${MAP_TOOL.reverse}、${MAP_TOOL.route}）时把 map 写成"${id}"：查询跟着他地图上用的这一家走，查来的结果才画得到这张地图上。`,
         ]),
     `要在地图上给他看地点、路线、某一天的足迹，用 ${SHOW_ON_MAP_TOOL} 画成聊天里的地图卡片（他点开就在地图页上看）。`,
     ...(mark.via === "button" ? ["从悬浮按钮来的：用户在地图上按钮旁边的小气泡里看你的回话，回话要短，一两句话（30 字上下），不列清单。"] : []),
