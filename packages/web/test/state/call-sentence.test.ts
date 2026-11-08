@@ -276,6 +276,16 @@ describe("没有模板的：中文名 · 参数值，截到 60 字（三处统�
     ]);
     expect(mcpToolOf("mcp__github__create_issue")).toEqual({ server: "github", tool: "create_issue" });
     expect([mcpToolOf("read"), mcpToolOf("mcp__only")]).toEqual([undefined, undefined]);
+    // 后来加的秘书工具（体检、地图）也有中文名，和守护进程登记的 title 一样：对话里"工具调用"那一行不写原名
+    expect(["check_health", "show_on_map", "map_search_places", "map_route", "map_geocode", "map_reverse_geocode", "map_my_places"].map(toolLabel)).toEqual([
+      "体检一下",
+      "画在地图上",
+      "查地点",
+      "查路线",
+      "查地址在哪",
+      "查某处的地址",
+      "看常去的地方",
+    ]);
     // 有模板的工具都有中文名（退回时要用）
     for (const tool of ["read", "write", "edit", "ls", "grep", "find", "bash", "git_commit", "web_search", "view_board", "search_materials", "start_workflow", "create_task"]) {
       expect(Object.hasOwn(TOOL_LABELS, tool)).toBe(true);

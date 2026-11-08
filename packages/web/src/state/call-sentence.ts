@@ -58,6 +58,15 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = labelTable(
     view_board: "state.callSentence.tool.view_board",
     // 查 DeepSeek 余额（daemon 的 model-settings/balance-tool.ts，440）
     check_balance: "state.callSentence.tool.check_balance",
+    // 体检（daemon 的 doctor/tool.ts）
+    check_health: "state.callSentence.tool.check_health",
+    // 地图（daemon 的 map/show-on-map.ts、map/lookup-tools.ts）：画在地图上、查地点、查路线、查地址
+    show_on_map: "state.callSentence.tool.show_on_map",
+    map_search_places: "state.callSentence.tool.map_search_places",
+    map_route: "state.callSentence.tool.map_route",
+    map_geocode: "state.callSentence.tool.map_geocode",
+    map_reverse_geocode: "state.callSentence.tool.map_reverse_geocode",
+    map_my_places: "state.callSentence.tool.map_my_places",
     // 守护进程登记的是"列出待我处理"，界面上一律叫"待办"
     list_inbox: "state.callSentence.tool.list_inbox",
     show_card: "state.callSentence.tool.show_card",

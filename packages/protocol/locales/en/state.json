@@ -1851,5 +1851,12 @@
   "state.callSentence.lsm.tailnetClose": "Close tailnet access to “{service}”",
   "state.callSentence.lsm.restartSelf": "Restart ergo when idle",
   "state.callSentence.lsm.restartSelfWhy": "Restart ergo when idle: {reason}",
-  "state.callSentence.tool.check_balance": "Check the balance"
+  "state.callSentence.tool.check_balance": "Check the balance",
+  "state.callSentence.tool.check_health": "Run a checkup",
+  "state.callSentence.tool.show_on_map": "Show on the map",
+  "state.callSentence.tool.map_search_places": "Find places",
+  "state.callSentence.tool.map_route": "Find a route",
+  "state.callSentence.tool.map_geocode": "Locate an address",
+  "state.callSentence.tool.map_reverse_geocode": "Address of a spot",
+  "state.callSentence.tool.map_my_places": "View frequent places"
 }

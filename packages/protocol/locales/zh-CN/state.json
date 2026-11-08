@@ -1766,5 +1766,12 @@
   "state.callSentence.lsm.tailnetClose": "撤掉「{service}」的 tailnet 入口",
   "state.callSentence.lsm.restartSelf": "等空闲后重启二狗",
   "state.callSentence.lsm.restartSelfWhy": "等空闲后重启二狗：{reason}",
-  "state.callSentence.tool.check_balance": "查余额"
+  "state.callSentence.tool.check_balance": "查余额",
+  "state.callSentence.tool.check_health": "体检一下",
+  "state.callSentence.tool.show_on_map": "画在地图上",
+  "state.callSentence.tool.map_search_places": "查地点",
+  "state.callSentence.tool.map_route": "查路线",
+  "state.callSentence.tool.map_geocode": "查地址在哪",
+  "state.callSentence.tool.map_reverse_geocode": "查某处的地址",
+  "state.callSentence.tool.map_my_places": "看常去的地方"
 }
