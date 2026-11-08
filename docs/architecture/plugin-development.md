@@ -453,6 +453,8 @@ export const notesWebPlugin: WebPluginDefinition = {
 - **规矩**：`ownBasemapOnly` 的（高德、谷歌）查来的只画在它自己的底图上；用户自己的足迹一律 OpenStreetMap，不加载商业地图的脚本（地图页管，插件不用管）。
 - **用量**（`usage`）：每月离免费量多远（照 432 的高德用量：八成注意、到了坏了），地图插件替它在体检的"地图"那一块登记一项"<编号>-usage"。
 - **测**：`packages/daemon/test/helpers/fake-map-provider.ts` 是一个只给测试的假"第三家"，`packages/daemon/test/map/providers.test.ts`（假内核：接进来、跟着地图走、停用退回）、`packages/daemon/test/main/map-providers.test.ts`（主切面）、`packages/web/test/plugins/map-providers.test.ts`（网页那一半）照着写。
+- **页面报的事**（`basemapEvent`，可选）：地图页建了一次这家的底图（按"一次地图加载"计费的据此数用量）、这家拒了浏览器用的 Key，经 `POST /api/map/basemap` 转给它；要快、不联网。网页那一半的引擎建好以后又不能用了（比如谷歌加载上以后才说 Key 不对）调 `MapEngineOptions.onFailed(原因)`，地图页当成加载失败（退回 OpenStreetMap、切换里标"连不上"）。
+- **真的例子**：谷歌地图插件（446，ADR-0057）——守护进程 `packages/daemon/src/google-maps/`（`service.ts` 登记的那一家、`keys.ts` 两个 Key、`lookup.ts` 查询、`usage.ts` 按计费项数用量），网页 `packages/web/src/plugins/google-maps/`（`basemap.ts` 插槽那一条、`loader.ts` 外站脚本、`google-engine.ts` 引擎）；测试 `packages/daemon/test/google-maps/`（本机的假谷歌 `test/helpers/fake-google-maps.ts`）、`packages/web/test/plugins/google-maps.test.ts`。
 
 ## 7. 数据契约
 
