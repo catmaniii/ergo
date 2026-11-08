@@ -328,6 +328,15 @@ async function dotOffset(page: Page) {
   const canvas = (await page.locator(".map-canvas").boundingBox())!;
   return { dx: dot.x + dot.width / 2 - (canvas.x + canvas.width / 2), dy: dot.y + dot.height / 2 - (canvas.y + canvas.height / 2), x: dot.x };
 }
+/** 量一个元素（没有是 undefined） */
+const boxOf = async (page: Page, selector: string) => (await page.locator(selector).first().boundingBox()) ?? undefined;
+/** 地图页的标题栏一行（444）：标题栏里的东西都在右边以内、不比标题栏高 */
+async function titleBarOneLine(page: Page, width: number) {
+  const bar = (await boxOf(page, ".map-page > .topbar"))!;
+  const inside = (await page.evaluate(`[...document.querySelectorAll(".map-page > .topbar *")].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0).map((r) => [r.right, r.bottom])`)) as Array<[number, number]>;
+  expect(Math.max(...inside.map(([r]) => r))).toBeLessThanOrEqual(width);
+  expect(Math.max(...inside.map(([, b]) => b))).toBeLessThanOrEqual(bar.y + bar.height + 1);
+}
 const WEST_LAKE = { latitude: 30.2604, longitude: 120.1433, accuracy: 40 };
 const MARINA_BAY = { latitude: 1.2847, longitude: 103.8591, accuracy: 30 };
 
@@ -1044,15 +1053,6 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
   // 点一下打字、发出去带地图上下文（会话里写"在地图上用悬浮按钮打字"）；气泡里"展开到右边"；窄的时候聊天窗整屏盖住，宽的时候挤压地图、
   // 分隔条能拖、宽度和开合记在这台设备上；左边这一天的列表能收起、关掉（也记着），手机上的卡是能拖低、能关的抽屉；"足迹"默认关着；
   // 标题栏一行。一个请求都不往外发
-  /** 量一个元素（没有是 undefined） */
-  const boxOf = async (page: Page, selector: string) => (await page.locator(selector).first().boundingBox()) ?? undefined;
-  /** 标题栏一行：标题栏里的东西都在右边以内、不比标题栏高 */
-  async function titleBarOneLine(page: Page, width: number) {
-    const bar = (await boxOf(page, ".map-page > .topbar"))!;
-    const inside = (await page.evaluate(`[...document.querySelectorAll(".map-page > .topbar *")].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0).map((r) => [r.right, r.bottom])`)) as Array<[number, number]>;
-    expect(Math.max(...inside.map(([r]) => r))).toBeLessThanOrEqual(width);
-    expect(Math.max(...inside.map(([, b]) => b))).toBeLessThanOrEqual(bar.y + bar.height + 1);
-  }
 
   test("地图页的二狗手机宽：足迹默认关着（高德）、标题栏一行；右下角二狗按钮在定位钮下面，点了打字发出去带地图上下文；展开到右边整屏盖住，收起回到地图", async () => {
     const { context, page, errors, outside } = await openMap({ width: 390, height: 844 });
