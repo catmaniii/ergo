@@ -79,7 +79,10 @@ export function parseNetstat(stdout) {
   return { pids, binds, suspect, listeners };
 }
 
-/** Get-NetTCPConnection 的行 → 端口 → 监听者。地址按 netstat 的写法，IPv6 加方括号。 */
+/**
+ * Get-NetTCPConnection 的行 → 端口 → 监听者。地址按 netstat 的写法，IPv6 加方括号。
+ * start 是查询当时这个 PID 的启动时间（Start 列，和 allProcesses 的 start 同一个写法），没给就是 null。
+ */
 export function listenersFromCim(rows) {
   const map = new Map();
   for (const r of rows || []) {
@@ -88,8 +91,9 @@ export function listenersFromCim(rows) {
     if (!Number.isInteger(port) || !Number.isInteger(pid) || pid === 0) continue;
     const a = String(r.LocalAddress ?? '');
     const addr = a.includes(':') ? `[${a}]` : a;
+    const start = r.Start == null ? null : String(r.Start);
     if (!map.has(port)) map.set(port, []);
-    if (!map.get(port).some((x) => x.pid === pid && x.addr === addr)) map.get(port).push({ pid, addr });
+    if (!map.get(port).some((x) => x.pid === pid && x.addr === addr)) map.get(port).push({ pid, addr, start });
   }
   return map;
 }
@@ -101,12 +105,24 @@ export function listenersFromCim(rows) {
  * 调用方在后台定时跑（probe.mjs 的 createCimCache）。查不了返回 null（和「查到了、一个都没有」的空 Map 分开），调用方留着上一次的结果、过期后退回别的线索。
  */
 export async function listenersViaCim(ports) {
-  const wanted = new Set(ports);
+  const wanted = new Set([...ports].filter((p) => Number.isInteger(p) && p > 0 && p < 65536));
   if (!wanted.size) return new Map();
   try {
     // 全查一遍再自己筛，不用 -LocalPort：列表里只要有一个端口没连接，PowerShell 就以失败退出（-ErrorAction 管不了退出码），
     // 整个结果都丢了——而托管的服务总有停着的。全查和按端口查一样慢（慢的是查询本身）。
-    const rows = await psJson("Get-NetTCPConnection -ErrorAction SilentlyContinue | Where-Object { $_.RemotePort -eq 0 -and $_.State -ne 'Bound' } | Select-Object LocalAddress,LocalPort,OwningProcess", { timeout: 45000 });
+    // 同一个 PowerShell 里顺手记下每个 PID 当时的启动时间（Win32_Process，和 allProcesses 同一个写法，几十毫秒）：
+    // 结果要在缓存里放几分钟，探活拿它核「还是不是查到的那个进程」（probe.mjs 的 validRows）。到第一次用时才记，
+    // 中间 PID 被别的进程复用了就会被当成监听者认进账本，停机时还会被强杀。查的时候进程已经没了的行直接丢掉。
+    const rows = await psJson(
+      `$w=@(${[...wanted].join(',')}); ` +
+      `$r=@(Get-NetTCPConnection -ErrorAction SilentlyContinue | Where-Object { $_.RemotePort -eq 0 -and $_.State -ne 'Bound' -and $_.OwningProcess -gt 0 -and $w -contains [int]$_.LocalPort }); ` +
+      `$ids=@($r | ForEach-Object { [int]$_.OwningProcess } | Sort-Object -Unique); $st=@{}; ` +
+      `if ($ids.Count) { Get-CimInstance Win32_Process -Filter (($ids | ForEach-Object { "ProcessId=$_" }) -join ' or ') -ErrorAction SilentlyContinue | ` +
+      `ForEach-Object { $st[[int]$_.ProcessId] = $(if ($_.CreationDate) { $_.CreationDate.ToString('o') } else { '' }) } }; ` +
+      `$r | Where-Object { $st.ContainsKey([int]$_.OwningProcess) } | ` +
+      `ForEach-Object { @{ LocalAddress=[string]$_.LocalAddress; LocalPort=[int]$_.LocalPort; OwningProcess=[int]$_.OwningProcess; Start=$st[[int]$_.OwningProcess] } }`,
+      { timeout: 45000 },
+    );
     return listenersFromCim(rows.filter((r) => wanted.has(Number(r.LocalPort))));
   } catch { return null; }
 }

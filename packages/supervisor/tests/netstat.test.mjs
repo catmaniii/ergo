@@ -82,14 +82,16 @@ test('netstat 的 LISTENING 行留着「进程 + 地址」配对；Get-NetTCPCon
   const { listeners } = parseNetstat(['  TCP    0.0.0.0:8799    0.0.0.0:0    LISTENING    100', '  TCP    127.0.0.1:8799  0.0.0.0:0    LISTENING    200'].join('\r\n'));
   assert.deepEqual(listeners.get(8799), [{ pid: 100, addr: '0.0.0.0' }, { pid: 200, addr: '127.0.0.1' }]);
   const m = listenersFromCim([
-    { LocalAddress: '0.0.0.0', LocalPort: 8799, OwningProcess: 100 },
-    { LocalAddress: '127.0.0.1', LocalPort: 8799, OwningProcess: 200 },
-    { LocalAddress: '::', LocalPort: 3389, OwningProcess: 300 },
-    { LocalAddress: '::', LocalPort: 3389, OwningProcess: 300 },        // 重复行只算一次
-    { LocalAddress: '0.0.0.0', LocalPort: 135, OwningProcess: 0 },      // PID 0 不是进程
+    { LocalAddress: '0.0.0.0', LocalPort: 8799, OwningProcess: 100, Start: 's100' },
+    { LocalAddress: '127.0.0.1', LocalPort: 8799, OwningProcess: 200, Start: 's200' },
+    { LocalAddress: '::', LocalPort: 3389, OwningProcess: 300, Start: '' },      // 系统进程没有启动时间：空串照样带着
+    { LocalAddress: '::', LocalPort: 3389, OwningProcess: 300, Start: '' },      // 重复行只算一次
+    { LocalAddress: '0.0.0.0', LocalPort: 135, OwningProcess: 0 },               // PID 0 不是进程
+    { LocalAddress: '127.0.0.1', LocalPort: 5000, OwningProcess: 400 },          // 没给启动时间：null（validRows 不认）
   ]);
-  assert.deepEqual(m.get(8799), [{ pid: 100, addr: '0.0.0.0' }, { pid: 200, addr: '127.0.0.1' }]);
-  assert.deepEqual(m.get(3389), [{ pid: 300, addr: '[::]' }]);
+  assert.deepEqual(m.get(8799), [{ pid: 100, addr: '0.0.0.0', start: 's100' }, { pid: 200, addr: '127.0.0.1', start: 's200' }]);
+  assert.deepEqual(m.get(3389), [{ pid: 300, addr: '[::]', start: '' }]);
+  assert.deepEqual(m.get(5000), [{ pid: 400, addr: '127.0.0.1', start: null }]);
   assert.equal(m.has(135), false);
 });
 
@@ -113,12 +115,20 @@ test('端口被共享（2026-11-02：测试服务绑着 127.0.0.1:8799，drama �
   assert.equal(sharedPortNote(port, { listeners: new Map([[port, [{ pid: 1, addr: '0.0.0.0' }, { pid: 1, addr: '[::]' }]]]) }), '');
 });
 
-test('后台查到的行：进程死了、PID 被复用了都不算数', () => {
-  const procs = new Map([[1, { start: 'a' }], [2, { start: 'b' }]]);
-  const rows = [{ pid: 1, addr: '0.0.0.0' }, { pid: 2, addr: '127.0.0.1' }, { pid: 3, addr: '127.0.0.1' }];
-  assert.deepEqual(validRows(rows, procs).map((r) => r.pid), [1, 2]);          // 3 已经没了
+test('后台查到的行：进程死了、PID 被复用了都不算数；启动时间按查询当时记的核，不是第一次用时', () => {
+  const procs = new Map([[1, { start: 'a' }], [2, { start: 'b' }], [4, { start: 'reused-before-first-use' }], [5, { start: '' }], [6, { start: 'x' }]]);
+  const rows = [
+    { pid: 1, addr: '0.0.0.0', start: 'a' },
+    { pid: 2, addr: '127.0.0.1', start: 'b' },
+    { pid: 3, addr: '127.0.0.1', start: 'c' },
+    { pid: 4, addr: '127.0.0.1', start: 'd' },      // 查完、还没用上，PID 就被别的进程复用了：第一次用也不认
+    { pid: 5, addr: '[::]', start: '' },            // 系统进程两边都没有启动时间：照旧认
+    { pid: 6, addr: '127.0.0.1', start: null },     // 查询时没记下启动时间：核不了，不认
+  ];
+  assert.deepEqual(validRows(rows, procs).map((r) => r.pid), [1, 2, 5]);       // 3 已经没了
   procs.set(2, { start: 'reused' });
-  assert.deepEqual(validRows(rows, procs).map((r) => r.pid), [1]);             // 2 换人了
+  assert.deepEqual(validRows(rows, procs).map((r) => r.pid), [1, 5]);          // 2 换人了
+  assert.equal(rows[3].start, 'd', '不改缓存里的行');
   assert.deepEqual(validRows(null, procs), []);
 });
 

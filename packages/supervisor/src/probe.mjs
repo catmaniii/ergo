@@ -184,15 +184,15 @@ export function createCimCache({ query = listenersViaCim, now = Date.now, ttlMs 
 const cim = createCimCache();
 
 /**
- * 缓存的行还算不算数：进程还活着，启动时间也对得上（第一次用时记下，PID 被复用、进程被杀后这一行就不算了）。
+ * 缓存的行还算不算数：进程还活着，启动时间和查询当时记下的对得上（listenersViaCim 在同一个 PowerShell 里记的）。
+ * 原来是第一次用时才记启动时间：结果放在缓存里好几分钟，这中间 PID 被别的进程复用了，第一次用时记下的就是新进程的，
+ * 于是把它当成监听者认进账本（停机兜底强杀杀的就是它）。没记下启动时间的行核不了，不算。
  * 不看「它还在不在听这个端口」——这正是查不到的；所以这些行的权限才要受 mergeOwners 限制。
  */
 export function validRows(rows, procs) {
   return (rows || []).filter((r) => {
     const info = procs?.get(r.pid);
-    if (!info) return false;
-    r.start ??= info.start;
-    return r.start === info.start;
+    return !!info && r.start != null && r.start === info.start;
   });
 }
 
