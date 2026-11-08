@@ -50,6 +50,9 @@ describe("地图页的二狗：聊天窗、悬浮按钮里发的消息带地图�
     const td = await startTestDaemon({
       extraPlugins: [createMapPlugin({ osmUpstream: osm.url, amapHosts: amap.hosts, timeoutMs: 5000 })],
       secretary: [ECHO, ECHO, ECHO, ECHO, ECHO],
+      // 每轮回显整段上下文（上一轮的回显也在里面，一轮翻一倍），四轮下来贴近 faux 默认的 128000 窗口：调大，免得第四轮自动压缩、
+      // 压缩后再注入的上下文块排在这一句后面（lastInput 就取不到这一句了）
+      secretaryContextWindow: 1_000_000,
     });
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [SECRETARY]: 0 });
@@ -65,7 +68,9 @@ describe("地图页的二狗：聊天窗、悬浮按钮里发的消息带地图�
     expect(input).toContain("这附近有什么好吃的");
     expect(input).toContain("这句是用户在二狗的地图页上，右边的二狗聊天窗里说的");
     expect(input).toContain("纬度 30.25961、经度 120.14340（WGS-84），缩放 14.3 级");
-    expect(input).toContain("底图是高德地图");
+    // 底图写成地图服务的编号，叫秘书查询时把 map 写成它（查询跟着地图走，base/map-ui 的接线）
+    expect(input).toContain("地图上用的是高德地图（地图服务编号 amap）");
+    expect(input).toContain('把 map 写成"amap"');
     expect(input).toContain('"足迹"开着，看的是 2026-11-07 那一天的足迹，选中了「公司」');
     expect(input).toContain("不一定是他本人现在的位置");
     expect(input).toContain("show_on_map");
@@ -75,7 +80,8 @@ describe("地图页的二狗：聊天窗、悬浮按钮里发的消息带地图�
     await tell(frontend, "这条路要走多久", { lat: 1.2847, lon: 103.8591, zoom: 13, basemap: "osm", card: { id: "c-map-route", title: "从公司到西湖边" }, via: "button", spoken: true });
     input = lastInput(frontend);
     expect(input).toContain("右下角的二狗悬浮按钮上按住说的（语音认出来的字）");
-    expect(input).toContain("底图是OpenStreetMap");
+    expect(input).toContain("地图上用的是OpenStreetMap（地图服务编号 osm）");
+    expect(input).toContain('把 map 写成"osm"');
     expect(input).toContain("看的是聊天里的一张地图卡片「从公司到西湖边」（卡片 c-map-route）");
     expect(input).toContain("回话要短");
     expect(messagesOf(frontend).at(-2)?.map).toEqual({ lat: 1.2847, lon: 103.8591, zoom: 13, basemap: "osm", card: { id: "c-map-route", title: "从公司到西湖边" }, via: "button", spoken: true });

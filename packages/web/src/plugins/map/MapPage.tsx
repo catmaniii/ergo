@@ -245,11 +245,12 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
   const cardTitle = cardPayload ? mapCardTitle(cardPayload) : undefined;
   const cardNote = cardId === undefined ? undefined : cardState === undefined ? t("ui.plugins.map.card.missing") : cardData ? contentSummary(cardData) : undefined;
 
-  // 聊天窗、二狗按钮发的消息带的地图上下文：这一刻看的中心、缩放、底图（地图那块现在画的那一种）、看哪一天的足迹或哪张卡片；
-  // 不带"回到我现在的位置"定到的点
+  // 聊天窗、二狗按钮发的消息带的地图上下文：这一刻看的中心、缩放、底图、看哪一天的足迹或哪张卡片；不带"回到我现在的位置"定到的点。
+  // 底图是地图服务插槽（445）里那一家的编号——地图那块报给地图切换的"真画着的那一家"（basemapSwitch.status.rendered），
+  // 秘书照它把查询工具的 map 写成这一家（查询跟着地图走）；还没画上是 loading。它是 state，变了就重渲染、这个函数跟着换新的
   const mapContext = (): Omit<MapContext, "via" | "spoken"> => {
     const v = viewNow.current;
-    const basemap = stageRef.current?.querySelector(".map-canvas")?.getAttribute("data-basemap") || "loading";
+    const basemap = basemapSwitch.status?.rendered ?? "loading";
     const spot = fp.day?.spots.find((x) => x.key === fp.selected);
     return {
       lat: clamp(v.lat, -90, 90),

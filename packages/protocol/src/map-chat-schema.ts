@@ -2,12 +2,12 @@
 // （SendMessageParams.map，MapContext），守护进程原样记进消息（MessageEnvelope.map，MapMark），交给秘书时写明（地图插件的输入附注），
 // 会话里这条下面一行小字"在地图上说"（map-chat.ts 的 mapLabel）。秘书页签里发的不带。
 // 照浏览侧边栏的网页上下文（browsing.ts 的 BrowsingContext）的做法：只认秘书会话。
-// 带的是"地图上看的是什么"：现在看的中心（WGS-84）、缩放级别、底图（地图页现在画的那一种：高德、OpenStreetMap……）、
+// 带的是"地图上看的是什么"：现在看的中心（WGS-84）、缩放级别、底图（地图页现在画的那一家地图服务的编号：amap、osm……）、
 // "足迹"开着时看的是哪一天（选中了哪一处）、看的是聊天里哪张地图卡片；悬浮按钮上发的另带 via: "button"、按住说的 spoken。
 // **不带你现在的位置**："回到我现在的位置"定到的点只在页面里（442 的规矩），地图挪到那儿了也只是"看的中心"。
 import { type Static, Type } from "typebox";
 
-/** 底图的名字最长多少（amap、osm，以后接进来的地图服务也是一个短名字） */
+/** 底图的编号最长多少（amap、osm，以后接进来的地图服务也是一个短编号；插槽的编号写法见 map-lookup.ts 的 MAP_PROVIDER_ID） */
 export const MAP_BASEMAP_MAX = 32;
 /** 一处、卡片标题最多多少字 */
 export const MAP_CONTEXT_TEXT_MAX = 120;
@@ -33,7 +33,10 @@ export const MapContext = Type.Object({
   lon: Type.Number({ minimum: -180, maximum: 180 }),
   /** 缩放级别（3 看全国、17 看街道） */
   zoom: Type.Number({ minimum: 0, maximum: 22 }),
-  /** 底图：地图页现在画的那一种（amap、osm；还没画上是 loading） */
+  /**
+   * 底图：地图页现在真画着的那一家地图服务的编号（445 插槽里的 id：amap、osm，446 的 google……；还没画上是 loading）。
+   * 守护进程交给秘书时写明，秘书查地点、算路线时把工具的 map 写成它（查询跟着地图走）
+   */
   basemap: Type.String({ minLength: 1, maxLength: MAP_BASEMAP_MAX }),
   footprints: Type.Optional(MapContextFootprints),
   card: Type.Optional(MapContextCard),

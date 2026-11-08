@@ -1,15 +1,22 @@
 // 地图页的二狗（444）：地图页右边的聊天窗、右下角的二狗悬浮按钮里发的消息（MessageEnvelope.map）交给秘书时后面跟的那段——
 // 用户是在地图页上说的、地图现在看的是哪里（中心、缩放、底图）、看的是哪一天的足迹（选中了哪一处）、哪张地图卡片，
 // 这一轮怎么在地图上给他看（show_on_map）。地图插件经 agent 贡献的"输入附注"给（插件停用时没有这段）。
+// 底图写的是地图服务插槽（445）里那一家的编号（amap、osm、google……，地图页地图切换报上来的"真画着的那一家"）：这段写明
+// "地图上用的是 X（编号 id）"，让秘书查地点、算路线时把工具的 map 参数写成它——查询跟着地图走（lookup-tools.ts 的 map），
+// 查来的结果才画得到用户正看着的这张地图上。还没画上（loading）、不是编号的写法时不写 map，按自动挑。
 // 给模型看的话，照旧只用中文（多语言第 6 条）。
-import type { MapMark } from "@ergo/protocol";
+import { MAP_PROVIDER_ID, type MapMark } from "@ergo/protocol";
+import { MAP_TOOL } from "./lookup-tools.ts";
 import { SHOW_ON_MAP_TOOL } from "./show-on-map.ts";
 
-/** 底图的说法：认得的写名字，别的（以后接进来的地图服务）原样 */
+/** 地图页还没画上底图时报的（不是哪一家的编号） */
+const BASEMAP_LOADING = "loading";
+
+/** 底图的说法：认得的写名字（google 是 446 的谷歌地图插件），别的（以后接进来的地图服务）原样写编号 */
 function basemapText(basemap: string): string {
   if (basemap === "amap") return "高德地图"; // @i18n-ignore model
   if (basemap === "osm") return "OpenStreetMap";
-  if (basemap === "loading") return "还没画上"; // @i18n-ignore model
+  if (basemap === "google") return "谷歌地图"; // @i18n-ignore model
   return basemap;
 }
 
@@ -20,7 +27,11 @@ const coord = (n: number) => n.toFixed(5);
 /** 地图页上发的那条消息后面那段 */
 export function mapChatNote(mark: MapMark): string {
   const how = mark.via === "button" ? (mark.spoken ? "右下角的二狗悬浮按钮上按住说的（语音认出来的字）" : "右下角的二狗悬浮按钮上点它打的字") : "右边的二狗聊天窗里说的";
-  const view = `地图现在看的中心在纬度 ${coord(mark.lat)}、经度 ${coord(mark.lon)}（WGS-84），缩放 ${Math.round(mark.zoom * 10) / 10} 级（3 级看全国、11 级看一个城市、17 级看街道），底图是${basemapText(mark.basemap)}`;
+  const loading = mark.basemap === BASEMAP_LOADING;
+  /** 是地图服务的编号（工具的 map 认的写法）才叫秘书照它查；别的写法（不认得的）只照原样写底图 */
+  const id = !loading && MAP_PROVIDER_ID.test(mark.basemap) ? mark.basemap : undefined;
+  const basemap = loading ? "底图还没画上" : id ? `地图上用的是${basemapText(id)}（地图服务编号 ${id}）` : `底图是${mark.basemap}`;
+  const view = `地图现在看的中心在纬度 ${coord(mark.lat)}、经度 ${coord(mark.lon)}（WGS-84），缩放 ${Math.round(mark.zoom * 10) / 10} 级（3 级看全国、11 级看一个城市、17 级看街道），${basemap}`;
   const looking = mark.card
     ? `看的是聊天里的一张地图卡片${mark.card.title ? `「${mark.card.title}」` : ""}（卡片 ${mark.card.id}）`
     : mark.footprints
@@ -29,6 +40,11 @@ export function mapChatNote(mark: MapMark): string {
   const lines = [
     `（这句是用户在二狗的地图页上，${how}：${view}；${looking}。`,
     `用户说"这里""这一片""附近"多半指地图现在看的这一带，不一定是他本人现在的位置（他的位置不在这段里）。`,
+    ...(id === undefined
+      ? []
+      : [
+          `查地点、地址、算路线（${MAP_TOOL.search}、${MAP_TOOL.geocode}、${MAP_TOOL.reverse}、${MAP_TOOL.route}）时把 map 写成"${id}"：查询跟着他地图上用的这一家走，查来的结果才画得到这张地图上。`,
+        ]),
     `要在地图上给他看地点、路线、某一天的足迹，用 ${SHOW_ON_MAP_TOOL} 画成聊天里的地图卡片（他点开就在地图页上看）。`,
     ...(mark.via === "button" ? ["从悬浮按钮来的：用户在地图上按钮旁边的小气泡里看你的回话，回话要短，一两句话（30 字上下），不列清单。"] : []),
   ];
