@@ -1328,6 +1328,12 @@ export class FakeDaemonHttp implements DaemonHttp {
     return { ok: true, text: "把我周末在杭州拍的照片贴上来" };
   }
 
+  /** 地图右下角的二狗按钮上说的一段（444）：原型里没有识别，过 0.8 秒回一句假的 */
+  async talkVoice(): Promise<PageVoiceResult> {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    return { ok: true, text: "西湖边有什么好吃的" };
+  }
+
   /** 原型的候选缩略图：和原图一样是画出来的 SVG */
   pageFileThumbUrl(token: string): string {
     return this.pageFileUrl(token);

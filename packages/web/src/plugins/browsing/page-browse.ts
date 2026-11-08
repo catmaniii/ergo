@@ -504,9 +504,3 @@ export function pageBrowseSideWidth(): StageSideWidthSetting {
   sideWidth ??= stageSideWidthSettingIn(() => window.localStorage, BROWSE_SIDE_WIDTH);
   return sideWidth;
 }
-
-/** 这台设备记住的侧边栏宽度（还没按内容区夹回），改了跟着变 */
-export function useBrowseSideWidth(): number {
-  const s = pageBrowseSideWidth();
-  return useSyncExternalStore(s.subscribe, s.width);
-}

@@ -27,6 +27,8 @@
 //   没填高德的 Key、关了它的按需查、Key 不认时国外照样能查，国内也改用 OpenStreetMap（结果里提一句店名和小路可能不全）；
 // - 高德的"按需查"开关照样在数据源页上（usages.query.ownTools：内核不替它给工具），查国内的点之前经 KERNEL.dataSourceUsage 看它开没开；
 // - OpenStreetMap 的规矩：每秒最多 1 次、带能认出二狗的 User-Agent、结果只在内存里缓存一天（停用时扔掉）、不做输入联想。
+// 444 地图页的二狗：地图页右边的聊天窗、右下角的悬浮按钮里发的消息带地图上下文（MessageEnvelope.map），交给秘书时后面跟一段
+// 看的是哪里、哪一天的足迹、哪张卡片（chat-note.ts，经 ctx.agent.notes 的输入附注；插件停用时没有这段）。
 import path from "node:path";
 import { AMAP_SOURCE_ID, t } from "@ergo/protocol";
 import type { DataSource } from "../data-sources/api.ts";
@@ -36,6 +38,7 @@ import { KERNEL } from "../plugins/kernel.ts";
 import type { AmapHosts } from "./amap.ts";
 import { MAP, MAP_DAY, MAP_DRAWING, MAP_PLUGIN } from "./api.ts";
 import { mapCardType } from "./card.ts";
+import { mapChatNote } from "./chat-note.ts";
 import { createMapDay, createMapLatest } from "./day.ts";
 import { registerAmapDoctor } from "./doctor.ts";
 import { createMapDrawings } from "./drawing.ts";
@@ -165,6 +168,8 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
       // 插件停了、秘书还没按新的贡献重新装配的那一会儿再调：插件宿主替它回"地图插件没启用"，不出卡
       const tool = showOnMapTool({ day, lookups, cards: ctx.use(KERNEL.cards) });
       ctx.agent.tools.register({ to: { agents: ["secretary"] }, tools: () => [tool] });
+      // 地图页的二狗（444）：地图页右边的聊天窗、右下角的悬浮按钮里发的消息后面那段地图上下文（看的是哪里、哪一天的足迹、哪张卡片）
+      ctx.agent.notes.register({ to: { agents: ["secretary"] }, text: (message) => (message.speaker === "user" && message.map ? mapChatNote(message.map) : undefined) });
       // 停用时：排队等着取的瓦片不取了
       ctx.lifecycle({ stop: () => service.stop() });
     },

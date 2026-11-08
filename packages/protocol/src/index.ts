@@ -46,6 +46,8 @@
 // - map-card.ts / map-card-schema.ts：聊天里的地图卡片（431：卡片类型 map 的负载、点开去地图页的哪里）和查地点、算路线查到的能画的那一份
 //   （GET /api/map/drawing?lookup=）的 schema；map-lookup.ts：查地点、算路线（432、433）查到的能画的那一份（来源高德或 OpenStreetMap）、
 //   设置里高德那一块的用量。
+// - map-chat.ts / map-chat-schema.ts：地图页的二狗（444）——右边的聊天窗、右下角的悬浮按钮里发的消息带的地图上下文
+//   （中心、缩放、底图、看哪一天的足迹、看哪张地图卡片），记在消息上的样子和会话里的小字。
 // - assistant-name.ts / assistant-name-schema.ts：个人助理的名字（起名的规则、守护进程生成的话里的名字占位，不引用 TypeBox）
 //   和名字事件、配置文件、设置接口的 schema。
 // - personal-files.ts / personal-files-schema.ts：个人档案——本人和重要的人各一份；有哪些字段、叫什么、哪些算号码
@@ -185,6 +187,8 @@ export * from "./map-day-schema.ts";
 export * from "./map-card.ts";
 export * from "./map-card-schema.ts";
 export * from "./map-lookup.ts";
+export * from "./map-chat.ts";
+export * from "./map-chat-schema.ts";
 export * from "./assistant-name.ts";
 export * from "./assistant-name-schema.ts";
 export * from "./user-name.ts";

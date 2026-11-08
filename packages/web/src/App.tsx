@@ -34,6 +34,7 @@ import { type Navigate, navItemOf, type Route, toHash, useRoute } from "./app/ro
 import { StoreProvider, useStore } from "./app/store.tsx";
 import { useDaemonLocale, useLocale } from "./app/locale.ts";
 import { useSecretaryAlerts } from "./app/secretary-unread.ts";
+import { useSecretaryWatchedElsewhere } from "./app/secretary-watching.ts";
 import { InboxPage } from "./pages/InboxPage.tsx";
 import { MorePage } from "./pages/MorePage.tsx";
 import { PairingApprove, PairingWait } from "./pages/PairingPages.tsx";
@@ -345,8 +346,9 @@ function Shell({ width }: { width: number }) {
     }
     return fn;
   };
-  // 秘书说完一轮、打开时有没看过的：不在看秘书会话时在顶上提醒；"浏览"右边的侧边栏开着时也算在看
-  useSecretaryAlerts(shown.tab === "secretary" || watching[shown.tab] === true);
+  // 秘书说完一轮、打开时有没看过的：不在看秘书会话时在顶上提醒；"浏览"右边的侧边栏、地图页右边的聊天窗开着时也算在看
+  const watchedElsewhere = useSecretaryWatchedElsewhere();
+  useSecretaryAlerts(shown.tab === "secretary" || watching[shown.tab] === true || watchedElsewhere);
   const [detailHost, setDetailHost] = useState<HTMLElement | null>(null);
 
   // 用着用着凭证失效了（外网端口上被吊销、过期）：回到配对等待页

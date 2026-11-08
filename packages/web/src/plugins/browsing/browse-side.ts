@@ -44,7 +44,7 @@ import {
 import type { DeviceStorage } from "../../app/device-storage.ts";
 import type { Appearance } from "../../app/theme.ts";
 import { BLANK_BROWSER, type BrowserState, type DeliverTarget, type NativePageControl, type SideAction } from "../../app/native-browser.ts";
-import type { SideWidthSpec } from "../../app/stage-side-width.ts";
+import { chatSideWidthSpec, clampChatSideWidth, type SideWidthSpec } from "../../app/stage-side-width.ts";
 import type { PageStage } from "./page-stage.ts";
 
 /** 记在 localStorage 里的键：展开着时是 "open"，收起不留记号 */
@@ -70,14 +70,17 @@ export interface FrameRect {
 
 // ───────────────────────── 宽屏挤压、拖动调宽 ─────────────────────────
 
-/** 宽屏上侧边栏的宽度初值（定的 400，380–420 之间）；拖过的照这台设备记住的 */
-export const SIDE_WIDTH = 400;
-
-/** 侧边栏最窄（侧边栏里是一整个会话，再窄输入框那一行的按钮挤不下；内容区窄时的下限也是它） */
-export const SIDE_WIDTH_MIN = 320;
-
-/** 侧边栏最宽占内容区的几成（照"详情"阶段栏的最宽外框宽的 60%，浏览器至少留 40%） */
-const SIDE_WIDTH_SHARE = 0.6;
+/**
+ * 宽屏上侧边栏的宽度规矩（初值 400、最窄 320、最宽占内容区六成、记住的怎么认）：和地图页右边的聊天窗共用，在 app/stage-side-width.ts
+ * （chatSideWidth*）；这里照旧用原来的名字转出
+ */
+export {
+  CHAT_SIDE_WIDTH as SIDE_WIDTH,
+  CHAT_SIDE_WIDTH_MIN as SIDE_WIDTH_MIN,
+  chatSideWidthOf as browseSideWidthOf,
+  chatSideWidthRange as browseSideWidthRange,
+  dragChatSideWidth as dragBrowseSideWidth,
+} from "../../app/stage-side-width.ts";
 
 /**
  * 浏览器和侧边栏中间那条分隔条多宽：照"详情"阶段栏分隔条的命中区（.splitter 的 14）。那边的分隔条左右各压进栏里 5，这里两边是原生 Web
@@ -85,36 +88,8 @@ const SIDE_WIDTH_SHARE = 0.6;
  */
 export const SPLIT_WIDTH = 14;
 
-/**
- * 侧边栏能拖到的范围（照"详情"阶段栏 dragStageSideWidth 的口径）：最窄 320，最宽内容区宽的 60%；内容区窄得 60% 不到 320 时就是 320。
- * 宽屏（窗口 ≥ 600）的内容区减去左边的导航还有 500 多，侧边栏 320 时浏览器也还有 180 以上
- */
-export function browseSideWidthRange(hostWidth: number): { min: number; max: number } {
-  return { min: SIDE_WIDTH_MIN, max: Math.max(SIDE_WIDTH_MIN, Math.round(hostWidth * SIDE_WIDTH_SHARE)) };
-}
-
-/** 夹回范围里（记住的宽度、拖到的宽度都经它；转屏、窗口变化时照新的内容区夹） */
-function clampSideWidth(width: number, hostWidth: number): number {
-  const { min, max } = browseSideWidthRange(hostWidth);
-  return Math.round(Math.min(max, Math.max(min, width)));
-}
-
-/** 拖分隔条：dx 是这一下往右挪了多少（侧边栏在右边：往左拖变宽、往右拖变窄），夹在范围里 */
-export function dragBrowseSideWidth(width: number, dx: number, hostWidth: number): number {
-  return clampSideWidth(width - dx, hostWidth);
-}
-
-/**
- * 这台设备记住的宽度怎么认：认不出、比最窄还窄的按初值。照阶段栏（stageSideWidthOf）不按现在的内容区裁——转屏、窗口变窄时摆的时候夹回，
- * 转回来还是原来拖的宽度
- */
-export function browseSideWidthOf(raw: string | null): number {
-  const w = raw === null ? Number.NaN : Number(raw);
-  return Number.isFinite(w) && w >= SIDE_WIDTH_MIN ? w : SIDE_WIDTH;
-}
-
-/** 这台设备记住的宽屏浏览侧边栏宽度记在哪个键、初值多少（从 app/stage-side-width.ts 挪过来，写法照它） */
-export const BROWSE_SIDE_WIDTH: SideWidthSpec = { key: "ergo-browse-side-width", initial: SIDE_WIDTH, parse: browseSideWidthOf };
+/** 这台设备记住的宽屏浏览侧边栏宽度记在哪个键（初值、怎么认和地图的聊天窗共用，写法照 app/stage-side-width.ts） */
+export const BROWSE_SIDE_WIDTH: SideWidthSpec = chatSideWidthSpec("ergo-browse-side-width");
 
 /** 浏览器、侧边栏、分隔条摆在哪（浏览器经 browserLayout、侧边栏经 browserSide 报给 App，分隔条二狗的网页自己画） */
 export interface BrowseFrames {
@@ -144,7 +119,7 @@ export function browseFrames(
     const rect: FrameRect = { x: 0, y: 0, width: Math.round(viewport.width), height: Math.round(viewport.height) };
     return { browser: box, side: { ...rect, visible: at.open && at.shown && rect.width > 0 && rect.height > 0 }, cover: true };
   }
-  const width = clampSideWidth(at.width, box.width);
+  const width = clampChatSideWidth(at.width, box.width);
   const side: FrameRect = { x: box.x + box.width - width, y: box.y, width, height: box.height };
   const visible = at.open && at.shown && side.width > 0 && side.height > 0;
   if (!visible || !at.settled) return { browser: box, side: { ...side, visible }, cover: false };

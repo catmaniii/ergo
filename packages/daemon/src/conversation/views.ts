@@ -44,14 +44,15 @@ export const conversationMessagesView: DerivedView = {
         relayed_by TEXT,
         relay_of TEXT,
         sent_from TEXT,
-        browsing TEXT
+        browsing TEXT,
+        map TEXT
       );
       CREATE INDEX IF NOT EXISTS conversation_messages_by_conversation ON conversation_messages (conversation, global_seq);
     `);
     // 之前建的表少几列就补上：relayed_by（以前没有秘书转达的消息）、relay_of、sent_from（以前没记）、
-    // browsing（以前没有浏览侧边栏）
+    // browsing（以前没有浏览侧边栏）、map（以前没有地图页的二狗，444）
     const columns = db.all<{ name: string }>("PRAGMA table_info(conversation_messages)").map((c) => c.name);
-    for (const column of ["relayed_by", "relay_of", "sent_from", "browsing"]) if (!columns.includes(column)) db.exec(`ALTER TABLE conversation_messages ADD COLUMN ${column} TEXT`);
+    for (const column of ["relayed_by", "relay_of", "sent_from", "browsing", "map"]) if (!columns.includes(column)) db.exec(`ALTER TABLE conversation_messages ADD COLUMN ${column} TEXT`);
   },
   clear: (db) => db.exec("DELETE FROM conversation_messages"),
   apply(db, event) {
@@ -59,7 +60,7 @@ export const conversationMessagesView: DerivedView = {
     if (!message) return;
     const { sentFrom } = event.payload as MessageEventPayload;
     db.run(
-      "INSERT INTO conversation_messages (message_id, conversation, speaker, time, parts, global_seq, relayed_by, relay_of, sent_from, browsing) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO conversation_messages (message_id, conversation, speaker, time, parts, global_seq, relayed_by, relay_of, sent_from, browsing, map) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       message.id,
       message.conversation,
       message.speaker,
@@ -70,6 +71,7 @@ export const conversationMessagesView: DerivedView = {
       message.relayOf ?? null,
       sentFrom ? JSON.stringify(sentFrom) : null,
       message.browsing ? JSON.stringify(message.browsing) : null,
+      message.map ? JSON.stringify(message.map) : null,
     );
   },
 };
@@ -157,9 +159,10 @@ interface MessageRow {
   relayed_by: MessageEnvelope["relayedBy"] | null;
   relay_of: string | null;
   browsing: string | null;
+  map: string | null;
 }
 
-const MESSAGE_COLUMNS = "message_id, conversation, speaker, time, parts, relayed_by, relay_of, browsing";
+const MESSAGE_COLUMNS = "message_id, conversation, speaker, time, parts, relayed_by, relay_of, browsing, map";
 
 function toMessage(row: MessageRow): MessageEnvelope {
   return {
@@ -171,6 +174,7 @@ function toMessage(row: MessageRow): MessageEnvelope {
     ...(row.relayed_by ? { relayedBy: row.relayed_by } : {}),
     ...(row.relay_of ? { relayOf: row.relay_of } : {}),
     ...(row.browsing ? { browsing: JSON.parse(row.browsing) as NonNullable<MessageEnvelope["browsing"]> } : {}),
+    ...(row.map ? { map: JSON.parse(row.map) as NonNullable<MessageEnvelope["map"]> } : {}),
   };
 }
 

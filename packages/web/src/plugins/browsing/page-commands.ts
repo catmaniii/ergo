@@ -24,7 +24,7 @@
 import { PAGE_CORNER_ID, type PageBridgeEvent, type PageBubbleAction, type PageInfo } from "../../page-bridge/protocol.ts";
 import { type BrowsingContext, type ButtonTurn, PAGE_COMMAND_TEXT_MAX, type PageField, type PageVoiceResult, type PickedElement, pageUrlForModel, t } from "../../state/index.ts";
 import type { ChooserRequest, NativeBrowserEvent, NativePageControl } from "../../app/native-browser.ts";
-import { isRecordingCancelled, micErrorOf, type VoiceCaptureBackend } from "../../app/voice-recorder.ts";
+import { type BusyNote, LEVEL_MS, LEVELS_KEPT, LISTEN_MAX_MS, type PageTake, type PageVoice, PRESS_CAPTURE_MS, REPLY_HIDE_MS } from "../../app/talk-button.ts";
 
 /** 指令作用于谁：页面信息和框的列表，悬浮按钮所在的框（带着框里的内容），或拦下的选文件对话框 */
 export interface CommandTarget {
@@ -39,8 +39,8 @@ export interface CommandTarget {
   readonly corner?: true;
 }
 
-/** 在办的那一句走到哪了：hearing 在认说了什么、thinking 秘书在办、queued 秘书正忙，排在后面 */
-export type BusyNote = "hearing" | "thinking" | "queued";
+/** 在办的那一句走到哪了（定义挪到 app/talk-button.ts，和地图的二狗按钮共用） */
+export type { BusyNote } from "../../app/talk-button.ts";
 
 /** 面板的样子 */
 export type PagePanel =
@@ -54,22 +54,8 @@ export type PagePanel =
 
 export const IDLE_PANEL: PagePanel = { kind: "idle" };
 
-/** 录的一段：音频的 base64 和类型；整段是静音、没录下来是 undefined（reason 是给人看的话） */
-export type PageTake = { ok: true; base64: string; mime: string } | { ok: false; reason: string };
-
-/** 录音（App 的原生录音器；page-browse.ts 接上） */
-export interface PageVoice {
-  /** 现在的音量（0–1；不在录是 0） */
-  level(): number;
-  /** 备好录音器（不录）；userAction：按下引起的（被拒过权限时 App 再问一次）。备不好不抛错，start 时再说 */
-  prepare(userAction: boolean): void;
-  /** 开始录（等备好）；录不了抛错（message 是给人看的话） */
-  start(): Promise<void>;
-  stop(): Promise<PageTake>;
-  cancel(): void;
-  /** 放掉录音器 */
-  release(): void;
-}
+/** 录音（App 的原生录音器；page-browse.ts 接上）：定义挪到 app/talk-button.ts，和地图的二狗按钮共用 */
+export type { PageTake, PageVoice } from "../../app/talk-button.ts";
 
 /** 发进秘书的主会话（页面上的 React 层接上 store 后给：store.sendMessage），回这次发送请求的幂等键 */
 export interface PageCommandsLink {
@@ -89,20 +75,10 @@ export interface PageCommandsDeps {
   capture?(on: boolean): void;
 }
 
-/** 成了的回话过多久收起（毫秒）；没成的不收 */
-export const REPLY_HIDE_MS = 6000;
-/** 录着的时候多久取一次音量（毫秒）；留最近几个（气泡里的波形用得上的） */
-export const LEVEL_MS = 80;
-export const LEVELS_KEPT = 40;
+/** 几个时长（回话多久收起、多久取一次音量、最长录多久、按下了多久没开始录算说完）：挪到 app/talk-button.ts，和地图的二狗按钮共用 */
+export { LEVEL_MS, LEVELS_KEPT, LISTEN_MAX_MS, PRESS_CAPTURE_MS, REPLY_HIDE_MS } from "../../app/talk-button.ts";
 /** 悬浮按钮收起后多久放掉录音器（毫秒）：焦点在框之间换来换去时不反复备 */
 const RELEASE_AFTER_MS = 20_000;
-/** 最长录多久（毫秒）：到了自己发，和语音消息一样 60 秒 */
-export const LISTEN_MAX_MS = 60_000;
-/**
- * 按下了多久还没开始录、也没开打字框，就算说完（毫秒）：页面桥按够 350 毫秒报开始录、短按松手报开打字框，
- * 手势被系统收走时什么都不报；留足余量
- */
-export const PRESS_CAPTURE_MS = 2_000;
 
 /** 面板上说这个指令作用于谁："「标题」这个框""这个上传框""选文件"（右下角的按钮不作用于谁，气泡上写"对二狗说"，见 page-bubble.ts） */
 export function targetName(target: CommandTarget): string {
@@ -536,59 +512,5 @@ export class PageCommands {
   }
 }
 
-/** Blob 的 base64（分段转，长录音也不爆调用栈） */
-async function base64OfBlob(blob: Blob): Promise<string> {
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(binary);
-}
-
-/**
- * 录音接到"按住说话"的同一套后端上（App 里是原生录音器 NativeVoiceRecorder，浏览器里是 VoiceRecorder；create 第一次用到时才建）：
- * prepare 备好（不录）、start 等备好了开始、stop 交出这一段（整段是静音的不发）
- */
-export function pageVoiceOver(create: () => VoiceCaptureBackend, now: () => number): PageVoice {
-  let backend: VoiceCaptureBackend | undefined;
-  let opening: Promise<void> | undefined;
-  let failure: string | undefined;
-  const get = (): VoiceCaptureBackend => (backend ??= create());
-  const prepare = (userAction: boolean) => {
-    const b = get();
-    if (b.warm) return;
-    if (opening && !userAction) return;
-    failure = undefined;
-    const o = b.open(userAction ? "press" : "enter", { userAction }).catch((err: unknown) => {
-      if (!isRecordingCancelled(err)) failure = micErrorOf(err).text;
-    });
-    opening = o;
-    void o.finally(() => {
-      if (opening === o) opening = undefined;
-    });
-  };
-  return {
-    prepare,
-    async start() {
-      const b = get();
-      const pressedAt = now();
-      const prewarmed = b.warm;
-      if (!b.warm) {
-        if (!opening) prepare(true);
-        await opening;
-      }
-      if (!b.warm) throw new Error(failure ?? t("app.pageCommands.recorderNotReady"));
-      b.begin({ pressedAt, prewarmed });
-    },
-    async stop() {
-      const recording = await get().stop();
-      if (recording.silent) return { ok: false, reason: t("app.pageCommands.silent") };
-      return { ok: true, base64: await base64OfBlob(recording.blob), mime: recording.mime };
-    },
-    level: () => backend?.level() ?? 0,
-    cancel: () => backend?.cancel(),
-    release() {
-      opening = undefined;
-      backend?.close("leave");
-    },
-  };
-}
+/** 录音接到"按住说话"的同一套后端上：挪到 app/talk-button.ts，和地图的二狗按钮共用 */
+export { pageVoiceOver } from "../../app/talk-button.ts";

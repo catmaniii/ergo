@@ -95,6 +95,10 @@ describe("HTTP 接口的路径", () => {
     // 悬浮按钮上说的一段送识别（一次性页面助手的 /api/page-command 和候选的 /pick 不再有）
     expect(HTTP_PATHS.pageVoice).toBe("/api/page-command/voice");
     expect(parseHttpPath(pathOf(HTTP_PATHS.pageVoice))).toEqual({ route: "page_voice" });
+    // 二狗按钮上按住说的一段认成字（444，内核的，地图的二狗按钮用）
+    expect(HTTP_PATHS.talkVoice).toBe("/api/talk-voice");
+    expect(parseHttpPath(pathOf(HTTP_PATHS.talkVoice))).toEqual({ route: "talk_voice" });
+    expect(parseHttpPath("/api/talk-voice/x")).toBeUndefined();
     expect(parseHttpPath("/api/page-command")).toBeUndefined();
     // 候选的缩略图
     expect(HTTP_PATHS.pageFileThumb("abc")).toBe("/api/page-files/abc/thumb");

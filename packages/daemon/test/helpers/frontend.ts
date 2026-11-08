@@ -4,6 +4,7 @@
 import { randomUUID } from "node:crypto";
 import {
   type BrowsingContext,
+  type MapContext,
   type AccessInfo,
   type CalendarMonthView,
   type CardActionParams,
@@ -73,6 +74,8 @@ export interface SendOptions {
   taskId?: string;
   /** 浏览侧边栏里发的：当时的网页、选中的框、哪个浏览器 */
   browsing?: BrowsingContext;
+  /** 地图页的聊天窗、悬浮按钮上发的（444）：当时地图看的是哪里 */
+  map?: MapContext;
 }
 
 /** 一个模拟前端（一个浏览器窗口）。断开后可以 reconnect，收到的东西接着往后记。 */
@@ -140,7 +143,7 @@ export class TestFrontend {
     const idempotencyKey = options.idempotencyKey ?? randomUUID();
     const conversation = options.conversation ?? CHANNELS.secretary;
     this.recording.push({ kind: "send_message", conversation, idempotencyKey, parts, time: nowIso() });
-    const response = await this.request(METHODS.sendMessage, { conversation, parts, ...(options.taskId === undefined ? {} : { taskId: options.taskId }), ...(options.browsing === undefined ? {} : { browsing: options.browsing }) }, idempotencyKey);
+    const response = await this.request(METHODS.sendMessage, { conversation, parts, ...(options.taskId === undefined ? {} : { taskId: options.taskId }), ...(options.browsing === undefined ? {} : { browsing: options.browsing }), ...(options.map === undefined ? {} : { map: options.map }) }, idempotencyKey);
     return { ...response, idempotencyKey };
   }
 
