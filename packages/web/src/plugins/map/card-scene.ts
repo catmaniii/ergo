@@ -26,6 +26,8 @@ export interface MapCardContent {
   readonly amapOnly: boolean;
   /** 只能画在哪一家的底图上（地图服务的编号）；哪儿都能画的不写 */
   readonly ownBasemap?: string;
+  /** 查到的那一份自己的标题（查的时候起的；不经卡片直接看查到的一处时地图页标题栏写它，447）；别的不写 */
+  readonly title?: string;
 }
 
 /**
@@ -86,7 +88,7 @@ export function drawingContent(drawing: MapDrawing): MapCardContent {
   const found = drawing.kind === "route" ? undefined : namesLine(named);
   const text = [found, modes.length > 0 ? modes.join(t("pages.common.listSep")) : undefined, sourceLine(drawing.source)].filter((l): l is string => l !== undefined && l !== "");
   const own = ownBasemapOf(drawing.source);
-  return { scene: { marks, lines, circles: [] }, bounds, lines: text, footprints: false, amapOnly: own !== undefined, ...(own === undefined ? {} : { ownBasemap: own }) };
+  return { scene: { marks, lines, circles: [] }, bounds, lines: text, footprints: false, amapOnly: own !== undefined, ...(own === undefined ? {} : { ownBasemap: own }), title: drawing.title };
 }
 
 /** 地图卡片点开后地图页那一条写的：标题后面跟的那几行（不重复标题） */

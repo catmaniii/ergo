@@ -9,4 +9,5 @@ export const EN_MAP: Phrases = {
   "从公司到西湖边": "From the office to West Lake",
   "西湖边": "West Lake",
   "这次查到的地点和路线已经过期了（只在这台电脑上留一会儿、不存）：再问一次就有": "These places and routes have expired (they're only kept on this computer for a little while and never saved): ask again",
+  "地图上没找到「{}」：选得具体些（带上城市、区）再试": "Couldn't find “{}” on the map: select something more specific (with the city or district) and try again",
 };

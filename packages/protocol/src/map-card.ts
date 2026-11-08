@@ -7,12 +7,27 @@
 //     网页按编号现取（GET /api/map/drawing?lookup=…）；过期了、二狗重启过，卡上只剩标题和一句"过期了，再问一次"。
 // - 点开去哪：足迹卡去 #/more/map/<日期>（430 的地址，地图页看那一天）；别的去 #/more/map/card/<卡片编号>（mapCardPath），
 //   地图页从手里的卡片状态取出这张卡画。
+// - 不经卡片直接看查到的一处（447，"浏览"里网页上选中地址点"在地图上看"）：#/more/map/lookup/<查到的编号>（mapLookupPath），
+//   地图页照编号现取那一份画（和查到的卡片同一套：GET /api/map/drawing，高德查的只画在高德底图上）。
 import type { LatLon } from "./geo.ts";
 import { t } from "./i18n/runtime.ts";
 import type { MapCardPayload, MapCardShow } from "./map-card-schema.ts";
 
+/** 地图页的页面 id（#/more/map）：地图插件登记的页面、聊天里的地图卡片、"浏览"里网页上的地址（447，浏览插件不 import 地图插件）都用它 */
+export const MAP_PAGE_ID = "map";
+
 /** 地图页地址里"看一张地图卡片"那一段：#/more/map/card/<卡片编号> */
 export const MAP_CARD_ITEM = "card";
+
+/** 地图页地址里"看查到的一处"那一段（447）：#/more/map/lookup/<查到的编号> */
+export const MAP_LOOKUP_ITEM = "lookup";
+
+/**
+ * 查到的那一份的编号的写法（守护进程地图插件 lookup-results.ts 起的："<地图服务编号>-<种类><序号>"，种类 p 地点、r 路线、a 地址）：
+ * 网页只凭编号就知道是哪家查的（只能画在那家底图上）、查的是什么
+ */
+const LOOKUP_ID = /^([a-z][a-z0-9-]{0,19})-([pra])([0-9]{1,9})$/;
+const LOOKUP_KIND: Readonly<Record<string, MapDrawingKind>> = { p: "places", r: "route", a: "address" };
 
 /** 一张卡最多标几个点 */
 export const MAP_CARD_MARKS_MAX = 30;
@@ -44,6 +59,22 @@ export interface MapDrawing {
 /** 地图卡片点开去地图页的哪里（Route 的 item、sub）：足迹卡看那一天，别的看这张卡 */
 export function mapCardPath(cardId: string, show: MapCardShow): { item: string; sub?: string } {
   return show.kind === "day" ? { item: show.date } : { item: MAP_CARD_ITEM, sub: cardId };
+}
+
+/** 看查到的一处去地图页的哪里（Route 的 item、sub，447） */
+export function mapLookupPath(lookup: string): { item: string; sub: string } {
+  return { item: MAP_LOOKUP_ITEM, sub: lookup };
+}
+
+/**
+ * 地图页地址里的 item、sub 是不是"看查到的一处"：是的给出画它要的（和查到的卡片同形的 show：编号、种类、哪家查的）；
+ * 编号写法不对的不认
+ */
+export function parseMapLookupPath(item: string | undefined, sub: string | undefined): Extract<MapCardShow, { kind: "lookup" }> | undefined {
+  if (item !== MAP_LOOKUP_ITEM || sub === undefined) return undefined;
+  const m = LOOKUP_ID.exec(sub);
+  if (!m) return undefined;
+  return { kind: "lookup", lookup: sub, what: LOOKUP_KIND[m[2]!]!, source: m[1]! };
 }
 
 /** 地图页地址里的 item、sub 是不是"看一张地图卡片"：是的给卡片编号 */

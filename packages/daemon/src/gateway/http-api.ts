@@ -53,6 +53,7 @@ import {
   SetupMarkBodySchema,
   InterviewStartBody,
   LanguageBody,
+  MapFindBody,
   t,
   checkHttpBody,
   FOLDER_GRANT_USES_DEFAULT,
@@ -142,7 +143,7 @@ import type { UserNameService } from "../user-name/index.ts";
 import type { PersonalFilesService } from "../personal-files/index.ts";
 import type { ProjectOpsMcpApi, ServiceEventsApi } from "../projects/api.ts";
 import type { CalendarService } from "../calendar/api.ts";
-import type { MapDayService, MapDrawingService, MapService } from "../map/api.ts";
+import type { MapDayService, MapDrawingService, MapFindService, MapService } from "../map/api.ts";
 import { latestAttachment } from "../conversation/attachments-view.ts";
 import { historyPage, isConversationChannel } from "../conversation/history.ts";
 import { createTalkVoice } from "../conversation/talk-voice.ts";
@@ -272,6 +273,11 @@ export interface HttpApiOptions {
    * 地图插件没启用时抛"地图插件没启用"（400）；过期了、没有这个编号抛 not_found（404）
    */
   mapDrawing: MapDrawingService;
+  /**
+   * "在地图上看"（POST /api/map/find，447）：浏览里网页上选中的地址、地名直接查一处。是地图插件的服务，组合根现取，
+   * 地图插件没启用时抛"地图插件没启用"（400）；没查到、地图服务没查成也是 200（ok: false 和原因）
+   */
+  mapFind: MapFindService;
   /** token 账本：消耗页的汇总和粗估成本 */
   ledger: TokenLedger;
   /**
@@ -710,6 +716,15 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         return {
           GET(_req, res, url) {
             sendJson(res, 200, options.mapDrawing.drawing(url.searchParams.get(HTTP_QUERY.lookup) ?? ""));
+          },
+        };
+      case "map_find":
+        return {
+          // "在地图上看"（447）：网页上选中的地址、地名直接查一处；没查到也是 200（ok: false 和给人看的一句）
+          async POST(req, res) {
+            const body = checkHttpBody(MapFindBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badMapFind", { message: body.message }));
+            sendJson(res, 200, await options.mapFind.find(body.value.text));
           },
         };
       case "usage":

@@ -86,6 +86,7 @@ import {
   type WorkdayMonthView,
   type MapConfigView,
   type MapDrawing,
+  type MapFindResult,
   type UserNameResult,
   type UserNameView,
 } from "@ergo/protocol";
@@ -286,10 +287,11 @@ export const calendarApi = {
   month: (baseUrl: string, month: string) => requestJson<CalendarMonthView & HttpErrorBody>(baseUrl, HTTP_PATHS.calendarMonth(month)),
 };
 
-/** 地图页现在能用什么（429）；地图卡片按编号取查到的那一份（431） */
+/** 地图页现在能用什么（429）；地图卡片按编号取查到的那一份（431）；"在地图上看"直接查一处（447） */
 export const mapApi = {
   config: (baseUrl: string) => requestJson<MapConfigView & HttpErrorBody>(baseUrl, HTTP_PATHS.mapConfig),
   drawing: (baseUrl: string, lookup: string) => requestJson<MapDrawing & HttpErrorBody>(baseUrl, HTTP_PATHS.mapDrawing(lookup)),
+  find: (baseUrl: string, body: unknown) => requestJson<MapFindResult & HttpErrorBody>(baseUrl, HTTP_PATHS.mapFind, { method: "POST", body }),
 };
 
 /** 工具调用的完整参数和返回：按调用 id 取 */

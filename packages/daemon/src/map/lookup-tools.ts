@@ -22,6 +22,8 @@
 // - 跟着地图走（445）：查地点、地址、路线的四个工具多了可选的 map——用户在地图页上现在用的那家地图（地图的上下文里写着编号）。
 //   写了就先问它（它手动能用的区域也算它管）；它查不了（没开查询 Key）、管不了这几处时照"自动"挑，回答里说一句用了谁（chosenNote）。
 //   不写（语音、没开地图页，拿不到这台设备选的）按"自动"：和 445 以前一样。每次调用只取一次几家的先后，整个调用都按它。
+// - "在地图上看"（447，findPlace）：浏览里网页上选中的一段地址、地名不经秘书直接查一处（POST /api/map/find）——同一套先后、
+//   同一个参照点（手机最近的位置只用来挑先问谁，不发出去），先按名字搜地点、搜不到再当地址查，查到的第一处放进能画的那一份。
 import { distanceMeters, type LatLon, MAP_PROVIDER_ID, MAP_ROUTE_MODES, type MapLookupLine, type MapLookupMark, type MapRegion, type MapRouteMode, nowIso, t, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import { type LookupProvider, MapLookupError, type MapLookupFailure, type PlaceHit, type RouteAnswer, type TransitLeg, type TransitPlan } from "./lookup.ts";
@@ -407,6 +409,70 @@ const MAP_ARG_DESCRIPTION = "用户在地图页上现在用的那家地图的编
 /** map 参数的写法 */
 const mapArg = () => Type.Optional(Type.String({ minLength: 1, maxLength: 20, pattern: MAP_PROVIDER_ID.source, description: MAP_ARG_DESCRIPTION }));
 
+/** 手机最近交来的位置（2 小时以内的）：只在本机用来挑按名字找时先问谁，不发出去 */
+function phoneAnchorOf(deps: Pick<LookupToolDeps, "myPlaces" | "now">): Anchor | undefined {
+  const p = deps.myPlaces()?.latest();
+  if (!p || deps.now() - Date.parse(p.at) > HERE_STALE_MS) return undefined;
+  return { point: { lat: p.lat, lon: p.lon }, send: false };
+}
+
+/** 查到的一处的标题最长多少字（和地图卡片的标题一样） */
+const FOUND_TITLE_MAX = 60;
+
+/**
+ * "在地图上看"查一处的结果：查到了是编号（能画的那一份里的）、哪家查的、地点还是地址、标题（查的那段字）；
+ * 没查到时，最该问的那家没问成的带上是哪家、什么错（接口按它写给人看的一句），只是没找到的什么都不带
+ */
+export type PlaceFindOutcome =
+  | { readonly found: true; readonly lookup: string; readonly source: string; readonly kind: "places" | "address"; readonly title: string }
+  | { readonly found: false; readonly provider?: string; readonly failure?: MapLookupFailure; readonly detail?: string };
+
+/**
+ * "在地图上看"（447）：网页上选中的一段地址、地名直接查一处，不经秘书。照查地点的先后（"自动"；带汉字的有手机最近的位置时管它的先问，
+ * 不带汉字的国外那家先问），一家一家问：先按名字搜地点，搜不到再当地址做地理编码，都没有再问下一家；查到的第一处放进能画的那一份
+ * （内存里留一会儿，和查地点的同一份），交回编号。最该问的那家没问成（没 Key、超额、连不上）而别家也没找到时交回它的错
+ */
+export async function findPlace(deps: Pick<LookupToolDeps, "providers" | "myPlaces" | "results" | "now">, text: string, signal?: AbortSignal): Promise<PlaceFindOutcome> {
+  const raw = text.replace(/\s+/g, " ").trim();
+  const all = deps.providers();
+  if (raw === "" || all.length === 0) return { found: false };
+  // 手机最近的位置只给带汉字的用（同名的地方挑近的那家先问）；不带汉字的多半是国外的地址，按文字挑先问谁（国外的那家先）
+  const anchor = HAN.test(raw) ? phoneAnchorOf(deps) : undefined;
+  let order: LookupProvider[];
+  try {
+    order = nameOrder(all, raw, anchor);
+  } catch (err) {
+    if (err instanceof WhereProblem) return { found: false };
+    throw err;
+  }
+  /** 最该问的那家（排第一）没问成的原因 */
+  let firstProblem: ProviderProblem | undefined;
+  // 一家一家问：先搜地点、搜不到再当地址查，都没有再问下一家（国内的地址高德的地理编码比 OpenStreetMap 的搜索准）
+  for (const provider of order) {
+    try {
+      for (const kind of ["places", "address"] as const) {
+        const found = await findByName([provider], kind === "places" ? "search" : "geocode", { text: raw, city: undefined, limit: 1 }, anchor, signal);
+        const hit = found.hits[0];
+        if (!hit) continue;
+        const title = raw.length > FOUND_TITLE_MAX ? `${raw.slice(0, FOUND_TITLE_MAX - 1)}…` : raw;
+        const lookup = deps.results.put({
+          kind,
+          source: provider.id,
+          title,
+          at: nowIso(new Date(deps.now())),
+          marks: [{ id: "hit-1", lat: hit.lat, lon: hit.lon, label: hit.name, kind: "search" }],
+          lines: [],
+        });
+        return { found: true, lookup, source: provider.id, kind, title };
+      }
+    } catch (err) {
+      if (!(err instanceof ProviderProblem)) throw err;
+      if (provider === order[0]) firstProblem = err;
+    }
+  }
+  return firstProblem === undefined ? { found: false } : { found: false, provider: firstProblem.provider.id, failure: firstProblem.err.failure, detail: firstProblem.err.detail };
+}
+
 export function lookupTools(deps: LookupToolDeps): HostTool[] {
   /** 这一次调用问的几家（map 是地图上选的那一家；"auto" 当没写） */
   const providersFor = (map: string | undefined): readonly LookupProvider[] => deps.providers(map === undefined || map === "auto" ? undefined : map);
@@ -418,11 +484,7 @@ export function lookupTools(deps: LookupToolDeps): HostTool[] {
   };
 
   /** 手机最近交来的位置（2 小时以内的）：只在本机用来挑按名字找时先问谁，不发出去 */
-  const phoneAnchor = (): Anchor | undefined => {
-    const p = deps.myPlaces()?.latest();
-    if (!p || deps.now() - Date.parse(p.at) > HERE_STALE_MS) return undefined;
-    return { point: { lat: p.lat, lon: p.lon }, send: false };
-  };
+  const phoneAnchor = (): Anchor | undefined => phoneAnchorOf(deps);
 
   /** 不用问地图服务就知道在哪的：当前位置、坐标、起了名的常去的地方；要交给地图服务找的是 undefined；说的是家、公司却没起名的抛出 */
   const resolveLocal = (text: string): Where | undefined => {

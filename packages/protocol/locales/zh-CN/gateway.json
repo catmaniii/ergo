@@ -121,6 +121,7 @@
   "gateway.http.audioEmptyOrLarge": "录音是空的，或者太大",
   "gateway.http.badSpeech": "合成的参数不对：{message}",
   "gateway.http.badRecording": "录音的参数不对：{message}",
+  "gateway.http.badMapFind": "要在地图上看的字不对：{message}",
   "gateway.http.audioEmpty": "录音是空的",
   "gateway.http.audioTooLong": "录的这段太长了",
   "gateway.http.noPageVoice": "这个版本还没有悬浮按钮的语音",

@@ -57,6 +57,8 @@
 // 只在守护进程的内存里留一会儿（高德的协议不许存），过期了回 404。
 // 地图页的"回到我现在的位置"（442）：GET /api/map/latest 手机最近交来的一个位置点（时间、坐标、精度；没交来过、手机插件没启用时
 // 没有 point）——这台设备定不了位时退一步用它。只给这一个点，不给轨迹；不发给任何地图服务。
+// "在地图上看"（447）：POST /api/map/find {text} 浏览里网页上选中的地址、地名不经秘书直接查一处，查到的放进能画的那一份（同上，
+// 只在内存里），回编号；没查到、地图服务没查成也是 200（ok: false 和给人看的一句）。
 //
 // 消耗页：GET /api/usage?from=2026-10-01&to=2026-10-08 选定范围（含两头）按天、按 agent 的 token 汇总，
 // 秘书单列为系统开销，成本是用量乘配置里的单价（每次现读配置，粗估）。
@@ -296,6 +298,7 @@ const MAP_CONFIG = "config";
 const MAP_DAY = "day";
 const MAP_DRAWING = "drawing";
 const MAP_LATEST = "latest";
+const MAP_FIND = "find";
 const USAGE = "usage";
 /** 消耗页顶上的余额（440）：/api/usage/balance */
 const USAGE_BALANCE = "balance";
@@ -487,6 +490,8 @@ export const HTTP_PATHS = {
   mapDrawing: (lookup: string) => `${api(MAP, MAP_DRAWING)}${query({ [HTTP_QUERY.lookup]: lookup })}`,
   /** 地图页的"回到我现在的位置"：手机最近交来的一个位置点（GET，响应 MapLatestView；没交来过、手机插件没启用时没有 point，地图插件没启用 400） */
   mapLatest: api(MAP, MAP_LATEST),
+  /** "在地图上看"（447）：网页上选中的地址、地名直接查一处（POST MapFindBody，响应 MapFindResult；没查到也是 200，地图插件没启用 400） */
+  mapFind: api(MAP, MAP_FIND),
   /** 消耗页：from 到 to（YYYY-MM-DD，含两头）的用量汇总和粗估成本（GET，响应 UsageSummary） */
   usage: (range: { from: string; to: string }) => `${api(USAGE)}${query({ [HTTP_QUERY.from]: range.from, [HTTP_QUERY.to]: range.to })}`,
   /** 消耗页顶上的服务商余额（440，ProviderBalanceView）：GET 取（缓存还新就用缓存，不然现查），POST 马上重查（防连点） */
@@ -802,6 +807,7 @@ export type HttpRoute =
   | { route: "map_day" }
   | { route: "map_drawing" }
   | { route: "map_latest" }
+  | { route: "map_find" }
   | { route: "usage" }
   | { route: "usage_balance" }
   | { route: "reference_voices" }
@@ -950,6 +956,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === MAP && id === MAP_DAY && tail === undefined) return { route: "map_day" };
   if (head === MAP && id === MAP_DRAWING && tail === undefined) return { route: "map_drawing" };
   if (head === MAP && id === MAP_LATEST && tail === undefined) return { route: "map_latest" };
+  if (head === MAP && id === MAP_FIND && tail === undefined) return { route: "map_find" };
   if (head === USAGE && id === undefined) return { route: "usage" };
   if (head === USAGE && id === USAGE_BALANCE && tail === undefined) return { route: "usage_balance" };
   if (head === REFERENCE_VOICES) {

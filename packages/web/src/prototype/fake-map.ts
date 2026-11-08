@@ -3,9 +3,11 @@
 // - 两个地点：国内一处（杭州西湖）、新加坡一处（滨海湾），点了跳过去，底图跟着换；
 // - 占位底图（demoTileUrl）：编的街区格子，不是真的地图；两种底图颜色不同，一眼分得出是哪一种。
 // - 聊天里地图卡片的那条路线（431，demoMapDrawing）：高德查的、从公司到西湖边，编的。
+// - "在地图上看"（447，demoMapFind）：网页上选中的一段字，带汉字的当国内地址、"高德"查到西湖边，不带的当国外、OpenStreetMap 查到滨海湾；
+//   写着"找不到"、nowhere 的回没找到。
 // 只在演示页里用（地图页 import.meta.env.MODE === "demo" 的分支、FakeDaemonHttp）。英文在 en/fake-map.ts。
-import type { MapDrawing, MapProviderView } from "../state/index.ts";
-import { fakeText } from "./fake-content.ts";
+import type { MapDrawing, MapFindResult, MapProviderView } from "../state/index.ts";
+import { fakeFormat, fakeText } from "./fake-content.ts";
 
 /** 演示页里"填好了"的高德 Key（假的，安装版的产物里不该有它：DEMO_SENTINELS） */
 export const DEMO_AMAP_KEY = "demo-amap-key-not-real";
@@ -138,8 +140,25 @@ const DEMO_DRAWINGS: Readonly<Record<string, MapDrawing>> = {
   },
 };
 
-/** 查地点、算路线查到的那一份（FakeDaemonHttp.mapDrawing）：演示的只有 amap-r2，别的当作过期了 */
+/** "在地图上看"查到的（demoMapFind 放进来的，编号 amap-p… / osm-p…） */
+const FOUND: Map<string, MapDrawing> = new Map();
+let foundSeq = 0;
+
+/** "在地图上看"（447，FakeDaemonHttp.mapFind）：带汉字的当国内地址（"高德"查到西湖边），不带的当国外（OpenStreetMap 查到滨海湾）；写着"找不到"、nowhere 的回没找到 */
+export function demoMapFind(text: string): MapFindResult {
+  const said = text.replace(/\s+/g, " ").trim();
+  if (/找不到|nowhere/i.test(said)) return { ok: false, reason: fakeFormat("地图上没找到「{}」：选得具体些（带上城市、区）再试", said.slice(0, 40)) };
+  const mainland = /\p{Script=Han}/u.test(said);
+  const source = mainland ? "amap" : "osm";
+  foundSeq += 1;
+  const lookup = `${source}-p${foundSeq}`;
+  const at = mainland ? { lat: 30.2598, lon: 120.1452 } : { lat: 1.2834, lon: 103.8607 };
+  FOUND.set(lookup, { id: lookup, kind: "places", source, title: said, at: new Date().toISOString(), marks: [{ id: "hit-1", ...at, label: said, kind: "search" }], lines: [] });
+  return { ok: true, lookup, source, kind: "places", title: said };
+}
+
+/** 查地点、算路线查到的那一份（FakeDaemonHttp.mapDrawing）：演示的只有 amap-r2 和"在地图上看"查到的，别的当作过期了 */
 export function demoMapDrawing(lookup: string): Promise<MapDrawing> {
-  const drawing = DEMO_DRAWINGS[lookup];
+  const drawing = DEMO_DRAWINGS[lookup] ?? FOUND.get(lookup);
   return drawing ? Promise.resolve(drawing) : Promise.reject(new Error("这次查到的地点和路线已经过期了（只在这台电脑上留一会儿、不存）：再问一次就有"));
 }

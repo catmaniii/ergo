@@ -121,6 +121,7 @@
   "gateway.http.audioEmptyOrLarge": "The recording is empty or too large",
   "gateway.http.badSpeech": "Bad parameters for speech synthesis: {message}",
   "gateway.http.badRecording": "Bad recording parameters: {message}",
+  "gateway.http.badMapFind": "Bad text to show on the map: {message}",
   "gateway.http.audioEmpty": "The recording is empty",
   "gateway.http.audioTooLong": "The recording is too long",
   "gateway.http.noPageVoice": "This version doesn't have voice on the floating button yet",

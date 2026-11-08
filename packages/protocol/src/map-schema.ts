@@ -43,3 +43,24 @@ export const MapConfigView = Type.Object({
   providers: Type.Optional(Type.Array(MapProviderView)),
 });
 export type MapConfigView = Static<typeof MapConfigView>;
+
+/** "在地图上看"一次最多交多少字（网页上选中的地址、地名；多了截掉） */
+export const MAP_FIND_TEXT_MAX = 200;
+
+/**
+ * "在地图上看"（447，POST /api/map/find）：浏览里网页上选中的一段地址、地名，不经秘书直接查一处——照秘书查地点的先后
+ * （"自动"：国内有高德先高德、国外 OpenStreetMap），先按名字搜地点、搜不到再当地址查；查到的第一处像查地点一样只在内存里留一会儿，
+ * 交回编号，网页去地图页看它（#/more/map/lookup/<编号>）
+ */
+export const MapFindBody = Type.Object({
+  text: Type.String({ minLength: 1, maxLength: MAP_FIND_TEXT_MAX }),
+});
+export type MapFindBody = Static<typeof MapFindBody>;
+
+/**
+ * "在地图上看"的结果：查到了给编号（lookup）、哪家查的（source）、查到的是地点还是地址（kind）、标题（就是查的那段字）；
+ * 没查到、地图服务没查成都是 ok: false 和给人看的一句（不是出错：网页把这句显示在网页上那个小气泡里）
+ */
+export type MapFindResult =
+  | { readonly ok: true; readonly lookup: string; readonly source: string; readonly kind: "places" | "address"; readonly title: string }
+  | { readonly ok: false; readonly reason: string };

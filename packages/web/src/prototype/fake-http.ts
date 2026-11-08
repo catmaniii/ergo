@@ -78,6 +78,7 @@ import type {
   MapConfigView,
   MapDayView,
   MapDrawing,
+  MapFindResult,
   MapLatestView,
   DeleteMaterialsResult,
   FileTextResult,
@@ -185,7 +186,7 @@ import { fakeTakeoverSessions } from "./fake-takeover.ts";
 import { fakeAppFileText } from "./fake-app-files.ts";
 import { fakeMedia } from "./fake-media.ts";
 import { FAKE_MATERIAL_IMAGES, fakeMaterialConversations, fakeMaterialDetail, fakeMaterialsIn, fakeSaveWebPage } from "./fake-materials.ts";
-import { DEMO_AMAP_KEY, demoMapDrawing, demoMapProviders } from "./fake-map.ts";
+import { DEMO_AMAP_KEY, demoMapDrawing, demoMapFind, demoMapProviders } from "./fake-map.ts";
 import { demoMapDay, demoMapLatest } from "./fake-footprints.ts";
 import { fakeServiceThumbnail } from "./fake-operations.ts";
 import { fakeProjectStandard } from "./fake-standard.ts";
@@ -700,6 +701,12 @@ export class FakeDaemonHttp implements DaemonHttp {
   /** 地图卡片的那条路线：编的（高德查的、从公司到西湖边，见 prototype/fake-map.ts） */
   mapDrawing(lookup: string): Promise<MapDrawing> {
     return demoMapDrawing(lookup);
+  }
+
+  /** "在地图上看"（447）：编的（带汉字的"高德"查到西湖边，不带的 OpenStreetMap 查到滨海湾，见 prototype/fake-map.ts），过 0.4 秒回 */
+  async mapFind(text: string): Promise<MapFindResult> {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    return demoMapFind(text);
   }
 
   /** 手机最近交来的一个位置点：编的（12 分钟前、西湖边，见 prototype/fake-footprints.ts）；手机插件停用了（?demo-plugins-off=phone）没有 */

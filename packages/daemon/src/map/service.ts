@@ -8,7 +8,7 @@
 // 高德管大陆、优先级 100、查来的只画在它自己的底图上，底图要 Web 端 Key、查询要 Web 服务 Key 且按需查开着；OpenStreetMap 哪儿都管、
 // 优先级 0、不用 Key。给工具的几家、GET /api/map/config 的 providers、体检里各家的用量都从登记表现算；别的插件经 MAP_PROVIDERS 再登记。
 import fs from "node:fs";
-import { type AmapSourcePanel, type AmapUsageView, type MapConfigView, t } from "@ergo/protocol";
+import { type AmapSourcePanel, type AmapUsageView, type MapConfigView, type MapFindResult, t } from "@ergo/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { DataSourceLiveAnswer, DataSourceSecrets, DataSourceStatus } from "../data-sources/api.ts";
 import type { MapProvider, MapService } from "./api.ts";
@@ -16,8 +16,8 @@ import { AMAP_SECRET, type AmapHosts, createAmap } from "./amap.ts";
 import { createAmapLookup } from "./amap-lookup.ts";
 import { amapUsageFile, type AmapUsageFinding, openAmapUsage, usageFinding } from "./amap-usage.ts";
 import { createLookupResults, type LookupResults } from "./lookup-results.ts";
-import { lookupTools, type MyPlaces } from "./lookup-tools.ts";
-import type { LookupProvider } from "./lookup.ts";
+import { findPlace, lookupTools, type MyPlaces } from "./lookup-tools.ts";
+import type { LookupProvider, MapLookupFailure } from "./lookup.ts";
 import { createOsmLookup, type OsmHosts } from "./osm-lookup.ts";
 import { createOsmTiles } from "./osm-tiles.ts";
 import { createMapProviders, type MapProviderRegistry } from "./providers.ts";
@@ -71,6 +71,8 @@ export interface MapPluginService extends MapService {
   tryAmap(signal: AbortSignal): Promise<DataSourceLiveAnswer>;
   /** 查到的能画的那一份（只在内存里；431 的"画在地图上"按编号取） */
   readonly lookups: LookupResults;
+  /** "在地图上看"（447）：网页上选中的地址、地名直接查一处，放进 lookups，交回编号；没查到交回给人看的一句 */
+  findPlace(text: string, signal?: AbortSignal): Promise<MapFindResult>;
   /** 这个月查了几次 */
   amapUsage(): AmapUsageView;
   /** 体检里"高德的用量"那一项（409 的插件体检项） */
@@ -201,6 +203,11 @@ export function createMapService(options: MapServiceOptions): MapPluginService {
     recheckAmap: (secrets, signal) => amap.recheck(secrets, signal),
     resetAmap: () => amap.reset(),
     lookupTools: currentTools,
+    findPlace: async (text, signal) => {
+      const outcome = await findPlace({ providers: () => lookupProviders(), myPlaces: () => options.myPlaces?.(), results: lookups, now: options.now }, text, signal);
+      if (outcome.found) return { ok: true, lookup: outcome.lookup, source: outcome.source, kind: outcome.kind, title: outcome.title };
+      return { ok: false, reason: mapFindProblem(outcome, text, (id) => providers.list().find((p) => p.id === id)?.title ?? id) };
+    },
     tryAmap: (signal) => tryLookup(lookup, usage, signal),
     lookups,
     amapUsage: () => usage.view(),
@@ -212,4 +219,16 @@ export function createMapService(options: MapServiceOptions): MapPluginService {
       osm.clear();
     },
   };
+}
+
+/** "在地图上看"没查到时给人看的一句：最该问的那家没问成（没 Key、到上限、连不上……）照它说，只是没找到的说没找到 */
+export function mapFindProblem(outcome: { provider?: string; failure?: MapLookupFailure; detail?: string }, text: string, titleOf: (id: string) => string): string {
+  const shown = text.replace(/\s+/g, " ").trim().slice(0, 40);
+  if (outcome.provider === undefined || outcome.failure === undefined) return t("map.find.notFound", { text: shown });
+  const source = titleOf(outcome.provider);
+  const detail = outcome.detail ?? "";
+  if (outcome.failure === "quota" || outcome.failure === "rate") return t("map.find.busy", { source });
+  if (outcome.failure === "network" || outcome.failure === "server") return t("map.find.unreachable", { source });
+  if (outcome.failure === "no_key" || outcome.failure === "key" || outcome.failure === "denied") return t("map.find.key", { source });
+  return t("map.find.failed", { source, detail });
 }

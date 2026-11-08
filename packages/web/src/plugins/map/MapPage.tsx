@@ -7,6 +7,8 @@
 // - 聊天里的地图卡片点开（431，#/more/map/card/<卡片编号>）：从手里的卡片状态取出这张卡，画它的点、线（和卡片同一份 card-scene.ts），
 //   视野挪到看全它；标题栏下面一条写卡片的标题和概况，"×"回到足迹。看卡片时不画足迹。高德（445 起别家）查来的只在底图是那一家时画
 //   （amap-results.ts）。
+// - 不经卡片直接看查到的一处（447，#/more/map/lookup/<查到的编号>）："浏览"里网页上选中地址点了"在地图上看"，守护进程查到一处、
+//   网页跳过来：和看查到的卡片一样画（按编号现取，高德查的只画在高德底图上），标题栏写查的那段字，"×"回到地图。
 // - 地图切换（445，MapSwitch.tsx）：标题栏右边那一格（.map-bar-tools）的最前面，"地图：自动 / 高德 / OpenStreetMap……"，宽的时候一个下拉、窄的时候收进 ⋮；
 //   按区域记在这台设备上，地图那块（MapCanvas）照它挑底图、报回现在的样子。
 // - 回到我现在的位置（442，LocateControl.tsx）：地图右下角一个按钮，两种底图都有；定到的蓝点、精度圈压在最上面。
@@ -30,7 +32,7 @@ import { pageVoiceOver } from "../../app/talk-button.ts";
 import { browserVoiceEnv } from "../../app/voice-browser.ts";
 import { NativeVoiceRecorder } from "../../app/voice-native-recorder.ts";
 import { VoiceRecorder } from "../../app/voice-recorder.ts";
-import { buttonTurnOf, CHANNELS, type MapCardPayload, type MapConfigView, type MapContext, mapCardTitle, parseMapCardPath, parseMapFocusItem, t } from "../../state/index.ts";
+import { buttonTurnOf, CHANNELS, type MapCardPayload, type MapConfigView, type MapContext, mapCardTitle, parseMapCardPath, parseMapFocusItem, parseMapLookupPath, t } from "../../state/index.ts";
 import { Splitter, TopBar } from "../../ui/common.tsx";
 import { Icon } from "../../ui/icons.tsx";
 import { useDraggedSideWidth } from "../../ui/side-width.ts";
@@ -183,10 +185,13 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
   });
   /** 现在看的是哪里（只挪不缩放时用它的级别） */
   const viewNow = useRef<MapView>(initial);
-  // 聊天里的地图卡片点开（431）：这张卡画什么
+  // 聊天里的地图卡片点开（431）：这张卡画什么；不经卡片直接看查到的一处（447，"在地图上看"）和看查到的卡片一样画
   const cardId = parseMapCardPath(item, sub);
+  const lookupShow = useMemo(() => parseMapLookupPath(item, sub), [item, sub]);
   const cardState = cardId === undefined ? undefined : ui.cards[cardId];
-  const cardPayload = cardState?.card.type === "map" ? (cardState.card.payload as MapCardPayload) : undefined;
+  const cardPayload: MapCardPayload | undefined = cardState?.card.type === "map" ? (cardState.card.payload as MapCardPayload) : lookupShow ? { show: lookupShow } : undefined;
+  // 看卡片（或查到的一处）时画它，不画足迹
+  const showCard = cardId !== undefined || lookupShow !== undefined;
   const cardData = useMapCardData(http, cardPayload?.show);
   const cardContent = cardData?.state === "ready" ? cardData.content : undefined;
   useEffect(() => {
@@ -198,20 +203,19 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
 
   useEffect(() => {
     // 看卡片时不挪到足迹；关了卡片（回到 #/more/map）再挪回来
-    if (!fp.fit || cardId !== undefined) return;
+    if (!fp.fit || showCard) return;
     const el = stageRef.current;
     const panel = el && el.clientWidth >= FOOTPRINT_WIDE_MIN && panelOpen.current ? FOOTPRINT_PANEL_W : 0;
     const v = viewToFit(fp.fit.bounds, (el?.clientWidth ?? 390) - panel - FOOTPRINT_LABEL_ROOM, el?.clientHeight ?? 600);
     if (v) setJump({ view: shiftViewRight(v, (panel - FOOTPRINT_LABEL_ROOM) / 2) });
-  }, [fp.fit, cardId]);
+  }, [fp.fit, showCard]);
   useEffect(() => {
     if (!fp.focus) return;
     const el = stageRef.current;
     const panel = el && el.clientWidth >= FOOTPRINT_WIDE_MIN && panelOpen.current ? FOOTPRINT_PANEL_W : 0;
     setJump({ view: shiftViewRight({ lat: fp.focus.lat, lon: fp.focus.lon, zoom: fp.focus.zoom ?? viewNow.current.zoom }, panel / 2) });
   }, [fp.focus]);
-  // 看卡片时画卡片（高德、别家查来的另交给 ownScene：只在底图是那一家时画），不画足迹
-  const showCard = cardId !== undefined;
+  // 看卡片时画卡片（高德、别家查来的另交给 ownScene：只在底图是那一家时画），不画足迹（showCard 在上面）
   // "回到我现在的位置"（442）：挪过去时宽的、左边列着这一天时让开那一栏；挪过去的那一下不记成"上次看哪里"（位置不存）
   const panelShown = !showCard && fp.shown && fp.day !== undefined && !fp.day.empty && layoutView.panel === "open";
   const locateJump = useRef<MapView | undefined>(undefined);
@@ -243,8 +247,9 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
   // "足迹"开着就当画着足迹（还没取到、这一天空着也算）：底图一律 OpenStreetMap，也不为它加载高德的脚本（scene.ts 的 AMAP_WITH_FOOTPRINTS）；
   // 看的是足迹卡也一样（按卡上写的认，不等取到）
   const footprintsDrawn = showCard ? cardPayload?.show.kind === "day" : fp.shown;
-  const cardTitle = cardPayload ? mapCardTitle(cardPayload) : undefined;
-  const cardNote = cardId === undefined ? undefined : cardState === undefined ? t("ui.plugins.map.card.missing") : cardData ? contentSummary(cardData) : undefined;
+  // 查到的一处（447）：标题是查的那段字（取到之前按种类写"查到的地点"）
+  const cardTitle = lookupShow ? (cardContent?.title ?? mapCardTitle({ show: lookupShow })) : cardPayload ? mapCardTitle(cardPayload) : undefined;
+  const cardNote = !showCard ? undefined : cardId !== undefined && cardState === undefined ? t("ui.plugins.map.card.missing") : cardData ? contentSummary(cardData) : undefined;
 
   // 聊天窗、二狗按钮发的消息带的地图上下文：这一刻看的中心、缩放、底图、看哪一天的足迹或哪张卡片；不带"回到我现在的位置"定到的点。
   // 底图是地图服务插槽（445）里那一家的编号——地图那块报给地图切换的"真画着的那一家"（basemapSwitch.status.rendered），
@@ -263,7 +268,7 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
       basemap: basemap.slice(0, 32),
       ...(cardId !== undefined
         ? { card: { id: cardId.slice(0, 64), ...(cardTitle ? { title: cardTitle.slice(0, 120) } : {}) } }
-        : fp.shown
+        : fp.shown && !showCard
           ? { footprints: { date: fp.date, ...(spot ? { spot: spotTitle(spot).slice(0, 120) } : {}) } }
           : {}),
     };
@@ -271,7 +276,7 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
   const talk = useMapTalk(mapContext);
   // 聊天窗顶上"现在在看"：地图 · 这张卡片、这一天的足迹
   const watching =
-    cardId !== undefined
+    showCard
       ? t("ui.plugins.map.chat.watchingCard", { title: cardTitle ?? t("ui.plugins.map.card.bar") })
       : fp.shown
         ? t("ui.plugins.map.chat.watchingDay", { date: shortDateLabel(fp.date, fp.today) })

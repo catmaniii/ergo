@@ -32,6 +32,8 @@
 // 退回下一家。每家写了用量的，体检的"地图"那一块多一项"<编号>-usage"（高德的照旧是 amap-usage）。地图插件停了，登记了的插件跟着停。
 // 444 地图页的二狗：地图页右边的聊天窗、右下角的悬浮按钮里发的消息带地图上下文（MessageEnvelope.map），交给秘书时后面跟一段
 // 看的是哪里、哪一天的足迹、哪张卡片（chat-note.ts，经 ctx.agent.notes 的输入附注；插件停用时没有这段）。
+// 447 "在地图上看"：浏览里网页上选中地址点了它，网页经 POST /api/map/find 直接查一处（MAP_FIND，lookup-tools.ts 的 findPlace：
+// 和秘书查地点同一套先后），放进能画的那一份，网页去地图页看（#/more/map/lookup/<编号>）。
 import path from "node:path";
 import { AMAP_SOURCE_ID, t } from "@ergo/protocol";
 import type { DataSource } from "../data-sources/api.ts";
@@ -39,7 +41,7 @@ import { PHONE } from "../phone/api.ts";
 import { type PluginDefinition, serviceKey } from "../plugins/host.ts";
 import { KERNEL } from "../plugins/kernel.ts";
 import type { AmapHosts } from "./amap.ts";
-import { MAP, MAP_DAY, MAP_DRAWING, MAP_PLUGIN, MAP_PROVIDERS, type MapProvider } from "./api.ts";
+import { MAP, MAP_DAY, MAP_DRAWING, MAP_FIND, MAP_PLUGIN, MAP_PROVIDERS, type MapProvider } from "./api.ts";
 import { mapCardType } from "./card.ts";
 import { mapChatNote } from "./chat-note.ts";
 import { createMapDay, createMapLatest } from "./day.ts";
@@ -94,7 +96,7 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
     // 我的足迹（430）的数据、常去的地方、手机最近的位置（432 查"从家到公司""附近"）在手机插件那里：可选，没有它地图照样能看、工具如实说用不了。
     // 数据源的用法开关（433）：查国内的点之前看高德的按需查开没开（没有这项服务时当开着）
     wants: [PHONE, KERNEL.dataSourceUsage],
-    provides: [MAP, MAP_INTERNAL, MAP_DAY, MAP_DRAWING, MAP_PROVIDERS],
+    provides: [MAP, MAP_INTERNAL, MAP_DAY, MAP_DRAWING, MAP_PROVIDERS, MAP_FIND],
     contracts(ctx) {
       const source: DataSource = {
         id: AMAP_SOURCE_ID,
@@ -183,6 +185,8 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
       // 聊天里的地图卡片（431）：查地点、算路线（432 高德、433 OpenStreetMap）放在内存里的那一份按编号取；秘书的"画在地图上"
       const lookups = options.lookups ?? (() => service.lookups);
       ctx.provide(MAP_DRAWING, createMapDrawings(lookups));
+      // "在地图上看"（447）：浏览里网页上选中的地址、地名直接查一处，放进上面那一份（POST /api/map/find）
+      ctx.provide(MAP_FIND, { find: (text, signal) => service.findPlace(text, signal) });
       // 插件停了、秘书还没按新的贡献重新装配的那一会儿再调：插件宿主替它回"地图插件没启用"，不出卡
       const tool = showOnMapTool({ day, lookups, cards: ctx.use(KERNEL.cards) });
       ctx.agent.tools.register({ to: { agents: ["secretary"] }, tools: () => [tool] });

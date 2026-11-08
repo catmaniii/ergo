@@ -7,10 +7,11 @@
 // 另一个服务（430）"我的足迹"给 GET /api/map/day（和秘书的"画在地图上"）：某一天的点、停留、照片地点、常去的地方；
 // 还给 GET /api/map/latest（442）：手机最近交来的一个位置点（地图页"回到我现在的位置"在这台设备定不了位时用）。
 // 第三个（431）给 GET /api/map/drawing：聊天里的地图卡片按编号取查地点、算路线（432）查到的点和线。
+// "在地图上看"（447）给 POST /api/map/find：浏览里网页上选中的地址、地名不经秘书直接查一处，放进同一份能画的，交回编号。
 // 第四个（445）是"地图服务"插槽：别的插件（照插件契约 needs: [MAP_PROVIDERS]）经它登记一家地图服务——管哪个区域、优先级、底图
 // （浏览器用的 Key）、查询（LookupProvider，下面从 lookup.ts 转出来）、用量。登记交回撤销函数，交给 ctx.effect，插件停用、移除时
 // 自动撤掉、退回下一家。网页那一半是网页插槽 mapBasemaps（packages/web/src/plugins/slots.ts）。
-import type { MapConfigView, MapDayView, MapDrawing, MapLatestView, MapProviderView, MapRegion, MapTileAddress } from "@ergo/protocol";
+import type { MapConfigView, MapDayView, MapDrawing, MapFindResult, MapLatestView, MapProviderView, MapRegion, MapTileAddress } from "@ergo/protocol";
 import { serviceKey, type Undo } from "../plugins/host.ts";
 import type { LookupProvider } from "./lookup.ts";
 
@@ -80,6 +81,18 @@ export interface MapDrawingService {
 
 /** 地图插件提供的"查到的能画的那一份"服务 */
 export const MAP_DRAWING = serviceKey<MapDrawingService>("map-drawing");
+
+/** "在地图上看"（447）：POST /api/map/find 用 */
+export interface MapFindService {
+  /**
+   * 网页上选中的一段地址、地名（浏览里点了"在地图上看"）直接查一处：照秘书查地点的先后（"自动"），先搜地点、搜不到当地址查；
+   * 查到的放进能画的那一份（只在内存里），交回编号。没查到、地图服务没查成也交回（ok: false 和给人看的一句），不抛错
+   */
+  find(text: string, signal?: AbortSignal): Promise<MapFindResult>;
+}
+
+/** 地图插件提供的"在地图上看"服务 */
+export const MAP_FIND = serviceKey<MapFindService>("map-find");
 
 /** 底图此刻怎样（地图页按它挑、列地图切换） */
 export type MapBasemapState =
