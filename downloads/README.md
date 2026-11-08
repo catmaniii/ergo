@@ -1,6 +1,6 @@
 # 手机安装包 / Phone packages
 
-版本 / Version: 0.4.3
+版本 / Version: 0.4.4
 
 | 文件 / File | 是什么 / What it is | 怎么装 / How to install |
 |---|---|---|
