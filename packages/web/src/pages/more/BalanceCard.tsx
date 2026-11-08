@@ -20,7 +20,8 @@ import {
 /** "几分钟前查的"多久重算一次（毫秒） */
 const TICK_MS = 15_000;
 
-function ProviderBalanceBlock({ entry, lowBelow, now, refreshing, onRefresh }: { entry: ProviderBalance; lowBelow: Readonly<Record<string, number>>; now: number; refreshing: boolean; onRefresh: () => void }) {
+/** 一个服务商的那一块（没配 Key 时只一句话）；页面测试直接渲染它 */
+export function ProviderBalanceBlock({ entry, lowBelow, now, refreshing, onRefresh }: { entry: ProviderBalance; lowBelow: Readonly<Record<string, number>>; now: number; refreshing: boolean; onRefresh: () => void }) {
   const name = entry.label;
   if (!entry.configured) return <div className="muted balance-nokey">{t("pages.usage.balance.noKey", { name })}</div>;
   const { result, failure } = entry;
