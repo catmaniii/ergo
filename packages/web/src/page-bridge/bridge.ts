@@ -38,6 +38,7 @@
 // （藏起来的也列）、下拉框（只能看），和能点的同一套编号；refField 按编号找要填的文本框、要交的上传框（照点的核对：还是那一页、
 // 编号认得、元素还在、种类没变），回框的说法（页面桥的框编号 f…），宿主再照原来的 fill、attachFiles 填、交。
 // 长按元素的圆钮，element.ts：长按、右键认出图片、链接、文字时多出一个圆钮，和悬浮按钮同一个样子、同一个气泡，互不干扰（气泡的 fieldId 是元素的编号）。
+// 选中的字像地址、地名时圆钮旁边多一行"在地图上看""怎么去"（447，map-chips.ts；二狗的网页随 texts 交来 map 才给），点了报 element-map。
 // 右下角常驻（"侧边栏关着时浏览器页面的右下角有一个二狗的按钮，选中网页元素时挂到元素旁边"）：宿主随 texts 交来 fab.corner
 // （浏览侧边栏关着为真），按钮这一刻在哪照 rules.ts 的 fabSpot——有框挂着贴着框，长按出了圆钮让给圆钮，都没有时 corner 为真就在
 // 看得见的部分的右下角（placeCornerButton：让开宿主说的手势区 fab.inset、网页的安全区、网页自己固定在屏幕上的底部栏和按钮），不然不显示。
@@ -49,6 +50,7 @@ import { BUBBLE_STYLE, bubbleViewOf, createBubble, nameTagStyle } from "./bubble
 import { createClickables } from "./clickables.ts";
 import { createElementButton } from "./element.ts";
 import { createFab, FAB_STYLE } from "./fab.ts";
+import { createMapChips, MAP_CHIPS_STYLE } from "./map-chips.ts";
 import { createPickWindow, PICK_STYLE, pickViewOf } from "./pick.ts";
 import { PAGE_CORNER_ID, type PageBridgeApi, type PageBridgeEvent, type PageBridgeMark, type PageBubbleAction, type PageBubbleView, type PageInfo, type PageNamedText, type PagePickView } from "./protocol.ts";
 import { BUBBLE_GAP, BUTTON_SIZE, cleanLabel, FIELD_VALUE_MAX, type FabSpot, fabSpot, inVoiceCancelZone, isSensitiveField, placeButton, placeCornerButton, type Rect, TEXT_INPUT_TYPES, tidyPageText } from "./rules.ts";
@@ -88,6 +90,7 @@ const STYLE = `
 ${FAB_STYLE}
 .safe-probe { position: fixed; left: 0; bottom: 0; width: 0; height: env(safe-area-inset-bottom, 0px); visibility: hidden; pointer-events: none; }
 ${BUBBLE_STYLE}
+${MAP_CHIPS_STYLE}
 ${PICK_STYLE}`;
 
 /** 看得见（有大小） */
@@ -404,7 +407,9 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
   const bubble = createBubble(doc, { now, texts }, (action) => bubbleAction(action));
   // 挑图片窗口：排在最上面
   const pickWindow = createPickWindow(doc, { decode, makeBitmap, BlobCtor, texts }, (action) => send({ type: "pick", ...action }));
-  shadow.append(safeProbe, bubble.el, fab, elementFab, pickWindow.el);
+  // 选中的地址旁边地图的两个按钮（447）：点了交给圆钮那一套（elementButton 在下面建，点的时候早就有了）
+  const mapChips = createMapChips(doc, texts, (action) => elementButton.mapAction(action));
+  shadow.append(safeProbe, bubble.el, fab, elementFab, mapChips.el, pickWindow.el);
   // 能点的东西：页面桥自己这一层（hostEl）不列；连同能填、能交、能选的框（认框用上面这一套）
   const clickables = createClickables({
     win,
@@ -435,6 +440,7 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     closeBubble: () => closeBubble(false),
     // 圆钮出来、收起：右下角的按钮让给它、再回来
     shownChanged: () => startTracking(),
+    mapChips,
   });
 
   /** 按钮挂在哪个框上（填字的框本身，或选文件的框）、贴着哪个元素摆 */
@@ -1179,6 +1185,7 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
         tagSheet.replaceSync(nameTagStyle(texts.tag()));
         fabButton.setLabel(texts.get("bridge.fab.label"));
         elementFabButton.setLabel(texts.get("bridge.fab.label"));
+        mapChips.relabel();
         bubble.relabel();
         pickWindow.relabel();
         // 右下角常驻（浏览侧边栏关着）随这几句交来；没交（旧版网页）是不常驻

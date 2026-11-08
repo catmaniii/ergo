@@ -56,6 +56,8 @@ export interface BridgeLook {
    */
   corner?: boolean;
   inset?: number;
+  /** 能接"在地图上看""怎么去"（地图插件开着，447）：随这几句告诉页面桥（map），选中的地址旁边才给那两个按钮 */
+  map?: boolean;
 }
 
 /**
@@ -72,6 +74,7 @@ export function bridgeTexts(look: BridgeLook = { name: defaultAssistantName() })
   }
   texts.assistant = { name: look.name, ...(look.tag ? { tag: look.tag } : {}), templates };
   if (look.corner !== undefined) texts.fab = { corner: look.corner, inset: Math.max(0, Math.round(look.inset ?? 0)) };
+  if (look.map) texts.map = true;
   return texts;
 }
 
@@ -127,7 +130,8 @@ export function bubbleView(panel: PagePanel, sidebar = false, name = defaultAssi
         text: panel.text,
         failed: panel.failed,
         system: panel.target.chooser !== undefined,
-        more: sidebar && replyTooLong(panel.text),
+        // 回话太长、"怎么去"的回话（路线卡在对话里）：下面给"去侧边栏看"
+        more: sidebar && (replyTooLong(panel.text) || (panel.target.mapRoute === true && !panel.failed)),
       };
   }
 }

@@ -9,10 +9,14 @@
 // - 留 ELEMENT_KEEP_MS 自己消失；点别处、滚动马上收。不做对抗：网页屏蔽了长按、遮罩盖着、跨站 iframe 里、封闭 shadow root 里认不出就不出。
 // 取内容（宿主经 elementPrepare、elementChunk、elementRect 调）：blob:、data:、canvas 只有页面自己读得到，在这里读好分段交给宿主；
 // 截图由 App 截，这里把元素滚到看得见、藏起页面桥自己这一层、报元素在视口里的位置。http 地址由 App 自己取（带登录状态和来源页）。
+// 选中的字像地址、地名（447，rules.ts 的 offersMapActions，拿不准也给）、二狗的网页说能接（texts 的 map）时，圆钮旁边多一行
+// "在地图上看""怎么去"（map-chips.ts，摆在圆钮旁边：placeMapChips）；点了先自己出"在办"的气泡，报 element-map，交给二狗的网页办；
+// 按圆钮（打字、说话）、点了其中一个、选区变得不像了就收起这一行。
 import type { PickedElement, PickedElementKind, PickedElementSource } from "@ergo/protocol";
 import type { Bubble } from "./bubble.ts";
+import type { MapChipAction, MapChips } from "./map-chips.ts";
 import type { PageBridgeEvent, PageBridgeMark, PageInfo } from "./protocol.ts";
-import { BUTTON_SIZE, cleanElementLabel, ELEMENT_KEEP_MS, ELEMENT_URL_MAX, elementSourceOf, FIELD_VALUE_MAX, inVoiceCancelZone, placeElementButton, type Rect } from "./rules.ts";
+import { BUTTON_SIZE, cleanElementLabel, ELEMENT_KEEP_MS, ELEMENT_URL_MAX, elementSourceOf, FIELD_VALUE_MAX, inVoiceCancelZone, offersMapActions, placeElementButton, placeMapChips, type Rect } from "./rules.ts";
 import type { BridgeTextKey, BridgeTexts } from "./texts.ts";
 
 /** 按多久算按住说话（和悬浮按钮一样） */
@@ -57,6 +61,8 @@ export interface ElementButtonDeps {
   closeBubble(): void;
   /** 圆钮出来了、收起了（右下角常驻的悬浮按钮让给它、再回来） */
   shownChanged?(): void;
+  /** 选中的字像地址时圆钮旁边那一行（447）；不给就没有 */
+  mapChips?: MapChips;
 }
 
 export interface ElementButton {
@@ -75,6 +81,8 @@ export interface ElementButton {
   scrolled(): void;
   /** 用户去用文本框了 */
   fieldFocused(): void;
+  /** 地图那一行上点了哪个（map-chips.ts 交来的） */
+  mapAction(action: MapChipAction): void;
   info(id: string, url: string): unknown;
   prepare(id: string, url: string): unknown;
   chunk(id: string, offset: number): unknown;
@@ -216,12 +224,35 @@ export function createElementButton(deps: ElementButtonDeps): ElementButton {
     return undefined;
   };
 
+  /** 地图那一行该不该有：选中的字像地址、地名，二狗的网页说能接，圆钮没在用 */
+  const chipsWanted = (): boolean => {
+    if (!deps.mapChips || !current || !texts.mapActions()) return false;
+    const { pick } = current;
+    return pick.kind === "text" && pick.selected === true && pick.text !== undefined && offersMapActions(pick.text.text) && press === undefined && mark === "idle" && !(bubble.open && bubble.view.kind !== "none");
+  };
+
+  /** 地图那一行摆到圆钮旁边（不该有就收起） */
+  const placeChips = (at: { x: number; y: number }) => {
+    const chips = deps.mapChips;
+    if (!chips) return;
+    if (!chipsWanted()) {
+      chips.hide();
+      return;
+    }
+    // 先显示出来量大小，再摆
+    if (!chips.shown()) chips.showAt(at.x, at.y);
+    const size = BUTTON_SIZE;
+    const spot = placeMapChips({ left: at.x, top: at.y, right: at.x + size, bottom: at.y + size }, chips.size(), deps.visibleArea());
+    chips.showAt(spot.x, spot.y);
+  };
+
   const place = () => {
     if (!current) return;
     const size = BUTTON_SIZE;
     const at = placeElementButton(current.point, current.pick.selected ? selectionRect() : undefined, deps.visibleArea(), size);
     button.style.left = `${Math.round(at.x)}px`;
     button.style.top = `${Math.round(at.y)}px`;
+    placeChips(at);
   };
 
   const inUse = () => press !== undefined || mark !== "idle" || (bubble.open && current !== undefined && bubble.view.kind !== "none" && bubble.view.fieldId === current.pick.id);
@@ -242,6 +273,7 @@ export function createElementButton(deps: ElementButtonDeps): ElementButton {
 
   const hide = () => {
     stopTimer();
+    deps.mapChips?.hide();
     if (!current) return;
     current = undefined;
     setMark("idle");
@@ -286,6 +318,8 @@ export function createElementButton(deps: ElementButtonDeps): ElementButton {
     const pick = fresh();
     if (!pick || mark === "busy") return;
     stopTimer();
+    // 按圆钮（打字、说话）：地图那一行收起
+    deps.mapChips?.hide();
     deps.send({ type: "element-voice", phase: "press", element: pick, page: deps.pageInfo() });
     press = {
       x,
@@ -494,6 +528,18 @@ export function createElementButton(deps: ElementButtonDeps): ElementButton {
     },
     fieldFocused() {
       if (current && !inUse()) hide();
+    },
+    mapAction(action) {
+      const pick = fresh();
+      if (!pick || press || mark === "busy") return;
+      deps.mapChips?.hide();
+      stopTimer();
+      // 先自己出"在办"（不等宿主来回），宿主随后交来"在找……"、找不到的原因
+      deps.ensureHost();
+      bubble.openBusy(pick.id);
+      deps.startTracking();
+      deps.send({ type: "element-map", action, element: pick, page: deps.pageInfo() });
+      arm();
     },
     info(id, url) {
       const found = lookup(id, url);

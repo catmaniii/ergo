@@ -16,7 +16,7 @@ import type { NativeBrowserEvent, NativePageControl, PageOutcome } from "../../s
 import { type BridgeLook, bridgeTexts, BUSY_KEY, bubbleView, nameTagColors, PageBubbleSync } from "../../src/plugins/browsing/page-bubble.ts";
 import { type CommandTarget, PageCommands, type PagePanel } from "../../src/plugins/browsing/page-commands.ts";
 import type { PageBubbleView } from "../../src/page-bridge/protocol.ts";
-import { BRIDGE_ASSISTANT_KEYS, BRIDGE_DEFAULT_NAME, NAME_TAG_CLASSIC, type PageBridgeTexts } from "../../src/page-bridge/texts.ts";
+import { BRIDGE_ASSISTANT_KEYS, BRIDGE_DEFAULT_NAME, bridgeTextsOf, NAME_TAG_CLASSIC, type PageBridgeTexts } from "../../src/page-bridge/texts.ts";
 import { activeLocaleFrom, type ButtonTurn, defaultAssistantName, DEFAULT_LANGUAGE, type PageField, setActiveLocale, t } from "../../src/state/index.ts";
 import { BASE_STYLE, effectiveTokens, resolveColor, VISUAL_STYLES } from "../../src/visual-styles/index.ts";
 import { TEST_LOCALES } from "../setup-locales.ts";
@@ -424,6 +424,24 @@ describe("右下角常驻的悬浮按钮（浏览侧边栏关着时）", () => {
     look = { ...look, corner: true, inset: 20 };
     sync.lookChanged();
     expect(page.sentTexts.at(-1)?.fab).toEqual({ corner: true, inset: 20 });
+  });
+});
+
+describe("选中的地址用地图（447）", () => {
+  test("地图插件开着才随那几句告诉页面桥（map）；页面桥只认 map: true；在地图上找的那一句、地图那两个按钮的字中英都有", () => {
+    expect(bridgeTexts({ name: "二狗" }).map).toBeUndefined();
+    expect(bridgeTexts({ name: "二狗", map: true })).toMatchObject({ map: true, "bridge.map.show": "在地图上看", "bridge.map.route": "怎么去" });
+    expect(bridgeTextsOf({ map: true })).toEqual({ map: true });
+    expect(bridgeTextsOf({ map: "yes" })).toBeUndefined();
+    expect(BUSY_KEY.finding).toBe("app.pageBubble.busy.finding");
+    expect(t(BUSY_KEY.finding)).toBe("在地图上找这个地方……");
+    setActiveLocale(activeLocaleFrom(TEST_LOCALES, "en"));
+    try {
+      expect(bridgeTexts({ name: "Jo", map: true })).toMatchObject({ "bridge.map.show": "Show on map", "bridge.map.route": "Directions" });
+      expect(t(BUSY_KEY.finding)).toBe("Finding this place on the map…");
+    } finally {
+      setActiveLocale(activeLocaleFrom(TEST_LOCALES, DEFAULT_LANGUAGE));
+    }
   });
 });
 

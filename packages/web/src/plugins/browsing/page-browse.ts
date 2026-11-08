@@ -32,6 +32,8 @@ import {
   defaultAssistantName,
   desktopUserAgent,
   localeRevision,
+  MAP_PAGE_ID,
+  mapLookupPath,
   type PageCommandFile,
   pageUrlForModel,
   type SiteSettings,
@@ -43,6 +45,7 @@ import { pageBrowseSettings } from "../../app/page-browse-settings.ts";
 import { setPageNativeOpener } from "../../app/native-open.ts";
 import { type BrowserWatch, followExternalLinks, type LinkLike, openInNativeBrowser, watchNativeBrowser } from "../../app/browser-shell.ts";
 import { pushHash } from "../../app/history-nav.ts";
+import { toHash } from "../../app/route-hash.ts";
 import type { DaemonHttp } from "../../app/daemon-http.ts";
 import { BLANK_BROWSER, type BrowserState, type NativeBrowser } from "../../app/native-browser.ts";
 import { BROWSE_SIDE_WIDTH, BrowseSide, type BrowseSideView, newBrowserId } from "./browse-side.ts";
@@ -154,7 +157,7 @@ function followPageLinks(): () => void {
 /** 页面的连接和 HTTP（组合根交给网页插件的，plugins/api.ts 的 WebPluginPage） */
 export interface BrowsingPage {
   readonly connection: Pick<Connection, "browserStatus" | "browserReply" | "onBrowserRequest">;
-  readonly http: Pick<DaemonHttp, "pageVoice" | "pageFileBytes" | "pageFileThumbUrl" | "upload">;
+  readonly http: Pick<DaemonHttp, "pageVoice" | "pageFileBytes" | "pageFileThumbUrl" | "upload" | "mapFind">;
   /** 这一页是侧边栏模式（?ergo=side）：只接原生浏览器（和以前 main.tsx 一样），不接悬浮按钮、浏览侧边栏 */
   readonly sideMode: boolean;
 }
@@ -277,6 +280,9 @@ let lookKey = "";
 /** 语音插件在不在（setPageVoiceAvailable 照输入框的语音插槽改）：不在时悬浮按钮只能打字 */
 let voiceAvailable = true;
 
+/** 地图插件在不在（setPageMapAvailable 照页面插槽里有没有地图页改，447）：不在时选中的地址旁边不给"在地图上看""怎么去" */
+let mapAvailable = false;
+
 /** 右下角的悬浮按钮底下再让开多少（BrowsePage 量的：宽屏网页延伸到手势条底下时那一截） */
 let fabInset = 0;
 
@@ -289,6 +295,7 @@ const pageLook = (): BridgeLook => ({
   ...(tagColors ? { tag: tagColors } : {}),
   ...(voiceAvailable ? {} : { typeOnly: true }),
   ...(side ? { corner: !side.snapshot().open, inset: fabInset } : {}),
+  ...(mapAvailable ? { map: true } : {}),
 });
 
 /** 右下角的悬浮按钮底下再让开多少（BrowsePage 照内容区量：宽屏网页延伸到手势条底下时是 --safe-bottom，别的时候是 0）；变了重交 */
@@ -311,10 +318,25 @@ export function setPageVoiceAvailable(on: boolean): void {
 }
 
 /**
+ * 地图插件在不在（浏览插件挂在主框架里的那一个看页面插槽里有没有地图页，变了调这里，447）：在的时候选中的地址旁边给"在地图上看""怎么去"
+ * （随页面桥自己的那几句交过去：map），不在时不给
+ */
+export function setPageMapAvailable(on: boolean): void {
+  if (on === mapAvailable) return;
+  mapAvailable = on;
+  bubbleSync?.lookChanged();
+}
+
+/** "在地图上看"查到的那一处：去地图页看它（压一条记录，返回回到"浏览"） */
+function openFoundOnMap(lookup: string): void {
+  pushHash(window, toHash({ tab: "more", page: MAP_PAGE_ID, ...mapLookupPath(lookup) }));
+}
+
+/**
  * 网页上下指令接上（App.tsx 建好 DaemonHttp 后调一次）：App 有页面桥那一组方法才接；录音用"按住说话"的同一套后端
  * （App 里是原生录音器）；发进秘书主会话的那一头等 store 建好了由 usePageButtonSync 接上
  */
-export function connectPageCommands(http: Pick<DaemonHttp, "pageVoice">): void {
+export function connectPageCommands(http: Pick<DaemonHttp, "pageVoice" | "mapFind">): void {
   const browser = pageNativeBrowser();
   if (!browser?.page || commands) return;
   const env = browserVoiceEnv();
@@ -334,6 +356,8 @@ export function connectPageCommands(http: Pick<DaemonHttp, "pageVoice">): void {
     browserId: () => side?.status().browser,
     // 按下悬浮按钮说话：二狗正在播的语音暂停（和聊天窗口里按住说话同一个播放器，悬浮按钮单算一处）
     capture: (on) => pageVoicePlayer().setCapturing(on, "page-button"),
+    // "在地图上看"（447）：直接查一处、去地图页看；地图插件停用时页面桥不给那两个按钮（map），万一点了守护进程回"地图插件没启用"
+    map: { find: (text) => http.mapFind(text), open: openFoundOnMap },
   });
   const bubble = new PageBubbleSync({
     commands: created,

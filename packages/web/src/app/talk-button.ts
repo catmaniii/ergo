@@ -7,13 +7,15 @@ import { t, tParts } from "../state/index.ts";
 import { isRecordingCancelled, micErrorOf, type VoiceCaptureBackend } from "./voice-recorder.ts";
 
 /** 在办的那一句走到哪了：hearing 在认说了什么、thinking 秘书在办、queued 秘书正忙，排在后面 */
-export type BusyNote = "hearing" | "thinking" | "queued";
+export type BusyNote = "hearing" | "thinking" | "queued" | "finding";
 
 /** 在办的那一句气泡里怎么写（秘书正忙时说明排在后面，不让用户以为没反应；说到助理的写 {name}） */
 export const BUSY_KEY: Readonly<Record<BusyNote, string>> = {
   hearing: "app.pageBubble.busy.hearing",
   thinking: "app.pageBubble.busy.thinking",
   queued: "app.pageBubble.busy.queued",
+  // "在地图上看"（447）：在查这个地方（不经对话）
+  finding: "app.pageBubble.busy.finding",
 };
 
 /** 成了的回话过多久收起（毫秒）；没成的不收 */

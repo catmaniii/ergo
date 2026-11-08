@@ -10,6 +10,8 @@
 // - 没交来（旧版网页）用默认的名字"二狗"、经典风格的颜色（bubble.ts 的样式表里写着）。
 // 悬浮按钮常驻右下角（fab：浏览侧边栏关着时 corner 为真；inset 是右下角底下再让开多少）也随这几句交来——和名字、颜色一样是二狗的网页
 // 交给页面桥的外观，不另加页面桥的操作：两个 App 的操作白名单都不用改，只是页面桥重新打包进 App。旧版页面桥不认 fab，照旧不常驻。
+// 选中的地址旁边给不给"在地图上看""怎么去"（map：二狗的网页能接这两个动作——地图插件开着、网页够新，447）也随这几句交来；
+// 没交来（旧版网页、守护进程还没有"在地图上看"的接口）不给。
 import ZH from "../../../protocol/locales/zh-CN/bridge.json" with { type: "json" };
 import type { PageNamedPart, PageNamedText } from "./protocol.ts";
 
@@ -51,8 +53,8 @@ export interface BridgeFabLook {
   inset: number;
 }
 
-/** 二狗的网页交来的：key → 当前语言的句子（说到助理的那几句名字已经换好）；还有 assistant、fab */
-export type PageBridgeTexts = Partial<Record<BridgeTextKey, string>> & { assistant?: BridgeAssistant; fab?: BridgeFabLook };
+/** 二狗的网页交来的：key → 当前语言的句子（说到助理的那几句名字已经换好）；还有 assistant、fab，能不能接地图那两个动作（map） */
+export type PageBridgeTexts = Partial<Record<BridgeTextKey, string>> & { assistant?: BridgeAssistant; fab?: BridgeFabLook; map?: boolean };
 
 /** 页面桥自己的全部 key（二狗的网页按它取好交过来） */
 export const BRIDGE_TEXT_KEYS = Object.keys(ZH) as BridgeTextKey[];
@@ -124,6 +126,10 @@ export function bridgeTextsOf(value: unknown): PageBridgeTexts | undefined {
     out.fab = fab;
     any = true;
   }
+  if ((value as Record<string, unknown>).map === true) {
+    out.map = true;
+    any = true;
+  }
   return any ? out : undefined;
 }
 
@@ -167,6 +173,8 @@ export interface BridgeTexts {
   tag(): NameTagColors | undefined;
   /** 悬浮按钮怎么摆（没交来是 undefined：不常驻右下角） */
   fab(): BridgeFabLook | undefined;
+  /** 二狗的网页能接"在地图上看""怎么去"（没交来是 false：不给那两个按钮） */
+  mapActions(): boolean;
   /** 换上交来的（整份换掉：没交的那几句回到中文，没交名字回到"二狗"） */
   set(texts: PageBridgeTexts): void;
 }
@@ -181,6 +189,7 @@ export function createBridgeTexts(): BridgeTexts {
     parts,
     tag: () => current.assistant?.tag,
     fab: () => current.fab,
+    mapActions: () => current.map === true,
     set(texts) {
       current = texts;
     },

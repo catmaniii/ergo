@@ -2431,6 +2431,81 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }
   }, 60_000);
 
+  // 网页上选中地址点"在地图上看"（447）：假的原生桥扮 App 和页面桥。浏览页交给页面桥的那几句带 map（地图插件开着；停用了不带）；
+  // 页面桥报 element-map show：气泡里"在地图上找"，原型的假接口查到（带汉字的"高德"查到西湖边），浏览页跳到地图页看查到的那一处
+  // （#/more/map/lookup/<编号>，高德查的画在高德底图上，标题栏写查的那段字）；返回回到"浏览"
+  test("浏览页：选中地址点在地图上看，不经对话直接跳到地图页看查到的那一处；地图插件停用时不给那两个按钮", async () => {
+    const fake = `
+      window.__texts = [];
+      window.__bubbles = [];
+      window.ergoNative = {
+        appVersion: () => "9.9.9",
+        log() {},
+        browserAttach: () => JSON.stringify({ url: "https://shop.example.cn/store", title: "门店 · 示例", progress: 1, loading: false, canGoBack: false, canGoForward: false }),
+        browserLayout() {},
+        browserLoad() {},
+        browserNav() {},
+        browserPage(op, args) {
+          if (op === "texts") window.__texts.push(JSON.parse(args)[0]);
+          if (op === "bubble") window.__bubbles.push(JSON.parse(JSON.parse(args)[0]));
+          return Promise.resolve(op === "bubble" || op === "texts" || op === "mark" ? '{"ok":true}' : "");
+        },
+        browserFileChunk: () => Promise.resolve('{"ok":true}'),
+        browserFiles: () => Promise.resolve('{"ok":true}'),
+        browserChooser: () => Promise.resolve('{"ok":true}'),
+        browserSide() {},
+      };`;
+    const context = await browser!.newContext({ viewport: { width: 390, height: 844 } });
+    await context.addInitScript(fake);
+    const page = await context.newPage();
+    const errors: string[] = [];
+    const outside: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("request", (r) => {
+      if (!/^(?:file|data|blob):/.test(r.url())) outside.push(r.url());
+    });
+    try {
+      await page.goto(`${pageUrl}#/browse`);
+      await page.locator(".browse-side-toggle").waitFor();
+      const bridgeSays = (event: object) => page.evaluate(`window.__ergoBrowser(${JSON.stringify(JSON.stringify({ type: "page", json: JSON.stringify({ nonce: "n", ...event }) }))})`);
+      const where = { title: "门店 · 示例", url: "https://shop.example.cn/store" };
+      await bridgeSays({ type: "selected", field: null, page: where });
+      const lastTexts = async () => (await page.evaluate(`(() => { const t = window.__texts.at(-1); return t ? JSON.parse(t) : null; })()`)) as { map?: boolean; "bridge.map.show"?: string } | null;
+      await page.waitForFunction(`window.__texts.length > 0`);
+      expect(await lastTexts()).toMatchObject({ map: true, "bridge.map.show": "在地图上看" });
+      const element = { id: "x4", kind: "text", selected: true, text: { text: "地址：杭州市西湖区示例路 478 号", total: 19 } };
+      await bridgeSays({ type: "element", element });
+      await bridgeSays({ type: "element-map", action: "show", element, page: where });
+      await page.waitForFunction(`window.__bubbles.some((b) => b.kind === "busy" && b.text === "在地图上找这个地方……")`);
+      await page.locator('.map-canvas[data-amap-results="shown"]').waitFor({ timeout: 5000 });
+      expect(await page.evaluate("location.hash")).toMatch(/^#\/more\/map\/lookup\/amap-p\d+$/);
+      expect(await page.locator(".map-card-bar").innerText()).toMatch(/杭州市西湖区示例路 478 号[\s\S]*数据来自高德地图/);
+      expect(await page.locator(".map-canvas").getAttribute("data-basemap")).toBe("amap");
+      expect(await page.evaluate(`window.__bubbles.at(-1).kind`)).toBe("none");
+      // 返回回到"浏览"
+      await page.goBack();
+      await page.locator(".browse-side-toggle").waitFor();
+      expect(await page.evaluate("location.hash")).toBe("#/browse");
+      expect(outside).toEqual([]);
+      expect(errors).toEqual([]);
+    } finally {
+      await context.close();
+    }
+    // 地图插件停用：不带 map（页面桥不给那两个按钮）
+    const off = await browser!.newContext({ viewport: { width: 390, height: 844 } });
+    await off.addInitScript(fake);
+    try {
+      const p2 = await off.newPage();
+      await p2.goto(`${pageUrl}?demo-plugins-off=map#/browse`);
+      await p2.locator(".browse-side-toggle").waitFor();
+      await p2.evaluate(`window.__ergoBrowser(${JSON.stringify(JSON.stringify({ type: "page", json: JSON.stringify({ nonce: "n", type: "selected", field: null, page: { title: "x", url: "https://shop.example.cn/" } }) }))})`);
+      await p2.waitForFunction(`window.__texts.length > 0`);
+      expect(await p2.evaluate(`JSON.parse(window.__texts.at(-1)).map`)).toBeUndefined();
+    } finally {
+      await off.close();
+    }
+  }, 60_000);
+
   // 侧边栏模式那一页收到"浏览"页交来的外观（App 转的 window.__ergoSide），马上换风格、深浅色、主色；不写这一页的存储
   test("侧边栏模式：收到交来的外观马上换风格、深浅色、主色，不写存储", async () => {
     const { page, errors } = await open({ width: 390, height: 844 }, "?ergo=side");

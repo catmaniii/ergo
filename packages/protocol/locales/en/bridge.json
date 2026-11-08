@@ -38,5 +38,7 @@
   "bridge.reason.elementUnknown": "This element is no longer on the page; the page may have reloaded",
   "bridge.reason.elementGone": "This element is no longer on the page",
   "bridge.reason.elementUnreadable": "This element's content can't be read from the page",
-  "bridge.reason.elementHidden": "This element isn't visible right now, so it can't be captured"
+  "bridge.reason.elementHidden": "This element isn't visible right now, so it can't be captured",
+  "bridge.map.show": "Show on map",
+  "bridge.map.route": "Directions"
 }

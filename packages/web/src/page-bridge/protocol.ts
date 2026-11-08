@@ -10,6 +10,7 @@
 // （pick 方法、报 pick），不跟着按钮、不随网页滚动；选中的框、悬浮按钮所在的框带上框里现在的内容（PageField.value）。
 // 长按元素的圆钮，element.ts：报 element（圆钮上现在是哪个元素）、element-open（点圆钮打字）、element-voice（按住说话），
 // 气泡的 fieldId 写元素的编号；宿主经 elementInfo、elementPrepare、elementChunk、elementRect、elementShotDone 取元素的内容。
+// 选中的字像地址、地名时圆钮旁边多"在地图上看""怎么去"（447，map-chips.ts）：点了报 element-map（App 原样转，白名单只管宿主调页面桥）。
 import type { PageField, PickedElement } from "@ergo/protocol";
 
 /** ArkWeb registerJavaScriptProxy 注册的对象名（只有一个方法 post(json)） */
@@ -58,7 +59,9 @@ export type PagePickAction = { id: string } & ({ action: "choose"; token: string
  * - element：长按、右键出了圆钮，圆钮上是这个元素（null 是收起来了）；
  * - element-open、element-voice：圆钮上点了一下、按住说话，同 open、voice，目标是这个元素（选中的文字是这一刻的）；
  * - corner-open、corner-voice：右下角常驻的悬浮按钮（没挂在框上，宿主随 texts 交来 fab.corner 才有）上点了一下、按住说话，
- *   同 open、voice，不带框，只带这一页；气泡的 fieldId 是 PAGE_CORNER_ID
+ *   同 open、voice，不带框，只带这一页；气泡的 fieldId 是 PAGE_CORNER_ID；
+ * - element-map：圆钮旁边地图的两个按钮（选中的字像地址、地名，宿主随 texts 交来 map 才有，447）点了哪个——show 在地图上看、
+ *   route 怎么去；element 是圆钮上的元素（选中的字是这一刻的），气泡的 fieldId 照旧是元素的编号
  */
 export type PageBridgeEvent =
   | { type: "field"; field: PageField | null }
@@ -72,7 +75,8 @@ export type PageBridgeEvent =
   | { type: "element-open"; element: PickedElement; page: PageInfo }
   | { type: "element-voice"; phase: "press" | "start" | "stop" | "cancel"; element: PickedElement; page: PageInfo }
   | { type: "corner-open"; page: PageInfo }
-  | { type: "corner-voice"; phase: "press" | "start" | "stop" | "cancel"; page: PageInfo };
+  | { type: "corner-voice"; phase: "press" | "start" | "stop" | "cancel"; page: PageInfo }
+  | { type: "element-map"; action: "show" | "route"; element: PickedElement; page: PageInfo };
 
 /** 右下角常驻的悬浮按钮在气泡、按钮样子（mark）里的编号（框是 f…、元素是 x…） */
 export const PAGE_CORNER_ID = "corner";

@@ -12,8 +12,9 @@
 // -哪些种类是框（文本框、上传框、下拉框）、现在的值怎么截（空白并成一个、前 40 字、空的不写）、下拉框的选项怎么收拾。
 // - 悬浮按钮这一刻在哪（四种情况：侧边栏开合 × 选没选中）；右下角的按钮摆在哪（离右边、底边 16，让开手势区，网页的底部栏、
 //   右下角的按钮盖住它就挪到上面，最多挪看得见的部分的四成，挪不下留在原处）。
+// - 选中的地址用地图（447）：选中的字像不像地址（拿不准也给）、交给地图服务查的写法、"在地图上看""怎么去"那一行摆在哪。
 import { describe, expect, test } from "vitest";
-import { BUTTON_SIZE, cleanElementLabel, CORNER_GAP, ELEMENT_LABEL_MAX, elementSourceOf, fabSpot, placeCornerButton, placeElementButton,
+import { BUTTON_SIZE, cleanElementLabel, CORNER_GAP, ELEMENT_LABEL_MAX, elementSourceOf, fabSpot, guessAddress, MAP_CHIPS_GAP, mapQueryOf, offersMapActions, placeCornerButton, placeElementButton, placeMapChips,
   BUBBLE_EDGE,
   BUBBLE_GAP,
   BUBBLE_MAX_HEIGHT,
@@ -409,5 +410,76 @@ describe("右下角的按钮摆在哪", () => {
   test("要挪得比看得见的部分的四成还高（网页底部一大块浮层）就不挪，留在原处", () => {
     const sheet = { left: 0, top: 400, right: 390, bottom: 844 };
     expect(placeCornerButton(phone, 0, [sheet])).toEqual(corner);
+  });
+});
+
+// 选中的地址用地图（447）：选中的字像不像地址、地名（拿不准也给"在地图上看""怎么去"），交给地图服务查的写法，两个小按钮摆在哪
+describe("选中的字像不像地址", () => {
+  test("中文门牌、路名、行政区、邮编，英文街名、州加邮编、英国和新加坡的邮编：像", () => {
+    for (const text of [
+      "浙江省杭州市西湖区示例路 478 号",
+      "文三路478号",
+      "示例弄 12 号 3 楼",
+      "杭州市西湖区",
+      "邮编：310012",
+      "西溪湿地公园",
+      "首都国际机场 T3",
+      "1600 Example Street, Springfield",
+      "221B Baker Street",
+      "Springfield, IL 62704",
+      "London SW1A 1AA",
+      "1 Kadayanallur Street, Singapore 069184",
+      "PO Box 123",
+    ]) expect({ text, guess: guessAddress(text) }).toEqual({ text, guess: "address" });
+  });
+
+  test("短短一段拿不准（可能是地名）：也给", () => {
+    for (const text of ["西湖", "Eiffel Tower", "滨海湾金沙", "Marina Bay Sands"]) {
+      expect({ text, guess: guessAddress(text), offers: offersMapActions(text) }).toEqual({ text, guess: "maybe", offers: true });
+    }
+  });
+
+  test("一看就不是的不给：太短、太长、网址邮箱、只有数字符号、好几句话、好几行、长长的英文句子", () => {
+    for (const text of [
+      "",
+      "x",
+      "这".repeat(121),
+      "https://shop.example.cn/about",
+      "www.example.com",
+      "me@example.com",
+      "138 0000 0000",
+      "¥ 128.00",
+      "12:30",
+      "今天天气不错。我们去哪儿？",
+      "第一行\n第二行\n第三行\n第四行",
+      "This is a long sentence about something else entirely that is not an address",
+    ]) expect({ text, offers: offersMapActions(text) }).toEqual({ text, offers: false });
+  });
+
+  test("交给地图服务查的写法：空白并成一个、去掉开头的说明和末尾的标点", () => {
+    expect(mapQueryOf("  地址：浙江省杭州市\n西湖区示例路 478 号。 ")).toBe("浙江省杭州市 西湖区示例路 478 号");
+    expect(mapQueryOf("Address: 1600 Example Street, ")).toBe("1600 Example Street");
+    expect(mapQueryOf("西湖")).toBe("西湖");
+    expect(mapQueryOf("地".repeat(200))).toHaveLength(120);
+  });
+});
+
+/** 圆钮在 (x, y) 时它的范围 */
+const chipButton = (x: number, y: number) => ({ left: x, top: y, right: x + BUTTON_SIZE, bottom: y + BUTTON_SIZE });
+
+describe("地图那两个小按钮摆在哪", () => {
+  const area = { left: 0, top: 0, right: 390, bottom: 844 };
+  const size = { width: 170, height: 32 };
+  test("圆钮右边、竖着居中；右边放不下放左边", () => {
+    expect(placeMapChips(chipButton(40, 200), size, area)).toEqual({ x: 40 + BUTTON_SIZE + MAP_CHIPS_GAP, y: 200 + (BUTTON_SIZE - 32) / 2 });
+    const right = placeMapChips(chipButton(300, 200), size, area);
+    expect(right.x + size.width).toBeLessThanOrEqual(300 - MAP_CHIPS_GAP);
+  });
+
+  test("两边都放不下放圆钮下面（夹在看得见的部分里），下面也放不下放上面", () => {
+    const narrow = { left: 0, top: 0, right: 240, bottom: 844 };
+    expect(placeMapChips(chipButton(100, 200), size, narrow)).toEqual({ x: 240 - 170 - 4, y: 200 + BUTTON_SIZE + MAP_CHIPS_GAP });
+    const low = placeMapChips(chipButton(100, 820), size, narrow);
+    expect(low.y).toBe(820 - MAP_CHIPS_GAP - 32);
   });
 });

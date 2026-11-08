@@ -111,6 +111,91 @@ export function placeElementButton(point: { x: number; y: number }, selection: R
   return { x, y: Math.min(maxY, point.y + 24) };
 }
 
+// ---------- 选中的地址用地图（447）----------
+
+/** 地址、地名最长多少字（再长多半是一段话，不给地图那两个按钮） */
+export const ADDRESS_TEXT_MAX = 120;
+/** 拿不准的短短一段最长多少字（可能是地名："西湖""Eiffel Tower"） */
+const PLACE_NAME_MAX = 30;
+/** 拿不准的英文最多几个词 */
+const PLACE_WORDS_MAX = 6;
+/** 网址、邮箱 */
+const URLISH = /(https?:\/\/|www\.|[\w.+-]+@[\w-]+\.[a-z]{2,})/i;
+/** 只有数字和符号（电话、价钱、时间、编号） */
+const ONLY_NUMBERS = /^[\d\s+()\-.,:/#*￥¥$€£%~～]+$/;
+/** 句号、问号、叹号（一段话里有两个以上就不是地址） */
+const SENTENCE_END = /[。！？!?]/g;
+/** 中文地址的门牌、路名、行政区、邮编 */
+const CN_STRONG = [/\d+\s*(号|弄|栋|幢|座|室|单元)/, /(路|街|大道|巷|弄|胡同|道)\s*\d+/, /(省|自治区).{0,12}(市|州|盟)/, /(市|州).{0,10}(区|县|旗)/, /(邮编|邮政编码)\s*[:：]?\s*\d{6}/];
+/** 中文的地名用字（短的里有它们就当是地址） */
+const CN_PLACE = /(省|市|区|县|镇|乡|街道|村|路|街|大道|巷|弄|胡同|小区|大厦|广场|商场|公园|景区|机场|车站|火车站|高铁站|地铁站|码头|大学|学院|医院|酒店|宾馆|饭店|寺|塔|桥)/;
+/** 英文地址：门牌 + 街名、美国的州 + 邮编、英国的邮编、新加坡的邮编、邮政信箱 */
+const EN_STRONG = [
+  /\b\d+[a-z]?\s+(?:[\w'.-]+\s+){0,4}(street|st|road|rd|avenue|ave|boulevard|blvd|lane|ln|drive|dr|way|court|ct|place|pl|square|sq|highway|hwy|parkway|pkwy|terrace|crescent|close|circle|cir)\b/i,
+  /\b[A-Z]{2}\s+\d{5}(?:-\d{4})?\b/,
+  /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/,
+  /\bsingapore\s+\d{6}\b/i,
+  /\bp\.?\s?o\.?\s+box\s+\d+/i,
+];
+/** 空格、制表符、不换行空格、全角空格（换行留着：几行算不算地址要数） */
+const SPACES = /[ \t 　]+/g;
+
+/** 选中的一段字像不像地址、地名：address 像（门牌、路名、邮编……）、maybe 拿不准（短短一段，可能是地名）、no 不像（太长、网址、电话、一段话） */
+export type AddressGuess = "address" | "maybe" | "no";
+
+/**
+ * 网页上选中的字像不像地址、地名（447：选中地址时圆钮旁边多"在地图上看""怎么去"）。简单的规则，判断不准时宁可给（maybe 也给），
+ * 查不到再说：中文的门牌、路名、行政区、邮编，常见的英文地址（门牌加街名、州加邮编、英国和新加坡的邮编）；
+ * 不给的只有一看就不是的：太长、网址邮箱、只有数字符号、好几句话
+ */
+export function guessAddress(raw: string): AddressGuess {
+  const text = raw.replace(SPACES, " ").trim();
+  if (text.length < 2 || text.length > ADDRESS_TEXT_MAX) return "no";
+  if (URLISH.test(text) || ONLY_NUMBERS.test(text)) return "no";
+  if (text.split(/\n+/).length > 3) return "no";
+  if ((text.match(SENTENCE_END) ?? []).length >= 2) return "no";
+  if (CN_STRONG.some((re) => re.test(text)) || EN_STRONG.some((re) => re.test(text))) return "address";
+  const oneLine = !text.includes("\n");
+  if (oneLine && text.length <= 60 && CN_PLACE.test(text)) return "address";
+  if (oneLine && text.length <= PLACE_NAME_MAX && text.split(" ").length <= PLACE_WORDS_MAX) return "maybe";
+  return "no";
+}
+
+/** 圆钮旁边给不给"在地图上看""怎么去"（像的、拿不准的都给） */
+export function offersMapActions(text: string): boolean {
+  return guessAddress(text) !== "no";
+}
+
+/** 交给地图服务查的那段：空白并成一个，去掉开头的"地址：""Address:"这类说明和末尾的标点 */
+export function mapQueryOf(text: string): string {
+  return text
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^(地址|位置|地点|住址|address|location|addr)\s*[:：]\s*/i, "")
+    .replace(/[。，,;；.!！?？、\s]+$/, "")
+    .slice(0, ADDRESS_TEXT_MAX);
+}
+
+/** 地图那两个小按钮离圆钮多远 */
+export const MAP_CHIPS_GAP = 6;
+
+/**
+ * 地图那两个小按钮（一行）摆在哪（左上角，视口坐标）：圆钮右边、竖着和圆钮居中；右边放不下放左边；都放不下放圆钮下面（左边对齐，
+ * 夹在看得见的部分里），下面也放不下放上面
+ */
+export function placeMapChips(button: Rect, size: { width: number; height: number }, area: Rect): { x: number; y: number } {
+  const midY = (button.top + button.bottom) / 2 - size.height / 2;
+  const clampY = (y: number) => Math.max(area.top + EDGE, Math.min(y, area.bottom - size.height - EDGE));
+  const right = button.right + MAP_CHIPS_GAP;
+  if (right + size.width <= area.right - EDGE) return { x: right, y: clampY(midY) };
+  const left = button.left - MAP_CHIPS_GAP - size.width;
+  if (left >= area.left + EDGE) return { x: left, y: clampY(midY) };
+  const x = Math.max(area.left + EDGE, Math.min(button.left, area.right - size.width - EDGE));
+  const below = button.bottom + MAP_CHIPS_GAP;
+  if (below + size.height <= area.bottom - EDGE) return { x, y: below };
+  return { x, y: clampY(button.top - MAP_CHIPS_GAP - size.height) };
+}
+
 /** 悬浮按钮多大、离框多远（CSS 像素）；离视口边至少留多少 */
 export const BUTTON_SIZE = 36;
 export const BUTTON_GAP = 6;

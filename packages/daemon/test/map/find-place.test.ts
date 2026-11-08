@@ -103,8 +103,10 @@ describe("在地图上看：直接查一处", () => {
   });
 });
 
+/** 地图服务的名字（接口照它写那一句） */
+const titleOf = (id: string) => (id === "amap" ? "高德地图" : id);
+
 describe("没查到时给人看的那一句", () => {
-  const titleOf = (id: string) => (id === "amap" ? "高德地图" : id);
   it("只是没找到、超额、连不上、Key 不对、别的错各有说法", () => {
     expect(mapFindProblem({}, " 杭州   某个地方 ", titleOf)).toBe("地图上没找到「杭州 某个地方」：选得具体些（带上城市、区）再试");
     expect(mapFindProblem({ provider: "amap", failure: "quota", detail: "x" }, "a", titleOf)).toBe("高德地图说查得太多了，过一会儿再试");
