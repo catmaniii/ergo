@@ -202,6 +202,7 @@ import {
   joinFolder,
   type WorkFolderChoice,
   workFolderName,
+  mapMarkOf,
 } from "../state/index.ts";
 import { nowIso } from "../util/time.ts";
 import { fakeRuntimes } from "./fake-runtimes.ts";
@@ -635,7 +636,8 @@ export class FakeConnection implements Connection {
     const parts = req.parts.map((p): MessagePart => (p.type === "voice" ? { ...p, voiceId: `${FAKE_VOICE_PREFIX}${++this.voiceNo}` } : p));
     // 正在回复：排进队，这一轮说完（或者点了停止）一起交出去
     if (this.turns.has(req.conversation)) {
-      const item: QueuedMessage = { message: { id: messageId, conversation: req.conversation, speaker: "user", time, parts }, idempotencyKey: req.idempotencyKey };
+      // 地图页上发的（444）：消息上记着地图上下文（会话里写"在地图上说"）
+      const item: QueuedMessage = { message: { id: messageId, conversation: req.conversation, speaker: "user", time, parts, ...(req.map ? { map: mapMarkOf(req.map) } : {}) }, idempotencyKey: req.idempotencyKey };
       later(250, () => {
         this.putQueue(req.conversation, "queued", [messageId], [...(this.queues.get(req.conversation) ?? []), item], req.idempotencyKey);
         for (const p of parts) {
@@ -646,7 +648,7 @@ export class FakeConnection implements Connection {
       return;
     }
     later(350, () => {
-      const message: MessageEnvelope = { id: messageId, conversation: req.conversation, speaker: "user", time, parts };
+      const message: MessageEnvelope = { id: messageId, conversation: req.conversation, speaker: "user", time, parts, ...(req.map ? { map: mapMarkOf(req.map) } : {}) };
       this.emit(req.conversation, EVENT_TYPES.message, { message, idempotencyKey: req.idempotencyKey } satisfies MessageEventPayload);
       for (const p of parts) {
         if (p.type !== "voice" || p.voiceId === undefined) continue;

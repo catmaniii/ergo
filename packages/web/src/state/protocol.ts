@@ -725,7 +725,7 @@ export {
 export type { CalendarDay, CalendarDayCounts, CalendarExternalEntry, CalendarJobEntry, CalendarJobStatus, CalendarMonthView, CalendarReminderEntry, CalendarReminderStatus, ExternalCalendarEventPayload } from "@ergo/protocol";
 // 地图（429 地图插件）：坐标转换（WGS-84 和高德的 GCJ-02）、在不在中国大陆、瓦片地址、高德安全密钥代理的前缀、地图页要的设置
 export { AMAP_SERVICE_PREFIX, AMAP_SOURCE_ID, distanceMeters, gcjToWgs, inMainlandChina, mapFocusItem, mapTilePath, parseMapFocusItem, wgsToGcj } from "@ergo/protocol";
-export type { LatLon, MapConfigView } from "@ergo/protocol";
+export type { LatLon, MapBasemapEventBody, MapBasemapEventReply, MapConfigView } from "@ergo/protocol";
 // 地图上的"我的足迹"（430）：某一天的点、停留、照片地点、常去的地方；地图页地址里的日期
 export { isMapDate, mapDayItem, parseMapDayItem, shiftMapDate } from "@ergo/protocol";
 export type { MapDayPhoto, MapDayPlace, MapDayPoint, MapDayStay, MapDayView } from "@ergo/protocol";
@@ -733,10 +733,19 @@ export type { MapDayPhoto, MapDayPlace, MapDayPoint, MapDayStay, MapDayView } fr
 export type { MapLatestPoint, MapLatestView } from "@ergo/protocol";
 // 聊天里的地图卡片（431）：负载、点开去地图页的哪里、标题；查地点和路线查到的能画的那一份
 export { MAP_CARD_ITEM, mapCardPath, mapCardTitle, parseMapCardPath } from "@ergo/protocol";
+// "在地图上看"（447）：地图页的页面 id（浏览插件不 import 地图插件也知道去哪）、看查到的一处的地址、查一处的请求和结果
+export { MAP_FIND_TEXT_MAX, MAP_LOOKUP_ITEM, MAP_PAGE_ID, mapLookupPath, parseMapLookupPath } from "@ergo/protocol";
+export type { MapFindBody, MapFindResult } from "@ergo/protocol";
 export type { MapCardMark, MapCardPayload, MapCardShow, MapDrawing } from "@ergo/protocol";
 // 查地点、算路线（432）：设置 · 数据源 · 高德地图那一块要的（Web 服务 Key 填了没有、这个月的用量）、查到的能画的那一份
 export { isAmapSourcePanel, MAP_ROUTE_MODES } from "@ergo/protocol";
 export type { AmapSourcePanel, AmapUsageView, MapLookupDrawing, MapLookupLine, MapLookupMark, MapRouteMode } from "@ergo/protocol";
+// 谷歌地图插件（446）：数据源 id、地图服务编号、设置里那一块的数据和计费项
+export { GOOGLE_MAP_PROVIDER, GOOGLE_MAPS_SKUS, GOOGLE_MAPS_SOURCE_ID, isGoogleMapsSourcePanel } from "@ergo/protocol";
+export type { GoogleMapsSku, GoogleMapsSourcePanel, GoogleMapsUsageView } from "@ergo/protocol";
+// 地图服务插槽（445）：区域、登记了的几家、地图页按区域记的手动切换
+export { MAP_LOOKUP_SOURCES, MAP_PROVIDER_ID, MAP_REGIONS, mapRegionOf } from "@ergo/protocol";
+export type { MapChoice, MapProviderView, MapRegion } from "@ergo/protocol";
 // 负责人背后的 agent
 export type { BackgroundAgentEntry, BackgroundAgentList, BackgroundAgentRow, BackgroundAgentState, BackgroundAgentStep, BackgroundAgentsEventPayload, BackgroundAgentTranscript } from "@ergo/protocol";
 // 工具调用的完整参数和返回（详情页按调用 id 现取）
@@ -986,6 +995,8 @@ export type {
   BrowsingContext,
   BrowsingMark,
   BrowsingPage,
+  MapContext,
+  MapMark,
   ElementFile,
   PageElement,
   PageElementRole,
@@ -994,6 +1005,8 @@ export type {
   PickedElementSource,
 } from "@ergo/protocol";
 export { ELEMENT_FILE_MAX_BYTES, PICKED_ELEMENT_KINDS, PICKED_ELEMENT_LABEL_MAX, PICKED_ELEMENT_SOURCES, PICKED_ELEMENT_URL_MAX } from "@ergo/protocol";
+// 地图页的二狗（444）：聊天窗、悬浮按钮发的消息带的地图上下文记成什么、会话里的小字
+export { mapLabel, mapMarkOf } from "@ergo/protocol";
 export { BROWSER_PAGE_TEXT_MAX, browsingLabel, browsingMarkOf, CHOOSER_TEXT, PAGE_ELEMENT_OPTION_MAX, PAGE_ELEMENT_OPTIONS_MAX, PAGE_ELEMENT_ROLES, PAGE_ELEMENT_VALUE_MAX, PAGE_ELEMENTS_DEFAULT, PAGE_ELEMENTS_MAX, selectedFieldText } from "@ergo/protocol";
 // "浏览"的搜索引擎的结果页地址（挪到协议包：守护进程也要拼）
 export { BROWSE_SEARCH_ENGINE_IDS, BROWSE_SEARCH_ENGINES, browseSearchEngineOf, browseSearchUrl, DEFAULT_BROWSE_SEARCH_ENGINE } from "@ergo/protocol";

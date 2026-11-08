@@ -116,9 +116,10 @@ export function LocateButton({ here }: { here: Here }) {
 
 /**
  * 窄的时候足迹的详情卡、列表卡（.map-day-card）盖在地图下面：量它多高，挂在地图那块上（--map-dock），
- * 右下角的按钮、下面那句话跟着往上让
+ * 右下角的按钮、下面那句话跟着往上让；也交回这个高度（右下角的二狗按钮照它让，444）
  */
-export function useDockInset(stageRef: { readonly current: HTMLElement | null }): void {
+export function useDockInset(stageRef: { readonly current: HTMLElement | null }): number {
+  const [dock, setDock] = useState(0);
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage || typeof ResizeObserver === "undefined" || typeof MutationObserver === "undefined") return;
@@ -127,6 +128,7 @@ export function useDockInset(stageRef: { readonly current: HTMLElement | null })
       const h = card ? Math.round(card.getBoundingClientRect().height) : 0;
       // 卡片底边离地图底边 28 像素、钮离 36：让开卡片的高度，正好在卡片上面 8 像素
       stage.style.setProperty("--map-dock", `${h}px`);
+      setDock(h);
     };
     const resize = new ResizeObserver(measure);
     const find = () => {
@@ -148,4 +150,5 @@ export function useDockInset(stageRef: { readonly current: HTMLElement | null })
       stage.style.removeProperty("--map-dock");
     };
   }, [stageRef]);
+  return dock;
 }

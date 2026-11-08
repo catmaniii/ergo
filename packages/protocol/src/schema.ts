@@ -41,6 +41,7 @@ import { EventTrigger } from "./event-source-schema.ts";
 import { ReminderSchedule } from "./reminder-schedule.ts";
 import { PageCommandMark } from "./page-commands.ts";
 import { BrowsingContext, BrowsingMark, ELEMENT_FILE_VIAS } from "./browsing.ts";
+import { MapContext, MapMark } from "./map-chat-schema.ts";
 import { SentFrom } from "./user-words.ts";
 import { VOICE_CAPTURE_TEXT_MAX, VOICE_DURATION_SLACK_MS, VOICE_MAX_MS, VOICE_MIC_LOG_MAX, VOICE_WAVEFORM_MAX, VOICE_WAVEFORM_MAX_BARS } from "./voice.ts";
 
@@ -465,6 +466,11 @@ export const MessageEnvelope = Type.Object({
    */
   browsing: Type.Optional(BrowsingMark),
   /**
+   * 地图页上发的（444）：用户在地图页右边的二狗聊天窗里、右下角的二狗悬浮按钮上跟秘书说的这句，当时地图看的是哪里（中心、缩放、底图）、
+   * 看的是哪一天的足迹、哪张地图卡片。交给秘书时写明（地图插件的输入附注）；会话里这条下面标"在地图上说"。秘书页签里发的没有
+   */
+  map: Type.Optional(MapMark),
+  /**
    * agent 的这条回复说到一半被停下了（用户点了停止，或者任务暂停、取消时中止了这一轮）：已经说出来的留着，界面上标"已停止"。
    * 说完了的、之前的消息没有
    */
@@ -601,6 +607,8 @@ export const SendMessageParams = Type.Object({
   taskId: Type.Optional(Type.String({ minLength: 1, maxLength: 40 })),
   /** 浏览侧边栏里、悬浮按钮上发的（只认秘书会话）：当时的网页、选中的框、哪个浏览器 */
   browsing: Type.Optional(BrowsingContext),
+  /** 地图页右边的聊天窗里、右下角的二狗悬浮按钮上发的（只认秘书会话，444）：当时地图看的是哪里、哪一天的足迹、哪张卡片 */
+  map: Type.Optional(MapContext),
 });
 export type SendMessageParams = Static<typeof SendMessageParams>;
 

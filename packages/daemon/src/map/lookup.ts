@@ -8,7 +8,7 @@
 // 查到的只现用：不落盘、不进记忆素材（高德的协议不许存、不许缓存；OpenStreetMap 的照同样办，只在内存里按它的规矩缓存一阵）。
 // 出错一律抛 MapLookupError：哪一种（要重新填 Key、用量到上限、查得太频繁、点在国外、找不到路……）加上服务原话，
 // 给模型的话（lookup-tools.ts）和给人看的话（试查一下）各自按种类写。
-import type { LatLon, MapLookupSource, MapRouteMode } from "@ergo/protocol";
+import type { LatLon, MapLookupSource, MapRegion, MapRouteMode } from "@ergo/protocol";
 
 /** 一条折线最多留多少个点（再多的均匀抽掉：画在小卡片、地图页上足够了） */
 export const MAX_LINE_POINTS = 2_000;
@@ -113,9 +113,15 @@ export class MapLookupError extends Error {
   }
 }
 
-/** 一家地图服务（高德、OpenStreetMap） */
+/** 一家地图服务查询的那一半（高德、OpenStreetMap；445 起别的插件经地图服务插槽登记的也是它） */
 export interface LookupProvider {
+  /** 地图服务的编号（结果编号的前缀、卡片上的来源） */
   readonly id: MapLookupSource;
+  /**
+   * 这一次管哪几个区域（445：地图服务插槽按登记的区域填，手动选它时多管它手动能用的区域）；按名字找、没有参照点时据此挑先问谁。
+   * 不写当哪儿都管（只看 covers）
+   */
+  readonly regions?: readonly MapRegion[];
   /** 数据来自谁（给模型看的，只用中文："高德"）；给人看的来源名走 t("map.lookup.source.<id>") */
   readonly name: string;
   /** 结果末尾的那句（给模型看的）：数据来自谁、署名、存没存（"数据来自高德，现查的，没存"） */

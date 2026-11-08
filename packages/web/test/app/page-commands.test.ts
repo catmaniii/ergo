@@ -10,13 +10,15 @@
 //   发之前收起告诉 App 取消；自己选交给系统的选择器；
 // -长按元素的圆钮：打字、说话走同一套，用户的话原样发，带着元素（这一刻选中的字）；没有框要操作；按钮的样子标在元素的编号上；页面桥报的元素按形状核对；
 /// -右下角常驻的悬浮按钮（浏览侧边栏关着时）：打字、说话走同一套，带这一页、不带框，网页上下文写 corner；按钮的样子标在 corner 上；不预先备录音器；
+// - 选中的地址用地图（447）：在地图上看不经对话，查到了收起、打开地图页，查不到写原因；怎么去带着元素发进秘书的主会话，回话下面给"去侧边栏看"；
 // - 原生桥：页面桥报的话按形状核对（发送带着的框、框里的内容，挑图片窗口上点的），形状不对的不认；文件分段交、App 回的不对当失败；
 //   挑图片窗口画成什么样（pick）、放掉预备的文件（discard，新版 App 才有）、返回手势收起窗口（pick-close）。
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { type NativePageControl, type PageOutcome, parsePageEvent, pickedElementOf, type StagedFile, wrapNativeBrowser } from "../../src/app/native-browser.ts";
 import { LEVEL_MS, PRESS_CAPTURE_MS, type PageTake, type PageVoice, PageCommands, REPLY_HIDE_MS } from "../../src/plugins/browsing/page-commands.ts";
 import type { PageBridgeEvent, PageBubbleAction } from "../../src/page-bridge/protocol.ts";
-import type { BrowsingContext, ButtonTurn, PageField, PageVoiceResult, PickedElement } from "../../src/state/index.ts";
+import { bubbleView } from "../../src/plugins/browsing/page-bubble.ts";
+import type { BrowsingContext, ButtonTurn, MapFindResult, PageField, PageVoiceResult, PickedElement } from "../../src/state/index.ts";
 
 const PAGE = { title: "相册 · 上传", url: "https://album.example.cn/upload" };
 const TITLE: PageField = { id: "f1", kind: "text", label: "标题" };
@@ -748,5 +750,92 @@ describe("原生桥上页面桥那一组", () => {
       { type: "page", event: { type: "field", field: null } },
       { type: "chooser", chooser: { accept: ["image/*"], multiple: true, capture: false, fieldId: "f2" } },
     ]);
+  });
+});
+
+// 选中的地址用地图（447）：圆钮旁边"在地图上看""怎么去"点了，页面桥报 element-map
+const ADDRESS: PickedElement = { id: "x7", kind: "text", selected: true, text: { text: "地址：浙江省杭州市西湖区示例路 478 号。", total: 22 } };
+const mapEvent = (action: "show" | "route", element: PickedElement = ADDRESS) => pageEvent({ type: "element-map", action, element, page: PAGE });
+/** 换一份带"在地图上看"的：find 交回什么、打开了哪个编号 */
+function withMap(find: (text: string) => Promise<MapFindResult>) {
+  const asked: string[] = [];
+  const opened: string[] = [];
+  commands = new PageCommands({
+    page,
+    recognize: () => Promise.resolve(recognized),
+    voice,
+    browserPage: () => PAGE,
+    browserId: () => browserId,
+    map: {
+      find: (text) => {
+        asked.push(text);
+        return find(text);
+      },
+      open: (lookup) => opened.push(lookup),
+    },
+  });
+  commands.connect({
+    say(text, browsing) {
+      said.push({ text, browsing });
+      return `k${said.length}`;
+    },
+  });
+  commands.secretaryChanged((key) => turns.get(key) ?? { phase: "sending" });
+  return { asked, opened };
+}
+
+describe("选中的地址：在地图上看、怎么去", () => {
+  test("在地图上看：不经对话，气泡里在找（去掉了说明和标点的那段），查到了收起、打开地图页看它；按钮先在办后平常", async () => {
+    let resolveFound: ((r: MapFindResult) => void) | undefined;
+    const pending = new Promise<MapFindResult>((resolve) => {
+      resolveFound = resolve;
+    });
+    const { asked, opened } = withMap(() => pending);
+    mapEvent("show");
+    expect(asked).toEqual(["浙江省杭州市西湖区示例路 478 号"]);
+    expect(commands.snapshot()).toMatchObject({ kind: "busy", note: "finding", said: "浙江省杭州市西湖区示例路 478 号", target: { element: ADDRESS } });
+    expect(page.marks).toEqual(["x7:busy"]);
+    resolveFound?.({ ok: true, lookup: "amap-p3", source: "amap", kind: "places", title: "浙江省杭州市西湖区示例路 478 号" });
+    await vi.waitFor(() => expect(opened).toEqual(["amap-p3"]));
+    expect(commands.snapshot()).toEqual({ kind: "idle" });
+    expect(page.marks).toEqual(["x7:busy", "x7:idle"]);
+    expect(said).toEqual([]);
+  });
+
+  test("查不到、守护进程回不来：气泡里写原因（不收起），不打开地图页；地图插件没启用（没给）写一句", async () => {
+    const { opened } = withMap(() => Promise.resolve({ ok: false, reason: "地图上没找到「浙江省杭州市西湖区示例路 478 号」：选得具体些（带上城市、区）再试" }));
+    mapEvent("show");
+    await vi.waitFor(() => expect(commands.snapshot()).toMatchObject({ kind: "reply", failed: true, text: expect.stringContaining("地图上没找到") }));
+    expect(opened).toEqual([]);
+    withMap(() => Promise.reject(new Error("地图插件没启用")));
+    mapEvent("show");
+    await vi.waitFor(() => expect(commands.snapshot()).toMatchObject({ kind: "reply", failed: true, text: expect.stringContaining("地图插件没启用") }));
+    // 没给 map（beforeEach 那一份）
+    commands = new PageCommands({ page, recognize: () => Promise.resolve(recognized), voice, browserPage: () => PAGE, browserId: () => browserId });
+    mapEvent("show");
+    expect(commands.snapshot()).toMatchObject({ kind: "reply", failed: true, text: "地图插件没启用，在地图上看不了" });
+  });
+
+  test("怎么去：一句话带着元素发进秘书的主会话（和圆钮上打字同一套），回话下面一律给去侧边栏看", () => {
+    withMap(() => Promise.reject(new Error("不该查")));
+    mapEvent("route");
+    expect(said).toEqual([{ text: "从我现在的位置怎么去「浙江省杭州市西湖区示例路 478 号」？", browsing: { browser: BROWSER, page: PAGE, via: "button", element: ADDRESS } }]);
+    expect(commands.snapshot()).toMatchObject({ kind: "busy", note: "thinking", target: { element: ADDRESS, mapRoute: true } });
+    turn(1, { phase: "replied", text: "开车约 25 分钟" });
+    const reply = commands.snapshot();
+    expect(reply).toMatchObject({ kind: "reply", text: "开车约 25 分钟", failed: false });
+    expect(bubbleView(reply, true)).toMatchObject({ kind: "reply", more: true });
+    expect(bubbleView(reply, false)).toMatchObject({ kind: "reply", more: false });
+  });
+
+  test("选中的是空的：写一句；页面桥报的 element-map 按形状核对（动作认得、元素和这一页要有）", () => {
+    withMap(() => Promise.reject(new Error("不该查")));
+    mapEvent("route", { id: "x8", kind: "text", selected: true, text: { text: "  。", total: 3 } });
+    expect(commands.snapshot()).toMatchObject({ kind: "reply", failed: true, text: "选中的字是空的：重新选一下地址" });
+    expect(said).toEqual([]);
+    expect(parsePageEvent(JSON.stringify({ type: "element-map", action: "show", element: ADDRESS, page: PAGE }))).toEqual({ type: "element-map", action: "show", element: ADDRESS, page: PAGE });
+    expect(parsePageEvent(JSON.stringify({ type: "element-map", action: "fly", element: ADDRESS, page: PAGE }))).toBeUndefined();
+    expect(parsePageEvent(JSON.stringify({ type: "element-map", action: "route", page: PAGE }))).toBeUndefined();
+    expect(parsePageEvent(JSON.stringify({ type: "element-map", action: "route", element: ADDRESS }))).toBeUndefined();
   });
 });

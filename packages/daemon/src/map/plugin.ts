@@ -27,6 +27,13 @@
 //   没填高德的 Key、关了它的按需查、Key 不认时国外照样能查，国内也改用 OpenStreetMap（结果里提一句店名和小路可能不全）；
 // - 高德的"按需查"开关照样在数据源页上（usages.query.ownTools：内核不替它给工具），查国内的点之前经 KERNEL.dataSourceUsage 看它开没开；
 // - OpenStreetMap 的规矩：每秒最多 1 次、带能认出二狗的 User-Agent、结果只在内存里缓存一天（停用时扔掉）、不做输入联想。
+// 445 开了"地图服务"插槽（MAP_PROVIDERS，providers.ts）：高德、OpenStreetMap 改成按插槽登记的两家；别的插件 needs: [MAP_PROVIDERS]、
+// 在 setup 里 ctx.effect(() => ctx.use(MAP_PROVIDERS).register(…)) 登记一家（管哪个区域、优先级、底图、查询、用量），停用、移除时撤掉，
+// 退回下一家。每家写了用量的，体检的"地图"那一块多一项"<编号>-usage"（高德的照旧是 amap-usage）。地图插件停了，登记了的插件跟着停。
+// 444 地图页的二狗：地图页右边的聊天窗、右下角的悬浮按钮里发的消息带地图上下文（MessageEnvelope.map），交给秘书时后面跟一段
+// 看的是哪里、哪一天的足迹、哪张卡片（chat-note.ts，经 ctx.agent.notes 的输入附注；插件停用时没有这段）。
+// 447 "在地图上看"：浏览里网页上选中地址点了它，网页经 POST /api/map/find 直接查一处（MAP_FIND，lookup-tools.ts 的 findPlace：
+// 和秘书查地点同一套先后），放进能画的那一份，网页去地图页看（#/more/map/lookup/<编号>）。
 import path from "node:path";
 import { AMAP_SOURCE_ID, t } from "@ergo/protocol";
 import type { DataSource } from "../data-sources/api.ts";
@@ -34,10 +41,11 @@ import { PHONE } from "../phone/api.ts";
 import { type PluginDefinition, serviceKey } from "../plugins/host.ts";
 import { KERNEL } from "../plugins/kernel.ts";
 import type { AmapHosts } from "./amap.ts";
-import { MAP, MAP_DAY, MAP_DRAWING, MAP_PLUGIN } from "./api.ts";
+import { MAP, MAP_DAY, MAP_DRAWING, MAP_FIND, MAP_PLUGIN, MAP_PROVIDERS, type MapProvider } from "./api.ts";
 import { mapCardType } from "./card.ts";
+import { mapChatNote } from "./chat-note.ts";
 import { createMapDay, createMapLatest } from "./day.ts";
-import { registerAmapDoctor } from "./doctor.ts";
+import { registerUsageDoctor } from "./doctor.ts";
 import { createMapDrawings } from "./drawing.ts";
 import type { OsmHosts } from "./osm-lookup.ts";
 import { createMapService, type MapPluginService } from "./service.ts";
@@ -88,7 +96,7 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
     // 我的足迹（430）的数据、常去的地方、手机最近的位置（432 查"从家到公司""附近"）在手机插件那里：可选，没有它地图照样能看、工具如实说用不了。
     // 数据源的用法开关（433）：查国内的点之前看高德的按需查开没开（没有这项服务时当开着）
     wants: [PHONE, KERNEL.dataSourceUsage],
-    provides: [MAP, MAP_INTERNAL, MAP_DAY, MAP_DRAWING],
+    provides: [MAP, MAP_INTERNAL, MAP_DAY, MAP_DRAWING, MAP_PROVIDERS, MAP_FIND],
     contracts(ctx) {
       const source: DataSource = {
         id: AMAP_SOURCE_ID,
@@ -154,17 +162,36 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
       ctx.provide(MAP_INTERNAL, service);
       // 查地点、算路线的五个工具给秘书（433：插件在运行就有；高德能不能用每次查时现看，不能用时国内也走 OpenStreetMap）
       ctx.agent.tools.register({ to: { agents: ["secretary"] }, tools: () => service.lookupTools() });
-      // 体检：高德的用量（409 的插件体检项；插件宿主没有 ctx.doctor 时不登记）
-      registerAmapDoctor(ctx, () => service.amapUsageFinding());
+      // 地图服务插槽（445）：别的插件经它登记一家（交回撤销函数，它们交给自己的 ctx.effect）
+      ctx.provide(MAP_PROVIDERS, { register: (provider) => service.providers.register(provider), list: () => service.providers.list() });
+      // 体检：每家的用量（409 的插件体检项；插件宿主没有 ctx.doctor 时不登记）。高德的照旧是 amap-usage；别的插件登记、撤掉时跟着登记、撤掉
+      const usageChecks = new Map<MapProvider, () => void>();
+      const addUsage = (provider: MapProvider) => {
+        if (provider.usage === undefined || usageChecks.has(provider)) return;
+        const undo = registerUsageDoctor(ctx, provider.id, provider.usage);
+        if (undo !== undefined) usageChecks.set(provider, undo);
+      };
+      for (const provider of service.providers.list()) addUsage(provider);
+      ctx.effect(() =>
+        service.providers.onChange((provider, change) => {
+          if (change === "added") return addUsage(provider);
+          usageChecks.get(provider)?.();
+          usageChecks.delete(provider);
+        }),
+      );
       const day = createMapDay(() => ctx.optional(PHONE));
       // 地图页"回到我现在的位置"的退路（442）：手机最近交来的一个位置点，同样现取手机插件
       ctx.provide(MAP_DAY, { day, latest: createMapLatest(() => ctx.optional(PHONE)) });
       // 聊天里的地图卡片（431）：查地点、算路线（432 高德、433 OpenStreetMap）放在内存里的那一份按编号取；秘书的"画在地图上"
       const lookups = options.lookups ?? (() => service.lookups);
       ctx.provide(MAP_DRAWING, createMapDrawings(lookups));
+      // "在地图上看"（447）：浏览里网页上选中的地址、地名直接查一处，放进上面那一份（POST /api/map/find）
+      ctx.provide(MAP_FIND, { find: (text, signal) => service.findPlace(text, signal) });
       // 插件停了、秘书还没按新的贡献重新装配的那一会儿再调：插件宿主替它回"地图插件没启用"，不出卡
       const tool = showOnMapTool({ day, lookups, cards: ctx.use(KERNEL.cards) });
       ctx.agent.tools.register({ to: { agents: ["secretary"] }, tools: () => [tool] });
+      // 地图页的二狗（444）：地图页右边的聊天窗、右下角的悬浮按钮里发的消息后面那段地图上下文（看的是哪里、哪一天的足迹、哪张卡片）
+      ctx.agent.notes.register({ to: { agents: ["secretary"] }, text: (message) => (message.speaker === "user" && message.map ? mapChatNote(message.map) : undefined) });
       // 停用时：排队等着取的瓦片不取了
       ctx.lifecycle({ stop: () => service.stop() });
     },

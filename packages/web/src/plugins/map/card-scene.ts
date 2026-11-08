@@ -5,7 +5,7 @@
 // 这种内容 amapOnly，卡片上不画缩略图（聊天页不加载高德的脚本）、只写文字和"在地图上看"，地图页只在底图是高德时画它。
 // 用户自己的足迹、秘书给的点和路线、以后 OpenStreetMap 查来的（433）能画在 OpenStreetMap 上。
 import { type LatLon, type MapCardShow, type MapDayView, type MapDrawing, t } from "../../state/index.ts";
-import { ownMapOnly } from "./amap-results.ts";
+import { ownBasemapOf } from "./providers.ts";
 import { daySummary, footprintDay, spotTitle } from "./footprints.ts";
 import type { MapLine, MapMark, MapScene } from "./scene.ts";
 
@@ -16,7 +16,7 @@ const NAMES_MAX = 4;
 
 /**
  * 画得出来的一张卡：画什么、看全要看的点、卡上写的几行字、是不是用户自己的足迹（挑底图用）、
- * 是不是只能画在高德地图上（高德查来的）
+ * 是不是只能画在它自己家的地图上（高德、445 起别家查来的：amapOnly 名字留着；ownBasemap 写是哪一家）
  */
 export interface MapCardContent {
   readonly scene: MapScene;
@@ -24,6 +24,10 @@ export interface MapCardContent {
   readonly lines: readonly string[];
   readonly footprints: boolean;
   readonly amapOnly: boolean;
+  /** 只能画在哪一家的底图上（地图服务的编号）；哪儿都能画的不写 */
+  readonly ownBasemap?: string;
+  /** 查到的那一份自己的标题（查的时候起的；不经卡片直接看查到的一处时地图页标题栏写它，447）；别的不写 */
+  readonly title?: string;
 }
 
 /**
@@ -67,13 +71,14 @@ function modeLabel(mode: string | undefined): string | undefined {
   return mode === "driving" ? t("ui.plugins.map.card.mode.driving") : mode === "transit" ? t("ui.plugins.map.card.mode.transit") : mode === "walking" ? t("ui.plugins.map.card.mode.walking") : undefined;
 }
 
-/** 数据从哪来："数据来自 OpenStreetMap"、"数据来自高德地图"（两家都要求标明来源） */
+/** 数据从哪来："数据来自 OpenStreetMap"、"数据来自高德地图"、"数据来自 Google 地图"（几家都要求标明来源；谷歌要写 Google Maps，446） */
 export function sourceLine(source: string): string {
   if (source === "osm") return t("ui.plugins.map.card.source.osm");
+  if (source === "google") return t("ui.plugins.map.card.source.google");
   return source === "amap" ? t("ui.plugins.map.card.source.amap") : t("ui.plugins.map.card.source.other", { source });
 }
 
-/** 查地点、算路线查到的那一份（按编号现取来的）：高德查来的只能画在高德地图上（amapOnly） */
+/** 查地点、算路线查到的那一份（按编号现取来的）：OpenStreetMap 以外查来的只能画在那一家的地图上（ownBasemap） */
 export function drawingContent(drawing: MapDrawing): MapCardContent {
   const marks: MapMark[] = drawing.marks.map((m) => ({ id: `${CARD_PREFIX}${m.id}`, lat: m.lat, lon: m.lon, ...(m.label === undefined ? {} : { label: m.label }), kind: m.kind }));
   const lines: MapLine[] = drawing.lines.map((l) => ({ id: `${CARD_PREFIX}${l.id}`, points: l.points, kind: "route" }));
@@ -83,7 +88,8 @@ export function drawingContent(drawing: MapDrawing): MapCardContent {
   const named = drawing.marks.filter((m) => drawing.kind !== "places" || m.kind === "search").flatMap((m) => (m.label === undefined ? [] : [m.label]));
   const found = drawing.kind === "route" ? undefined : namesLine(named);
   const text = [found, modes.length > 0 ? modes.join(t("pages.common.listSep")) : undefined, sourceLine(drawing.source)].filter((l): l is string => l !== undefined && l !== "");
-  return { scene: { marks, lines, circles: [] }, bounds, lines: text, footprints: false, amapOnly: ownMapOnly(drawing.source) };
+  const own = ownBasemapOf(drawing.source);
+  return { scene: { marks, lines, circles: [] }, bounds, lines: text, footprints: false, amapOnly: own !== undefined, ...(own === undefined ? {} : { ownBasemap: own }), title: drawing.title };
 }
 
 /** 地图卡片点开后地图页那一条写的：标题后面跟的那几行（不重复标题） */

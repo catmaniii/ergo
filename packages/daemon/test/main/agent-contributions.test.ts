@@ -64,7 +64,7 @@ describe("agent 贡献缝", () => {
       secretary: [echo],
       maintainer: (_id, spawn) => (spawn === 1 ? [call("probe_lookup", { what: "资料" }), submitPlanStep(twoStagePlan()), echo, say("交了")] : [echo, echo]),
     });
-    expect(td.daemon.plugins.report().running).toEqual(["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "probe"]);
+    expect(td.daemon.plugins.report().running).toEqual(["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps", "probe"]);
     // 测试接缝：记下拉起负责人的请求（守护进程代为执行的工具、通用贡献清单里插件的那几项）
     const spawned: SpawnAgentRequest[] = [];
     const original = td.daemon.agents.spawn.bind(td.daemon.agents);

@@ -20,11 +20,17 @@
 // 用户的话原样发进秘书的主会话，带着元素；这里不看用户说了什么，也没有按意图分的操作。
 // 浏览侧边栏关着时悬浮按钮常驻网页右下角（页面桥报 corner-open、corner-voice）：同一套，不带框，带这一页（CommandTarget.corner，
 // 网页上下文写 corner），按钮样子、气泡记在 PAGE_CORNER_ID 上。
+// 选中的地址用地图（447，页面桥报 element-map；选中的字像地址、地名时圆钮旁边多"在地图上看""怎么去"）：
+// - 在地图上看：不经对话，气泡里"在地图上找……"，交给守护进程直接查这一处（deps.map.find：POST /api/map/find），查到了气泡收起、
+//   打开地图页定位到它（deps.map.open：#/more/map/lookup/<编号>），查不到气泡里写原因；
+// - 怎么去：一句"从我现在的位置怎么去「X」？"带着这个元素发进秘书的主会话（和圆钮上打字同一套：在想、排队、回话），秘书算路线、
+//   出路线卡（卡在对话里）；回话下面一律给"去侧边栏看"（CommandTarget.mapRoute）。
 // 这里不碰 DOM 和浏览器的全局变量（录音、计时、发消息都由参数给），测试在 Node 里跑。
 import { PAGE_CORNER_ID, type PageBridgeEvent, type PageBubbleAction, type PageInfo } from "../../page-bridge/protocol.ts";
-import { type BrowsingContext, type ButtonTurn, PAGE_COMMAND_TEXT_MAX, type PageField, type PageVoiceResult, type PickedElement, pageUrlForModel, t } from "../../state/index.ts";
+import { mapQueryOf } from "../../page-bridge/rules.ts";
+import { type BrowsingContext, type ButtonTurn, type MapFindResult, PAGE_COMMAND_TEXT_MAX, type PageField, type PageVoiceResult, type PickedElement, pageUrlForModel, t } from "../../state/index.ts";
 import type { ChooserRequest, NativeBrowserEvent, NativePageControl } from "../../app/native-browser.ts";
-import { isRecordingCancelled, micErrorOf, type VoiceCaptureBackend } from "../../app/voice-recorder.ts";
+import { type BusyNote, LEVEL_MS, LEVELS_KEPT, LISTEN_MAX_MS, type PageTake, type PageVoice, PRESS_CAPTURE_MS, REPLY_HIDE_MS } from "../../app/talk-button.ts";
 
 /** 指令作用于谁：页面信息和框的列表，悬浮按钮所在的框（带着框里的内容），或拦下的选文件对话框 */
 export interface CommandTarget {
@@ -37,10 +43,12 @@ export interface CommandTarget {
   readonly element?: PickedElement;
   /** 右下角常驻的悬浮按钮：没有框，说的是这一页 */
   readonly corner?: true;
+  /** 圆钮旁边点了"怎么去"（447）：回话下面一律给"去侧边栏看"（路线卡在对话里） */
+  readonly mapRoute?: true;
 }
 
-/** 在办的那一句走到哪了：hearing 在认说了什么、thinking 秘书在办、queued 秘书正忙，排在后面 */
-export type BusyNote = "hearing" | "thinking" | "queued";
+/** 在办的那一句走到哪了（定义挪到 app/talk-button.ts，和地图的二狗按钮共用） */
+export type { BusyNote } from "../../app/talk-button.ts";
 
 /** 面板的样子 */
 export type PagePanel =
@@ -54,22 +62,8 @@ export type PagePanel =
 
 export const IDLE_PANEL: PagePanel = { kind: "idle" };
 
-/** 录的一段：音频的 base64 和类型；整段是静音、没录下来是 undefined（reason 是给人看的话） */
-export type PageTake = { ok: true; base64: string; mime: string } | { ok: false; reason: string };
-
-/** 录音（App 的原生录音器；page-browse.ts 接上） */
-export interface PageVoice {
-  /** 现在的音量（0–1；不在录是 0） */
-  level(): number;
-  /** 备好录音器（不录）；userAction：按下引起的（被拒过权限时 App 再问一次）。备不好不抛错，start 时再说 */
-  prepare(userAction: boolean): void;
-  /** 开始录（等备好）；录不了抛错（message 是给人看的话） */
-  start(): Promise<void>;
-  stop(): Promise<PageTake>;
-  cancel(): void;
-  /** 放掉录音器 */
-  release(): void;
-}
+/** 录音（App 的原生录音器；page-browse.ts 接上）：定义挪到 app/talk-button.ts，和地图的二狗按钮共用 */
+export type { PageTake, PageVoice } from "../../app/talk-button.ts";
 
 /** 发进秘书的主会话（页面上的 React 层接上 store 后给：store.sendMessage），回这次发送请求的幂等键 */
 export interface PageCommandsLink {
@@ -87,22 +81,17 @@ export interface PageCommandsDeps {
   browserId(): string | undefined;
   /** 开始 / 说完语音输入（页面上接到播放器的 setCapturing：二狗正在播的语音暂停、排着的等说完）。不给不管 */
   capture?(on: boolean): void;
+  /** "在地图上看"（447）：直接查一处（POST /api/map/find）、打开地图页看查到的那一处；不给（地图插件没启用）写一句没启用 */
+  map?: {
+    find(text: string): Promise<MapFindResult>;
+    open(lookup: string): void;
+  };
 }
 
-/** 成了的回话过多久收起（毫秒）；没成的不收 */
-export const REPLY_HIDE_MS = 6000;
-/** 录着的时候多久取一次音量（毫秒）；留最近几个（气泡里的波形用得上的） */
-export const LEVEL_MS = 80;
-export const LEVELS_KEPT = 40;
+/** 几个时长（回话多久收起、多久取一次音量、最长录多久、按下了多久没开始录算说完）：挪到 app/talk-button.ts，和地图的二狗按钮共用 */
+export { LEVEL_MS, LEVELS_KEPT, LISTEN_MAX_MS, PRESS_CAPTURE_MS, REPLY_HIDE_MS } from "../../app/talk-button.ts";
 /** 悬浮按钮收起后多久放掉录音器（毫秒）：焦点在框之间换来换去时不反复备 */
 const RELEASE_AFTER_MS = 20_000;
-/** 最长录多久（毫秒）：到了自己发，和语音消息一样 60 秒 */
-export const LISTEN_MAX_MS = 60_000;
-/**
- * 按下了多久还没开始录、也没开打字框，就算说完（毫秒）：页面桥按够 350 毫秒报开始录、短按松手报开打字框，
- * 手势被系统收走时什么都不报；留足余量
- */
-export const PRESS_CAPTURE_MS = 2_000;
 
 /** 面板上说这个指令作用于谁："「标题」这个框""这个上传框""选文件"（右下角的按钮不作用于谁，气泡上写"对二狗说"，见 page-bubble.ts） */
 export function targetName(target: CommandTarget): string {
@@ -271,6 +260,15 @@ export class PageCommands {
       this.bubbleAction(event);
       return;
     }
+    if (event.type === "element-map") {
+      // 点了"在地图上看""怎么去"：按圆钮时算的语音输入说完了（没在录）
+      if (this.panel.kind !== "listening") this.capture(false);
+      if (this.panel.kind === "listening") return;
+      const target: CommandTarget = { page: event.page, fields: [], element: event.element };
+      if (event.action === "show") void this.showOnMap(target);
+      else this.askRoute(target);
+      return;
+    }
     const target: CommandTarget =
       event.type === "element-open" || event.type === "element-voice"
         ? { page: event.page, fields: [], element: event.element }
@@ -395,6 +393,46 @@ export class PageCommands {
     if (!waited && (p.kind === "listening" || p.kind === "busy")) this.markIdle(p.target);
     if (p.kind === "chooser" || p.kind === "bar" || p.kind === "listening") this.dropChooser(undefined);
     this.set(IDLE_PANEL);
+  }
+
+  /** 选中的那段地址、地名（交给地图服务查的写法：去掉"地址："这类说明、末尾的标点） */
+  private placeOf(target: CommandTarget): string {
+    return mapQueryOf(target.element?.text?.text ?? "");
+  }
+
+  /** 在地图上看：直接查这一处（不经对话），查到了收起气泡、打开地图页定位到它；查不到气泡里写原因 */
+  private async showOnMap(target: CommandTarget): Promise<void> {
+    const place = this.placeOf(target);
+    const run = ++this.run;
+    this.dropChooser(target);
+    this.stopWaiting();
+    if (!place) return this.fail(target, t("app.pageCommands.map.nothing"));
+    const map = this.deps.map;
+    if (!map) return this.fail(target, t("app.pageCommands.map.off"), place);
+    const id = markIdOf(target);
+    if (id) this.deps.page.mark(id, "busy");
+    this.set({ kind: "busy", target, said: place, note: "finding" });
+    let found: MapFindResult;
+    try {
+      found = await map.find(place);
+    } catch (err) {
+      found = { ok: false, reason: t("app.pageCommands.notDelivered", { reason: err instanceof Error ? err.message : String(err) }) };
+    }
+    if (run !== this.run) return;
+    if (!found.ok) return this.fail(target, found.reason, place);
+    this.markIdle(target);
+    this.set(IDLE_PANEL);
+    map.open(found.lookup);
+  }
+
+  /** 怎么去：一句"从我现在的位置怎么去「X」？"带着这个元素发进秘书的主会话，回话下面给"去侧边栏看"（路线卡在对话里） */
+  private askRoute(target: CommandTarget): void {
+    const place = this.placeOf(target);
+    this.run++;
+    this.dropChooser(target);
+    this.stopWaiting();
+    if (!place) return this.fail(target, t("app.pageCommands.map.nothing"));
+    void this.send({ ...target, mapRoute: true }, t("app.pageCommands.map.routeAsk", { place }).slice(0, PAGE_COMMAND_TEXT_MAX), false);
   }
 
   /** 气泡里点发送：打的字交出去；field 是页面桥给的按钮所在的框（带着框里这一刻的内容），element 是圆钮上的元素（带着这一刻选中的字） */
@@ -536,59 +574,5 @@ export class PageCommands {
   }
 }
 
-/** Blob 的 base64（分段转，长录音也不爆调用栈） */
-async function base64OfBlob(blob: Blob): Promise<string> {
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(binary);
-}
-
-/**
- * 录音接到"按住说话"的同一套后端上（App 里是原生录音器 NativeVoiceRecorder，浏览器里是 VoiceRecorder；create 第一次用到时才建）：
- * prepare 备好（不录）、start 等备好了开始、stop 交出这一段（整段是静音的不发）
- */
-export function pageVoiceOver(create: () => VoiceCaptureBackend, now: () => number): PageVoice {
-  let backend: VoiceCaptureBackend | undefined;
-  let opening: Promise<void> | undefined;
-  let failure: string | undefined;
-  const get = (): VoiceCaptureBackend => (backend ??= create());
-  const prepare = (userAction: boolean) => {
-    const b = get();
-    if (b.warm) return;
-    if (opening && !userAction) return;
-    failure = undefined;
-    const o = b.open(userAction ? "press" : "enter", { userAction }).catch((err: unknown) => {
-      if (!isRecordingCancelled(err)) failure = micErrorOf(err).text;
-    });
-    opening = o;
-    void o.finally(() => {
-      if (opening === o) opening = undefined;
-    });
-  };
-  return {
-    prepare,
-    async start() {
-      const b = get();
-      const pressedAt = now();
-      const prewarmed = b.warm;
-      if (!b.warm) {
-        if (!opening) prepare(true);
-        await opening;
-      }
-      if (!b.warm) throw new Error(failure ?? t("app.pageCommands.recorderNotReady"));
-      b.begin({ pressedAt, prewarmed });
-    },
-    async stop() {
-      const recording = await get().stop();
-      if (recording.silent) return { ok: false, reason: t("app.pageCommands.silent") };
-      return { ok: true, base64: await base64OfBlob(recording.blob), mime: recording.mime };
-    },
-    level: () => backend?.level() ?? 0,
-    cancel: () => backend?.cancel(),
-    release() {
-      opening = undefined;
-      backend?.close("leave");
-    },
-  };
-}
+/** 录音接到"按住说话"的同一套后端上：挪到 app/talk-button.ts，和地图的二狗按钮共用 */
+export { pageVoiceOver } from "../../app/talk-button.ts";

@@ -75,9 +75,12 @@ import type {
   LocaleDictionaryView,
   LocaleListView,
   CalendarMonthView,
+  MapBasemapEventBody,
+  MapBasemapEventReply,
   MapConfigView,
   MapDayView,
   MapDrawing,
+  MapFindResult,
   MapLatestView,
   DeleteMaterialsResult,
   FileTextResult,
@@ -185,7 +188,7 @@ import { fakeTakeoverSessions } from "./fake-takeover.ts";
 import { fakeAppFileText } from "./fake-app-files.ts";
 import { fakeMedia, fakeSoundUrl, fakeVideoUrl } from "./fake-media.ts";
 import { FAKE_MATERIAL_IMAGES, fakeMaterialConversations, fakeMaterialDetail, fakeMaterialsIn, fakeSaveWebPage } from "./fake-materials.ts";
-import { DEMO_AMAP_KEY, demoMapDrawing } from "./fake-map.ts";
+import { DEMO_AMAP_KEY, demoMapDrawing, demoMapFind, demoMapProviders } from "./fake-map.ts";
 import { demoMapDay, demoMapLatest } from "./fake-footprints.ts";
 import { fakeServiceThumbnail } from "./fake-operations.ts";
 import { fakeProjectStandard } from "./fake-standard.ts";
@@ -742,9 +745,23 @@ export class FakeDaemonHttp implements DaemonHttp {
     }
   }
 
-  /** 地图页：原型里当作填好了高德的 Key（演示页的高德是假的，不连高德，见 prototype/fake-map.ts） */
+  /**
+   * 地图页：原型里当作填好了高德的 Key、谷歌地图的 Key（446；演示页的高德、谷歌都是假的，不连它们，见 prototype/fake-map.ts）；
+   * 谷歌地图插件停用了（?demo-plugins-off=google-maps）就没有谷歌那一家
+   */
   mapConfig(): Promise<MapConfigView> {
-    return Promise.resolve({ amapKey: DEMO_AMAP_KEY });
+    return Promise.resolve({ amapKey: DEMO_AMAP_KEY, providers: demoMapProviders(this.googleMapsOn()) });
+  }
+
+  /** 演示页里谷歌地图插件开着没有（没停用就当填好了 Key） */
+  private googleMapsOn(): boolean {
+    const google = this.pluginSettings?.pluginList().plugins.find((p) => p.name === "google-maps");
+    return google === undefined || google.state === "running";
+  }
+
+  /** 地图页报底图的事（446）：原型里只当收到了（不数用量） */
+  mapBasemap(body: MapBasemapEventBody): Promise<MapBasemapEventReply> {
+    return Promise.resolve({ known: body.provider === "google" });
   }
 
   /** 我的足迹：编的（昨天一整天、四天前半天，见 prototype/fake-footprints.ts） */
@@ -755,6 +772,15 @@ export class FakeDaemonHttp implements DaemonHttp {
   /** 地图卡片的那条路线：编的（高德查的、从公司到西湖边，见 prototype/fake-map.ts） */
   mapDrawing(lookup: string): Promise<MapDrawing> {
     return demoMapDrawing(lookup);
+  }
+
+  /**
+   * "在地图上看"（447）：编的（带汉字的"高德"查到西湖边，不带的查到滨海湾——谷歌地图插件开着时"谷歌"查的，和守护进程"自动"时大陆外
+   * 先问谷歌一样，停用了 OpenStreetMap 查的；见 prototype/fake-map.ts），过 0.4 秒回
+   */
+  async mapFind(text: string): Promise<MapFindResult> {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    return demoMapFind(text, this.googleMapsOn());
   }
 
   /** 手机最近交来的一个位置点：编的（12 分钟前、西湖边，见 prototype/fake-footprints.ts）；手机插件停用了（?demo-plugins-off=phone）没有 */
@@ -1381,6 +1407,12 @@ export class FakeDaemonHttp implements DaemonHttp {
   async pageVoice(): Promise<PageVoiceResult> {
     await new Promise((resolve) => setTimeout(resolve, 800));
     return { ok: true, text: "把我周末在杭州拍的照片贴上来" };
+  }
+
+  /** 地图右下角的二狗按钮上说的一段（444）：原型里没有识别，过 0.8 秒回一句假的 */
+  async talkVoice(): Promise<PageVoiceResult> {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    return { ok: true, text: "西湖边有什么好吃的" };
   }
 
   /** 原型的候选缩略图：和原图一样是画出来的 SVG */

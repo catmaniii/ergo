@@ -4,7 +4,8 @@
 // 它的样子画在网页里悬浮按钮旁边的气泡里（page-bubble.ts 交给页面桥）。
 // 浏览侧边栏（browse-side.ts）整个页面共用一份，开场接上 App 推过来的（浏览器的样子、页面桥报的选中的框）和连接
 // （守护进程推来的秘书的网页工具要办的事），报这台设备上浏览器的样子。宽屏侧边栏拖到多宽（stage-side-width.ts 的
-// BROWSE_SIDE_WIDTH）接到 localStorage。
+// BROWSE_SIDE_WIDTH）接到 localStorage。侧边栏里点了二狗自己的页面（地图卡片的"看大地图"，447）：侧边栏那一页记下地址再收起，
+// 收起经 App 转过来时这里照着跳（side-handoff.ts）。
 // 悬浮按钮背后就是秘书本人：悬浮按钮上的话经页面上的 store 发进秘书的主会话、秘书这一轮的回话从 store 的状态里认
 // （usePageButtonSync，App.tsx 的 Shell 里挂一次）；挑图片窗口（page-pick.ts）照 store 里这台设备的网页候选卡弹，对卡做动作也经 store；
 // 候选文件预备（page-stage.ts）整个页面共用一份，挑图片窗口和浏览侧边栏办守护进程转来的交文件都用它；缩略图凭取件码取守护进程缩好的小图。
@@ -31,6 +32,8 @@ import {
   defaultAssistantName,
   desktopUserAgent,
   localeRevision,
+  MAP_PAGE_ID,
+  mapLookupPath,
   type PageCommandFile,
   pageUrlForModel,
   type SiteSettings,
@@ -42,6 +45,7 @@ import { pageBrowseSettings } from "../../app/page-browse-settings.ts";
 import { setPageNativeOpener } from "../../app/native-open.ts";
 import { type BrowserWatch, followExternalLinks, type LinkLike, openInNativeBrowser, watchNativeBrowser } from "../../app/browser-shell.ts";
 import { pushHash } from "../../app/history-nav.ts";
+import { toHash } from "../../app/route-hash.ts";
 import type { DaemonHttp } from "../../app/daemon-http.ts";
 import { BLANK_BROWSER, type BrowserState, type NativeBrowser } from "../../app/native-browser.ts";
 import { BROWSE_SIDE_WIDTH, BrowseSide, type BrowseSideView, newBrowserId } from "./browse-side.ts";
@@ -53,6 +57,7 @@ import { pageNativeApp } from "../../app/page-native.ts";
 import { pageVoicePlayer } from "../../app/page-voice.ts";
 import { PagePickSync } from "./page-pick.ts";
 import { PageStage } from "./page-stage.ts";
+import { SIDE_GOTO_KEY, takeSideGoto } from "./side-handoff.ts";
 import { pageTheme } from "../../app/page-theme.ts";
 import { type StageSideWidthSetting, stageSideWidthSettingIn } from "../../app/stage-side-width.ts";
 import { useStore } from "../../app/store.tsx";
@@ -152,7 +157,7 @@ function followPageLinks(): () => void {
 /** 页面的连接和 HTTP（组合根交给网页插件的，plugins/api.ts 的 WebPluginPage） */
 export interface BrowsingPage {
   readonly connection: Pick<Connection, "browserStatus" | "browserReply" | "onBrowserRequest">;
-  readonly http: Pick<DaemonHttp, "pageVoice" | "pageFileBytes" | "pageFileThumbUrl" | "upload">;
+  readonly http: Pick<DaemonHttp, "pageVoice" | "pageFileBytes" | "pageFileThumbUrl" | "upload" | "mapFind">;
   /** 这一页是侧边栏模式（?ergo=side）：只接原生浏览器（和以前 main.tsx 一样），不接悬浮按钮、浏览侧边栏 */
   readonly sideMode: boolean;
 }
@@ -275,6 +280,9 @@ let lookKey = "";
 /** 语音插件在不在（setPageVoiceAvailable 照输入框的语音插槽改）：不在时悬浮按钮只能打字 */
 let voiceAvailable = true;
 
+/** 地图插件在不在（setPageMapAvailable 照页面插槽里有没有地图页改，447）：不在时选中的地址旁边不给"在地图上看""怎么去" */
+let mapAvailable = false;
+
 /** 右下角的悬浮按钮底下再让开多少（BrowsePage 量的：宽屏网页延伸到手势条底下时那一截） */
 let fabInset = 0;
 
@@ -287,6 +295,7 @@ const pageLook = (): BridgeLook => ({
   ...(tagColors ? { tag: tagColors } : {}),
   ...(voiceAvailable ? {} : { typeOnly: true }),
   ...(side ? { corner: !side.snapshot().open, inset: fabInset } : {}),
+  ...(mapAvailable ? { map: true } : {}),
 });
 
 /** 右下角的悬浮按钮底下再让开多少（BrowsePage 照内容区量：宽屏网页延伸到手势条底下时是 --safe-bottom，别的时候是 0）；变了重交 */
@@ -309,10 +318,25 @@ export function setPageVoiceAvailable(on: boolean): void {
 }
 
 /**
+ * 地图插件在不在（浏览插件挂在主框架里的那一个看页面插槽里有没有地图页，变了调这里，447）：在的时候选中的地址旁边给"在地图上看""怎么去"
+ * （随页面桥自己的那几句交过去：map），不在时不给
+ */
+export function setPageMapAvailable(on: boolean): void {
+  if (on === mapAvailable) return;
+  mapAvailable = on;
+  bubbleSync?.lookChanged();
+}
+
+/** "在地图上看"查到的那一处：去地图页看它（压一条记录，返回回到"浏览"） */
+function openFoundOnMap(lookup: string): void {
+  pushHash(window, toHash({ tab: "more", page: MAP_PAGE_ID, ...mapLookupPath(lookup) }));
+}
+
+/**
  * 网页上下指令接上（App.tsx 建好 DaemonHttp 后调一次）：App 有页面桥那一组方法才接；录音用"按住说话"的同一套后端
  * （App 里是原生录音器）；发进秘书主会话的那一头等 store 建好了由 usePageButtonSync 接上
  */
-export function connectPageCommands(http: Pick<DaemonHttp, "pageVoice">): void {
+export function connectPageCommands(http: Pick<DaemonHttp, "pageVoice" | "mapFind">): void {
   const browser = pageNativeBrowser();
   if (!browser?.page || commands) return;
   const env = browserVoiceEnv();
@@ -332,6 +356,8 @@ export function connectPageCommands(http: Pick<DaemonHttp, "pageVoice">): void {
     browserId: () => side?.status().browser,
     // 按下悬浮按钮说话：二狗正在播的语音暂停（和聊天窗口里按住说话同一个播放器，悬浮按钮单算一处）
     capture: (on) => pageVoicePlayer().setCapturing(on, "page-button"),
+    // "在地图上看"（447）：直接查一处、去地图页看；地图插件停用时页面桥不给那两个按钮（map），万一点了守护进程回"地图插件没启用"
+    map: { find: (text) => http.mapFind(text), open: openFoundOnMap },
   });
   const bubble = new PageBubbleSync({
     commands: created,
@@ -371,6 +397,28 @@ let pick: PagePickSync | undefined;
 
 let side: BrowseSide | undefined;
 
+/** 侧边栏记下的地址（side-handoff.ts）：有就跳过去（压一条记录，返回回到"浏览"）；交回跳了没有 */
+function followSideGoto(): boolean {
+  let hash: string | undefined;
+  try {
+    hash = takeSideGoto(window.localStorage, Date.now());
+  } catch {
+    return false;
+  }
+  if (hash === undefined) return false;
+  pushHash(window, hash);
+  return true;
+}
+
+/** 收起转过来了：马上取；侧边栏那一页写下的可能还没同步过来，过一会儿再取两次（取走了的不会再跳） */
+function followSideGotoSoon(): void {
+  if (followSideGoto()) return;
+  for (const ms of SIDE_GOTO_RETRY_MS) setTimeout(followSideGoto, ms);
+}
+
+/** 收起转过来时没取到，再取的几个时刻（毫秒） */
+const SIDE_GOTO_RETRY_MS = [200, 800];
+
 /**
  * 浏览侧边栏接上（建好连接后调一次，由浏览插件第一次装上时调，connectBrowsing）：App 有页面桥那一组才接。浏览器的编号这一页随机一个；
  * 跟着 App 推的浏览器样子、页面桥报的选中的框变，办守护进程推来的事
@@ -403,7 +451,15 @@ export function connectBrowseSide(connection: Pick<Connection, "browserStatus" |
   browser.subscribe((event) => {
     if (event.type === "state") created.browserChanged(event.state);
     else if (event.type === "page") created.pageEvent(event.event);
-    else if (event.type === "side") created.sideAction(event.action);
+    else if (event.type === "side") {
+      created.sideAction(event.action);
+      // 侧边栏里点了二狗自己的页面（地图卡片的"看大地图"……）：它记下地址再收起，这里照着跳（side-handoff.ts）
+      if (event.action === "close") followSideGotoSoon();
+    }
+  });
+  // 存储的 storage 事件先到就先跳（同一个 App 的两个 Web 组件共用存储；没有这个事件的，收起转过来时再取）
+  window.addEventListener("storage", (e) => {
+    if (e.key === SIDE_GOTO_KEY && e.newValue !== null) followSideGoto();
   });
   // 侧边栏开合变了：悬浮按钮跟着常驻右下角、不显示（随页面桥自己的那几句交过去）
   let open = created.snapshot().open;
@@ -503,10 +559,4 @@ let sideWidth: StageSideWidthSetting | undefined;
 export function pageBrowseSideWidth(): StageSideWidthSetting {
   sideWidth ??= stageSideWidthSettingIn(() => window.localStorage, BROWSE_SIDE_WIDTH);
   return sideWidth;
-}
-
-/** 这台设备记住的侧边栏宽度（还没按内容区夹回），改了跟着变 */
-export function useBrowseSideWidth(): number {
-  const s = pageBrowseSideWidth();
-  return useSyncExternalStore(s.subscribe, s.width);
 }

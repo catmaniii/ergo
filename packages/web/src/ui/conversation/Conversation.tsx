@@ -53,6 +53,7 @@ import {
   branchEpochStart,
   currentBranch,
   type BrowsingContext,
+  type MapContext,
   type ChatItem,
   chatItems,
   maskUnavailable,
@@ -170,6 +171,8 @@ interface ConversationProps {
   aboveComposer?: ReactNode;
   /** 浏览侧边栏里：发的每条消息带上这时的网页上下文（网址、标题、选中的框） */
   browsing?: (() => BrowsingContext) | undefined;
+  /** 地图页右边的聊天窗里（444）：发的每条消息带上这时的地图上下文（中心、缩放、底图、看哪一天的足迹、哪张卡片） */
+  map?: (() => MapContext) | undefined;
   /** 打开会话外的一页详情（页面的 detail.show）：点了展开的废弃分支打开它的详情；不给（没有详情栏的地方）点了没反应 */
   showDetail?: ((target: DetailTarget) => void) | undefined;
 }
@@ -200,6 +203,7 @@ function ConversationView({
   onSeen,
   aboveComposer,
   browsing,
+  map,
   showDetail,
 }: ConversationProps) {
   const { sendMessage, loadOlder, quoteCard, unquoteCard, stopReply, removeQueued, reorderQueued, switchBranch, ui } = useStore();
@@ -440,7 +444,7 @@ function ConversationView({
               onStop={() => stopReply(conversation)}
               onSend={(parts) => {
                 ref.current?.followLatest();
-                sendMessage(conversation, parts, taskId, browsing?.());
+                sendMessage(conversation, parts, taskId, browsing?.(), map?.());
               }}
             />
           </>

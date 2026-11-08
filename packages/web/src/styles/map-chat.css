@@ -1,0 +1,337 @@
+/*
+ * 地图页的二狗（444，plugins/map/MapChat.tsx、MapFab.tsx）和面板收起：
+ * - 右边的聊天窗：宽的时候 地图 | 分隔条 | 聊天窗 一行（.map-body），聊天窗里面照浏览侧边栏的样子（.browse-side*，pages.css）；
+ *   窄的时候整屏盖住地图页（.map-chat-cover）；
+ * - 右下角的二狗按钮（.map-fab，按钮本身在它的 shadow root 里，和浏览里的悬浮按钮同一个样子）、上方的气泡（.map-talk）；
+ *   "回到我现在的位置"排到按钮上面（照谷歌地图：二狗按钮在最右下）；
+ * - 宽的时候左边那一栏的收起 / 关掉、收起后左上角的小按钮；窄的时候下面卡片的把手（抽屉）和拖低的样子；
+ * - 看聊天里的地图卡片时，卡片的标题和概况挪进标题栏（.map-card-bar 在标题栏里一行）。
+ * 只用 token，十一套风格都跟着换皮。
+ */
+.map-page {
+  position: relative;
+}
+.map-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.map-body > .map-stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  /* 地图里的层（瓦片、点、按钮、署名、提示，z-index 200 上下；二狗按钮 260、气泡 270）自成一层，只在这一块里比：
+     中间的分隔条压进地图那几像素时在它们上面，地图切换的底部弹层（445，.modal-mask，挂在 body 上）、
+     窄屏整屏盖住的聊天窗（.map-chat-cover，z-index 400，在 .map-body 外面）都盖得住它们 */
+  isolation: isolate;
+}
+
+/* ---- 右边的聊天窗 ---- */
+.map-chat {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+}
+.map-chat-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 400;
+  width: auto;
+}
+
+/* ---- 右下角的二狗按钮 ---- */
+.map-fab {
+  position: absolute;
+  z-index: 260;
+}
+.map-fab[hidden] {
+  display: none;
+}
+/* 二狗按钮在最右下，"回到我现在的位置"排在它上面（中线对齐：钮宽 38、二狗按钮 36、离右边 16） */
+.map-stage .map-locate {
+  right: 15px;
+}
+.map-stage[data-fab] .map-locate {
+  bottom: calc(80px + var(--map-dock, 0px));
+}
+
+/* ---- 按钮上方的气泡：跟着风格的底色、字色、圆角 ---- */
+.map-talk {
+  position: absolute;
+  z-index: 270;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-float);
+  font-size: var(--fs-s);
+}
+.map-talk-tail {
+  position: absolute;
+  bottom: -6px;
+  left: var(--tail, 50%);
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-right: 1px solid var(--card-border);
+  border-bottom: 1px solid var(--card-border);
+  background: var(--surface);
+  transform: rotate(45deg);
+}
+.map-talk-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 4px 4px 0 12px;
+}
+.map-talk-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.map-talk-head .icon-btn {
+  flex: none;
+  padding: 4px 6px;
+  color: var(--muted);
+  font-size: calc(18px * var(--fs-k));
+}
+.map-talk-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 12px 10px;
+}
+.map-talk-said {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.map-talk-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.map-talk-text[data-failed] {
+  color: var(--reject-fg);
+}
+.map-talk-thinking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.map-talk-thinking::before {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: map-talk-spin 0.8s linear infinite;
+  content: "";
+}
+@keyframes map-talk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-talk-thinking::before {
+    animation: none;
+  }
+}
+.map-talk-foot {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 6px 12px 10px;
+}
+.map-talk-foot textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 36px;
+  max-height: 116px;
+  margin: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-s);
+  background: var(--fill);
+  color: var(--text);
+  font: inherit;
+  line-height: 20px;
+  resize: none;
+}
+.map-talk-foot textarea:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+.map-talk-send {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--primary-fill);
+  color: var(--primary-text);
+  cursor: pointer;
+  font-size: calc(18px * var(--fs-k));
+}
+.map-talk-send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.map-talk-wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 44px;
+}
+.map-talk-wave i {
+  flex: 1;
+  min-height: 3px;
+  border-radius: 2px;
+  background: var(--primary);
+  opacity: 0.85;
+}
+.map-talk[data-cancel] .map-talk-wave i {
+  background: var(--reject-fg);
+}
+.map-talk-voice {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.map-talk-time {
+  color: var(--text);
+  font-family: var(--font-num);
+}
+.map-talk[data-cancel] .map-talk-hint {
+  color: var(--reject-fg);
+  font-weight: 600;
+}
+
+/* ---- 宽的时候左边那一栏：顶上一行"这一天"，右边收起、关掉；收起后左上角一个小按钮 ---- */
+.map-day-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 4px 2px 12px;
+}
+.map-day-panel-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.map-day-panel-head .icon-btn {
+  flex: none;
+  padding: 4px 6px;
+  color: var(--muted);
+  font-size: calc(16px * var(--fs-k));
+}
+.map-day-panel-tab {
+  position: absolute;
+  z-index: 300;
+  left: 10px;
+  top: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-btn);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fs-s);
+}
+.map-day-panel-count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  color: var(--muted);
+  font-family: var(--font-num);
+  font-size: var(--fs-xs);
+  text-align: center;
+}
+
+/* ---- 窄的时候下面的抽屉：顶上一条把手，拖低了只露标题那一行 ---- */
+.map-day-card {
+  padding-top: 0;
+  touch-action: pan-y;
+}
+.map-drawer-grip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 18px;
+  margin: 0 0 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: grab;
+  touch-action: none;
+}
+.map-drawer-grip-bar {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--muted);
+  opacity: 0.5;
+}
+.map-day-card[data-drawer="low"] {
+  overflow: hidden;
+}
+.map-day-card[data-drawer="low"] .map-day-card-body {
+  max-height: 30px;
+  overflow: hidden;
+}
+
+/* ---- 看聊天里的地图卡片：标题和概况在标题栏里一行 ---- */
+.map-page > .topbar .map-card-bar {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.map-page > .topbar .map-card-bar-text {
+  flex-wrap: nowrap;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.map-page > .topbar .map-card-bar-text b {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.map-page > .topbar .map-card-bar-note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

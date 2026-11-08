@@ -51,7 +51,7 @@ import { type BackupService, createBackupService } from "./backup/backup.ts";
 import type { SnapshotFiles } from "./backup/files.ts";
 import { BoardKindRegistry, type BoardKinds } from "./board/kinds.ts";
 import { CALENDAR } from "./calendar/api.ts";
-import { MAP, MAP_DAY, MAP_DRAWING } from "./map/api.ts";
+import { MAP, MAP_DAY, MAP_DRAWING, MAP_FIND } from "./map/api.ts";
 import { cardPurge, type CardService, createCardService } from "./cards/cards.ts";
 import { createRuntimeQuestions, runtimeQuestionCardType } from "./conversation/runtime-questions.ts";
 import { createSessionRollbacks, type RollbackSession, type SessionRollbackHook } from "./conversation/rollback.ts";
@@ -3006,11 +3006,20 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 主导航的日历：是日历插件的服务，现取；日历插件没启用时回"日历插件没启用"
         calendar: { month: (month) => plugins.active(CALENDAR).month(month) },
         // 地图页现在能用什么：是地图插件的服务，现取；地图插件没启用时回"地图插件没启用"
-        map: { config: () => plugins.active(MAP).config() },
+        // 地图页的设置：高德那几项，加上登记了的几家地图服务（445 的插槽）
+        map: {
+          config: () => {
+            const map = plugins.active(MAP);
+            return { ...map.config(), providers: map.providerViews() };
+          },
+          // 地图页报底图的事（446：建了一次、Key 被拒了）：转给登记的那一家
+          basemapEvent: (body) => plugins.active(MAP).basemapEvent(body),
+        },
         // 我的足迹、手机最近交来的一个位置点（442）：同样是地图插件的服务、现取（它再现取手机插件的）；不联网
         mapDay: { day: (date) => plugins.active(MAP_DAY).day(date), latest: () => plugins.active(MAP_DAY).latest() },
         // 地图卡片按编号取查地点、算路线查到的那一份：同样现取（只在地图插件的内存里）
         mapDrawing: { drawing: (lookup) => plugins.active(MAP_DRAWING).drawing(lookup) },
+        mapFind: { find: (text, signal) => plugins.active(MAP_FIND).find(text, signal) },
         ledger,
         // 消耗页顶上的服务商余额（440）：GET 取、POST 刷新
         balance: providerBalances,

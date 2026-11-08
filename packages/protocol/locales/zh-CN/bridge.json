@@ -38,5 +38,7 @@
   "bridge.reason.elementUnknown": "这一页上没有这个元素了，网页可能刷新过",
   "bridge.reason.elementGone": "这个元素已经不在页面上了",
   "bridge.reason.elementUnreadable": "这个元素的内容在页面里读不出来",
-  "bridge.reason.elementHidden": "这个元素现在看不见，截不了图"
+  "bridge.reason.elementHidden": "这个元素现在看不见，截不了图",
+  "bridge.map.show": "在地图上看",
+  "bridge.map.route": "怎么去"
 }

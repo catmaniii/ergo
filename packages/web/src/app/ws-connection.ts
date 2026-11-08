@@ -176,6 +176,7 @@ export class WebSocketConnection implements Connection {
       parts: req.parts,
       ...(req.taskId === undefined ? {} : { taskId: req.taskId }),
       ...(req.browsing === undefined ? {} : { browsing: req.browsing }),
+      ...(req.map === undefined ? {} : { map: req.map }),
     };
     this.request(METHODS.sendMessage, params, req.idempotencyKey);
   }

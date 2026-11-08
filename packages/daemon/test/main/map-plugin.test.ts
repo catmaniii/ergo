@@ -45,8 +45,15 @@ describe("地图插件（假瓦片、假高德走真实装配路径）", () => {
     expect((await request(td.externalUrl, "/tiles/osm/2/1/1")).status).toBe(401);
     expect((await request(td.externalUrl, "/_AMapService/v3/ip")).status).toBe(401);
 
-    // 没填 Key：页面国内也先用 OpenStreetMap；代理不转
-    expect((await mapApi.config(td.url)).body).toEqual({});
+    // 没填 Key：页面国内也先用 OpenStreetMap；代理不转。445 起多了登记的几家地图服务（providers）：高德的底图还不能用、不带 Key
+    const empty = (await mapApi.config(td.url)).body;
+    expect({ ...empty, providers: undefined }).toEqual({});
+    expect(empty.providers?.map((p) => [p.id, p.ready, p.key])).toEqual([
+      ["amap", false, undefined],
+      ["osm", true, undefined],
+      // 446 起清单里有谷歌地图插件：没填 Key，底图用不了
+      ["google", false, undefined],
+    ]);
     expect((await request(td.url, "/_AMapService/v3/geocode/regeo?key=x")).status).toBe(503);
 
     // 设置 · 数据源里填高德的 Key：先测再存
@@ -60,7 +67,9 @@ describe("地图插件（假瓦片、假高德走真实装配路径）", () => {
     expect(configured.status).toBe(200);
     expect(configured.body.view.sources.find((s) => s.id === AMAP_SOURCE_ID)).toMatchObject({ connection: "connected", account: "地图：已填 · 查地点和路线：已填" });
     const config = await mapApi.config(td.url);
-    expect(config.body).toEqual({ amapKey: AMAP_TEST_JS_KEY });
+    expect({ ...config.body, providers: undefined }).toEqual({ amapKey: AMAP_TEST_JS_KEY });
+    // 登记的高德那一家（445）带的也只是 Web 端 Key
+    expect(config.body.providers?.find((p) => p.id === "amap")).toMatchObject({ ready: true, key: AMAP_TEST_JS_KEY, lookup: true, title: "高德地图" });
 
     // 高德代理：拼上安全密钥（页面带来的去掉），回应原样交回
     amap.requests.length = 0;

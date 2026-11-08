@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import {
   type BrowsingContext,
   browsingMarkOf,
+  type MapContext,
+  mapMarkOf,
   CHANNELS,
   type ConversationId,
   EVENT_TYPES,
@@ -70,7 +72,7 @@ export interface VoiceIntake {
  */
 export function postUserMessage(
   store: EventStore,
-  request: { conversation: ConversationId; parts: readonly MessagePart[]; idempotencyKey: string; sentFrom?: SentFrom; taskId?: string | undefined; browsing?: BrowsingContext | undefined },
+  request: { conversation: ConversationId; parts: readonly MessagePart[]; idempotencyKey: string; sentFrom?: SentFrom; taskId?: string | undefined; browsing?: BrowsingContext | undefined; map?: MapContext | undefined },
   attachments: AttachmentLookup,
   scopeOf?: (conversation: ConversationId) => MessageScope | undefined,
   voices?: VoiceIntake,
@@ -139,7 +141,17 @@ export function postUserMessage(
 
   // 浏览侧边栏里发的：只认秘书会话，记下当时的网页、选中的框、哪个浏览器
   if (request.browsing && request.conversation !== CHANNELS.secretary) throw new RequestRejected("bad_params", t("conversation.messages.browsingSecretaryOnly"));
-  const message: MessageEnvelope = { id, conversation: request.conversation, speaker: "user", time, parts, ...(request.browsing ? { browsing: browsingMarkOf(request.browsing) } : {}) };
+  // 地图页上发的（444）：同样只认秘书会话，记下当时地图看的是哪里、哪一天的足迹、哪张卡片
+  if (request.map && request.conversation !== CHANNELS.secretary) throw new RequestRejected("bad_params", t("conversation.messages.mapSecretaryOnly"));
+  const message: MessageEnvelope = {
+    id,
+    conversation: request.conversation,
+    speaker: "user",
+    time,
+    parts,
+    ...(request.browsing ? { browsing: browsingMarkOf(request.browsing) } : {}),
+    ...(request.map ? { map: mapMarkOf(request.map) } : {}),
+  };
   // 正在回复：排队，这一轮做完一起交出去（语音对象和排进来的那条同一事务）
   if (replying(store.reader, request.conversation)) {
     return enqueueMessage(

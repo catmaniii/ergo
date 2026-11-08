@@ -12,28 +12,34 @@
 // 留在核心的：App 原生浏览器那一层的接口（app/native-browser.ts、page-bridge/：App 注入网页的页面桥由鸿蒙 App 构建时从那里打包）、
 // 设置 · 浏览与填框（搜索引擎、联网搜索，pages/more/BrowsingPage.tsx）、设置 · 授权的文件夹（pages/more/AuthorizedFolders.tsx）、会话里"在网页「X」上说"的标注（状态层）。
 import { useEffect } from "react";
-import { t } from "../../state/index.ts";
+import { MAP_PAGE_ID, t } from "../../state/index.ts";
 import { type TabMountProps, usePlugins, type WebPluginDefinition } from "../api.ts";
 import { BrowsePage } from "./BrowsePage.tsx";
 import { BrowsePickCard } from "./BrowsePickCard.tsx";
 import { BrowseSidebar } from "./BrowseSidebar.tsx";
-import { connectBrowsing, setPageVoiceAvailable, turnBrowsingOn, useBrowseSide, usePageButtonSync } from "./page-browse.ts";
-import { pageRemoteSide, useRemoteSide } from "./page-side.ts";
+import { connectBrowsing, setPageMapAvailable, setPageVoiceAvailable, turnBrowsingOn, useBrowseSide, usePageButtonSync } from "./page-browse.ts";
+import { pageRemoteSide, useRemoteSide, useSideLinks } from "./page-side.ts";
 
-/** 侧边栏模式整页：秘书的主会话，状态由 App 从"浏览"页转过来 */
+/** 侧边栏模式整页：秘书的主会话，状态由 App 从"浏览"页转过来；里面点了二狗自己的页面（地图卡片……）交给"浏览"页那一份打开 */
 function SideModePage() {
   const view = useRemoteSide();
+  useSideLinks();
   return <BrowseSidebar control={pageRemoteSide()} view={view} />;
 }
 
 /**
  * 主框架里挂一次：悬浮按钮、挑图片窗口接到 store；"浏览"右边的侧边栏开着时秘书会话算在看；
- * 能不能说话跟着输入框的语音插槽（语音插件登记的，有它才有话筒）——不在时悬浮按钮只能打字
+ * 能不能说话跟着输入框的语音插槽（语音插件登记的，有它才有话筒）——不在时悬浮按钮只能打字；
+ * 地图插件开着（页面插槽里有地图页）时选中的地址旁边给"在地图上看""怎么去"（447）
  */
 function BrowsingMount({ watching }: TabMountProps) {
   usePageButtonSync();
-  const voice = usePlugins().list("composerVoice").length > 0;
+  const plugins = usePlugins();
+  const voice = plugins.list("composerVoice").length > 0;
   useEffect(() => setPageVoiceAvailable(voice), [voice]);
+  // 地图插件开着（页面插槽里有地图页）：选中的地址旁边给"在地图上看""怎么去"（447）
+  const map = plugins.get("pages", MAP_PAGE_ID) !== undefined;
+  useEffect(() => setPageMapAvailable(map), [map]);
   const side = useBrowseSide();
   useEffect(() => watching(side.open), [side.open, watching]);
   useEffect(() => () => watching(false), [watching]);

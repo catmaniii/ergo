@@ -28,6 +28,7 @@ import {
   chatItemIdOf,
   type ChatLine,
   chatLook,
+  mapLabel,
   type FilePartValue,
   type MessagePart,
   pageCommandLabel,
@@ -140,6 +141,8 @@ export function ChatItemView({ item, actions }: { item: ChatItem; actions: ChatI
             {!agent && item.message.pageCommand ? `${pageCommandLabel(item.message.pageCommand)} · ` : ""}
             {/* 浏览侧边栏里说的：写明在哪个网页上 */}
             {!agent && item.message.browsing ? `${browsingLabel(item.message.browsing)} · ` : ""}
+            {/* 地图页上说的（右边的聊天窗、右下角的悬浮按钮，444） */}
+            {!agent && item.message.map ? `${mapLabel(item.message.map)} · ` : ""}
             {/* 在官方 App 里说的（只读跟随补记的） */}
             {item.message.remote && (
               <>

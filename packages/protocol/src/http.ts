@@ -62,6 +62,10 @@
 // 只在守护进程的内存里留一会儿（高德的协议不许存），过期了回 404。
 // 地图页的"回到我现在的位置"（442）：GET /api/map/latest 手机最近交来的一个位置点（时间、坐标、精度；没交来过、手机插件没启用时
 // 没有 point）——这台设备定不了位时退一步用它。只给这一个点，不给轨迹；不发给任何地图服务。
+// 地图页报底图的事（446）：POST /api/map/basemap { provider, event }——建了一次某家的底图（谷歌按"一次地图加载"计费，守护进程据此数用量）、
+// 那家拒了浏览器用的 Key（谷歌的 gm_authFailure：守护进程记下，地图页不再拿这个 Key）。只有编号和事，不带位置。
+// "在地图上看"（447）：POST /api/map/find {text} 浏览里网页上选中的地址、地名不经秘书直接查一处，查到的放进能画的那一份（同上，
+// 只在内存里），回编号；没查到、地图服务没查成也是 200（ok: false 和给人看的一句）。
 //
 // 消耗页：GET /api/usage?from=2026-10-01&to=2026-10-08 选定范围（含两头）按天、按 agent 的 token 汇总，
 // 秘书单列为系统开销，成本是用量乘配置里的单价（每次现读配置，粗估）。
@@ -162,6 +166,9 @@
 // Debug 工具集的语音组（请求体和响应体见 debug-schema.ts）：POST /api/debug/recognize 把录的一段（base64）交给识别进程，
 // 回识别出的文字和耗时；POST /api/debug/speak 用当前参考音色合成念一句，回 WAV（base64）和耗时。都不经会话（不进秘书的上下文），
 // 识别不了、合成不了也回 200（ok: false 和原因）。外网端口上和别的接口一样要设备凭证。
+//
+// 二狗按钮上按住说的一段认成字（444，内核的，地图右下角的二狗按钮用；请求体、响应体和悬浮按钮的同一个 PageVoiceBody → PageVoiceResult）：
+// POST /api/talk-voice。只依赖语音插件（语音插件没在运行时 200、ok: false"没认出说了什么：语音插件没启用"），不经会话；外网端口上要设备凭证。
 //
 // 网页上下指令（请求体和响应体见 page-commands.ts）：POST /api/page-command 交一次指令（打的字或录的一段语音、页面和框），
 // 回要填的字、要交的文件和一句话（页面助手出错、没认出说了什么也是 200，ok: false 和原因）；GET /api/page-files/<取件码> 下载要交的
@@ -298,6 +305,8 @@ const MAP_CONFIG = "config";
 const MAP_DAY = "day";
 const MAP_DRAWING = "drawing";
 const MAP_LATEST = "latest";
+const MAP_FIND = "find";
+const MAP_BASEMAP = "basemap";
 const USAGE = "usage";
 /** 消耗页顶上的余额（440）：/api/usage/balance */
 const USAGE_BALANCE = "balance";
@@ -368,6 +377,7 @@ const DEBUG = "debug";
 const RECOGNIZE = "recognize";
 const SPEAK = "speak";
 const PAGE_COMMAND = "page-command";
+const TALK_VOICE = "talk-voice";
 const PAGE_FILES = "page-files";
 const VOICE = "voice";
 const PAGE_THUMB = "thumb";
@@ -488,6 +498,13 @@ export const HTTP_PATHS = {
   mapDrawing: (lookup: string) => `${api(MAP, MAP_DRAWING)}${query({ [HTTP_QUERY.lookup]: lookup })}`,
   /** 地图页的"回到我现在的位置"：手机最近交来的一个位置点（GET，响应 MapLatestView；没交来过、手机插件没启用时没有 point，地图插件没启用 400） */
   mapLatest: api(MAP, MAP_LATEST),
+  /** "在地图上看"（447）：网页上选中的地址、地名直接查一处（POST MapFindBody，响应 MapFindResult；没查到也是 200，地图插件没启用 400） */
+  mapFind: api(MAP, MAP_FIND),
+  /**
+   * 地图页报一家底图的事（446）：建了一次（计费的"一次地图加载"）、Key 被那家拒了（POST，请求体 MapBasemapEventBody，响应 MapBasemapEventReply；
+   * 地图插件没启用 400）
+   */
+  mapBasemap: api(MAP, MAP_BASEMAP),
   /** 消耗页：from 到 to（YYYY-MM-DD，含两头）的用量汇总和粗估成本（GET，响应 UsageSummary） */
   usage: (range: { from: string; to: string }) => `${api(USAGE)}${query({ [HTTP_QUERY.from]: range.from, [HTTP_QUERY.to]: range.to })}`,
   /** 消耗页顶上的服务商余额（440，ProviderBalanceView）：GET 取（缓存还新就用缓存，不然现查），POST 马上重查（防连点） */
@@ -735,6 +752,8 @@ export const HTTP_PATHS = {
    * （原来的 POST /api/page-command 一次性页面助手、POST /api/page-command/pick 不再有）
    */
   pageVoice: api(PAGE_COMMAND, VOICE),
+  /** 二狗按钮上按住说的一段认成字（POST，请求体 PageVoiceBody，响应 PageVoiceResult；444）：内核的，只依赖语音插件，不经浏览插件 */
+  talkVoice: api(TALK_VOICE),
   /** 要交进上传框的一个文件（GET，凭取件码） */
   pageFile: (token: string) => api(PAGE_FILES, token),
   /**
@@ -801,6 +820,8 @@ export type HttpRoute =
   | { route: "map_day" }
   | { route: "map_drawing" }
   | { route: "map_latest" }
+  | { route: "map_find" }
+  | { route: "map_basemap" }
   | { route: "usage" }
   | { route: "usage_balance" }
   | { route: "reference_voices" }
@@ -887,6 +908,7 @@ export type HttpRoute =
   | { route: "debug_recognize" }
   | { route: "debug_speak" }
   | { route: "page_voice" }
+  | { route: "talk_voice" }
   | { route: "page_file"; token: string }
   | { route: "page_file_thumb"; token: string }
   | { route: "local_folders" }
@@ -948,6 +970,8 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === MAP && id === MAP_DAY && tail === undefined) return { route: "map_day" };
   if (head === MAP && id === MAP_DRAWING && tail === undefined) return { route: "map_drawing" };
   if (head === MAP && id === MAP_LATEST && tail === undefined) return { route: "map_latest" };
+  if (head === MAP && id === MAP_FIND && tail === undefined) return { route: "map_find" };
+  if (head === MAP && id === MAP_BASEMAP && tail === undefined) return { route: "map_basemap" };
   if (head === USAGE && id === undefined) return { route: "usage" };
   if (head === USAGE && id === USAGE_BALANCE && tail === undefined) return { route: "usage_balance" };
   if (head === REFERENCE_VOICES) {
@@ -1053,6 +1077,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
     if (id === SPEAK) return { route: "debug_speak" };
   }
   if (head === PAGE_COMMAND && id === VOICE && tail === undefined) return { route: "page_voice" };
+  if (head === TALK_VOICE && id === undefined) return { route: "talk_voice" };
   if (head === PAGE_FILES && id !== undefined && tail === undefined) return { route: "page_file", token: id };
   if (head === PAGE_FILES && id !== undefined && tail === PAGE_THUMB && item === undefined) return { route: "page_file_thumb", token: id };
   if (head === LOCAL_FOLDERS && id === undefined) return { route: "local_folders" };

@@ -53,6 +53,8 @@ import {
   SetupMarkBodySchema,
   InterviewStartBody,
   LanguageBody,
+  MapFindBody,
+  MapBasemapEventBody,
   t,
   checkHttpBody,
   FOLDER_GRANT_USES_DEFAULT,
@@ -144,9 +146,10 @@ import type { UserNameService } from "../user-name/index.ts";
 import type { PersonalFilesService } from "../personal-files/index.ts";
 import type { ProjectOpsMcpApi, ServiceEventsApi } from "../projects/api.ts";
 import type { CalendarService } from "../calendar/api.ts";
-import type { MapDayService, MapDrawingService, MapService } from "../map/api.ts";
+import type { MapDayService, MapDrawingService, MapFindService, MapService } from "../map/api.ts";
 import { latestAttachment } from "../conversation/attachments-view.ts";
 import { historyPage, isConversationChannel } from "../conversation/history.ts";
+import { createTalkVoice } from "../conversation/talk-voice.ts";
 import { RequestRejected } from "../errors.ts";
 import type { LanguageService } from "../i18n/index.ts";
 import type { BulkMaterialDeletion, MaterialBrowser, MemoryGraphReader, MemorySettingsService } from "../memory/index.ts";
@@ -259,10 +262,10 @@ export interface HttpApiOptions {
    */
   calendar: CalendarService;
   /**
-   * 地图页现在能用什么（GET /api/map/config）：是地图插件的服务，组合根经插件宿主现取，
+   * 地图页现在能用什么（GET /api/map/config）、地图页报底图的事（POST /api/map/basemap，446）：是地图插件的服务，组合根经插件宿主现取，
    * 地图插件没启用时抛 not_allowed"地图插件没启用"（回 400 带这句）
    */
-  map: Pick<MapService, "config">;
+  map: Pick<MapService, "config" | "basemapEvent">;
   /**
    * 我的足迹（GET /api/map/day?date=）：某一天的点、停留、照片地点、常去的地方。是地图插件的服务，组合根经插件宿主现取，
    * 地图插件没启用时抛"地图插件没启用"；日期写法不对、手机插件没启用也抛 RequestRejected（都回 400 带这句）。
@@ -274,6 +277,11 @@ export interface HttpApiOptions {
    * 地图插件没启用时抛"地图插件没启用"（400）；过期了、没有这个编号抛 not_found（404）
    */
   mapDrawing: MapDrawingService;
+  /**
+   * "在地图上看"（POST /api/map/find，447）：浏览里网页上选中的地址、地名直接查一处。是地图插件的服务，组合根现取，
+   * 地图插件没启用时抛"地图插件没启用"（400）；没查到、地图服务没查成也是 200（ok: false 和原因）
+   */
+  mapFind: MapFindService;
   /** token 账本：消耗页的汇总和粗估成本 */
   ledger: TokenLedger;
   /**
@@ -696,6 +704,15 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             sendJson(res, 200, options.map.config());
           },
         };
+      case "map_basemap":
+        return {
+          // 地图页报底图的事（446）：建了一次（谷歌按次计费）、Key 被拒了；转给地图插件（没启用时回"地图插件没启用"）
+          async POST(req, res) {
+            const body = checkHttpBody(MapBasemapEventBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badMapBasemap", { message: body.message }));
+            sendJson(res, 200, options.map.basemapEvent(body.value));
+          },
+        };
       case "map_day":
         return {
           GET(_req, res, url) {
@@ -712,6 +729,15 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         return {
           GET(_req, res, url) {
             sendJson(res, 200, options.mapDrawing.drawing(url.searchParams.get(HTTP_QUERY.lookup) ?? ""));
+          },
+        };
+      case "map_find":
+        return {
+          // "在地图上看"（447）：网页上选中的地址、地名直接查一处；没查到也是 200（ok: false 和给人看的一句）
+          async POST(req, res) {
+            const body = checkHttpBody(MapFindBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badMapFind", { message: body.message }));
+            sendJson(res, 200, await options.mapFind.find(body.value.text));
           },
         };
       case "usage":
@@ -1576,6 +1602,18 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             sendJson(res, 200, await voice().speak(body.value.text));
           },
         };
+      case "talk_voice":
+        return {
+          // 二狗按钮上按住说的一段认成字（444，地图右下角的二狗按钮用）：内核的，只依赖语音插件，不经浏览插件；没认出也是 200（ok: false 和原因）
+          async POST(req, res) {
+            const body = checkHttpBody(PageVoiceBody, await readJson(req, MAX_PAGE_VOICE_BODY));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badRecording", { message: body.message }));
+            const audio = Buffer.from(body.value.audio.base64, "base64");
+            if (audio.length === 0) throw new HttpError("bad_request", t("gateway.http.audioEmpty"));
+            if (audio.length > PAGE_COMMAND_AUDIO_MAX_BYTES) throw new HttpError("too_large", t("gateway.http.audioTooLong"));
+            sendJson(res, 200, await talkVoice(audio, body.value.audio.mime));
+          },
+        };
       case "page_voice":
         return {
           // 悬浮按钮上按住说的一段：认出来的字回给二狗的网页，它再作为一条消息发进秘书的主会话；没认出也是 200（ok: false 和原因）
@@ -1744,6 +1782,8 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
     if (!options.localFolders) throw new HttpError("not_found", t("gateway.http.noLocalFolders"));
     return options.localFolders;
   };
+  /** 二狗按钮上按住说的一段认成字（内核的，conversation/talk-voice.ts）：语音插件现取 */
+  const talkVoice = createTalkVoice(() => options.voice?.());
   /** 语音插件的服务：没在运行时 404"语音插件没启用" */
   const voice = (): VoiceApi => {
     const api = options.voice?.();

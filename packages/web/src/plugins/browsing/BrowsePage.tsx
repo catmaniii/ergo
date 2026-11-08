@@ -54,7 +54,6 @@ import {
   useBrowseFind,
   useBrowserState,
   useBrowseSide,
-  useBrowseSideWidth,
   useRecentVisits,
   useSearchEngine,
   useSiteSettings,
@@ -76,6 +75,7 @@ import {
   t,
 } from "../../state/index.ts";
 import { Splitter, TopBar, useNow } from "../../ui/common.tsx";
+import { useDraggedSideWidth } from "../../ui/side-width.ts";
 import { FileView } from "../../ui/file-view.tsx";
 import { Icon } from "../../ui/icons.tsx";
 import { SelectToggle } from "../../ui/select-mode.tsx";
@@ -164,45 +164,10 @@ function useSettled(on: boolean): boolean {
 
 /**
  * 侧边栏的宽度：这台设备记住的，拖着的时候是拖到的。拖分隔条时每帧最多更新一次（报给 App 的位置也就每帧最多一次，
- * 这一帧里挪的几下攒在一起），松手才记到这台设备上（照"详情"阶段栏）
+ * 这一帧里挪的几下攒在一起），松手才记到这台设备上（照"详情"阶段栏）。和地图页右边的聊天窗共用一套（ui/side-width.ts）
  */
 function useSideWidth() {
-  const remembered = useBrowseSideWidth();
-  /** 拖着的时候的宽度（松手才记到这台设备上） */
-  const [dragging, setDragging] = useState<number>();
-  /** 这一下拖：拖到的宽度、这一帧还没算进去的挪动、等着的那一帧 */
-  const drag = useRef<{ width: number; dx: number; frame: number | undefined } | undefined>(undefined);
-  // 拿下时还没到的那一帧不要了
-  useEffect(
-    () => () => {
-      const frame = drag.current?.frame;
-      if (frame !== undefined) cancelAnimationFrame(frame);
-    },
-    [],
-  );
-  return {
-    width: dragging ?? remembered,
-    /** from 是现在摆着的宽度（按内容区夹回之后的，拖从它开始）；hostWidth 是内容区多宽 */
-    onDrag(dx: number, from: number, hostWidth: number) {
-      const d = (drag.current ??= { width: from, dx: 0, frame: undefined });
-      d.dx += dx;
-      if (d.frame !== undefined) return;
-      d.frame = requestAnimationFrame(() => {
-        d.frame = undefined;
-        d.width = dragBrowseSideWidth(d.width, d.dx, hostWidth);
-        d.dx = 0;
-        setDragging(d.width);
-      });
-    },
-    onDragEnd(hostWidth: number) {
-      const d = drag.current;
-      drag.current = undefined;
-      if (!d) return;
-      if (d.frame !== undefined) cancelAnimationFrame(d.frame);
-      pageBrowseSideWidth().set(dragBrowseSideWidth(d.width, d.dx, hostWidth));
-      setDragging(undefined);
-    },
-  };
+  return useDraggedSideWidth(pageBrowseSideWidth(), dragBrowseSideWidth);
 }
 
 /**

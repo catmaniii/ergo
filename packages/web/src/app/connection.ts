@@ -12,6 +12,7 @@ import type {
   BrowserStatusParams,
   ReportAppVersionParams,
   BrowsingContext,
+  MapContext,
   CardAction,
   ConversationId,
   DeviceBatchAction,
@@ -55,6 +56,8 @@ export interface SendMessageRequest {
   taskId?: string;
   /** 浏览侧边栏里发的：当时的网页、选中的框、哪个浏览器 */
   browsing?: BrowsingContext;
+  /** 地图页右边的聊天窗里、右下角的二狗悬浮按钮上发的（444）：当时地图看的是哪里、哪一天的足迹、哪张卡片 */
+  map?: MapContext;
 }
 
 /** 对卡片做动作：`{卡片 id, 动作, 期望版本, 幂等键}`；服务端按版本条件更新，先到先得 */

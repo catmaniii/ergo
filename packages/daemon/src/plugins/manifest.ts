@@ -15,11 +15,14 @@
 // Codex 插件和 Claude Code 插件一样只带来一个 agent 运行时（数据契约里登记），网页那一半是设置 · Codex 这一页；排在最后。
 // 地图插件（429）没有给 agent 的工具，排在最后：数据契约里登记数据源 amap"高德地图"（填 Key），服务给网关的瓦片转发、
 // 高德安全密钥代理和 GET /api/map/config；网页那一半是地图页和高德地图的填 Key 那一块。
+// 谷歌地图插件（446）排在地图后面、最后：它要地图插件的"地图服务"插槽（needs），在那里登记一家 google；没有给 agent 的工具
+// （查地点、算路线还是地图插件那几个）；数据契约里登记数据源 google-maps"谷歌地图"（填两个 Key）。
 import { browsingPlugin } from "../browsing/plugin.ts";
 import { calendarPlugin } from "../calendar/plugin.ts";
 import { claudeCodePlugin } from "../claude-code/plugin.ts";
 import { codexPlugin } from "../codex/plugin.ts";
 import { googlePlugin } from "../google/plugin.ts";
+import { googleMapsPlugin } from "../google-maps/plugin.ts";
 import { lookiPlugin } from "../looki/plugin.ts";
 import { mapPlugin } from "../map/plugin.ts";
 import { memoryPlugin } from "../memory/plugin.ts";
@@ -28,4 +31,4 @@ import { remindersPlugin } from "../reminders/plugin.ts";
 import { voicePlugin } from "../voice/plugin.ts";
 import type { PluginDefinition } from "./host.ts";
 
-export const PLUGIN_MANIFEST: readonly PluginDefinition[] = [remindersPlugin, memoryPlugin, calendarPlugin, voicePlugin, browsingPlugin, claudeCodePlugin, phonePlugin, googlePlugin, lookiPlugin, codexPlugin, mapPlugin];
+export const PLUGIN_MANIFEST: readonly PluginDefinition[] = [remindersPlugin, memoryPlugin, calendarPlugin, voicePlugin, browsingPlugin, claudeCodePlugin, phonePlugin, googlePlugin, lookiPlugin, codexPlugin, mapPlugin, googleMapsPlugin];

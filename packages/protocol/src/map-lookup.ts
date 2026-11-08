@@ -4,11 +4,31 @@
 //   ——点的 kind 是 search（搜到的）/ place（常去的地方）/ here（现在在哪），线的 kind 是 route；431 的"画在地图上"工具、
 //   聊天里的地图卡片拿它画。守护进程只在内存里留一会儿（不落盘、不进记忆素材：高德的协议不许存、不许缓存；OpenStreetMap 的照同样办）；
 // - 设置 · 数据源 · 高德地图那一块要的（AmapSourcePanel）：Web 服务 Key 填了没有（"试查一下"能不能点）、这个月查了几次。
-import type { LatLon } from "./geo.ts";
+// 445 把"地图服务"做成插槽（地图插件开的，别的插件能登记一家）：
+// - 区域（MapRegion）：一家地图服务管哪儿——中国大陆 / 大陆以外（以后要更细再加）；按点在不在大陆分（geo.ts 的 inMainlandChina）；
+// - 数据来源（MapLookupSource）从两家的字面量放开成"地图服务的编号"（高德 amap、OpenStreetMap osm，以后谷歌 google……）；
+// - 地图页的手动切换（MapChoice）：这台设备按区域记的"自动"或某一家，守护进程不存。
+import { inMainlandChina, type LatLon } from "./geo.ts";
 
-/** 查地点、算路线的数据从哪来：高德（中国大陆，432）、OpenStreetMap（大陆以外，433） */
+/** 地图插件自带的两家地图服务：高德（中国大陆，432）、OpenStreetMap（哪儿都管，433） */
 export const MAP_LOOKUP_SOURCES = ["amap", "osm"] as const;
-export type MapLookupSource = (typeof MAP_LOOKUP_SOURCES)[number];
+/** 查地点、算路线的数据从哪来：地图服务的编号（自带的两家，或者别的插件登记的，445） */
+export type MapLookupSource = string;
+
+/** 地图服务的编号的写法：小写英文开头，小写英文、数字、连字符，最长 20 个字 */
+export const MAP_PROVIDER_ID = /^[a-z][a-z0-9-]{0,19}$/;
+
+/** 一家地图服务管的区域：中国大陆（不含港澳台）、大陆以外 */
+export const MAP_REGIONS = ["mainland", "abroad"] as const;
+export type MapRegion = (typeof MAP_REGIONS)[number];
+
+/** 这个点在哪个区域 */
+export function mapRegionOf(p: LatLon): MapRegion {
+  return inMainlandChina(p) ? "mainland" : "abroad";
+}
+
+/** 地图页手动选的："自动"（不写）或某一家的编号，两个区域分开记 */
+export type MapChoice = Readonly<Partial<Record<MapRegion, string>>>;
 
 /** 算路线的几种走法：开车、公交（含地铁）、步行 */
 export const MAP_ROUTE_MODES = ["driving", "transit", "walking"] as const;

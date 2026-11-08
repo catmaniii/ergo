@@ -91,6 +91,7 @@ describe("设置 · 插件", () => {
       ["looki", "数据源-Looki穿戴式相机", "running"],
       ["codex", "Codex", "running"],
       ["map", "地图", "running"],
+      ["google-maps", "谷歌地图", "running"],
     ]);
     const [reminders, memory] = body.plugins;
     const voice = body.plugins.find((p) => p.name === "voice");
@@ -186,9 +187,9 @@ describe("设置 · 插件", () => {
     expect(frontend.events({ channel: BOARD, type: EVENT_TYPES.reminder }).map((f) => (f.payload as { reminder: { id: string } }).reminder.id)).toEqual(["r-1"]);
     // 状况马上推给网页、配置写下了
     await waitUntil(() => lastStatus(frontend).reminders === "disabled");
-    expect(lastStatus(frontend)).toEqual({ reminders: "disabled", memory: "running", calendar: "running", voice: "running", browsing: "running", "claude-code": "running", phone: "running", google: "running", looki: "running", codex: "running", map: "running" });
+    expect(lastStatus(frontend)).toEqual({ reminders: "disabled", memory: "running", calendar: "running", voice: "running", browsing: "running", "claude-code": "running", phone: "running", google: "running", looki: "running", codex: "running", map: "running", "google-maps": "running" });
     expect(pluginsConfig(td.dataDir)).toEqual({ disabled: ["reminders"] });
-    expect(td.daemon.plugins.report()).toEqual({ running: ["memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"], disabled: ["reminders"], skipped: [] });
+    expect(td.daemon.plugins.report()).toEqual({ running: ["memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"], disabled: ["reminders"], skipped: [] });
     // 下一轮：秘书按新的贡献重新装配，没有提醒工具；"只提醒我"回没启用；看板上没有提醒那一类
     await tell(frontend, "在吗");
     expect(toolsIn(lastSecretaryText(frontend)).filter((name) => name.endsWith("_reminder"))).toEqual([]);
@@ -201,7 +202,7 @@ describe("设置 · 插件", () => {
     const enabled = await act(td.url, "reminders", "enable");
     expect(enabled.status).toBe(200);
     expect(enabled.body.changed).toEqual(["reminders"]);
-    expect(enabled.body.plugins.map((p) => p.state)).toEqual(["running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running"]);
+    expect(enabled.body.plugins.map((p) => p.state)).toEqual(["running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running"]);
     await waitUntil(() => lastStatus(frontend).reminders === "running");
     expect(pluginsConfig(td.dataDir)).toBeUndefined();
     expect(td.daemon.boardKinds.list().map((k) => k.label)).toEqual(["任务", "简单提醒", "定时触发的任务"]);
@@ -230,12 +231,12 @@ describe("设置 · 插件", () => {
 
     // 重启：照旧移除了、停用着
     const second = await startTestDaemon({ clock: new ManualClock(at(10, 7, 22)), reuse: { dataDir: first.dataDir, homeDir: first.homeDir } });
-    expect(second.daemon.plugins.report()).toEqual({ running: ["calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map"], disabled: ["memory"], skipped: [], removed: ["reminders"] });
+    expect(second.daemon.plugins.report()).toEqual({ running: ["calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"], disabled: ["memory"], skipped: [], removed: ["reminders"] });
     const f2 = await TestFrontend.connect(second.url);
     await f2.subscribe(ALL);
     await waitUntil(() => f2.events({ channel: PLUGINS, type: EVENT_TYPES.pluginStatus }).length > 0);
-    expect(lastStatus(f2)).toEqual({ reminders: "removed", memory: "disabled", calendar: "running", voice: "running", browsing: "running", "claude-code": "running", phone: "running", google: "running", looki: "running", codex: "running", map: "running" });
-    expect((await pluginsApi.view(second.url)).body.plugins.map((p) => p.state)).toEqual(["removed", "disabled", "running", "running", "running", "running", "running", "running", "running", "running", "running"]);
+    expect(lastStatus(f2)).toEqual({ reminders: "removed", memory: "disabled", calendar: "running", voice: "running", browsing: "running", "claude-code": "running", phone: "running", google: "running", looki: "running", codex: "running", map: "running", "google-maps": "running" });
+    expect((await pluginsApi.view(second.url)).body.plugins.map((p) => p.state)).toEqual(["removed", "disabled", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running"]);
     // 装回：以前的提醒都在
     expect((await act(second.url, "reminders", "enable")).body.changed).toEqual(["reminders"]);
     expect(reminderService(second.daemon).get("r-1")).toMatchObject({ status: "pending", text: "交报告" });
