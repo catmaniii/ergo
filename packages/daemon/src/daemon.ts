@@ -2992,7 +2992,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 主导航的日历：是日历插件的服务，现取；日历插件没启用时回"日历插件没启用"
         calendar: { month: (month) => plugins.active(CALENDAR).month(month) },
         // 地图页现在能用什么：是地图插件的服务，现取；地图插件没启用时回"地图插件没启用"
-        map: { config: () => plugins.active(MAP).config() },
+        // 地图页的设置：高德那几项，加上登记了的几家地图服务（445 的插槽）
+        map: {
+          config: () => {
+            const map = plugins.active(MAP);
+            return { ...map.config(), providers: map.providerViews() };
+          },
+        },
         // 我的足迹、手机最近交来的一个位置点（442）：同样是地图插件的服务、现取（它再现取手机插件的）；不联网
         mapDay: { day: (date) => plugins.active(MAP_DAY).day(date), latest: () => plugins.active(MAP_DAY).latest() },
         // 地图卡片按编号取查地点、算路线查到的那一份：同样现取（只在地图插件的内存里）

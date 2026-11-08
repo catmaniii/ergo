@@ -27,6 +27,9 @@
 //   没填高德的 Key、关了它的按需查、Key 不认时国外照样能查，国内也改用 OpenStreetMap（结果里提一句店名和小路可能不全）；
 // - 高德的"按需查"开关照样在数据源页上（usages.query.ownTools：内核不替它给工具），查国内的点之前经 KERNEL.dataSourceUsage 看它开没开；
 // - OpenStreetMap 的规矩：每秒最多 1 次、带能认出二狗的 User-Agent、结果只在内存里缓存一天（停用时扔掉）、不做输入联想。
+// 445 开了"地图服务"插槽（MAP_PROVIDERS，providers.ts）：高德、OpenStreetMap 改成按插槽登记的两家；别的插件 needs: [MAP_PROVIDERS]、
+// 在 setup 里 ctx.effect(() => ctx.use(MAP_PROVIDERS).register(…)) 登记一家（管哪个区域、优先级、底图、查询、用量），停用、移除时撤掉，
+// 退回下一家。每家写了用量的，体检的"地图"那一块多一项"<编号>-usage"（高德的照旧是 amap-usage）。地图插件停了，登记了的插件跟着停。
 import path from "node:path";
 import { AMAP_SOURCE_ID, t } from "@ergo/protocol";
 import type { DataSource } from "../data-sources/api.ts";
@@ -34,10 +37,10 @@ import { PHONE } from "../phone/api.ts";
 import { type PluginDefinition, serviceKey } from "../plugins/host.ts";
 import { KERNEL } from "../plugins/kernel.ts";
 import type { AmapHosts } from "./amap.ts";
-import { MAP, MAP_DAY, MAP_DRAWING, MAP_PLUGIN } from "./api.ts";
+import { MAP, MAP_DAY, MAP_DRAWING, MAP_PLUGIN, MAP_PROVIDERS, type MapProvider } from "./api.ts";
 import { mapCardType } from "./card.ts";
 import { createMapDay, createMapLatest } from "./day.ts";
-import { registerAmapDoctor } from "./doctor.ts";
+import { registerUsageDoctor } from "./doctor.ts";
 import { createMapDrawings } from "./drawing.ts";
 import type { OsmHosts } from "./osm-lookup.ts";
 import { createMapService, type MapPluginService } from "./service.ts";
@@ -88,7 +91,7 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
     // 我的足迹（430）的数据、常去的地方、手机最近的位置（432 查"从家到公司""附近"）在手机插件那里：可选，没有它地图照样能看、工具如实说用不了。
     // 数据源的用法开关（433）：查国内的点之前看高德的按需查开没开（没有这项服务时当开着）
     wants: [PHONE, KERNEL.dataSourceUsage],
-    provides: [MAP, MAP_INTERNAL, MAP_DAY, MAP_DRAWING],
+    provides: [MAP, MAP_INTERNAL, MAP_DAY, MAP_DRAWING, MAP_PROVIDERS],
     contracts(ctx) {
       const source: DataSource = {
         id: AMAP_SOURCE_ID,
@@ -154,8 +157,23 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
       ctx.provide(MAP_INTERNAL, service);
       // 查地点、算路线的五个工具给秘书（433：插件在运行就有；高德能不能用每次查时现看，不能用时国内也走 OpenStreetMap）
       ctx.agent.tools.register({ to: { agents: ["secretary"] }, tools: () => service.lookupTools() });
-      // 体检：高德的用量（409 的插件体检项；插件宿主没有 ctx.doctor 时不登记）
-      registerAmapDoctor(ctx, () => service.amapUsageFinding());
+      // 地图服务插槽（445）：别的插件经它登记一家（交回撤销函数，它们交给自己的 ctx.effect）
+      ctx.provide(MAP_PROVIDERS, { register: (provider) => service.providers.register(provider), list: () => service.providers.list() });
+      // 体检：每家的用量（409 的插件体检项；插件宿主没有 ctx.doctor 时不登记）。高德的照旧是 amap-usage；别的插件登记、撤掉时跟着登记、撤掉
+      const usageChecks = new Map<MapProvider, () => void>();
+      const addUsage = (provider: MapProvider) => {
+        if (provider.usage === undefined || usageChecks.has(provider)) return;
+        const undo = registerUsageDoctor(ctx, provider.id, provider.usage);
+        if (undo !== undefined) usageChecks.set(provider, undo);
+      };
+      for (const provider of service.providers.list()) addUsage(provider);
+      ctx.effect(() =>
+        service.providers.onChange((provider, change) => {
+          if (change === "added") return addUsage(provider);
+          usageChecks.get(provider)?.();
+          usageChecks.delete(provider);
+        }),
+      );
       const day = createMapDay(() => ctx.optional(PHONE));
       // 地图页"回到我现在的位置"的退路（442）：手机最近交来的一个位置点，同样现取手机插件
       ctx.provide(MAP_DAY, { day, latest: createMapLatest(() => ctx.optional(PHONE)) });

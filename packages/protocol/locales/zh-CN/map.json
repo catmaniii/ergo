@@ -48,6 +48,8 @@
   "map.lookup.here": "当前位置",
   "map.lookup.source.amap": "高德",
   "map.lookup.source.osm": "OpenStreetMap",
+  "map.provider.amap": "高德地图",
+  "map.provider.osm": "OpenStreetMap",
   "map.lookup.drawing.search": "搜「{keyword}」",
   "map.lookup.drawing.near": "{place}附近的「{keyword}」",
   "map.lookup.drawing.nearAll": "{place}附近",
