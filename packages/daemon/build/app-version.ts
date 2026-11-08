@@ -1,6 +1,6 @@
 // 手机 App 自己一个版本号（frontend/app-version.json，ADR-0047）：电脑版升级不等于要升 App，App 代码没变就不用重新编译、不用用户重装。
 // npm run release -- --build-mobile 先看这里：
-//   - stale：从上次改版本号到现在，App 的代码变了、版本号没升（downloads/ 里的版本还是它）。报错退出，写明要升 App 版本；
+//   - stale：从上次改版本号（或上次把新打的包换进 downloads/，取晚的）到现在，App 的代码变了、版本号没升（downloads/ 里的版本还是它）。报错退出，写明要升 App 版本；
 //   - unchanged：没变。不编译，发布附件直接用 downloads/ 里现成的两个包；
 //   - bumped：版本号和 downloads/README.md 写的不一样，就是升了。编译，并提示更新 downloads/。
 // 打包结束再打印一行给发布说明用：这次用户要不要升 App，只看 MIN_APP_VERSION 比上一个发布高了没有。
@@ -13,6 +13,8 @@ import { packagedVersionIn } from "../src/pairing/app-package.ts";
 
 export const APP_VERSION_FILE = "frontend/app-version.json";
 const DOWNLOADS_README = "downloads/README.md";
+/** downloads/ 里的两个安装包（和 mobile.ts 的 ANDROID_PACKAGE、HARMONY_PACKAGE 同名）：换了包的那次提交，包就是照那时的 App 代码打的 */
+export const DOWNLOADED_PACKAGES = ["downloads/ergo-android-debug.apk", "downloads/ergo-harmony-unsigned.hap"] as const;
 const MIN_VERSION_SOURCE = "packages/protocol/src/app-version.ts";
 
 /** 进 App 的代码在这两处：原生工程在 frontend/ 下面，内置浏览器的页面脚本打包进 App */
@@ -65,8 +67,10 @@ export function mobilePlan(repo: string): MobilePlan {
   const version = readAppVersion(repo);
   const packaged = packagedAppVersion(repo);
   if (packaged !== version) return { kind: "bumped", version, packaged };
+  // 从哪次提交算起：最后一次改版本号、或者最后一次把新打的包换进 downloads/，取晚的那次。版本号常常在功能分支上先升了，
+  // 之后别的票又改了 App 代码，发版时照最新代码重打、换进 downloads/——那次之后没再改就是没变。
   // 版本文件还没提交过（刚建）：只看没提交的
-  const since = git(repo, "log", "-1", "--format=%H", "--", APP_VERSION_FILE) || "HEAD";
+  const since = git(repo, "log", "-1", "--format=%H", "--", APP_VERSION_FILE, ...DOWNLOADED_PACKAGES) || "HEAD";
   const changed = appCodeChanged(repo, since);
   return changed.length > 0 ? { kind: "stale", version, since: since.slice(0, 8), changed } : { kind: "unchanged", version };
 }
@@ -75,7 +79,7 @@ export function mobilePlan(repo: string): MobilePlan {
 export function staleMessage(plan: Extract<MobilePlan, { kind: "stale" }>): string {
   const shown = plan.changed.slice(0, 10).join("、");
   const more = plan.changed.length > 10 ? ` 等 ${plan.changed.length} 个` : "";
-  return `手机 App 的代码从上次改 ${APP_VERSION_FILE}（${plan.since}）到现在变了，版本号还是 ${plan.version}：要升 App 版本，再打包。步骤见 docs/architecture/development.md 的"发布手机安装包"。变了的文件：${shown}${more}`;
+  return `手机 App 的代码从上次改 ${APP_VERSION_FILE} 或换 downloads/ 里的包（${plan.since}）到现在变了，版本号还是 ${plan.version}：要升 App 版本，再打包。步骤见 docs/architecture/development.md 的"发布手机安装包"。变了的文件：${shown}${more}`;
 }
 
 function minVersionIn(source: string): string | undefined {

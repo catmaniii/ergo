@@ -7,7 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { appUpgradeLine, mobilePlan, type MobilePlan, staleMessage } from "../../build/app-version.ts";
+import { appUpgradeLine, DOWNLOADED_PACKAGES, mobilePlan, type MobilePlan, staleMessage } from "../../build/app-version.ts";
 import { ANDROID_PACKAGE, collectMobilePackages, HARMONY_PACKAGE, type MobileTools } from "../../build/mobile.ts";
 
 const dirs: string[] = [];
@@ -143,6 +143,29 @@ describe("这次打包该怎么办", () => {
     put(repo, "frontend/harmony/entry/Index.ets", "又改了");
     commit(repo);
     expect(mobilePlan(repo).kind).toBe("stale");
+  });
+
+  it("版本号先在功能分支上升了、之后又改了 App 代码：照最新代码重打、换进 downloads/ 提交了就算没变", () => {
+    const repo = repoAt();
+    setVersion(repo, "0.4.3");
+    commit(repo, "功能分支上先升了版本");
+    put(repo, "packages/web/src/page-bridge/bridge.ts", "别的票又改了页面桥");
+    commit(repo, "别的票");
+    setDownloads(repo, "0.4.3");
+    put(repo, `downloads/${ANDROID_PACKAGE}`, "照最新代码打的 apk");
+    put(repo, `downloads/${HARMONY_PACKAGE}`, "照最新代码打的 hap");
+    commit(repo, "手机安装包更新");
+    expect(mobilePlan(repo)).toEqual({ kind: "unchanged", version: "0.4.3" });
+    // 只改 README 的字、没换包：不算重打过
+    put(repo, "packages/web/src/page-bridge/bridge.ts", "又改了");
+    commit(repo);
+    put(repo, "downloads/README.md", "版本 / Version: 0.4.3\n改了说明\n");
+    commit(repo, "改说明");
+    expect(mobilePlan(repo)).toMatchObject({ kind: "stale", changed: ["packages/web/src/page-bridge/bridge.ts"] });
+  });
+
+  it("downloads/ 里两个包的名字和打包用的一样", () => {
+    expect(DOWNLOADED_PACKAGES).toEqual([`downloads/${ANDROID_PACKAGE}`, `downloads/${HARMONY_PACKAGE}`]);
   });
 
   it("不是 git 仓库：说清楚为什么要 git", () => {

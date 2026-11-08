@@ -20,7 +20,7 @@
 7. **怎么通知：** 低于最低版本时放一条待办（`app_outdated`，不卡任务）并 `inbox.alert`，走现有的"待办 → 手机系统通知"。编号是设备加要求，所以一台设备的同一个要求只通知一次，用户删了也不再放。报上来够新了、要求变高了换了新的一条、设备吊销或删除了，开着的那条自动归档。
 8. **页面上的提示条单独判断：** `AppUpgradeBar` 直接看本机版本和 `MIN_APP_VERSION`。页面就是服务端给的，里面的常量就是服务端的要求，不用另外问。App 被系统杀过、通知发不出去，打开也看得到。安卓给 APK 链接，鸿蒙给手机安装教程（没法替用户签名），认不出哪种 App 给"装 App"那一节。
 9. **哪种 App 看浏览器标识：** 两个 App 的原生桥上没有说自己是什么的方法，加了就要升 App。鸿蒙写 `OpenHarmony`、`ArkWeb`，安卓写 `Android`。
-10. **打包跟着 App 版本走（`packages/daemon/build/app-version.ts`）：** `npm run release -- --build-mobile` 比较 `frontend/app-version.json` 和 `downloads/README.md`。不一样就是升了，编译并提示更新 `downloads/`。一样时看从上次改版本号到现在，`frontend/` 或 `packages/web/src/page-bridge` 有没有变：变了报错退出，要求先升 App 版本；没变就不编译，直接用 `downloads/` 里现成的两个包，SHA256 照算。结束打印一行给发布说明用：`手机 App：不用升级` 或 `手机 App：需要升级到 x.y`（`MIN_APP_VERSION` 比上一个发布高了才算）。
+10. **打包跟着 App 版本走（`packages/daemon/build/app-version.ts`）：** `npm run release -- --build-mobile` 比较 `frontend/app-version.json` 和 `downloads/README.md`。不一样就是升了，编译并提示更新 `downloads/`。一样时看从上次改版本号、或上次把新打的两个包换进 `downloads/`（取晚的那次）到现在，`frontend/` 或 `packages/web/src/page-bridge` 有没有变：变了报错退出，要求先升 App 版本；没变就不编译，直接用 `downloads/` 里现成的两个包，SHA256 照算。结束打印一行给发布说明用：`手机 App：不用升级` 或 `手机 App：需要升级到 x.y`（`MIN_APP_VERSION` 比上一个发布高了才算）。
 
 ## 后果
 
