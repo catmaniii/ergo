@@ -85,6 +85,7 @@ import {
   isDeletedEventPayload,
   isEphemeralEventType,
   type BrowsingMark,
+  type MapMark,
   type MessageEnvelope,
   type MessageEventPayload,
   type MessagePart,
@@ -456,8 +457,8 @@ export type UiInput =
       catchUp?: boolean;
     }
   /** 用户发出一条消息（请求已发出，等权威事件） */
-  /** browsing：浏览侧边栏里发的，乐观显示的那条也带上"在网页「X」上说" */
-  | { kind: "send_message"; conversation: ConversationId; idempotencyKey: string; parts: MessagePart[]; time: string; browsing?: BrowsingMark }
+  /** browsing：浏览侧边栏里发的，乐观显示的那条也带上"在网页「X」上说"；map：地图页上发的，带上"在地图上说"（444） */
+  | { kind: "send_message"; conversation: ConversationId; idempotencyKey: string; parts: MessagePart[]; time: string; browsing?: BrowsingMark; map?: MapMark }
   /** 用户点了卡片上的按钮（"对卡片做动作"的请求已发出，等卡片更新事件） */
   | { kind: "card_action"; cardId: string; action: CardAction; idempotencyKey: string }
   /** 用户叉掉了一条排队的消息、拖完换了顺序（请求已发出）：先照着显示，等守护进程的 message_queue */
@@ -1089,6 +1090,7 @@ export function reduce(state: UiState, input: UiInput): UiState {
         time: input.time,
         parts: input.parts,
         ...(input.browsing ? { browsing: input.browsing } : {}),
+        ...(input.map ? { map: input.map } : {}),
       };
       const sent = updateConversation(state, input.conversation, (conv) => ({
         ...conv,

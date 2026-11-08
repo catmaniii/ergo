@@ -12,12 +12,13 @@
 // 名字、语言、风格变了（lookChanged，页面上的 page-browse.ts 告诉这里）重交，开着的气泡跟着变。
 // 浏览侧边栏开合（悬浮按钮常驻右下角没有）也随这几句交（fab，不另加页面桥的操作，App 不用改）：开合变了同样 lookChanged 重交。
 // 不碰 DOM 和浏览器的全局变量，测试在 Node 里跑。
-import { PAGE_BUBBLE_NONE, PAGE_CORNER_ID, type PageBubbleView, type PageNamedPart, type PageNamedText } from "../../page-bridge/protocol.ts";
+import { PAGE_BUBBLE_NONE, PAGE_CORNER_ID, type PageBubbleView, type PageNamedText } from "../../page-bridge/protocol.ts";
 import { BRIDGE_ASSISTANT_KEYS, BRIDGE_TEXT_KEYS, type NameTagColors, type PageBridgeTexts } from "../../page-bridge/texts.ts";
-import { defaultAssistantName, t, tParts } from "../../state/index.ts";
+import { defaultAssistantName, t } from "../../state/index.ts";
+import { BUSY_KEY, namedText, replyTooLong } from "../../app/talk-button.ts";
 import { BASE_STYLE, effectiveTokens, resolveColor, type Theme, VISUAL_STYLES } from "../../visual-styles/index.ts";
 import type { NativeBrowserEvent, NativePageControl } from "../../app/native-browser.ts";
-import type { BusyNote, CommandTarget, PageCommands, PagePanel } from "./page-commands.ts";
+import type { CommandTarget, PageCommands, PagePanel } from "./page-commands.ts";
 import { targetName, wantsFiles } from "./page-commands.ts";
 
 /** 气泡跟着哪个框：悬浮按钮所在的框、拦下的对话框认出来的框、右下角的按钮（PAGE_CORNER_ID）；都没有是空串（气泡放在屏幕下面） */
@@ -40,41 +41,8 @@ function chooserText(accept: readonly string[], multiple: boolean): string {
   return t(multiple ? "app.pageBubble.chooser.files" : "app.pageBubble.chooser.file");
 }
 
-/** 在办的那一句气泡里怎么写（秘书正忙时说明排在后面，不让用户以为没反应；说到助理的写 {name}） */
-export const BUSY_KEY: Readonly<Record<BusyNote, string>> = {
-  hearing: "app.pageBubble.busy.hearing",
-  thinking: "app.pageBubble.busy.thinking",
-  queued: "app.pageBubble.busy.queued",
-};
-
-/** 一句可能说到助理的话：纯文字（名字换好）；说到了的另给按名字切开的几段（页面桥画成名字标签） */
-export interface NamedText {
-  text: string;
-  parts?: PageNamedText;
-}
-
-/** 名字在 tParts 里的记号 */
-const NAME_MARK = Symbol("name");
-
-/** 按当前语言取一句，{name} 是助理的名字：别的参数照常换上，名字那一段单独切出来 */
-export function namedText(key: string, name: string, params: Readonly<Record<string, string | number>> = {}): NamedText {
-  const text = t(key, { ...params, name });
-  const parts: PageNamedPart[] = [];
-  let plain = "";
-  let named = false;
-  for (const part of tParts(key, { ...params, name: NAME_MARK })) {
-    if (part !== NAME_MARK) {
-      plain += String(part);
-      continue;
-    }
-    if (plain) parts.push(plain);
-    plain = "";
-    parts.push({ name });
-    named = true;
-  }
-  if (plain) parts.push(plain);
-  return named ? { text, parts } : { text };
-}
+/** 在办的那一句怎么写、说到助理的那几句按名字切开：挪到 app/talk-button.ts，和地图的二狗按钮共用 */
+export { BUSY_KEY, type NamedText, namedText } from "../../app/talk-button.ts";
 
 /** 助理现在的名字、名字标签的颜色（没给颜色页面桥用经典的） */
 export interface BridgeLook {
@@ -130,14 +98,8 @@ function talkLabel(target: CommandTarget, name: string): { label: string; labelP
   return { label: named.text, ...(named.parts ? { labelParts: named.parts } : {}) };
 }
 
-/** 回话多长算"太长"：超过这么多字，或者超过这么多行（气泡 300 来宽，一行二十来个字），回话下面给"去侧边栏看" */
-export const REPLY_LONG_CHARS = 120;
-export const REPLY_LONG_LINES = 6;
-
-/** 回话太长了没有 */
-export function replyTooLong(text: string): boolean {
-  return text.length > REPLY_LONG_CHARS || text.split("\n").length > REPLY_LONG_LINES;
-}
+/** 回话多长算"太长"（回话下面给"去侧边栏看"）：挪到 app/talk-button.ts，和地图的二狗按钮共用 */
+export { REPLY_LONG_CHARS, REPLY_LONG_LINES, replyTooLong } from "../../app/talk-button.ts";
 
 /**
  * 网页上下指令的面板 → 气泡的样子；sidebar 是有没有浏览侧边栏（有的话太长的回话下面给"去侧边栏看"）；

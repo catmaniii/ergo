@@ -41,6 +41,7 @@
   "conversation.messages.cannotSendPart": "This version can't send {type} yet",
   "conversation.messages.empty": "The message is empty",
   "conversation.messages.browsingSecretaryOnly": "Web page context can only be attached in the secretary's chat",
+  "conversation.messages.mapSecretaryOnly": "Map context can only be attached in the secretary's chat",
   "conversation.messages.noAttachment": "Attachment \"{name}\" not found: media {mediaId} isn't stored (upload and finish it before sending)",
   "conversation.queue.keyReused": "Couldn't queue the message: idempotency key {key} was already used for another request",
   "conversation.modelSwitch.model": "the {name} model (thinking: {thinking})",
