@@ -287,6 +287,43 @@ async function open(viewport: { width: number; height: number }, search = ""): P
   return { page, errors };
 }
 
+// 回到我现在的位置（442）：地图右下角一个钮，高德、OpenStreetMap 两种底图上都有。位置都是假的：浏览器定位用 playwright 的假定位
+// （给了权限、没给），或者换掉 navigator.geolocation（超时、记下有没有被问）；鸿蒙 App 用假的原生桥（phonePlaceHere）；
+// 手机最近交来的点是原型的（12 分钟前、西湖边），?demo-plugins-off=phone 时没有。一个请求都不往外发
+/** 开一个地图页：geo 是浏览器定位给的位置（给了就给权限），init 是页面加载前跑的脚本；footprints 关掉"足迹"（国内看高德） */
+async function openMap(viewport: { width: number; height: number }, opts: { geo?: { latitude: number; longitude: number; accuracy: number }; init?: string; search?: string; footprintsOff?: boolean } = {}) {
+  const context = await browser!.newContext({ viewport, ...(opts.geo ? { geolocation: opts.geo, permissions: ["geolocation"] } : {}) });
+  if (opts.init) await context.addInitScript(opts.init);
+  const page = await context.newPage();
+  const errors: string[] = [];
+  const outside: string[] = [];
+  page.on("pageerror", (e) => errors.push(`没接住的错误：${String(e)}`));
+  page.on("console", (m) => {
+    if (m.type() === "error" && !m.text().startsWith("Failed to load resource")) errors.push(`控制台报错：${m.text()}`);
+  });
+  page.on("request", (r) => {
+    if (!/^(?:file|data|blob):/.test(r.url())) outside.push(r.url());
+  });
+  await page.goto(pageUrl + (opts.search ?? ""));
+  if (opts.footprintsOff) await page.evaluate(`localStorage.setItem("ergo-map-footprints", "off")`);
+  await page.evaluate(`window.location.hash = "#/more/map"`);
+  await page.locator(".map-canvas:not([data-basemap=loading])").waitFor({ timeout: 5000 });
+  return { context, page, errors, outside };
+}
+/** 点"回到我现在的位置"，等它取完 */
+async function locate(page: Page, label = "回到我现在的位置") {
+  await page.locator(`.map-locate button[aria-label="${label}"]`).click();
+  await page.locator(".map-locate button:not([aria-busy])").waitFor({ timeout: 15_000 });
+}
+/** 蓝点在不在地图那块正中间（差几个像素以内）、右边离左边那一栏多远 */
+async function dotOffset(page: Page) {
+  const dot = (await page.locator('.map-mark[data-kind="me"] .map-pin').boundingBox())!;
+  const canvas = (await page.locator(".map-canvas").boundingBox())!;
+  return { dx: dot.x + dot.width / 2 - (canvas.x + canvas.width / 2), dy: dot.y + dot.height / 2 - (canvas.y + canvas.height / 2), x: dot.x };
+}
+const WEST_LAKE = { latitude: 30.2604, longitude: 120.1433, accuracy: 40 };
+const MARINA_BAY = { latitude: 1.2847, longitude: 103.8591, accuracy: 30 };
+
 async function bodyText(page: Page): Promise<string> {
   return (await page.innerText("body")).trim();
 }
@@ -841,43 +878,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }, 60_000);
   }
 
-  // 回到我现在的位置（442）：地图右下角一个钮，高德、OpenStreetMap 两种底图上都有。位置都是假的：浏览器定位用 playwright 的假定位
-  // （给了权限、没给），或者换掉 navigator.geolocation（超时、记下有没有被问）；鸿蒙 App 用假的原生桥（phonePlaceHere）；
-  // 手机最近交来的点是原型的（12 分钟前、西湖边），?demo-plugins-off=phone 时没有。一个请求都不往外发
-  /** 开一个地图页：geo 是浏览器定位给的位置（给了就给权限），init 是页面加载前跑的脚本；footprints 关掉"足迹"（国内看高德） */
-  async function openMap(viewport: { width: number; height: number }, opts: { geo?: { latitude: number; longitude: number; accuracy: number }; init?: string; search?: string; footprintsOff?: boolean } = {}) {
-    const context = await browser!.newContext({ viewport, ...(opts.geo ? { geolocation: opts.geo, permissions: ["geolocation"] } : {}) });
-    if (opts.init) await context.addInitScript(opts.init);
-    const page = await context.newPage();
-    const errors: string[] = [];
-    const outside: string[] = [];
-    page.on("pageerror", (e) => errors.push(`没接住的错误：${String(e)}`));
-    page.on("console", (m) => {
-      if (m.type() === "error" && !m.text().startsWith("Failed to load resource")) errors.push(`控制台报错：${m.text()}`);
-    });
-    page.on("request", (r) => {
-      if (!/^(?:file|data|blob):/.test(r.url())) outside.push(r.url());
-    });
-    await page.goto(pageUrl + (opts.search ?? ""));
-    if (opts.footprintsOff) await page.evaluate(`localStorage.setItem("ergo-map-footprints", "off")`);
-    await page.evaluate(`window.location.hash = "#/more/map"`);
-    await page.locator(".map-canvas:not([data-basemap=loading])").waitFor({ timeout: 5000 });
-    return { context, page, errors, outside };
-  }
-  /** 点"回到我现在的位置"，等它取完 */
-  async function locate(page: Page, label = "回到我现在的位置") {
-    await page.locator(`.map-locate button[aria-label="${label}"]`).click();
-    await page.locator(".map-locate button:not([aria-busy])").waitFor({ timeout: 15_000 });
-  }
-  /** 蓝点在不在地图那块正中间（差几个像素以内）、右边离左边那一栏多远 */
-  async function dotOffset(page: Page) {
-    const dot = (await page.locator('.map-mark[data-kind="me"] .map-pin').boundingBox())!;
-    const canvas = (await page.locator(".map-canvas").boundingBox())!;
-    return { dx: dot.x + dot.width / 2 - (canvas.x + canvas.width / 2), dy: dot.y + dot.height / 2 - (canvas.y + canvas.height / 2), x: dot.x };
-  }
-  const WEST_LAKE = { latitude: 30.2604, longitude: 120.1433, accuracy: 40 };
-  const MARINA_BAY = { latitude: 1.2847, longitude: 103.8591, accuracy: 30 };
-
+  // 回到我现在的位置（442）：帮手 openMap、locate、dotOffset 在文件上面
   test("回到我现在的位置手机宽：高德底图上有钮，浏览器给了位置就挪过去放大到街道级，画蓝点和精度圈；在新加坡定到的换成 OpenStreetMap、钮照样在", async () => {
     const { context, page, errors, outside } = await openMap({ width: 390, height: 844 }, { geo: WEST_LAKE, footprintsOff: true });
     try {
@@ -890,9 +891,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       expect(await page.locator(".map-canvas").getAttribute("data-basemap")).toBe("amap");
       expect(await page.locator('[data-engine="amap-demo"] .map-mark[data-kind="me"]').count()).toBe(1);
       expect(await page.locator('[data-engine="amap-demo"] .map-shapes circle.map-circle-accuracy').count()).toBe(1);
-      const at = await dotOffset(page);
-      expect(Math.abs(at.dx)).toBeLessThan(3);
-      expect(Math.abs(at.dy)).toBeLessThan(3);
+      // 挪过去、重画在下一帧：等它停下来再量
+      await expect.poll(async () => { const at = await dotOffset(page); return Math.max(Math.abs(at.dx), Math.abs(at.dy)); }, { timeout: 5000 }).toBeLessThan(3);
       expect(await page.locator(".map-locate-note").count()).toBe(0);
       expect(await button.getAttribute("data-located")).toBe("");
       // 拖开再点：一分钟内直接回到那里（不再问浏览器）
@@ -901,9 +901,9 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await page.mouse.down();
       await page.mouse.move(80, 380, { steps: 5 });
       await page.mouse.up();
-      expect(Math.abs((await dotOffset(page)).dx)).toBeGreaterThan(50);
+      await expect.poll(async () => Math.abs((await dotOffset(page)).dx), { timeout: 5000 }).toBeGreaterThan(50);
       await locate(page);
-      expect(Math.abs((await dotOffset(page)).dx)).toBeLessThan(3);
+      await expect.poll(async () => Math.abs((await dotOffset(page)).dx), { timeout: 5000 }).toBeLessThan(3);
       await context.close();
 
       // 人在新加坡：挪过去后底图换成 OpenStreetMap（429 的规则），钮还在原处
@@ -931,10 +931,9 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await locate(page);
       expect(await page.locator(".map-canvas").getAttribute("data-basemap")).toBe("osm");
       const panel = (await page.locator(".map-day-panel").boundingBox())!;
-      const at = await dotOffset(page);
-      // 蓝点在左边那一栏右边那块的正中：比整块的正中往右挪半栏
-      expect(at.x).toBeGreaterThan(panel.x + panel.width);
-      expect(Math.abs(at.dx - 316 / 2)).toBeLessThan(4);
+      // 蓝点在左边那一栏右边那块的正中：比整块的正中往右挪半栏（重画在下一帧：等它停下来再量）
+      await expect.poll(async () => Math.abs((await dotOffset(page)).dx - 316 / 2), { timeout: 5000 }).toBeLessThan(4);
+      expect((await dotOffset(page)).x).toBeGreaterThan(panel.x + panel.width);
       expect(await page.locator('.map-mark[data-kind="me"]').count()).toBe(1);
       expect(await page.locator(".map-osm.dark").count()).toBe(1);
     } finally {
