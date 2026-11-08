@@ -12,8 +12,10 @@ import com.catmaniii.ergo.voice.NativeVoice
  * - mirror：网页要同步拿值的，读垫片里记着的那一份；
  * - fire：不要结果；
  * - promise：回 Promise<string>。
+ * videoFullscreen（票 407）：无参数、回 true，说明这个 App 接了网页视频的真全屏（MainActivity 的 onShowCustomView），网页认它在不在才给全屏按钮。
+ * 只开给主界面：侧边栏那份和鸿蒙一样没有（鸿蒙侧边栏那个 Web 组件没接全屏）。
  */
-val NATIVE_BRIDGE_MIRROR_METHODS = listOf("appVersion", "safeArea", "setTexts", "browserAttach", "notifyState", "notifyTakeOpen", "notifyResetAsked")
+val NATIVE_BRIDGE_MIRROR_METHODS = listOf("appVersion", "safeArea", "setTexts", "browserAttach", "notifyState", "notifyTakeOpen", "notifyResetAsked", "videoFullscreen")
 val NATIVE_BRIDGE_FIRE_METHODS = listOf("log", "editServer", "setColorMode", "setCanGoBack", "voiceDiscard", "voiceRelease", "browserLayout", "browserLoad", "browserNav", "browserSide")
 val NATIVE_BRIDGE_PROMISE_METHODS = listOf(
     "voicePrepare", "voiceStart", "voiceStop",
@@ -91,7 +93,7 @@ class NativeBridge(private val host: BridgeHost, private val voice: NativeVoice)
     fun handle(call: BridgeCall) {
         when (call.method) {
             // 这几个垫片直接读镜像值，只是告诉原生一声（"appVersion" 由 __contact 代替）
-            "appVersion", "safeArea", "notifyState" -> Unit
+            "appVersion", "safeArea", "notifyState", "videoFullscreen" -> Unit
             "notifyTakeOpen" -> host.notifyTaken(call.string(0))
             "notifyResetAsked" -> host.notifyResetAsked()
             "notifyPrepare" -> host.notifyPrepare(call.bool(0)) { call.reply(it) }

@@ -41,6 +41,8 @@ export const NATIVE_BRIDGE_NAME = 'ergoNative';
  * （交好了删掉），名字和网页一侧的 NATIVE_PHONE_PHOTOS_METHODS、NATIVE_PHONE_LOCATION_METHODS 一致。同样只开给主界面。
  * "常去的地方"手动加一处用的 phonePlaceHere（现在在哪：定一次位、转地名）、phonePlaceFind（按地名找），名字和网页一侧的
  * NATIVE_PHONE_PLACE_METHODS 一致；照片、位置点读出来时带系统地名（phone/PhoneGeocode.ets）。同样只开给主界面。
+ * videoFullscreen（票 407）：无参数、回 true，说明这个 App 接了网页视频的真全屏（Index.ets 的 onFullScreenEnter，藏系统栏、横视频转横屏），
+ * 网页认它在不在才给全屏按钮。只开给主界面（侧边栏那个 Web 没接全屏）。
  * 侧边栏是 App 另开的一个 Web 组件（browser/SidePanel.ets），加载的也是二狗自己的网页：它另挂一个原生桥，只开 NATIVE_SIDE_BRIDGE_METHODS
  */
 export const NATIVE_BRIDGE_METHODS: string[] = ['appVersion', 'log', 'editServer', 'setColorMode', 'setCanGoBack',
@@ -52,7 +54,8 @@ export const NATIVE_BRIDGE_METHODS: string[] = ['appVersion', 'log', 'editServer
   'phoneContactsPick', 'phoneCalendarState', 'phoneCalendarPrepare', 'phoneCalendarRead',
   'phonePhotosState', 'phonePhotosPrepare', 'phonePhotosRead',
   'phoneLocationState', 'phoneLocationPrepare', 'phoneLocationRecord', 'phoneLocationRead', 'phoneLocationAck',
-  'phonePlaceHere', 'phonePlaceFind'];
+  'phonePlaceHere', 'phonePlaceFind',
+  'videoFullscreen'];
 
 /**
  * 浏览侧边栏那个 Web 组件上的原生桥（侧边栏挂二狗原生桥走原生录音）：同一个 NativeBridge 类、自己一份原生录音器，
@@ -636,6 +639,14 @@ export class NativeBridge {
       return refused();
     }
     return this.phone.geocoder.find(typeof text === 'string' ? text : '');
+  }
+
+  /** 网页视频真全屏：这个 App 接了（播放器自带的全屏会藏系统栏、横视频转横屏），网页据此给全屏按钮；回 true */
+  videoFullscreen(): boolean {
+    if (!this.allowed('videoFullscreen')) {
+      return false;
+    }
+    return true;
   }
 
   /** App 自己放掉录音器（切到后台、页面重新加载、换地址），并告诉网页；不经网页调用，不过 allowed() */

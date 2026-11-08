@@ -76,6 +76,10 @@
       post('setTexts', [json]);
       return typeof json === 'string' ? 'ok' : '';
     },
+    // 这个 App 接了网页视频的真全屏（票 407）：网页认它在不在才给全屏按钮
+    videoFullscreen: function () {
+      return true;
+    },
   };
 
   var api = {};

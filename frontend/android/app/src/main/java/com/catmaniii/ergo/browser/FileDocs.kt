@@ -21,8 +21,8 @@ import java.util.concurrent.Executors
 private const val TEXT_MAX = 1048576
 
 /**
- * 只看扩展名时能渲染的（服务端一律当下载发的时候按它粗筛）：和网页一侧 packages/web/src/state/file-view.ts 的 EXTENSION_KIND、
- * 鸿蒙 browser/FileDocs.ets 的 RENDER_EXTENSIONS 一致（frontend/test/android.test.ts 核对）
+ * 只看扩展名时能渲染的（服务端一律当下载发的时候按它粗筛）：照抄协议包 packages/protocol/src/file-render.ts 的 EXTENSION_KIND
+ * （聊天附件和网页内置浏览器共用的那一份，以它为准），和鸿蒙 browser/FileDocs.ets 的 RENDER_EXTENSIONS 一致（frontend/test/android.test.ts 核对）
  */
 val RENDER_EXTENSIONS: List<String> = (
     "md markdown mdown mkd mkdn txt text log rst adoc org srt vtt json jsonc geojson webmanifest csv tsv tab " +

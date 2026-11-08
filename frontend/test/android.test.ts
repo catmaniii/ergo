@@ -135,6 +135,17 @@ describe("原生桥的方法名和网页一侧一样", () => {
     expect(updater).toContain("updateUrlAllowed(request.url, serverOrigin())");
   });
 
+  test("网页视频真全屏（票 407）：两个 App 的主界面都开着 videoFullscreen、回 true；侧边栏那份都没有", () => {
+    expect(bridgeList("NATIVE_BRIDGE_MIRROR_METHODS")).toContain("videoFullscreen");
+    expect(shim()).toMatch(/videoFullscreen: function \(\) \{\s*return true;\s*\}/);
+    const side = [...bridgeList("NATIVE_SIDE_MIRROR_METHODS"), ...bridgeList("NATIVE_SIDE_FIRE_METHODS"), ...bridgeList("NATIVE_SIDE_PROMISE_METHODS")];
+    expect(side).not.toContain("videoFullscreen");
+    const harmony = read(path.join(REPO, "frontend/harmony/entry/src/main/ets/bridge/NativeBridge.ets"));
+    expect(/NATIVE_BRIDGE_METHODS: string\[\] = \[[^\]]*'videoFullscreen'/.test(harmony)).toBe(true);
+    expect(/NATIVE_SIDE_BRIDGE_METHODS: string\[\] = \[[^\]]*'videoFullscreen'/.test(harmony)).toBe(false);
+    expect(harmony).toMatch(/videoFullscreen\(\): boolean \{\s*if \(!this\.allowed\('videoFullscreen'\)\) \{\s*return false;\s*\}\s*return true;/);
+  });
+
   test("第一版不开手机数据源：一个 phone 开头的方法都没有，网页认不出这一组，功能自然不出现", () => {
     expect(mainMethods().filter((name) => name.startsWith("phone"))).toEqual([]);
   });
@@ -348,6 +359,42 @@ describe("长按元素的圆钮：两个 App 和网页对得上", () => {
     expect(kotlin("MainActivity.kt")).toContain("browserDownloads.saveFile(file, name, false, mime)");
     expect(read(path.join(REPO, "frontend/harmony/entry/src/main/ets/pages/Index.ets"))).toContain("this.browserDownloads.saveFile(path, name, false, mime)");
   });
+  test("网页视频真全屏（票 407）：两个 App 都接了进出全屏；返回先退全屏；切到后台、换地址先退全屏，不留藏着状态栏的半截", () => {
+    const main = kotlin("MainActivity.kt");
+    expect(main).toContain("override fun onShowCustomView(view: View, callback: CustomViewCallback) = videoFullscreen.show(web, view, callback)");
+    expect(main).toContain("override fun onHideCustomView() = videoFullscreen.hide()");
+    const handleBack = main.slice(main.indexOf("private fun handleBack()"));
+    expect(handleBack.split("\n")[1]!.trim()).toBe("if (videoFullscreen.exit()) return");
+    const onStop = main.slice(main.indexOf("override fun onStop()"), main.indexOf("private fun requestPermission"));
+    expect(onStop).toContain("videoFullscreen.exit()");
+    expect(main.slice(main.indexOf("private fun openServer"), main.indexOf("private fun createMainWeb"))).toContain("videoFullscreen.exit()");
+    const android = kotlin("video/VideoFullscreen.kt");
+    expect(android).toContain("hide(WindowInsetsCompat.Type.systemBars())");
+    expect(android).toContain("BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE");
+    expect(android).toContain("FLAG_KEEP_SCREEN_ON");
+    expect(android).toContain("SCREEN_ORIENTATION_SENSOR_LANDSCAPE");
+    expect(android).toContain("activity.requestedOrientation = current.orientationBefore");
+
+    const index = read(path.join(REPO, "frontend/harmony/entry/src/main/ets/pages/Index.ets"));
+    expect(index).toContain(".onFullScreenEnter((event: FullScreenEnterEvent) => this.videoFullscreen.enter(event))");
+    expect(index).toContain(".onFullScreenExit(() => this.videoFullscreen.exited())");
+    const backPress = index.slice(index.indexOf("onBackPress(): boolean {"));
+    expect(backPress.split("\n")[1]!.trim()).toBe("if (this.videoFullscreen.exit()) {");
+    expect(index.slice(index.indexOf("onPageHide(): void {"))).toMatch(/^onPageHide\(\): void \{\s*this\.videoFullscreen\.exit\(\);/);
+    expect(index.slice(index.indexOf("private openServer"), index.indexOf("private checkIsErgo"))).toContain("this.videoFullscreen.exit()");
+    const harmony = read(path.join(REPO, "frontend/harmony/entry/src/main/ets/video/VideoFullscreen.ets"));
+    for (const bar of ["status", "navigation", "navigationIndicator"]) {
+      expect(harmony).toContain(`setSpecificSystemBarEnabled('${bar}', false)`);
+      expect(harmony).toContain(`setSpecificSystemBarEnabled('${bar}', true)`);
+    }
+    expect(harmony).toContain("setWindowKeepScreenOn(true)");
+    expect(harmony).toContain("window.Orientation.AUTO_ROTATION_LANDSCAPE");
+    expect(harmony).toContain("setPreferredOrientation(saved.orientation)");
+    // 横竖的判断两边一样：横的（宽 > 高）才转
+    expect(kotlin("video/FullscreenChecks.kt")).toContain("content.width > content.height");
+    expect(harmony).toContain("return w > 0 && h > 0 && w > h;");
+  });
+
   test("状态栏只让一次：外层让开之后不把避让区传给 WebView，否则网页的 env(safe-area-inset-top) 再让一遍，顶上多一大条空白", () => {
     const source = kotlin("MainActivity.kt");
     const watch = source.slice(source.indexOf("private fun watchInsets"), source.indexOf("private fun pushInsets"));

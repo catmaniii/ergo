@@ -66,6 +66,7 @@ adb -s <串号> logcat -s ErgoApp               # App 和网页的日志
 | `browser/` | 内置浏览器（`InAppBrowser`）、页面桥（`PageControl`）、⋮ 菜单（`BrowserTools`）、能渲染的文件（`FileDocs`）、侧边栏（`SidePanel`） |
 | `download/` | 下载：App 自己发请求，弹系统的保存框 |
 | `update/` | 在 App 里更新 App（票 399）：从二狗下载它带的安装包、核 SHA-256 和包名、versionCode、签名证书，交给系统的 PackageInstaller 装；`UpdateChecks.kt` 是不碰系统的判断（JVM 单测） |
+| `video/` | 网页视频真全屏（票 407）：`onShowCustomView` 交来的画面铺满一层，藏系统栏、常亮，横视频转横屏；返回键、切后台、换地址先退全屏，退出时都恢复。`FullscreenChecks.kt` 是不碰系统的判断（JVM 单测）。原生桥上的 `videoFullscreen()` 回 `true`，网页据此给全屏按钮 |
 | `voice/` | 原生录音 |
 | `notify/` | 系统通知 |
 | `ui/ErgoTheme.kt` | 从鸿蒙取来的颜色、字号、间距、动画时长，注释写着对应鸿蒙哪个文件 |
@@ -102,7 +103,10 @@ node frontend/android/e2e/scan.ts emulator-5570 <截图目录>      # 扫码连�
 node frontend/android/e2e/scan-camera.ts run emulator-5570 17590 <截图目录>   # 相机这条路：虚拟场景相机对着墙上的二维码海报（模拟器的启动参数不同，见文件开头）
 node frontend/android/e2e/app-update.ts new emulator-5570 <旧包> <新包> <换钥匙的包> <新版本号> <截图目录>   # App 内更新：有新版、三种不装、第一次授权、装好（包怎么准备见文件开头）
 node frontend/android/e2e/app-update.ts old emulator-5570 downloads/ergo-android-debug.apk <截图目录>       # 旧 App：从二狗直接下载 .apk，在"文件"里点开装上
+node frontend/android/e2e/video-fullscreen.ts emulator-5570 <截图目录>  # 网页视频真全屏：藏系统栏、横视频转横屏、返回先退全屏、切后台不留半截（要 ffmpeg 现生成测试视频）
 ```
+
+全屏联调的两个坑（都是测试工具的，不是 App 的）：横屏时跑 `uiautomator dump` 会把系统锁定的方向改成横的，退出全屏就转不回来；DevTools 连着时 WebView 自己让屏幕常亮，看 App 加的常亮要先断开 DevTools。`video-fullscreen.ts` 开头写着怎么避开。
 
 `-no-audio` 下麦克风全静音：网页收到录音、判为没声音，联调到这一步为止。真人说话和上传识别要真机验。
 

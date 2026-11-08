@@ -34,6 +34,7 @@ import { BrowserTools } from '../browser/BrowserTools';
 import { ElementFiles } from '../browser/ElementFiles';
 import { PAGE_HOST_NAME, PageControl, PageHost } from '../browser/PageControl';
 import { parseSideLayout, SIDE_HOST_METHODS, SIDE_HOST_NAME, SideForward, SideFrame, SideHost, sideUrlOf } from '../browser/SidePanel';
+import { VideoFullscreen } from '../video/VideoFullscreen';
 
 const MICROPHONE: Permissions = 'ohos.permission.MICROPHONE';
 /** 浏览器那个 Web 组件的编号（长按元素截图时量它在窗口里的位置） */
@@ -180,6 +181,12 @@ struct Index {
    */
   private bottomInsetPx: number = -1;
   private mainWindow: window.Window | undefined = undefined;
+  /** 网页里的视频全屏着：盖在网页上面的内置浏览器、侧边栏、"这不是二狗？"先藏起来 */
+  @State videoFull: boolean = false;
+  /** 网页视频真全屏（票 407）：藏状态栏和导航条、常亮、横视频转横屏，退出时恢复 */
+  private videoFullscreen: VideoFullscreen = new VideoFullscreen(() => this.mainWindow, (showing: boolean) => {
+    this.videoFull = showing;
+  });
   private onAvoidAreaChange = (options: window.AvoidAreaOptions): void => {
     if (options.type === window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR || options.type === window.AvoidAreaType.TYPE_SYSTEM) {
       this.updateBottomInset();
@@ -207,9 +214,12 @@ struct Index {
     }
   }
 
-  // 系统返回手势：在地址页上先回到网页；网页报过还能在内部返回（setCanGoBack）就交给网页
+  // 系统返回手势：视频全屏着先退出全屏；在地址页上先回到网页；网页报过还能在内部返回（setCanGoBack）就交给网页
   // （window.__ergoBack：先关弹窗、详情，再回上一级），否则交给系统退出 App
   onBackPress(): boolean {
+    if (this.videoFullscreen.exit()) {
+      return true;
+    }
     if (this.connectStage.length > 0) {
       this.backFromConnect();
       return true;
@@ -334,8 +344,9 @@ struct Index {
   }
 
   // App 切到后台：放掉原生录音器（后台不录；网页的 visibilitychange 不一定先到）。回到前台由网页重新要。
-  // 之后来的提醒发到系统通知栏
+  // 之后来的提醒发到系统通知栏。视频全屏着（来电、回桌面）就先退出全屏：回来时状态栏、方向都是平常的样子，不留藏着状态栏的半截
   onPageHide(): void {
+    this.videoFullscreen.exit();
     this.bridge?.releaseVoice('background');
     this.sideBridge?.releaseVoice('background');
     this.nativeNotify.setForeground(false);
@@ -390,9 +401,9 @@ struct Index {
     }
   }
 
-  /** 浏览侧边栏现在显示着 */
+  /** 浏览侧边栏现在显示着（网页里的视频全屏时藏起来） */
   private sideShown(): boolean {
-    return this.sideCreated && this.sideVisible && !this.editing && this.loadError.length === 0;
+    return this.sideCreated && this.sideVisible && !this.editing && this.loadError.length === 0 && !this.videoFull;
   }
 
   /**
@@ -553,9 +564,10 @@ struct Index {
     return true;
   }
 
-  /** 浏览器现在显示着（"浏览"页签开着、没被地址页和出错页盖住） */
+  /** 浏览器现在显示着（"浏览"页签开着、没被地址页和出错页盖住；网页里的视频全屏时藏起来） */
   private browserShown(): boolean {
-    return this.browserCreated && this.browserFrame.visible && !this.editing && this.loadError.length === 0;
+    return this.browserCreated && this.browserFrame.visible && !this.editing && this.loadError.length === 0 &&
+      !this.videoFull;
   }
 
   /** 网页报的内容区（CSS 像素）换成 vp 摆浏览器：先乘网页的 devicePixelRatio 成物理像素，再按屏幕密度换成 vp */
@@ -611,6 +623,8 @@ struct Index {
   }
 
   private openServer(address: ServerAddress): void {
+    // 旧网页的视频还全屏着：先退出、恢复窗口，再换 Web 组件
+    this.videoFullscreen.exit();
     // 换地址：旧网页（连同侧边栏）的原生录音器先放掉
     this.bridge?.releaseVoice('server-changed');
     this.sideBridge?.releaseVoice('server-changed');
@@ -959,6 +973,10 @@ struct Index {
           this.loadError = t('harmony.index.httpError', { 'code': String(event.response.getResponseCode()) });
         }
       })
+      // 网页里的视频进、出全屏（OpenHarmony 文档"网页视频沉浸式全屏"）：ArkWeb 自己只撑满 Web 组件那一块，
+      // 窗口的系统栏、常亮、方向由 App 来（video/VideoFullscreen.ets）
+      .onFullScreenEnter((event: FullScreenEnterEvent) => this.videoFullscreen.enter(event))
+      .onFullScreenExit(() => this.videoFullscreen.exited())
       // 网页还没画出来之前的底色跟着系统深浅色（不先白一下）；画出来之后是网页自己的底色
       .backgroundColor($r('sys.color.ohos_id_color_background'))
       .width('100%')
@@ -1285,7 +1303,7 @@ struct Index {
       if (this.hasServer && this.loadError.length > 0 && !this.editing) {
         this.ErrorPage()
       }
-      if (this.hasServer && this.notErgo && this.loadError.length === 0 && !this.editing) {
+      if (this.hasServer && this.notErgo && this.loadError.length === 0 && !this.editing && !this.videoFull) {
         this.NotErgoBar()
       }
       if (this.editing) {
