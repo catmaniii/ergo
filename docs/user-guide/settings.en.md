@@ -622,6 +622,7 @@ ergo itself has six more checks (they only read state that's already there; no e
 |---|---|---|
 | Main conversation | Whether the ergo you talk to is online; offline for over half a minute is broken, with how long and why | Wait a moment and check again; if it stays offline, look at **Model calls lately** and **Conversation length** first, then restart ergo in the service manager |
 | Model calls lately | How recent model calls went (succeeded, failed, timed out; turns you stopped don't count): the last 5 turns all failing is broken, 30% or more failing in the last 15 minutes is a heads-up; shows the gist of the errors (the provider is too busy, 500, rate-limited, wrong key…). Right after a restart with no calls yet it says **No model calls lately** | Usually the provider is busy: wait a while, or switch to another model in Settings · Models; for key or balance problems, check the key |
+| DeepSeek balance | The DeepSeek balance last checked on the Usage page (the checkup only reads that result and doesn't check on its own): DeepSeek saying the balance is insufficient, or below ¥10, is a heads-up, with **Take a look** going to the Usage page; the last check saying the key is wrong is also a heads-up. Not applicable without a DeepSeek key or before the first check | Top up on the DeepSeek platform; if you need it right now, switch to another model in Settings · Models first; if it says the key is wrong, check it in Settings · Models |
 | Conversation length | How many tokens the ergo you talk to and each working owner have used: past its own auto-compaction point without being compacted, or the last automatic compaction failed, is a heads-up; 90% of the model's window is broken. Agents run by Claude Code or Codex aren't checked (they manage this themselves) | Press **Compact now**; if that doesn't bring it down, clear the current conversation from its ⚙ |
 | Managed services | Services the service manager runs that ergo cares about, the same ones Settings · Services lists (ergo itself isn't listed): speech synthesis and recognition (when the voice plugin is on and the address is on this computer), the tunnel that gives ergo outside access, the tailnet gateway, services ergo's registration says it depends on, plus the project services registered by ergo and anything marked `ergo: true`. Something ergo needs being stopped or failed is broken; a project service or marked one failing is broken, and one set to start at boot but stopped is a heads-up. Shows the service name, its state and the last error the service manager recorded | Press **Start it** (for one that isn't quite healthy or whose port is taken, **Take a look** opens it in Settings · Services); if it won't start, read the error and logs it recorded |
 | Plugins | Whether any enabled plugin failed to load (details are in that plugin's own block); one that failed is a heads-up | See the reason in Settings · Plugins |
@@ -733,12 +734,13 @@ The three hints always count as OK and don't lower the overall status; they just
 
 **How to read it:**
 
-1. At the top pick a time range: Today, Last 7 days, Last 30 days, This month, Custom. It opens on Last 7 days.
-2. Four big numbers: tokens in total and number of calls, cost (rough estimate), input cache hit rate, system overhead.
-3. **By day (tokens):** A bar chart. Click **Table** to switch to a table, and **Chart** to switch back.
-4. **By agent:** Each agent's cache hit, cache miss, output and rough estimate. The secretary's is listed separately under **System overhead**. Scope review and compaction usage is recorded under the task or project of the owner concerned.
-5. **Web search & page reads (billed per call):** How much DeepSeek's web search and page reads cost. Browser search is free.
-6. **Unit prices (per million tokens):** Unit prices of the models used, split into peak and off-peak.
+1. **DeepSeek balance** (the block at the very top): the total balance (yuan shown as ¥), with a line underneath saying how much of it was granted and how much topped up; the tag on the right says **Usable**, **Running low** (below ¥10) or **Insufficient balance** (DeepSeek says the balance is too low to call the API: top up, or switch to another model in Settings · Models if you need it now); below it, how many minutes ago it was checked. A check from the last few minutes is reused; **Refresh** checks again right away (not again within 10 seconds of the last check). Checking the balance is free and uses no tokens. Without a DeepSeek key there is just one line telling you to enter one in Settings · Models.
+2. Pick a time range: Today, Last 7 days, Last 30 days, This month, Custom. It opens on Last 7 days.
+3. Four big numbers: tokens in total and number of calls, cost (rough estimate), input cache hit rate, system overhead.
+4. **By day (tokens):** A bar chart. Click **Table** to switch to a table, and **Chart** to switch back.
+5. **By agent:** Each agent's cache hit, cache miss, output and rough estimate. The secretary's is listed separately under **System overhead**. Scope review and compaction usage is recorded under the task or project of the owner concerned.
+6. **Web search & page reads (billed per call):** How much DeepSeek's web search and page reads cost. Browser search is free.
+7. **Unit prices (per million tokens):** Unit prices of the models used, split into peak and off-peak.
 
 **Good to know:**
 
@@ -746,6 +748,7 @@ The three hints always count as OK and don't lower the overall status; they just
 - The **Memory brief** line is already counted in the secretary's input, and isn't added to the totals again.
 - Custom models have no unit price, so their cost comes out as 0.
 - To see just one task: **⋯ · Usage** in the task details. Plain tasks don't have this.
+- The balance uses the DeepSeek key from Settings · Models (a custom provider whose API address is api.deepseek.com counts too); the key is only used on the computer and never sent to the page. You can also ask ergo "how much is left on DeepSeek". When the balance is running low or insufficient, the **DeepSeek balance** item in the checkup says so (the checkup only reads the last result and doesn't check on its own).
 
 ## Service manager
 
