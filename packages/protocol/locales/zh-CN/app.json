@@ -131,5 +131,6 @@
   "app.pageCommands.target.video": "这个视频",
   "app.pageCommands.target.link": "这个链接",
   "app.pageCommands.target.text": "这段文字",
-  "app.pageBubble.placeholder.element": "说说想怎么处理它"
+  "app.pageBubble.placeholder.element": "说说想怎么处理它",
+  "app.pageBubble.placeholder.page": "比如：这一页讲了什么"
 }

@@ -38,15 +38,20 @@
 // （藏起来的也列）、下拉框（只能看），和能点的同一套编号；refField 按编号找要填的文本框、要交的上传框（照点的核对：还是那一页、
 // 编号认得、元素还在、种类没变），回框的说法（页面桥的框编号 f…），宿主再照原来的 fill、attachFiles 填、交。
 // 长按元素的圆钮，element.ts：长按、右键认出图片、链接、文字时多出一个圆钮，和悬浮按钮同一个样子、同一个气泡，互不干扰（气泡的 fieldId 是元素的编号）。
+// 右下角常驻（"侧边栏关着时浏览器页面的右下角有一个二狗的按钮，选中网页元素时挂到元素旁边"）：宿主随 texts 交来 fab.corner
+// （浏览侧边栏关着为真），按钮这一刻在哪照 rules.ts 的 fabSpot——有框挂着贴着框，长按出了圆钮让给圆钮，都没有时 corner 为真就在
+// 看得见的部分的右下角（placeCornerButton：让开宿主说的手势区 fab.inset、网页的安全区、网页自己固定在屏幕上的底部栏和按钮），不然不显示。
+// 右下角的按钮就是同一个按钮：大小、样子、点一下打字、按住说话都一样，报 corner-open、corner-voice（带这一页，不带框），气泡的 fieldId 是
+// PAGE_CORNER_ID、贴着按钮放（在它上面）。只有它在时不每帧对位置：看得见的部分变了、用户滚了页面、隔一阵（网页的底部栏后来才出来）再量。
 // 用到的内置函数（JSON、原型上的 setter、DataTransfer、File、atob……）都在注入的那一刻记下来，网页的脚本之后再改它们也碍不着。
 import type { PageField, PageFieldKind } from "@ergo/protocol";
 import { BUBBLE_STYLE, bubbleViewOf, createBubble, nameTagStyle } from "./bubble.ts";
 import { createClickables } from "./clickables.ts";
 import { createElementButton } from "./element.ts";
-import { paintFabIcon } from "./fab-icon.ts";
+import { createFab, FAB_STYLE } from "./fab.ts";
 import { createPickWindow, PICK_STYLE, pickViewOf } from "./pick.ts";
-import type { PageBridgeApi, PageBridgeEvent, PageBridgeMark, PageBubbleAction, PageBubbleView, PageInfo, PageNamedText, PagePickView } from "./protocol.ts";
-import { BUBBLE_GAP, BUTTON_SIZE, cleanLabel, FIELD_VALUE_MAX, inVoiceCancelZone, isSensitiveField, placeButton, type Rect, TEXT_INPUT_TYPES, tidyPageText } from "./rules.ts";
+import { PAGE_CORNER_ID, type PageBridgeApi, type PageBridgeEvent, type PageBridgeMark, type PageBubbleAction, type PageBubbleView, type PageInfo, type PageNamedText, type PagePickView } from "./protocol.ts";
+import { BUBBLE_GAP, BUTTON_SIZE, cleanLabel, FIELD_VALUE_MAX, type FabSpot, fabSpot, inVoiceCancelZone, isSensitiveField, placeButton, placeCornerButton, type Rect, TEXT_INPUT_TYPES, tidyPageText } from "./rules.ts";
 import { bridgeTextsOf, createBridgeTexts } from "./texts.ts";
 
 /** 一页最多列多少个框（和协议的 PAGE_FIELDS_MAX 一样；这里不引用协议包的值，页面桥的脚本里只有类型） */
@@ -70,36 +75,18 @@ const VALUE_REPORT_MS = 300;
 /** 自己走 DOM 取文字时跳过的元素 */
 const NO_TEXT_TAGS = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "SVG", "CANVAS", "IFRAME", "OBJECT", "EMBED", "HEAD"]);
 
-/** 按钮上平时是二狗的图标（fab-icon.ts）；图标解不出来时退回这两个：蓝底上一个对话气泡里一颗星（白色），在听时红底上是话筒 */
-const ICON_IDLE =
-  '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12a8 8 0 0 1-8 8H8l-4 3v-5.2A8 8 0 0 1 11.5 4h1a8 8 0 0 1 8 8z"/><path d="M12 8.2l1 2.3 2.3 1-2.3 1-1 2.3-1-2.3-2.3-1 2.3-1z" fill="currentColor" stroke-width="1.2"/></svg>';
-const ICON_MIC =
-  '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
+/** 右下角的按钮隔多久再量一次网页自己固定在屏幕上的东西（毫秒）：底部栏、客服按钮常常是后来才出来的 */
+const CORNER_CHECK_MS = 1200;
+/** 用户滚页面后多久再量（毫秒）：滚着的时候不每次都量 */
+const CORNER_SCROLL_MS = 250;
+/** 量网页自己固定在屏幕上的东西：每个点往上找几层（position: fixed / sticky 的那一层） */
+const CORNER_PROBE_DEPTH = 12;
 
-// 白圈 + 外面一道深色细线 + 阴影：白底、深底、图片上都看得清
-// 在听：图标不换，白圈外面一道红圈，再往外是红色的脉动（圈一直在，定格也看得出）
-// 在忙：图标不换，外面一圈白底上转蓝色的弧（深色细线描边，白底上也看得出那圈）
+// 按钮的样子在 fab.ts（地图的二狗按钮也用）；safe-probe 量网页的安全区（手势区）有多高
 const STYLE = `
 :host { all: initial; }
-.fab {
-  position: fixed; left: 0; top: 0; width: ${BUTTON_SIZE}px; height: ${BUTTON_SIZE}px; box-sizing: border-box;
-  display: none; align-items: center; justify-content: center;
-  border-radius: 50%; background: linear-gradient(145deg, #5b8cff, #3a5bd9); color: #fff;
-  box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(20, 30, 70, .4), 0 3px 10px 2px rgba(0, 0, 0, .35);
-  cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
-  transition: transform .12s ease;
-}
-.fab.on { display: flex; }
-.fab:active { transform: scale(.92); }
-.fab.has-icon { background: none; }
-.fab canvas { display: block; width: 100%; height: 100%; border-radius: 50%; pointer-events: none; }
-.fab.listening { animation: ergo-pulse 1s ease-out infinite; }
-.fab.listening:not(.has-icon) { background: linear-gradient(145deg, #ff6b6b, #e03131); }
-.fab.busy::before, .fab.busy::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; pointer-events: none; }
-.fab.busy::before { border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(20, 30, 70, .4), inset 0 0 0 1px rgba(20, 30, 70, .4); }
-.fab.busy::after { border: 3px solid transparent; border-top-color: #3a5bd9; border-right-color: #3a5bd9; animation: ergo-spin .8s linear infinite; }
-@keyframes ergo-pulse { 0% { box-shadow: 0 0 0 2px #fff, 0 0 0 5px #e03131, 0 0 0 5px rgba(224, 49, 49, .6); } 100% { box-shadow: 0 0 0 2px #fff, 0 0 0 5px #e03131, 0 0 0 18px rgba(224, 49, 49, 0); } }
-@keyframes ergo-spin { to { transform: rotate(360deg); } }
+${FAB_STYLE}
+.safe-probe { position: fixed; left: 0; bottom: 0; width: 0; height: env(safe-area-inset-bottom, 0px); visibility: hidden; pointer-events: none; }
 ${BUBBLE_STYLE}
 ${PICK_STYLE}`;
 
@@ -155,6 +142,8 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
   const setRepeat = win.setInterval.bind(win);
   const clearRepeat = win.clearInterval.bind(win);
   const innerText = Object.getOwnPropertyDescriptor(win.HTMLElement.prototype, "innerText")?.get;
+  const elementsAt = doc.elementsFromPoint.bind(doc);
+  const styleOf = win.getComputedStyle.bind(win);
   const inputValueGet = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, "value")?.get;
   const textareaValueGet = Object.getOwnPropertyDescriptor(win.HTMLTextAreaElement.prototype, "value")?.get;
   // 页面桥自己的字：二狗的网页经宿主交来当前语言的（texts 方法），没交来是中文
@@ -404,34 +393,18 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
   // 名字标签的颜色：二狗的网页交来的，盖过样式表里经典的；没交来是空的
   const tagSheet = new win.CSSStyleSheet();
   shadow.adoptedStyleSheets = [sheet, tagSheet];
-  const fab = doc.createElement("div");
-  fab.className = "fab";
-  fab.setAttribute("role", "button");
-  fab.setAttribute("aria-label", texts.get("bridge.fab.label"));
-  // 先是 SVG，图标解好了换上（fab-icon.ts）：解不出来就一直是 SVG，不会是空白的按钮
-  fab.innerHTML = ICON_IDLE;
-  let hasIcon = false;
-  void paintFabIcon(doc, { decode, makeBitmap, BlobCtor }).then((canvas) => {
-    if (!canvas) return;
-    hasIcon = true;
-    fab.classList.add("has-icon");
-    fab.replaceChildren(canvas);
-  });
+  // 悬浮按钮（文本框旁边、右下角常驻的是同一个）；先是 SVG，图标解好了换上（fab.ts）
+  const fabButton = createFab(doc, { decode, makeBitmap, BlobCtor }, texts.get("bridge.fab.label"));
+  const fab = fabButton.el;
   // 长按元素的圆钮：和悬浮按钮一个样子，另一个元素
-  const elementFab = doc.createElement("div");
-  elementFab.className = "fab";
-  elementFab.setAttribute("role", "button");
-  elementFab.setAttribute("aria-label", texts.get("bridge.fab.label"));
-  elementFab.innerHTML = ICON_IDLE;
-  void paintFabIcon(doc, { decode, makeBitmap, BlobCtor }).then((canvas) => {
-    if (!canvas) return;
-    elementFab.classList.add("has-icon");
-    elementFab.replaceChildren(canvas);
-  });
+  const elementFabButton = createFab(doc, { decode, makeBitmap, BlobCtor }, texts.get("bridge.fab.label"));
+  const elementFab = elementFabButton.el;
+  const safeProbe = doc.createElement("div");
+  safeProbe.className = "safe-probe";
   const bubble = createBubble(doc, { now, texts }, (action) => bubbleAction(action));
   // 挑图片窗口：排在最上面
   const pickWindow = createPickWindow(doc, { decode, makeBitmap, BlobCtor, texts }, (action) => send({ type: "pick", ...action }));
-  shadow.append(bubble.el, fab, elementFab, pickWindow.el);
+  shadow.append(safeProbe, bubble.el, fab, elementFab, pickWindow.el);
   // 能点的东西：页面桥自己这一层（hostEl）不列；连同能填、能交、能选的框（认框用上面这一套）
   const clickables = createClickables({
     win,
@@ -460,6 +433,8 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     ensureHost: () => ensureHost(),
     startTracking: () => startTracking(),
     closeBubble: () => closeBubble(false),
+    // 圆钮出来、收起：右下角的按钮让给它、再回来
+    shownChanged: () => startTracking(),
   });
 
   /** 按钮挂在哪个框上（填字的框本身，或选文件的框）、贴着哪个元素摆 */
@@ -476,6 +451,17 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
   /** 气泡开着以来看得见的部分最高多高；输入法弹起挡住了框时把框滚回来过的那次（看得见的部分多高）：同一次只滚一回 */
   let tallestArea = 0;
   let revealedFor = "";
+  /** 宿主交来的：没挂在框上时常驻右下角（浏览侧边栏关着）、底下再让开多少（手势区） */
+  let corner = false;
+  let cornerInset = 0;
+  /** 按钮这一刻在哪（place 定的）：贴着框（或让给圆钮）、在右下角、不显示 */
+  let spot: FabSpot = "none";
+  /** 右下角的位置（量网页自己固定在屏幕上的东西要读布局，不每帧量）：看得见的部分变了、要重量（stale）时才再算 */
+  let cornerCache: { key: string; at: { x: number; y: number } } | undefined;
+  let cornerStale = true;
+  /** 隔一阵再量一次、用户滚了页面过一会儿再量 */
+  let cornerRepeat: number | undefined;
+  let cornerSoon: number | undefined;
 
   const ensureHost = () => {
     if (!hostEl.isConnected) (doc.documentElement ?? doc.body)?.appendChild(hostEl);
@@ -488,31 +474,111 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     return { left: 0, top: 0, right: win.innerWidth, bottom: win.innerHeight };
   };
 
+  /** 网页的安全区（手势区）有多高：shadow root 里的探针量 env(safe-area-inset-bottom) */
+  const safeBottom = (): number => {
+    const h = safeProbe.getBoundingClientRect().height;
+    return Number.isFinite(h) ? h : 0;
+  };
+
+  /**
+   * 网页自己固定在屏幕上、盖住了 rect 这一块的东西（底部栏、右下角的客服按钮……）：在这块的中间和两个下角各找最上面的网页元素，往上找
+   * position 是 fixed、sticky 的那一层；页面桥自己这一层跳过，比看得见的部分高一大半的（整屏的外壳、遮罩）不算
+   */
+  const fixedOver = (rect: Rect, area: Rect): Rect[] => {
+    const found: Rect[] = [];
+    const seen = new Set<Element>();
+    const points: Array<[number, number]> = [
+      [(rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2],
+      [rect.left + 2, rect.bottom - 2],
+      [rect.right - 2, rect.bottom - 2],
+    ];
+    for (const [x, y] of points) {
+      // 最上面的网页元素（页面桥自己这一层——按钮、气泡可能正盖在那儿——跳过）
+      let el: Element | null = elementsAt(x, y).find((e) => e !== hostEl) ?? null;
+      for (let depth = 0; el && depth < CORNER_PROBE_DEPTH; depth++, el = el.parentElement) {
+        if (el === doc.body || el === doc.documentElement) break;
+        if (seen.has(el)) break;
+        seen.add(el);
+        const position = styleOf(el).position;
+        if (position !== "fixed" && position !== "sticky") continue;
+        const r = el.getBoundingClientRect();
+        if (r.height > 0 && r.width > 0 && r.height < (area.bottom - area.top) * 0.6) found.push({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
+        break;
+      }
+    }
+    return found;
+  };
+
+  /**
+   * 右下角的按钮摆在哪：让开宿主说的手势区和网页的安全区（取大的），盖住它的网页固定元素挪到上面（rules.ts 的 placeCornerButton）；
+   * 挪了再在新位置上找一遍，最多找三轮。看得见的部分没变、没要重量就用上次算的
+   */
+  const cornerAt = (area: Rect): { x: number; y: number } => {
+    const inset = Math.max(cornerInset, safeBottom());
+    const key = `${Math.round(area.left)},${Math.round(area.top)},${Math.round(area.right)},${Math.round(area.bottom)},${Math.round(inset)}`;
+    if (!cornerStale && cornerCache?.key === key) return cornerCache.at;
+    cornerStale = false;
+    const obstacles: Rect[] = [];
+    let at = placeCornerButton(area, inset, obstacles);
+    for (let round = 0; round < 3; round++) {
+      const more = fixedOver({ left: at.x, top: at.y, right: at.x + BUTTON_SIZE, bottom: at.y + BUTTON_SIZE }, area);
+      if (more.length === 0) break;
+      obstacles.push(...more);
+      const next = placeCornerButton(area, inset, obstacles);
+      if (next.y === at.y) break;
+      at = next;
+    }
+    cornerCache = { key, at };
+    return at;
+  };
+
+  /** 按钮摆到这里（undefined 是不显示）；没变不动 */
+  const putFab = (at: { x: number; y: number } | undefined) => {
+    const pos = at ? `${Math.round(at.x)},${Math.round(at.y)}` : "";
+    if (pos === lastPos) return;
+    lastPos = pos;
+    if (at) {
+      fab.style.transform = "";
+      fab.style.left = `${Math.round(at.x)}px`;
+      fab.style.top = `${Math.round(at.y)}px`;
+    }
+    fab.classList.toggle("on", at !== undefined);
+  };
+
+  /** 右下角的按钮在的时候：隔一阵重量一次（网页的底部栏常常后来才出来）；不在了停 */
+  const watchCorner = (on: boolean) => {
+    if (on && cornerRepeat === undefined) {
+      cornerRepeat = setRepeat(() => {
+        if (doc.visibilityState === "hidden") return;
+        cornerStale = true;
+        startTracking();
+      }, CORNER_CHECK_MS);
+    } else if (!on && cornerRepeat !== undefined) {
+      clearRepeat(cornerRepeat);
+      cornerRepeat = undefined;
+    }
+  };
+
   const place = () => {
     if (!bubble.open) {
       tallestArea = 0;
       revealedFor = "";
     }
+    // 圆钮出来时按钮让给它（不贴哪儿，也不在右下角）
+    spot = fabSpot({ selected: current !== undefined || elementButton.shown(), sideOpen: !corner });
+    watchCorner(spot === "corner");
+    const area = visibleArea();
+    // 挑图片窗口固定在看得见的部分的底部（不跟着按钮、不随网页滚动）；开着时气泡、右下角的按钮摆在它上面那一截里，不盖住它
+    const pickRect = pickWindow.frame(area);
+    const bubbleArea = pickRect ? { ...area, bottom: Math.max(area.top, Math.min(area.bottom, pickRect.top - BUBBLE_GAP)) } : area;
+    const at = current ? buttonAt(current.anchor, area) : spot === "corner" ? cornerAt(bubbleArea) : undefined;
+    putFab(at);
+    if (bubble.open) placeBubble(bubbleArea, at);
+    // 只有右下角的按钮（或什么都没有）时不每帧对：看得见的部分变了、滚了页面、隔一阵再来
     if (!current && !bubble.open && !pickWindow.open) {
       tracking = false;
       return;
     }
-    const area = visibleArea();
-    // 挑图片窗口固定在看得见的部分的底部（不跟着按钮、不随网页滚动）；开着时气泡摆在它上面那一截里，不盖住它
-    const pickRect = pickWindow.frame(area);
-    const bubbleArea = pickRect ? { ...area, bottom: Math.max(area.top, Math.min(area.bottom, pickRect.top - BUBBLE_GAP)) } : area;
-    const at = current ? buttonAt(current.anchor, area) : undefined;
-    const pos = at ? `${Math.round(at.x)},${Math.round(at.y)}` : "";
-    if (pos !== lastPos) {
-      lastPos = pos;
-      if (at) {
-        fab.style.transform = "";
-        fab.style.left = `${Math.round(at.x)}px`;
-        fab.style.top = `${Math.round(at.y)}px`;
-      }
-      fab.classList.toggle("on", at !== undefined);
-    }
-    if (bubble.open) placeBubble(bubbleArea, at);
     raf(place);
   };
 
@@ -527,6 +593,11 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     // 气泡跟着长按元素的圆钮：贴着圆钮摆，没有框要避开
     if (fieldId !== "" && elementButton.owns(fieldId)) {
       bubble.frame(elementButton.rect(), area);
+      return;
+    }
+    // 气泡跟着右下角的按钮：贴着它（在它上面），没有框要避开；按钮不在右下角了（挂到框上了）放在下面居中
+    if (fieldId === PAGE_CORNER_ID) {
+      bubble.frame(spot === "corner" && at ? { left: at.x, top: at.y, right: at.x + BUTTON_SIZE, bottom: at.y + BUTTON_SIZE } : undefined, area);
       return;
     }
     const anchored = fieldId !== "" && current !== undefined && idOf(current.el) === fieldId;
@@ -557,10 +628,36 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
 
   const setMark = (next: PageBridgeMark) => {
     mark = next;
-    fab.classList.toggle("listening", next === "listening");
-    fab.classList.toggle("busy", next === "busy");
     // 图标不跟着状态换（状态看外面的圈）；退回 SVG 的按钮在听时还是话筒
-    if (!hasIcon) fab.innerHTML = next === "listening" ? ICON_MIC : ICON_IDLE;
+    fabButton.setMark(next);
+  };
+
+  /**
+   * 宿主交来的右下角常驻（随 texts 的 fab）：变了按钮跟着出现、消失（圆钮、框上的不受影响）；不常驻了而气泡是右下角那个按钮的
+   * （没在听）就收起——用户打开了侧边栏，在那边说
+   */
+  const setCorner = (on: boolean, inset: number) => {
+    if (on === corner && inset === cornerInset) return;
+    corner = on;
+    cornerInset = inset;
+    cornerStale = true;
+    if (!on) {
+      const view = bubble.view;
+      if (view.kind !== "none" && view.kind !== "listening" && view.fieldId === PAGE_CORNER_ID && !press) closeBubble(false);
+    } else {
+      ensureHost();
+    }
+    startTracking();
+  };
+
+  /** 用户滚了页面：右下角的按钮在的话过一会儿重量（网页的底部栏可能滚出来、收起来了） */
+  const cornerScrolled = () => {
+    if (spot !== "corner" || cornerSoon !== undefined) return;
+    cornerSoon = setTimer(() => {
+      cornerSoon = undefined;
+      cornerStale = true;
+      startTracking();
+    }, CORNER_SCROLL_MS);
   };
 
   /** 按钮挂到这个框上；forBubble：是宿主交来的气泡要跟着这个框（不是用户换了框，开着的气泡不收） */
@@ -587,6 +684,8 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     fab.classList.remove("on");
     if (mark !== "busy") setMark("idle");
     send({ type: "field", field: null });
+    // 右下角常驻的：回到右下角
+    if (corner) startTracking();
   };
 
   const hideSoon = () => {
@@ -764,6 +863,7 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
   doc.addEventListener(
     "scroll",
     () => {
+      cornerScrolled();
       if (now() - lastGesture < GESTURE_SCROLL_MS) {
         lastScroll = now();
         elementButton.scrolled();
@@ -771,6 +871,13 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     },
     { capture: true, passive: true },
   );
+  // 看得见的部分变了（转屏、宽屏侧边栏收起后网页变宽、输入法、双指缩放）：右下角的按钮跟着挪
+  const viewportChanged = () => {
+    if (corner) startTracking();
+  };
+  win.addEventListener("resize", viewportChanged, { passive: true });
+  win.visualViewport?.addEventListener("resize", viewportChanged, { passive: true });
+  win.visualViewport?.addEventListener("scroll", viewportChanged, { passive: true });
 
   // 选中的框里打了字、粘贴了：过一会儿把框里的字再报一次
   doc.addEventListener(
@@ -792,43 +899,52 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     true,
   );
 
-  // 按钮：按下不让框丢焦点；短按在气泡里打字，长按说话
-  let press: { x: number; y: number; timer: number | undefined; listening: boolean; cancel: boolean; id: number } | undefined;
+  // 按钮：按下不让框丢焦点；短按在气泡里打字，长按说话。挂在框上的报 open、voice（带框）；在右下角的报 corner-open、corner-voice（只带这一页）
+  let press: { x: number; y: number; timer: number | undefined; listening: boolean; cancel: boolean; id: number; corner: boolean } | undefined;
   const fieldIdOfCurrent = () => (current ? idOf(current.el) : "");
   const commandOf = () => {
     if (!current) return undefined;
     return { field: describeNow(current.el, current.kind), page: pageInfo(), fields: listFields() };
   };
+  /** 按钮上说话的那几下报给宿主：挂在框上的（还挂着才报）、右下角的 */
+  const sendVoice = (onCorner: boolean, phase: "press" | "start" | "stop" | "cancel"): boolean => {
+    if (onCorner) {
+      send({ type: "corner-voice", phase, page: pageInfo() });
+      return true;
+    }
+    const command = commandOf();
+    if (command) send({ type: "voice", phase, ...command });
+    return command !== undefined;
+  };
   fab.addEventListener("mousedown", stop);
   fab.addEventListener("touchstart", stop, { passive: false });
   fab.addEventListener("pointerdown", (e) => {
     stop(e);
-    if (!e.isTrusted || !current || mark === "busy") return;
+    const onCorner = !current && spot === "corner";
+    if (!e.isTrusted || (!current && !onCorner) || mark === "busy") return;
     try {
       fab.setPointerCapture(e.pointerId);
     } catch {
       // 拿不到就算了
     }
-    const command = commandOf();
-    if (!command) return;
-    send({ type: "voice", phase: "press", ...command });
+    if (!sendVoice(onCorner, "press")) return;
     press = {
       x: e.clientX,
       y: e.clientY,
       id: e.pointerId,
       listening: false,
       cancel: false,
+      corner: onCorner,
       timer: setTimer(() => {
         if (!press) return;
         press.timer = undefined;
         press.listening = true;
         setMark("listening");
         // 先自己出在听（波形、秒数），宿主随后交来音量
-        bubble.openListening(fieldIdOfCurrent(), labelOfCurrent());
+        bubble.openListening(press.corner ? PAGE_CORNER_ID : fieldIdOfCurrent(), labelOfCurrent());
         ensureHost();
         startTracking();
-        const started = commandOf();
-        if (started) send({ type: "voice", phase: "start", ...started });
+        sendVoice(press.corner, "start");
       }, LONG_PRESS_MS),
     };
   });
@@ -840,27 +956,29 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
   });
   const finish = (e: PointerEvent, how: "release" | "cancel") => {
     if (!press || e.pointerId !== press.id) return;
-    const { timer, listening } = press;
+    const { timer, listening, corner: onCorner } = press;
     const cancel = how === "cancel" || press.cancel;
     press = undefined;
     if (timer !== undefined) clearTimer(timer);
-    const command = commandOf();
-    if (!command) return;
+    const command = onCorner ? undefined : commandOf();
+    if (!onCorner && !command) return;
+    const target = command ? command.field.id : PAGE_CORNER_ID;
     if (listening) {
       setMark(cancel ? "idle" : "busy");
       if (cancel) {
         if (bubble.view.kind === "listening") bubble.hide();
       } else {
-        bubble.openBusy(command.field.id);
+        bubble.openBusy(target);
       }
-      send({ type: "voice", phase: cancel ? "cancel" : "stop", ...command });
+      const phase = cancel ? "cancel" : "stop";
+      send(command ? { type: "voice", phase, ...command } : { type: "corner-voice", phase, page: pageInfo() });
       if (cancel) afterBubbleClosed();
     } else if (how === "release") {
       // 先自己出打字框、在这一下里聚焦（手机上要在用户点的这一下里聚焦，输入法才弹得出来）
       ensureHost();
-      bubble.openInput(command.field.id, labelOfCurrent());
+      bubble.openInput(target, labelOfCurrent());
       startTracking();
-      send({ type: "open", ...command });
+      send(command ? { type: "open", ...command } : { type: "corner-open", page: pageInfo() });
     }
   };
   fab.addEventListener("pointerup", (e) => {
@@ -1059,10 +1177,13 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
         textsJson = normalized;
         texts.set(next);
         tagSheet.replaceSync(nameTagStyle(texts.tag()));
-        fab.setAttribute("aria-label", texts.get("bridge.fab.label"));
-        elementFab.setAttribute("aria-label", texts.get("bridge.fab.label"));
+        fabButton.setLabel(texts.get("bridge.fab.label"));
+        elementFabButton.setLabel(texts.get("bridge.fab.label"));
         bubble.relabel();
         pickWindow.relabel();
+        // 右下角常驻（浏览侧边栏关着）随这几句交来；没交（旧版网页）是不常驻
+        const fabLook = texts.fab();
+        setCorner(fabLook?.corner === true, fabLook?.inset ?? 0);
       }
       return reply({ ok: true });
     },
