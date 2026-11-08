@@ -37,6 +37,7 @@
 // （App 照着在每一页开始时设文字缩放、给这些网站换桌面版的浏览器标识）、share 系统分享面板、clear 清缓存 / Cookie 和网站数据、
 // downloads 列下载记录、openDownload 打开一个、removeDownloads 删记录（不删文件）、findBar 查找栏开没开（返回手势先收起它）；
 // App 推过来的多两种 find（查找结果：第几个、一共几个、数完了没有）、find-close（查找栏开着时按了返回，网页收起它）。
+// 浏览侧边栏关着时悬浮按钮常驻右下角：页面桥多报 corner-open、corner-voice（不带框，只带这一页），开不开随 texts 交过去（fab），App 不用改。
 // 长按网页元素的圆钮：页面桥多报 element、element-open、element-voice，气泡的发送可能带着元素；browserPage 多五个操作 elementInfo、elementPrepare、
 // elementChunk、elementRect、elementShotDone（App 的 PAGE_OPS 里也要有）；browserTool 多几个操作（App 的 browser/ElementFiles）：elementFetch 带登录状态和来源页把一个
 // 地址取进 App 的缓存、elementShot 截一块网页、elementRead 分段读出来、elementWrite 分段写进去、elementSave 弹"保存到"并记进下载记录、elementDownload 下载一个地址、
@@ -550,6 +551,12 @@ export function parsePageEvent(json: unknown): PageBridgeEvent | undefined {
     if (!element || !at) return undefined;
     if (e.type === "element-open") return { type: "element-open", element, page: at };
     return e.phase === "press" || e.phase === "start" || e.phase === "stop" || e.phase === "cancel" ? { type: "element-voice", phase: e.phase, element, page: at } : undefined;
+  }
+  if (e.type === "corner-open" || e.type === "corner-voice") {
+    const at = pageInfoOf(e.page);
+    if (!at) return undefined;
+    if (e.type === "corner-open") return { type: "corner-open", page: at };
+    return e.phase === "press" || e.phase === "start" || e.phase === "stop" || e.phase === "cancel" ? { type: "corner-voice", phase: e.phase, page: at } : undefined;
   }
   const field = fieldOf(e.field);
   const page = pageInfoOf(e.page);

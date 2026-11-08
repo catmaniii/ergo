@@ -17,6 +17,10 @@
 //   各一对；没交来是「二狗」、经典的颜色）；名字里有 <b> 也只是字；读屏说明是纯名字；开着的气泡、窗口跟着改名字、换颜色。
 // -按钮上是二狗的图标（canvas 里真画上了、圆形占满、大小不变、不接事件），img-src、default-src 这样严格的 CSP（真的响应头）下
 //   照样是图标、样式还在；解不出来退回 SVG；听、忙图标不换，外面有红色脉动的圈、转圈，截图和平时不一样。
+// -右下角常驻（宿主随 texts 交来 fab.corner，浏览侧边栏关着为真）：四种情况——关着没选中在右下角（离右边、底边 16，一样大），
+//   选中框时挂到框旁边、焦点离开回到右下角；开着没选中不显示、选中照样在框旁边；开合切换按钮跟着出现、消失；长按元素出圆钮时让给它。
+//   点一下报 corner-open（带这一页、不带框），气泡在按钮上方、写着"对二狗说"，发送不带框；长按报 corner-voice，样子记在 corner 上；
+//   让开宿主说的手势区、网页自己的底部栏和右下角的按钮（后来才出来的过一会儿也让开）；关掉常驻时右下角的气泡收起。没交 fab（旧版网页）不常驻。
 // 本机没有 Chrome（或 Edge）时跳过。页面桥用到的 DOM 全是浏览器自己的，所以不用 jsdom 这类模拟（仓库不加依赖）。
 import { fileURLToPath } from "node:url";
 import { type Browser, chromium, type Page } from "playwright-core";
@@ -1565,6 +1569,202 @@ describe.skipIf(!CHROME)("悬浮按钮上是二狗的图标", () => {
     await callJson(page, "mark", fieldId, "idle");
     expect(await fabFace(page)).toMatchObject({ canvas: true, pulse: "none", spin: "none" });
     expect(await sameCanvas()).toBe("1");
+    await page.close();
+  });
+});
+
+// ---------- 右下角常驻的悬浮按钮（浏览侧边栏关着时） ----------
+
+/** 宿主交来侧边栏开合：corner 为真是侧边栏关着（悬浮按钮常驻右下角），inset 是底下再让开多少 */
+const setCorner = (page: Page, corner: boolean, inset = 0) => callJson(page, "texts", JSON.stringify({ fab: { corner, inset } }));
+/** 按钮在不在、在哪（看得见才有） */
+async function fabAt(page: Page): Promise<Box | undefined> {
+  return (await fabOn(page)) ? rectIn(page, ".fab") : undefined;
+}
+/** 右下角的按钮该在的地方（离右边、底边 16） */
+const CORNER_390 = { x: 390 - 16 - 36, y: 844 - 16 - 36 };
+/** 点到页面空白处（让框失去焦点） */
+const tapBlank = (page: Page) => page.mouse.click(200, 600);
+
+describe.skipIf(!CHROME)("右下角常驻的悬浮按钮（窄屏 390）", () => {
+  test("没交 fab（旧版网页）不常驻；侧边栏关着：右下角出按钮（离右边、底边 16，和贴框的一样大），不报 field；侧边栏开着：不显示", async () => {
+    const page = await open({ width: 390, height: 844, peek: true });
+    await page.waitForTimeout(80);
+    expect(await fabOn(page)).toBe(false);
+    expect(await setCorner(page, true)).toEqual({ ok: true });
+    await page.waitForTimeout(80);
+    expect(await fabAt(page)).toMatchObject({ ...CORNER_390, width: 36, height: 36 });
+    expect((await postedOf(page)).filter((m) => m.type === "field")).toEqual([]);
+    await setCorner(page, false);
+    await page.waitForTimeout(80);
+    expect(await fabOn(page)).toBe(false);
+    // 开合来回切：跟着出现、消失
+    await setCorner(page, true);
+    await page.waitForTimeout(80);
+    expect(await fabAt(page)).toMatchObject(CORNER_390);
+    await page.close();
+  });
+
+  test("侧边栏关着：选中框时挂到框旁边，焦点离开回到右下角；侧边栏开着：选中框时照样在框旁边，焦点离开就不显示", async () => {
+    const page = await open({ width: 390, height: 844, peek: true });
+    await setCorner(page, true);
+    await page.click("#title");
+    await page.waitForTimeout(80);
+    const title = await fieldBox(page, "#title");
+    let fab = (await fabAt(page))!;
+    expect(fab.y).toBeLessThan(title.bottom + 50);
+    expect(fab.x).not.toBe(CORNER_390.x);
+    await tapBlank(page);
+    await page.waitForTimeout(300);
+    expect(await fabAt(page)).toMatchObject(CORNER_390);
+    // 侧边栏开着
+    await setCorner(page, false);
+    await page.click("#title");
+    await page.waitForTimeout(80);
+    fab = (await fabAt(page))!;
+    expect(fab.y).toBeLessThan(title.bottom + 50);
+    await tapBlank(page);
+    await page.waitForTimeout(300);
+    expect(await fabOn(page)).toBe(false);
+    // 框上的按钮在的时候开合切换：照样在框上
+    await page.click("#note");
+    await page.waitForTimeout(80);
+    const onNote = (await fabAt(page))!;
+    await setCorner(page, true);
+    await page.waitForTimeout(80);
+    expect(await fabAt(page)).toMatchObject({ x: onNote.x, y: onNote.y });
+    await page.close();
+  });
+
+  test("点右下角的按钮：报 corner-open（带这一页，不带框），气泡在按钮上方、打字框聚焦、写着对二狗说；发送不带框；收起后按钮还在右下角", async () => {
+    const page = await open({ width: 390, height: 844, peek: true });
+    await setCorner(page, true);
+    await page.waitForTimeout(80);
+    await tapIn(page, ".fab");
+    await page.waitForTimeout(80);
+    expect((await postedOf(page)).filter((m) => m.type === "corner-open")).toEqual([{ nonce: NONCE, type: "corner-open", page: { title: "相册 · 上传", url: "https://album.example.cn/upload" } }]);
+    expect((await postedOf(page)).filter((m) => m.type === "open" || m.type === "voice")).toEqual([]);
+    expect(await focusedInShadow(page)).toBe("TEXTAREA");
+    expect(await peekAll(page, ".label", "text")).toEqual(["对二狗说"]);
+    const fab = await rectIn(page, ".fab");
+    expect(fab).toMatchObject(CORNER_390);
+    const bubble = await rectIn(page, ".bubble");
+    expect(bubble.bottom).toBeLessThanOrEqual(fab.y - 7);
+    expect(bubble.x).toBeGreaterThanOrEqual(8);
+    expect(bubble.right).toBeLessThanOrEqual(382);
+    // 宿主交来的样子：气泡的 fieldId 是 corner，贴着右下角的按钮
+    await showBubble(page, { kind: "input", fieldId: "corner", label: "对二狗说", labelParts: ["对", { name: "二狗" }, "说"], placeholder: "比如：这一页讲了什么" });
+    await page.keyboard.type("summarize");
+    await tapIn(page, ".send");
+    expect(await bubbleMessages(page)).toEqual([{ nonce: NONCE, type: "bubble", action: "send", text: "summarize" }]);
+    // 宿主交来在想：按钮忙、气泡还在按钮上方
+    expect(await callJson(page, "mark", "corner", "busy")).toEqual({ ok: true });
+    await showBubble(page, { kind: "busy", fieldId: "corner", said: "summarize" });
+    await page.waitForTimeout(60);
+    expect(await peekAll(page, ".fab", "class")).toEqual([expect.stringContaining("busy"), expect.not.stringContaining("busy")]);
+    expect((await rectIn(page, ".bubble")).bottom).toBeLessThanOrEqual(fab.y - 7);
+    // 收起：按钮回到平常、还在右下角
+    await callJson(page, "mark", "corner", "idle");
+    await showBubble(page, { kind: "none" });
+    await page.waitForTimeout(80);
+    expect(await bubbleOn(page)).toBe(false);
+    expect(await fabAt(page)).toMatchObject(CORNER_390);
+    expect(await peekAll(page, ".fab", "class")).toEqual([expect.not.stringContaining("busy"), expect.not.stringContaining("busy")]);
+    await page.close();
+  });
+
+  test("长按右下角的按钮：报 corner-voice 的 press、start、stop（只带这一页），在听的气泡在按钮上方；忙的时候再按不接", async () => {
+    const page = await open({ width: 390, height: 844, peek: true });
+    await setCorner(page, true);
+    await page.waitForTimeout(80);
+    const fab = await rectIn(page, ".fab");
+    await page.mouse.move(fab.x + 18, fab.y + 18);
+    await page.mouse.down();
+    await page.waitForTimeout(450);
+    expect(await peekAll(page, ".wave i", "height")).toHaveLength(28);
+    expect((await rectIn(page, ".bubble")).bottom).toBeLessThanOrEqual(fab.y);
+    await page.mouse.up();
+    const voice = (await postedOf(page)).filter((m) => m.type === "corner-voice");
+    expect(voice.map((m) => m.phase)).toEqual(["press", "start", "stop"]);
+    expect(voice[0]).toEqual({ nonce: NONCE, type: "corner-voice", phase: "press", page: { title: "相册 · 上传", url: "https://album.example.cn/upload" } });
+    // 松手后按钮是"在办"：再按不接
+    await page.mouse.move(fab.x + 18, fab.y + 18);
+    await page.mouse.down();
+    await page.mouse.up();
+    expect((await postedOf(page)).filter((m) => m.type === "corner-voice" || m.type === "corner-open")).toHaveLength(3);
+    await page.close();
+  });
+
+  test("让开宿主说的手势区、网页自己的底部栏和右下角的按钮；后来才出来的底部栏过一会儿也让开；滚了页面再量", async () => {
+    const page = await open({ width: 390, height: 844, peek: true });
+    await setCorner(page, true, 30);
+    await page.waitForTimeout(80);
+    expect(await fabAt(page)).toMatchObject({ x: CORNER_390.x, y: CORNER_390.y - 30 });
+    await setCorner(page, true, 0);
+    // 网页后来才出来的底部栏（56 高）：隔一阵再量时让开
+    await page.evaluate(() => {
+      const bar = document.createElement("div");
+      bar.id = "site-bar";
+      bar.style.cssText = "position:fixed;left:0;right:0;bottom:0;height:56px;background:#eee";
+      document.body.appendChild(bar);
+    });
+    await page.waitForTimeout(1500);
+    expect(await fabAt(page)).toMatchObject({ x: CORNER_390.x, y: 844 - 56 - 8 - 36 });
+    // 底部栏上面还有网页自己的客服按钮：再挪到它上面
+    await page.evaluate(() => {
+      const help = document.createElement("div");
+      help.style.cssText = "position:fixed;right:10px;bottom:70px;width:56px;height:56px;border-radius:50%;background:#f80";
+      document.body.appendChild(help);
+    });
+    await page.waitForTimeout(1500);
+    expect(await fabAt(page)).toMatchObject({ x: CORNER_390.x, y: 844 - 70 - 56 - 8 - 36 });
+    // 底部栏、客服按钮没了：滚一下页面就回去
+    await page.evaluate(() => {
+      for (const el of Array.from(document.body.children)) if ((el as HTMLElement).style.position === "fixed") el.remove();
+      document.body.style.minHeight = "3000px";
+      window.scrollBy(0, 200);
+    });
+    await page.waitForTimeout(500);
+    expect(await fabAt(page)).toMatchObject(CORNER_390);
+    await page.close();
+  });
+
+  test("长按（右键）网页元素出圆钮时右下角的按钮让给它，圆钮收起后回来", async () => {
+    const page = await open({ width: 390, height: 844, peek: true });
+    await page.evaluate(() => {
+      const p = document.createElement("p");
+      p.id = "para";
+      p.textContent = "一段说明文字";
+      p.style.cssText = "margin:20px;font-size:20px";
+      document.body.appendChild(p);
+    });
+    await setCorner(page, true);
+    await page.waitForTimeout(80);
+    expect(await fabAt(page)).toMatchObject(CORNER_390);
+    await page.click("#para", { button: "right" });
+    await page.waitForTimeout(100);
+    expect((await postedOf(page)).filter((m) => m.type === "element" && m.element !== null)).toHaveLength(1);
+    expect(await fabOn(page)).toBe(false);
+    // 点别处：圆钮收起，右下角的按钮回来
+    await tapBlank(page);
+    await page.waitForTimeout(150);
+    expect((await postedOf(page)).filter((m) => m.type === "element").at(-1)).toMatchObject({ element: null });
+    expect(await fabAt(page)).toMatchObject(CORNER_390);
+    await page.close();
+  });
+
+  test("气泡是右下角按钮的时候关掉常驻（用户打开了侧边栏）：气泡收起、报 close", async () => {
+    const page = await open({ width: 390, height: 844, peek: true });
+    await setCorner(page, true);
+    await page.waitForTimeout(80);
+    await tapIn(page, ".fab");
+    await page.waitForTimeout(80);
+    expect(await bubbleOn(page)).toBe(true);
+    await setCorner(page, false);
+    await page.waitForTimeout(80);
+    expect(await bubbleOn(page)).toBe(false);
+    expect(await fabOn(page)).toBe(false);
+    expect(await bubbleMessages(page)).toEqual([{ nonce: NONCE, type: "bubble", action: "close" }]);
     await page.close();
   });
 });

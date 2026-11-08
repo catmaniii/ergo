@@ -14,6 +14,8 @@
 // 查找结果，换了网页收起；按网站记住的文字大小、桌面版（browse-settings.ts）开场交给 App 一次，之后变了再交。
 // 气泡、挑图片窗口里说到助理用用户起的名字、画成名字标签——usePageButtonSync 把 store 里的名字、换了语言告诉气泡那一层
 // 和挑图片窗口，视觉风格（连同主色）变了把名字标签的颜色告诉气泡那一层（随页面桥自己的那几句重交）。
+// 悬浮按钮常驻网页右下角（浏览侧边栏关着时，开着时只在选中的框旁边）：侧边栏开合、右下角要让开的手势区（BrowsePage 量好告诉这里，
+// setBrowseFabInset）变了也告诉气泡那一层，随页面桥自己的那几句交过去（fab）。
 // 是浏览插件的（网页插件 plugins/browsing/plugin.tsx）：开场接上（connectBrowsing）由插件第一次装上时做（组合根建插件宿主时把
 // 页面的连接和 HTTP 交给插件，ctx.page）；插件装上、停用跟着变（turnBrowsingOn：页面里的外链改不改到"浏览"里打开、内置浏览器在
 // App 里开不开原生浏览器；停用时 App 接住的主页面外链交给系统浏览器——App 那边 attach 了收不回来，鸿蒙 App 不用改）。
@@ -273,7 +275,27 @@ let lookKey = "";
 /** 语音插件在不在（setPageVoiceAvailable 照输入框的语音插槽改）：不在时悬浮按钮只能打字 */
 let voiceAvailable = true;
 
-const pageLook = (): BridgeLook => ({ name: assistantNameNow(), ...(tagColors ? { tag: tagColors } : {}), ...(voiceAvailable ? {} : { typeOnly: true }) });
+/** 右下角的悬浮按钮底下再让开多少（BrowsePage 量的：宽屏网页延伸到手势条底下时那一截） */
+let fabInset = 0;
+
+/**
+ * 页面桥的外观：名字、名字标签的颜色、只能打字；有浏览侧边栏时还有悬浮按钮常驻右下角没有（侧边栏关着为真）和让开多少。
+ * 没有侧边栏（旧版 App）不说，页面桥照旧不常驻（右下角的按钮发消息要侧边栏那一份的浏览器编号）
+ */
+const pageLook = (): BridgeLook => ({
+  name: assistantNameNow(),
+  ...(tagColors ? { tag: tagColors } : {}),
+  ...(voiceAvailable ? {} : { typeOnly: true }),
+  ...(side ? { corner: !side.snapshot().open, inset: fabInset } : {}),
+});
+
+/** 右下角的悬浮按钮底下再让开多少（BrowsePage 照内容区量：宽屏网页延伸到手势条底下时是 --safe-bottom，别的时候是 0）；变了重交 */
+export function setBrowseFabInset(px: number): void {
+  const next = Math.max(0, Math.round(px));
+  if (next === fabInset) return;
+  fabInset = next;
+  bubbleSync?.lookChanged();
+}
 
 /**
  * 语音插件在不在（浏览插件挂在主框架里的那一个看输入框的语音插槽有没有东西，变了调这里）：不在时悬浮按钮长按不录、
@@ -383,12 +405,22 @@ export function connectBrowseSide(connection: Pick<Connection, "browserStatus" |
     else if (event.type === "page") created.pageEvent(event.event);
     else if (event.type === "side") created.sideAction(event.action);
   });
+  // 侧边栏开合变了：悬浮按钮跟着常驻右下角、不显示（随页面桥自己的那几句交过去）
+  let open = created.snapshot().open;
+  created.subscribe(() => {
+    const next = created.snapshot().open;
+    if (next === open) return;
+    open = next;
+    bubbleSync?.lookChanged();
+  });
   connection.onBrowserRequest?.((request) => void created.handle(request));
   if (watch) created.browserChanged(watch.state());
   created.announce();
   // 设置里换了搜索引擎再报一次（没变的不报）
   pageBrowseSettings().subscribe(() => created.announce());
   side = created;
+  // 有侧边栏了：页面桥已经装上的（先报过话）把常驻右下角交过去
+  bubbleSync?.lookChanged();
   // 挑图片窗口：秘书给这个浏览器的网页候选卡，这一页上弹出来；对卡做动作经页面上的 store
   const pickSync = new PagePickSync({
     page,

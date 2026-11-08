@@ -59,6 +59,8 @@
   "protocol.browsing.label.buttonSpoke": "Said at {where} on “{page}”",
   "protocol.browsing.label.sidebarPage": "Said on “{page}”",
   "protocol.browsing.label.sidebar": "Said in the Browse sidebar",
+  "protocol.browsing.label.cornerTyped": "Typed with the floating button on “{page}”",
+  "protocol.browsing.label.cornerSpoke": "Said with the floating button on “{page}”",
   "protocol.scheduledJobs.state.active": "Running",
   "protocol.scheduledJobs.state.paused": "Paused",
   "protocol.scheduledJobs.state.cancelled": "Cancelled",

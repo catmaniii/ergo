@@ -134,5 +134,6 @@
   "app.pageCommands.target.video": "this video",
   "app.pageCommands.target.link": "this link",
   "app.pageCommands.target.text": "this text",
-  "app.pageBubble.placeholder.element": "Say what you'd like done with it"
+  "app.pageBubble.placeholder.element": "Say what you'd like done with it",
+  "app.pageBubble.placeholder.page": "e.g. What's this page about?"
 }

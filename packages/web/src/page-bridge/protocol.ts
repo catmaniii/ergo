@@ -56,7 +56,9 @@ export type PagePickAction = { id: string } & ({ action: "choose"; token: string
  *   （新的一页没有选中的框）；
  * open、voice 带上页面信息和框的列表，宿主不用再问；open、voice、selected 的 field 带着框里那一刻的内容（文本框才有）；
  * - element：长按、右键出了圆钮，圆钮上是这个元素（null 是收起来了）；
- * - element-open、element-voice：圆钮上点了一下、按住说话，同 open、voice，目标是这个元素（选中的文字是这一刻的）
+ * - element-open、element-voice：圆钮上点了一下、按住说话，同 open、voice，目标是这个元素（选中的文字是这一刻的）；
+ * - corner-open、corner-voice：右下角常驻的悬浮按钮（没挂在框上，宿主随 texts 交来 fab.corner 才有）上点了一下、按住说话，
+ *   同 open、voice，不带框，只带这一页；气泡的 fieldId 是 PAGE_CORNER_ID
  */
 export type PageBridgeEvent =
   | { type: "field"; field: PageField | null }
@@ -68,7 +70,12 @@ export type PageBridgeEvent =
   | { type: "selected"; field: PageField | null; page: PageInfo }
   | { type: "element"; element: PickedElement | null }
   | { type: "element-open"; element: PickedElement; page: PageInfo }
-  | { type: "element-voice"; phase: "press" | "start" | "stop" | "cancel"; element: PickedElement; page: PageInfo };
+  | { type: "element-voice"; phase: "press" | "start" | "stop" | "cancel"; element: PickedElement; page: PageInfo }
+  | { type: "corner-open"; page: PageInfo }
+  | { type: "corner-voice"; phase: "press" | "start" | "stop" | "cancel"; page: PageInfo };
+
+/** 右下角常驻的悬浮按钮在气泡、按钮样子（mark）里的编号（框是 f…、元素是 x…） */
+export const PAGE_CORNER_ID = "corner";
 
 /** 挑图片窗口里的一个候选（不在气泡里）：取件码、名字、是不是图片、缩略图（base64，没有、还没取到、做不出来是空串）、选没选上 */
 export interface PageBubbleFile {
@@ -150,7 +157,7 @@ export type PageBridgeMark = "idle" | "listening" | "busy";
  *   total 是一共几个），编号只记在页面桥的内存里；
  * - texts(textsJson)：页面桥自己的字换成二狗的网页交来的这几句（PageBridgeTexts 的 JSON：bridge.* 的 key → 当前语言的句子，
  *   见 texts.ts）——悬浮按钮的说明、气泡和挑图片窗口上的按钮、在听的提示；没交来（旧版网页）、旧版 App 不认这个方法时是中文；
- *   还带助理的名字和名字标签的颜色（assistant）；
+ *   还带助理的名字和名字标签的颜色（assistant），悬浮按钮常驻右下角没有、底下再让开多少（fab：浏览侧边栏关着时 corner 为真）；
  * - click(ref, url)：按编号点一个元素（url 是看的时候那一页的地址，去掉查询串）：{ ok, role, text, page }，
  *   换了网页、编号不认得、元素不在了、文字变了、禁用了回 { ok: false, reason }；框（文本框、上传框、下拉框）点不了，回原因；
  * - refField(ref, url, want)：按编号找要填的文本框（want 是 textbox）、要交的上传框（upload）：{ ok, page, field }，field 是框的说法

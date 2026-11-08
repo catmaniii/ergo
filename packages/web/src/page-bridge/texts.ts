@@ -8,6 +8,8 @@
 // - 二狗的网页交来的顶层那几句名字已经换好（不认 assistant 的旧页面桥照样显示起的名字，只是没有底色），原样（带 {name}）、名字、
 //   名字标签浅色深色两对颜色放在 assistant 里；
 // - 没交来（旧版网页）用默认的名字"二狗"、经典风格的颜色（bubble.ts 的样式表里写着）。
+// 悬浮按钮常驻右下角（fab：浏览侧边栏关着时 corner 为真；inset 是右下角底下再让开多少）也随这几句交来——和名字、颜色一样是二狗的网页
+// 交给页面桥的外观，不另加页面桥的操作：两个 App 的操作白名单都不用改，只是页面桥重新打包进 App。旧版页面桥不认 fab，照旧不常驻。
 import ZH from "../../../protocol/locales/zh-CN/bridge.json" with { type: "json" };
 import type { PageNamedPart, PageNamedText } from "./protocol.ts";
 
@@ -40,8 +42,17 @@ export interface BridgeAssistant {
   templates: Partial<Record<BridgeAssistantKey, string>>;
 }
 
-/** 二狗的网页交来的：key → 当前语言的句子（说到助理的那几句名字已经换好）；还有 assistant */
-export type PageBridgeTexts = Partial<Record<BridgeTextKey, string>> & { assistant?: BridgeAssistant };
+/**
+ * 悬浮按钮怎么摆（二狗的网页交来的）：corner 没挂在框上时常驻右下角（浏览侧边栏关着）；inset 是右下角底下再让开多少
+ * （CSS 像素：宽屏上网页延伸到了手势条底下时那一截）
+ */
+export interface BridgeFabLook {
+  corner: boolean;
+  inset: number;
+}
+
+/** 二狗的网页交来的：key → 当前语言的句子（说到助理的那几句名字已经换好）；还有 assistant、fab */
+export type PageBridgeTexts = Partial<Record<BridgeTextKey, string>> & { assistant?: BridgeAssistant; fab?: BridgeFabLook };
 
 /** 页面桥自己的全部 key（二狗的网页按它取好交过来） */
 export const BRIDGE_TEXT_KEYS = Object.keys(ZH) as BridgeTextKey[];
@@ -79,7 +90,19 @@ function assistantOf(value: unknown): BridgeAssistant | undefined {
   return { name: v.name.slice(0, NAME_MAX), ...(light && dark ? { tag: { light, dark } } : {}), templates };
 }
 
-/** 交来的（JSON 解出来的）：只收认得的 key、是字符串的句子，和助理；什么都没有是 undefined */
+/** 右下角的按钮让开多少最多认多少（宿主是可信的，这里只防写错） */
+const INSET_MAX = 400;
+
+/** 交来的悬浮按钮怎么摆：corner 要是布尔；inset 不是数当 0，夹在 0–400 */
+function fabLookOf(value: unknown): BridgeFabLook | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const v = value as Record<string, unknown>;
+  if (typeof v.corner !== "boolean") return undefined;
+  const inset = typeof v.inset === "number" && Number.isFinite(v.inset) ? Math.max(0, Math.min(INSET_MAX, Math.round(v.inset))) : 0;
+  return { corner: v.corner, inset };
+}
+
+/** 交来的（JSON 解出来的）：只收认得的 key、是字符串的句子，和助理、悬浮按钮怎么摆；什么都没有是 undefined */
 export function bridgeTextsOf(value: unknown): PageBridgeTexts | undefined {
   if (typeof value !== "object" || value === null) return undefined;
   const out: PageBridgeTexts = {};
@@ -94,6 +117,11 @@ export function bridgeTextsOf(value: unknown): PageBridgeTexts | undefined {
   const assistant = assistantOf((value as Record<string, unknown>).assistant);
   if (assistant) {
     out.assistant = assistant;
+    any = true;
+  }
+  const fab = fabLookOf((value as Record<string, unknown>).fab);
+  if (fab) {
+    out.fab = fab;
     any = true;
   }
   return any ? out : undefined;
@@ -137,6 +165,8 @@ export interface BridgeTexts {
   parts(key: BridgeTextKey, params?: Params): PageNamedText;
   /** 名字标签的颜色（没交来是 undefined，用样式表里经典的） */
   tag(): NameTagColors | undefined;
+  /** 悬浮按钮怎么摆（没交来是 undefined：不常驻右下角） */
+  fab(): BridgeFabLook | undefined;
   /** 换上交来的（整份换掉：没交的那几句回到中文，没交名字回到"二狗"） */
   set(texts: PageBridgeTexts): void;
 }
@@ -150,6 +180,7 @@ export function createBridgeTexts(): BridgeTexts {
     get: (key, params) => plainOf(parts(key, params)),
     parts,
     tag: () => current.assistant?.tag,
+    fab: () => current.fab,
     set(texts) {
       current = texts;
     },

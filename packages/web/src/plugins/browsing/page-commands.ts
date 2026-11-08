@@ -18,8 +18,10 @@
 //   这句话照样在秘书的会话里办完、回话照样在会话里。
 // 长按网页元素的圆钮，page-bridge/element.ts：圆钮上的打字、说话走同一套（气泡、识别、排队、回话都一样），目标是这个元素（CommandTarget.element），
 // 用户的话原样发进秘书的主会话，带着元素；这里不看用户说了什么，也没有按意图分的操作。
+// 浏览侧边栏关着时悬浮按钮常驻网页右下角（页面桥报 corner-open、corner-voice）：同一套，不带框，带这一页（CommandTarget.corner，
+// 网页上下文写 corner），按钮样子、气泡记在 PAGE_CORNER_ID 上。
 // 这里不碰 DOM 和浏览器的全局变量（录音、计时、发消息都由参数给），测试在 Node 里跑。
-import type { PageBridgeEvent, PageBubbleAction, PageInfo } from "../../page-bridge/protocol.ts";
+import { PAGE_CORNER_ID, type PageBridgeEvent, type PageBubbleAction, type PageInfo } from "../../page-bridge/protocol.ts";
 import { type BrowsingContext, type ButtonTurn, PAGE_COMMAND_TEXT_MAX, type PageField, type PageVoiceResult, type PickedElement, pageUrlForModel, t } from "../../state/index.ts";
 import type { ChooserRequest, NativeBrowserEvent, NativePageControl } from "../../app/native-browser.ts";
 import { isRecordingCancelled, micErrorOf, type VoiceCaptureBackend } from "../../app/voice-recorder.ts";
@@ -33,6 +35,8 @@ export interface CommandTarget {
   readonly chooser?: ChooserRequest;
   /** 长按元素的圆钮：这句话说的是这个元素 */
   readonly element?: PickedElement;
+  /** 右下角常驻的悬浮按钮：没有框，说的是这一页 */
+  readonly corner?: true;
 }
 
 /** 在办的那一句走到哪了：hearing 在认说了什么、thinking 秘书在办、queued 秘书正忙，排在后面 */
@@ -100,7 +104,7 @@ export const LISTEN_MAX_MS = 60_000;
  */
 export const PRESS_CAPTURE_MS = 2_000;
 
-/** 面板上说这个指令作用于谁："「标题」这个框""这个上传框""选文件" */
+/** 面板上说这个指令作用于谁："「标题」这个框""这个上传框""选文件"（右下角的按钮不作用于谁，气泡上写"对二狗说"，见 page-bubble.ts） */
 export function targetName(target: CommandTarget): string {
   if (target.element) return t(`app.pageCommands.target.${target.element.kind}`);
   const field = target.field;
@@ -133,12 +137,14 @@ export function buttonContext(browser: string, target: CommandTarget, spoken: bo
     ...(spoken ? { spoken: true as const } : {}),
     ...(target.chooser ? { chooser: { accept: [...target.chooser.accept], multiple: target.chooser.multiple } } : {}),
     ...(target.element ? { element: target.element } : {}),
+    ...(target.corner ? { corner: true as const } : {}),
   };
 }
 
-/** 按钮的样子记在哪个编号上：圆钮是元素，悬浮按钮是框（拦下的对话框上没有按钮要改） */
+/** 按钮的样子记在哪个编号上：圆钮是元素，悬浮按钮是框，右下角的是 PAGE_CORNER_ID（拦下的对话框上没有按钮要改） */
 function markIdOf(target: CommandTarget): string | undefined {
   if (target.element) return target.element.id;
+  if (target.corner) return PAGE_CORNER_ID;
   return target.field && !target.chooser ? target.field.id : undefined;
 }
 
@@ -265,9 +271,13 @@ export class PageCommands {
       this.bubbleAction(event);
       return;
     }
-    const fromElement = event.type === "element-open" || event.type === "element-voice";
-    const target: CommandTarget = fromElement ? { page: event.page, fields: [], element: event.element } : { page: event.page, fields: event.fields, field: event.field };
-    if (event.type === "open" || event.type === "element-open") {
+    const target: CommandTarget =
+      event.type === "element-open" || event.type === "element-voice"
+        ? { page: event.page, fields: [], element: event.element }
+        : event.type === "corner-open" || event.type === "corner-voice"
+          ? { page: event.page, fields: [], corner: true }
+          : { page: event.page, fields: event.fields, field: event.field };
+    if (event.type === "open" || event.type === "element-open" || event.type === "corner-open") {
       // 短按（松手开打字框）：按下时算的语音输入说完了
       if (this.panel.kind !== "listening") this.capture(false);
       if (!this.busy()) this.openBar(target);
