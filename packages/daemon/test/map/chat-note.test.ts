@@ -2,8 +2,8 @@
 // 这段写明"地图上用的是 X（地图服务编号 id）"，叫秘书查地点、算路线时把工具的 map 写成它（查询跟着地图走）。
 // - 认得的写名字：amap 高德地图、osm OpenStreetMap、google 谷歌地图（446 的插件），别的编号原样写；
 // - 还没画上（loading）、不是编号的写法：不叫秘书写 map（按自动挑）；
-// - 开着足迹（447 附带，用户 2026-11-08 定）：底图一律 OpenStreetMap，网页交来的是这一带查询用的那家（选的或自动的，国内即高德）——
-//   照实写"看足迹时底图是 OpenStreetMap"，map 照样写成交来的编号。
+// - 开着足迹（451 起底图也是当前地图）：和没开一样写地图上用的那一家，map 照样写成交来的编号；453 起照实写一句
+//   "足迹只在他这台设备上画，不发给高德、谷歌"。
 import type { MapMark } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { mapChatNote } from "../../src/map/chat-note.ts";
@@ -41,12 +41,13 @@ describe("交给秘书的那段写明地图上用的是哪一家、map 写成它
     expect(odd).not.toContain("map 写成");
   });
 
-  it("开着足迹（451 起底图也是当前地图）：和没开一样写地图上用的那一家，map 照样写成它", () => {
+  it("开着足迹（451 起底图也是当前地图）：和没开一样写地图上用的那一家，map 照样写成它；453：照实写足迹只在他这台设备上画", () => {
     const note = mapChatNote({ ...at("amap"), lat: 30.2741, lon: 120.1551, footprints: { date: "2026-11-06" } });
     expect(note).toContain("地图上用的是高德地图（地图服务编号 amap）");
     expect(note).toContain('把 map 写成"amap"');
     expect(note).not.toContain("OpenStreetMap");
-    expect(note).toContain('"足迹"开着，看的是 2026-11-06 那一天的足迹');
+    expect(note).toContain('"足迹"开着，看的是 2026-11-06 那一天的足迹（足迹只在他这台设备上画，不发给高德、谷歌，它们只知道地图看的是哪一片）');
+    expect(mapChatNote(at("amap"))).not.toContain("只在他这台设备上画");
     // 手动选了 OpenStreetMap 的：照样写它
     expect(mapChatNote({ ...at("osm"), footprints: { date: "2026-11-06" } })).toContain('把 map 写成"osm"');
   });

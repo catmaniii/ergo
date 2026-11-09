@@ -5,7 +5,7 @@
   "map.plugin.purge.tiles": "Map tiles cached on this computer",
   "map.plugin.keep.chat": "Places mentioned in chats (that's chat history)",
   "map.source.title": "AMap",
-  "map.source.summary": "With a key, the map page uses AMap inside mainland China, and looking up places and routes there uses it too (only when you ask, the start, the destination or the \"nearby\" spot goes to AMap; without a key, lookups in China also use OpenStreetMap, which may miss some shops and small roads). The key stays on this computer; when AMap is the current map, footprints are drawn on AMap and chat card previews are fetched from AMap, so AMap can see the points and lines drawn on them",
+  "map.source.summary": "With a key, the map page uses AMap inside mainland China, and looking up places and routes there uses it too (only when you ask, the start, the destination or the \"nearby\" spot goes to AMap; without a key, lookups in China also use OpenStreetMap, which may miss some shops and small roads). The key stays on this computer; footprints and the points and lines ergo draws are drawn only on this device, on top of AMap, and chat card previews only ask AMap for the plain map of that area: AMap only knows which area you're looking at",
   "map.source.account": "Map: {map} · Places and routes: {query}",
   "map.source.filled": "set",
   "map.source.empty": "not set",

@@ -5,7 +5,7 @@
   "googleMaps.plugin.purge.usage": "The monthly counts of Google requests and whether going over the free usage is allowed",
   "googleMaps.plugin.keep.chat": "Places mentioned in chats (that's chat history)",
   "googleMaps.source.title": "Google Maps",
-  "googleMaps.source.summary": "With keys entered, the map page uses Google Maps outside mainland China, and so do place and route lookups there (only the start, the end or the \"nearby\" spot is sent to Google when you ask, and results aren't stored). The server key stays on this computer; when Google is the current map, footprints are drawn on Google Maps and chat card previews are fetched from Google, so Google can see the points and lines drawn on them",
+  "googleMaps.source.summary": "With keys entered, the map page uses Google Maps outside mainland China, and so do place and route lookups there (only the start, the end or the \"nearby\" spot is sent to Google when you ask, and results aren't stored). The server key stays on this computer; footprints and the points and lines ergo draws are drawn only on this device, on top of Google Maps, which runs in a separate sealed frame, and chat card previews only ask Google for the plain map of that area: Google only knows which area you're looking at",
   "googleMaps.source.account": "Browser key: {browser} · Server key: {server}",
   "googleMaps.source.filled": "set",
   "googleMaps.source.empty": "not set",

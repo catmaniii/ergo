@@ -4,6 +4,8 @@
 
 **451 修订**（[ADR-0059](0059-map-one-current-map.md)）：插槽多了 `regionPriority`、`lookupRegions`、`staticMap`；高德大陆外也管底图（优先级 30），"自动"在大陆外是 谷歌 > 高德 > OpenStreetMap。
 
+**453 修订**（[ADR-0059 的 453 修订](0059-map-one-current-map.md#453-修订足迹和二狗画的点线只在本机画高德谷歌只出底图)）：`staticMap` 改成 `MapStaticSource`（上限、级别范围、`datum`、`get`），只要光底图；网页的引擎可以只出底图（没有 `setScene`，报 `onSurface`、能 `panBy`），地图页在上面盖自己的一层画点线。
+
 ## 背景
 
 - 地图插件里写死了两家：底图在网页里按"在不在大陆、高德能不能用"挑（`chooseBasemap`），查询在守护进程里按"高德能不能用"给 `[高德, OpenStreetMap]` 或 `[OpenStreetMap]`。接谷歌（446）要再写死第三家，而且谷歌要做成独立插件——停用、移除时自动退回。

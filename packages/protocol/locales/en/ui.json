@@ -533,7 +533,7 @@
   "ui.plugins.map.day.goName": "Name this place",
   "ui.plugins.map.day.focus": "Zoom here",
   "ui.plugins.map.day.close": "Close",
-  "ui.plugins.map.day.privacy": "Footprints are drawn on the current map: AMap and Google can see them; to keep them from seeing it, pick OpenStreetMap under Map",
+  "ui.plugins.map.day.privacy": "Footprints are drawn only on this device and never sent to AMap or Google: they only know which part of the map you're looking at",
   "ui.plugins.map.brings.card": "Map cards in chats",
   "ui.plugins.map.card.loading": "Loading…",
   "ui.plugins.map.card.open": "Open map",
@@ -609,7 +609,7 @@
   "ui.plugins.map.switch.region.mainland": "Map for mainland China",
   "ui.plugins.map.switch.region.abroad": "Map outside mainland China",
   "ui.plugins.map.switch.unreachable": "Can't connect",
-  "ui.plugins.map.switch.lookupNote": "The map page, footprints and map cards in chats all use this one, and place and route lookups try it first; mainland China and elsewhere are remembered separately on this device",
+  "ui.plugins.map.switch.lookupNote": "The map page, footprints and map cards in chats all use this one as the base map, and place and route lookups try it first; footprints and the points and lines ergo draws are drawn only on this device, so this provider only knows which area you're looking at. Mainland China and elsewhere are remembered separately on this device",
   "ui.plugins.map.switch.fellBack": "{name} isn't available right now, so the map is back to Automatic",
   "ui.plugins.map.switch.closeNote": "Dismiss",
   "ui.plugins.map.card.openOwn": "View on {name}",
@@ -636,7 +636,7 @@
   "ui.plugins.map.panel.unknown": "unknown reason",
   "ui.plugins.map.panel.howTo": "In the AMap Open Platform console, create a key with the \"Web (JS API)\" platform; its security code is listed under the same key. Looking up places needs another key with the \"Web service\" platform",
   "ui.plugins.map.panel.keySafe": "The keys and security code stay on this computer; the security code is never sent to the web page — ergo adds it when forwarding AMap's requests",
-  "ui.plugins.map.panel.privacy": "For maps inside China, your browser fetches map data directly from AMap (AMap sees this device's IP and the area you're viewing); OpenStreetMap tiles go through this computer. When AMap is the current map, footprints are drawn on AMap and chat card previews are fetched from AMap, so AMap can see the points and lines drawn on them",
+  "ui.plugins.map.panel.privacy": "For maps inside China, your browser fetches map data directly from AMap (AMap sees this device's IP and the area you're viewing); OpenStreetMap tiles go through this computer. Footprints and the points and lines ergo draws are drawn only on this device, on top of AMap, and never handed to AMap; chat card previews only ask AMap for the plain map of that area. AMap's map runs inside ergo's page, so its script could technically read the page (Google's map runs in a separate sealed frame and can't)",
   "ui.plugins.map.try.title": "Test lookup",
   "ui.plugins.map.try.hint": "Search a fixed place with the Web service key (Tiananmen in Beijing, not your location) to see whether place and route lookups work",
   "ui.plugins.map.try.needKey": "Enter the Web service key (test and save) first; place and route lookups need it",
@@ -2119,5 +2119,5 @@
   "ui.plugins.googleMaps.panel.allowOverage": "Keep using it after the free usage (Google bills the extra; unticked, it pauses and falls back to AMap or OpenStreetMap)",
   "ui.plugins.googleMaps.panel.howTo": "How to enable the APIs in Google Cloud, create the two keys and restrict them: see the \"Google Maps\" section of User guide · Map",
   "ui.plugins.googleMaps.panel.billing": "Google requires billing on the project (ergo never touches payment details): set budget alerts and a daily cap for each API in Google Cloud so you aren't charged by surprise",
-  "ui.plugins.googleMaps.panel.privacy": "Outside mainland China your browser loads map data straight from Google (Google sees this device's IP and the area you're viewing); place and route lookups send only the one or two spots you ask about, and results aren't stored. When Google is the current map, footprints are drawn on Google Maps and chat card previews are fetched from Google, so Google can see the points and lines drawn on them"
+  "ui.plugins.googleMaps.panel.privacy": "Outside mainland China your browser loads map data straight from Google (Google sees this device's IP and the area you're viewing); place and route lookups send only the one or two spots you ask about, and results aren't stored. Footprints and the points and lines ergo draws are drawn only on this device, on top of Google Maps, and never handed to Google; Google's map runs in a separate sealed frame and can't read ergo's page; chat card previews only ask Google for the plain map of that area"
 }

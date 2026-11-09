@@ -506,7 +506,7 @@
   "ui.plugins.map.day.goName": "去起个名字",
   "ui.plugins.map.day.focus": "看这里",
   "ui.plugins.map.day.close": "关上",
-  "ui.plugins.map.day.privacy": "足迹画在当前地图上：是高德、谷歌时它们看得到；不想让它们看到，在「地图」里选 OpenStreetMap",
+  "ui.plugins.map.day.privacy": "足迹只在这台设备上画，不发给高德、谷歌：它们只知道你在看哪一片地图",
   "ui.plugins.map.brings.card": "聊天里的地图卡片",
   "ui.plugins.map.card.loading": "正在取…",
   "ui.plugins.map.card.open": "看大地图",
@@ -579,7 +579,7 @@
   "ui.plugins.map.switch.region.mainland": "在国内用哪家地图",
   "ui.plugins.map.switch.region.abroad": "在国外用哪家地图",
   "ui.plugins.map.switch.unreachable": "连不上",
-  "ui.plugins.map.switch.lookupNote": "地图页、足迹、聊天里的地图卡片都用这一家，查地点、算路线也先用它；国内、国外分开记在这台设备上",
+  "ui.plugins.map.switch.lookupNote": "地图页、足迹、聊天里的地图卡片都用这一家当底图，查地点、算路线也先用它；足迹和二狗画的点、线只在这台设备上画，这一家只知道你在看哪一片。国内、国外分开记在这台设备上",
   "ui.plugins.map.switch.fellBack": "{name}现在用不了，换回了“自动”",
   "ui.plugins.map.switch.closeNote": "关上",
   "ui.plugins.map.card.openOwn": "在{name}上看",
@@ -606,7 +606,7 @@
   "ui.plugins.map.panel.unknown": "原因不明",
   "ui.plugins.map.panel.howTo": "在高德开放平台的控制台建一个服务平台是「Web端(JS API)」的 Key，安全密钥在同一个 Key 下面；查地点要另建一个「Web服务」的 Key",
   "ui.plugins.map.panel.keySafe": "Key 和安全密钥只存在这台电脑上；安全密钥不发给网页，二狗转发高德的请求时自己拼上",
-  "ui.plugins.map.panel.privacy": "看国内地图时，地图数据由你的浏览器直接从高德取（高德看得到这台设备的 IP 和你正在看的那片）；OpenStreetMap 的瓦片经这台电脑转发。高德是当前地图时，足迹画在高德地图上、聊天卡片的预览图向高德要，高德看得到画上去的点和线",
+  "ui.plugins.map.panel.privacy": "看国内地图时，地图数据由你的浏览器直接从高德取（高德看得到这台设备的 IP 和你正在看的那片）；OpenStreetMap 的瓦片经这台电脑转发。足迹、二狗画的点和线只在这台设备上画在高德地图上面，不交给高德；聊天卡片的预览图只向高德要那一片的底图。高德的地图和二狗的页面在同一页里跑，它的脚本技术上读得到这一页（谷歌的地图关在单独的框里，读不到）",
   "ui.plugins.map.try.title": "试查一下",
   "ui.plugins.map.try.hint": "拿 Web 服务 Key 搜一个固定的地点（北京的天安门，不是你的位置），看查地点、算路线通不通",
   "ui.plugins.map.try.needKey": "填好 Web 服务 Key（测试并保存）以后才能试查；查地点、算路线要用它",
@@ -2040,5 +2040,5 @@
   "ui.plugins.googleMaps.panel.allowOverage": "超了免费量还接着用（超出的谷歌按量收费；不勾就先停用、退回高德或 OpenStreetMap）",
   "ui.plugins.googleMaps.panel.howTo": "怎么在 Google Cloud 开这几个 API、建两个 Key、加限制：见用户手册 · 地图 的「谷歌地图」一节",
   "ui.plugins.googleMaps.panel.billing": "谷歌要求项目开结算（二狗不碰付款信息）：请在 Google Cloud 设好预算提醒、给每个 API 设每日上限，防止扣钱",
-  "ui.plugins.googleMaps.panel.privacy": "大陆以外看地图时，地图数据由你的浏览器直接从谷歌取（谷歌看得到这台设备的 IP 和你正在看的那片）；查地点、算路线只发你问的那一两个点，查到的不存。谷歌是当前地图时，足迹画在谷歌地图上、聊天卡片的预览图向谷歌要，谷歌看得到画上去的点和线"
+  "ui.plugins.googleMaps.panel.privacy": "大陆以外看地图时，地图数据由你的浏览器直接从谷歌取（谷歌看得到这台设备的 IP 和你正在看的那片）；查地点、算路线只发你问的那一两个点，查到的不存。足迹、二狗画的点和线只在这台设备上画在谷歌地图上面，不交给谷歌；谷歌的地图关在单独的框里，读不到二狗的页面；聊天卡片的预览图只向谷歌要那一片的底图"
 }

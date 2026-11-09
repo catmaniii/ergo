@@ -11,7 +11,7 @@
 //   窄的时候（手机）点停留点，地图下面出一张详情卡；点概况那一句看这一天的列表；这张卡是抽屉：顶上的把手往下拖拖低（只露标题那一行，
 //   记在这台设备上），再往下拖关掉，往上拖拉高，点一下把手拖低 / 拉高；
 // - 取不到（手机插件没启用、日期不对）在那一条里写为什么，地图照样能看。
-// 足迹是本机守护进程现算的（GET /api/map/day，不联网）；451 起画在当前地图上——高德、谷歌的脚本看得到画上去的轨迹（用户 2026-11-09 定）。
+// 足迹是本机守护进程现算的（GET /api/map/day，不联网）；451 起底图是当前地图，453 起足迹画在盖在底图上面的自己那一层上，不交给高德、谷歌。
 import { type PointerEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { DaemonHttp } from "../../app/daemon-http.ts";
 import type { Navigate } from "../../app/route.ts";

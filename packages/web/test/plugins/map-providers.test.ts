@@ -174,10 +174,11 @@ describe("地图切换列哪几家", () => {
     expect(switchEntries("mainland", THREE, pageWith({ failed: { worldmap: "script failed" } }))).toEqual([{ id: "amap" }, { id: "osm" }, { id: "worldmap", failed: "script failed" }]);
   });
 
-  test("菜单最后那一句照新规矩写（地图页、足迹、聊天卡片都用这一家），不再有\"看足迹一律 OpenStreetMap\"", () => {
+  test("菜单最后那一句照新规矩写（地图页、足迹、聊天卡片都用这一家当底图，453：点和线只在这台设备上画），不再有\"看足迹一律 OpenStreetMap\"", () => {
     const status = sw({}).status!;
     const html = renderToStaticMarkup(createElement(MapSwitchItems, { status, current: undefined, onPick: () => {} }));
-    expect(html).toContain("地图页、足迹、聊天里的地图卡片都用这一家");
+    expect(html).toContain("地图页、足迹、聊天里的地图卡片都用这一家当底图");
+    expect(html).toContain("足迹和二狗画的点、线只在这台设备上画");
     expect(html).not.toContain("一律用 OpenStreetMap");
     expect(html).toContain("现在是假世界地图");
   });

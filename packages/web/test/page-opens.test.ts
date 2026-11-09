@@ -285,6 +285,28 @@ afterAll(async () => {
  * 看外层交给谷歌那一边的有没有足迹、点、线
  */
 const FRAME_SPY = `if (window !== window.top) { window.__got = []; window.addEventListener("message", (e) => { try { window.__got.push(JSON.stringify(e.data)); } catch (err) { window.__got.push(String(err)); } }, true); }`;
+/**
+ * 交给谷歌隔离框的每一条消息只能是这几种、只带这几样（453）：init 是代码和设置，别的是视野指令。点、线、足迹没有地方放——
+ * 加了别的字段（比如把画什么交进去）这里就红
+ */
+const FRAME_MESSAGE_FIELDS: Record<string, readonly string[]> = {
+  init: ["code", "config"],
+  setView: ["lat", "lng", "zoom"],
+  zoomBy: ["delta"],
+  panBy: ["dx", "dy"],
+  setDark: ["dark"],
+};
+const FRAME_CONFIG_FIELDS = ["authFailed", "dark", "key", "language", "lat", "lng", "maxZoom", "minZoom", "scriptUrl", "timeoutMs", "unreachable", "version", "zoom"];
+function expectOnlyViewMessages(got: readonly string[]) {
+  expect(got.length).toBeGreaterThan(0);
+  for (const text of got) {
+    const m = JSON.parse(text) as { type: string; config?: Record<string, unknown> };
+    const fields = FRAME_MESSAGE_FIELDS[m.type];
+    expect(fields, text.slice(0, 120)).toBeDefined();
+    expect(Object.keys(m).filter((k) => k !== "type" && k !== "ergoMapFrame").toSorted()).toEqual(fields!.toSorted());
+    if (m.type === "init") expect(Object.keys(m.config!).toSorted()).toEqual(FRAME_CONFIG_FIELDS);
+  }
+}
 /** 地图页上谷歌那一种的隔离框（Playwright 的 Frame：能在框里跑脚本） */
 async function googleFrame(page: Page) {
   const frame = await (await page.locator('[data-engine="google"] iframe.map-frame').elementHandle())!.contentFrame();
@@ -850,7 +872,9 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(await sheet.locator(".map-switch-item").evaluateAll((els) => els.map((e) => e.getAttribute("data-id")))).toEqual(["auto", "amap", "osm"]);
     expect(await sheet.locator('.map-switch-item[aria-checked="true"]').getAttribute("data-id")).toBe("auto");
     expect(await sheet.locator('.map-switch-item[data-id="auto"]').innerText()).toContain("现在是高德地图");
-    expect(await sheet.innerText()).toContain("地图页、足迹、聊天里的地图卡片都用这一家，查地点、算路线也先用它");
+    expect(await sheet.innerText()).toContain("地图页、足迹、聊天里的地图卡片都用这一家当底图，查地点、算路线也先用它");
+    // 453：足迹和二狗画的点、线只在这台设备上画
+    expect(await sheet.innerText()).toContain("足迹和二狗画的点、线只在这台设备上画，这一家只知道你在看哪一片");
     expect(await sheet.innerText()).not.toContain("一律用 OpenStreetMap");
     await sheet.locator('.map-switch-item[data-id="osm"]').click();
     await page.locator('.map-canvas[data-basemap="osm"][data-choice="osm"]').waitFor({ timeout: 5000 });
@@ -962,11 +986,10 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     await expect.poll(async () => Math.round((await pin.boundingBox())!.x - before.x), { timeout: 5000 }).toBeGreaterThanOrEqual(70);
     // 交给框的：init（代码和设置）和视野指令，没有点的编号、名字、坐标
     const got = (await inFrame.evaluate("window.__got")) as string[];
-    expect(got.length).toBeGreaterThan(0);
+    expectOnlyViewMessages(got);
     for (const m of got) {
       expect(m).not.toContain("demo-marina-bay");
       expect(m).not.toContain("滨海湾");
-      expect(["init", "setView", "zoomBy", "panBy", "setDark"]).toContain((JSON.parse(m) as { type: string }).type);
     }
     // OpenStreetMap 的署名不画（谷歌自己画它的标志）
     expect(await page.locator(".map-attribution a").count()).toBe(0);
@@ -998,6 +1021,38 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(await google.isDisabled()).toBe(true);
     await page.close();
     expect(outside).toEqual([]);
+    expect(errors).toEqual([]);
+  }, 60_000);
+
+  // 453：国内手动选了谷歌、开着足迹：足迹画在框外自己那一层，框里一个点都没有；交给框的只有设置和视野（拖、放大以后也是）
+  test("谷歌当底图看足迹手机宽：足迹画在隔离框外面那一层，交给谷歌的消息里只有设置和视野", async () => {
+    const { page, errors } = await open({ width: 390, height: 844 });
+    await page.context().addInitScript(FRAME_SPY);
+    await page.evaluate(`localStorage.setItem("ergo-map-choice", JSON.stringify({ mainland: "google" }))`);
+    await page.evaluate(`localStorage.setItem("ergo-map-footprints", "on")`);
+    await page.reload();
+    await page.evaluate(`window.location.hash = "#/more/map"`);
+    await page.locator('.map-canvas[data-basemap="google"][data-choice="google"]').waitFor({ timeout: 8000 });
+    await page.locator('.map-google[data-state="ready"]').waitFor({ timeout: 8000 });
+    const stays = page.locator('.map-page-overlay .map-mark[data-kind="stay"]');
+    await stays.first().waitFor({ timeout: 8000 });
+    expect(await stays.count()).toBe(3);
+    expect(await page.locator(".map-page-overlay polyline, .map-page-overlay path").count()).toBeGreaterThan(0);
+    expect(await page.frameLocator('[data-engine="google"] iframe.map-frame').locator(".map-mark").count()).toBe(0);
+    // 放大一级、拖一下：视野指令照样只有视野
+    await page.locator(".map-zoom button[aria-label='放大']").click();
+    const box = (await page.locator(".map-canvas").boundingBox())!;
+    await page.mouse.move(box.x + 60, box.y + box.height - 160);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 140, box.y + box.height - 200, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    const got = (await (await googleFrame(page)).evaluate("window.__got")) as string[];
+    expectOnlyViewMessages(got);
+    expect(got.some((m) => m.includes('"type":"zoomBy"'))).toBe(true);
+    for (const m of got) expect(m).not.toContain("北山街");
+    await page.evaluate(`localStorage.removeItem("ergo-map-choice")`);
+    await page.close();
     expect(errors).toEqual([]);
   }, 60_000);
 

@@ -215,7 +215,7 @@ describe("设置 · 数据源 · 高德地图那一块", () => {
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>测试并保存<\/button>/);
     expect(html).toContain("在高德开放平台的控制台建");
     expect(html).toContain("只存在这台电脑上");
-    expect(html).toContain("高德是当前地图时，足迹画在高德地图上、聊天卡片的预览图向高德要，高德看得到画上去的点和线");
+    expect(html).toContain("足迹、二狗画的点和线只在这台设备上画在高德地图上面，不交给高德；聊天卡片的预览图只向高德要那一片的底图");
     expect(html).not.toMatch(/秘书|待我处理/);
   });
 

@@ -4,8 +4,8 @@
 // 底图写的是地图服务插槽（445）里那一家的编号（amap、osm、google……，地图页地图切换报上来的"真画着的那一家"）：这段写明
 // "地图上用的是 X（编号 id）"，让秘书查地点、算路线时把工具的 map 参数写成它——查询跟着地图走（lookup-tools.ts 的 map），
 // 查来的结果才画得到用户正看着的这张地图上。还没画上（loading）、不是编号的写法时不写 map，按自动挑。
-// 开着"足迹"时底图一律画 OpenStreetMap，地图页交来的编号不跟着写 osm，是这个区域手动选的那一家（没选过是"自动"挑的，国内即高德；
-// 用户 2026-11-08 定，网页 providers.ts 的 lookupBasemap）：这段照实写"看足迹时底图是 OpenStreetMap，这一带查询用 X"。
+// 451 起开着"足迹"时底图也是当前地图，编号就是画着的那一家；453 起足迹、点和线只在用户这台设备上画（不交给高德、谷歌，
+// 它们只知道地图看的是哪一片）：开着足迹时照实写一句，他问"地图公司看不看得到"时秘书答得对。
 // 给模型看的话，照旧只用中文（多语言第 6 条）。
 import { MAP_PROVIDER_ID, type MapMark } from "@ergo/protocol";
 import { MAP_TOOL } from "./lookup-tools.ts";
@@ -38,7 +38,7 @@ export function mapChatNote(mark: MapMark): string {
   const looking = mark.card
     ? `看的是聊天里的一张地图卡片${mark.card.title ? `「${mark.card.title}」` : ""}（卡片 ${mark.card.id}）`
     : mark.footprints
-      ? `"足迹"开着，看的是 ${mark.footprints.date} 那一天的足迹${mark.footprints.spot ? `，选中了「${mark.footprints.spot}」` : ""}`
+      ? `"足迹"开着，看的是 ${mark.footprints.date} 那一天的足迹${mark.footprints.spot ? `，选中了「${mark.footprints.spot}」` : ""}（足迹只在他这台设备上画，不发给高德、谷歌，它们只知道地图看的是哪一片）`
       : `"足迹"关着`;
   const lines = [
     `（这句是用户在二狗的地图页上，${how}：${view}；${looking}。`,
