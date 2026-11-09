@@ -68,9 +68,10 @@ export function personalFileSub(file: PersonalFileSummary): string {
   return file.relation === undefined ? counts : t("pages.personalFiles.relationCounts", { relation: file.relation, counts });
 }
 
-/** 怎么写进来的（不带原话）：你在档案页填的、你在聊天里说的、你在核对卡上确认的、管理员提议你确认的 */
+/** 怎么写进来的（不带原话）：你在档案页填的、你在聊天里说的、你在核对卡上确认的、管理员提议你确认的、二狗统一了写法（460） */
 export function sourceVia(source: PersonalFileSource): string {
   if (source.via === "page") return t("pages.personalFiles.via.page");
+  if (source.via === "tidy") return t("pages.personalFiles.via.tidy");
   if (source.via === "curator") return t(source.origin === "contacts" ? "pages.personalFiles.via.contacts" : source.origin === "vcard" ? "pages.personalFiles.via.vcard" : "pages.personalFiles.via.curator");
   return source.basis === "explicit" ? t("pages.personalFiles.via.explicit") : t("pages.personalFiles.via.confirmed");
 }
@@ -83,9 +84,9 @@ export function valueSourceLine(value: PersonalFieldValue): string {
   return t("pages.personalFiles.sourceLine", { when, via: sourceVia(value.source) });
 }
 
-/** 原话：有就带引号，彻底删除了写明；页面里改的没有 */
+/** 原话：有就带引号，彻底删除了写明；页面里改的、二狗统一写法的没有 */
 export function sourceQuote(source: PersonalFileSource | undefined): string | undefined {
-  if (!source || source.via === "page") return undefined;
+  if (!source || source.via === "page" || source.via === "tidy") return undefined;
   if (source.messageGone) return t("pages.personalFiles.quoteGone");
   return source.quote === undefined ? undefined : t("pages.personalFiles.quote", { quote: source.quote });
 }

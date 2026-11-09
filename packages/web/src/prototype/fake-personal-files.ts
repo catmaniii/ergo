@@ -5,6 +5,7 @@
 // 分组——妈妈、女儿没选分组（按关系猜成家人），同事小张建时选了"重要的人"，装修的王师傅没写关系（猜成其他人）；能改分组。
 // 449：生日、纪念日存成统一的样子（妈妈的农历生日 "lunar:--08-15"）；本人的结婚纪念日是以前存的写法（认得出，照新样子显示），
 // 相识纪念日是以前随手写的、认不出的（档案页上提示点"改"重新选）。改的时候用选择器，值经 checkPersonalValue 规范化。
+// 460：本人的结婚纪念日以前存的写法已经由二狗统一成存的样子（现在的值 "2018-10-01" 留痕 via tidy，以前的值是原来的写法）。
 import {
   type AddPersonBody,
   guessPersonGroup,
@@ -51,6 +52,8 @@ interface FakePerson {
 }
 
 const page = (when: string): PersonalFileSource => ({ via: "page", at: when });
+/** 460：二狗统一了写法 */
+const tidy = (when: string): PersonalFileSource => ({ via: "tidy", at: when });
 const chat = (when: string, quote: string, basis: "explicit" | "confirmed"): PersonalFileSource => ({ via: "secretary", basis, at: when, messageId: "msg-pf-demo-1", quote });
 
 const view = (v: FakeValue): PersonalFieldValue => ({ value: v.value, since: v.since, ...(v.until === undefined ? {} : { until: v.until }), source: v.source });
@@ -111,7 +114,10 @@ export class FakePersonalFiles {
       person("me", "self", {
         id_card: [{ value: "123456789012345678", since: at("10-21", "21:40"), source: chat(at("10-21", "21:40"), "记住我身份证号是 123456789012345678", "confirmed") }],
         birthday: [{ value: "1990-01-01", since: at("10-12", "09:00"), source: page(at("10-12", "09:00")) }],
-        "anniversary:结婚纪念日": [{ value: "2018年10月1日", since: at("10-25", "20:30"), source: chat(at("10-25", "20:30"), "我们的结婚纪念日是2018年10月1日", "explicit") }],
+        "anniversary:结婚纪念日": [
+          { value: "2018年10月1日", since: at("10-25", "20:30"), until: at("10-26", "08:00"), source: chat(at("10-25", "20:30"), "我们的结婚纪念日是2018年10月1日", "explicit") },
+          { value: "2018-10-01", since: at("10-26", "08:00"), source: tidy(at("10-26", "08:00")) },
+        ],
         "anniversary:相识纪念日": [{ value: "大学开学那天", since: at("10-13", "21:00"), source: page(at("10-13", "21:00")) }],
         phone: [{ value: "13800000000", since: at("10-12", "09:00"), source: page(at("10-12", "09:00")) }],
         address: [
