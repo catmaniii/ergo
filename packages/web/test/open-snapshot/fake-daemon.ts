@@ -1,6 +1,6 @@
 // 打开页面量补发用的假守护进程（388）：在 127.0.0.1 上系统挑的端口提供构建好的安装版页面和 /ws，照守护进程的规矩补发合成的事件日志
-// （gateway.ts 的 subscribe：先回响应，再按游标补发；游标为 0 时会话频道只补最近一页；带来的游标比最后一条还大的点名重新同步；
-// 空订阅当回执，只回响应）。数每条连接上推了多少帧、多少字节、回执什么时候回的。
+// （gateway.ts 的 subscribe：先回响应，再按游标补发；游标为 0 时会话频道只补最近一页、别的频道补合并后的（456，协议包的 compactChannel；
+// compact: false 照改之前全补）；带来的游标比最后一条还大的点名重新同步；空订阅当回执，只回响应）。数每条连接上推了多少帧、多少字节、回执什么时候回的。
 // 后台放久了切回来（450）也用它：开着的时候往日志里加事件并推给订阅了的连接（push）、网页换了一版时推临时的 web_version、
 // 让现有的连接变成半开（这头不收不发、也不关：手机被挂起时断开的消息没到）、"还被信任吗"挂着不回。
 // 不碰真的守护进程、真的数据目录、固定端口。
@@ -9,7 +9,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
-import { HISTORY_PAGE_SIZE } from "../../src/state/index.ts";
+import { compactChannel, HISTORY_PAGE_SIZE, keepsOpenEvents } from "../../src/state/index.ts";
 import type { SyntheticLog } from "./synthetic.ts";
 
 /** 一条连接上的补发：推了几帧、多少字节，主订阅的回执什么时候回的 */
@@ -47,8 +47,12 @@ export interface FakeDaemon {
 
 const WEB_VERSION_META = /<meta name="ergo-web-version" content="([^"]*)"\s*\/?>/;
 
-/** html：构建出的安装版 index.html（单个文件，脚本样式都内联了）；assets：构建目录（字体从这里给，不给就 404） */
-export async function startFakeDaemon(page: string, log: SyntheticLog, assets?: string): Promise<FakeDaemon> {
+/**
+ * html：构建出的安装版 index.html（单个文件，脚本样式都内联了）；assets：构建目录（字体从这里给，不给就 404）；
+ * compact：游标为 0 的会话以外的频道补合并后的（照 gateway.ts，默认）；false 照改之前从第一条起全补（旧版守护进程）
+ */
+export async function startFakeDaemon(page: string, log: SyntheticLog, assets?: string, options: { compact?: boolean } = {}): Promise<FakeDaemon> {
+  const compact = options.compact ?? true;
   const builtVersion = WEB_VERSION_META.exec(page)?.[1];
   if (builtVersion === undefined) throw new Error("构建出的 index.html 里没有网页版本号");
   let webVersion = builtVersion;
@@ -142,7 +146,8 @@ export async function startFakeDaemon(page: string, log: SyntheticLog, assets?: 
         for (const channel of channels) {
           const known = resync.includes(channel) ? 0 : cursors[channel]!;
           const from = known === 0 ? firstReplayAfter(log, channel) : known;
-          for (const frame of log.channels.get(channel) ?? []) if (frame.seq > from) send(frame, true);
+          const replay = (log.channels.get(channel) ?? []).filter((frame) => frame.seq > from);
+          for (const frame of known === 0 && compact && keepsOpenEvents(channel) ? compactChannel(replay) : replay) send(frame, true);
           peer.subs.set(channel, log.lastSeq(channel));
         }
       };

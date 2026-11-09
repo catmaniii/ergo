@@ -10,7 +10,8 @@
 // 会话照现在的"最近一页 + 往上翻"：每个会话只留当前分支上最近一页（HISTORY_PAGE_SIZE 条）消息起的那一段（之前的记录、阶段开始的
 // 记号、那之前的消息带的语音对象都不留），留下的还能往上翻。游标照旧是收到的最后一条：守护进程从它之后补。
 // 本机除了折好的快照，还存一份事件本身（452）：网页换了一版、快照不能用了，事件照样能用——用新版本的状态层把存着的事件重新折一遍
-// （等于本机自己做一次"从头补"），再带着游标订阅，守护进程只补增量。只存会话频道以外的（keepsOpenEvents）。
+// （等于本机自己做一次"从头补"），再带着游标订阅，守护进程只补增量。只存会话频道以外的（keepsOpenEvents）。存的事件按冷补发同一份规则
+// 合并（456，协议包的 replay-compaction.ts）：被后来的盖掉的旧记录不留。
 // 纯函数，不依赖 React 和 DOM。
 import { initialCalendarState } from "./calendar.ts";
 import { CHANNELS, type EventFrame, HISTORY_PAGE_SIZE, MAINTAINER_CHANNEL_PREFIX, onBranchPath } from "./protocol.ts";
@@ -19,8 +20,11 @@ import type { UiInput, UiState } from "./ui-state.ts";
 /** 快照的格式：存的样子变了就加一，旧格式的快照不用（页面换了一版的本来就不用，见 app/open-snapshot.ts） */
 export const OPEN_SNAPSHOT_FORMAT = 1;
 
-/** 本机存的事件的格式（存的样子、存在哪些键上）：变了就加一，旧格式的事件不用、从头补 */
-export const OPEN_EVENTS_FORMAT = 1;
+/**
+ * 本机存的事件的格式（存的样子、存在哪些键上）：变了就加一，旧格式的事件不用、从头补。2：按冷补发同一份规则合并过（456，
+ * 记着各频道合并到哪儿）；1（452）存的是没合并的整段，页面照样认（读出来先合并，见 app/open-snapshot.ts）
+ */
+export const OPEN_EVENTS_FORMAT = 2;
 
 /**
  * 本机存不存这个频道的事件（452）：会话频道（秘书会话、负责人的会话）不存——冷打开时守护进程本来就只补最近一页（更早的经 HTTP

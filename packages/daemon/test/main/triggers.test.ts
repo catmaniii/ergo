@@ -66,6 +66,9 @@ const ECHO: FauxStep = { kind: "echo_context" };
 const messagesOf = (frontend: TestFrontend, channel: string) => frontend.events({ channel, type: EVENT_TYPES.message }).map((f) => f.payload as MessageEventPayload);
 const textOf = (p: MessageEventPayload) => p.message.parts.map((part) => ("text" in part ? part.text : `<${part.type}>`)).join("");
 const tasksOf = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).map((f) => f.payload as TaskEventPayload);
+/** 事件库里看板上的任务事件（全部历史；页面冷补发只收到每个任务最新的那条） */
+const taskEventsIn = (td: { daemon: { store: { read(channel: string, after: number, type?: string): { payload: unknown }[] } } }) =>
+  td.daemon.store.read(BOARD, 0, EVENT_TYPES.task).map((e) => e.payload as TaskEventPayload);
 const jobsOf = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.scheduledJob }).map((f) => f.payload as ScheduledJobEventPayload);
 const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => (f.payload as CardEventPayload).card);
 const toolPartsOf = (frontend: TestFrontend, channel: string): ToolCallPart[] =>
@@ -692,7 +695,8 @@ describe("某个时间做一次", () => {
     const second = await startTestDaemon({ clock, reuse: { dataDir, homeDir }, secretary: [say("好")], maintainer: [say("查好了，补做的")] });
     const again = await connect(second.url);
     await stateIs(again, "t-1", "done");
-    expect(tasksOf(again).filter((e) => e.change === "time_due")).toHaveLength(1);
+    // 到点那条任务事件在事件库里看：新连上的页面冷补发只收到每个任务最新的那条（456）
+    expect(taskEventsIn(second).filter((e) => e.change === "time_due")).toHaveLength(1);
     const notes = messagesOf(again, TM1).filter((m) => m.message.speaker === "system" && m.agentInput !== true).map(textOf);
     expect(notes).toContain("原定 10 月 8 日（周四）09:00 做：那时守护进程没在运行，开机后补做一次");
     await again.close();
@@ -702,7 +706,7 @@ describe("某个时间做一次", () => {
     const later = await connect(third.url);
     await settled(third, "tm-1");
     expect(third.daemon.tasks.get("t-1")!.state).toBe("done");
-    expect(tasksOf(later).filter((e) => e.change === "time_due")).toHaveLength(1);
+    expect(taskEventsIn(third).filter((e) => e.change === "time_due")).toHaveLength(1);
     expect(messagesOf(later, TM1).filter((m) => m.message.speaker === "agent").map(textOf)).not.toContain("不该再做");
   }, 120_000);
 

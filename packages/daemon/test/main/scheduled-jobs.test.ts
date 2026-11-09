@@ -810,12 +810,13 @@ describe("错过的触发", () => {
     // 10-09、10-10 两晚的备份都错过了
     const second = await startTestDaemon({ clock: new ManualClock(at(10, 10, 9, 20)), reuse: { dataDir: d.dataDir, homeDir: d.homeDir }, maintainer });
     const again = await connect(second);
-    const caught = await jobWhere(again, (e) => e.change === "triggered", "补跑");
+    // 补跑那条 triggered 可能在连上之前就被后来的运行事件盖掉了：冷补发只发最新的（456），连上的页面不一定收到，从事件库里看
+    const caught = await eventually(() => jobEventsOf(second.daemon.store), (e) => e.change === "triggered", "补跑");
     expect(caught.run).toMatchObject({ trigger: "catch_up", missed: 3, dueAt: nowIso(at(10, 10, 9, 0)), state: "queued" });
     expect(caught.job.nextAt).toBe(nowIso(at(10, 11, 9, 0)));
     await jobWhere(again, (e) => e.change === "run_finished" && e.run?.state === "done", "补跑做完");
     await settled(second, "tm-1");
-    expect(jobsOf(again).filter((e) => e.change === "triggered")).toHaveLength(1);
+    expect(jobEventsOf(second.daemon.store).filter((e) => e.change === "triggered")).toHaveLength(1);
 
     const fired = await eventually(() => inboxOf(again), (i) => i.kind === "notice" && i.notice === "reminder_due", "晚到的提醒");
     expect(fired.kind === "notice" && fired.body).toContain("晚了 20 分钟");
@@ -866,8 +867,8 @@ describe("错过的触发", () => {
     expect(interrupted.run).toMatchObject({ runId: "j-1-r1", state: "interrupted", reason: expect.stringContaining("被打断") });
     // 不算进连续失败：几次重启不会把它自动暂停
     expect(interrupted.job).toMatchObject({ state: "active", lastFailed: false, consecutiveFailures: 0, nextAt: nowIso(at(10, 9, 9, 0)) });
-    // 没有补跑（10-08 09:00 那次已经开始跑了，只是被打断）：补发的事件里只有停机前那一次到点
-    expect(jobsOf(again).filter((e) => e.change === "triggered").map((e) => e.run!.runId)).toEqual(["j-1-r1"]);
+    // 没有补跑（10-08 09:00 那次已经开始跑了，只是被打断）：事件库里只有停机前那一次到点（连上的页面冷补发只收到每次运行最新的那条，456）
+    expect(jobEventsOf(second.daemon.store).filter((e) => e.change === "triggered").map((e) => e.run!.runId)).toEqual(["j-1-r1"]);
   }, 120_000);
 });
 

@@ -90,13 +90,16 @@ describe("全局一个语言：设置里改，开着的前端实时跟着变", (
 
     fs.writeFileSync(path.join(dataDirLayout(first.dataDir).config, "language.json"), JSON.stringify({ format: 1, language: "zh-CN" }));
     const third = await startTestDaemon({ reuse });
-    const frontend = await TestFrontend.connect(third.url);
-    await frontend.subscribe({ [LANGUAGE]: 0 });
-    await waitUntil(() => languageEvents(frontend).length >= 2);
-    expect(languageEvents(frontend)).toEqual([
+    // 事件库里两条：停之前改的、启动时照改过的配置文件推的
+    expect(third.daemon.store.read(LANGUAGE, 0, EVENT_TYPES.language).map((e) => e.payload)).toEqual([
       { language: "en", source: "settings" },
       { language: "zh-CN", source: "config_file" },
     ]);
+    // 新连上的页面冷补发只收到最新的那条（456）
+    const frontend = await TestFrontend.connect(third.url);
+    await frontend.subscribe({ [LANGUAGE]: 0 });
+    await waitUntil(() => languageEvents(frontend).length >= 1);
+    expect(languageEvents(frontend)).toEqual([{ language: "zh-CN", source: "config_file" }]);
   });
 });
 

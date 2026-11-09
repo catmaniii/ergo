@@ -4,13 +4,15 @@
 // - 热打开（本机有快照）：先用快照把界面画出来（补发还没到时就看得到上次的内容），订阅带快照的游标，只补增量；
 // - 网页升级后第一次打开不用旧快照，用本机存的事件重新折一遍（452）：订阅只带会话频道以外的游标，守护进程只补增量（加秘书会话最近一页），
 //   补完存下的快照和一台新设备冷打开存下的一样；
-// - 设备被吊销、回到配对页时本机快照和事件都删掉。
+// - 设备被吊销、回到配对页时本机快照和事件都删掉；
+// - 冷补发只发最新的（456）：守护进程补合并后的，新设备冷打开、换了一版再打开存下的快照和守护进程全补时的一模一样，本机存的是合并后的。
 // 不碰真的守护进程、~/.ergo、固定端口。本机没有 Chrome（或 Edge）时跳过。
 import { type Browser, chromium, type Page } from "playwright-core";
 import { build, type Rolldown } from "vite";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { fileURLToPath } from "node:url";
 import { findChrome } from "../build/chrome.ts";
+import { compactChannel, keepsOpenEvents } from "../src/state/index.ts";
 import { type FakeDaemon, startFakeDaemon } from "./open-snapshot/fake-daemon.ts";
 import { MEASURE_SCRIPT, storedEventCounts, storedSnapshot, storedSnapshotFull, waitOpened, waitStored } from "./open-snapshot/measure.ts";
 import { type SyntheticLog, syntheticIncrement, syntheticLog, USER_SCALE } from "./open-snapshot/synthetic.ts";
@@ -43,8 +45,8 @@ afterAll(async () => {
   for (const d of daemons) await d.close();
 });
 
-async function open(log: SyntheticLog, existing?: FakeDaemon): Promise<{ daemon: FakeDaemon; page: Page; errors: string[] }> {
-  const daemon = existing ?? (await startFakeDaemon(html, log));
+async function open(log: SyntheticLog, existing?: FakeDaemon, options: { compact?: boolean } = {}): Promise<{ daemon: FakeDaemon; page: Page; errors: string[] }> {
+  const daemon = existing ?? (await startFakeDaemon(html, log, undefined, options));
   if (!existing) daemons.push(daemon);
   const context = await browser!.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
@@ -60,7 +62,8 @@ const shown = (page: Page, no: number, timeout = 10_000) => page.getByText(`合�
 describe.skipIf(!CHROME)("打开页面：补发攒着一次放、本机快照只补增量（388）", () => {
   test("冷打开一次交、不画中间状态；热打开先画上次的样子、只补增量", async () => {
     const log = syntheticLog();
-    const { daemon, page, errors } = await open(log);
+    // 守护进程不合并（456 之前）：一万多帧的冷补发照样攒着一次交
+    const { daemon, page, errors } = await open(log, undefined, { compact: false });
     await page.goto(daemon.url);
     const cold = await waitOpened(page);
     const coldConn = daemon.connections.at(-1)!;
@@ -104,8 +107,8 @@ describe.skipIf(!CHROME)("打开页面：补发攒着一次放、本机快照只
     const kept = [...log.channels.keys()].filter((c) => c !== "secretary");
     const lastOf = (channels: string[]) => Object.fromEntries(channels.map((c) => [c, log.lastSeq(c)]));
     const before = await waitStored(page, lastOf(kept));
-    // 会话频道以外的事件一条不落存下了
-    await expect.poll(() => storedEventCounts(page), { timeout: 10_000, interval: 300 }).toEqual(lastOf(kept));
+    // 会话频道以外的事件存下了：守护进程补的合并后的那些（456）
+    await expect.poll(() => storedEventCounts(page), { timeout: 10_000, interval: 300 }).toEqual(mergedCounts(log, kept));
 
     // 关掉期间又发生了一点事；网页换了一版
     const through = lastOf(kept);
@@ -131,7 +134,8 @@ describe.skipIf(!CHROME)("打开页面：补发攒着一次放、本机快照只
     const after = await storedSnapshotFull(page);
     expect(after!.webVersion).toBe("0123456789abcdef");
     expect(before.webVersion).not.toBe(after!.webVersion);
-    await expect.poll(() => storedEventCounts(page), { timeout: 10_000, interval: 300 }).toEqual(lastOf(kept));
+    // 增量是一条不少补来的，存的时候接着合并：存着的和这时冷补发会发的一样多
+    await expect.poll(() => storedEventCounts(page), { timeout: 10_000, interval: 300 }).toEqual(mergedCounts(log, kept));
 
     // 一台新设备（空的浏览器）冷打开同一个守护进程：补全部，存下的快照和上面那台一模一样
     const fresh = await open(log, daemon);
@@ -143,6 +147,48 @@ describe.skipIf(!CHROME)("打开页面：补发攒着一次放、本机快照只
     expect(after!.snapshot).toEqual(cold!.snapshot);
     expect(errors).toEqual([]);
     expect(fresh.errors).toEqual([]);
+  }, 240_000);
+
+  test("冷补发只发最新的（456）：新设备冷打开只收合并后的，存下的和守护进程全补时一模一样；换了一版再打开只补增量，也一样", async () => {
+    const log = syntheticLog();
+    const all = () => Object.fromEntries([...log.channels.keys()].map((c) => [c, log.lastSeq(c)]));
+    const kept = [...log.channels.keys()].filter(keepsOpenEvents);
+    // 改之前：守护进程从第一条起全补
+    const plain = await open(log, undefined, { compact: false });
+    await plain.page.goto(plain.daemon.url);
+    const plainOpened = await waitOpened(plain.page);
+    await waitStored(plain.page, all());
+    const plainStored = await storedSnapshotFull(plain.page);
+
+    // 改之后：另一台新设备，守护进程补合并后的
+    const merged = await open(log);
+    await merged.page.goto(merged.daemon.url);
+    const mergedOpened = await waitOpened(merged.page);
+    const secretaryPage = log.channels.get("secretary")!.filter((f) => f.seq > firstPageAfter(log)).length;
+    const mergedFrames = kept.reduce((n, c) => n + compactChannel(log.channels.get(c)!).length, 0) + secretaryPage;
+    expect(merged.daemon.connections.at(-1)!.frames).toBe(mergedFrames);
+    expect(mergedOpened.frames).toBe(mergedFrames);
+    expect(mergedFrames).toBeLessThan(plainOpened.frames / 5);
+    await waitStored(merged.page, all());
+    const mergedStored = await storedSnapshotFull(merged.page);
+    expect(mergedStored!.snapshot).toEqual(plainStored!.snapshot);
+    await expect.poll(() => storedEventCounts(merged.page), { timeout: 10_000, interval: 300 }).toEqual(mergedCounts(log, kept));
+
+    // 关掉期间又发生了一点事，网页换了一版：两台都再打开（一台的守护进程全补、一台合并），只补增量，存下的还是一样
+    syntheticIncrement(log, 3);
+    for (const d of [plain.daemon, merged.daemon]) d.setWebVersion("0123456789abcdef");
+    await plain.page.reload();
+    await merged.page.reload();
+    await waitOpened(plain.page);
+    const reopened = await waitOpened(merged.page);
+    expect(Object.entries(merged.daemon.connections.at(-1)!.cursors!).filter(([, n]) => n > 0).length).toBe(kept.length);
+    expect(reopened.frames).toBeLessThan(200);
+    await waitStored(plain.page, all());
+    await waitStored(merged.page, all());
+    expect((await storedSnapshotFull(merged.page))!.snapshot).toEqual((await storedSnapshotFull(plain.page))!.snapshot);
+    await expect.poll(() => storedEventCounts(merged.page), { timeout: 10_000, interval: 300 }).toEqual(mergedCounts(log, kept));
+    expect(plain.errors).toEqual([]);
+    expect(merged.errors).toEqual([]);
   }, 240_000);
 
   test("设备被吊销、回到配对页：本机快照删掉", async () => {
@@ -163,6 +209,11 @@ describe.skipIf(!CHROME)("打开页面：补发攒着一次放、本机快照只
     expect(await storedEventCounts(page)).toEqual({});
   }, 180_000);
 });
+
+/** 各频道合并后留几条（守护进程这时冷补发会发的；456） */
+function mergedCounts(log: SyntheticLog, channels: readonly string[]): Record<string, number> {
+  return Object.fromEntries(channels.map((c) => [c, compactChannel(log.channels.get(c) ?? []).length]));
+}
 
 /** 游标为 0 时秘书会话从哪条之后补（照 fake-daemon.ts：最近一页消息起的） */
 function firstPageAfter(log: SyntheticLog): number {

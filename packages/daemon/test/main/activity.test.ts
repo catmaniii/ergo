@@ -41,6 +41,13 @@ const activityOf = (frontend: TestFrontend, agentId: string) =>
     .map((f) => f.payload as ActivityEventPayload)
     .filter((a) => a.agentId === agentId)
     .map((a) => ({ state: a.state, ...(a.detail === undefined ? {} : { detail: a.detail }) }));
+/** 事件库里一个 agent 的活动状态（全部历史；页面冷补发只收到每个 agent 最新的那条） */
+const storedActivity = (td: { daemon: { store: { read(channel: string, after: number, type?: string): { payload: unknown }[] } } }, agentId: string) =>
+  td.daemon.store
+    .read(ACTIVITY, 0, EVENT_TYPES.activity)
+    .map((e) => e.payload as ActivityEventPayload)
+    .filter((a) => a.agentId === agentId)
+    .map((a) => ({ state: a.state, ...(a.detail === undefined ? {} : { detail: a.detail }) }));
 /** 一条活动状态：状态和说明 */
 const is = (state: ActivityState, detail?: ActivityDetail) => ({ state, ...(detail === undefined ? {} : { detail }) });
 const kindIs = (kind: ActivityDetail["kind"]) => (a: { detail?: ActivityDetail }) => a.detail?.kind === kind;
@@ -170,16 +177,18 @@ describe("活动状态频道", () => {
 
     // 重启：子进程都不在了，待处理的审批卡还在，仍是等你（不多记一条）
     const second = await startTestDaemon({ reuse: { dataDir, homeDir }, config, maintainer: [say("好，我重试")] });
+    expect(storedActivity(second, "tm-1")).toEqual(activityOf(frontend, "tm-1"));
+    // 新连上的页面冷补发只收到每个 agent 最新的那条（456）：仍是等你
     const fresh = await TestFrontend.connect(second.url);
     await fresh.subscribe({ [ACTIVITY]: 0, [CARDS]: 0 });
-    await waitUntil(() => activityOf(fresh, "tm-1").length >= 5);
-    expect(activityOf(fresh, "tm-1")).toEqual(activityOf(frontend, "tm-1"));
+    await waitUntil(() => activityOf(fresh, "tm-1").length >= 1);
+    expect(activityOf(fresh, "tm-1")).toEqual([is("waiting_for_user", approvalOf(card.id))]);
 
     // 批准：卡处理掉了，不再等你（负责人收到"可以重试"，被唤起接着干，做完回到空闲）
     const latest = cardsOf(fresh).findLast((c) => c.id === card.id)!;
     expect((await fresh.cardAction({ cardId: card.id, action: "approve", expectedVersion: latest.version })).ok).toBe(true);
     await waitUntil(() => activityOf(fresh, "tm-1").some(kindIs("idle")), { timeoutMs: 30_000, describe: () => JSON.stringify(activityOf(fresh, "tm-1")) });
-    expect(activityOf(fresh, "tm-1").slice(5).some((a) => a.state === "waiting_for_user")).toBe(false);
+    expect(activityOf(fresh, "tm-1").slice(1).some((a) => a.state === "waiting_for_user")).toBe(false);
   }, 90_000);
 
   it("提问卡没回答时秘书是等你（澄清，说明带着卡片编号），待办里有一条；回答以后两边都没了，回到休眠，接着处理交回来的答案", async () => {
