@@ -1,8 +1,9 @@
-// 设置 · 目录授权（#/more/folder-grants，数据与设备组，排在授权的文件夹后面；ADR-0049）：所有 agent 的目录授权一处列出。
-// - 最上面一组是"所有 agent · 只读"：授权的文件夹（那一页里改），只放开读；
-// - 下面每个 agent 一组（个人助理在前，再是各个项目、任务的负责人；项目、任务删掉了的写明"已经没有这个 agent 了"，照样能删）：
-//   一行一条（ui/folder-grants.tsx），能逐条删；每组能整组清掉（先确认），整页能一次清掉全部已过期的；
-// - 加在各 agent 的 ⚙ 里（个人助理、项目、任务各自的），或者对话里审批卡上点"以后都允许"；
+// 设置 · 目录授权（#/more/folder-grants，数据与设备组，排在数据源后面；ADR-0049）：读写哪些目录不用问，一页看全、改全。
+// 448 号票起原来单独一页的"授权的文件夹"并进来，旧地址 #/more/authorized-folders 认作这一页（app/route-hash.ts）。
+// - 最上面一节是授权的文件夹（所有 agent 共用、只读，ADR-0041）：能加能拿掉，选文件夹的框，见 AuthorizedFolders.tsx；
+// - 下面"各个 agent 的"：说明、怎么加、登记了也不放的，整页能一次清掉全部已过期的；接着每个 agent 一组（个人助理在前，
+//   再是各个项目、任务的负责人；项目、任务删掉了的写明"已经没有这个 agent 了"，照样能删）：一行一条（ui/folder-grants.tsx），
+//   能逐条删，每组能整组清掉（先确认）；加在各 agent 的 ⚙ 里（个人助理、项目、任务各自的），或者对话里审批卡上点"以后都允许"；
 // - 最后是最近的使用记录：谁、什么时候、读写删了哪个登记目录的哪个路径，文件工具能拿到的写上字节数；
 //   bash 里的只记看得到的路径参数，不是程序实际读写了哪些文件，如实写明。
 import { useCallback, useEffect, useState } from "react";
@@ -23,6 +24,7 @@ import {
 import { NamedText } from "../../ui/assistant-name.tsx";
 import { Section, Sheet } from "../../ui/common.tsx";
 import { FolderGrantRows } from "../../ui/folder-grants.tsx";
+import { AuthorizedFoldersSection } from "./AuthorizedFolders.tsx";
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
@@ -31,7 +33,7 @@ function GroupTitle({ group }: { group: FolderGrantGroup }) {
   return group.agentLabel === undefined ? <>{t("pages.folderGrants.gone", { agentId: group.agentId })}</> : <NamedText text={group.agentLabel} />;
 }
 
-export function FolderGrantsPage({ onOpenAuthorizedFolders }: { onOpenAuthorizedFolders(): void }) {
+export function FolderGrantsPage() {
   const { http } = useStore();
   const [view, setView] = useState<FolderGrantsView>();
   const [uses, setUses] = useState<FolderGrantUseView[]>();
@@ -88,48 +90,22 @@ export function FolderGrantsPage({ onOpenAuthorizedFolders }: { onOpenAuthorized
 
   return (
     <>
-      <Section title={t("pages.folderGrants.title")}>
+      <AuthorizedFoldersSection />
+      <Section title={t("pages.folderGrants.perAgent")}>
         <span className="muted">{t("pages.folderGrants.intro")}</span>
         <span className="muted">{t("pages.folderGrants.howToAdd")}</span>
         <div className="sys-note">{t("pages.folderGrants.never")}</div>
         {error && <div className="sys-note">{error}</div>}
-        <div className="af-actions">
-          <button type="button" className="btn" disabled={busy || expired === 0} onClick={() => clear({ expired: true })}>
-            {t("pages.folderGrants.clearExpired", { count: expired })}
-          </button>
-        </div>
-      </Section>
-      <Section title={t("pages.folderGrants.everyone")}>
-        <span className="muted">{t("pages.folderGrants.everyoneIntro")}</span>
-        {view === undefined ? (
-          <div className="muted af-empty">{t("pages.folderGrants.loading")}</div>
-        ) : view.authorizedFolders.length === 0 ? (
-          <div className="muted af-empty">{t("pages.folderGrants.noAuthorized")}</div>
-        ) : (
-          <ul className="af-list fg-list">
-            {view.authorizedFolders.map((path) => (
-              <li key={path} className="af-row fg-row">
-                <div className="fg-main">
-                  <span className="af-path">{path}</span>
-                  <div className="fg-tags">
-                    <span className="af-tag fg-modes">{t("pages.folderGrants.readOnlyAll")}</span>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="af-actions">
-          <button type="button" className="btn ghost" onClick={onOpenAuthorizedFolders}>
-            {t("pages.folderGrants.openAuthorized")}
-          </button>
-        </div>
-      </Section>
-      {view !== undefined && groups.length === 0 && (
-        <Section title={t("pages.folderGrants.perAgent")}>
+        {view !== undefined && groups.length === 0 ? (
           <div className="muted af-empty">{t("pages.folderGrants.none")}</div>
-        </Section>
-      )}
+        ) : (
+          <div className="af-actions">
+            <button type="button" className="btn" disabled={busy || expired === 0} onClick={() => clear({ expired: true })}>
+              {t("pages.folderGrants.clearExpired", { count: expired })}
+            </button>
+          </div>
+        )}
+      </Section>
       {groups.map((group) => (
         <Section
           key={group.agentId}

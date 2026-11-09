@@ -59,7 +59,6 @@ import { PersonalFilesColumn } from "./more/PersonalFilesPage.tsx";
 import { AboutPage } from "./more/AboutPage.tsx";
 import { AppearancePage, AppearanceSummary } from "./more/AppearancePage.tsx";
 import { UserNameSetting } from "./more/UserNameSetting.tsx";
-import { AuthorizedFoldersSection } from "./more/AuthorizedFolders.tsx";
 import { FolderGrantsPage } from "./more/FolderGrantsPage.tsx";
 import { BrowsingPage } from "./more/BrowsingPage.tsx";
 import { EnterKeySetting } from "./more/EnterKeySetting.tsx";
@@ -107,7 +106,6 @@ const PAGE_TITLES: Readonly<Record<Exclude<Sub, "language">, string>> = tTable({
   "claude-code": "shell.pages.claudeCode.title",
   codex: "shell.pages.codex.title",
   "data-sources": "shell.pages.dataSources.title",
-  "authorized-folders": "shell.pages.authorizedFolders.title",
   "folder-grants": "shell.pages.folderGrants.title",
   "materials-delete": "shell.pages.materialsDelete.title",
   backup: "shell.pages.backup.title",
@@ -137,7 +135,6 @@ const PAGE_SUBS: Readonly<Record<Exclude<Sub, "language">, string>> = tTable({
   "claude-code": "shell.pages.claudeCode.sub",
   codex: "shell.pages.codex.sub",
   "data-sources": "shell.pages.dataSources.sub",
-  "authorized-folders": "shell.pages.authorizedFolders.sub",
   "folder-grants": "shell.pages.folderGrants.sub",
   "materials-delete": "shell.pages.materialsDelete.sub",
   backup: "shell.pages.backup.sub",
@@ -175,8 +172,8 @@ const SETTINGS_GROUPS: readonly { id: SettingsGroupId; rows: readonly SettingsRo
   // 数据源排在这一组最前面（外面接进来的数据，和删除素材挨着）
   // "备份"紧挨着工具调用的完整内容（是普通一行，点了进去）
   // 319b：体检（八项一查）排在"关于二狗"前面：都是"这套东西现在怎么样"的那一类；428：服务（服务管家里和二狗有关的）紧挨着体检
-  // 授权的文件夹（电脑上的文件）排在数据源后面，内核的页面，浏览插件停用时也在；目录授权（每个 agent 一份）紧挨着它
-  { id: "data", rows: ["data-sources", "authorized-folders", "folder-grants", "materials-delete", "tool-call-storage", "backup", "devices", "doctor", "services", "about"] },
+  // 目录授权排在数据源后面：最上面是授权的文件夹（所有 agent 只读，448 号票并进来的），下面每个 agent 一份；内核的页面，浏览插件停用时也在
+  { id: "data", rows: ["data-sources", "folder-grants", "materials-delete", "tool-call-storage", "backup", "devices", "doctor", "services", "about"] },
 ];
 
 /**
@@ -380,11 +377,9 @@ function SubPage({ page, item, go, navigate }: { page: Sub; item?: string; go(p:
       // 语音插件画的（上面），谁都不认得时（只渲染一个组件的测试）空着
       return null;
     case "browsing":
-      return <BrowsingPage onOpenAuthorizedFolders={() => go("authorized-folders")} />;
-    case "authorized-folders":
-      return <AuthorizedFoldersSection />;
+      return <BrowsingPage onOpenAuthorizedFolders={() => go("folder-grants")} />;
     case "folder-grants":
-      return <FolderGrantsPage onOpenAuthorizedFolders={() => go("authorized-folders")} />;
+      return <FolderGrantsPage />;
     case "devices":
       // 自己排一栏，见 SubPageCol
       return null;

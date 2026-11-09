@@ -25,7 +25,7 @@ export const VIEW_FILES_EDGE = 384;
 export const VIEW_FILE_MAX_BYTES = 40 * 1024 * 1024;
 
 /** 没找到、又没授权文件夹时告诉用户的那句 */
-export const AUTHORIZE_FOLDERS_HINT = "在聊天里跟二狗说一声授权哪个文件夹，或者在设置 · 授权的文件夹里加";
+export const AUTHORIZE_FOLDERS_HINT = "在聊天里跟二狗说一声授权哪个文件夹，或者在设置 · 目录授权里加";
 
 /** find_files 一次最多列几个 */
 const FIND_LIMIT_DEFAULT = 30;

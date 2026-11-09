@@ -51,7 +51,7 @@ export type FolderGrantView = Static<typeof FolderGrantView>;
 /** GET /api/folder-grants（加、删、清之后回的也是它）：全部 agent 的授权，连同所有 agent 都能读的授权的文件夹 */
 export const FolderGrantsView = Type.Object({
   grants: Type.Array(FolderGrantView),
-  /** 授权的文件夹（设置 · 授权的文件夹）：所有 agent · 只读 */
+  /** 授权的文件夹（设置 · 目录授权）：所有 agent · 只读 */
   authorizedFolders: Type.Array(Type.String()),
 });
 export type FolderGrantsView = Static<typeof FolderGrantsView>;

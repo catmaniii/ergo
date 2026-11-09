@@ -1665,7 +1665,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "local_folders":
         return {
-          // 授权的文件夹（叫这个名字）：所有 agent 共用，设置 · 授权的文件夹里看、改
+          // 授权的文件夹（叫这个名字）：所有 agent 共用，设置 · 目录授权里看、改
           GET(_req, res) {
             sendJson(res, 200, localFolders().view());
           },

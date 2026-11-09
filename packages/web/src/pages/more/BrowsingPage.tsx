@@ -1,6 +1,6 @@
 // 设置 · 浏览与填框：
 // - 搜索引擎："浏览"页签（鸿蒙 App 里的原生内置浏览器）地址栏里打关键词时用哪个（只记在这台设备上，默认必应），选中的下面写着它的搜索地址；
-// - 授权的文件夹（单独一页 #/more/authorized-folders，这里留一行去那里的链接）：见 AuthorizedFolders.tsx。
+// - 授权的文件夹（在设置 · 目录授权那一页的最上面 #/more/folder-grants，这里留一行去那里的链接）：见 AuthorizedFolders.tsx。
 // - agent 联网搜索、读网页（是三种方式的队列）：秘书、负责人、子 agent 联网搜索、读网页按什么顺序用哪几种，
 //   见 WebToolsSetting.tsx。存在守护进程那边，所有设备共用；和上面"浏览"地址栏的搜索引擎是两回事。
 import { pageBrowseSettings, useSearchEngine } from "../../app/page-browse-settings.ts";
@@ -25,7 +25,7 @@ export function BrowsingPage({ onOpenAuthorizedFolders }: { onOpenAuthorizedFold
         </span>
       </Section>
       <WebToolsSetting />
-      <button type="button" className="menu-item settings-link-row" data-page="authorized-folders" onClick={onOpenAuthorizedFolders}>
+      <button type="button" className="menu-item settings-link-row" data-page="folder-grants" onClick={onOpenAuthorizedFolders}>
         <span className="menu-text">
           {t("pages.browsing.authorizedFoldersLink")}
           <small>{t("pages.browsing.authorizedFoldersHint")}</small>

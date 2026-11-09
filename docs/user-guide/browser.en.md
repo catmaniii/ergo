@@ -228,11 +228,11 @@ Select an address or place name on a page ("478 Example Road, Xihu District, Han
 
 **What it is:** tells ergo which folders on your computer it can read. Once authorized, every agent can read the files inside without asking you and without writing it into a plan. When ergo looks for photos and files or hands files to a page's upload box, it looks here first.
 
-**Where to open it:** Settings · Data & devices · Authorized folders. There's also a link at the bottom of Settings · Capabilities · Browsing & form filling. On a phone, Settings is under **More**.
+**Where to open it:** Settings · Data & devices · Folder grants; it's the top section. There's also a link at the bottom of Settings · Capabilities · Browsing & form filling. On a phone, Settings is under **More**.
 
 **Step by step (in Settings):**
 
-1. Open this page and tap **Add folder** at the bottom.
+1. Open this page and tap **Add folder** in the top section.
 2. A folder picker pops up. What you pick is **a folder on the computer running ergo**, even when you open it on a phone.
 3. Tap a common place above (Pictures, Downloads, Desktop, Documents, Home folder) or a drive, and go in level by level; there's **Up one level**. When you reach the folder you want, tap **Authorize this folder**.
 4. You can also paste a full path at the bottom (such as `D:\Photos`) and tap **Authorize**.

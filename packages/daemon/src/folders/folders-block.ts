@@ -4,7 +4,7 @@
 import type { LocalFoldersView } from "@ergo/protocol";
 
 /** 设置里在哪看、在哪改（agent 的上下文、工具说明里说这一句，给模型的照旧中文；卡上给用户看的走 t()） */
-export const AUTHORIZED_FOLDERS_SETTING = "设置 · 授权的文件夹"; // @i18n-ignore model：上下文和工具说明里用
+export const AUTHORIZED_FOLDERS_SETTING = "设置 · 目录授权"; // @i18n-ignore model：上下文和工具说明里用
 
 /** 上下文块"授权的文件夹"的 id（内核给的，不带插件名的前缀，不会和插件的重） */
 export const AUTHORIZED_FOLDERS_BLOCK_ID = "authorized-folders";
