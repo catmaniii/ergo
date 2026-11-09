@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAccess } from "../../app/access.tsx";
 import { APP_VERSION, PAGE_WEB_VERSION } from "../../app/build-info.ts";
+import type { ChatCacheStats } from "../../app/chat-cache.ts";
 import type { ConnectionStats } from "../../app/connection.ts";
 import { copyText, environmentRows, nativeBridgeMethods, resetFirstPrompts, type ResetResult, storageSnapshot } from "../../app/debug-page.ts";
 import type { NativeNotifyState } from "../../app/native-notify.ts";
@@ -347,14 +348,18 @@ const CONNECTION_LABEL: Readonly<Record<ConnectionStatus, string>> = tTable({
 });
 
 function ConnectionCard() {
-  const { ui, daemonInfo, connectionStats, reconnect, notePageUpdate } = useStore();
+  const { ui, daemonInfo, connectionStats, chatCacheStats, reconnect, notePageUpdate } = useStore();
   const toast = useToast();
   const [stats, setStats] = useState<ConnectionStats & { readonly openedFrom?: OpenedFrom }>(connectionStats);
+  const [cached, setCached] = useState<ChatCacheStats | undefined>(chatCacheStats);
   const [pings, setPings] = useState<string[]>([]);
   useEffect(() => {
-    const timer = setInterval(() => setStats(connectionStats()), 1000);
+    const timer = setInterval(() => {
+      setStats(connectionStats());
+      setCached(chatCacheStats());
+    }, 1000);
     return () => clearInterval(timer);
-  }, [connectionStats]);
+  }, [connectionStats, chatCacheStats]);
 
   const ping = async () => {
     const started = performance.now();
@@ -373,6 +378,7 @@ function ConnectionCard() {
       <DebugRow label={t("pages.debug.connection.sinceOpened")}>{t("pages.debug.connection.drops", { drops: stats.drops, reconnects: stats.reconnects })}</DebugRow>
       <DebugRow label={t("pages.debug.connection.lastDrop")}>{stats.lastDrop ? `${clock(stats.lastDrop.at)} · ${stats.lastDrop.reason}` : t("pages.debug.connection.neverDropped")}</DebugRow>
       {!PROTOTYPE && <CatchUpRow stats={stats} />}
+      {cached && <ChatCacheRow stats={cached} />}
       <div className="debug-actions">
         <button type="button" className="btn ghost small" onClick={() => void ping()}>
           {t("pages.debug.connection.measure")}
@@ -428,6 +434,17 @@ function CatchUpRow({ stats }: { stats: ConnectionStats & { readonly openedFrom?
           ? t("pages.debug.connection.fromEvents", { count: openedFrom.events })
           : t("pages.debug.connection.fromScratch");
   return <DebugRow label={t("pages.debug.connection.catchUp")}>{from === undefined ? value : `${value} · ${from}`}</DebugRow>;
+}
+
+/** 手机本机存的聊天记录（457）：存了几个会话、多少条消息、多大、上限多少；这台设备上存不了的说一声（往上翻照旧向电脑要） */
+function ChatCacheRow({ stats }: { stats: ChatCacheStats }) {
+  const value =
+    stats.state === "off"
+      ? t("pages.debug.connection.chatCacheOff")
+      : stats.messages === 0
+        ? t("pages.debug.connection.chatCacheEmpty", { max: sizeLabel(stats.maxBytes) })
+        : t("pages.debug.connection.chatCacheValue", { conversations: stats.conversations, messages: stats.messages, size: sizeLabel(stats.bytes), max: sizeLabel(stats.maxBytes) });
+  return <DebugRow label={t("pages.debug.connection.chatCache")}>{value}</DebugRow>;
 }
 
 // ───────────────────────── 日志与本机存储 ─────────────────────────

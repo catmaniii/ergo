@@ -23,6 +23,7 @@ import {
   isChannel,
   isDeletedEventPayload,
   MAINTAINER_CHANNEL_PREFIX,
+  MAX_HISTORY_LIMIT,
   type MessageEventPayload,
   onBranchPath,
   pickMessageScope,
@@ -36,9 +37,6 @@ import { branchTreeOf, pathEventsBefore, pinnedReplay } from "./session-branches
 import { replying } from "./views.ts";
 import { agentVoicesOfMessages } from "../voice-records/agent-views.ts";
 import { voicesOfMessages } from "../voice-records/views.ts";
-
-/** 一页最多取多少条 */
-export const MAX_HISTORY_LIMIT = 200;
 
 /** 是不是一个会话频道（秘书会话、某个负责人的会话） */
 export function isConversationChannel(channel: string): channel is ConversationId {

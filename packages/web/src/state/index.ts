@@ -2,6 +2,7 @@
 export * from "./protocol.ts";
 export * from "./ui-state.ts";
 export * from "./open-snapshot.ts";
+export * from "./chat-cache.ts";
 export * from "./page-button.ts";
 export * from "./inbox.ts";
 export * from "./cards.ts";

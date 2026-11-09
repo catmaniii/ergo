@@ -52,6 +52,8 @@ import { CardOutcomeToasts } from "./app/card-outcome-toasts.tsx";
 import { PAGE_WEB_VERSION } from "./app/build-info.ts";
 import { type PageSnapshots, pageSnapshots } from "./app/open-snapshot.ts";
 import { indexedDbSnapshotBackend } from "./app/open-snapshot-idb.ts";
+import { type ChatCache, chatHistoryCache } from "./app/chat-cache.ts";
+import { indexedDbChatCacheBackend } from "./app/chat-cache-idb.ts";
 import { demoWiring } from "./prototype/demo-wiring.ts";
 import {
   type AccessInfo,
@@ -145,6 +147,13 @@ const snapshots: PageSnapshots | undefined =
 void snapshots?.load();
 
 /**
+ * 手机本机存的聊天记录（457，app/chat-cache.ts）：往上翻时本机有的直接用，没有才向电脑要。和本机快照一样只有安装版由守护进程提供的
+ * 页面有（原型、开发服务器没有）；单独一个 IndexedDB 库，页面脚本一开始就读它的说明
+ */
+const chatCache: ChatCache | undefined =
+  demo || PAGE_WEB_VERSION === undefined ? undefined : chatHistoryCache({ backend: indexedDbChatCacheBackend(), protocolVersion: FRONTEND_PROTOCOL_VERSION });
+
+/**
  * 网页插件宿主：一建好就按全开装上，收到守护进程报的状况再装、停。建在连接和 HTTP 之后、交给插件：
  * 浏览插件第一次装上时开场接上 App 推过来的（"浏览"里网页的框上的悬浮按钮——拦下的选文件对话框不能没人接；浏览侧边栏——报这台设备上
  * 浏览器的样子、办秘书的网页工具推来的事；原生浏览器）；不在 App 里什么都不做
@@ -182,9 +191,10 @@ const reload = () => window.location.reload();
  */
 function Unpaired({ opening }: { opening: PairingOpening }) {
   const [api] = useState(() => (demo ? demo.pairingApi() : httpPairingApi));
-  // 回到配对页（还没配对、被吊销、过期）：本机快照删掉，手机上不留个人数据
+  // 回到配对页（还没配对、被吊销、过期）：本机快照、本机存的聊天记录都删掉，手机上不留个人数据
   useEffect(() => {
     void snapshots?.clear();
+    void chatCache?.clear();
   }, []);
   return <PairingWait api={api} onPaired={reload} opening={opening} onReapply={() => revokedMark.set(false)} />;
 }
@@ -242,7 +252,7 @@ export default function App() {
   return (
     <AccessProvider access={access.info}>
       {/* 原型换了语言重新连一遍：假数据按语言出内容，已经推过的跟着换 */}
-      <StoreProvider key={demo ? activeLocale().meta.id : undefined} connection={connection} http={http} snapshots={snapshots}>
+      <StoreProvider key={demo ? activeLocale().meta.id : undefined} connection={connection} http={http} snapshots={snapshots} chatCache={chatCache}>
         <LocaleSync />
         <AgentRolesSync />
         <UserNameSync />

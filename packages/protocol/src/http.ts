@@ -222,6 +222,9 @@ export const HTML_PREVIEW_SANDBOX =
 /** 历史分页一页最多多少条消息（也是前端第一次订阅会话频道时补发的最近消息条数） */
 export const HISTORY_PAGE_SIZE = 50;
 
+/** 往上翻一次最多取多少条（守护进程的历史分页按它截；手机本机存的聊天记录拼一页时也按它截，两边一样） */
+export const MAX_HISTORY_LIMIT = 200;
+
 /** 媒体 id：入库版本内容的 sha256，64 位小写十六进制（收尾时带的原始字节 sha256 也是这个格式） */
 export const MEDIA_ID_PATTERN = /^[0-9a-f]{64}$/;
 
