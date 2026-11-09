@@ -9,6 +9,9 @@
 // Key 不认（API_KEY_INVALID、"The provided API key is invalid."）是 key；没开这个 API、Key 的限制不让、没开结算是 denied（code 写原因，
 // 告诉用户去哪改）；用到上限是 quota（429 里说"per day"的、OVER_QUERY_LIMIT），一时太频繁是 rate；参数不对 params；谷歌那边 5xx 是 server。
 // 每次的结果交给 onReply（keys.ts 记下服务端 Key 不认、到上限，数据源的连接状态跟着变）。
+// - Maps Static API（451，聊天卡片的预览图）：GET https://maps.googleapis.com/maps/api/staticmap?…&key=…，回的是图；
+//   和地理编码同一个地址（maps.googleapis.com），所以用同一个 hosts.geocoding。出错（没开这个 API、Key 的限制不让、Key 不对）回 403 和一段字，
+//   这里不归到 onReply（没开静态地图不该让秘书的查询跟着停），由 static-map.ts 自己分。
 // 用量：每发一次请求先记一次（usage.ts，按计费项）。Key 不进日志、不进出错的原因：日志只写哪个接口、谷歌的原因码，不写查了什么。
 import { MapLookupError, type MapLookupFailure } from "../map/api.ts";
 import type { GoogleMapsSku } from "@ergo/protocol";
@@ -37,11 +40,24 @@ export interface GoogleClientOptions {
   log(line: string): void;
 }
 
+/** 一张静态地图的回应：状态、类型、上游的 Cache-Control、正文（图，或者出错时的一段字） */
+export interface GoogleImageReply {
+  readonly status: number;
+  readonly contentType: string;
+  readonly cacheControl: string | undefined;
+  readonly body: Buffer;
+}
+
+/** 静态地图回应最大多少字节（再大的不要） */
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
 export interface GoogleClient {
   /** POST 一个新式接口（Places、Routes）：交回 JSON；出错抛 MapLookupError */
   post(api: "places" | "routes", path: string, body: unknown, fieldMask: string, key: string, sku: GoogleMapsSku | undefined, signal?: AbortSignal): Promise<Record<string, unknown>>;
   /** 地理编码（GET，老式的 status 写法）：交回 results（ZERO_RESULTS 是空的）；出错抛 MapLookupError */
   geocode(params: Readonly<Record<string, string>>, key: string, signal?: AbortSignal): Promise<unknown[]>;
+  /** 一张静态地图（GET，451）：记一次 staticMaps；连不上、等太久、太大抛 MapLookupError，别的原样交回（看状态码的是调的人） */
+  image(params: URLSearchParams, key: string, signal?: AbortSignal): Promise<GoogleImageReply>;
 }
 
 const obj = (v: unknown): Record<string, unknown> => (typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
@@ -159,6 +175,25 @@ export function createGoogleClient(options: GoogleClientOptions): GoogleClient {
       }
       options.log(`谷歌地图：geocoding 没查成（${status || `HTTP ${reply.status}`}）`); // @i18n-ignore log
       return fail(new MapLookupError(failure, message || status || `HTTP ${reply.status}`, status || undefined));
+    },
+
+    async image(params, key, signal) {
+      options.count("staticMaps");
+      const q = new URLSearchParams(params);
+      q.set("key", key);
+      const timeout = AbortSignal.timeout(timeoutMs);
+      try {
+        const res = await fetch(`${hosts.geocoding}/maps/api/staticmap?${q}`, { headers: { Accept: "image/*" }, redirect: "error", signal: signal ? AbortSignal.any([timeout, signal]) : timeout });
+        const body = Buffer.from(await res.arrayBuffer());
+        if (body.length > MAX_IMAGE_BYTES) throw new MapLookupError("other", "too large");
+        return { status: res.status, contentType: res.headers.get("content-type") ?? "", cacheControl: res.headers.get("cache-control") ?? undefined, body };
+      } catch (err) {
+        if (signal?.aborted) throw err;
+        if (err instanceof MapLookupError) throw err;
+        const reason = timeout.aborted ? "timeout" : redactKey(causeOf(err), key);
+        options.log(`谷歌地图：静态地图没连上：${reason}`); // @i18n-ignore log
+        throw new MapLookupError("network", reason);
+      }
     },
   };
 }

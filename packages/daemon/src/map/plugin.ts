@@ -34,6 +34,8 @@
 // 看的是哪里、哪一天的足迹、哪张卡片（chat-note.ts，经 ctx.agent.notes 的输入附注；插件停用时没有这段）。
 // 447 "在地图上看"：浏览里网页上选中地址点了它，网页经 POST /api/map/find 直接查一处（MAP_FIND，lookup-tools.ts 的 findPlace：
 // 和秘书查地点同一套先后），放进能画的那一份，网页去地图页看（#/more/map/lookup/<编号>）。
+// 451 聊天卡片的预览图（MAP_PREVIEW，preview.ts）：GET /api/map/preview 按卡片编号（或查到的编号）取出点和线，交给那一家的静态地图
+// （插槽的 staticMap：高德、谷歌拿各自的 Key 去取），图原样转回、不缓存；地址里不放坐标。足迹也会画进地图公司的静态图（用户 11-09 定）。
 import path from "node:path";
 import { AMAP_SOURCE_ID, t } from "@ergo/protocol";
 import type { DataSource } from "../data-sources/api.ts";
@@ -41,13 +43,14 @@ import { PHONE } from "../phone/api.ts";
 import { type PluginDefinition, serviceKey } from "../plugins/host.ts";
 import { KERNEL } from "../plugins/kernel.ts";
 import type { AmapHosts } from "./amap.ts";
-import { MAP, MAP_DAY, MAP_DRAWING, MAP_FIND, MAP_PLUGIN, MAP_PROVIDERS, type MapProvider } from "./api.ts";
+import { MAP, MAP_DAY, MAP_DRAWING, MAP_FIND, MAP_PLUGIN, MAP_PREVIEW, MAP_PROVIDERS, type MapProvider } from "./api.ts";
 import { mapCardType } from "./card.ts";
 import { mapChatNote } from "./chat-note.ts";
 import { createMapDay, createMapLatest } from "./day.ts";
 import { registerUsageDoctor } from "./doctor.ts";
 import { createMapDrawings } from "./drawing.ts";
 import type { OsmHosts } from "./osm-lookup.ts";
+import { createMapPreview } from "./preview.ts";
 import { createMapService, type MapPluginService } from "./service.ts";
 import { type MapLookups, showOnMapTool } from "./show-on-map.ts";
 
@@ -96,7 +99,7 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
     // 我的足迹（430）的数据、常去的地方、手机最近的位置（432 查"从家到公司""附近"）在手机插件那里：可选，没有它地图照样能看、工具如实说用不了。
     // 数据源的用法开关（433）：查国内的点之前看高德的按需查开没开（没有这项服务时当开着）
     wants: [PHONE, KERNEL.dataSourceUsage],
-    provides: [MAP, MAP_INTERNAL, MAP_DAY, MAP_DRAWING, MAP_PROVIDERS, MAP_FIND],
+    provides: [MAP, MAP_INTERNAL, MAP_DAY, MAP_DRAWING, MAP_PROVIDERS, MAP_FIND, MAP_PREVIEW],
     contracts(ctx) {
       const source: DataSource = {
         id: AMAP_SOURCE_ID,
@@ -187,6 +190,8 @@ export function createMapPlugin(options: MapPluginOptions = {}): PluginDefinitio
       ctx.provide(MAP_DRAWING, createMapDrawings(lookups));
       // "在地图上看"（447）：浏览里网页上选中的地址、地名直接查一处，放进上面那一份（POST /api/map/find）
       ctx.provide(MAP_FIND, { find: (text, signal) => service.findPlace(text, signal) });
+      // 聊天卡片的预览图（451）：卡片编号取负载，交给那一家的静态地图（GET /api/map/preview）
+      ctx.provide(MAP_PREVIEW, createMapPreview({ cards: ctx.use(KERNEL.cards), day, lookups, providers: service.providers }));
       // 插件停了、秘书还没按新的贡献重新装配的那一会儿再调：插件宿主替它回"地图插件没启用"，不出卡
       const tool = showOnMapTool({ day, lookups, cards: ctx.use(KERNEL.cards) });
       ctx.agent.tools.register({ to: { agents: ["secretary"] }, tools: () => [tool] });

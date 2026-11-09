@@ -7,6 +7,8 @@
 // 445 把"地图服务"做成插槽（providers.ts）：高德、OpenStreetMap 改成按插槽的接口登记的两家（还在这里，行为不变）——
 // 高德管大陆、优先级 100、查来的只画在它自己的底图上，底图要 Web 端 Key、查询要 Web 服务 Key 且按需查开着；OpenStreetMap 哪儿都管、
 // 优先级 0、不用 Key。给工具的几家、GET /api/map/config 的 providers、体检里各家的用量都从登记表现算；别的插件经 MAP_PROVIDERS 再登记。
+// 451 一个区域一家"当前地图"：高德的底图国外也能用（世界地图，regions、manualRegions 加上 abroad；国外的优先级 30，排在谷歌 50 后面、
+// OpenStreetMap 0 前面——国外没填谷歌时默认高德），查询照旧只管大陆（lookupRegions）；高德多了静态地图（amap-static.ts：聊天卡片的预览图）。
 import fs from "node:fs";
 import { type AmapSourcePanel, type AmapUsageView, type MapConfigView, type MapFindResult, t } from "@ergo/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
@@ -14,6 +16,7 @@ import type { DataSourceLiveAnswer, DataSourceSecrets, DataSourceStatus } from "
 import type { MapProvider, MapService } from "./api.ts";
 import { AMAP_SECRET, type AmapHosts, createAmap } from "./amap.ts";
 import { createAmapLookup } from "./amap-lookup.ts";
+import { createAmapStatic } from "./amap-static.ts";
 import { amapUsageFile, type AmapUsageFinding, openAmapUsage, usageFinding } from "./amap-usage.ts";
 import { createLookupResults, type LookupResults } from "./lookup-results.ts";
 import { findPlace, lookupTools, type MyPlaces } from "./lookup-tools.ts";
@@ -88,6 +91,8 @@ export const OSM_PROVIDER = "osm";
 /** 自带两家"自动"时的优先级：同一个区域里数大的先用（别的插件照这个挑：谷歌在大陆外要高于 OpenStreetMap，写 50） */
 export const AMAP_PRIORITY = 100;
 export const OSM_PRIORITY = 0;
+/** 高德在国外的优先级（451）：国外先谷歌（50）、再高德、最后 OpenStreetMap（0） */
+export const AMAP_ABROAD_PRIORITY = 30;
 
 export function createMapService(options: MapServiceOptions): MapPluginService {
   const tiles = createOsmTiles({
@@ -125,6 +130,16 @@ export function createMapService(options: MapServiceOptions): MapPluginService {
     log: options.log,
   });
   const lookups = createLookupResults({ now: options.now });
+  // 聊天卡片的预览图（451）：Web 服务 Key 取高德的静态地图，计进 lbs；高德说 Key 不对时 amap.ts 记下
+  const amapStatic = createAmapStatic({
+    ...(options.amapHosts === undefined ? {} : { hosts: options.amapHosts }),
+    ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+    secrets: options.secrets,
+    usage,
+    onReply: (body, status) => amap.serviceReply(body, status),
+    keyProblem: () => amap.serviceProblem(),
+    log: options.log,
+  });
   // 地图服务插槽（445）：自带的两家照插槽的接口登记，"自动"时的挑法和原来一样（大陆里高德能查就用高德，不然 OpenStreetMap）
   const providers = createMapProviders({ log: options.log });
   /** 高德为什么查不了（给模型看的） */
@@ -139,8 +154,12 @@ export function createMapService(options: MapServiceOptions): MapPluginService {
     get title() {
       return t("map.provider.amap");
     },
-    regions: ["mainland"],
+    // 底图国内国外都管（国外是高德的世界地图，要提工单开通，没开时可能很空：用户可以在地图切换里改用 OpenStreetMap）；查询只管大陆
+    regions: ["mainland", "abroad"],
+    manualRegions: ["mainland", "abroad"],
+    lookupRegions: ["mainland"],
     priority: AMAP_PRIORITY,
+    regionPriority: { abroad: AMAP_ABROAD_PRIORITY },
     ownBasemapOnly: true,
     basemap: () => {
       const key = amap.mapKey();
@@ -150,6 +169,7 @@ export function createMapService(options: MapServiceOptions): MapPluginService {
     },
     lookup: () => (amapUsable() ? { ready: true, provider: lookup } : { ready: false, why: amapWhy() }),
     usage: { title: "map.doctor.usage.title", run: () => usageFinding(usage.view(), lookup.hasKey()) },
+    staticMap: (req, signal) => amapStatic(req, signal),
   };
   const osmProvider: MapProvider = {
     id: OSM_PROVIDER,

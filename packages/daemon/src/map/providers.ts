@@ -6,6 +6,8 @@
 //   （高德本来就只管大陆，OpenStreetMap 哪儿都管）。地图上手动选了某一家（工具的 map 参数）时它排最前、多管它手动能用的区域；
 //   它查不了、管不了这几处时照"自动"挑，工具在回答里说一句（chosenNote）；
 // - 包出来的 LookupProvider 按（哪一家、哪几个区域、里面那一份）记着，同一个组合每次交回同一个对象（工具里按对象认是不是同一家）。
+// 451：查询管的区域可以和底图不一样（lookupRegions：高德的底图国外也能用，查询只管大陆）；给页面的多了按区域的优先级（regionPriority）
+// 和能不能出静态地图（preview：聊天卡片的预览图）。
 import { MAP_PROVIDER_ID, type MapProviderView, type MapRegion, mapRegionOf } from "@ergo/protocol";
 import type { MapProvider, MapProviders } from "./api.ts";
 import type { LookupProvider } from "./lookup.ts";
@@ -24,6 +26,12 @@ export interface MapProviderRegistry extends MapProviders {
 
 /** 手动选它时能用的区域（不写同 regions） */
 export const manualRegionsOf = (p: Pick<MapProvider, "regions" | "manualRegions">): readonly MapRegion[] => p.manualRegions ?? p.regions;
+
+/** "自动"时查询管哪几个区域（451：不写 lookupRegions 同 regions） */
+const autoLookupRegionsOf = (p: Pick<MapProvider, "regions" | "lookupRegions">): readonly MapRegion[] => p.lookupRegions ?? p.regions;
+
+/** 地图上手动选了它时查询管哪几个区域：写了 lookupRegions 只管那些，不写是 regions 加上 manualRegions */
+const chosenLookupRegionsOf = (p: Pick<MapProvider, "regions" | "manualRegions" | "lookupRegions">): readonly MapRegion[] => p.lookupRegions ?? [...new Set([...manualRegionsOf(p), ...p.regions])];
 
 /** "自动"时的先后：优先级大的在前，一样大的按登记的先后（toSorted 是稳定的） */
 export const byPriority = <T extends Pick<MapProvider, "priority">>(list: readonly T[]): T[] => list.toSorted((a, b) => b.priority - a.priority);
@@ -113,19 +121,21 @@ export function createMapProviders(options: { log?: (line: string) => void } = {
           ...(basemap?.ready && basemap.key !== undefined ? { key: basemap.key } : {}),
           ...(basemap !== undefined && !basemap.ready && basemap.problem !== undefined ? { problem: basemap.problem } : {}),
           lookup: lookupOf(p) !== undefined,
+          ...(p.regionPriority === undefined ? {} : { regionPriority: { ...p.regionPriority } }),
+          preview: p.staticMap !== undefined,
         };
       }),
     lookups(map) {
       const auto = byPriority(list).flatMap((p) => {
         const inner = lookupOf(p);
-        return inner === undefined || p.regions.length === 0 ? [] : [wrap(p, inner, p.regions)];
+        const regions = autoLookupRegionsOf(p);
+        return inner === undefined || regions.length === 0 ? [] : [wrap(p, inner, regions)];
       });
       const chosen = map === undefined ? undefined : find(map);
       const inner = chosen === undefined ? undefined : lookupOf(chosen);
       if (chosen === undefined || inner === undefined) return auto;
-      // 手动选的那一家排最前、多管它手动能用的区域；它照常还在后面按"自动"的先后（管不到的地方轮不到它，不碍事）
-      const regions = [...new Set([...manualRegionsOf(chosen), ...chosen.regions])];
-      const first = wrap(chosen, inner, regions);
+      // 手动选的那一家排最前、多管它手动能用的区域（写了 lookupRegions 的只管那些）；它照常还在后面按"自动"的先后（管不到的地方轮不到它，不碍事）
+      const first = wrap(chosen, inner, chosenLookupRegionsOf(chosen));
       return [first, ...auto.filter((p) => p !== first)];
     },
     chosenNote(map, used) {
@@ -135,7 +145,7 @@ export function createMapProviders(options: { log?: (line: string) => void } = {
       const state = chosen.lookup?.();
       if (state === undefined) return `（地图上用的是${chosen.title}，它只有底图、不查地点，这里用${used.name}查的。）`; // @i18n-ignore model
       if (!state.ready) return `（地图上用的是${chosen.title}，它现在查不了（${state.why}），这里用${used.name}查的。）`; // @i18n-ignore model
-      const regions = manualRegionsOf(chosen);
+      const regions = chosenLookupRegionsOf(chosen);
       const outside = (["mainland", "abroad"] as const).filter((r) => !regions.includes(r)).map((r) => REGION_WORD[r]);
       return `（地图上用的是${chosen.title}，它不管${outside.join("、") || "这里"}，这里用${used.name}查的。）`; // @i18n-ignore model
     },

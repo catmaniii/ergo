@@ -64,6 +64,8 @@
 // 没有 point）——这台设备定不了位时退一步用它。只给这一个点，不给轨迹；不发给任何地图服务。
 // 地图页报底图的事（446）：POST /api/map/basemap { provider, event }——建了一次某家的底图（谷歌按"一次地图加载"计费，守护进程据此数用量）、
 // 那家拒了浏览器用的 Key（谷歌的 gm_authFailure：守护进程记下，地图页不再拿这个 Key）。只有编号和事，不带位置。
+// 聊天里地图卡片的预览图（451）：GET /api/map/preview?card=<卡片编号>|lookup=<查到的编号>&provider=&w=&h=&dark=&scale= 一张那家的静态地图
+// （高德、谷歌的，守护进程拿 Key 去取、原样转回，不缓存）；地址里不放坐标，取不到回错（JSON，message 是原因）。
 // "在地图上看"（447）：POST /api/map/find {text} 浏览里网页上选中的地址、地名不经秘书直接查一处，查到的放进能画的那一份（同上，
 // 只在内存里），回编号；没查到、地图服务没查成也是 200（ok: false 和给人看的一句）。
 //
@@ -184,6 +186,7 @@
 // 下载进度）；POST /api/components 装上照默认该装的；POST /api/components/<id> 装、更新、删、暂停、继续、取消；
 // POST /api/component-import 离线导入这台电脑上的一个文件、文件夹或 .tar / .tgz 包（按清单里的大小和校验值认）。
 // 下载在守护进程里做，正在下的时候网页每秒取一次。
+import type { MapPreviewQuery } from "./map-card.ts";
 
 /** 单个文件的默认上限（字节）：200 MB，数据目录的配置里可以改（media.maxUploadBytes） */
 export const DEFAULT_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
@@ -273,6 +276,17 @@ export const HTTP_QUERY = {
   lines: "lines",
   /** 设置 · 服务的日志：第几份（0 是命令行输出） */
   source: "source",
+  /** 地图卡片的预览图（451）：哪张卡片（卡片编号） */
+  card: "card",
+  /** 地图卡片的预览图：用哪家地图服务画（编号） */
+  provider: "provider",
+  /** 地图卡片的预览图：宽、高（逻辑像素） */
+  width: "w",
+  height: "h",
+  /** 地图卡片的预览图：深色（1） */
+  dark: "dark",
+  /** 地图卡片的预览图：1 普通、2 高清 */
+  scale: "scale",
 } as const;
 
 const UPLOADS = "uploads";
@@ -307,6 +321,7 @@ const MAP_DRAWING = "drawing";
 const MAP_LATEST = "latest";
 const MAP_FIND = "find";
 const MAP_BASEMAP = "basemap";
+const MAP_PREVIEW = "preview";
 const USAGE = "usage";
 /** 消耗页顶上的余额（440）：/api/usage/balance */
 const USAGE_BALANCE = "balance";
@@ -505,6 +520,20 @@ export const HTTP_PATHS = {
    * 地图插件没启用 400）
    */
   mapBasemap: api(MAP, MAP_BASEMAP),
+  /**
+   * 聊天里地图卡片的预览图（451）：一张那家的静态地图（PNG/JPEG），守护进程拿 Key 去取、原样转回（不缓存，上游的 Cache-Control 照转）。
+   * 地址里只有卡片编号（或查到的编号）、用哪家、宽高、深浅、清晰度，不放坐标；取不到回错（JSON，message 是原因）
+   */
+  mapPreview: (q: MapPreviewQuery) =>
+    `${api(MAP, MAP_PREVIEW)}${query({
+      [HTTP_QUERY.card]: q.card,
+      [HTTP_QUERY.lookup]: q.lookup,
+      [HTTP_QUERY.provider]: q.provider,
+      [HTTP_QUERY.width]: String(q.width),
+      [HTTP_QUERY.height]: String(q.height),
+      [HTTP_QUERY.dark]: q.dark ? "1" : undefined,
+      [HTTP_QUERY.scale]: String(q.scale),
+    })}`,
   /** 消耗页：from 到 to（YYYY-MM-DD，含两头）的用量汇总和粗估成本（GET，响应 UsageSummary） */
   usage: (range: { from: string; to: string }) => `${api(USAGE)}${query({ [HTTP_QUERY.from]: range.from, [HTTP_QUERY.to]: range.to })}`,
   /** 消耗页顶上的服务商余额（440，ProviderBalanceView）：GET 取（缓存还新就用缓存，不然现查），POST 马上重查（防连点） */
@@ -822,6 +851,7 @@ export type HttpRoute =
   | { route: "map_latest" }
   | { route: "map_find" }
   | { route: "map_basemap" }
+  | { route: "map_preview" }
   | { route: "usage" }
   | { route: "usage_balance" }
   | { route: "reference_voices" }
@@ -972,6 +1002,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === MAP && id === MAP_LATEST && tail === undefined) return { route: "map_latest" };
   if (head === MAP && id === MAP_FIND && tail === undefined) return { route: "map_find" };
   if (head === MAP && id === MAP_BASEMAP && tail === undefined) return { route: "map_basemap" };
+  if (head === MAP && id === MAP_PREVIEW && tail === undefined) return { route: "map_preview" };
   if (head === USAGE && id === undefined) return { route: "usage" };
   if (head === USAGE && id === USAGE_BALANCE && tail === undefined) return { route: "usage_balance" };
   if (head === REFERENCE_VOICES) {

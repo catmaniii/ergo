@@ -12,7 +12,10 @@ const MapRegionSchema = Type.Union([Type.Literal("mainland"), Type.Literal("abro
  * - ownBasemapOnly：它查来的地点、路线只能画在它自己的底图上（高德、谷歌的条款）；
  * - basemap：它有没有底图；ready：底图现在能不能用（填了 Key、Key 没坏）；key：页面加载它的脚本要的浏览器用的 Key
  *   （高德是 Web 端 Key，本来就在页面上；别的密钥不在这里）；problem：上次说 Key 不对（给人看的一句）；
- * - lookup：现在能不能查地点、算路线
+ * - lookup：现在能不能查地点、算路线；
+ * - regionPriority（451）：某个区域里另给的优先级（不写用 priority）——高德在国外排在谷歌后面、OpenStreetMap 前面；
+ * - preview（451）：能交一张静态地图当聊天卡片的预览图（守护进程经 GET /api/map/preview 取，Key 不进页面）；OpenStreetMap 不用
+ *   （页面自己画），旧的守护进程没有这一项（当没有）
  */
 export const MapProviderView = Type.Object({
   id: Type.String(),
@@ -26,6 +29,8 @@ export const MapProviderView = Type.Object({
   key: Type.Optional(Type.String()),
   problem: Type.Optional(Type.String()),
   lookup: Type.Boolean(),
+  regionPriority: Type.Optional(Type.Object({ mainland: Type.Optional(Type.Number()), abroad: Type.Optional(Type.Number()) })),
+  preview: Type.Optional(Type.Boolean()),
 });
 export type MapProviderView = Static<typeof MapProviderView>;
 

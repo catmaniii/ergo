@@ -17,6 +17,7 @@
   "googleMaps.sku.geocoding": "地址和位置",
   "googleMaps.sku.routesEssentials": "步行和公交路线",
   "googleMaps.sku.routesPro": "开车路线",
+  "googleMaps.sku.staticMaps": "卡片预览图",
   "googleMaps.doctor.usage.title": "谷歌地图的用量",
   "googleMaps.doctor.usage.noKey": "没填谷歌的 Key，不用谷歌地图",
   "googleMaps.doctor.usage.item": "{name} {count} / {limit}",
@@ -46,5 +47,8 @@
   "googleMaps.problem.over": "这个月超了谷歌的免费量，先停用：{items}（下个月恢复，或者在下面放开）",
   "googleMaps.configure.badKey": "这不像谷歌的 Key：不能有空格、换行，看看是不是复制多了或少了",
   "googleMaps.configure.nothing": "先填 Key：浏览器用的（地图）、服务端用的（查地点和路线），至少填一个",
-  "googleMaps.configure.keptOld": "新填的没通过（{reason}），还在用原来的"
+  "googleMaps.configure.keptOld": "新填的没通过（{reason}），还在用原来的",
+  "googleMaps.static.noKey": "没填谷歌的服务端 Key（设置 · 数据源 · 谷歌地图）",
+  "googleMaps.static.over": "这个月谷歌的免费预览图用完了（下个月恢复，或者在 设置 · 数据源 · 谷歌地图 里放开）",
+  "googleMaps.static.off": "谷歌的 Maps Static API 没开（或者服务端 Key 的 API 限制里没勾它）：在 Google Cloud 里开、勾上"
 }

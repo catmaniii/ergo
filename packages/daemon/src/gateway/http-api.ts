@@ -54,6 +54,7 @@ import {
   InterviewStartBody,
   LanguageBody,
   MapFindBody,
+  parseMapPreviewQuery,
   MapBasemapEventBody,
   t,
   checkHttpBody,
@@ -146,7 +147,7 @@ import type { UserNameService } from "../user-name/index.ts";
 import type { PersonalFilesService } from "../personal-files/index.ts";
 import type { ProjectOpsMcpApi, ServiceEventsApi } from "../projects/api.ts";
 import type { CalendarService } from "../calendar/api.ts";
-import type { MapDayService, MapDrawingService, MapFindService, MapService } from "../map/api.ts";
+import { type MapDayService, type MapDrawingService, type MapFindService, type MapPreviewService, MapPreviewUnavailable, type MapService } from "../map/api.ts";
 import { latestAttachment } from "../conversation/attachments-view.ts";
 import { historyPage, isConversationChannel } from "../conversation/history.ts";
 import { createTalkVoice } from "../conversation/talk-voice.ts";
@@ -282,6 +283,11 @@ export interface HttpApiOptions {
    * 地图插件没启用时抛"地图插件没启用"（400）；没查到、地图服务没查成也是 200（ok: false 和原因）
    */
   mapFind: MapFindService;
+  /**
+   * 聊天卡片的预览图（GET /api/map/preview，451）：一张那家的静态地图，图原样转回（不缓存，上游的 Cache-Control 照转）。是地图插件的服务，
+   * 组合根现取，地图插件没启用时抛"地图插件没启用"（400）；查到的过期了抛 not_found（404）；那家取不到抛 MapPreviewUnavailable（503 带原因）
+   */
+  mapPreview: MapPreviewService;
   /** token 账本：消耗页的汇总和粗估成本 */
   ledger: TokenLedger;
   /**
@@ -738,6 +744,29 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             const body = checkHttpBody(MapFindBody, await readJson(req));
             if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badMapFind", { message: body.message }));
             sendJson(res, 200, await options.mapFind.find(body.value.text));
+          },
+        };
+      case "map_preview":
+        return {
+          // 聊天卡片的预览图（451）：地址里只有编号、用哪家、宽高、深浅、清晰度；浏览器那边断了就不等了
+          async GET(req, res, url) {
+            const q = parseMapPreviewQuery((name) => url.searchParams.get(name));
+            if (q === undefined) throw new HttpError("bad_request", t("gateway.http.badMapPreview"));
+            const gone = new AbortController();
+            res.on("close", () => {
+              if (!res.writableFinished) gone.abort();
+            });
+            let reply: Awaited<ReturnType<MapPreviewService["preview"]>>;
+            try {
+              reply = await options.mapPreview.preview(q, gone.signal);
+            } catch (err) {
+              if (err instanceof MapPreviewUnavailable) throw new HttpError("service_unavailable", err.message);
+              if (gone.signal.aborted) return;
+              throw err;
+            }
+            if (res.writableEnded || res.destroyed) return;
+            res.writeHead(reply.status, { ...SECURITY_HEADERS, ...reply.headers, "Content-Length": String(reply.body.length) });
+            res.end(req.method === "HEAD" ? undefined : reply.body);
           },
         };
       case "usage":

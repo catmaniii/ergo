@@ -3,7 +3,8 @@
 //   Routes API、Geocoding API，只在这台电脑上）；密钥区里的文件名也是它；
 // - 地图服务的编号 google（445 的插槽：守护进程登记的、网页 mapBasemaps 登记的底图都是它，也是查询结果编号的前缀、卡片上的来源）；
 // - 每月的用量按谷歌的计费项（SKU）分开数：地图加载（Dynamic Maps）、搜地点（Text Search Pro）、周边（Nearby Search Pro）、
-//   地址 ↔ 位置（Geocoding）、路线（Compute Routes Essentials：步行、公交；Compute Routes Pro：开车带实时路况）；
+//   地址 ↔ 位置（Geocoding）、路线（Compute Routes Essentials：步行、公交；Compute Routes Pro：开车带实时路况）、
+//   聊天卡片的预览图（451，Maps Static API：Static Maps）；
 //   免费量写在守护进程 google-maps/usage.ts（只在那里定一次），这里只有形状；
 // - 设置 · 数据源 · 谷歌地图那一块要的（GoogleMapsSourcePanel）：两个 Key 填了没有、这个月的用量、超了免费量还接着用没有（放开了没有）。
 
@@ -15,9 +16,9 @@ export const GOOGLE_MAP_PROVIDER = "google";
 
 /**
  * 数的几种计费项：地图加载、搜地点（Text Search Pro）、周边（Nearby Search Pro）、地址 ↔ 位置（Geocoding）、
- * 步行和公交的路线（Compute Routes Essentials）、开车带实时路况的路线（Compute Routes Pro）
+ * 步行和公交的路线（Compute Routes Essentials）、开车带实时路况的路线（Compute Routes Pro）、聊天卡片的预览图（451，Static Maps）
  */
-export const GOOGLE_MAPS_SKUS = ["dynamicMaps", "textSearch", "nearbySearch", "geocoding", "routesEssentials", "routesPro"] as const;
+export const GOOGLE_MAPS_SKUS = ["dynamicMaps", "textSearch", "nearbySearch", "geocoding", "routesEssentials", "routesPro", "staticMaps"] as const;
 export type GoogleMapsSku = (typeof GOOGLE_MAPS_SKUS)[number];
 
 /** 这个月用了多少：月份（YYYY-MM，本地）、每个计费项用了几次、每月的免费量 */
@@ -39,6 +40,11 @@ export interface GoogleMapsSourcePanel {
   readonly allowOverage: boolean;
   /** 这个月已经超了免费量的计费项（没放开时这家先停用、退回 OpenStreetMap） */
   readonly over: readonly GoogleMapsSku[];
+  /**
+   * 聊天卡片的预览图（451，Maps Static API）：测服务端 Key 时、取预览图时谷歌怎么说的——ok 能用、off 没开（或 Key 的 API 限制没勾它，
+   * 谷歌回 403）；还不知道（没测过、没取过）不写。没开不挡保存，只是卡片没有谷歌的预览图
+   */
+  readonly staticMap?: "ok" | "off";
 }
 
 /** 是不是谷歌地图那一块的数据（网页按它认，不认得的不画） */

@@ -12,12 +12,16 @@
 // 第四个（445）是"地图服务"插槽：别的插件（照插件契约 needs: [MAP_PROVIDERS]）经它登记一家地图服务——管哪个区域、优先级、底图
 // （浏览器用的 Key）、查询（LookupProvider，下面从 lookup.ts 转出来）、用量。登记交回撤销函数，交给 ctx.effect，插件停用、移除时
 // 自动撤掉、退回下一家。网页那一半是网页插槽 mapBasemaps（packages/web/src/plugins/slots.ts）。
-import type { MapBasemapEventBody, MapBasemapEventReply, MapConfigView, MapDayView, MapDrawing, MapFindResult, MapLatestView, MapProviderView, MapRegion, MapTileAddress } from "@ergo/protocol";
+// 第五个（451）给 GET /api/map/preview：聊天里地图卡片的预览图——按卡片编号（或查到的编号）取出要画的点和线，交给那一家的静态地图
+// （MapProvider.staticMap：高德、谷歌，守护进程拿 Key 去取），图原样转回；地址里不放坐标，不缓存。
+import type { LatLon, MapBasemapEventBody, MapBasemapEventReply, MapConfigView, MapDayView, MapDrawing, MapFindResult, MapLatestView, MapPreviewQuery, MapProviderView, MapRegion, MapTileAddress } from "@ergo/protocol";
 import { serviceKey, type Undo } from "../plugins/host.ts";
 import type { LookupProvider } from "./lookup.ts";
 
 // 接一家地图服务要实现的查询外形和出错的写法（别的插件只 import 这个文件）
 export { MapLookupError, MAX_LINE_POINTS, thinLine } from "./lookup.ts";
+// 静态地图（451）：各家拼地址时共用的视野、坐标位数
+export { fitSize, MAP_STATIC_PAD, staticView, type StaticView } from "./static-map.ts";
 export type { LookupProvider, MapLookupFailure, PlaceHit, RouteAnswer, RouteEnd, TrafficJam, TransitLeg, TransitPlan } from "./lookup.ts";
 
 /** 插件名（配置 plugins.disabled 里写的、网页插件的名字） */
@@ -100,6 +104,27 @@ export interface MapFindService {
 /** 地图插件提供的"在地图上看"服务 */
 export const MAP_FIND = serviceKey<MapFindService>("map-find");
 
+/** 预览图取不到（那家没填 Key、没开静态地图、超了免费量、连不上……）：message 是给人看的原因，接口回 503 带这句 */
+export class MapPreviewUnavailable extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MapPreviewUnavailable";
+  }
+}
+
+/** 聊天里地图卡片的预览图（451）：GET /api/map/preview 用 */
+export interface MapPreviewService {
+  /**
+   * 一张那家的静态地图：卡片编号取卡片负载（足迹按日期现算，点和路线就在卡上），查到的编号从内存取（过期了抛 RequestRejected("not_found")，
+   * 接口回 404）；查到的（只能画在自己地图上的那几家查的）一律用查它的那家，q.provider 不管。那家没登记、不出静态图、取不到抛
+   * MapPreviewUnavailable（503 带原因）。signal 是浏览器那边断了
+   */
+  preview(q: MapPreviewQuery, signal: AbortSignal): Promise<MapReply>;
+}
+
+/** 地图插件提供的"卡片预览图"服务 */
+export const MAP_PREVIEW = serviceKey<MapPreviewService>("map-preview");
+
 /** 底图此刻怎样（地图页按它挑、列地图切换） */
 export type MapBasemapState =
   | {
@@ -121,6 +146,37 @@ export type MapLookupState =
       /** 为什么查不了（给模型看的一句，只用中文："没填查询用的 Key"） */
       readonly why: string;
     };
+
+/** 静态地图上的一个点（WGS-84）：label 是序号（"1"～"9"，第 10 个起不写）；here 是"现在在哪"（另一种颜色、不写序号） */
+export interface MapStaticMark extends LatLon {
+  readonly label?: string;
+  readonly kind: "spot" | "here";
+}
+
+/**
+ * 要一张静态地图（451，聊天卡片的预览图）：地图插件已经挑好、抽稀好（点最多 MAP_STATIC_MARKS_MAX 个、线最多 MAP_STATIC_LINES_MAX 条、
+ * 线上的点一共最多 MAP_STATIC_POINTS_MAX 个，各家的地址长度都够），坐标一律 WGS-84（大陆里各家自己转 GCJ-02）。
+ * width、height 是逻辑像素（卡片要的），各家按自己的上限等比缩；scale 2 是高清（像素翻倍、看的范围不变）；view 由各家照缩好的尺寸用
+ * staticView 算（看全 bounds，留出针头的边）
+ */
+export interface MapStaticRequest {
+  readonly marks: readonly MapStaticMark[];
+  readonly lines: readonly (readonly LatLon[])[];
+  /** 要看全的点（点和线上的点） */
+  readonly bounds: readonly LatLon[];
+  readonly width: number;
+  readonly height: number;
+  readonly scale: 1 | 2;
+  readonly dark: boolean;
+}
+
+/**
+ * 静态地图取到了（图原样交回：状态、Content-Type、上游的 Cache-Control）或者没取到：哪一种、给人看的一句
+ * （no_key 没填 Key、off 没开静态地图 / Key 的限制没勾它、over 超了免费量、key Key 不对、quota 到上限、network 连不上、other 别的）
+ */
+export type MapStaticResult =
+  | { readonly ok: true; readonly reply: MapReply }
+  | { readonly ok: false; readonly failure: "no_key" | "off" | "over" | "key" | "quota" | "network" | "other"; readonly reason: string };
 
 /** 体检里的一句：文案键 + 参数（和 409 的 DoctorMessage 一样） */
 export interface MapUsageMessage {
@@ -147,7 +203,8 @@ export interface MapUsageCheck {
 /**
  * 一家地图服务（445 的插槽）。高德、OpenStreetMap 是地图插件自己登记的两家；别的插件登记的照这个写（谷歌地图：大陆外、
  * 优先级 50，高于 OpenStreetMap）。几样都是"此刻"的：每次用时现调，Key 填了、坏了、按需查关了都跟着变。
- * 规矩：某一家查来的结果只画在它自己的底图上（ownBasemapOnly）；用户自己的足迹一律 OpenStreetMap，不加载商业地图的脚本（地图页管）。
+ * 规矩：某一家查来的结果只画在它自己的底图上（ownBasemapOnly）。451 起地图页、足迹、聊天卡片的预览图都用"当前地图"
+ * （这台设备在这个区域手动选的，没选就是"自动"挑的：同一个区域里优先级大的先，regionPriority 能按区域另给）。
  */
 export interface MapProvider {
   /** 编号（MAP_PROVIDER_ID 的写法，和网页那一半登记的底图一样）：结果编号的前缀、卡片上的来源都是它 */
@@ -158,8 +215,17 @@ export interface MapProvider {
   readonly regions: readonly MapRegion[];
   /** 用户在地图切换里手动选它时能用在哪几个区域（谷歌在大陆也能手动选：它自己转 GCJ-02）；不写同 regions */
   readonly manualRegions?: readonly MapRegion[];
-  /** "自动"时同一个区域里数大的先用（高德 100、OpenStreetMap 0） */
+  /** "自动"时同一个区域里数大的先用（高德 100、谷歌 50、OpenStreetMap 0） */
   readonly priority: number;
+  /**
+   * 某个区域里另给的优先级（451，不写用 priority）：高德在国外写 30——国外先谷歌（50）、再高德、最后 OpenStreetMap；国内照旧高德最先
+   */
+  readonly regionPriority?: Readonly<Partial<Record<MapRegion, number>>>;
+  /**
+   * 查地点、算路线管哪几个区域（451，不写同 regions；手动选它时不写就是 regions 加上 manualRegions）：高德的底图国外也能用
+   * （世界地图），查询照旧只管大陆，写 ["mainland"]
+   */
+  readonly lookupRegions?: readonly MapRegion[];
   /** 它查来的地点、路线只能画在它自己的底图上（高德协议 4.12.4、谷歌的条款）；OpenStreetMap 不用 */
   readonly ownBasemapOnly: boolean;
   /** 底图此刻怎样；没有底图（只管查询）的不写 */
@@ -178,6 +244,12 @@ export interface MapProvider {
    * 浏览器用的 Key（记下：basemap() 不再交 Key、写原因）。要快、不联网；不按次计费、自己测得出 Key 的（高德、OpenStreetMap）不写
    */
   basemapEvent?(event: MapBasemapEventBody["event"]): void;
+  /**
+   * 一张这家的静态地图（451，聊天卡片的预览图，GET /api/map/preview 经地图插件来）：拿这家的 Key 去取、图原样交回，不缓存
+   * （高德、谷歌的条款）；Key 只在守护进程里用，不进地址以外的地方（日志、出错的原因里都没有）。没有静态地图的（OpenStreetMap：
+   * 页面自己画）不写
+   */
+  staticMap?(req: MapStaticRequest, signal?: AbortSignal): Promise<MapStaticResult>;
 }
 
 /** 地图服务插槽：登记一家（交回撤销函数）、列出登记了的（按登记的先后） */

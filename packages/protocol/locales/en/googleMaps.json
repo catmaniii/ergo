@@ -17,6 +17,7 @@
   "googleMaps.sku.geocoding": "Addresses and locations",
   "googleMaps.sku.routesEssentials": "Walking and transit routes",
   "googleMaps.sku.routesPro": "Driving routes",
+  "googleMaps.sku.staticMaps": "Card previews",
   "googleMaps.doctor.usage.title": "Google Maps usage",
   "googleMaps.doctor.usage.noKey": "No Google key entered; Google Maps isn't used",
   "googleMaps.doctor.usage.item": "{name} {count} / {limit}",
@@ -46,5 +47,8 @@
   "googleMaps.problem.over": "Over Google's free usage this month, paused: {items} (resumes next month, or allow it below)",
   "googleMaps.configure.badKey": "That doesn't look like a Google key: no spaces or line breaks — check whether you copied too much or too little",
   "googleMaps.configure.nothing": "Enter a key first: the browser key (maps) or the server key (places and routes), at least one",
-  "googleMaps.configure.keptOld": "The new one didn't pass ({reason}); still using the old one"
+  "googleMaps.configure.keptOld": "The new one didn't pass ({reason}); still using the old one",
+  "googleMaps.static.noKey": "Google's server key isn't set (Settings · Data sources · Google Maps)",
+  "googleMaps.static.over": "This month's free Google previews are used up (it resumes next month, or allow it in Settings · Data sources · Google Maps)",
+  "googleMaps.static.off": "Google's Maps Static API isn't enabled (or the server key's API restrictions don't include it): enable and tick it in Google Cloud"
 }

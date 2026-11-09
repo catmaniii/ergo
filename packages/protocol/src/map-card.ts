@@ -56,6 +56,54 @@ export interface MapDrawing {
   readonly lines: readonly { readonly id: string; readonly points: readonly LatLon[]; readonly kind: "route"; readonly mode?: string }[];
 }
 
+/**
+ * 聊天里地图卡片的预览图（451，GET /api/map/preview）：一张那家的静态地图，守护进程拿 Key 去取（Key 不进页面、地址里不放坐标）。
+ * 查到的（别家只能画在自己地图上的）一律用查它的那家，provider 不管；足迹、点、路线用页面挑的那家（内容中心那个区域的当前地图）
+ */
+export interface MapPreviewQuery {
+  /** 哪张地图卡片（卡片编号）；和 lookup 二选一 */
+  readonly card?: string | undefined;
+  /** 不经卡片直接看查到的一处（447 的编号） */
+  readonly lookup?: string | undefined;
+  /** 用哪家画（地图服务的编号） */
+  readonly provider?: string | undefined;
+  /** 宽、高（逻辑像素，MAP_PREVIEW_MIN_SIDE 到 MAP_PREVIEW_MAX_SIDE；各家再按自己的上限等比缩） */
+  readonly width: number;
+  readonly height: number;
+  readonly dark: boolean;
+  /** 1 普通、2 高清（宽高的像素各翻一倍，看的范围不变） */
+  readonly scale: 1 | 2;
+}
+
+/** 预览图一边最少、最多多少逻辑像素 */
+export const MAP_PREVIEW_MIN_SIDE = 64;
+export const MAP_PREVIEW_MAX_SIDE = 1024;
+
+/**
+ * 拆预览图的查询参数（get 是取一个参数的函数，URLSearchParams.get 那样）：卡片编号和查到的编号要且只要一个、宽高是范围里的整数、
+ * scale 是 1 或 2（不写当 1）；不对的给 undefined
+ */
+export function parseMapPreviewQuery(get: (name: string) => string | null): MapPreviewQuery | undefined {
+  const card = get("card")?.trim() || undefined;
+  const lookup = get("lookup")?.trim() || undefined;
+  if ((card === undefined) === (lookup === undefined)) return undefined;
+  if ((card?.length ?? 0) > 80 || (lookup !== undefined && !LOOKUP_ID.test(lookup))) return undefined;
+  const side = (name: string) => {
+    const text = get(name) ?? "";
+    if (!/^\d{1,5}$/.test(text)) return undefined;
+    const n = Number(text);
+    return n >= MAP_PREVIEW_MIN_SIDE && n <= MAP_PREVIEW_MAX_SIDE ? n : undefined;
+  };
+  const width = side("w");
+  const height = side("h");
+  if (width === undefined || height === undefined) return undefined;
+  const provider = get("provider")?.trim() || undefined;
+  if (provider !== undefined && !/^[a-z][a-z0-9-]{0,19}$/.test(provider)) return undefined;
+  const scaleText = get("scale") ?? "1";
+  if (scaleText !== "1" && scaleText !== "2") return undefined;
+  return { ...(card === undefined ? {} : { card }), ...(lookup === undefined ? {} : { lookup }), ...(provider === undefined ? {} : { provider }), width, height, dark: get("dark") === "1", scale: scaleText === "2" ? 2 : 1 };
+}
+
 /** 地图卡片点开去地图页的哪里（Route 的 item、sub）：足迹卡看那一天，别的看这张卡 */
 export function mapCardPath(cardId: string, show: MapCardShow): { item: string; sub?: string } {
   return show.kind === "day" ? { item: show.date } : { item: MAP_CARD_ITEM, sub: cardId };

@@ -123,6 +123,7 @@
   "gateway.http.badSpeech": "Bad parameters for speech synthesis: {message}",
   "gateway.http.badRecording": "Bad recording parameters: {message}",
   "gateway.http.badMapFind": "Bad text to show on the map: {message}",
+  "gateway.http.badMapPreview": "Bad map preview parameters: give a card ID or a lookup ID (one of them), a width and height (64–1024), and scale 1 or 2",
   "gateway.http.audioEmpty": "The recording is empty",
   "gateway.http.audioTooLong": "The recording is too long",
   "gateway.http.noPageVoice": "This version doesn't have voice on the floating button yet",
