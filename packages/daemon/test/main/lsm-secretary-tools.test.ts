@@ -189,6 +189,8 @@ describe("秘书指挥服务管家", () => {
     // 放行：秘书说完这一轮，二狗才优雅停下
     release!();
     expect(await lsm.waitFor((m) => m.type === "bye", "bye", { timeoutMs: 30_000 })).toEqual({ type: "bye", reason: "shutdown-complete" });
+    // 停之前推的（这一轮的最后一句、回合结束）停机时先写出去再断开；这边连接关掉时它们都已经解开、交出来了
+    await frontend.closed();
     expect(lastText(frontend)).toBe("好，空闲了就重启，回来接着聊");
     // 重启自己批了、做完了（拿到已排队就返回），接着调了慢工具
     const parts = toolPartsOf(frontend);
