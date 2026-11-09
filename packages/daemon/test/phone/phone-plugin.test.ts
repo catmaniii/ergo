@@ -113,7 +113,7 @@ describe("手机插件：数据源", () => {
             heard: [],
             fields: [
               { field: "phone", value: "13800001111" },
-              { field: "birthday", value: "03-02" },
+              { field: "birthday", value: "--03-02" },
               { field: "address", value: "杭州市 某某路 1 号" },
             ],
             dataSource: PHONE_CONTACTS_SOURCE,

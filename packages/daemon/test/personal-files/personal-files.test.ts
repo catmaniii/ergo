@@ -8,7 +8,7 @@ import type { CardService } from "../../src/cards/cards.ts";
 import { openEventStore } from "../../src/events/event-store.ts";
 import { PurgeRewriters } from "../../src/memory/index.ts";
 import { openDatabase } from "../../src/storage/sqlite.ts";
-import { createPersonalFilesService, PERSONAL_FILE_EVENT, PERSONAL_FILES_CHANNEL, personalFilePurge, personalFilesView } from "../../src/personal-files/index.ts";
+import { createPersonalFilesService, PERSONAL_FILE_EVENT, PERSONAL_FILES_CHANNEL, personalFileEvent, personalFilePurge, personalFilesView } from "../../src/personal-files/index.ts";
 import type { UserNameService } from "../../src/user-name/index.ts";
 import { makeTempDir, removeDir } from "../helpers/temp-dir.ts";
 
@@ -129,6 +129,27 @@ describe("档案页那条路：建人、写字段、历史、撤销", () => {
   });
 });
 
+describe("449：生日、纪念日只收认得出的日子", () => {
+  it("规范成统一的样子再存；认不出的拒绝、写明怎么写；以前存的随手写的不改写，照原样读得到", () => {
+    const { files, store } = setup();
+    const mom = files.addPerson({ name: "妈妈" });
+    files.change(mom.id, { kind: "set_field", field: "birthday", value: "3月2号" });
+    files.change(mom.id, { kind: "set_field", field: "结婚纪念日", value: "农历八月十五" });
+    files.change(mom.id, { kind: "set_field", field: "custom:外婆生日", value: "腊月廿三" });
+    const fieldOf = (field: string) => files.file(mom.id)!.fields.find((f) => f.field === field)!;
+    expect(fieldOf("birthday").current?.value).toBe("--03-02");
+    expect(fieldOf("birthday").annual).toMatchObject({ monthDay: { month: 3, day: 2 } });
+    expect(fieldOf("anniversary:结婚纪念日").current?.value).toBe("lunar:--08-15");
+    expect(fieldOf("anniversary:结婚纪念日").annual).toMatchObject({ blocked: "not_gregorian" });
+    expect(fieldOf("custom:外婆生日").current?.value).toBe("lunar:--12-23");
+    expect(() => files.change(mom.id, { kind: "set_field", field: "birthday", value: "下个月" })).toThrow(/生日：认不出日子：写成 1990-03-02、3月2日（不记得哪年）、农历八月十五 这样/);
+    expect(fieldOf("birthday").current?.value).toBe("--03-02");
+    // 以前存的（449 以前随手写的）不改写：照原样读得到，每年提醒开不了
+    store.append(personalFileEvent({ change: "field_set", personId: mom.id, field: "birthday", value: "大学开学那天", trail: { via: "page" } }));
+    expect(fieldOf("birthday")).toMatchObject({ current: { value: "大学开学那天" }, history: [{ value: "--03-02" }], annual: { blocked: "not_gregorian" } });
+  });
+});
+
 describe("本人的姓名就是\"我的名字\"", () => {
   it("档案里改姓名改的是我的名字，没有历史；不合规照我的名字的规矩拒；删了就是清除", () => {
     const { files, userName, store } = setup();
@@ -167,10 +188,11 @@ describe("删", () => {
     expect(result).toEqual({ sources: 0 });
     expect(files.file(mom.id)).toBeUndefined();
     const payloads = JSON.stringify(store.read(PERSONAL_FILES_CHANNEL, 0, PERSONAL_FILE_EVENT).map((e) => e.payload));
-    for (const text of ["妈妈", "母亲", "3月2日", "腿脚不好"]) expect(payloads).not.toContain(text);
+    // 449：生日存成统一的样子（"3月2日" 存成 "--03-02"）
+    for (const text of ["妈妈", "母亲", "--03-02", "腿脚不好"]) expect(payloads).not.toContain(text);
     expect(payloads).toContain(PURGED_TEXT);
-    expect(payloads).toContain("5月1日");
-    expect(files.file(dad.id)!.fields.find((f) => f.field === "birthday")!.current?.value).toBe("5月1日");
+    expect(payloads).toContain("--05-01");
+    expect(files.file(dad.id)!.fields.find((f) => f.field === "birthday")!.current?.value).toBe("--05-01");
     // 本人那份删不掉
     expect(() => files.remove(SELF_PERSON_ID, { target: { kind: "person" }, mode: "purge" })).toThrow(/删不掉/);
   });

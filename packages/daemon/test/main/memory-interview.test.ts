@@ -185,7 +185,8 @@ describe("了解你访谈", () => {
       const payload = check!.payload as InterviewFilesCardPayload;
       expect(payload).toMatchObject({ conversation: CURATOR, interviewId: live.active!.id, topic: "family" });
       expect(payload.items.map((i) => [i.person.name, i.person.isNew, i.person.relation, i.field?.label, i.field?.value, i.field?.number, i.state])).toEqual([
-        ["妈妈", true, "母亲", "生日", "3月2日", false, "pending"],
+        // 449：生日存成统一的样子（不记得哪年的 "--03-02"）
+        ["妈妈", true, "母亲", "生日", "--03-02", false, "pending"],
         ["妈妈", true, "母亲", "电话", "13812345678", true, "pending"],
         ["女儿", true, "女儿", "单位或学校", "实验小学", false, "pending"],
       ]);
@@ -213,7 +214,7 @@ describe("了解你访谈", () => {
       expect(td.daemon.personalFiles.list().files.some((f) => f.name === "女儿")).toBe(false);
       // 留痕写明是记忆管理员提议、用户确认的
       const momFile = td.daemon.personalFiles.file(moms[0]!.id)!;
-      expect(momFile.fields.find((f) => f.field === "birthday")!.current).toMatchObject({ value: "3月2日", source: { via: "curator", basis: "confirmed" } });
+      expect(momFile.fields.find((f) => f.field === "birthday")!.current).toMatchObject({ value: "--03-02", source: { via: "curator", basis: "confirmed" } });
       // 确认时没改勾：照默认建了每年提醒
       expect(momFile.fields.find((f) => f.field === "birthday")!.annual).toMatchObject({ daysBefore: 3 });
       expect(momFile.fields.find((f) => f.field === "phone")!.current).toMatchObject({ value: "13812345678", source: { via: "curator", basis: "confirmed" } });
@@ -240,6 +241,7 @@ describe("了解你访谈", () => {
       });
       expect(removed.status).toBe(200);
       expect(eventsContaining(td, "3月2日")).toEqual([]);
+      expect(eventsContaining(td, "03-02")).toEqual([]);
     },
   );
 

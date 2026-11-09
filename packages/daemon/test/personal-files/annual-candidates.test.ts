@@ -196,7 +196,7 @@ describe("候选和候选核对卡", () => {
     const cardId = files.candidates.compose({ date: "2026-10-26" })!;
     const [card] = suggestCards(cards, [cardId]);
     const payload = card!.payload as PersonalFileSuggestCardPayload;
-    expect(payload).toMatchObject({ date: "2026-10-26", items: [{ kind: "create", person: { name: "小张", relation: "表弟", isNew: true }, mentions: 3 }, { kind: "field", field: "work", value: "某公司" }, { kind: "field", field: "birthday", value: "3月2日", remind: { month: 3, day: 2, daysBefore: 3 } }] });
+    expect(payload).toMatchObject({ date: "2026-10-26", items: [{ kind: "create", person: { name: "小张", relation: "表弟", isNew: true }, mentions: 3 }, { kind: "field", field: "work", value: "某公司" }, { kind: "field", field: "birthday", value: "--03-02", remind: { month: 3, day: 2, daysBefore: 3 } }] });
     expect(inbox.itemsForCard(cardId)).toHaveLength(1);
 
     // 同一天又攒了一条（已有档案的人）：同一张卡出新版本，不另起一张
@@ -284,6 +284,30 @@ describe("候选和候选核对卡", () => {
     expect(files.candidates.compose()).toBeUndefined();
   });
 
+  it("449：生日、纪念日不论从哪来都规范成统一的样子；通讯录里认不出的生日跳过这一项、别的照收，不让整条失败；每晚听来的认不出的也不上卡", () => {
+    const { files, cards } = setup();
+    const picked = { materialIds: [], heard: [], dataSource: "phone-contacts" };
+    files.candidates.add("contacts", [
+      { name: "王小明", fields: [{ field: "phone", value: "13800001111" }, { field: "birthday", value: "小时候过的那天" }, { field: "address", value: "某某路 1 号" }], ...picked },
+      { name: "李阿姨", fields: [{ field: "birthday", value: "--12-25" }], ...picked },
+    ]);
+    files.candidates.add("vcard", [{ name: "赵阿姨", fields: [{ field: "anniversary:相识纪念日", value: "农历八月十五" }, { field: "birthday", value: "0000-00-00" }], materialIds: [], heard: [], dataSource: "google-contacts" }]);
+    files.candidates.add("nightly", [mention("我", "m-1", [{ field: "生日", value: "下个月" }])]);
+    const items = (cards.get(files.candidates.compose()!)!.payload as PersonalFileSuggestCardPayload).items;
+    expect(items.map((i) => [i.kind, i.person.name, i.field ?? "", i.value ?? ""])).toEqual([
+      ["create", "王小明", "", ""],
+      ["field", "王小明", "phone", "13800001111"],
+      ["field", "王小明", "address", "某某路 1 号"],
+      ["create", "李阿姨", "", ""],
+      ["field", "李阿姨", "birthday", "--12-25"],
+      ["create", "赵阿姨", "", ""],
+      ["field", "赵阿姨", "anniversary:相识纪念日", "lunar:--08-15"],
+    ]);
+    // 农历的不带每年提醒的勾（农历提醒另开票）
+    expect(items.find((i) => i.field === "anniversary:相识纪念日")!.remind).toBeUndefined();
+    expect(items.find((i) => i.field === "birthday")!.remind).toEqual({ month: 12, day: 25, daysBefore: 3 });
+  });
+
   it("导入的通讯录 vCard——不用提到几次、关系别名纪念日也收；几个电话里有档案里那个就不提；拒过的建档和值不再提；留痕写明从导入的通讯录来", () => {
     const { files, cards, inbox, act } = setup();
     const mom = files.addPerson({ name: "妈妈" });
@@ -309,7 +333,7 @@ describe("候选和候选核对卡", () => {
     const items = (card.payload as PersonalFileSuggestCardPayload).items;
     expect(items.map((i) => [i.kind, i.person.name, i.person.relation ?? "", i.field ?? "", i.value ?? "", i.origin])).toEqual([
       ["create", "张丽", "母亲的同事", "", "", "vcard"],
-      ["field", "张丽", "母亲的同事", "birthday", "03-02", "vcard"],
+      ["field", "张丽", "母亲的同事", "birthday", "--03-02", "vcard"],
       ["field", "张丽", "母亲的同事", "anniversary:相识纪念日", "2015-06-30", "vcard"],
       ["field", "张丽", "母亲的同事", "phone", "13900000003", "vcard"],
       ["field", "妈妈", "", "address", "某某路 4 号", "vcard"],

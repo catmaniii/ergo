@@ -1,8 +1,9 @@
 // 秘书读个人档案的工具：按人、按字段读，拿到用户确认过的原值（以后安全阶段再改成默认打码、取全值留痕，只记录不实现）。
 // 填网页表单时秘书先读档案、再用现有的网页工具填；问"我以前住哪"答得出（以前的值连同到哪天为止）。只读，不落入任何类别。
 // 不给 person 是列出有哪些人、各填了哪些字段（不带值）。
+// 449：生日、纪念日写成好读的样子（"3 月 2 日""农历八月十五"），后面带着存的样子（彻底删除时按存的值找读过它的调用）。
 // @i18n-ignore-file model：工具的说明、参数说明、交回秘书的结果给模型看；工具的名字走 t()
-import { builtinFields, forModel, isAnniversaryField, type PersonalFileKind, type PersonalFileSource, personalFieldLabel, personalFieldOf, t, Type } from "@ergo/protocol";
+import { builtinFields, forModel, isAnniversaryField, type PersonalFileKind, type PersonalFileSource, personalFieldLabel, personalFieldOf, personalValueText, t, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import type { PersonalFileTrail } from "./events.ts";
 import type { PersonalFilesService } from "./personal-files.ts";
@@ -17,6 +18,12 @@ const Params = Type.Object(
 );
 
 const dateOf = (iso: string | undefined) => (iso ?? "").slice(0, 10);
+
+/** 值怎么写给模型看：生日、纪念日写好读的样子，带上存的样子（"3 月 2 日（存作 --03-02；"）；别的照原值 */
+function valueText(field: string, value: string): { text: string; stored: string } {
+  const text = personalValueText(field, value);
+  return text === value ? { text: value, stored: "" } : { text, stored: `存作 ${value}；` };
+}
 
 /** 留痕给模型看的说法 */
 function sourceText(source: PersonalFileSource | PersonalFileTrail | undefined): string {
@@ -33,6 +40,7 @@ export function readPersonalFileTool(files: PersonalFilesService): HostTool {
     description: [
       "读个人档案：用户本人和用户身边重要的人各一份，里面是用户确认过的固定信息（证件号、生日、电话、住址、单位、过敏用药……，一字不差、以最新为准，旧值留作历史）和用户特意要记的事。",
       "要用到这些信息时先读它，不要凭记忆或检索素材去猜：替用户填网页表单（读出来再用网页工具填）、回答\"我的身份证号是多少\"\"我妈生日哪天\"\"我以前住哪\"。",
+      "生日、纪念日写成好读的样子：\"3 月 2 日\"是不记得哪年，写了\"农历\"的是农历（闰月写\"闰\"），后面括号里是存的样子。",
       "档案里没有的就照实说没有；要记进档案用 propose_quick_action 的 personal_file。",
     ].join("\n"),
     parameters: Params,
@@ -88,8 +96,12 @@ function fileText(files: PersonalFilesService, person: string, fields: readonly 
       continue;
     }
     const since = field.current.since === undefined ? "" : `${dateOf(field.current.since)} 起，`;
-    lines.push(`- ${label}：${field.current.value}（${since}${sourceText(field.current.source)}）`);
-    for (const old of field.history) lines.push(`  以前：${old.value}（${dateOf(old.since)} 到 ${dateOf(old.until)}）`);
+    const now = valueText(field.field, field.current.value);
+    lines.push(`- ${label}：${now.text}（${now.stored}${since}${sourceText(field.current.source)}）`);
+    for (const old of field.history) {
+      const was = valueText(field.field, old.value);
+      lines.push(`  以前：${was.text}（${was.stored}${dateOf(old.since)} 到 ${dateOf(old.until)}）`);
+    }
   }
   if (unknown.length > 0) lines.push(`没有这些字段：${unknown.join("、")}（默认字段有 ${builtinFields(kind).map((f) => personalFieldLabel(kind, f)).join("、")}）`);
   if (fields === undefined || fields.length === 0) {

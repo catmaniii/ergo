@@ -376,7 +376,8 @@ describe("手机和 Google · 联系人：不进素材的也能列，没有现�
     const contacts = k.dataSources.stored(PHONE_CONTACTS_SOURCE, {});
     expect(contacts.total).toBe(2);
     expect(contacts.items.map((i) => [i.title, i.subtitle])).toEqual([
-      ["妈妈", "13922223333 · 03-02 · 杭州市西湖区"],
+      // 449：生日写成好读的样子
+      ["妈妈", "13922223333 · 3 月 2 日 · 杭州市西湖区"],
       ["王小明", "13800001111"],
     ]);
     expect(contacts.items[0]!.materialId).toBeUndefined();

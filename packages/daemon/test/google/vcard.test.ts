@@ -257,9 +257,9 @@ describe("vCard：日子", () => {
     expect(parseVcards(text)[0]!.birthday).toEqual({ month: 11, day: 11 });
   });
 
-  it("写成档案里的样子：有年份的 1990-03-02，没年份的 03-02", () => {
+  it("写成档案里存的样子：有年份的 1990-03-02，没年份的 --03-02", () => {
     expect(formatVcardDate({ year: 1990, month: 3, day: 2 })).toBe("1990-03-02");
-    expect(formatVcardDate({ month: 12, day: 25 })).toBe("12-25");
+    expect(formatVcardDate({ month: 12, day: 25 })).toBe("--12-25");
   });
 
   it("苹果、Google 的标准名字写成小写英文词，自己起的原样", () => {

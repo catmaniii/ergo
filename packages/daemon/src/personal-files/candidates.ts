@@ -229,7 +229,8 @@ export function createCandidates(options: CandidatesOptions): PersonalFileCandid
         if (field === undefined || !fieldAllowed(origin, field) || (person.kind === "self" && (field === "relation" || field === "aliases"))) continue;
         let value = raw.value.trim();
         if (value === "") continue;
-        if (provided) {
+        // 449：生日、纪念日不论从哪来都规范成统一的样子，认不出的这一项跳过（别的照收；通讯录导入不因一个生日整条失败）
+        if (provided || isAnnualField(field)) {
           const checked = checkPersonalValue(field, value);
           if (!checked.ok) continue;
           value = checked.value;

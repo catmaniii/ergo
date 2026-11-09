@@ -67,7 +67,7 @@ describe("整理成档案候选", () => {
     const { offers } = offersFromContacts([MOM, ZHOU, card({ name: "冯十", birthday: { month: 1, day: 1 }, phones: [tel("13700000010", ["cell"]), tel("010-10", ["work"], true)] })], { known: known("老周") });
     const byKey = new Map(offers.map((o) => [o.key, o]));
     expect(byKey.get("张丽")!.fields).toEqual([
-      { field: "birthday", value: "03-02" },
+      { field: "birthday", value: "--03-02" },
       { field: "phone", value: "13900000002", also: ["057188000002"] },
     ]);
     expect(byKey.get("周建国")).toMatchObject({ aliases: ["老周"], fields: [{ field: "phone", value: "13700000003" }, { field: "address", value: "某某路 3 号", also: ["某某小区 3 栋"] }] });
@@ -78,7 +78,7 @@ describe("整理成档案候选", () => {
     const { offers } = offersFromContacts([ME, LI], { known: known() });
     expect(offers.find((o) => o.key === "李芳")!.fields).toEqual([
       { field: "anniversary:相识纪念日", value: "2012-05-20" },
-      { field: "anniversary:其他纪念日", value: "07-07" },
+      { field: "anniversary:其他纪念日", value: "--07-07" },
     ]);
     expect(offers.some((o) => o.self)).toBe(false);
     // 陈晓当一个有生日的普通人
