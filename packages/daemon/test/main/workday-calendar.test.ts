@@ -155,10 +155,14 @@ describe("个人设置在配置区：重启后还在，手改过的以配置文�
     const third = await startTestDaemon({ reuse: { dataDir: first.dataDir, homeDir: first.homeDir } });
     expect(await dayOf(third.url, "2026-10-31")).toEqual(["休息", "周末"]);
     expect(await dayOf(third.url, "2026-10-30")).toEqual(["休息", "手动标记休息"]);
+    // 事件库里两条：重启前改的、启动时照改过的配置文件推的（不重复产生）
+    const stored = third.daemon.store.read(CALENDAR, 0, EVENT_TYPES.workdaySettings).map((e) => (e.payload as WorkdaySettingsEventPayload).source);
+    expect(stored).toEqual(["settings", "config_file"]);
+    // 新连上的页面冷补发只收到最新的那条（456：整份替换的设置，前面的被盖掉了）
     const again = await TestFrontend.connect(third.url);
     await again.subscribe({ [CALENDAR]: 0 });
-    await waitUntil(() => settingsEvents(again).length >= 2);
-    expect(settingsEvents(again).map((e) => e.source)).toEqual(["settings", "config_file"]);
+    await waitUntil(() => settingsEvents(again).length >= 1);
+    expect(settingsEvents(again).map((e) => e.source)).toEqual(["config_file"]);
   });
 });
 

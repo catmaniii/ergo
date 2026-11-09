@@ -229,8 +229,8 @@ describe("批准与凭证", () => {
 
     const phone = await device.connect();
     expect(await phone.subscribe({ [CARDS]: 0, [INBOX]: 0 })).toMatchObject({ ok: true });
-    // 已配对的设备看得到本机看到的东西：刚才那张（已处理的）配对请求卡
-    expect(cardsOf(await waitForCards(phone, 2)).at(-1)).toMatchObject({ type: "pairing", status: "handled" });
+    // 已配对的设备看得到本机看到的东西：刚才那张（已处理的）配对请求卡（冷补发只发最新的一版，456）
+    expect(cardsOf(await waitForCards(phone, 1)).at(-1)).toMatchObject({ type: "pairing", status: "handled" });
   });
 
   it("两台已信任的设备同时批准同一张卡：后到的得到\"已被处理\"；批准不产生素材，只有请求状态和卡片的变化", async () => {

@@ -605,10 +605,21 @@ function recordOf(type: string, payload: unknown): ConversationRecord | undefine
   return undefined;
 }
 
+/**
+ * 时间线上来了一条记录。操作记录到的时候手里已经有它的快速动作卡（卡片频道先到了：换了一版网页时本机重折是一个频道一个频道折的，
+ * 卡片在会话前面），就照卡片现在的版本换一遍——和记录先到、卡片后到时 withOperationsOf 换的一样，不依赖哪个频道先到
+ */
 function withRecord(state: UiState, frame: EventFrame): UiState {
   const record = recordOf(frame.type, frame.payload);
   if (!record) return state;
-  return updateConversation(state, frame.channel, (conv) => ({ ...conv, records: [...conv.records, { seq: frame.seq, record }] }));
+  const card = record.type === "operation" ? state.cards[record.operation.cardId]?.card : undefined;
+  const shown: ConversationRecord = record.type === "operation" && card?.type === "quick_action" ? { type: "operation", operation: operationAsCard(record.operation, card.payload as QuickActionCardPayload) } : record;
+  return updateConversation(state, frame.channel, (conv) => ({ ...conv, records: [...conv.records, { seq: frame.seq, record: shown }] }));
+}
+
+/** 操作记录照它的快速动作卡换标题、参数、结果说明（卡上还没有结果说明的留着记录自己的） */
+function operationAsCard(op: QuickActionExecutedEventPayload, p: QuickActionCardPayload): QuickActionExecutedEventPayload {
+  return { ...op, title: p.title, action: p.action, result: { ...op.result, summary: p.result ?? op.result.summary } };
 }
 
 /** 快速动作卡来了新版本：它的操作记录跟着换标题、参数、结果（彻底删除时卡片换成去掉原话的，操作记录也不留原话） */
@@ -621,8 +632,7 @@ function withOperationsOf(state: UiState, card: Card): UiState {
     ...c,
     records: c.records.map((r) => {
       if (r.record.type !== "operation" || r.record.operation.cardId !== card.id) return r;
-      const op = r.record.operation;
-      return { seq: r.seq, record: { type: "operation", operation: { ...op, title: p.title, action: p.action, result: { ...op.result, summary: p.result ?? op.result.summary } } } };
+      return { seq: r.seq, record: { type: "operation", operation: operationAsCard(r.record.operation, p) } };
     }),
   }));
 }

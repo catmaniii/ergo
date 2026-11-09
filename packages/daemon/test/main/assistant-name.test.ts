@@ -25,6 +25,9 @@ import { withoutFoldersBlock } from "../helpers/folders-block.ts";
 const { assistantName: ASSISTANT, secretary: SECRETARY } = CHANNELS;
 
 const nameEvents = (frontend: TestFrontend) => frontend.events({ channel: ASSISTANT, type: EVENT_TYPES.assistantName }).map((f) => f.payload as AssistantNameEventPayload);
+/** 事件库里的名字事件（全部历史；页面冷补发只收到最新的那条，456） */
+const storedNames = (td: { daemon: { store: { read(channel: string, after: number, type?: string): { payload: unknown }[] } } }) =>
+  td.daemon.store.read(ASSISTANT, 0, EVENT_TYPES.assistantName).map((e) => e.payload as AssistantNameEventPayload);
 
 const textOf = (payload: MessageEventPayload) => payload.message.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
 
@@ -83,13 +86,15 @@ describe("设置里改名：存在守护进程，开着的前端实时跟着变"
     const file = path.join(dataDirLayout(first.dataDir).config, "assistant-name.json");
     fs.writeFileSync(file, JSON.stringify({ format: 1, name: " 小八 " }));
     const third = await startTestDaemon({ reuse });
-    const again = await TestFrontend.connect(third.url);
-    await again.subscribe({ [ASSISTANT]: 0 });
-    await waitUntil(() => nameEvents(again).length >= 2);
-    expect(nameEvents(again)).toEqual([
+    expect(storedNames(third)).toEqual([
       { name: "小美", source: "settings" },
       { name: "小八", source: "config_file" },
     ]);
+    // 新连上的页面冷补发只收到最新的那条
+    const again = await TestFrontend.connect(third.url);
+    await again.subscribe({ [ASSISTANT]: 0 });
+    await waitUntil(() => nameEvents(again).length >= 1);
+    expect(nameEvents(again)).toEqual([{ name: "小八", source: "config_file" }]);
     await third.daemon.stop();
 
     // 改坏了（名字太长）：不覆盖文件，沿用上一次的名字，不推事件
@@ -97,11 +102,12 @@ describe("设置里改名：存在守护进程，开着的前端实时跟着变"
     const fourth = await startTestDaemon({ reuse });
     const last = await TestFrontend.connect(fourth.url);
     await last.subscribe({ [ASSISTANT]: 0 });
-    await waitUntil(() => nameEvents(last).length >= 2);
+    await waitUntil(() => nameEvents(last).length >= 1);
     // 再改一次名字作为"推完了"的标记：前面没有多出 config_file 的事件
     await assistantNameApi.change(fourth.url, "阿福");
-    await waitUntil(() => nameEvents(last).length >= 3);
-    expect(nameEvents(last).map((e) => e.name)).toEqual(["小美", "小八", "阿福"]);
+    await waitUntil(() => nameEvents(last).length >= 2);
+    expect(nameEvents(last).map((e) => e.name)).toEqual(["小八", "阿福"]);
+    expect(storedNames(fourth).map((e) => e.name)).toEqual(["小美", "小八", "阿福"]);
   });
 });
 

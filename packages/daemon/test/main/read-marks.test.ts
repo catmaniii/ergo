@@ -103,9 +103,10 @@ describe("记已读位置、多设备同步", () => {
     expect(phone.events().slice(before).map((f) => `${f.channel} ${f.type}`)).toEqual(["read_marks read_mark"]);
     expect(seqsOf(phone)).toEqual(["secretary@0", "secretary@4"]);
 
+    // 新的一台冷补发只收到最靠后的那条（456）
     const tablet = await connect(url);
-    await waitUntil(() => marksOf(tablet).length >= 2);
-    expect(marksOf(tablet).at(-1)).toMatchObject({ conversation: SECRETARY, seq: 4 });
+    await waitUntil(() => marksOf(tablet).length >= 1);
+    expect(marksOf(tablet)).toMatchObject([{ conversation: SECRETARY, seq: 4 }]);
   });
 
   it("停掉再起：已读位置还在，不再补记启动时的那一条", async () => {
@@ -117,12 +118,14 @@ describe("记已读位置、多设备同步", () => {
     await first.daemon.stop();
 
     const second = await startTestDaemon({ reuse: { dataDir: first.dataDir, homeDir: first.homeDir } });
+    // 新连上的冷补发只收到最靠后的那条（456）；事件库里没有多出启动时补的那条
     const again = await connect(second.url);
-    await waitUntil(() => marksOf(again).length >= 2);
-    // 再记一次当"推完了"的标记：前面没有多出启动时补的那条
+    await waitUntil(() => marksOf(again).length >= 1);
+    expect(seqsOf(again)).toEqual(["secretary@3"]);
     ok(await again.markRead({ conversation: SECRETARY, seq: 4 }));
-    await waitUntil(() => marksOf(again).length >= 3);
-    expect(seqsOf(again)).toEqual(["secretary@0", "secretary@3", "secretary@4"]);
+    await waitUntil(() => marksOf(again).length >= 2);
+    expect(seqsOf(again)).toEqual(["secretary@3", "secretary@4"]);
+    expect(second.daemon.store.read(READ_MARKS, 0, EVENT_TYPES.readMark).map((e) => { const m = e.payload as ReadMarkEventPayload; return `${m.conversation}@${m.seq}`; })).toEqual(["secretary@0", "secretary@3", "secretary@4"]);
   });
 });
 

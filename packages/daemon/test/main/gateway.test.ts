@@ -1,5 +1,5 @@
 // 主切面：网关的本机端口。只听 127.0.0.1、端口从配置读；Origin 和 Host 不对的 HTTP 和 WebSocket 请求被拒
-// （DNS 重绑定、跨站 WebSocket）；提供 Web UI 静态文件和健康探针；格式不对的请求得到错误响应，连接不断。
+// （DNS 重绑定、跨站 WebSocket）；提供 Web UI 静态文件和健康探针；格式不对的请求得到错误响应，连接不断；冷补发只发合并后的（456）。
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
@@ -8,7 +8,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import zlib from "node:zlib";
-import { FRONTEND_PROTOCOL_VERSION, type SubscribeResult, webVersionInHtml } from "@ergo/protocol";
+import { CHANNELS, compactChannel, EVENT_TYPES, FRONTEND_PROTOCOL_VERSION, type SubscribeResult, webVersionInHtml } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { COMPRESS_MIN_CHARS } from "../../src/gateway/gateway.ts";
 import { serviceKey } from "../../src/plugins/host.ts";
@@ -263,6 +263,58 @@ describe("请求帧", () => {
     await frontend.sendText("还在吗");
     await frontend.next("secretary", "turn_end");
     expect(frontend.events({ persistedOnly: true }).map((f) => f.type)).toEqual(["message", "turn_start", "message", "turn_end"]);
+  });
+});
+
+/** 一个任务的用量合计（看板频道上的 token_totals） */
+const totals = (id: string, calls: number) => ({ owner: { kind: "task", id }, tokens: { cacheHit: calls, cacheMiss: calls, output: calls }, calls, byAgent: [], byStage: [], time: "2026-11-09T09:00:00.000+08:00" });
+
+describe("冷补发只发最新的（456）", () => {
+  it("游标为 0、要重新同步的频道补合并后的（同一件事被后来盖掉的不补，最后一条总在）；游标大于 0 的增量一条不少；会话频道照旧；存着的一条不动", async () => {
+    const td = await startTestDaemon({ secretary: [{ kind: "reply", text: "好的" }] });
+    const { store } = td.daemon;
+    // 看板上两个任务的用量合计各记了五次（每次一条完整合计，后来的整份盖掉前面的）
+    for (let i = 1; i <= 5; i++) for (const id of ["t-1", "t-2"]) store.append({ channel: CHANNELS.board, type: EVENT_TYPES.tokenTotals, payload: totals(id, i) });
+    const writer = await TestFrontend.connect(td.url);
+    await writer.subscribe({ [CHANNELS.secretary]: 0 });
+    await writer.sendText("在吗");
+    await writer.next(CHANNELS.secretary, EVENT_TYPES.turnEnd);
+    const board = store.read(CHANNELS.board);
+    const secretary = store.read(CHANNELS.secretary);
+    const merged = compactChannel(board).map((e) => e.seq);
+    expect(merged.length).toBeLessThan(board.length);
+    expect(merged.at(-1)).toBe(store.lastSeq(CHANNELS.board));
+
+    /** 订阅，等补发推完（空订阅当回执：守护进程按顺序处理，它的响应排在补发的后面），交回这次补的落盘事件 */
+    const replayed = async (cursors: Record<string, number>) => {
+      const frontend = await TestFrontend.connect(td.url);
+      const response = await frontend.subscribe(cursors);
+      await frontend.subscribe({});
+      return { frontend, response, seqs: (channel: string) => frontend.events({ channel, persistedOnly: true }).map((f) => f.seq) };
+    };
+
+    // 新设备冷打开：看板补合并后的；秘书会话（会话频道）照旧补最近一页（不到一页，全补）
+    const cold = await replayed({ [CHANNELS.board]: 0, [CHANNELS.secretary]: 0 });
+    expect(cold.seqs(CHANNELS.board)).toEqual(merged);
+    expect(cold.frontend.events({ channel: CHANNELS.board, persistedOnly: true })).toEqual(compactChannel(board).map(({ channel, seq, type, payload }) => ({ channel, seq, type, payload })));
+    expect(cold.seqs(CHANNELS.secretary)).toEqual(secretary.map((e) => e.seq));
+
+    // 带着游标的增量：之后的一条不少（被盖掉的也补：前端手里有旧的，要一条条往后折）
+    const warm = await replayed({ [CHANNELS.board]: 3 });
+    expect(warm.seqs(CHANNELS.board)).toEqual(board.filter((e) => e.seq > 3).map((e) => e.seq));
+
+    // 前端的序号比这里的还大（数据目录恢复过）：点名重新同步，从头补合并后的
+    const restored = await replayed({ [CHANNELS.board]: 999 });
+    expect(restored.response).toMatchObject({ ok: true, result: { resync: [CHANNELS.board] } });
+    expect(restored.seqs(CHANNELS.board)).toEqual(merged);
+
+    // 合并后接着推实时的：新的一条照常推给冷打开的那条连接，序号接着
+    store.append({ channel: CHANNELS.board, type: EVENT_TYPES.tokenTotals, payload: totals("t-1", 6) });
+    await waitUntil(() => cold.seqs(CHANNELS.board).at(-1) === board.length + 1, { describe: () => `冷打开的连接收到的看板：${cold.seqs(CHANNELS.board).join(",")}` });
+    expect(cold.seqs(CHANNELS.board)).toEqual([...merged, board.length + 1]);
+
+    // 守护进程存的事件一条没动
+    expect(store.read(CHANNELS.board).slice(0, board.length)).toEqual(board);
   });
 });
 

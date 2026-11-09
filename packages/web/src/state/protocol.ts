@@ -202,6 +202,14 @@ export {
   isCardType,
   isDeletedEventPayload,
   isEphemeralEventType,
+  // 冷补发只发最新的（456）：同一件事被后来的事件盖掉的旧记录怎么认，本机存的事件也照它合并（app/open-snapshot.ts）
+  addToCompaction,
+  compactChannel,
+  copyCompaction,
+  emptyCompaction,
+  isChannelCompaction,
+  REPLAY_COMPACTION_VERSION,
+  survivingSeqs,
   // 待我处理事项的先后（秘书列出待我处理也用它）
   compareInboxItems,
   // 事项的动作、处理结果显示成当前语言（存的、按字认的是中文原字）
@@ -313,6 +321,7 @@ export {
   isJobRunWorkOrder,
 } from "@ergo/protocol";
 export type {
+  ChannelCompaction,
   AssistantNameCheck,
   AssistantNameEventPayload,
   AssistantNameResult,

@@ -2,6 +2,7 @@
 // （App.tsx），测试换成假的、在 Node 里跑，不带 DOM 的类型。
 // 一个库、一张表：快照在键 latest 上；事件一条一个键 [频道, 序号]（数组键排在字符串后面，按频道、序号排好，删一个频道是删一段键）。
 // 和 388 的同一张表，不升库的版本：开着的旧版本页面照样读写它的 latest，不会被升级挡住。
+// 存的事件按冷补发同一份规则合并（456）：一次写先删（整个、某几个频道、被盖掉的那几条），再加，快照换掉，一个事务。
 import type { EventWrite, SnapshotBackend } from "./open-snapshot.ts";
 
 /** IndexedDB 里的库名、表名、快照的键 */
@@ -77,6 +78,8 @@ export function indexedDbSnapshotBackend(factory: IDBFactory | undefined = globa
         (store) => {
           if (events.clear === "all") store.delete(allEvents());
           else for (const channel of events.clear) store.delete(channelEvents(channel));
+          // 合并时被后来的盖掉了的（456）
+          for (const { channel, seq } of events.remove) store.delete([channel, seq]);
           for (const frame of events.add) store.put(frame, [frame.channel, frame.seq]);
           store.put(value, KEY);
           return () => undefined;

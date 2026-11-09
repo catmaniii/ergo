@@ -108,13 +108,14 @@ import {
   type WebVersionEventPayload,
   type WebVersionView,
   WS_CLOSE_UNPAIRED,
+  compactChannel,
   t,
 } from "@ergo/protocol";
 import { type PerMessageDeflateOptions, WebSocket, WebSocketServer } from "ws";
 import type { AppProxy, AppRequestContext } from "../apps/proxy.ts";
 import { type BrowserLinks, type BrowserPeer, browsingOff } from "../browsing/api.ts";
 import type { MapService } from "../map/api.ts";
-import { firstReplayAfter, replayPins } from "../conversation/history.ts";
+import { firstReplayAfter, isConversationChannel, replayPins } from "../conversation/history.ts";
 import { type AttachmentLookup, type MessageScope, postUserMessage, type VoiceIntake } from "../conversation/messages.ts";
 import { removeQueued, reorderQueued } from "../conversation/message-queue.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
@@ -716,11 +717,13 @@ class FrontendConnection implements BrowserPeer {
         const result: SubscribeResult = { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync, ...(webVersion === undefined ? {} : { webVersion }) };
         this.respond({ id: request.id, ok: true, result });
         // 补发：每个频道序号大于前端游标的落盘事件；之后的新事件由 pushStored 接着推。
-        // 前端手里什么都没有（游标为 0、或者要重新同步）时，会话频道只补发最近一页，更早的经 HTTP 往上翻
+        // 前端手里什么都没有（游标为 0、或者要重新同步）时，会话频道只补发最近一页，更早的经 HTTP 往上翻；别的频道从头补，
+        // 但同一件事被后来的事件整份盖掉的旧记录不补（只发最新的，协议包的 compactChannel；456：折出来和全补一样，最后一条总在，
+        // 前端的游标照旧是最后一条）。游标大于 0 的增量照旧一条不少。存着的事件一条不动
         for (const [channel, cursor] of Object.entries(cursors)) {
           const known = resync.includes(channel) ? 0 : Math.max(cursor, this.subscriptions.get(channel) ?? 0);
           const from = known === 0 ? firstReplayAfter(this.store, channel) : known;
-          const replay = this.store.read(channel, from);
+          const replay = known === 0 && !isConversationChannel(channel) ? compactChannel(this.store.read(channel, from)) : this.store.read(channel, from);
           // 只补发了最近一页的，这一页之前有几条要先补发（history.ts 的 replayPins）：会话回退过，最新那条 session_branch
           // （前端据此认出哪些在废弃分支上、分叉在哪）；这一页里的消息引用的语音对象最新那一版的事件（不然气泡一直"识别中…"）
           const pinned = known === 0 ? replayPins(this.store, channel, from, replay) : [];
