@@ -54,6 +54,8 @@
 //   和名字事件、配置文件、设置接口的 schema。
 // - personal-files.ts / personal-files-schema.ts：个人档案——本人和重要的人各一份；有哪些字段、叫什么、哪些算号码
 //   （核对卡上逐位列出）、值合不合规（不引用 TypeBox），档案页的接口和核对卡的 schema。
+// - annual-date.ts：生日、纪念日的日子（449）——存的样子（"1990-03-02""--03-02""lunar:--08-15"）、认各种写法、
+//   显示成好读的样子、选择器上某月最多几号（纯函数）。
 // - user-name.ts / user-name-schema.ts：我的名字（用户自己的名字）——规矩照个人助理的名字（checkUserName 就是
 //   checkAssistantName），配置文件、GET/PUT 设置接口的 schema（不走事件）。
 // - workflow.ts / workflow-schema.ts：流程（两种任务之一，固定计划）的名字、纯函数（不引用 TypeBox）
@@ -198,6 +200,7 @@ export * from "./assistant-name-schema.ts";
 export * from "./user-name.ts";
 export * from "./user-name-schema.ts";
 export * from "./personal-files.ts";
+export * from "./annual-date.ts";
 export * from "./personal-files-schema.ts";
 export * from "./workflow.ts";
 export * from "./workflow-schema.ts";
