@@ -74,7 +74,7 @@ describe("地图服务插槽的登记表", () => {
         regionPriority: { abroad: 30 },
         ownBasemapOnly: true,
         basemap: () => ({ ready: true, key: "k" }),
-        staticMap: () => Promise.resolve({ ok: false, failure: "other", reason: "-" }),
+        staticMap: { maxSide: 640, minZoom: 1, maxZoom: 19, datum: "gcj02", get: () => Promise.resolve({ ok: false, failure: "other", reason: "-" }) },
       }),
     );
     reg.register(providerOf("b", { manualRegions: ["abroad", "mainland"], basemap: () => ({ ready: false, problem: "Key 不对" }), lookup: () => ({ ready: false, why: "没填" }) }));

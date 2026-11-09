@@ -190,7 +190,7 @@ import { fakeTakeoverSessions } from "./fake-takeover.ts";
 import { fakeAppFileText } from "./fake-app-files.ts";
 import { fakeMedia, fakeSoundUrl, fakeVideoUrl } from "./fake-media.ts";
 import { FAKE_MATERIAL_IMAGES, fakeMaterialConversations, fakeMaterialDetail, fakeMaterialsIn, fakeSaveWebPage } from "./fake-materials.ts";
-import { DEMO_AMAP_KEY, demoMapDrawing, demoMapFind, demoMapProviders, type DemoStaticMark, demoStaticMap } from "./fake-map.ts";
+import { DEMO_AMAP_KEY, demoMapDrawing, demoMapFind, demoMapProviders, demoStaticMap } from "./fake-map.ts";
 import { demoMapDay, demoMapLatest } from "./fake-footprints.ts";
 import { fakeServiceThumbnail } from "./fake-operations.ts";
 import { fakeProjectStandard } from "./fake-standard.ts";
@@ -316,6 +316,12 @@ const FAKE_FOLDER_TREE: ReadonlyArray<{ path: string; parent?: string; children:
   { path: "D:\\", children: ["照片", "文档", "备份"] },
   { path: "D:\\照片", parent: "D:\\", children: ["2024", "2025", "2026"] },
 ];
+
+/** 查到的那一份的预览图要看全的点（点和线上的点）；别家查的只画在自己地图上（own） */
+async function previewOfDrawing(id: string): Promise<{ own?: string; bounds: { lat: number; lon: number }[] }> {
+  const d = await demoMapDrawing(id);
+  return { ...(d.source === "osm" ? {} : { own: d.source }), bounds: [...d.marks, ...d.lines.flatMap((l) => l.points)].map((p) => ({ lat: p.lat, lon: p.lon })) };
+}
 
 export class FakeDaemonHttp implements DaemonHttp {
   private seq = 0;
@@ -763,8 +769,8 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   /**
    * 聊天卡片的预览图（451）：真的是守护进程拿 Key 去取那家的静态地图；原型里拿占位瓦片在页面里拼一张（fake-map.ts 的 demoStaticMap），
-   * 过 0.3 秒回。查到的一律用查它的那家；谷歌地图插件停用了、或者地址带 ?demo-map-preview=google-off（扮"Maps Static API 没开"）时
-   * 谷歌的取不到，回那句原因
+   * 过 0.3 秒回。453 起和真的一样只有光底图、交回视野（X-Map-View 那一份），点和线页面自己画。查到的一律用查它的那家；
+   * 谷歌地图插件停用了、或者地址带 ?demo-map-preview=google-off（扮"Maps Static API 没开"）时谷歌的取不到，回那句原因
    */
   async mapPreview(q: MapPreviewQuery, signal?: AbortSignal): Promise<MapPreviewImage> {
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -773,30 +779,22 @@ export class FakeDaemonHttp implements DaemonHttp {
     const provider = drawn.own ?? q.provider;
     if (provider !== "amap" && provider !== "google") throw new Error(fakeFormat("{}不出静态地图", provider ?? "-"));
     if (provider === "google" && (!this.googleMapsOn() || demoParam("demo-map-preview") === "google-off")) throw new Error(fakeText("谷歌的 Maps Static API 没开（或者服务端 Key 的 API 限制里没勾它）：在 Google Cloud 里开、勾上"));
-    return { url: demoStaticMap(provider, drawn, q.width, q.height, q.dark && provider === "google"), release: () => {} };
+    const image = demoStaticMap(provider, drawn.bounds, q);
+    return { url: image.url, view: image.view, release: () => {} };
   }
 
-  /** 预览图要画的：卡片（演示的几张）或查到的编号 → 点（最多 10 个，序号 1～9）、线；查到的别家只画在自己地图上（own） */
-  private async previewContent(q: MapPreviewQuery): Promise<{ own?: string; marks: DemoStaticMark[]; lines: { lat: number; lon: number }[][] }> {
-    const numbered = (list: readonly { lat: number; lon: number; here?: boolean }[]): DemoStaticMark[] => {
-      let n = 0;
-      return list.slice(0, 10).map((m) => (m.here ? { lat: m.lat, lon: m.lon, here: true } : { lat: m.lat, lon: m.lon, ...(++n <= 9 ? { label: String(n) } : {}) }));
-    };
-    const fromDrawing = async (id: string) => {
-      const d = await demoMapDrawing(id);
-      return { ...(d.source === "osm" ? {} : { own: d.source }), marks: numbered(d.marks.map((m) => ({ lat: m.lat, lon: m.lon, here: m.kind === "here" }))), lines: d.lines.map((l) => [...l.points]) };
-    };
-    if (q.lookup !== undefined) return fromDrawing(q.lookup);
+  /** 预览图要看全的点（和守护进程 static-map.ts 的一样）：卡片（演示的几张）或查到的编号；查到的别家只画在自己地图上（own） */
+  private async previewContent(q: MapPreviewQuery): Promise<{ own?: string; bounds: { lat: number; lon: number }[] }> {
+    if (q.lookup !== undefined) return previewOfDrawing(q.lookup);
     const card = FAKE_CARDS.find((c) => c.id === q.card && c.type === "map");
     if (!card) throw new Error(fakeText("这张地图卡片不在了"));
     const show = (card.payload as MapCardPayload).show;
-    if (show.kind === "lookup") return fromDrawing(show.lookup);
+    if (show.kind === "lookup") return previewOfDrawing(show.lookup);
     if (show.kind === "day") {
       const day = demoMapDay(show.date);
-      const spots = [...new Map(day.stays.map((s) => [s.spot, s] as const)).values()];
-      return { marks: numbered(spots), lines: [day.points.map((p) => ({ lat: p.lat, lon: p.lon }))] };
+      return { bounds: [...day.points, ...day.photos, ...day.stays].map((p) => ({ lat: p.lat, lon: p.lon })) };
     }
-    return { marks: numbered(show.marks), lines: show.kind === "route" ? [[...show.points]] : [] };
+    return { bounds: (show.kind === "route" ? show.points : show.marks).map((p) => ({ lat: p.lat, lon: p.lon })) };
   }
 
   /** 地图页报底图的事（446）：原型里只当收到了（不数用量） */

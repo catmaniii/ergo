@@ -8,10 +8,11 @@
 // - "在地图上看"（447，demoMapFind）：网页上选中的一段字，带汉字的当国内地址、"高德"查到西湖边，不带的当国外查到滨海湾（谷歌地图插件
 //   开着时"谷歌"查的，停用了 OpenStreetMap 查的）；写着"找不到"、nowhere 的回没找到。
 // - 聊天卡片的预览图（451，demoStaticMap）：真的是守护进程拿 Key 去取那家的静态地图；演示页拿同一套占位瓦片在页面里拼一张 SVG，
-//   左下角写那家的名字（看得出是哪家），点带序号、线照画；谷歌深色换深色的占位颜色（高德的静态图没有深色，页面加滤镜）。
+//   左下角写那家的名字（看得出是哪家）；453 起只有光底图，点和线页面自己画（和真的一样）；谷歌深色换深色的占位颜色
+//   （高德的静态图没有深色，页面加滤镜）。
 // - 国外"自动"：谷歌（填了）→ 高德 → OpenStreetMap（451）；停用谷歌地图插件（?demo-plugins-off=google-maps）时国外"自动"是高德。
 // 只在演示页里用（地图页 import.meta.env.MODE === "demo" 的分支、FakeDaemonHttp）。英文在 en/fake-map.ts。
-import type { MapDrawing, MapFindResult, MapProviderView } from "../state/index.ts";
+import type { MapDrawing, MapFindResult, MapPreviewView, MapProviderView } from "../state/index.ts";
 import { fakeFormat, fakeText } from "./fake-content.ts";
 
 /** 演示页里"填好了"的高德 Key（假的，安装版的产物里不该有它：DEMO_SENTINELS） */
@@ -125,14 +126,6 @@ function demoTileBody(style: TileStyle, z: number, x: number, y: number): string
   return `<rect width="256" height="256" fill="${c.ground}"/>${cells.join("")}<g stroke="${c.edge}" fill="none">${edges.join("")}</g><g stroke="${c.street}" fill="none">${roads.join("")}</g>`;
 }
 
-/** 预览图上的一个点：序号（不写的不标）、是不是"现在在哪" */
-export interface DemoStaticMark {
-  readonly lat: number;
-  readonly lon: number;
-  readonly label?: string;
-  readonly here?: boolean;
-}
-
 const MAX_LAT = 85.05112878;
 /** 经纬度 → 第 z 级的世界像素（Web 墨卡托，256 一张瓦片） */
 function worldPx(p: { lat: number; lon: number }, z: number): { x: number; y: number } {
@@ -141,24 +134,43 @@ function worldPx(p: { lat: number; lon: number }, z: number): { x: number; y: nu
   const s = Math.sin((lat * Math.PI) / 180);
   return { x: ((p.lon + 180) / 360) * scale, y: (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * scale };
 }
+/** 第 z 级的世界像素 → 经纬度 */
+function unworldPx(x: number, y: number, z: number): { lat: number; lon: number } {
+  const scale = 256 * 2 ** z;
+  const n = Math.PI - (2 * Math.PI * y) / scale;
+  return { lat: (180 / Math.PI) * Math.atan(Math.sinh(n)), lon: (x / scale) * 360 - 180 };
+}
+
+/** 两家静态地图的上限（和守护进程 amap-static.ts、google-maps/static-map.ts 的一样） */
+const DEMO_STATIC_LIMITS = { amap: { maxSide: 1024, minZoom: 1, maxZoom: 17, maxZoomHiDpi: 16 }, google: { maxSide: 640, minZoom: 1, maxZoom: 19, maxZoomHiDpi: 19 } } as const;
+/** 看全时留的边（和守护进程 static-map.ts 的 MAP_STATIC_PAD 一样：下面留出标志那一条） */
+const DEMO_STATIC_PAD = { x: 24, top: 40, bottom: 28 };
 
 /**
- * 演示页的"静态地图"（451）：照守护进程的样子看全这些点（四周留边、级别取整数），用占位瓦片拼一张 SVG（data: 地址）；
- * 点带序号、线照画，左下角写那家的名字。只在演示页用（FakeDaemonHttp.mapPreview）
+ * 演示页的"静态地图"（451；453 起只有光底图）：照守护进程的样子（static-map.ts 的 planStatic）看全这些点——四周留边、级别取整数、
+ * 宽高按那家的上限缩——用占位瓦片拼一张 SVG（data: 地址），左下角写那家的名字（扮它的标志），右下角写"演示图"；
+ * **不画点和线**（真的也不画：页面按交回的视野自己画）。交回图和视野（回应头 X-Map-View 的那一份）。只在演示页用（FakeDaemonHttp.mapPreview）
  */
-export function demoStaticMap(provider: "amap" | "google", content: { marks: readonly DemoStaticMark[]; lines: readonly (readonly { lat: number; lon: number }[])[] }, width: number, height: number, dark: boolean): string {
-  const all = [...content.marks, ...content.lines.flat()];
-  const at0 = all.map((p) => worldPx(p, 0));
+export function demoStaticMap(provider: "amap" | "google", bounds: readonly { lat: number; lon: number }[], q: { width: number; height: number; scale: 1 | 2; dark: boolean }): { url: string; view: MapPreviewView } {
+  const limits = DEMO_STATIC_LIMITS[provider];
+  const ratio = Math.min(1, limits.maxSide / Math.max(q.width, q.height));
+  const width = Math.max(1, Math.floor(q.width * ratio));
+  const height = Math.max(1, Math.floor(q.height * ratio));
+  const dark = q.dark && provider === "google";
+  const at0 = bounds.map((p) => worldPx(p, 0));
   const xs = at0.map((p) => p.x);
   const ys = at0.map((p) => p.y);
-  const pad = { x: 24, top: 40, bottom: 16 };
+  const pad = DEMO_STATIC_PAD;
   const spanX = Math.max(...xs) - Math.min(...xs);
   const spanY = Math.max(...ys) - Math.min(...ys);
-  const fit = spanX < 1e-9 && spanY < 1e-9 ? 15 : Math.floor(Math.min(Math.log2((width - 2 * pad.x) / Math.max(spanX, 1e-9)), Math.log2((height - pad.top - pad.bottom) / Math.max(spanY, 1e-9))));
-  const zoom = Math.min(17, Math.max(3, Math.min(fit, 15)));
+  const room = { w: Math.max(16, width - 2 * pad.x), h: Math.max(16, height - pad.top - pad.bottom) };
+  const fit = spanX < 1e-9 && spanY < 1e-9 ? 15 : Math.floor(Math.min(Math.log2(room.w / Math.max(spanX, 1e-9)), Math.log2(room.h / Math.max(spanY, 1e-9))));
+  const maxZoom = q.scale === 2 ? limits.maxZoomHiDpi : limits.maxZoom;
+  const zoom = Math.min(maxZoom, Math.max(limits.minZoom, Math.min(fit, 15)));
   const scale = 2 ** zoom;
   const cx = ((Math.max(...xs) + Math.min(...xs)) / 2) * scale;
   const cy = ((Math.max(...ys) + Math.min(...ys)) / 2) * scale - (pad.top - pad.bottom) / 2;
+  const center = unworldPx(cx, cy, zoom);
   const left = cx - width / 2;
   const top = cy - height / 2;
   const style: TileStyle = provider === "google" ? (dark ? "googleDark" : "google") : "amap";
@@ -170,24 +182,11 @@ export function demoStaticMap(provider: "amap" | "google", content: { marks: rea
       tiles.push(`<svg x="${(tx * 256 - left).toFixed(1)}" y="${(ty * 256 - top).toFixed(1)}" width="256" height="256" viewBox="0 0 256 256">${demoTileBody(style, zoom, wrapped, ty)}</svg>`);
     }
   }
-  const px = (p: { lat: number; lon: number }) => {
-    const w = worldPx(p, zoom);
-    return { x: w.x - left, y: w.y - top };
-  };
-  const lines = content.lines
-    .filter((l) => l.length >= 2)
-    .map((l) => `<polyline points="${l.map((p) => { const q = px(p); return `${q.x.toFixed(1)},${q.y.toFixed(1)}`; }).join(" ")}" fill="none" stroke="#2563eb" stroke-opacity="0.85" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>`);
-  const marks = content.marks.map((m) => {
-    const q = px(m);
-    if (m.here) return `<circle cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="7" fill="#3b82f6" stroke="#fff" stroke-width="2.5"/>`;
-    const label = m.label === undefined ? "" : `<text x="${q.x.toFixed(1)}" y="${(q.y - 15).toFixed(1)}" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#fff">${m.label}</text>`;
-    return `<path d="M${q.x.toFixed(1)} ${q.y.toFixed(1)} l-6 -10 a10 10 0 1 1 12 0 z" fill="#fc6054" stroke="#fff" stroke-width="1.5"/>${label}`;
-  });
   const ink = provider === "google" && dark ? "#e8eaed" : "#3c4043";
   const logo = `<text x="8" y="${height - 8}" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="${ink}" fill-opacity="0.85">${provider === "google" ? "Google" : fakeText("高德地图")}</text>`;
   const note = `<text x="${width - 8}" y="${height - 8}" text-anchor="end" font-family="Arial, sans-serif" font-size="10" fill="${ink}" fill-opacity="0.7">${fakeText("演示图")}</text>`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${tiles.join("")}${lines.join("")}${marks.join("")}${logo}${note}</svg>`;
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${tiles.join("")}${logo}${note}</svg>`;
+  return { url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, view: { lat: center.lat, lon: center.lon, zoom, width, height, scale: q.scale, datum: "gcj02" } };
 }
 
 /**

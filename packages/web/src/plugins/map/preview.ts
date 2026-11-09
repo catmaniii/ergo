@@ -4,14 +4,18 @@
 // - 看到了才取（useVisible：IntersectionObserver，往外多算 200 像素；浏览器没有它就当看到了）；
 // - 要多大（previewSize）：盒子的宽度取整到 40 的倍数（同一种宽度的卡片地址一样），收在 [MAP_PREVIEW_MIN_SIDE, 640]；
 //   像素密度高的屏幕要高清（scale 2）；
-// - 取（useMapPreview）：同一个请求只取一次，换了请求、卸掉时放掉上一张（blob: 地址）；取不到交回原因（守护进程那一句）。
+// - 取（useMapPreview）：同一个请求只取一次，换了请求、卸掉时放掉上一张（blob: 地址）；取不到交回原因（守护进程那一句）；
+//   453 起图是光底图，连着回应头里的视野一起交回，点和线由 static-overlay.tsx 照它画在图上。
 import { useEffect, useState } from "react";
 import type { DaemonHttp } from "../../app/daemon-http.ts";
-import { MAP_PREVIEW_MIN_SIDE, type MapPreviewQuery, type MapProviderView } from "../../state/index.ts";
+import { MAP_PREVIEW_MIN_SIDE, type MapPreviewQuery, type MapPreviewView, type MapProviderView } from "../../state/index.ts";
 import { providersOf } from "./providers.ts";
 
-/** 预览图取到哪一步：在取、取到了（能放进 <img> 的地址）、取不到（原因） */
-export type PreviewState = { readonly state: "loading" } | { readonly state: "ready"; readonly url: string } | { readonly state: "failed"; readonly reason: string };
+/** 预览图取到哪一步：在取、取到了（能放进 <img> 的地址；这张图的视野，453：页面照它画点和线）、取不到（原因） */
+export type PreviewState =
+  | { readonly state: "loading" }
+  | { readonly state: "ready"; readonly url: string; readonly view?: MapPreviewView | undefined }
+  | { readonly state: "failed"; readonly reason: string };
 
 /** 卡片预览图最宽多少（谷歌的上限是 640，聊天里的卡片也用不着更宽） */
 export const CARD_PREVIEW_MAX_WIDTH = 640;
@@ -109,7 +113,7 @@ export function useMapPreview(http: DaemonHttp, q: MapPreviewQuery | undefined):
       (image) => {
         if (gone.signal.aborted) return image.release();
         release = image.release;
-        setGot({ key, state: { state: "ready", url: image.url } });
+        setGot({ key, state: { state: "ready", url: image.url, view: image.view } });
       },
       (err: unknown) => {
         if (!gone.signal.aborted) setGot({ key, state: { state: "failed", reason: err instanceof Error ? err.message : String(err) } });

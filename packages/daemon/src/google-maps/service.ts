@@ -112,7 +112,7 @@ export function createGoogleMapsService(options: GoogleMapsServiceOptions): Goog
       },
     },
     basemapEvent: (event) => (event === "loaded" ? usage.count("dynamicMaps") : keys.browserRejected()),
-    staticMap: (req, signal) => staticMap(req, signal),
+    staticMap,
   };
 
   /** 设置 · 数据源 · 谷歌地图那一块要的 */

@@ -169,7 +169,7 @@ export function createMapService(options: MapServiceOptions): MapPluginService {
     },
     lookup: () => (amapUsable() ? { ready: true, provider: lookup } : { ready: false, why: amapWhy() }),
     usage: { title: "map.doctor.usage.title", run: () => usageFinding(usage.view(), lookup.hasKey()) },
-    staticMap: (req, signal) => amapStatic(req, signal),
+    staticMap: amapStatic,
   };
   const osmProvider: MapProvider = {
     id: OSM_PROVIDER,

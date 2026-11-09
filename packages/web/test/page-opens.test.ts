@@ -1217,6 +1217,20 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await day.scrollIntoViewIfNeeded();
       await day.locator('.map-card-thumb[data-provider="amap"][data-preview="ready"] img.map-card-img').waitFor({ timeout: 5000 });
       expect(await day.locator(".map-card-img").getAttribute("src")).toMatch(/^data:image\/svg\+xml/);
+      // 453：图只是底图，停留的点（写着序号）、轨迹在本机画在上面那一层
+      const overlay = day.locator(".map-static-overlay");
+      await overlay.locator('.map-mark[data-kind="stay"]').first().waitFor({ timeout: 5000 });
+      expect(await overlay.locator('.map-mark[data-kind="stay"] .map-mark-num').allInnerTexts()).toEqual(["1", "2", "3"]);
+      expect(await overlay.locator("polyline.map-line-track").count()).toBeGreaterThan(0);
+      // 点落在图里（没被裁到外面）、没盖住最下面标志那一条
+      const thumbBox = (await day.locator(".map-card-thumb").boundingBox())!;
+      const overlayBox = (await overlay.boundingBox())!;
+      expect(overlayBox.y + overlayBox.height).toBeLessThanOrEqual(thumbBox.y + thumbBox.height - 20);
+      for (const pin of await overlay.locator('.map-mark[data-kind="stay"]').all()) {
+        const b = (await pin.boundingBox())!;
+        expect(b.x).toBeGreaterThanOrEqual(thumbBox.x);
+        expect(b.x + b.width).toBeLessThanOrEqual(thumbBox.x + thumbBox.width);
+      }
       expect(await day.locator(".map-tiles").count()).toBe(0);
       expect(await day.locator(".map-attribution").count()).toBe(0);
       expect(await day.innerText()).toMatch(/待过 3 个地方 · 6 张照片[\s\S]*家、公司、杭州市西湖区北山街/);

@@ -61,6 +61,44 @@
 .map-card-img.dim {
   filter: brightness(0.78) contrast(0.92) saturate(0.9);
 }
+/*
+ * 静态预览图上自己画的点和线（453，plugins/map/static-overlay.tsx）：高德、谷歌只给光底图，这一层照回应头的视野画；
+ * 位置、大小由组件按图在盒子里的样子（object-fit: cover）算好写在 style 上，只画到图最下面标志和版权那一条上面（多的裁掉）。
+ * 点、线、圈的样子和地图页一样（map.css、map-footprints.css）；主要的那几个点在针头里写序号。
+ */
+.map-preview {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.map-static-overlay {
+  position: absolute;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.map-static-overlay .map-mark {
+  cursor: default;
+  pointer-events: none;
+}
+.map-mark[data-n] .map-pin::after {
+  content: none;
+}
+.map-mark-num {
+  position: absolute;
+  left: 2px;
+  top: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--primary-text);
+  font-family: var(--font-num);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
 .map-card-placeholder {
   position: absolute;
   inset: 0;

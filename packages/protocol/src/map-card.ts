@@ -80,6 +80,54 @@ export const MAP_PREVIEW_MIN_SIDE = 64;
 export const MAP_PREVIEW_MAX_SIDE = 1024;
 
 /**
+ * 一家地图在中国大陆里用的坐标（453）：gcj02 是大陆里 GCJ-02、大陆外 WGS-84（高德、谷歌的大陆街道图；protocol 的 wgsToGcj 就是这么转的），
+ * wgs84 是处处 WGS-84。守护进程按它把静态图的中心转好再交给那家，页面按它投影自己画的点和线
+ */
+export type MapDatum = "gcj02" | "wgs84";
+
+/** 预览图的回应头（453）：这张图看的是哪一片，页面照它在图上自己画点和线（点和线不进发给地图公司的请求） */
+export const MAP_VIEW_HEADER = "X-Map-View";
+
+/**
+ * 一张预览图看的是哪一片（453，回应头 X-Map-View 里写的）：图的正中（WGS-84）、级别（整数，Web 墨卡托、256 像素一张瓦片）、
+ * 图的宽高（逻辑像素，那家按自己的上限缩过以后的）、清晰度（2 时像素翻倍、看的范围不变）、那家的坐标（datum）。
+ * 页面拿它算：一个点（WGS-84，datum 是 gcj02 时先转）落在图上哪个像素
+ */
+export interface MapPreviewView {
+  readonly lat: number;
+  readonly lon: number;
+  readonly zoom: number;
+  readonly width: number;
+  readonly height: number;
+  readonly scale: 1 | 2;
+  readonly datum: MapDatum;
+}
+
+/** 写成回应头：JSON（只有数和那两个词，都是 ASCII） */
+export function formatMapPreviewView(view: MapPreviewView): string {
+  return JSON.stringify({ lat: Number(view.lat.toFixed(7)), lon: Number(view.lon.toFixed(7)), zoom: view.zoom, width: view.width, height: view.height, scale: view.scale, datum: view.datum });
+}
+
+/** 是不是 [lo, hi] 里的一个数 */
+const inRange = (n: unknown, lo: number, hi: number): n is number => typeof n === "number" && Number.isFinite(n) && n >= lo && n <= hi;
+
+/** 读回应头：写法不对、数不在范围里给 undefined（页面就不在图上画，退回别的办法） */
+export function parseMapPreviewView(text: string | null | undefined): MapPreviewView | undefined {
+  if (!text) return undefined;
+  let v: unknown;
+  try {
+    v = JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+  if (typeof v !== "object" || v === null) return undefined;
+  const { lat, lon, zoom, width, height, scale, datum } = v as Record<string, unknown>;
+  if (!inRange(lat, -90, 90) || !inRange(lon, -180, 180) || !inRange(zoom, 0, 22) || !Number.isInteger(zoom)) return undefined;
+  if (!inRange(width, 1, 4096) || !inRange(height, 1, 4096) || (scale !== 1 && scale !== 2) || (datum !== "gcj02" && datum !== "wgs84")) return undefined;
+  return { lat, lon, zoom, width, height, scale, datum };
+}
+
+/**
  * 拆预览图的查询参数（get 是取一个参数的函数，URLSearchParams.get 那样）：卡片编号和查到的编号要且只要一个、宽高是范围里的整数、
  * scale 是 1 或 2（不写当 1）；不对的给 undefined
  */

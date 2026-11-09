@@ -101,6 +101,12 @@
 .map-marks {
   pointer-events: none;
 }
+/* 盖在别家底图上的自己那一层（453：卡片的静态预览图、地图页的高德谷歌上面）：点、线、圈按它报的视野自己投影，摆法和 OSM 那一种一样 */
+.map-overlay .map-shapes,
+.map-overlay .map-marks {
+  position: absolute;
+  inset: 0;
+}
 
 /* 一个点：24×30 的一枚定位针，针尖在点上（OSM 那一种按左上角摆，往左上挪；高德的按 bottom-center 摆），字在右边 */
 .map-mark {
@@ -114,7 +120,7 @@
   cursor: pointer;
   pointer-events: auto;
 }
-.map-osm .map-mark {
+:is(.map-osm, .map-overlay) .map-mark {
   position: absolute;
   left: 0;
   top: 0;
@@ -327,7 +333,7 @@
   height: 18px;
   cursor: default;
 }
-.map-osm .map-mark[data-kind="me"] {
+:is(.map-osm, .map-overlay) .map-mark[data-kind="me"] {
   margin: -18px 0 0 -9px;
 }
 .map-mark[data-kind="me"] .map-pin {

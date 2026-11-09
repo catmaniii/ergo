@@ -12,16 +12,17 @@
 // 第四个（445）是"地图服务"插槽：别的插件（照插件契约 needs: [MAP_PROVIDERS]）经它登记一家地图服务——管哪个区域、优先级、底图
 // （浏览器用的 Key）、查询（LookupProvider，下面从 lookup.ts 转出来）、用量。登记交回撤销函数，交给 ctx.effect，插件停用、移除时
 // 自动撤掉、退回下一家。网页那一半是网页插槽 mapBasemaps（packages/web/src/plugins/slots.ts）。
-// 第五个（451）给 GET /api/map/preview：聊天里地图卡片的预览图——按卡片编号（或查到的编号）取出要画的点和线，交给那一家的静态地图
-// （MapProvider.staticMap：高德、谷歌，守护进程拿 Key 去取），图原样转回；地址里不放坐标，不缓存。
-import type { LatLon, MapBasemapEventBody, MapBasemapEventReply, MapConfigView, MapDayView, MapDrawing, MapFindResult, MapLatestView, MapPreviewQuery, MapProviderView, MapRegion, MapTileAddress } from "@ergo/protocol";
+// 第五个（451）给 GET /api/map/preview：聊天里地图卡片的预览图——按卡片编号（或查到的编号）取出要看全的东西、算好视野，
+// 向那一家的静态地图（MapProvider.staticMap：高德、谷歌，守护进程拿 Key 去取）只要一张光底图（453：不带点和线），图原样转回，
+// 视野写进回应头 X-Map-View，点和线由页面自己画；地址里不放坐标，不缓存。
+import type { LatLon, MapBasemapEventBody, MapBasemapEventReply, MapConfigView, MapDatum, MapDayView, MapDrawing, MapFindResult, MapLatestView, MapPreviewQuery, MapProviderView, MapRegion, MapTileAddress } from "@ergo/protocol";
 import { serviceKey, type Undo } from "../plugins/host.ts";
 import type { LookupProvider } from "./lookup.ts";
 
 // 接一家地图服务要实现的查询外形和出错的写法（别的插件只 import 这个文件）
 export { MapLookupError, MAX_LINE_POINTS, thinLine } from "./lookup.ts";
-// 静态地图（451）：各家拼地址时共用的视野、坐标位数
-export { fitSize, MAP_STATIC_PAD, staticView, type StaticView } from "./static-map.ts";
+// 静态地图（451）：看全时留的边、视野怎么算（453 起由地图插件算好交给各家，各家不用再算）
+export { MAP_STATIC_PAD, staticView, type StaticView } from "./static-map.ts";
 export type { LookupProvider, MapLookupFailure, PlaceHit, RouteAnswer, RouteEnd, TrafficJam, TransitLeg, TransitPlan } from "./lookup.ts";
 
 /** 插件名（配置 plugins.disabled 里写的、网页插件的名字） */
@@ -117,7 +118,9 @@ export interface MapPreviewService {
   /**
    * 一张那家的静态地图：卡片编号取卡片负载（足迹按日期现算，点和路线就在卡上），查到的编号从内存取（过期了抛 RequestRejected("not_found")，
    * 接口回 404）；查到的（只能画在自己地图上的那几家查的）一律用查它的那家，q.provider 不管。那家没登记、不出静态图、取不到抛
-   * MapPreviewUnavailable（503 带原因）。signal 是浏览器那边断了
+   * MapPreviewUnavailable（503 带原因）。signal 是浏览器那边断了。
+   * 453 起交给那家的只有中心、级别、尺寸、清晰度、深浅（光底图），回应头 X-Map-View 写着这张图看的是哪一片（MapPreviewView），
+   * 页面照它把点和线画在图上
    */
   preview(q: MapPreviewQuery, signal: AbortSignal): Promise<MapReply>;
 }
@@ -147,27 +150,39 @@ export type MapLookupState =
       readonly why: string;
     };
 
-/** 静态地图上的一个点（WGS-84）：label 是序号（"1"～"9"，第 10 个起不写）；here 是"现在在哪"（另一种颜色、不写序号） */
-export interface MapStaticMark extends LatLon {
-  readonly label?: string;
-  readonly kind: "spot" | "here";
+/**
+ * 要一张光底图（451 起聊天卡片的预览图；453 起只要底图）：只有中心、级别、尺寸、清晰度、深浅——**不带点和线**，足迹、二狗画的点和线
+ * 不交给地图服务，页面拿回图以后按回应头里的视野自己画上去。中心和级别由地图插件按要看全的东西算好（static-map.ts 的 planStatic），
+ * 尺寸已经按这家的上限（MapStaticSource.maxSide）缩过、级别收在这家的范围里，各家只管拼自己的参数
+ */
+export interface MapStaticRequest {
+  /** 图的正中：这家地图自己的坐标（datum 是 gcj02 时大陆里已经转成 GCJ-02），各家原样写进参数 */
+  readonly center: LatLon;
+  /** 级别（整数） */
+  readonly zoom: number;
+  /** 宽高（逻辑像素） */
+  readonly width: number;
+  readonly height: number;
+  /** 2 是高清（像素翻倍、看的范围不变） */
+  readonly scale: 1 | 2;
+  readonly dark: boolean;
 }
 
 /**
- * 要一张静态地图（451，聊天卡片的预览图）：地图插件已经挑好、抽稀好（点最多 MAP_STATIC_MARKS_MAX 个、线最多 MAP_STATIC_LINES_MAX 条、
- * 线上的点一共最多 MAP_STATIC_POINTS_MAX 个，各家的地址长度都够），坐标一律 WGS-84（大陆里各家自己转 GCJ-02）。
- * width、height 是逻辑像素（卡片要的），各家按自己的上限等比缩；scale 2 是高清（像素翻倍、看的范围不变）；view 由各家照缩好的尺寸用
- * staticView 算（看全 bounds，留出针头的边）
+ * 一家的静态地图（451，453 起只出光底图）：上限和坐标写在这里，地图插件按它算视野；get 拿这家的 Key 去取、图原样交回，不缓存
+ * （高德、谷歌的条款）。Key 只在守护进程里用，不进地址以外的地方（日志、出错的原因里都没有）
  */
-export interface MapStaticRequest {
-  readonly marks: readonly MapStaticMark[];
-  readonly lines: readonly (readonly LatLon[])[];
-  /** 要看全的点（点和线上的点） */
-  readonly bounds: readonly LatLon[];
-  readonly width: number;
-  readonly height: number;
-  readonly scale: 1 | 2;
-  readonly dark: boolean;
+export interface MapStaticSource {
+  /** 一边最多多少逻辑像素（高德 1024、谷歌 640；scale 2 时像素再翻倍） */
+  readonly maxSide: number;
+  /** 级别的范围（整数） */
+  readonly minZoom: number;
+  readonly maxZoom: number;
+  /** scale 2 时最大到第几级（高德：17 级时高清图不再加一级、看的范围对不上，收到 16）；不写同 maxZoom */
+  readonly maxZoomHiDpi?: number;
+  /** 这家的坐标：中心照它转好再交来，页面照它投影 */
+  readonly datum: MapDatum;
+  get(req: MapStaticRequest, signal?: AbortSignal): Promise<MapStaticResult>;
 }
 
 /**
@@ -245,11 +260,10 @@ export interface MapProvider {
    */
   basemapEvent?(event: MapBasemapEventBody["event"]): void;
   /**
-   * 一张这家的静态地图（451，聊天卡片的预览图，GET /api/map/preview 经地图插件来）：拿这家的 Key 去取、图原样交回，不缓存
-   * （高德、谷歌的条款）；Key 只在守护进程里用，不进地址以外的地方（日志、出错的原因里都没有）。没有静态地图的（OpenStreetMap：
-   * 页面自己画）不写
+   * 这家的静态地图（451，聊天卡片的预览图，GET /api/map/preview 经地图插件来；453 起只要光底图，点和线页面自己画）。
+   * 没有静态地图的（OpenStreetMap：页面自己画）不写
    */
-  staticMap?(req: MapStaticRequest, signal?: AbortSignal): Promise<MapStaticResult>;
+  readonly staticMap?: MapStaticSource;
 }
 
 /** 地图服务插槽：登记一家（交回撤销函数）、列出登记了的（按登记的先后） */

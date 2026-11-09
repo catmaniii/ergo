@@ -4,7 +4,8 @@
 //   · 查到的（高德、谷歌……查来的，条款要求只画在它自己的地图上）：用查它的那家；
 //   · 足迹、秘书给的点和路线、OpenStreetMap 查的：用内容中心那个区域的当前地图（这台设备在那个区域手动选的，没选就是"自动"）；
 //   挑出来是 OpenStreetMap 就自己画（MapThumb.tsx：瓦片经这台电脑转发）；是高德、谷歌就放一张它的静态地图（守护进程拿 Key 去取，
-//   GET /api/map/preview，看到了才取，preview.ts）。取不到（没开、超额、出错、那家没填）时：足迹、点、路线退回 OpenStreetMap 自己画；
+//   GET /api/map/preview，看到了才取，preview.ts）。453 起那张只是光底图（点和线不交给地图公司），点和线照回应头里的视野
+//   在本机画上去（static-overlay.tsx）。取不到（没开、超额、出错、那家没填）时：足迹、点、路线退回 OpenStreetMap 自己画；
 //   查到的退回只有字，加一句"预览图没出来：<原因>"和"在<那一家>上看"。聊天页照旧不加载高德、谷歌的脚本；
 // - 深色：谷歌取深色的静态图；高德的静态图没有深色，压暗一点（map-card.css）；图里有那家的标志，不另写署名；
 // - 查到的结果按编号现取，只在守护进程的内存里留一会儿，过期了写"过期了，再问一次"；
@@ -26,6 +27,7 @@ import { MapThumb } from "./MapThumb.tsx";
 import { useDark } from "./MapView.tsx";
 import { CARD_PREVIEW_MAX_WIDTH, type PreviewState, previewSize, useBoxSize, useMapPreview, useMapProviders, useVisible } from "./preview.ts";
 import { type BasemapPage, cardBasemap } from "./providers.ts";
+import { StaticPreview } from "./static-overlay.tsx";
 import { MAP_PAGE } from "./route.ts";
 
 /** 一张地图卡片要画的：点和路线就在卡上，足迹、查到的现取（卡片和点开后的地图页共用；没有卡是 undefined） */
@@ -155,7 +157,13 @@ export function MapCardView({
     if (shown.kind === "image" && shown.preview.state === "ready")
       return (
         <>
-          <img className={`map-card-img${dark && shown.provider !== "google" ? " dim" : ""}`} src={shown.preview.url} alt={t("ui.plugins.map.card.previewAlt", { name: shown.name ?? shown.provider, title })} />
+          <StaticPreview
+            url={shown.preview.url}
+            view={shown.preview.view}
+            scene={content.scene}
+            imgClass={`map-card-img${dark && shown.provider !== "google" ? " dim" : ""}`}
+            alt={t("ui.plugins.map.card.previewAlt", { name: shown.name ?? shown.provider, title })}
+          />
           {open}
         </>
       );

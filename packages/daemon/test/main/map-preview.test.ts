@@ -1,10 +1,10 @@
 // 主切面：聊天卡片的预览图（451，GET /api/map/preview）。真的守护进程走组合根和插件清单，清单里的地图插件、谷歌地图插件经 extraPlugins
 // 换成同名的、高德和谷歌指向本机的假服务（helpers/fake-amap-lookup.ts、fake-google-maps.ts：不连真的、不用真 Key、不联网）：
-// - 秘书（假模型按剧本）画一组点：卡片进聊天；按卡片编号取预览图 → 地图插件把点交给高德的静态地图，图原样转回、Cache-Control 照转，
-//   地址里没有坐标；GET /api/map/config 里高德、谷歌标着能出预览图、高德国外排在谷歌后面；
+// - 秘书（假模型按剧本）画一组点：卡片进聊天；按卡片编号取预览图 → 地图插件向高德只要一张光底图（453：发给高德的地址里没有点、
+//   没有 markers），图原样转回、Cache-Control 照转、回应头 X-Map-View 写着视野，页面的地址里没有坐标；GET /api/map/config 里高德、谷歌标着能出预览图、高德国外排在谷歌后面；
 // - 谷歌查的（查到的放在地图插件内存里的那一份）一律用谷歌（provider 写别的也不管），谷歌没开 Maps Static API 回 503 和原因；
 // - 过期的编号 404，参数不对 400，OpenStreetMap 不出静态图 503，外网端口要凭证，地图插件停用 400；Key 不进日志。
-import { AMAP_SOURCE_ID, CHANNELS, type CardEventPayload, EVENT_TYPES, GOOGLE_MAPS_SOURCE_ID, type HttpErrorBody, HTTP_PATHS, type MapPreviewQuery } from "@ergo/protocol";
+import { AMAP_SOURCE_ID, CHANNELS, type CardEventPayload, EVENT_TYPES, GOOGLE_MAPS_SOURCE_ID, type HttpErrorBody, HTTP_PATHS, type MapPreviewQuery, parseMapPreviewView, wgsToGcj } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { createGoogleMapsPlugin } from "../../src/google-maps/plugin.ts";
 import { MAP_PLUGIN } from "../../src/map/api.ts";
@@ -70,7 +70,11 @@ describe("聊天卡片的预览图（假高德、假谷歌走真实装配路径�
     expect(got.body.equals(TINY_PNG)).toBe(true);
     const sent = amap.requests.filter((r) => r.path === "/v3/staticmap");
     expect(sent).toHaveLength(1);
-    expect(sent[0]!.query.get("markers")!.split("|")).toHaveLength(2);
+    // 光底图：发给高德的只有中心、级别、尺寸、清晰度（和 Key），两个点的坐标都不在里面
+    expect([...sent[0]!.query.keys()].toSorted()).toEqual(["key", "location", "scale", "size", "zoom"]);
+    for (const p of POINTS) for (const c of [p, wgsToGcj(p)]) expect(sent[0]!.url).not.toContain(c.lat.toFixed(5));
+    const view = parseMapPreviewView(got.headers["x-map-view"] as string | undefined);
+    expect(view).toMatchObject({ zoom: Number(sent[0]!.query.get("zoom")), width: 400, height: 200, scale: 2, datum: "gcj02" });
 
     // 谷歌查的（查一次，放进内存的那一份）：provider 写 amap 也用谷歌；谷歌没开 Maps Static API：503 带原因
     const searched = await mapApi.find(td.url, { text: "Maxwell Food Centre" });

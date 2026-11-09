@@ -1,9 +1,26 @@
 // 聊天里的地图卡片（431）：GET /api/map/drawing?lookup= 拼得出、拆得回；卡片负载的 schema（四种画什么、坐标范围、上限）；
 // 点开去地图页的哪里（足迹卡看那一天，别的看这张卡）；没写标题时按画的是什么起。
 import { describe, expect, it } from "vitest";
-import { CARD_TYPE_VERSIONS, CARD_TYPES, HTTP_PATHS, MAP_CARD_ITEM, MAP_CARD_MARKS_MAX, MapCardPayload, mapCardPath, mapCardTitle, parseHttpPath, MAP_PREVIEW_MAX_SIDE, MAP_PREVIEW_MIN_SIDE, parseMapCardPath, parseMapDayItem, parseMapPreviewQuery, schemaChecker } from "../src/index.ts";
+import { CARD_TYPE_VERSIONS, CARD_TYPES, HTTP_PATHS, MAP_CARD_ITEM, MAP_CARD_MARKS_MAX, MapCardPayload, mapCardPath, mapCardTitle, parseHttpPath, MAP_PREVIEW_MAX_SIDE, MAP_PREVIEW_MIN_SIDE, parseMapCardPath, parseMapDayItem, parseMapPreviewQuery, formatMapPreviewView, parseMapPreviewView, schemaChecker } from "../src/index.ts";
 
 const ok = schemaChecker(MapCardPayload);
+
+describe("预览图的视野（453，回应头 X-Map-View）", () => {
+  it("写成 JSON、读得回；中心留 7 位小数；写法不对、数不在范围里、级别不是整数、不认得的坐标都给 undefined", () => {
+    const v = { lat: 30.123456789, lon: 120.987654321, zoom: 14, width: 400, height: 168, scale: 2 as const, datum: "gcj02" as const };
+    const text = formatMapPreviewView(v);
+    expect(text).toMatch(/^[ -~]+$/);
+    expect(parseMapPreviewView(text)).toEqual({ ...v, lat: 30.1234568, lon: 120.9876543 });
+    expect(parseMapPreviewView(undefined)).toBeUndefined();
+    expect(parseMapPreviewView("")).toBeUndefined();
+    expect(parseMapPreviewView("{")).toBeUndefined();
+    expect(parseMapPreviewView(JSON.stringify({ ...v, zoom: 14.5 }))).toBeUndefined();
+    expect(parseMapPreviewView(JSON.stringify({ ...v, lat: 91 }))).toBeUndefined();
+    expect(parseMapPreviewView(JSON.stringify({ ...v, scale: 3 }))).toBeUndefined();
+    expect(parseMapPreviewView(JSON.stringify({ ...v, datum: "bd09" }))).toBeUndefined();
+    expect(parseMapPreviewView(JSON.stringify({ ...v, width: 0 }))).toBeUndefined();
+  });
+});
 
 describe("地图卡片", () => {
   it("接口：/api/map/drawing?lookup=…，拆成 map_drawing；多一截的不认", () => {
