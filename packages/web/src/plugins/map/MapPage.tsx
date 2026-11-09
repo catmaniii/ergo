@@ -6,7 +6,7 @@
 //   地图上画那一天的轨迹、停留、照片、常去的地方，点停留点看详情；地址里可以带日期（#/more/map/<YYYY-MM-DD>）。
 // - 聊天里的地图卡片点开（431，#/more/map/card/<卡片编号>）：从手里的卡片状态取出这张卡，画它的点、线（和卡片同一份 card-scene.ts），
 //   视野挪到看全它；标题栏下面一条写卡片的标题和概况，"×"回到足迹。看卡片时不画足迹。高德（445 起别家）查来的只在底图是那一家时画
-//   （amap-results.ts）；451 起这一屏临时用那一家画（不改记着的选择），那家在这台设备上加载不了时放它的静态大图（ownPreview）。
+//   （own-results.ts，455 起看那家报的 ownBasemapOnly）；451 起这一屏临时用那一家画（不改记着的选择），那家在这台设备上加载不了时放它的静态大图（ownPreview）。
 // - 不经卡片直接看查到的一处（447，#/more/map/lookup/<查到的编号>）："浏览"里网页上选中地址点了"在地图上看"，守护进程查到一处、
 //   网页跳过来：和看查到的卡片一样画（按编号现取，高德查的只画在高德底图上），标题栏写查的那段字，"×"回到地图。
 // - 地图切换（445，MapSwitch.tsx）：标题栏右边那一格（.map-bar-tools）的最前面，"地图：自动 / 高德 / OpenStreetMap……"，宽的时候一个下拉、窄的时候收进 ⋮；
@@ -46,7 +46,7 @@ import { MapFab } from "./MapFab.tsx";
 import { pageMapChatWidth, pageMapLayout } from "./map-layout.ts";
 import { MapTalk } from "./map-talk.ts";
 import { withHere } from "./locate.ts";
-import { useMapCardData } from "./MapCard.tsx";
+import { useBasemapEntries, useMapCardData } from "./MapCard.tsx";
 import { MapSwitch, useBasemapSwitch } from "./MapSwitch.tsx";
 import { lookupBasemap } from "./providers.ts";
 import { MapCanvas } from "./MapView.tsx";
@@ -150,7 +150,7 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
     let alive = true;
     http.mapConfig().then(
       (c) => alive && setConfig(c),
-      // 取不到（插件刚停用、断线）：当作没填 Key，照样能看 OpenStreetMap
+      // 取不到（插件刚停用、断线）：当作一家都没有（地图那块说没有能用的地图）
       () => alive && setConfig({}),
     );
     return () => {
@@ -192,7 +192,10 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
   const cardPayload: MapCardPayload | undefined = cardState?.card.type === "map" ? (cardState.card.payload as MapCardPayload) : lookupShow ? { show: lookupShow } : undefined;
   // 看卡片（或查到的一处）时画它，不画足迹
   const showCard = cardId !== undefined || lookupShow !== undefined;
-  const cardData = useMapCardData(http, cardPayload?.show);
+  // 查到的只能画在哪家的地图上看几家报的、"数据来自 X"写那家登记的名字（455：地图插件不认得任何一家）
+  const basemapEntries = useBasemapEntries();
+  const cardSources = useMemo(() => ({ providers: config?.providers, credit: basemapEntries.credit }), [config, basemapEntries]);
+  const cardData = useMapCardData(http, cardPayload?.show, cardSources);
   const cardContent = cardData?.state === "ready" ? cardData.content : undefined;
   useEffect(() => {
     if (!cardContent) return;
@@ -238,7 +241,7 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
   const scene = useMemo(
     () =>
       withHere(
-        showCard ? withFootprints(base, cardContent && !cardContent.amapOnly ? cardContent.scene : undefined) : withFootprints(base, fp.shown ? fp.day?.scene : undefined),
+        showCard ? withFootprints(base, cardContent && cardContent.ownBasemap === undefined ? cardContent.scene : undefined) : withFootprints(base, fp.shown ? fp.day?.scene : undefined),
         here.scene,
       ),
     [base, showCard, cardContent, fp.shown, fp.day, here.scene],
@@ -260,7 +263,8 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
   const mapContext = (): Omit<MapContext, "via" | "spoken"> => {
     const v = viewNow.current;
     const status = basemapSwitch.status;
-    const basemap = status === undefined ? "loading" : lookupBasemap(status, basemapSwitch.choice, footprintsDrawn);
+    // 一家都用不了（455）：和还没画上一样写 loading（秘书按自动挑）
+    const basemap = status?.rendered === undefined ? "loading" : lookupBasemap({ ...status, rendered: status.rendered }, basemapSwitch.choice, footprintsDrawn);
     const spot = fp.day?.spots.find((x) => x.key === fp.selected);
     return {
       lat: clamp(v.lat, -90, 90),

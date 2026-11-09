@@ -3,8 +3,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { createOsmTiles, expiryOf, OSM_DEFAULT_TTL_MS, TileAborted } from "../../src/map/osm-tiles.ts";
-import { MAP_USER_AGENT } from "../../src/map/service.ts";
+import { createOsmTiles, expiryOf, OSM_DEFAULT_TTL_MS, TileAborted } from "../../src/openstreetmap/osm-tiles.ts";
+import { MAP_USER_AGENT } from "../../src/openstreetmap/service.ts";
 import { startFakeOsm, TINY_PNG } from "../helpers/fake-map.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 

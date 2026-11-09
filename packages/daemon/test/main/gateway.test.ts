@@ -46,7 +46,7 @@ describe("本机端口", () => {
     const res = await get(url, "/healthz");
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toContain("application/json");
-    expect(JSON.parse(res.body)).toEqual({ ok: true, status: "ok", secretary: "idle", plugins: { running: ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"], disabled: [], skipped: [] }, webUi: true, reasons: [] });
+    expect(JSON.parse(res.body)).toEqual({ ok: true, status: "ok", secretary: "idle", plugins: { running: ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"], disabled: [], skipped: [] }, webUi: true, reasons: [] });
   });
 
   it("健康探针 /healthz：启用着的插件没装上（缺依赖、装配出错）算降级，status 是 degraded、写明哪个插件为什么，照旧回 200；配置里停用的不算", async () => {
@@ -74,7 +74,7 @@ describe("本机端口", () => {
       status: "degraded",
       secretary: "idle",
       plugins: {
-        running: ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"],
+        running: ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"],
         disabled: ["off"],
         skipped: [
           { plugin: "orphan", reason: "要的服务 nowhere 没有谁提供" },
@@ -91,7 +91,7 @@ describe("本机端口", () => {
     await waitUntil(() => daemon.secretary.status === "idle", { timeoutMs: SECRETARY_START_TIMEOUT_MS, describe: () => `秘书现在是 ${daemon.secretary.status}` });
     const res = await get(url, "/healthz");
     expect(res.status).toBe(200);
-    expect(JSON.parse(res.body)).toMatchObject({ ok: true, status: "ok", plugins: { running: [], disabled: ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"], skipped: [] }, reasons: [] });
+    expect(JSON.parse(res.body)).toMatchObject({ ok: true, status: "ok", plugins: { running: [], disabled: ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"], skipped: [] }, reasons: [] });
   });
 
   it("健康探针 /healthz：秘书不在运行超过阈值时不健康，写明原因", async () => {

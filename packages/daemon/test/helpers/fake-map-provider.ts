@@ -84,7 +84,7 @@ export function fakeWorldMapPlugin(initial: Partial<Pick<FakeWorldMapState, "bas
     basemap: () => (state.basemap ? { ready: true, key: FAKE_WORLD_MAP_BROWSER_KEY } : { ready: false }),
     lookup: () => (state.lookup ? { ready: true, provider: lookup } : { ready: false, why: "没填查询用的 Key" }),
     toolNote: "大陆以外优先用假世界地图（测试用）",
-    usage: { title: "map.doctor.usage.title", run: () => ({ level: "ok", fact: { key: "map.doctor.usage.ok", params: { month: "2026-11", search: 1, searchLimit: 10, lbs: 1, lbsLimit: 10 } } }) },
+    usage: { title: "amap.doctor.usage.title", run: () => ({ level: "ok", fact: { key: "amap.doctor.usage.ok", params: { month: "2026-11", search: 1, searchLimit: 10, lbs: 1, lbsLimit: 10 } } }) },
   };
   const plugin: PluginDefinition = {
     name: FAKE_WORLD_MAP_PLUGIN,

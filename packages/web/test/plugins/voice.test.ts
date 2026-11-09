@@ -59,6 +59,8 @@ describe("语音插件的网页这一半", () => {
       ["looki", "running"],
       ["codex", "running"],
       ["map", "running"],
+      ["openstreetmap", "running"],
+      ["amap", "running"],
       ["google-maps", "running"],
     ]);
     expect(host.running("voice")).toBe(false);

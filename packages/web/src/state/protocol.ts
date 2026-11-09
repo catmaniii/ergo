@@ -758,7 +758,7 @@ export type { AmapSourcePanel, AmapUsageView, MapLookupDrawing, MapLookupLine, M
 export { GOOGLE_MAP_PROVIDER, GOOGLE_MAPS_SKUS, GOOGLE_MAPS_SOURCE_ID, isGoogleMapsSourcePanel } from "@ergo/protocol";
 export type { GoogleMapsSku, GoogleMapsSourcePanel, GoogleMapsUsageView } from "@ergo/protocol";
 // 地图服务插槽（445）：区域、登记了的几家、地图页按区域记的手动切换
-export { MAP_LOOKUP_SOURCES, MAP_PROVIDER_ID, MAP_REGIONS, mapRegionOf } from "@ergo/protocol";
+export { MAP_PROVIDER_ID, MAP_REGIONS, mapRegionOf } from "@ergo/protocol";
 export type { MapChoice, MapProviderView, MapRegion } from "@ergo/protocol";
 // 负责人背后的 agent
 export type { BackgroundAgentEntry, BackgroundAgentList, BackgroundAgentRow, BackgroundAgentState, BackgroundAgentStep, BackgroundAgentsEventPayload, BackgroundAgentTranscript } from "@ergo/protocol";

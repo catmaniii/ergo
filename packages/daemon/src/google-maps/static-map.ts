@@ -13,8 +13,8 @@ import { activeLanguage, t } from "@ergo/protocol";
 import type { MapStaticRequest, MapStaticResult, MapStaticSource } from "../map/api.ts";
 import { type GoogleClient, redactKey } from "./client.ts";
 
-/** 谷歌静态地图的上限：一边最多 640 像素；级别收在 1～19（20 级以上很多地方没图）；坐标大陆里 GCJ-02 */
-export const GOOGLE_STATIC = { maxSide: 640, minZoom: 1, maxZoom: 19, datum: "gcj02" } as const;
+/** 谷歌静态地图的上限：一边最多 640 像素；级别收在 1～19（20 级以上很多地方没图）；坐标大陆里 GCJ-02；有深色的图（colorscheme=dark） */
+export const GOOGLE_STATIC = { maxSide: 640, minZoom: 1, maxZoom: 19, datum: "gcj02", dark: true } as const;
 
 /** 拼参数（不带 Key；测试看它）：中心、级别、尺寸、清晰度、深浅，别的只有固定的几样 */
 export function googleStaticParams(req: MapStaticRequest): URLSearchParams {

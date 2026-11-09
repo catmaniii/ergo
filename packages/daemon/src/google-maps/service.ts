@@ -21,7 +21,7 @@ import { LOOKUP_SKUS, openGoogleMapsUsage, skuTitle, usageFinding } from "./usag
 export const GOOGLE_PRIORITY = 50;
 
 /** 工具说明里讲它的半句（给模型看的） */
-const TOOL_NOTE = "大陆以外优先用谷歌地图（有公交、开车带实时路况；要用户填了谷歌的服务端 Key，没填、超了免费量时照旧 OpenStreetMap；地图上选了谷歌时大陆里也用它）"; // @i18n-ignore model
+const TOOL_NOTE = "大陆以外优先用谷歌地图（有公交、开车带实时路况；要用户填了谷歌的服务端 Key，没填、超了免费量时照旧用别家；地图上选了谷歌时大陆里也用它）"; // @i18n-ignore model
 
 export interface GoogleMapsServiceOptions {
   hosts?: Partial<GoogleHosts>;
@@ -76,7 +76,7 @@ export function createGoogleMapsService(options: GoogleMapsServiceOptions): Goog
     if (!secrets.has(GOOGLE_MAPS_SECRET.serverKey)) return "没填谷歌的服务端 Key"; // @i18n-ignore model
     if (keys.serverProblem(secrets) !== undefined) return "谷歌说服务端 Key 不对或没权限，要用户重新填"; // @i18n-ignore model
     const over = blocked().filter((s) => LOOKUP_SKUS.includes(s));
-    if (over.length > 0) return `这个月谷歌的免费量用完了（${over.map(skuTitle).join("、")}），先停用谷歌、退回 OpenStreetMap；用户可以在 设置 · 数据源 · 谷歌地图 里放开（超出的谷歌按量收费）`; // @i18n-ignore model
+    if (over.length > 0) return `这个月谷歌的免费量用完了（${over.map(skuTitle).join("、")}），先停用谷歌、退回别家；用户可以在 设置 · 数据源 · 谷歌地图 里放开（超出的谷歌按量收费）`; // @i18n-ignore model
     return undefined;
   };
 
@@ -85,6 +85,7 @@ export function createGoogleMapsService(options: GoogleMapsServiceOptions): Goog
     get title() {
       return t("googleMaps.provider.title");
     },
+    modelName: "谷歌地图", // @i18n-ignore model
     regions: ["abroad"],
     manualRegions: ["abroad", "mainland"],
     priority: GOOGLE_PRIORITY,

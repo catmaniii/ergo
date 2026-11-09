@@ -1,10 +1,10 @@
-// 高德地图那一种（429）：国内、填了高德 Key 时用高德 JS API 2.0 画地图。
+// 高德地图那一种（429；455 起在高德地图插件里）：国内、填了高德 Key 时用高德 JS API 2.0 画地图。
 // - 加载（loadAmap）：先设 window._AMapSecurityConfig = { serviceHost: <本页的来源>/_AMapService }（要在加载脚本之前），
 //   再从 webapi.amap.com 加载高德的脚本。安全密钥不在页面上：高德的脚本把要带它的请求发到 serviceHost，
 //   守护进程拼上再转给高德（网关的 /_AMapService/）。这是二狗运行时从外站加载的脚本之一（用户定了用高德，ADR-0051）；
 //   只在真要画高德地图时才加载（看国外没选高德、没填 Key 时一次都不连高德）；
 // - 453 起**只出底图**：足迹、点、线、圈不交给高德的覆盖物（Marker、Polyline、Circle 一个都不建），由地图页盖在上面的自己那一层画
-//   （overlay.ts）。这里每动一下报一次此刻画着哪一片（onSurface：GCJ-02 的中心、级别、大小），那一层照它投影。
+//   （地图插件的 overlay.ts）。这里每动一下报一次此刻画着哪一片（onSurface：GCJ-02 的中心、级别、大小），那一层照它投影。
 //   高德的脚本和页面在同一个页面里（放不进隔离的框：它的安全密钥代理要带这台设备的凭证、本机端口要同源，框里发的请求两样都没有，
 //   见 ADR-0059），技术上仍读得到页面；只是数据不再经它的接口；
 // - 捏合、惯性、双击的过程中跟手（458）：高德 2.0 是自己一帧一帧画的（不像谷歌的栅格地图整块拉伸），中心和级别在动画里就是画面上的；
@@ -15,10 +15,9 @@
 // - 深色：高德自带的深色样式（amap://styles/dark）。
 // 用到的高德接口只有下面类型里写的这几样；测试和演示页换成假的（setAmapLoader），不连真的高德。
 import { AMAP_SERVICE_PREFIX, gcjToWgs, wgsToGcj } from "../../state/index.ts";
-import type { MapEngine, MapEngineEvents, MapSurfaceView } from "./engine.ts";
-import { clampZoom, type MapView } from "./scene.ts";
+import { clampZoom, pointOnScreen } from "../../ui/map-tiles.ts";
+import type { MapEngine, MapEngineEvents, MapSurfaceView, MapView } from "../api.ts";
 import { watchSurface } from "./surface-watch.ts";
-import { pointOnScreen } from "./tiles.ts";
 
 /** 高德 JS API 的脚本地址 */
 export const AMAP_SCRIPT_URL = "https://webapi.amap.com/maps";

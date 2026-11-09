@@ -13,22 +13,27 @@
 // 它可选地要日历插件（wants，只为写"日历插件没启用"），宿主照样把它排在日历后面装。
 // Looki 插件排在 Google 后面、最后：数据契约里登记数据源 looki（按需查的工具由内核替它给秘书），网页那一半在设置 · 数据源里画填 Key 的那一块。
 // Codex 插件和 Claude Code 插件一样只带来一个 agent 运行时（数据契约里登记），网页那一半是设置 · Codex 这一页；排在最后。
-// 地图插件（429）没有给 agent 的工具，排在最后：数据契约里登记数据源 amap"高德地图"（填 Key），服务给网关的瓦片转发、
-// 高德安全密钥代理和 GET /api/map/config；网页那一半是地图页和高德地图的填 Key 那一块。
-// 谷歌地图插件（446）排在地图后面、最后：它要地图插件的"地图服务"插槽（needs），在那里登记一家 google；没有给 agent 的工具
-// （查地点、算路线还是地图插件那几个）；数据契约里登记数据源 google-maps"谷歌地图"（填两个 Key）。
+// 地图插件（429）排在 Codex 后面：给秘书查地点、算路线、画在地图上的工具（432、431），服务给网关的瓦片和转发口、GET /api/map/config；
+// 455 起它不带哪一家地图，开了"地图服务"插槽（MAP_PROVIDERS）。三家地图服务插件排在它后面，都 needs 这个插槽、在那里登记一家，
+// 没有给 agent 的工具（查地点、算路线还是地图插件那几个），宿主照样把它们排在地图后面装：
+// - OpenStreetMap（openstreetmap，455）：瓦片转发、Nominatim / OSRM；
+// - 高德地图（amap，455）：数据契约里登记数据源 amap"高德地图"（填 Key），高德安全密钥代理；
+// - 谷歌地图（google-maps，446）：数据契约里登记数据源 google-maps"谷歌地图"（填两个 Key）。
+// 设置 · 插件里按这个先后列：地图、OpenStreetMap、高德地图、谷歌地图。
 import { browsingPlugin } from "../browsing/plugin.ts";
 import { calendarPlugin } from "../calendar/plugin.ts";
 import { claudeCodePlugin } from "../claude-code/plugin.ts";
+import { amapPlugin } from "../amap/plugin.ts";
 import { codexPlugin } from "../codex/plugin.ts";
 import { googlePlugin } from "../google/plugin.ts";
 import { googleMapsPlugin } from "../google-maps/plugin.ts";
 import { lookiPlugin } from "../looki/plugin.ts";
 import { mapPlugin } from "../map/plugin.ts";
 import { memoryPlugin } from "../memory/plugin.ts";
+import { openStreetMapPlugin } from "../openstreetmap/plugin.ts";
 import { phonePlugin } from "../phone/plugin.ts";
 import { remindersPlugin } from "../reminders/plugin.ts";
 import { voicePlugin } from "../voice/plugin.ts";
 import type { PluginDefinition } from "./host.ts";
 
-export const PLUGIN_MANIFEST: readonly PluginDefinition[] = [remindersPlugin, memoryPlugin, calendarPlugin, voicePlugin, browsingPlugin, claudeCodePlugin, phonePlugin, googlePlugin, lookiPlugin, codexPlugin, mapPlugin, googleMapsPlugin];
+export const PLUGIN_MANIFEST: readonly PluginDefinition[] = [remindersPlugin, memoryPlugin, calendarPlugin, voicePlugin, browsingPlugin, claudeCodePlugin, phonePlugin, googlePlugin, lookiPlugin, codexPlugin, mapPlugin, openStreetMapPlugin, amapPlugin, googleMapsPlugin];

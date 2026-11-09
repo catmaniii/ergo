@@ -1,0 +1,8 @@
+{
+  "openstreetmap.plugin.title": "OpenStreetMap",
+  "openstreetmap.plugin.summary": "The free, open map: no key; used abroad and wherever no other provider's key is set. Tiles go through this computer and are cached; place search (Nominatim) and routes (OSRM, no transit or live traffic) use its free services. Turned off, the map page and lookups use the other providers only",
+  "openstreetmap.plugin.keep.chat": "Places mentioned in chats (that's chat history)",
+  "openstreetmap.plugin.purge.tiles": "Map tiles cached on this computer",
+  "openstreetmap.lookup.source": "OpenStreetMap",
+  "openstreetmap.provider": "OpenStreetMap"
+}

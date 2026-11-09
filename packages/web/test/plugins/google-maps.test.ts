@@ -539,8 +539,10 @@ describe("底图那一条（mapBasemaps）", () => {
     const entry = googleBasemap((e) => reports.push(e));
     expect(entry.id).toBe("google");
     expect(entry.title).toBe("谷歌地图");
-    await expect(Promise.resolve().then(() => entry.prepare(undefined))).rejects.toThrow("还没填浏览器用的 Key");
-    const factory = await entry.prepare("k");
+    // 地图插件借给底图的瓦片引擎：谷歌用不着
+    const kit = { tileEngine: () => { throw new Error("not used"); } };
+    await expect(Promise.resolve().then(() => entry.prepare!(undefined, kit))).rejects.toThrow("还没填浏览器用的 Key");
+    const factory = await entry.prepare!("k", kit);
     const { doc, win } = fakeDom();
     const host = doc.createElement("div");
     const failed: string[] = [];
@@ -588,6 +590,8 @@ describe("挑底图：谷歌接进来以后（451：一个区域一家当前地�
     expect(choiceBroken("mainland", "google", ALL, broken)).toBe(true);
     expect(autoBasemap("abroad", ALL, broken)).toBe("amap");
     expect(autoBasemap("abroad", ALL, page({ google: "连不上谷歌", amap: "timeout" }))).toBe("osm");
+    // 455：三家都用不了时是 undefined（地图页说没有能用的地图）
+    expect(autoBasemap("abroad", ALL, page({ google: "连不上谷歌", amap: "timeout", osm: "x" }))).toBeUndefined();
     // 谷歌那边超了免费量、Key 被拒：守护进程报 ready: false，切换里不列
     expect(switchEntries("abroad", [AMAP, OSM, { ...GOOGLE, ready: false }], page()).map((e) => e.id)).toEqual(["amap", "osm"]);
   });
@@ -602,15 +606,18 @@ describe("插件登记的", () => {
     expect(plugins.ownerOf("dataSources", "google-maps")?.name).toBe("google-maps");
     expect(googleMapsWebPlugin.brings).toHaveLength(2);
     plugins.disable("google-maps");
-    expect(plugins.list("mapBasemaps").map((b) => b.id)).toEqual(["amap", "osm"]);
+    // 455 起 OpenStreetMap、高德各是一个插件（清单里排在谷歌前面）
+    expect(plugins.list("mapBasemaps").map((b) => b.id)).toEqual(["osm", "amap"]);
     expect(plugins.unavailable("dataSources", "google-maps")).toBe("谷歌地图");
     expect(plugins.unavailable("mapBasemaps", "google")).toBe("谷歌地图");
   });
 
-  test("卡片底下写数据来自 Google 地图（谷歌要求写明 Google Maps）", () => {
-    expect(sourceLine("google")).toBe("数据来自 Google 地图");
+  test("卡片底下写数据来自 Google 地图（谷歌要求写明 Google Maps；455 起名字由谷歌地图插件登记的 credit 给）", () => {
+    const entry = googleBasemap();
+    expect(entry.credit).toBe("Google 地图");
+    expect(sourceLine("google", entry.credit)).toBe("数据来自 Google 地图");
     setActiveLocale(activeLocaleFrom(TEST_LOCALES, "en"));
-    expect(sourceLine("google")).toBe("Data from Google Maps");
+    expect(sourceLine("google", entry.credit)).toBe("Data from Google Maps");
   });
 });
 

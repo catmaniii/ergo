@@ -11,11 +11,10 @@
 // 也交给 onReply（amap.ts 记下 Web 服务 Key 不认）。Key 不进日志、不进给人看的原因。
 import { t } from "@ergo/protocol";
 import type { DataSourceSecrets } from "../data-sources/api.ts";
-import type { MapStaticRequest, MapStaticResult, MapStaticSource } from "./api.ts";
+import type { MapStaticRequest, MapStaticResult, MapStaticSource } from "../map/api.ts";
 import { AMAP_HOSTS, AMAP_SECRET, AMAP_TIMEOUT_MS, type AmapHosts } from "./amap.ts";
 import { amapFailureOf } from "./amap-lookup.ts";
 import type { AmapUsage } from "./amap-usage.ts";
-import { fixed } from "./static-map.ts";
 
 /** 高德静态地图的上限：一边最多 1024 像素，级别 1～17，高清图最大 16 级，坐标大陆里 GCJ-02 */
 export const AMAP_STATIC = { maxSide: 1024, minZoom: 1, maxZoom: 17, maxZoomHiDpi: 16, datum: "gcj02" } as const;
@@ -25,7 +24,7 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 /** 拼参数（不带 Key 的那一部分；测试看它）：中心、级别、尺寸、清晰度，别的一概不带 */
 export function amapStaticParams(req: MapStaticRequest): URLSearchParams {
   const q = new URLSearchParams();
-  q.set("location", `${fixed(req.center.lon, 6)},${fixed(req.center.lat, 6)}`);
+  q.set("location", `${req.center.lon.toFixed(6)},${req.center.lat.toFixed(6)}`);
   q.set("zoom", String(req.zoom));
   q.set("size", `${req.width}*${req.height}`);
   if (req.scale === 2) q.set("scale", "2");
@@ -53,9 +52,9 @@ export function createAmapStatic(options: AmapStaticOptions): MapStaticSource {
   const timeoutMs = options.timeoutMs ?? AMAP_TIMEOUT_MS;
   const get = async (req: MapStaticRequest, signal?: AbortSignal): Promise<MapStaticResult> => {
     const key = options.secrets().get(AMAP_SECRET.serviceKey);
-    if (key === undefined) return { ok: false, failure: "no_key", reason: t("map.preview.amapNoKey") };
+    if (key === undefined) return { ok: false, failure: "no_key", reason: t("amap.preview.noKey") };
     const problem = options.keyProblem();
-    if (problem !== undefined) return { ok: false, failure: "key", reason: t("map.preview.amapKey") };
+    if (problem !== undefined) return { ok: false, failure: "key", reason: t("amap.preview.key") };
     const q = amapStaticParams(req);
     q.set("key", key);
     options.usage.count("lbs");
@@ -69,7 +68,7 @@ export function createAmapStatic(options: AmapStaticOptions): MapStaticSource {
       if (signal?.aborted) throw err;
       const reason = timeout.aborted ? "timeout" : redact(err instanceof Error ? err.message : String(err), key);
       options.log(`高德：静态地图没连上：${reason}`); // @i18n-ignore log
-      return { ok: false, failure: "network", reason: t("map.preview.unreachable", { name: t("map.provider.amap") }) };
+      return { ok: false, failure: "network", reason: t("map.preview.unreachable", { name: t("amap.provider") }) };
     }
     const type = res.headers.get("content-type") ?? "";
     if (res.ok && type.startsWith("image/") && body.length > 0 && body.length <= MAX_IMAGE_BYTES) {
@@ -82,7 +81,7 @@ export function createAmapStatic(options: AmapStaticOptions): MapStaticSource {
       parsed = JSON.parse(body.toString("utf8"));
     } catch {
       options.log(`高德：静态地图回的不是图（HTTP ${res.status}）`); // @i18n-ignore log
-      return { ok: false, failure: "other", reason: t("map.preview.failed", { name: t("map.provider.amap"), detail: `HTTP ${res.status}` }) };
+      return { ok: false, failure: "other", reason: t("map.preview.failed", { name: t("amap.provider"), detail: `HTTP ${res.status}` }) };
     }
     options.onReply?.(parsed, res.status);
     const b = (typeof parsed === "object" && parsed !== null ? parsed : {}) as Record<string, unknown>;
@@ -90,10 +89,10 @@ export function createAmapStatic(options: AmapStaticOptions): MapStaticSource {
     const info = redact(typeof b.info === "string" ? b.info : "", key) || `HTTP ${res.status}`;
     const failure = amapFailureOf(code, info);
     options.log(`高德：静态地图没取成（${code || "?"} ${info}）`); // @i18n-ignore log
-    if (failure === "key") return { ok: false, failure: "key", reason: t("map.preview.amapKey") };
-    if (failure === "denied") return { ok: false, failure: "off", reason: t("map.preview.amapDenied", { detail: info }) };
-    if (failure === "quota" || failure === "rate") return { ok: false, failure: "quota", reason: t("map.preview.busy", { name: t("map.provider.amap") }) };
-    return { ok: false, failure: "other", reason: t("map.preview.failed", { name: t("map.provider.amap"), detail: info }) };
+    if (failure === "key") return { ok: false, failure: "key", reason: t("amap.preview.key") };
+    if (failure === "denied") return { ok: false, failure: "off", reason: t("amap.preview.denied", { detail: info }) };
+    if (failure === "quota" || failure === "rate") return { ok: false, failure: "quota", reason: t("map.preview.busy", { name: t("amap.provider") }) };
+    return { ok: false, failure: "other", reason: t("map.preview.failed", { name: t("amap.provider"), detail: info }) };
   };
   return { ...AMAP_STATIC, get };
 }

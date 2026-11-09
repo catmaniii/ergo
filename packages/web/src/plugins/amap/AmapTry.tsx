@@ -19,20 +19,20 @@ export interface AmapTryViewProps {
 
 /** 纯渲染的"试查一下" */
 export function AmapTryView({ panel, busy, result, failed, onTry }: AmapTryViewProps) {
-  const problem = failed ?? (result !== undefined && result.state !== "ok" ? (result.problem ?? t("ui.plugins.map.panel.unknown")) : undefined);
+  const problem = failed ?? (result !== undefined && result.state !== "ok" ? (result.problem ?? t("ui.plugins.amap.panel.unknown")) : undefined);
   const ok = result?.state === "ok" ? result : undefined;
   return (
     <div className="amap-try" data-amap-try="">
-      <div className="looki-title">{t("ui.plugins.map.try.title")}</div>
-      <div className="hint amap-try-hint">{t(panel.lookup ? "ui.plugins.map.try.hint" : "ui.plugins.map.try.needKey")}</div>
+      <div className="looki-title">{t("ui.plugins.amap.try.title")}</div>
+      <div className="hint amap-try-hint">{t(panel.lookup ? "ui.plugins.amap.try.hint" : "ui.plugins.amap.try.needKey")}</div>
       <div className="plugin-actions">
         <button type="button" className="btn small" data-action="amap-try" disabled={!panel.lookup || busy} onClick={onTry}>
-          {busy ? t("ui.plugins.map.try.trying") : t("ui.plugins.map.try.button")}
+          {busy ? t("ui.plugins.amap.try.trying") : t("ui.plugins.amap.try.button")}
         </button>
       </div>
       {problem !== undefined && (
         <div className="field-error" role="alert" data-amap-try-state="error">
-          {t("ui.plugins.map.try.failed", { problem })}
+          {t("ui.plugins.amap.try.failed", { problem })}
         </div>
       )}
       {ok && (
@@ -55,7 +55,7 @@ export function AmapTryView({ panel, busy, result, failed, onTry }: AmapTryViewP
           ))}
         </div>
       )}
-      {!ok && <div className="hint amap-try-hint">{t("ui.plugins.map.try.usage", { ...panel.usage })}</div>}
+      {!ok && <div className="hint amap-try-hint">{t("ui.plugins.amap.try.usage", { ...panel.usage })}</div>}
     </div>
   );
 }

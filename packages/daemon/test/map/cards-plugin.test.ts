@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { createDataSourceSecrets } from "../../src/data-sources/index.ts";
 import { MAP_DRAWING, MAP_PLUGIN } from "../../src/map/api.ts";
-import { createMapPlugin } from "../../src/map/plugin.ts";
+import { mapPlugins } from "../helpers/map-plugins.ts";
 import { SHOW_ON_MAP_TOOL } from "../../src/map/show-on-map.ts";
 import { phonePlugin } from "../../src/phone/plugin.ts";
 import { KERNEL } from "../../src/plugins/kernel.ts";
@@ -35,7 +35,7 @@ async function setup() {
   const osm = await startFakeOsm();
   const amap = await startFakeAmap();
   const k = await startPluginKernel({
-    plugins: [phonePlugin, createMapPlugin({ osmUpstream: osm.url, amapHosts: amap.hosts, timeoutMs: 5000, lookups: () => ({ get: (id) => (id === ROUTE.id ? ROUTE : undefined) }) })],
+    plugins: [phonePlugin, ...mapPlugins({ osmUpstream: osm.url, amapHosts: amap.hosts, timeoutMs: 5000, lookups: () => ({ get: (id) => (id === ROUTE.id ? ROUTE : undefined) }) })],
     services: [
       extraService(KERNEL.layout, ({ dir }) => dataDirLayout(dir)),
       extraService(KERNEL.dataSourceSecrets, ({ dir }) => createDataSourceSecrets({ dir: dataDirLayout(dir).dataSourceSecrets, log: () => {} })),

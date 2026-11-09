@@ -16,6 +16,8 @@ const MapRegionSchema = Type.Union([Type.Literal("mainland"), Type.Literal("abro
  * - regionPriority（451）：某个区域里另给的优先级（不写用 priority）——高德在国外排在谷歌后面、OpenStreetMap 前面；
  * - preview（451）：能交一张静态地图当聊天卡片的预览图（守护进程经 GET /api/map/preview 取，Key 不进页面）；OpenStreetMap 不用
  *   （页面自己画），旧的守护进程没有这一项（当没有）
+ * - previewDark（455）：它的静态地图有深色的（谷歌的 colorscheme=dark）：深色外观时要深色的图；没有的（高德）要浅色的、页面压暗一点。
+ *   455 以前页面认的是"谷歌才有"，地图插件不再认得哪一家，改由那一家自己说
  */
 export const MapProviderView = Type.Object({
   id: Type.String(),
@@ -31,20 +33,21 @@ export const MapProviderView = Type.Object({
   lookup: Type.Boolean(),
   regionPriority: Type.Optional(Type.Object({ mainland: Type.Optional(Type.Number()), abroad: Type.Optional(Type.Number()) })),
   preview: Type.Optional(Type.Boolean()),
+  previewDark: Type.Optional(Type.Boolean()),
 });
 export type MapProviderView = Static<typeof MapProviderView>;
 
 /**
  * 地图页现在能用什么：
- * - amapKey：高德 Web 端（JS API）的 Key，填了 Key 和安全密钥才有。页面拿它加载高德的脚本（高德的设计里这个 Key 本来就在页面上，
- *   能绑域名白名单）；安全密钥**不在这里**，守护进程转发高德的请求时自己拼上。没有就是国内也先用 OpenStreetMap；
- * - amapProblem：高德那边上次说 Key、安全密钥不对（给人看的一句）：页面照样先用 OpenStreetMap，写这一句
- * - providers：登记了的几家地图服务（445：地图服务插槽），页面按它挑底图、列地图切换
+ * - providers：登记了的几家地图服务（445：地图服务插槽），页面按它挑底图、列地图切换；高德的浏览器 Key、Key 不对的那一句在高德那一家的
+ *   key、problem 里（安全密钥**不在这里**，守护进程转发高德的请求时自己拼上）。455 起地图插件不认得哪一家，一家都没开时是空的；
+ * - amapKey、amapProblem：445 以前单独报的高德 Key 和问题，455 起守护进程不再报（地图插件不认得高德），页面也不再看；
+ *   留着可选的字段只为认得旧版本守护进程回的样子（页面和守护进程一起发，不会碰到）
  */
 export const MapConfigView = Type.Object({
   amapKey: Type.Optional(Type.String()),
   amapProblem: Type.Optional(Type.String()),
-  /** 登记了的几家地图服务（445），按登记的先后；旧的守护进程没有这一项，页面按 amapKey 当只有高德、OpenStreetMap 两家 */
+  /** 登记了的几家地图服务（445），按登记的先后（455 起照各家插件装的先后：OpenStreetMap、高德、谷歌） */
   providers: Type.Optional(Type.Array(MapProviderView)),
 });
 export type MapConfigView = Static<typeof MapConfigView>;

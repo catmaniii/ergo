@@ -14,7 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { MapTileAddress } from "@ergo/protocol";
 import { writeFileAtomicAsync } from "../util/atomic-file.ts";
-import type { MapReply } from "./api.ts";
+import type { MapReply } from "../map/api.ts";
 
 /** OSM 官方瓦片服务器（地址后面接 /{z}/{x}/{y}.png） */
 export const OSM_TILE_UPSTREAM = "https://tile.openstreetmap.org";

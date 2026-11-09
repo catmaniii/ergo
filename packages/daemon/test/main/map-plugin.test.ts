@@ -1,17 +1,19 @@
-// 主切面：地图插件（429）。真的守护进程走组合根和插件清单，清单里的地图插件经 extraPlugins 换成同名的、
-// 瓦片和高德指向本机的假服务（helpers/fake-map.ts；不连真的 OSM、高德，不联网）：
-// - /tiles/osm/<z>/<x>/<y> 经网关转发：带二狗的 User-Agent、存进缓存区；地址不对 404；外网端口没凭证 401；
-// - GET /api/map/config：没填 Key 时是空的（页面国内也先用 OpenStreetMap）；填了 Key 和安全密钥只给 Web 端的 Key；
-// - /_AMapService/… 拼上安全密钥转给高德、回应原样交回；
+// 主切面：地图插件（429）和 455 拆出来的 OpenStreetMap、高德两个插件。真的守护进程走组合根和插件清单，清单里的这三个经 extraPlugins
+// 换成同名的、瓦片和高德指向本机的假服务（helpers/fake-map.ts；不连真的 OSM、高德，不联网）：
+// - /tiles/osm/<z>/<x>/<y> 经网关、地图插件转给 OpenStreetMap 插件：带二狗的 User-Agent、存进缓存区；地址不对 404；外网端口没凭证 401；
+// - GET /api/map/config：只有登记了的几家（providers）；没填 Key 时高德的底图不能用、不带 Key；填了 Key 和安全密钥只给 Web 端的 Key；
+// - /_AMapService/… 经地图插件转给高德插件，拼上安全密钥转给高德、回应原样交回；
+// - 设置 · 数据源里"高德地图"是高德地图插件的；
 // - 安全密钥、Web 服务 Key 不出现在页面、接口的回包、日志、事件里；
-// - 插件运行中停用：接口、瓦片、代理都回"地图插件没启用"。
+// - 运行中停用高德：代理回 404"没接上"、页面要的设置里没有它、瓦片照常；停用地图插件：接口、瓦片、代理都回"地图插件没启用"。
 import fs from "node:fs";
 import path from "node:path";
 import { AMAP_SOURCE_ID } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
+import { AMAP_PLUGIN } from "../../src/amap/api.ts";
 import { MAP_PLUGIN } from "../../src/map/api.ts";
-import { createMapPlugin } from "../../src/map/plugin.ts";
+import { mapPlugins } from "../helpers/map-plugins.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { AMAP_TEST_JS_KEY, AMAP_TEST_SECURITY_CODE, AMAP_TEST_SERVICE_KEY, startFakeAmap, startFakeOsm, TINY_PNG } from "../helpers/fake-map.ts";
 import { dataSourcesApi, mapApi, pluginsApi, request } from "../helpers/http.ts";
@@ -24,8 +26,8 @@ describe("地图插件（假瓦片、假高德走真实装配路径）", () => {
     const osm = await startFakeOsm();
     const amap = await startFakeAmap();
     const logs: string[] = [];
-    const td = await startTestDaemon({ extraPlugins: [createMapPlugin({ osmUpstream: osm.url, amapHosts: amap.hosts, timeoutMs: 5000 })], log: (line) => logs.push(line) });
-    expect(td.daemon.plugins.report().running).toContain(MAP_PLUGIN);
+    const td = await startTestDaemon({ extraPlugins: [...mapPlugins({ osmUpstream: osm.url, amapHosts: amap.hosts, timeoutMs: 5000 })], log: (line) => logs.push(line) });
+    expect(td.daemon.plugins.report().running).toEqual(expect.arrayContaining([MAP_PLUGIN, "openstreetmap", AMAP_PLUGIN, "google-maps"]));
 
     // 瓦片经网关转发、进缓存区
     const tile = await request(td.url, "/tiles/osm/2/1/1");
@@ -45,12 +47,13 @@ describe("地图插件（假瓦片、假高德走真实装配路径）", () => {
     expect((await request(td.externalUrl, "/tiles/osm/2/1/1")).status).toBe(401);
     expect((await request(td.externalUrl, "/_AMapService/v3/ip")).status).toBe(401);
 
-    // 没填 Key：页面国内也先用 OpenStreetMap；代理不转。445 起多了登记的几家地图服务（providers）：高德的底图还不能用、不带 Key
+    // 没填 Key：页面国内也先用 OpenStreetMap；代理不转。登记的几家地图服务（providers，455 起三家各是一个插件，按插件装的先后）：
+    // 高德的底图还不能用、不带 Key；455 以前另给的 amapKey 不再给
     const empty = (await mapApi.config(td.url)).body;
-    expect({ ...empty, providers: undefined }).toEqual({});
+    expect(Object.keys(empty)).toEqual(["providers"]);
     expect(empty.providers?.map((p) => [p.id, p.ready, p.key])).toEqual([
-      ["amap", false, undefined],
       ["osm", true, undefined],
+      ["amap", false, undefined],
       // 446 起清单里有谷歌地图插件：没填 Key，底图用不了
       ["google", false, undefined],
     ]);
@@ -58,7 +61,7 @@ describe("地图插件（假瓦片、假高德走真实装配路径）", () => {
 
     // 设置 · 数据源里填高德的 Key：先测再存
     const view = (await dataSourcesApi.view(td.url)).body.sources.find((s) => s.id === AMAP_SOURCE_ID)!;
-    expect(view).toMatchObject({ title: "高德地图", plugin: MAP_PLUGIN, pluginTitle: "地图", connection: "not_connected", configurable: true, usages: [{ usage: "query", on: true }] });
+    expect(view).toMatchObject({ title: "高德地图", plugin: AMAP_PLUGIN, pluginTitle: "高德地图", connection: "not_connected", configurable: true, usages: [{ usage: "query", on: true }] });
     const configured = await dataSourcesApi.act(td.url, AMAP_SOURCE_ID, {
       action: "configure",
       values: { jsKey: AMAP_TEST_JS_KEY, securityCode: AMAP_TEST_SECURITY_CODE, serviceKey: AMAP_TEST_SERVICE_KEY },
@@ -67,8 +70,8 @@ describe("地图插件（假瓦片、假高德走真实装配路径）", () => {
     expect(configured.status).toBe(200);
     expect(configured.body.view.sources.find((s) => s.id === AMAP_SOURCE_ID)).toMatchObject({ connection: "connected", account: "地图：已填 · 查地点和路线：已填" });
     const config = await mapApi.config(td.url);
-    expect({ ...config.body, providers: undefined }).toEqual({ amapKey: AMAP_TEST_JS_KEY });
-    // 登记的高德那一家（445）带的也只是 Web 端 Key
+    expect(Object.keys(config.body)).toEqual(["providers"]);
+    // 登记的高德那一家（445）带的只是 Web 端 Key
     expect(config.body.providers?.find((p) => p.id === "amap")).toMatchObject({ ready: true, key: AMAP_TEST_JS_KEY, lookup: true, title: "高德地图" });
 
     // 高德代理：拼上安全密钥（页面带来的去掉），回应原样交回
@@ -97,7 +100,18 @@ describe("地图插件（假瓦片、假高德走真实装配路径）", () => {
     expect(everywhere).not.toContain(AMAP_TEST_SECURITY_CODE);
     expect(everywhere).not.toContain(AMAP_TEST_SERVICE_KEY);
 
-    // 运行中停用：接口、瓦片、代理都写"地图插件没启用"
+    // 运行中停用高德：代理回 404"没接上"、页面要的设置里没有它、瓦片照常；设置 · 数据源里写"高德地图插件没启用"
+    const amapOff = await pluginsApi.act(td.url, AMAP_PLUGIN, { action: "disable", idempotencyKey: key() });
+    expect(amapOff.status).toBe(200);
+    expect(td.daemon.plugins.report().running).toContain(MAP_PLUGIN);
+    const noAmap = await request(td.url, "/_AMapService/v3/ip");
+    expect(noAmap.status).toBe(404);
+    expect(noAmap.body.toString()).toContain("没接上");
+    expect((await mapApi.config(td.url)).body.providers?.map((p) => p.id)).toEqual(["osm", "google"]);
+    expect((await request(td.url, "/tiles/osm/2/1/1")).status).toBe(200);
+    expect((await dataSourcesApi.view(td.url)).body.sources.find((s) => s.id === AMAP_SOURCE_ID)).toMatchObject({ available: false, unavailable: "高德地图插件没启用" });
+
+    // 运行中停用地图插件：接口、瓦片、代理都写"地图插件没启用"；登记进来的几家跟着停
     const off = await pluginsApi.act(td.url, MAP_PLUGIN, { action: "disable", idempotencyKey: key() });
     expect(off.status).toBe(200);
     const config2 = await mapApi.config(td.url);
@@ -107,5 +121,7 @@ describe("地图插件（假瓦片、假高德走真实装配路径）", () => {
     expect(tileOff.status).toBe(404);
     expect(tileOff.body.toString()).toContain("地图插件没启用");
     expect((await request(td.url, "/_AMapService/v3/ip")).status).toBe(404);
+    expect(td.daemon.plugins.report().running).not.toContain("openstreetmap");
+    expect(td.daemon.plugins.report().running).not.toContain("google-maps");
   });
 });

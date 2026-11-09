@@ -3,8 +3,8 @@
 // - map_search_places 搜地点（关键字 / 某处附近）、map_route 算路线（开车、公交、步行）、map_geocode 地址 → 位置、
 //   map_reverse_geocode 某处 → 地址：都要联网（network），只往下拉（pullOnly），只读；
 //   map_my_places 看常去的地方（不联网）：起了名的有哪几处、手机最近交来位置是什么时候。
-// - 哪家服务（lookup.ts 的 LookupProvider）：providers() 每次现给（service.ts 定：高德能用时 [高德, OpenStreetMap]，不然只有
-//   [OpenStreetMap]），点落在谁管的范围里用排在前面的那家（covers）——有高德时国内走高德、国外走 OpenStreetMap；没有高德时
+// - 哪家服务（lookup.ts 的 LookupProvider）：providers() 每次从插槽现给（service.ts 按优先级定：高德能用时 [高德, OpenStreetMap]，
+//   不然只有 [OpenStreetMap]；455 起各家是各自的插件，哪家停了就没有它），点落在谁管的范围里用排在前面的那家（covers）——有高德时国内走高德、国外走 OpenStreetMap；没有高德时
 //   国内国外都走 OpenStreetMap，国内的结果里提一句店名和小路可能不全（coverageNote）。工具一直在（地图插件在运行就有）。
 //   这里不写哪一家的名字：各家的说法（署名、出错怎么说、全不全）都由 provider 自己给，工具说明里讲数据从哪来的那句由 service.ts 给。
 // - 按名字找（没有点：搜"西溪湿地"、路线的终点是地名）先问谁（nameOrder）：知道这一问的另一头在哪，管它的几家在前；
@@ -60,14 +60,16 @@ export interface MyPlaces {
 
 export interface LookupToolDeps {
   /**
-   * 此刻能用的地图服务，"自动"时优先级大的在前（有高德时 [高德, OpenStreetMap]）；按 covers 挑，按名字找时按 nameOrder 排。
+   * 此刻能用的地图服务，"自动"时优先级大的在前（插槽按登记的几家排）；按 covers 挑，按名字找时按 nameOrder 排。
    * map 是地图上手动选的那一家（工具的 map 参数，445）：它能查时排最前
    */
   providers(map?: string): readonly LookupProvider[];
   /** 地图上选的是 map、实际用 used 查的：回答里要说的那一句（给模型的）；不用说时 undefined。不给就不说 */
   chosenNote?(map: string, used: LookupProvider): string | undefined;
-  /** 工具说明里讲数据从哪来的那句（给模型看的） */
+  /** 工具说明里讲数据从哪来的那句（给模型看的；455 起由登记了的几家的 toolNote 拼成） */
   sources: string;
+  /** map 参数的说明里举的几家："amap 高德地图、osm OpenStreetMap"（登记了的几家的编号和给模型看的名字）；不给就不举 */
+  mapNames?: string;
   /** 手机插件给的；手机插件没启用是 undefined */
   myPlaces(): MyPlaces | undefined;
   /** 能画的那一份放这里（内存里留一会儿） */
@@ -404,10 +406,11 @@ async function resolveByName(all: readonly LookupProvider[], text: string, city:
 }
 
 /** 工具的 map 参数（445）：地图上现在用的那家 */
-const MAP_ARG_DESCRIPTION = "用户在地图页上现在用的那家地图的编号（地图的上下文里写着：amap 高德、osm OpenStreetMap、google 谷歌地图……）：结果要画在那家的地图上，先用它查；不知道就不写（按自动挑）";
+const mapArgDescription = (names: string | undefined) =>
+  `用户在地图页上现在用的那家地图的编号（地图的上下文里写着${names === undefined || names === "" ? "" : `：${names}……`}）：结果要画在那家的地图上，先用它查；不知道就不写（按自动挑）`;
 
-/** map 参数的写法 */
-const mapArg = () => Type.Optional(Type.String({ minLength: 1, maxLength: 20, pattern: MAP_PROVIDER_ID.source, description: MAP_ARG_DESCRIPTION }));
+/** map 参数的写法（names：登记了的几家的"编号 名字"，举给模型看） */
+const mapArg = (names: string | undefined) => Type.Optional(Type.String({ minLength: 1, maxLength: 20, pattern: MAP_PROVIDER_ID.source, description: mapArgDescription(names) }));
 
 /** 手机最近交来的位置（2 小时以内的）：只在本机用来挑按名字找时先问谁，不发出去 */
 function phoneAnchorOf(deps: Pick<LookupToolDeps, "myPlaces" | "now">): Anchor | undefined {
@@ -538,7 +541,7 @@ export function lookupTools(deps: LookupToolDeps): HostTool[] {
         radius: Type.Optional(Type.Integer({ minimum: 100, maximum: 50_000, description: `near 附近多大范围（米），默认 ${NEAR_RADIUS_DEFAULT_M}` })),
         city: Type.Optional(Type.String({ minLength: 1, maxLength: 40, description: "在哪个城市找（不写 near 时）：杭州、上海、Singapore" })),
         limit: Type.Optional(Type.Integer({ minimum: 1, maximum: LIMIT_MAX, description: `最多列几个，默认 ${LIMIT_DEFAULT}` })),
-        map: mapArg(),
+        map: mapArg(deps.mapNames),
       },
       { additionalProperties: false },
     ),
@@ -630,7 +633,7 @@ export function lookupTools(deps: LookupToolDeps): HostTool[] {
           }),
         ),
         city: Type.Optional(Type.String({ minLength: 1, maxLength: 40, description: "地名在哪个城市（帮地图服务找对地方）：杭州、Singapore" })),
-        map: mapArg(),
+        map: mapArg(deps.mapNames),
       },
       { additionalProperties: false },
     ),
@@ -712,7 +715,7 @@ export function lookupTools(deps: LookupToolDeps): HostTool[] {
       {
         address: Type.String({ minLength: 1, maxLength: 200, description: "地址：浙江省杭州市西湖区文三路 478 号、1 Kadayanallur St, Singapore" }),
         city: Type.Optional(Type.String({ minLength: 1, maxLength: 40, description: "在哪个城市（地址里没写城市时）" })),
-        map: mapArg(),
+        map: mapArg(deps.mapNames),
       },
       { additionalProperties: false },
     ),
@@ -756,7 +759,7 @@ export function lookupTools(deps: LookupToolDeps): HostTool[] {
     description:
       "某处 → 地址（逆地理编码）：用户问「我现在在哪」「公司那儿是什么地址」时用。where 写常去的地方的名字、「当前位置」（手机最近交来的位置）或「纬度,经度」。" +
       `${deps.sources}。现查的；只在用户问到时用：那一处会发给地图服务。`,
-    parameters: Type.Object({ where: Type.String({ minLength: 1, maxLength: 120, description: "哪一处：常去的地方的名字、「当前位置」、「纬度,经度」" }), map: mapArg() }, { additionalProperties: false }),
+    parameters: Type.Object({ where: Type.String({ minLength: 1, maxLength: 120, description: "哪一处：常去的地方的名字、「当前位置」、「纬度,经度」" }), map: mapArg(deps.mapNames) }, { additionalProperties: false }),
     readOnlyOrIdempotent: true,
     nature: "look",
     network: true,

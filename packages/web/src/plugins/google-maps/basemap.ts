@@ -46,6 +46,10 @@ export function googleBasemap(report?: BasemapReporter, testing?: { fake?: Googl
     get title() {
       return t("ui.plugins.googleMaps.basemap");
     },
+    // 谷歌要求写明来自 Google Maps：卡片上写"数据来自 Google 地图"
+    get credit() {
+      return t("ui.plugins.googleMaps.credit");
+    },
     prepare(key) {
       if (key === undefined) throw new Error(t("ui.plugins.googleMaps.noKey"));
       const fake = testing?.fake ?? DEMO?.();

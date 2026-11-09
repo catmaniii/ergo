@@ -20,7 +20,7 @@ import { decodePolyline, encodePolyline } from "../../src/google-maps/polyline.t
 import { GOOGLE_MAPS_MONTHLY_FREE } from "../../src/google-maps/usage.ts";
 import { MAP, MAP_PLUGIN } from "../../src/map/api.ts";
 import { MAP_TOOL } from "../../src/map/lookup-tools.ts";
-import { createMapPlugin } from "../../src/map/plugin.ts";
+import { mapPlugins } from "../helpers/map-plugins.ts";
 import { PHONE, type PhoneService } from "../../src/phone/api.ts";
 import { KERNEL } from "../../src/plugins/kernel.ts";
 import { SECRETARY_TARGET } from "../../src/secretary/secretary.ts";
@@ -48,7 +48,7 @@ async function setup() {
   const osm = await startFakeOsmLookup();
   const amap = await startFakeAmapLookup();
   const k = await startPluginKernel({
-    plugins: [createMapPlugin({ amapHosts: amap.hosts, osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 }), createGoogleMapsPlugin({ hosts: google.hosts, timeoutMs: 5000 })],
+    plugins: [...mapPlugins({ amapHosts: amap.hosts, osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 }), createGoogleMapsPlugin({ hosts: google.hosts, timeoutMs: 5000 })],
     at: AT,
     services: [
       extraService(KERNEL.layout, ({ dir }) => dataDirLayout(dir)),
@@ -111,7 +111,7 @@ describe("谷歌地图插件：填 Key", () => {
     expect(abroad.text).toContain("OpenStreetMap找到");
     expect(google.requests).toEqual([]);
     expect(osm.requests.length).toBeGreaterThan(0);
-    expect(mapTools(k)[0]!.spec.description).toContain("另外大陆以外优先用谷歌地图");
+    expect(mapTools(k)[0]!.spec.description).toContain("；大陆以外优先用谷歌地图");
   });
 
   it("服务端 Key 先测再存：三个 API 各问一次（固定的地方），都过了才存，顺带取一张小静态地图（451，预览图能不能用）；浏览器用的只看写法；日志里没有 Key", async () => {

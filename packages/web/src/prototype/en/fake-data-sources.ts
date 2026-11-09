@@ -7,8 +7,8 @@ export const EN_DATA_SOURCES: Phrases = {
   "填了 Key，地图页在大陆以外用谷歌地图，查大陆以外的地点、路线也用它（只在你问的时候把起点、终点、“附近”的那一处发给谷歌，查到的不存）。服务端用的 Key 只存在这台电脑上；足迹、二狗画的点和线只在这台设备上画在谷歌地图上面，谷歌的地图关在单独的框里，聊天卡片的预览图只向谷歌要那一片的底图：谷歌只知道你在看哪一片": "With keys entered, the map page uses Google Maps outside mainland China, and so do place and route lookups there (only the start, the end or the “nearby” spot is sent to Google when you ask, and results aren't stored). The server key stays on this computer; footprints and the points and lines ergo draws are drawn only on this device, on top of Google Maps, which runs in a separate sealed frame, and chat card previews only ask Google for the plain map of that area: Google only knows which area you're looking at",
   "浏览器用的 Key：已填 · 服务端用的 Key：已填": "Browser key: set · Server key: set",
   "填过的两个 Key 从这台电脑上删掉（Google Cloud 里的 Key 还在，不用了可以去那边删），大陆以外的地图页改用高德地图（没填高德用 OpenStreetMap），查询改用 OpenStreetMap": "Both keys are deleted from this computer (they still exist in Google Cloud — delete them there if you're done); outside China the map switches to AMap (OpenStreetMap without AMap) and lookups to OpenStreetMap",
-  "填了 Key，地图页在国内用高德地图，查国内的地点、路线也用它（只在你问的时候把起点、终点、\"附近\"的那一处发给高德；没填时国内也用 OpenStreetMap 查，店名和小路可能不全）。Key 只存在这台电脑上；足迹、二狗画的点和线只在这台设备上画在高德地图上面，聊天卡片的预览图只向高德要那一片的底图：高德只知道你在看哪一片":
-    "With a key, the map page uses AMap inside mainland China, and looking up places and routes there uses it too (only when you ask, the start, the destination or the \"nearby\" spot goes to AMap; without a key, lookups in China also use OpenStreetMap, which may miss some shops and small roads). The key stays on this computer; footprints and the points and lines ergo draws are drawn only on this device, on top of AMap, and chat card previews only ask AMap for the plain map of that area: AMap only knows which area you're looking at",
+  "填了 Key，地图页在国内用高德地图，查国内的地点、路线也用它（只在你问的时候把起点、终点、\"附近\"的那一处发给高德；没填时国内改用别家地图）。Key 只存在这台电脑上；足迹、二狗画的点和线只在这台设备上画在高德地图上面，聊天卡片的预览图只向高德要那一片的底图：高德只知道你在看哪一片":
+    "With a key, the map page uses AMap inside mainland China, and looking up places and routes there uses it too (only when you ask, the start, the destination or the \"nearby\" spot goes to AMap; without a key, another map provider is used in China). The key stays on this computer; footprints and the points and lines ergo draws are drawn only on this device, on top of AMap, and chat card previews only ask AMap for the plain map of that area: AMap only knows which area you're looking at",
   "试查：在北京搜「天安门」（固定的词，不是你的位置）": "Test: search “Tiananmen” in Beijing (a fixed word, not your location)",
   "示例广场": "Sample Square",
   "北京市东城区 · 示例长安街 1 号 · 风景名胜": "Dongcheng, Beijing · 1 Sample Chang'an Ave · Scenic spot",
@@ -19,7 +19,7 @@ export const EN_DATA_SOURCES: Phrases = {
   "通了：查地点、算路线能用。数据来自高德，现查的，不存": "It works: place and route lookups are ready. Data from AMap, looked up just now, not saved",
   "这个月已查：搜地点 38 / 5000 次，地址和路线 212 / 150000 次（高德个人认证档每月的免费量，以高德控制台为准）": "This month: place searches 38 / 5000, addresses and routes 212 / 150000 (AMap's free monthly quota for verified individuals; the AMap console has the real numbers)",
   "地图": "Map",
-  "填过的 Key 和安全密钥从这台电脑上删掉，地图页在国内（和没填谷歌时的国外）改用 OpenStreetMap": "The key and security code are deleted from this computer; the map page uses OpenStreetMap inside China (and abroad without Google) instead",
+  "填过的 Key 和安全密钥从这台电脑上删掉，地图页、查地点改用别家地图": "The key and security code are deleted from this computer; the map page and lookups use another map provider instead",
   "地图：已填 · 查地点和路线：已填": "Map: set · Places and routes: set",
   "地图：已填 · 查地点和路线：没填": "Map: set · Places and routes: not set",
   "家": "Home",

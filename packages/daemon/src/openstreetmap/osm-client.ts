@@ -11,7 +11,7 @@
 // - 不做输入联想、不批量：只在秘书调工具（用户问）时发，每次只发这一问要的那一两个请求（lookup-tools.ts）。
 // 出错一律抛 lookup.ts 的 MapLookupError：连不上、等太久（network）、429（rate）、403（denied：多半是被封了）、5xx（server）；
 // 4xx 带 JSON 的交给调用的一方按服务自己的错误码分（OSRM 回 400 加 { code, message }）。
-import { MapLookupError } from "./lookup.ts";
+import { MapLookupError } from "../map/api.ts";
 
 /** 两次请求开始之间至少隔多久（毫秒）：政策是每秒最多 1 次，多留 0.1 秒 */
 export const OSM_MIN_INTERVAL_MS = 1_100;

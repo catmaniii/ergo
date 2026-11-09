@@ -1,48 +1,27 @@
 // 地图页上画什么、看哪里（429 地图插件）：纯的类型和函数，不碰 DOM，测试在 Node 里跑。
-// - 坐标一律 WGS-84（二狗里存的、手机交来的就是它）；画到高德地图上时由高德那一套（amap-engine.ts）自己转 GCJ-02；
-// - 一屏用哪种底图（chooseBasemap）：看的那一片的中心在中国大陆、高德能用（填了 Key、脚本加载上了）用高德，别的用 OpenStreetMap。
-//   445 起地图页按登记了的几家和手动切换挑（providers.ts），规矩同一份；451 起看足迹也用当前地图（FOOTPRINTS_ON_CURRENT_MAP）；
+// - 坐标一律 WGS-84（二狗里存的、手机交来的就是它）；要转 GCJ-02 的底图（高德、谷歌在大陆）由它们自己的引擎转；
+// - 一屏用哪种底图：445 起地图页按登记了的几家和手动切换挑（providers.ts）；451 起看足迹也用当前地图（FOOTPRINTS_ON_CURRENT_MAP）；
+//   455 起地图插件不认得任何一家（以前这里有个只认高德、OpenStreetMap 两家的 chooseBasemap，去掉了）；
 // - 地图上的东西（MapScene）：点（地点、停留、照片、搜到的）、线（轨迹、路线）、圈（常去的地方的范围）。429 只有原型里的两个地点，
 //   430（我的足迹）、431（聊天里的地图卡片）、432（高德查地点、路线）往里放各自的东西，地图页和两种底图都照这一份画；
 //   聊天里地图卡片的缩略图（MapThumb.tsx）也照它画。
-import { type LatLon, mapRegionOf } from "../../state/index.ts";
+import type { LatLon } from "../../state/index.ts";
 import type { MapScene, MapView } from "../../model/map.ts";
-import { EVERY_BASEMAP, pickBasemap, providersOf } from "./providers.ts";
+import { clampZoom } from "../../ui/map-tiles.ts";
 
 // 445：画什么、看哪里的类型挪到核心（model/map.ts：地图服务插槽的条目要用它），这里原样转出，插件里照旧从这里 import
 export type { MapCircle, MapLine, MapMark, MapScene, MapView } from "../../model/map.ts";
 
-/** 两种自带的底图：高德（国内，要填 Key）、OpenStreetMap（国外和没填 Key 时）；445 起别的插件还能登记别的（地图服务的编号） */
-export type BasemapKind = "amap" | "osm";
-
 export const EMPTY_SCENE: MapScene = { marks: [], lines: [], circles: [] };
 
-/** 能看的级别：OpenStreetMap 的瓦片到 19 级；高德能到 20 级，换回 OSM 时收到 19 */
-export const MAP_MIN_ZOOM = 3;
-export const MAP_MAX_ZOOM = 19;
+// 能看的级别（MAP_MIN_ZOOM、MAP_MAX_ZOOM、clampZoom）455 起在核心 ui/map-tiles.ts（高德插件的引擎也用），这里原样转出
+export { clampZoom, MAP_MAX_ZOOM, MAP_MIN_ZOOM } from "../../ui/map-tiles.ts";
 
 /** 什么都没有时看哪里：整个中国大致在中间（第一次打开、没记住上次看哪里时） */
 export const DEFAULT_VIEW: MapView = { lat: 34.5, lon: 108.9, zoom: 4 };
 
 // 看足迹时用不用当前地图（FOOTPRINTS_ON_CURRENT_MAP，451 起是用）和挑底图的规矩一起放在 providers.ts，这里原样转出
 export { FOOTPRINTS_ON_CURRENT_MAP } from "./providers.ts";
-
-/**
- * 这一屏用哪种底图（只有自带两家时的说法；地图页按登记了的几家、手动切换挑，用的是 providers.ts 的 pickBasemap，规矩同一份）：
- * 中心在中国大陆、高德能用时用高德；别的（国外、香港澳门台湾、没填 Key、高德没加载上）用 OpenStreetMap。
- * 大陆外 GCJ-02 和 WGS-84 一样，OSM 的瓦片、二狗的点都对得上；大陆里只有高德的底图和二狗转过的点对得上。
- * - amapUsable：这个页面上高德能用（填了 Key、高德没说它不对、脚本加载上了）。聊天页不加载高德的脚本，卡片的缩略图传 false；
- * - footprints：画着用户自己的足迹（地图页开着"足迹"、聊天里的足迹卡片），按 FOOTPRINTS_ON_CURRENT_MAP 走（451 起和别的一样）。
- */
-export function chooseBasemap(view: Pick<MapView, "lat" | "lon">, amapUsable: boolean, footprints = false): BasemapKind {
-  const providers = providersOf(amapUsable ? { amapKey: "-" } : {});
-  return pickBasemap({ region: mapRegionOf(view), providers, page: EVERY_BASEMAP, footprints }).wanted === "amap" ? "amap" : "osm";
-}
-
-/** 级别收进能看的范围 */
-export function clampZoom(zoom: number): number {
-  return Math.min(MAP_MAX_ZOOM, Math.max(MAP_MIN_ZOOM, zoom));
-}
 
 /** 看的是不是一个说得通的地方（存着的、地址里带的可能是坏的） */
 export function isMapView(v: unknown): v is MapView {

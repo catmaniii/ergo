@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { createDataSourceSecrets } from "../../src/data-sources/index.ts";
 import { MAP_DAY, MAP_PLUGIN } from "../../src/map/api.ts";
-import { createMapPlugin } from "../../src/map/plugin.ts";
+import { mapPlugins } from "../helpers/map-plugins.ts";
 import { phonePlugin } from "../../src/phone/plugin.ts";
 import { KERNEL } from "../../src/plugins/kernel.ts";
 import { AMAP_TEST_JS_KEY, AMAP_TEST_SECURITY_CODE, startFakeAmap, startFakeOsm } from "../helpers/fake-map.ts";
@@ -44,7 +44,7 @@ async function setup() {
   const osm = await startFakeOsm();
   const amap = await startFakeAmap();
   const k = await startPluginKernel({
-    plugins: [phonePlugin, createMapPlugin({ osmUpstream: osm.url, amapHosts: amap.hosts, timeoutMs: 5000 })],
+    plugins: [phonePlugin, ...mapPlugins({ osmUpstream: osm.url, amapHosts: amap.hosts, timeoutMs: 5000 })],
     services: [
       extraService(KERNEL.layout, ({ dir }) => dataDirLayout(dir)),
       extraService(KERNEL.dataSourceSecrets, ({ dir }) => createDataSourceSecrets({ dir: dataDirLayout(dir).dataSourceSecrets, log: () => {} })),
@@ -169,7 +169,7 @@ describe("我的足迹（地图插件经手机插件取）", () => {
 
   it("手机还没交来过位置：没有 point", async () => {
     const k = await startPluginKernel({
-      plugins: [phonePlugin, createMapPlugin({ osmUpstream: "http://127.0.0.1:1", timeoutMs: 1000 })],
+      plugins: [phonePlugin, ...mapPlugins({ osmUpstream: "http://127.0.0.1:1", timeoutMs: 1000 })],
       services: [
         extraService(KERNEL.layout, ({ dir }) => dataDirLayout(dir)),
         extraService(KERNEL.dataSourceSecrets, ({ dir }) => createDataSourceSecrets({ dir: dataDirLayout(dir).dataSourceSecrets, log: () => {} })),

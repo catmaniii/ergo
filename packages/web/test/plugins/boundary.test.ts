@@ -37,9 +37,9 @@ const rel = (file: string) => path.relative(SRC, file).replaceAll("\\", "/");
 const ALL = sources();
 
 describe("网页插件的边界", () => {
-  test("找得到插件（扫的路子没走偏）：记忆、提醒、日历、语音、浏览、手机、Google、Looki、Claude Code、Codex、地图、谷歌地图十二个插件，清单引了它们", () => {
+  test("找得到插件（扫的路子没走偏）：记忆、提醒、日历、语音、浏览、手机、Google、Looki、Claude Code、Codex、地图、OpenStreetMap、高德地图、谷歌地图十四个插件，清单引了它们", () => {
     const dirs = fs.readdirSync(PLUGINS, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
-    expect(dirs.toSorted()).toEqual(["browsing", "calendar", "claude-code", "codex", "google", "google-maps", "looki", "map", "memory", "phone", "reminders", "voice"]);
+    expect(dirs.toSorted()).toEqual(["amap", "browsing", "calendar", "claude-code", "codex", "google", "google-maps", "looki", "map", "memory", "openstreetmap", "phone", "reminders", "voice"]);
     const manifest = ALL.find((s) => s.file === MANIFEST)!;
     // 每个插件目录都在清单里
     expect(dirs.filter((d) => !manifest.imports.some((i) => pluginOf(i) === d))).toEqual([]);
@@ -68,5 +68,12 @@ describe("网页插件的边界", () => {
       });
     });
     expect(bad).toEqual([]);
+  });
+
+  test("地图插件不认识任何一家（455，ADR-0061）：去掉注释后地图插件里没有写死的 amap、osm、google 编号", () => {
+    const strip = (code: string) => code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
+    const named = ALL.filter((s) => pluginOf(s.file) === "map").flatMap((s) => [...strip(fs.readFileSync(s.file, "utf8")).matchAll(/["'`](amap|osm|google|openstreetmap|google-maps)["'`]/g)].map((m) => `${rel(s.file)}：${m[0]}`));
+    expect(ALL.filter((s) => pluginOf(s.file) === "map").length).toBeGreaterThan(20);
+    expect(named).toEqual([]);
   });
 });

@@ -10,7 +10,7 @@
 import { AMAP_SOURCE_ID, type DataSourcePushResult, type HttpErrorBody, HTTP_PATHS, type MapDayView, type MapLatestView, nowIso, PHONE_LOCATION_SOURCE, PHONE_PHOTOS_SOURCE } from "@ergo/protocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MAP_PLUGIN } from "../../src/map/api.ts";
-import { createMapPlugin } from "../../src/map/plugin.ts";
+import { mapPlugins } from "../helpers/map-plugins.ts";
 import { ManualClock } from "../helpers/clock.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { AMAP_TEST_JS_KEY, AMAP_TEST_SECURITY_CODE, startFakeAmap, startFakeOsm } from "../helpers/fake-map.ts";
@@ -46,7 +46,7 @@ describe("我的足迹（GET /api/map/day，假瓦片、假高德走真实装配
     const osm = await startFakeOsm();
     const amap = await startFakeAmap();
     const clock = new ManualClock(new Date(2026, 10, 7, 9));
-    const td = await startTestDaemon({ clock, extraPlugins: [createMapPlugin({ osmUpstream: osm.url, amapHosts: amap.hosts, timeoutMs: 5000 })] });
+    const td = await startTestDaemon({ clock, extraPlugins: [...mapPlugins({ osmUpstream: osm.url, amapHosts: amap.hosts, timeoutMs: 5000 })] });
 
     const location = await push(td.url, PHONE_LOCATION_SOURCE, {
       state: "granted",

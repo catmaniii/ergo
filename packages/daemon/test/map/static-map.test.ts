@@ -6,7 +6,7 @@
 import { activeLocale, activeLocaleFrom, gcjToWgs, type LatLon, type MapDayView, type MapDrawing, setActiveLocale, wgsToGcj } from "@ergo/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { GOOGLE_STATIC, googleStaticParams } from "../../src/google-maps/static-map.ts";
-import { AMAP_STATIC, amapStaticParams } from "../../src/map/amap-static.ts";
+import { AMAP_STATIC, amapStaticParams } from "../../src/amap/amap-static.ts";
 import { dayBounds, drawingBounds, fitSize, MAP_STATIC_PAD, planStatic, shownBounds, staticView } from "../../src/map/static-map.ts";
 import { builtinCatalogs } from "../../src/i18n/index.ts";
 

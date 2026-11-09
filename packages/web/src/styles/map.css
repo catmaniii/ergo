@@ -39,18 +39,18 @@
   background: var(--fill);
 }
 .map-host,
-.map-osm,
+.map-tiled,
 .map-amap {
   position: absolute;
   inset: 0;
 }
-.map-osm {
+.map-tiled {
   overflow: hidden;
   touch-action: none;
   user-select: none;
   cursor: grab;
 }
-.map-osm.dragging {
+.map-tiled.dragging {
   cursor: grabbing;
 }
 /* 三层各自一个层叠上下文：瓦片（换级别时上下两级各有 z-index）压不到线圈和点上 */
@@ -78,7 +78,7 @@
 .map-tiles img.broken {
   visibility: hidden;
 }
-.map-osm.dark .map-tiles {
+.map-tiled.dark .map-tiles {
   filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.7);
 }
 .map-shapes {
@@ -138,7 +138,7 @@
   cursor: pointer;
   pointer-events: auto;
 }
-:is(.map-osm, .map-overlay) .map-mark {
+:is(.map-tiled, .map-overlay) .map-mark {
   position: absolute;
   left: 0;
   top: 0;
@@ -378,7 +378,7 @@
   height: 18px;
   cursor: default;
 }
-:is(.map-osm, .map-overlay) .map-mark[data-kind="me"] {
+:is(.map-tiled, .map-overlay) .map-mark[data-kind="me"] {
   margin: -18px 0 0 -9px;
 }
 .map-mark[data-kind="me"] .map-pin {
