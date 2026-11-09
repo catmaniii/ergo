@@ -32,6 +32,8 @@ describe("手册的例子：笔记插件走真实装配路径", () => {
     expect(td.daemon.plugins.report().running.at(-1)).toBe("notes");
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [SECRETARY]: 0, [PLUGINS]: 0 });
+    // 订阅时补推的插件状况（临时事件，长帧压了再发）：订阅的响应先到，等补推的也到了再看
+    await frontend.settled();
     expect(notesState(frontend)).toBe("running");
 
     // 秘书这一轮调"记笔记"：写进事件日志、视图里有

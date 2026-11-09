@@ -217,6 +217,14 @@ describe("演示流程（录给前端回放）", () => {
     expect(again.task.stages?.list?.[0]).toMatchObject({ stageId: "s1", state: "accepted", attempts: 1 });
     await turnsOf(frontend, M1, 3);
     expect(textOf(messagesOf(frontend, M1).find((m) => m.agentInput && textOf(m).startsWith("用户从阶段 s2"))!)).toContain("缺一段方案对比");
+    // 返工这一轮负责人实际调了什么：照剧本是先局部改 report.md、再宣布完成。全量（2 个 worker）里偶发过一次返工后的 report.md 还是
+    // 第一版，单跑、压着 CPU 跑、十几份同时跑都没再出现，没查清是改没成、没改到，还是负责人被重新拉起、剧本从头又跑了一遍——
+    // 先比这一轮的调用（再红时 diff 里就是实际的那一串），再看文件
+    const reworkInput = messagesOf(frontend, M1).findIndex((m) => m.agentInput && textOf(m).startsWith("用户从阶段 s2"));
+    const reworkCalls = messagesOf(frontend, M1)
+      .slice(reworkInput + 1)
+      .flatMap((m) => m.message.parts.flatMap((p) => (p.type === "tool_call" ? [`${p.tool}：${p.outcome ?? "没有结果"}`] : [])));
+    expect(reworkCalls).toEqual(["edit：done", "complete_stage：done"]);
     expect(fs.readFileSync(path.join(td.daemon.layout.outputs, taskId, "report.md"), "utf8")).toContain("补上了对比");
     saveOrCheckRecording("task-execution", frontend.recording, { perChannel: true });
   }, 90_000);
@@ -1070,6 +1078,8 @@ describe("全局执行名额", () => {
     expect(tasksOf(frontend).filter((e) => e.task.id === t2).at(-1)).toMatchObject({ change: "requeued", from: "paused", by: "user", task: { state: "queued" } });
     ok(await frontend.taskAction({ taskId: t3, action: "cancel" }));
     await waitUntil(() => state(t2) === "running", { timeoutMs: 10_000, describe: () => "任务二回到执行中" });
+    // 守护进程里已经是执行中，看板上的那条事件（长帧压了再发）可能还在路上：等推给这条连接的都到了再数
+    await frontend.settled();
     expect(tasksOf(frontend).filter((e) => e.task.id === t2 && e.change === "started")).toHaveLength(2);
     // 第一次开始时交代过的阶段不重新交代；继续时排着的那条通知由它接着处理
     await turnsOf(frontend, maintainerChannel("tm-2"), 3);

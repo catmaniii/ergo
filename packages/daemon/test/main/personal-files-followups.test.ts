@@ -121,14 +121,17 @@ describe("原话里明说的生日直接建每年提醒", () => {
     expect(birthday.annual).toEqual({ monthDay: { month: 3, day: 2 }, daysBefore: 3, nextAt: nowIso(at(2, 27, 9, 0, 2027)) });
 
     // 档案页可改可关：关了提醒跟着删
+    // （提醒、卡片的变化是 WebSocket 上推的，长帧压了再发，可能比档案接口的响应晚到：每次改完等推给页面的都到了再看）
     const off = await filesApi.change(url, mom.id, { kind: "set_reminder", field: "birthday", daysBefore: null });
     expect(off.status).toBe(200);
+    await frontend.settled();
     expect(fieldOf(off.body, "birthday")!.annual).toEqual({ monthDay: { month: 3, day: 2 } });
     expect(remindersOf(frontend).at(-1)).toMatchObject({ change: "deleted", reminder: { id: created.reminder.id } });
 
     // 再开（提前 7 天）：另建一条
     const on = await filesApi.change(url, mom.id, { kind: "set_reminder", field: "birthday", daysBefore: 7 });
     expect(fieldOf(on.body, "birthday")!.annual?.daysBefore).toBe(7);
+    await frontend.settled();
     const again = remindersOf(frontend).at(-1)!;
     expect(again).toMatchObject({ change: "created", reminder: { schedule: { month: 2, day: 23 } } });
     expect(again.reminder.id).not.toBe(created.reminder.id);
@@ -138,6 +141,7 @@ describe("原话里明说的生日直接建每年提醒", () => {
     // 回执、提议的调用、原话一起；全局事件里查不到"妈妈的生日""3 月 2 日"
     const purged = await filesApi.remove(url, mom.id, { target: { kind: "field", field: "birthday" }, mode: "purge", withSources: true });
     expect(purged).toMatchObject({ status: 200, body: { sources: 1 } });
+    await frontend.settled();
     // （"下个月"被拒的那次调用里的格式说明带着"1990-03-02"，不是用户的值，不算；存的样子是"--03-02"）
     for (const text of ["妈妈的生日", "3 月 2 日", "3月2号", "--03-02", "2 月 27 日", "2 月 23 日"]) expect({ text, events: eventsContaining(daemon, text) }).toEqual({ text, events: [] });
     // 提醒都删了（看板上没有）：事件记录里每个版本留着编号、状态、建和改的时刻，内容换成删除标记、时间去掉；
@@ -187,8 +191,10 @@ describe("内置字段\"纪念日\"", () => {
     // 档案页再加一个"恋爱纪念日"，开每年提醒（提前 7 天）
     const added = await filesApi.change(url, SELF_PERSON_ID, { kind: "set_field", field: "anniversary:恋爱纪念日", value: "5月20日" });
     expect(added.status).toBe(200);
+    // （提醒的变化是 WebSocket 上推的，长帧压了再发，可能比档案接口的响应晚到：改完等推给页面的都到了再看）
     const on = await filesApi.change(url, SELF_PERSON_ID, { kind: "set_reminder", field: "anniversary:恋爱纪念日", daysBefore: 7 });
     expect(on.status).toBe(200);
+    await frontend.settled();
     expect(remindersOf(frontend).at(-1)!.reminder).toMatchObject({ schedule: { kind: "yearly", month: 5, day: 13 }, text: "5 月 20 日是你的恋爱纪念日（还有 7 天）" });
     // 两个纪念日按先后排在生日后面（空的"纪念日"不再列），名字就是字段名，都带每年提醒
     const fields = on.body.fields.map((f) => f.field);
@@ -209,6 +215,7 @@ describe("内置字段\"纪念日\"", () => {
 
     // 删一个纪念日：提醒跟着删，另一个不动；都删了"纪念日"又空着列出来
     expect((await filesApi.remove(url, SELF_PERSON_ID, { target: { kind: "field", field: "anniversary:恋爱纪念日" }, mode: "forget" })).status).toBe(200);
+    await frontend.settled();
     expect(remindersOf(frontend).at(-1)).toMatchObject({ change: "deleted", reminder: { schedule: { month: 5, day: 13 } } });
     const left = await filesApi.remove(url, SELF_PERSON_ID, { target: { kind: "field", field: "anniversary:结婚纪念日" }, mode: "forget" });
     expect(fieldOf(left.body.file!, "anniversary")).toMatchObject({ label: "纪念日" });
@@ -233,8 +240,10 @@ describe("彻底删除核对卡上确认过的生日", () => {
     expect((handled.payload as PersonalFileCardPayload).result).toBe("已记进档案：爸爸 · 生日。已建每年提醒（提前 3 天），档案页可改可关");
 
     const dadId = (await requestJson<PersonalFilesView & HttpErrorBody>(url, HTTP_PATHS.personalFiles)).body.files.find((f) => f.name === "爸爸")!.id;
+    // （提醒、卡片的变化是 WebSocket 上推的，长帧压了再发，可能比档案接口的响应晚到：每次改完等推给页面的都到了再看）
     const removed = await filesApi.remove(url, dadId, { target: { kind: "field", field: "birthday" }, mode: "purge" });
     expect(removed.status).toBe(200);
+    await frontend.settled();
     expect(remindersOf(frontend).at(-1)).toMatchObject({ change: "deleted" });
 
     // 开着的页面换到的新版本：值换成删除标记，每年提醒的勾整个去掉（不留 6 月 18 日）；纯文本里也没有
@@ -260,8 +269,10 @@ describe("彻底删除核对卡上确认过的生日", () => {
     // 档案页再填一个生日、开每年提醒，然后彻底删除整个人：这条提醒也一样
     await filesApi.change(url, dadId, { kind: "set_field", field: "birthday", value: "7月1日" });
     await filesApi.change(url, dadId, { kind: "set_reminder", field: "birthday", daysBefore: 3 });
+    await frontend.settled();
     expect(remindersOf(frontend).at(-1)!.reminder.text).toBe("7 月 1 日是爸爸的生日（还有 3 天）");
     expect((await filesApi.remove(url, dadId, { target: { kind: "person" }, mode: "purge" })).status).toBe(200);
+    await frontend.settled();
     expect(remindersOf(frontend).at(-1)).toMatchObject({ change: "deleted", reminder: { text: "（这条内容已彻底删除）" } });
     for (const text of ["爸爸的生日", "7 月 1 日", "6 月 28 日"]) expect({ text, events: eventsContaining(daemon, text) }).toEqual({ text, events: [] });
   });

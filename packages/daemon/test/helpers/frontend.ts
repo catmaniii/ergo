@@ -93,6 +93,9 @@ export class TestFrontend {
   private readonly subscribeIds = new Set<string>();
   /** 每个频道最后收到的落盘事件序号（重新同步时归零） */
   private readonly lastSeqs: Record<string, number> = {};
+  /** settled 发出去、还没得到响应的回执（空订阅）：响应到了（或连接断了）叫一声 */
+  private readonly receipts = new Map<string, (err?: Error) => void>();
+  private receiptNo = 0;
 
   private wsUrl: string;
   private readonly options: ConnectOptions;
@@ -124,6 +127,31 @@ export class TestFrontend {
    */
   async subscribe(cursors: Record<string, number>, protocolVersion = FRONTEND_PROTOCOL_VERSION): Promise<ResponseFrame> {
     return this.request(METHODS.subscribe, { protocolVersion, cursors });
+  }
+
+  /**
+   * 等守护进程到现在为止推给这条连接的帧都收到、交出来（和网页的回执一个做法，见 web 的 ws-connection.ts）：发一个空订阅
+   * （cursors 为空，服务端什么也不补、什么也不改），服务端按顺序处理同一条连接上的请求、按顺序发帧，它的响应到了，之前推的就都到了。
+   * 452 起长帧压了再发：守护进程压完才写出去、这边解压完才交出来，所以订阅的响应、HTTP 请求的响应、守护进程里的状态都可能比
+   * WebSocket 上刚推的事件先到。要看"订阅补发了什么""刚才那个 HTTP 请求推了什么"的先等这一步，不用猜等多久。
+   * 回执的响应不记进 received（不打乱 next / nextResponse 的先后）、不录成状态层的输入
+   */
+  async settled(timeoutMs = 20_000): Promise<void> {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) throw new Error("连接没开着");
+    const id = `receipt-${++this.receiptNo}`;
+    const answered = new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.receipts.delete(id);
+        reject(new Error(`等回执 ${id} 超时（${timeoutMs} 毫秒）`));
+      }, timeoutMs);
+      this.receipts.set(id, (err) => {
+        clearTimeout(timer);
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    this.socket.send(JSON.stringify({ id, method: METHODS.subscribe, params: { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: {} } }));
+    return answered;
   }
 
   /** 往会话里发一条文本消息（幂等键不填就新生成一个），等响应 */
@@ -383,6 +411,14 @@ export class TestFrontend {
       headers,
     });
     this.closedInfo = new Promise((resolve) => socket.once("close", (code, reason) => resolve({ code, reason: reason.toString("utf8") })));
+    // 连接断了：这条连接上等着的回执不会再来
+    socket.once("close", () => {
+      if (socket !== this.socket && this.socket !== undefined) return;
+      for (const [id, done] of this.receipts) {
+        this.receipts.delete(id);
+        done(new Error(`等回执 ${id} 时连接断了`));
+      }
+    });
     // 断开之后（this.socket 换了）这条连接上再到的帧不收
     socket.on("message", (data) => {
       if (socket === this.socket) this.onFrame(String(data));
@@ -400,6 +436,12 @@ export class TestFrontend {
   private onFrame(text: string): void {
     const frame = JSON.parse(text) as EventFrame | ResponseFrame;
     const at = Date.now();
+    // settled 的回执：只叫醒等它的，不记
+    if (!("channel" in frame) && frame.id !== null && this.receipts.has(frame.id)) {
+      const done = this.receipts.get(frame.id)!;
+      this.receipts.delete(frame.id);
+      return done(frame.ok ? undefined : new Error(`回执被拒：${frame.error.code} ${frame.error.message}`));
+    }
     if ("channel" in frame) {
       this.received.push({ kind: "event", frame, at });
       this.recording.push({ kind: "frame", frame });

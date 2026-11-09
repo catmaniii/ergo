@@ -355,6 +355,23 @@ describe("WebSocket 压缩（permessage-deflate，452）", () => {
     expect(pFrames.every((f) => !f.rsv1)).toBe(true);
     expect(pFrames.filter((f) => f.text.startsWith('{"channel"')).map((f) => f.text)).toEqual(expected);
   });
+
+  it("停机时已经交给连接、还在压缩的帧先写出去再断开：停之前最后推的事件到得了网页（不然要等重连补发，请求的响应就丢了）", async () => {
+    const td = await startTestDaemon();
+    const { store } = td.daemon;
+    const frontend = await TestFrontend.connect(td.url);
+    await frontend.subscribe({ [CHANNELS.board]: 0 });
+    await frontend.settled();
+    // 推几条长的（压了再发：压缩在别的线程上做，压完才写出去），紧接着停
+    for (let i = 1; i <= 20; i++) store.append({ channel: CHANNELS.board, type: EVENT_TYPES.tokenTotals, payload: totals(`t-${i}`, i) });
+    const last = store.lastSeq(CHANNELS.board);
+    expect(JSON.stringify(totals("t-1", 1)).length).toBeGreaterThanOrEqual(COMPRESS_MIN_CHARS);
+    const stopping = td.daemon.stop();
+    // 连接关掉时，之前推的帧都已经解开、交出来了（ws 收完、解压完才报关闭）
+    await frontend.closed();
+    await stopping;
+    expect(frontend.events({ channel: CHANNELS.board, persistedOnly: true }).map((f) => f.seq).at(-1)).toBe(last);
+  });
 });
 
 /** 线上收到的一帧：RSV1（压没压）、线上多少字节（不含帧头）、解开后的文字 */

@@ -145,6 +145,8 @@ const MAX_FRAME_BYTES = 1024 * 1024;
 const PER_MESSAGE_DEFLATE: PerMessageDeflateOptions = { zlibDeflateOptions: { memLevel: 7 }, serverMaxWindowBits: 13 };
 /** 短于这么多字（UTF-16 码元，汉字按字节只会更多）的帧不压：回执、空订阅的响应这类，压了省不下几个字节，白走一趟 zlib */
 export const COMPRESS_MIN_CHARS = 128;
+/** 停机时等已经交给连接的帧写出去最多多久（对方收得慢、写不进去时不一直挡着停机） */
+const CLOSE_FLUSH_MS = 1000;
 /** WebSocket 心跳的默认间隔（nginx 的 proxy_read_timeout 比它长得多，隧道上不会因为没流量被掐） */
 export const DEFAULT_HEARTBEAT_INTERVAL_MS = 30_000;
 
@@ -518,6 +520,9 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     offStream();
     offNotifications();
     offRevoked();
+    // 已经交给连接的帧先写出去再断开：长帧压了再发（452），压缩在别的线程上做完才写，当场断开会把它和排在它后面的丢在半路——
+    // 停机前推的最后几条事件、刚办完的请求的响应（比如取消了最后一个在跑的任务，等空闲的重启随即开始）就到不了网页
+    await Promise.all([...connections].map((c) => c.flush(CLOSE_FLUSH_MS)));
     for (const c of connections) c.terminate();
     // 转发给本机服务的管道和还在流的响应：不断开的话流式响应会一直挡着端口关不掉
     options.apps.close();
@@ -600,6 +605,12 @@ class FrontendConnection implements BrowserPeer {
   private readonly browsers: (() => BrowserLinks | undefined) | undefined;
   /** 上一次 ping 之后收到过 pong */
   private alive = true;
+  /** 交给 ws、还没写出去的帧有几帧（压缩中的、排在它后面的） */
+  private unsent = 0;
+  /** 等它们都写出去的（停机时） */
+  private flushed: Array<() => void> = [];
+  /** 在停机：只把已经交出去的写完，新来的请求不再处理（连接马上断开，网页重连后照常重发） */
+  private draining = false;
 
   constructor(
     ws: WebSocket,
@@ -625,6 +636,7 @@ class FrontendConnection implements BrowserPeer {
       this.alive = true;
     });
     ws.on("message", (data, isBinary) => {
+      if (this.draining) return;
       if (isBinary) return this.respond({ id: null, ok: false, error: { code: "bad_frame", message: t("gateway.textOnly") } });
       this.onRequest(String(data));
     });
@@ -649,6 +661,23 @@ class FrontendConnection implements BrowserPeer {
 
   terminate(): void {
     this.ws.terminate();
+  }
+
+  /**
+   * 停机：已经交给这条连接的帧都写出去（压缩中的压完、连同排在后面的交给系统）了再兑现；最多等 timeoutMs。
+   * 等的时候又发的（还没办完的请求这时回了响应）一起等；新来的请求不再处理
+   */
+  flush(timeoutMs: number): Promise<void> {
+    this.draining = true;
+    if (this.unsent === 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      const timer = setTimeout(resolve, timeoutMs);
+      timer.unref();
+      this.flushed.push(() => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
   }
 
   /** 秘书的网页工具要这台设备办的一件事：秘书会话频道上的临时事件，只推给这条连接（不看订阅、不广播） */
@@ -865,7 +894,11 @@ class FrontendConnection implements BrowserPeer {
   private send(frame: EventFrame | ResponseFrame): void {
     if (this.ws.readyState !== WebSocket.OPEN) return;
     const text = JSON.stringify(frame);
-    // 协商了压缩的连接上，短帧照原样发（没协商的 compress 不起作用）
-    this.ws.send(text, { compress: text.length >= COMPRESS_MIN_CHARS });
+    // 协商了压缩的连接上，短帧照原样发（没协商的 compress 不起作用）。写出去了（或者连接没了）回调一声，停机时据此等它们写完
+    this.unsent += 1;
+    this.ws.send(text, { compress: text.length >= COMPRESS_MIN_CHARS }, () => {
+      this.unsent -= 1;
+      if (this.unsent === 0) for (const wake of this.flushed.splice(0)) wake();
+    });
   }
 }

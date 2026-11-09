@@ -453,6 +453,8 @@ describe("项目外的长程任务一样（扩到所有长程任务）", () => {
     const second = await startTestDaemon({ reuse: { dataDir: d.dataDir, homeDir: d.homeDir }, maintainer: reworkSteps, reviewer: pass });
     const frontend = await TestFrontend.connect(second.url);
     await frontend.subscribe(Object.fromEntries([BOARD, CARDS, INBOX, TM1].map((c) => [c, 0])));
+    // 补发的帧（长帧压了再发）比订阅的响应晚到：等补发的都到了再看负责人会话里的记录
+    await frontend.settled();
     expect(systemRevisions(second, task.id)).toHaveLength(1);
     expect(second.daemon.tasks.confirmedPlan(task.id)!.plan.stages.map((s) => s.acceptance.map((a) => a.method).join("+"))).toEqual(["script+user", "review"]);
     expect(recordsOf(frontend, TM1).find((r) => r.record.kind === "auto_acceptance")?.record.summary).toBe("阶段改成自动验收：1 条原定由你验收的标准改由评审验收（照标准原文判）");

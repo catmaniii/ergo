@@ -100,7 +100,9 @@ describe("生日、纪念日变成每年提醒", () => {
     expect(fieldOf((await filesApi.get(url, mom.id)).body, "birthday").annual).toEqual({ monthDay: { month: 3, day: 2 }, daysBefore: 3, nextAt: nowIso(at(2, 27, 9, 0, 2027)) });
 
     // 生日改成 3 月 5 日（档案页里改的）：提醒跟着改成每年 3 月 2 日、内容跟着变，还是同一条
+    // （提醒的变化是 WebSocket 上推的，长帧压了再发，可能比档案接口的响应晚到：每次改完等推给页面的都到了再看）
     await filesApi.change(url, mom.id, { kind: "set_field", field: "birthday", value: "3月5日" });
+    await frontend.settled();
     const updated = remindersOf(frontend).at(-1)!;
     expect(updated).toMatchObject({ change: "updated", reminder: { id: created.reminder.id, schedule: { kind: "yearly", month: 3, day: 2 } } });
     expect(updated.reminder.text).toBe("3 月 5 日是妈妈的生日（还有 3 天）");
@@ -108,11 +110,13 @@ describe("生日、纪念日变成每年提醒", () => {
     // 改成提前 7 天：每年 2 月 26 日
     const week = await filesApi.change(url, mom.id, { kind: "set_reminder", field: "birthday", daysBefore: 7 });
     expect(week.status).toBe(200);
+    await frontend.settled();
     expect(remindersOf(frontend).at(-1)).toMatchObject({ change: "updated", reminder: { id: created.reminder.id, schedule: { month: 2, day: 26 } } });
     expect(fieldOf(week.body, "birthday").annual?.daysBefore).toBe(7);
 
     // 改了称呼：提醒的内容跟着变
     await filesApi.change(url, mom.id, { kind: "set_field", field: "name", value: "老妈" });
+    await frontend.settled();
     expect(remindersOf(frontend).at(-1)!.reminder.text).toBe("3 月 5 日是老妈的生日（还有 7 天）");
 
     // 不是生日、纪念日的字段开不了；农历的认不出日子
@@ -120,6 +124,7 @@ describe("生日、纪念日变成每年提醒", () => {
 
     // 删了生日（忘掉）：提醒跟着删
     expect((await filesApi.remove(url, mom.id, { target: { kind: "field", field: "birthday" }, mode: "forget" })).status).toBe(200);
+    await frontend.settled();
     expect(remindersOf(frontend).at(-1)).toMatchObject({ change: "deleted", reminder: { id: created.reminder.id, status: "deleted" } });
     expect(fieldOf((await filesApi.get(url, mom.id)).body, "birthday").annual).toEqual({});
   });
