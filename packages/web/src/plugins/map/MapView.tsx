@@ -29,7 +29,7 @@ import { type MapEngineFactory, usePlugins } from "../api.ts";
 import { AMAP_BASEMAP, demoBasemapNoteText, OSM_BASEMAP, osmEngine } from "./basemaps.ts";
 import type { MapEngine } from "./engine.ts";
 import { previewSize, useBoxSize, useMapPreview } from "./preview.ts";
-import { type BasemapPage, choiceBroken, pickBasemap, providersOf, switchEntries } from "./providers.ts";
+import { type BasemapPage, choiceBroken, pickBasemap, priorityIn, providersOf, switchEntries } from "./providers.ts";
 import type { MapScene, MapView } from "./scene.ts";
 
 // 聊天里地图卡片的缩略图（MapThumb.tsx）从这里拿瓦片地址、演示页那句
@@ -305,15 +305,23 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, ownPrev
     if (fellBackShown !== undefined) return { text: t("ui.plugins.map.switch.fellBack", { name: titleOf(fellBackShown) }), onClose: () => setFellBack(undefined) };
     // 某一家查来的没画上（那家用不了、这台设备加载不了它）：不管现在画着谁都说一句
     if (ownExtra && !ownShown) return ownHint(ownScene.source);
+    if (rendered === OSM_BASEMAP && amapFailed !== undefined) return { text: t("ui.plugins.map.hint.amapFailed", { reason: amapFailed }) };
+    // 照"自动"画着的时候，这个区域排在它前面的（别家登记的）没加载上：先用现在这家，说一句
+    // （451：国外谷歌没加载上时先用高德；按这个区域的优先级比）
+    if (!pick.manual && !pick.temporary) {
+      const autoPriority = priorityIn(providers.find((p) => p.id === pick.auto) ?? { priority: 0 }, region);
+      const ahead = providers
+        .filter((p) => p.basemap && p.ready && p.regions.includes(region) && page.has(p.id) && priorityIn(p, region) > autoPriority)
+        .toSorted((a, b) => priorityIn(b, region) - priorityIn(a, region))
+        .find((p) => p.id !== AMAP_BASEMAP && failedOf(p.id) !== undefined);
+      if (ahead !== undefined) {
+        const reason = failedOf(ahead.id) ?? "";
+        return rendered === OSM_BASEMAP
+          ? { text: t("ui.plugins.map.hint.providerFailed", { name: titleOf(ahead.id), reason }) }
+          : { text: t("ui.plugins.map.hint.providerFailedNext", { name: titleOf(ahead.id), reason, next: titleOf(rendered) }) };
+      }
+    }
     if (rendered !== OSM_BASEMAP) return undefined;
-    if (amapFailed !== undefined) return { text: t("ui.plugins.map.hint.amapFailed", { reason: amapFailed }) };
-    // "自动"本该用的、排在现在这家前面的（别家登记的）没加载上：先用 OpenStreetMap，说一句
-    const autoPriority = providers.find((p) => p.id === pick.auto)?.priority ?? 0;
-    const ahead = providers
-      .filter((p) => p.basemap && p.ready && p.regions.includes(region) && page.has(p.id) && p.priority > autoPriority)
-      .toSorted((a, b) => b.priority - a.priority)
-      .find((p) => p.id !== AMAP_BASEMAP && failedOf(p.id) !== undefined);
-    if (ahead !== undefined) return { text: t("ui.plugins.map.hint.providerFailed", { name: titleOf(ahead.id), reason: failedOf(ahead.id) ?? "" }) };
     if (!inChina) return undefined;
     if (config.amapProblem) return { text: t("ui.plugins.map.hint.amapProblem", { problem: config.amapProblem }), action: settingsAction };
     if (config.amapKey === undefined) return { text: t("ui.plugins.map.hint.noKey"), action: settingsAction };

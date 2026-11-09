@@ -895,6 +895,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(await page.evaluate(`localStorage.getItem("ergo-map-choice")`)).toBe('{"mainland":"osm"}');
     await note.locator('button[aria-label="关上"]').click();
     expect(await page.locator(".map-hint[data-fell-back]").count()).toBe(0);
+    // 照"自动"画着高德：说一句谷歌没加载上、先用高德（451）
+    await expect.poll(() => page.locator(".map-hint").innerText(), { timeout: 5000 }).toMatch(/^谷歌地图没加载上（连不上谷歌[\s\S]*），先用高德地图$/);
     // 英文
     await page.goto(pageUrl + `${UNREACHABLE}&lang=en`);
     await page.evaluate(`window.location.hash = "#/more/map"`);

@@ -68,9 +68,10 @@ describe("地图页的二狗：聊天窗、悬浮按钮里发的消息带地图�
     expect(input).toContain("这附近有什么好吃的");
     expect(input).toContain("这句是用户在二狗的地图页上，右边的二狗聊天窗里说的");
     expect(input).toContain("纬度 30.25961、经度 120.14340（WGS-84），缩放 14.3 级");
-    // 底图写成地图服务的编号，叫秘书查询时把 map 写成它（查询跟着地图走，base/map-ui 的接线）；开着足迹时底图一律 OpenStreetMap，
-    // 网页交来的是这一带查询用的那家（447 附带：国内开着足迹照样用高德查），这段照实写
-    expect(input).toContain("看足迹时底图一律画 OpenStreetMap，这一带查地点用的地图服务是高德地图（地图服务编号 amap）");
+    // 底图写成地图服务的编号，叫秘书查询时把 map 写成它（查询跟着地图走，base/map-ui 的接线）；451 起开着足迹时底图也是当前地图，
+    // 和没开一样写画着的那一家
+    expect(input).toContain("地图上用的是高德地图（地图服务编号 amap）");
+    expect(input).not.toContain("OpenStreetMap");
     expect(input).toContain('把 map 写成"amap"');
     expect(input).toContain('"足迹"开着，看的是 2026-11-07 那一天的足迹，选中了「公司」');
     expect(input).toContain("不一定是他本人现在的位置");

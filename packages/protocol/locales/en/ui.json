@@ -598,6 +598,7 @@
   "ui.plugins.map.hint.amapFailed": "AMap didn't load ({reason}); using OpenStreetMap for now",
   "ui.plugins.map.hint.amapProblem": "{problem}: using OpenStreetMap inside China for now",
   "ui.plugins.map.hint.providerFailed": "{name} didn't load ({reason}); using OpenStreetMap for now",
+  "ui.plugins.map.hint.providerFailedNext": "{name} didn't load ({reason}); using {next} for now",
   "ui.plugins.map.hint.ownOnlyFailed": "{name} didn't load ({reason}), so places and routes from {name} can't be drawn",
   "ui.plugins.map.hint.ownOnlyElsewhere": "Places and routes from {name} are only drawn on {name}'s own map, which isn't available here",
   "ui.plugins.map.hint.ownOnlyUnavailable": "Places and routes from {name} are only drawn on {name}'s own map, which isn't available right now",

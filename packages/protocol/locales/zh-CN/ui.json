@@ -568,6 +568,7 @@
   "ui.plugins.map.hint.amapFailed": "高德地图没加载上（{reason}），先用 OpenStreetMap",
   "ui.plugins.map.hint.amapProblem": "{problem}：国内先用 OpenStreetMap",
   "ui.plugins.map.hint.providerFailed": "{name}没加载上（{reason}），先用 OpenStreetMap",
+  "ui.plugins.map.hint.providerFailedNext": "{name}没加载上（{reason}），先用{next}",
   "ui.plugins.map.hint.ownOnlyFailed": "{name}没加载上（{reason}），{name}查来的地点和路线画不上去",
   "ui.plugins.map.hint.ownOnlyElsewhere": "{name}查来的地点和路线只画在{name}的地图上：这里用不了{name}",
   "ui.plugins.map.hint.ownOnlyUnavailable": "{name}查来的地点和路线只画在{name}的地图上：{name}现在用不了",
