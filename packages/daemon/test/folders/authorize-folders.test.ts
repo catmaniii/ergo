@@ -55,7 +55,7 @@ describe("规范化和执行", () => {
     expect(folders.list()).toEqual([]);
     const outcome = run(normalized.params);
     expect(outcome.events).toEqual([]);
-    expect(outcome.summary).toBe(`已授权 2 个文件夹：${pictures}、${downloads}。设置 · 授权的文件夹里能看、能改`);
+    expect(outcome.summary).toBe(`已授权 2 个文件夹：${pictures}、${downloads}。设置 · 目录授权里能看、能改`);
     expect(folders.list()).toEqual([pictures, downloads]);
     expect(JSON.parse(fs.readFileSync(file, "utf8"))).toEqual({ folders: [pictures, downloads] });
   });
@@ -64,7 +64,7 @@ describe("规范化和执行", () => {
     const { pictures, downloads, folders, action, run } = setup();
     folders.set([pictures]);
     const normalized = action.normalizeChecked({ change: "add", folders: [pictures, downloads] });
-    expect(run(normalized.params).summary).toBe(`已授权 1 个文件夹：${downloads}（${pictures} 本来就授权了）。设置 · 授权的文件夹里能看、能改`);
+    expect(run(normalized.params).summary).toBe(`已授权 1 个文件夹：${downloads}（${pictures} 本来就授权了）。设置 · 目录授权里能看、能改`);
     expect(rejection(() => action.normalizeChecked({ change: "add", folders: [pictures.toUpperCase()] }))).toBe(`这些文件夹已经授权了：${pictures}`);
   });
 
@@ -78,7 +78,7 @@ describe("规范化和执行", () => {
     // 写成列表里的写法
     expect(normalized.params).toEqual({ change: "remove", folders: [downloads, gone] });
     expect(normalized.title).toBe("取消授权文件夹：Downloads、旧照片");
-    expect(run(normalized.params).summary).toBe(`已取消授权 2 个文件夹：${downloads}、${gone}。设置 · 授权的文件夹里能看、能改`);
+    expect(run(normalized.params).summary).toBe(`已取消授权 2 个文件夹：${downloads}、${gone}。设置 · 目录授权里能看、能改`);
     expect(folders.view()).toEqual({ folders: [{ path: pictures, exists: true }] });
     expect(rejection(() => action.normalizeChecked({ change: "remove", folders: [downloads] }))).toBe(`这些文件夹不在授权的文件夹里：${downloads}（现在授权的有：${pictures}）`);
   });
@@ -117,7 +117,7 @@ describe("给 agent 的那一块", () => {
     const block = secretaryFoldersBlock(view);
     expect(block).toContain("- F:\\photos\n- G:\\gone（现在找不到了）");
     expect(block).toContain("这些文件夹里的文件可以直接读，不用问用户");
-    expect(block).toContain("设置 · 授权的文件夹");
+    expect(block).toContain("设置 · 目录授权");
     expect(block).toContain("propose_quick_action");
     expect(secretaryFoldersBlock({ folders: [] })).toContain("还没有。");
   });

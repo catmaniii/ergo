@@ -9,7 +9,7 @@
 //   按住说的一段先送识别（POST /api/page-command/voice，PageVoiceBody → PageVoiceResult），认出来的字再发；
 // - 要交的文件凭一次性的取件码下载（GET /api/page-files/<取件码>，PageCommandFile）；
 // - 授权的文件夹（叫这个名字；GET / PUT / PATCH /api/local-folders，列子文件夹 GET /api/local-folders/browse）：
-//   守护进程那台电脑上的一份文件夹，秘书找文件时除了素材还搜这几个文件夹；设置 · 授权的文件夹里能看能改，
+//   守护进程那台电脑上的一份文件夹，秘书找文件时除了素材还搜这几个文件夹；设置 · 目录授权里能看能改，
 //   在秘书的聊天里授权（快速动作 authorize_folders）的也是这一份。
 // 秘书的操作只作用于一个框（悬浮按钮属于哪个框就是哪个框，侧边栏里是选中的那个）；一句话要填好几个框的以后再说。
 import { type Static, Type } from "typebox";

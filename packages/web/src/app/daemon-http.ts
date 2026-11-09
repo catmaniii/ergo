@@ -356,7 +356,7 @@ export interface DaemonHttp {
   pageFileThumbUrl(token: string): string;
   /** 要交进上传框的一个文件的字节（交给 App 之前先取回来） */
   pageFileBytes(token: string): Promise<Uint8Array>;
-  /** 授权的文件夹（叫这个名字：所有 agent 共用，设置 · 授权的文件夹里看、改） */
+  /** 授权的文件夹（叫这个名字：所有 agent 共用，设置 · 目录授权里看、改） */
   localFolders(): Promise<LocalFoldersView>;
   /** 整份换掉授权的文件夹；路径不对抛错（message 是原因） */
   setLocalFolders(folders: readonly string[]): Promise<LocalFoldersView>;

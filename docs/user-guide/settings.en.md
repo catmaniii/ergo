@@ -243,7 +243,7 @@ Four methods in a list; the higher ones go first. If one fails (error, timeout, 
 
 Ergo's built-in browser search uses Chrome or Edge on this computer, found automatically. If it can't find one or you want to name one, see `web.browserPath` in [Config files](../architecture/README.en.md#data-directory-and-config).
 
-The bottom line of the page, **Authorized folders**, links to that item in the Data & devices group below. For how to use the built-in browser, see [Built-in browser](browser.en.md).
+The bottom line of the page, **Folder grants**, links to that page in the Data & devices group below (its top section is the authorized folders). For how to use the built-in browser, see [Built-in browser](browser.en.md).
 
 ## Rules
 
@@ -358,9 +358,13 @@ That's a manual mark, not a rule. The secretary shows a quick action card and ma
 
 See [Data sources](data-sources.en.md) for more.
 
-### Authorized folders
+### Folder grants
 
-**What it is:** Folders on your computer whose files every agent can read without asking you. At most 20.
+**What it is:** One page for which folders agents can use without asking you: at the top, the authorized folders (shared by every agent, read only); below them, the folders each agent has registered; at the bottom, recent use.
+
+#### Authorized folders
+
+**What it is:** Folders on your computer whose files every agent can read without asking you. At most 20. They're the top section of the Folder grants page.
 
 **How to change it:**
 
@@ -382,11 +386,11 @@ The secretary shows a card, and it's added only after you click **Run**. Agents 
 
 See [Built-in browser](browser.en.md) for more.
 
-### Folder grants
+#### Per-agent folder grants
 
 **What it is:** Each agent has its own list: one for your personal assistant, one per project, one per task. In a registered folder, it can do the kinds of access you ticked (read, write and delete are ticked separately) without asking you. Sub-agents and reviewers don't inherit them.
 
-**Where:** Settings · Folder grants lists every agent's grants. The top group, "All agents · read only", is the authorized folders above; recent use is listed at the bottom. Adding and removing happens in each agent's own ⚙ (the title bar of the personal assistant, a project page or a task page).
+**Where:** Settings · Folder grants lists every agent's grants below the authorized folders; you can remove one, clear an agent's whole list, or clear all expired ones at once. Adding and removing happens in each agent's own ⚙ (the title bar of the personal assistant, a project page or a task page).
 
 **How to add one:**
 

@@ -3,9 +3,10 @@
 // 每条"不记""确认"：确认的由运行时写进个人档案（和秘书提议的同一个写入口），不记的不写。都定了以后卡片算处理完，有"去档案里看"。
 // 生日、纪念日那条带"每年提前几天提醒"的勾（和个人档案的核对卡一样默认勾着、提前 3 天），确认时一起建。
 // 记忆插件停用时这张卡显示占位（守护进程那边的"确认"回"记忆插件没启用"）。
+// 449：生日、纪念日的值写成好读的样子（"3 月 2 日""农历八月十五"）。
 import { useState } from "react";
 import { toHash } from "../../app/route.ts";
-import { type InterviewFileItem, type InterviewFilesCardPayload, PURGED_TEXT, t, tTable } from "../../state/index.ts";
+import { type InterviewFileItem, type InterviewFilesCardPayload, personalValueText, PURGED_TEXT, t, tTable } from "../../state/index.ts";
 import { AnnualRemindPick } from "../../ui/cards/AnnualRemindPick.tsx";
 import { Btn } from "../../ui/cards/cards.tsx";
 import { type CardProps, CardShell } from "../../ui/cards/CardShell.tsx";
@@ -67,8 +68,14 @@ export function InterviewFilesCard({ state, payload: p, act, done }: CardProps<I
                 {item.field ? (
                   <>
                     <span className="muted">{t("ui.cards.personalFile.fieldLabel", { label: item.field.label })}</span>
-                    {item.field.number && item.field.value !== PURGED_TEXT ? <Digits value={item.field.value} /> : <span className="pf-card-value">{item.field.value}</span>}
-                    {item.field.previous !== undefined && <div className="muted pf-card-previous">{t("ui.cards.personalFile.previous", { value: item.field.previous })}</div>}
+                    {item.field.number && item.field.value !== PURGED_TEXT ? (
+                      <Digits value={item.field.value} />
+                    ) : (
+                      <span className="pf-card-value">{personalValueText(item.field.field, item.field.value)}</span>
+                    )}
+                    {item.field.previous !== undefined && (
+                      <div className="muted pf-card-previous">{t("ui.cards.personalFile.previous", { value: personalValueText(item.field.field, item.field.previous) })}</div>
+                    )}
                     {item.remind !== undefined && item.state === "pending" && !done && (
                       <AnnualRemindPick
                         label={item.remind.label}

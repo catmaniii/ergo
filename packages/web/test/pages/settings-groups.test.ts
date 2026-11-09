@@ -7,7 +7,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { navItemOf, parseHash, type Route, toHash } from "../../src/app/route-hash.ts";
+import { legacyHashRedirect, navItemOf, parseHash, type Route, toHash } from "../../src/app/route-hash.ts";
 import { SETTINGS_FOLD, settingsFoldSettingIn } from "../../src/app/board-fold-setting.ts";
 import { pageSettingsFold } from "../../src/app/page-settings-fold.ts";
 import { settingsGroups, settingsShown } from "../../src/pages/MorePage.tsx";
@@ -61,9 +61,9 @@ describe("四组：每组的页和顺序", () => {
       // 设置 · Claude Code（Claude Code 插件画的页）排在插件后面；设置 · 组件紧挨着插件
       { id: "ability", rows: ["models", "skills", "plugins", "components", "claude-code", "codex", "browsing"] },
       { id: "rules", rows: ["watch", "prompts", "workday-rules"] },
-      // 数据源排在数据与设备组的第一项；授权的文件夹排在它后面，目录授权紧挨着授权的文件夹
+      // 数据源排在数据与设备组的第一项；目录授权排在它后面（授权的文件夹并在目录授权那一页的最上面）
       // "备份"紧挨着工具调用的完整内容（是一页）
-      { id: "data", rows: ["data-sources", "authorized-folders", "folder-grants", "materials-delete", "tool-call-storage", "backup", "devices", "doctor", "services", "about"] },
+      { id: "data", rows: ["data-sources", "folder-grants", "materials-delete", "tool-call-storage", "backup", "devices", "doctor", "services", "about"] },
     ]);
   });
 
@@ -83,7 +83,7 @@ describe("四组：每组的页和顺序", () => {
       .flatMap((g) => g.rows)
       .filter((r) => r !== "user-name" && r !== "tool-call-storage" && r !== "personal-files-link" && r !== "enter-key");
     expect(pages.toSorted()).toEqual(
-      ["roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "codex", "data-sources", "authorized-folders", "folder-grants", "materials-delete", "backup", "doctor", "services", "about"].toSorted(),
+      ["roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "codex", "data-sources", "folder-grants", "materials-delete", "backup", "doctor", "services", "about"].toSorted(),
     );
   });
 
@@ -110,19 +110,25 @@ describe("四组：每组的页和顺序", () => {
 describe("插件停用 / 记忆页覆盖的过滤照旧，只是组里列不列", () => {
   test("记忆插件在用时\"删除素材\"不列；停用后回到\"数据与设备\"里数据源的后面，组和顺序不变", () => {
     const host = assembled();
-    expect(dataRows(host)).toEqual(["data-sources", "authorized-folders", "folder-grants", "tool-call-storage", "backup", "devices", "doctor", "services", "about"]);
+    expect(dataRows(host)).toEqual(["data-sources", "folder-grants", "tool-call-storage", "backup", "devices", "doctor", "services", "about"]);
     host.disable("memory");
-    expect(dataRows(host)).toEqual(["data-sources", "authorized-folders", "folder-grants", "materials-delete", "tool-call-storage", "backup", "devices", "doctor", "services", "about"]);
+    expect(dataRows(host)).toEqual(["data-sources", "folder-grants", "materials-delete", "tool-call-storage", "backup", "devices", "doctor", "services", "about"]);
     expect(settingsGroups(host, false).map((g) => g.id)).toEqual(["identity", "ability", "rules", "data"]);
   });
 
-  test("浏览插件停用：授权的文件夹照样在（内核的页面），排在数据源后面", () => {
+  test("浏览插件停用：目录授权（最上面是授权的文件夹）照样在（内核的页面），排在数据源后面", () => {
     const off = assembled();
     off.disable("browsing");
-    expect(dataRows(off).slice(0, 2)).toEqual(["data-sources", "authorized-folders"]);
-    expect(settingsShown(off)).toContain("authorized-folders");
-    expect(toHash({ tab: "more", page: "authorized-folders" })).toBe("#/more/authorized-folders");
-    expect(parseHash("#/more/authorized-folders")).toEqual({ tab: "more", page: "authorized-folders" });
+    expect(dataRows(off).slice(0, 2)).toEqual(["data-sources", "folder-grants"]);
+    expect(settingsShown(off)).toContain("folder-grants");
+  });
+
+  test("授权的文件夹不再单独一页：设置列表里没有它，旧地址 #/more/authorized-folders 认作目录授权、地址栏换成新的", () => {
+    const host = assembled();
+    expect(settingsShown(host)).not.toContain("authorized-folders");
+    expect(parseHash("#/more/authorized-folders")).toEqual({ tab: "more", page: "folder-grants" });
+    expect(legacyHashRedirect("#/more/authorized-folders")).toBe("#/more/folder-grants");
+    expect(navItemOf(parseHash("#/more/authorized-folders"))).toBe("settings");
   });
 
   test("语音插件停用：\"语音\"从身份组里不列，其余三组一项不少；settingsShown 照旧只少它", () => {
@@ -138,7 +144,7 @@ describe("插件停用 / 记忆页覆盖的过滤照旧，只是组里列不列"
   test("settingsShown 还是按显示顺序的那一串页（不含名字、工具调用完整内容）：四组摊平", () => {
     const host = assembled();
     host.disable("memory");
-    expect(settingsShown(host)).toEqual(["roles", "language", "appearance", "voice", "models", "skills", "plugins", "components", "claude-code", "codex", "browsing", "watch", "prompts", "workday-rules", "data-sources", "authorized-folders", "folder-grants", "materials-delete", "backup", "devices", "doctor", "services", "about"]);
+    expect(settingsShown(host)).toEqual(["roles", "language", "appearance", "voice", "models", "skills", "plugins", "components", "claude-code", "codex", "browsing", "watch", "prompts", "workday-rules", "data-sources", "folder-grants", "materials-delete", "backup", "devices", "doctor", "services", "about"]);
   });
 });
 

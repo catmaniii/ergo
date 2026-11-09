@@ -139,15 +139,30 @@ The list has four groups: Me, Family, Important people, Others.
 
 Below each item it says since when it's been in effect and how it got there. Items that have changed have **N earlier values** below them; click to see the history.
 
-- **Adding your own item:** click **Add field**, and enter a field name and value, such as a license plate number.
-- **Anniversaries:** you can have several. Click **Fill in** and enter a name and date; to add another, click **Add another anniversary**.
+- **Adding your own item:** click **Add field**, and enter a field name and value, such as a license plate number. If the field name has "birthday" or "anniversary" in it (for example "Daughter's birthday"), you pick the value as a date.
+- **Anniversaries:** you can have several. Click **Fill in**, enter a name and pick the date; to add another, click **Add another anniversary**.
 - **Your own name:** this is the same as Settings · Identity · My name. Changing one changes the other.
+
+### Filling in birthdays and anniversaries
+
+You don't type birthdays and anniversaries; you pick them:
+
+1. Click **Fill in** or **Edit**.
+2. Choose **Gregorian** or **Lunar**.
+3. Pick the year, month and day. If you don't remember the year, pick **Year unknown**. Lunar months go from the 1st month to the 12th, and days from 1 to 30; tick **Leap month** for a leap month.
+4. Click **Save**.
+
+Gregorian days follow the year and month: February 29 is only there in leap years or when the year is unknown. When you open it, the current value is already picked.
+
+After saving, it shows as "Mar 2, 1990", "Mar 2" or "Lunar 8th month, day 15". If you say "Mom's birthday is March 2" in chat, ergo saves it the same way; if you can't name a day ("next month"), it asks you first.
+
+Dates written freely before this change aren't rewritten. If one can't be read, it's shown as it was, with **Couldn't read this date. Tap "Edit" to pick it again** next to it. Click **Edit** and pick the date once.
 
 ### Yearly reminders
 
 Birthdays and anniversaries have **Remind me every year (Birthday)** below them. Tick it and choose **How many days before** (3 by default). It takes effect right away. You get the reminder at 09:00 on that day.
 
-Yearly reminders can't be set for lunar-calendar dates; the page says so. The reminders plugin has to be on.
+Yearly reminders for lunar dates aren't supported yet; the page says so. The reminders plugin has to be on.
 
 ### Notes
 

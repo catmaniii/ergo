@@ -98,7 +98,7 @@ describe("Google 联系人：vCard 导入进档案候选", () => {
       ["field", "老周", "", "phone", "13700000003", "vcard"],
       ["field", "老周", "", "aliases", "周建国", "vcard"],
       ["create", "张丽", "母亲", "", "", "vcard"],
-      ["field", "张丽", "母亲", "birthday", "03-02", "vcard"],
+      ["field", "张丽", "母亲", "birthday", "--03-02", "vcard"],
       ["field", "张丽", "母亲", "phone", "13900000002", "vcard"],
       ["create", "王大伟", "配偶", "", "", "vcard"],
       ["create", "李芳", "", "", "", "vcard"],
@@ -129,7 +129,7 @@ describe("Google 联系人：vCard 导入进档案候选", () => {
     const zhouFile = (await filesApi.get(td.url, zhou.id)).body;
     expect([fieldOf(zhouFile, "phone")?.current?.value, fieldOf(zhouFile, "aliases")?.current?.value]).toEqual(["13700000003", "周建国"]);
     const mom = (await fileNamed(td.url, "张丽"))!;
-    expect([fieldOf(mom, "relation")?.current?.value, fieldOf(mom, "birthday")?.current?.value, fieldOf(mom, "phone")?.current?.value]).toEqual(["母亲", "03-02", "13900000002"]);
+    expect([fieldOf(mom, "relation")?.current?.value, fieldOf(mom, "birthday")?.current?.value, fieldOf(mom, "phone")?.current?.value]).toEqual(["母亲", "--03-02", "13900000002"]);
     expect(fieldOf((await fileNamed(td.url, "王大伟"))!, "relation")?.current?.value).toBe("配偶");
     expect(await fileNamed(td.url, "李芳")).toBeUndefined();
 

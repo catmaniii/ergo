@@ -10,7 +10,7 @@
 // 停用时：导航里没有"浏览"，地址 #/browse 写"内置浏览器插件没启用"（离开那一页时原生浏览器、侧边栏藏起来，悬浮按钮、挑图片窗口跟着不见）；
 // 以前的网页候选卡显示"（内置浏览器插件没启用，这条内容暂时看不到）"；外链照旧（电脑、手机浏览器里新开标签页，App 里交给系统浏览器）。
 // 留在核心的：App 原生浏览器那一层的接口（app/native-browser.ts、page-bridge/：App 注入网页的页面桥由鸿蒙 App 构建时从那里打包）、
-// 设置 · 浏览与填框（搜索引擎、联网搜索，pages/more/BrowsingPage.tsx）、设置 · 授权的文件夹（pages/more/AuthorizedFolders.tsx）、会话里"在网页「X」上说"的标注（状态层）。
+// 设置 · 浏览与填框（搜索引擎、联网搜索，pages/more/BrowsingPage.tsx）、设置 · 目录授权（pages/more/AuthorizedFolders.tsx）、会话里"在网页「X」上说"的标注（状态层）。
 import { useEffect } from "react";
 import { MAP_PAGE_ID, t } from "../../state/index.ts";
 import { type TabMountProps, usePlugins, type WebPluginDefinition } from "../api.ts";

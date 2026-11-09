@@ -188,10 +188,8 @@ const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boo
   { hash: "#/more/about", selector: ".about-facts dt" },
   { hash: "#/more/about", selector: ".about-log .sec-head" },
   ...["devices", "voice", "watch", "models", "workday-rules", "browsing", "appearance"].map((p) => ({ hash: `#/more/${p}`, selector: ".sec-head" })),
-  // 授权的文件夹单独一页
-  { hash: "#/more/authorized-folders", selector: ".sec-head" },
-  { hash: "#/more/authorized-folders", selector: ".sys-note" },
-  // 目录授权：说明、每条授权的标签和为什么给、使用记录（个人助理的名字是用户起的，不算）
+  // 目录授权：最上面授权的文件夹（"添加文件夹"那一排），说明、每条授权的标签和为什么给、使用记录（个人助理的名字是用户起的，不算）
+  { hash: "#/more/folder-grants", selector: ".af-actions" },
   { hash: "#/more/folder-grants", selector: ".sec-head", except: ".assistant-name" },
   { hash: "#/more/folder-grants", selector: ".sys-note" },
   { hash: "#/more/folder-grants", selector: ".fg-row", except: ".assistant-name" },
@@ -2409,7 +2407,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     const { page, errors } = await open({ width: 390, height: 844 }, "?demo-plugins-off=browsing");
     const empty: string[] = [];
     const texts = new Map<string, string>();
-    for (const hash of ["#/secretary", "#/browse", "#/more/settings", "#/more/browsing", "#/more/authorized-folders", "#/more/plugins"]) {
+    for (const hash of ["#/secretary", "#/browse", "#/more/settings", "#/more/browsing", "#/more/folder-grants", "#/more/plugins"]) {
       await page.evaluate(`window.location.hash = ${JSON.stringify(hash)}`);
       await page.waitForTimeout(200);
       texts.set(hash, await bodyText(page));
@@ -2417,10 +2415,10 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }
     await page.close();
     expect(texts.get("#/browse")).toContain("内置浏览器插件没启用，这一页暂时看不到");
-    // 授权的文件夹是内核的页面，浏览插件停用时照样在；设置列表里也有它
-    expect(texts.get("#/more/authorized-folders")).toContain("添加文件夹");
-    expect(texts.get("#/more/authorized-folders")).not.toContain("没启用");
-    expect(texts.get("#/more/settings")).toContain("授权的文件夹");
+    // 授权的文件夹在目录授权那一页（内核的页面），浏览插件停用时照样在；设置列表里也有它
+    expect(texts.get("#/more/folder-grants")).toContain("添加文件夹");
+    expect(texts.get("#/more/folder-grants")).not.toContain("没启用");
+    expect(texts.get("#/more/settings")).toContain("目录授权");
     const side = await open({ width: 390, height: 844 }, "?ergo=side&demo-plugins-off=browsing");
     await side.page.waitForTimeout(300);
     const sideText = await bodyText(side.page);

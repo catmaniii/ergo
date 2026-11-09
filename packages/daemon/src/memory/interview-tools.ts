@@ -17,6 +17,7 @@ import { defineHostTool, type HostTool, type HostToolCall, type HostToolOutput }
 import type { EventStore } from "../events/event-store.ts";
 import { MATERIALS_CHANNEL, rememberedMediaOf } from "../materials/commands.ts";
 import type { Materials } from "../materials/index.ts";
+import { ANNUAL_VALUE_HINT } from "../personal-files/tool-names.ts";
 import type { MemoryInterviews } from "./interview.ts";
 import { INTERVIEW_BOX_MAX, type InterviewBoxQuestion, interviewAlreadyText, interviewBeginText, interviewFinishedText, interviewOpeningContext, interviewTurnContext } from "./interview-guide.ts";
 import { commandText, CURATOR_COMMAND_ALIASES, CURATOR_COMMANDS } from "../slash-commands/commands.ts";
@@ -54,7 +55,8 @@ const PersonalFileParams = Type.Object(
         maxItems: 20,
         description:
           "要写的固定信息，每项 {field, value}。field 写字段名——本人：姓名、身份证号、护照号、驾照号、生日、纪念日、手机、邮箱、住址、单位和职位、过敏和用药；" +
-          "别人：别名、和我的关系、生日、纪念日、电话、住址、单位或学校、过敏和用药；纪念日可以有几个，写带名字的（\"结婚纪念日\"）；别的写一个自定义的名字。value 照抄用户原话里的值，号码一位都不能改",
+          "别人：别名、和我的关系、生日、纪念日、电话、住址、单位或学校、过敏和用药；纪念日可以有几个，写带名字的（\"结婚纪念日\"）；别的写一个自定义的名字。value 照抄用户原话里的值，号码一位都不能改。" +
+          ANNUAL_VALUE_HINT,
       }),
     ),
     note: Type.Optional(Type.String({ description: "用户特意说要记下的一件事，尽量照抄原话" })),

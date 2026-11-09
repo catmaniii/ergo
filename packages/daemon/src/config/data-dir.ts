@@ -58,7 +58,7 @@ export interface DataDirLayout {
   mcpHistoryDir: string;
   /** 秘书用的 skill：设置里的 skill 库页勾选的名单；没有这个文件按默认的（agent-browser、yt-dlp） */
   secretarySkillsFile: string;
-  /** 授权的文件夹（叫这个名字）：所有 agent 读里面的文件都不用问，秘书和"浏览"里的二狗找文件时搜它们，设置 · 授权的文件夹里能看能改 */
+  /** 授权的文件夹（叫这个名字）：所有 agent 读里面的文件都不用问，秘书和"浏览"里的二狗找文件时搜它们，设置 · 目录授权里能看能改 */
   localFoldersFile: string;
   /**
    * 目录授权（ADR-0049，folders/folder-grants.ts）：每个 agent 一份，登记了的目录能读、写、删哪几种不用问。

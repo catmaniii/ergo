@@ -174,7 +174,8 @@ describe("档案页：建重要的人、记下一件事、改生日；删人", (
     expect(noted.body.notes).toMatchObject([{ text: "腿脚不好，爬楼吃力", date: "2026-10-20", source: { via: "page" } }]);
     await filesApi.change(url, mom.id, { kind: "set_field", field: "birthday", value: "3月2日" });
     const changed = await filesApi.change(url, mom.id, { kind: "set_field", field: "birthday", value: "3月5日" });
-    expect(fieldOf(changed.body, "birthday")).toMatchObject({ current: { value: "3月5日" }, history: [{ value: "3月2日" }] });
+    // 449：生日存成统一的样子（不记得哪年的 "--03-05"）
+    expect(fieldOf(changed.body, "birthday")).toMatchObject({ current: { value: "--03-05" }, history: [{ value: "--03-02" }] });
     // 列表：本人那份在最前（一直在），然后是重要的人
     expect((await filesApi.list(url)).body.files.map((f) => [f.id, f.kind])).toEqual([
       [SELF_PERSON_ID, "self"],
@@ -183,7 +184,9 @@ describe("档案页：建重要的人、记下一件事、改生日；删人", (
 
     await tell(frontend, "我妈生日哪天？");
     const seen = await lastResultOf(frontend, url, "read_personal_file");
-    expect(seen).toContain("3月5日");
+    // 秘书读到的是好读的写法，后面带着存的样子
+    expect(seen).toContain("- 生日：3 月 5 日（存作 --03-05；");
+    expect(seen).toContain("以前：3 月 2 日（存作 --03-02；");
     expect(seen).toContain("腿脚不好，爬楼吃力");
 
     // 彻底删除：整份档案没了，秘书读不到；事件库里不留原值
@@ -194,7 +197,7 @@ describe("档案页：建重要的人、记下一件事、改生日；删人", (
     expect((await filesApi.get(url, mom.id)).status).toBe(404);
     await tell(frontend, "我妈生日哪天？");
     expect(await lastResultOf(frontend, url, "read_personal_file")).toContain("档案里没有「妈妈」");
-    for (const text of ["腿脚不好，爬楼吃力", "3月5日", "3月2日", "母亲"]) expect(eventsContaining(daemon, text)).toEqual([]);
+    for (const text of ["腿脚不好，爬楼吃力", "--03-05", "--03-02", "3 月 5 日", "3 月 2 日", "母亲"]) expect({ text, events: eventsContaining(daemon, text) }).toEqual({ text, events: [] });
 
     // 忘掉：读不到，事件日志里原话还在（和忘掉素材一样）
     const zhang = (await filesApi.add(url, { name: "小张", relation: "表弟" })).body;
