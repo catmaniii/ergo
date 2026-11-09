@@ -214,6 +214,13 @@
 .map-zoom .icon-btn + .icon-btn {
   border-top: 1px solid var(--border);
 }
+/* 藏起二狗画的那一层（右上第三个按钮，眼睛）：点、路线、足迹线、停留圈、照片小点都不画，"当前位置"照旧；地图照样能拖、能点底图 */
+.map-canvas[data-marks="hidden"] :is(.map-line, .map-circle, .map-mark:not([data-kind="me"])) {
+  visibility: hidden;
+}
+.map-marks-toggle[aria-pressed="true"] {
+  color: var(--map-ink);
+}
 .map-hint {
   left: 10px;
   right: 10px;

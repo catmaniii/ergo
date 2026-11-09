@@ -548,6 +548,8 @@
   "ui.plugins.map.osmContributors": "贡献者",
   "ui.plugins.map.zoomIn": "放大",
   "ui.plugins.map.zoomOut": "缩小",
+  "ui.plugins.map.marks.hide": "先藏起二狗画的标记和路线，看底下的地图",
+  "ui.plugins.map.marks.show": "再显示二狗画的标记和路线",
   "ui.plugins.map.locate.button": "回到我现在的位置",
   "ui.plugins.map.locate.busy": "正在找你现在的位置…",
   "ui.plugins.map.locate.phone": "没拿到这台设备的位置（{why}），这是 {ago}手机交来的位置",

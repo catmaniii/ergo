@@ -302,9 +302,11 @@ function expectOnlyViewMessages(got: readonly string[]) {
   for (const text of got) {
     const m = JSON.parse(text) as { type: string; config?: Record<string, unknown> };
     const fields = FRAME_MESSAGE_FIELDS[m.type];
-    expect(fields, text.slice(0, 120)).toBeDefined();
+    // 框只许收这几种指令（不认识的种类当场红，带上那条消息）
+    expect({ type: m.type, known: fields !== undefined, text: text.slice(0, 120) }).toMatchObject({ known: true });
     expect(Object.keys(m).filter((k) => k !== "type" && k !== "ergoMapFrame").toSorted()).toEqual(fields!.toSorted());
-    if (m.type === "init") expect(Object.keys(m.config!).toSorted()).toEqual(FRAME_CONFIG_FIELDS);
+    // init 那条的 config 也只许这几个字段（别的种类没有 config，按空的比）
+    expect(m.type === "init" ? Object.keys(m.config!).toSorted() : FRAME_CONFIG_FIELDS).toEqual(FRAME_CONFIG_FIELDS);
   }
 }
 /** 地图页上谷歌那一种的隔离框（Playwright 的 Frame：能在框里跑脚本） */
@@ -1447,6 +1449,37 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
   }, 60_000);
 
   // 451 起看足迹也用当前地图：这里国内选 OpenStreetMap（照原样测 OSM 底图上让开左边那一栏、深色）
+  test("藏起二狗画的标记手机宽：开着足迹（高德），右上第三个钮（眼睛）一点点、线、停留圈都看不见，「当前位置」照旧；再点又出来；地图照样能拖", async () => {
+    const { context, page, errors, outside } = await openMap({ width: 390, height: 844 }, { geo: WEST_LAKE, footprintsOn: true });
+    try {
+      const canvas = page.locator(".map-canvas");
+      const stay = page.locator('.map-mark[data-kind="stay"]').first();
+      await stay.waitFor({ timeout: 8000 });
+      await locate(page);
+      const toggle = page.locator(".map-marks-toggle");
+      expect(await toggle.getAttribute("aria-pressed")).toBe("false");
+      expect(await toggle.getAttribute("aria-label")).toBe("先藏起二狗画的标记和路线，看底下的地图");
+      await toggle.click();
+      expect(await canvas.getAttribute("data-marks")).toBe("hidden");
+      expect(await toggle.getAttribute("aria-pressed")).toBe("true");
+      await expect.poll(async () => stay.isVisible()).toBe(false);
+      expect(await page.locator(".map-line").first().isVisible()).toBe(false);
+      expect(await page.locator('.map-mark[data-kind="me"]').isVisible()).toBe(true);
+      // 藏着时照样能拖：视野变了，再显示时点照样在
+      const box = (await canvas.boundingBox())!;
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width / 2 + 60, box.y + box.height / 2 + 40, { steps: 6 });
+      await page.mouse.up();
+      await toggle.click();
+      expect(await canvas.getAttribute("data-marks")).toBeNull();
+      await expect.poll(async () => stay.isVisible()).toBe(true);
+    } finally {
+      await context.close();
+    }
+    expect(outside).toEqual([]);
+    expect(errors).toEqual([]);
+  }, 60_000);
   test("回到我现在的位置电脑宽：开着足迹（选了 OpenStreetMap、左边列这一天），挪过去时让开左边那一栏；深色下钮、蓝点照样在", async () => {
     const { context, page, errors, outside } = await openMap({ width: 1280, height: 800 }, { geo: WEST_LAKE, init: `localStorage.setItem("ergo-theme", "dark"); localStorage.setItem("ergo-map-choice", JSON.stringify({ mainland: "osm" }))`, footprintsOn: true });
     try {

@@ -130,6 +130,9 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, ownPrev
   const dark = useDark();
   /** 停下来时的中心：底图按它挑、提示按它写 */
   const [settled, setSettled] = useState<MapView>(initial);
+  // 二狗画上去的那一层（点、路线、足迹、停留圈；"当前位置"不算）先藏起来看底图（用户 11-09：标记会挡住底下的东西）。
+  // 只在这一屏有效，不记：下次打开照旧显示，免得以为足迹没了
+  const [marksHidden, setMarksHidden] = useState(false);
   const [prepared, setPrepared] = useState<Readonly<Record<string, Prepared>>>({});
   const loadingRef = useRef(new Set<string>());
   /** 手动选的那一家不能用了、退回了"自动"：说一句（哪个区域的哪一家） */
@@ -372,6 +375,7 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, ownPrev
       data-basemap={ready && !waiting ? rendered : "loading"}
       data-pending={waiting ? wanted : undefined}
       data-choice={chosen ?? "auto"}
+      data-marks={marksHidden ? "hidden" : undefined}
       data-temporary={pick.temporary ? wanted : undefined}
       data-amap={factoryOf(AMAP_BASEMAP) ? "ready" : amapFailed !== undefined ? "failed" : "idle"}
       data-own-results={ownExtra ? (ownShown ? "shown" : staticShown ? "static" : "hidden") : undefined}
@@ -404,6 +408,16 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, ownPrev
           </button>
           <button type="button" className="icon-btn" aria-label={t("ui.plugins.map.zoomOut")} title={t("ui.plugins.map.zoomOut")} onClick={() => engineRef.current?.zoomBy(-1)}>
             <Icon name="minus" />
+          </button>
+          <button
+            type="button"
+            className="icon-btn map-marks-toggle"
+            aria-pressed={marksHidden}
+            aria-label={t(marksHidden ? "ui.plugins.map.marks.show" : "ui.plugins.map.marks.hide")}
+            title={t(marksHidden ? "ui.plugins.map.marks.show" : "ui.plugins.map.marks.hide")}
+            onClick={() => setMarksHidden((hidden) => !hidden)}
+          >
+            <Icon name={marksHidden ? "eyeOff" : "eye"} />
           </button>
         </div>
       )}

@@ -575,6 +575,8 @@
   "ui.plugins.map.osmContributors": "contributors",
   "ui.plugins.map.zoomIn": "Zoom in",
   "ui.plugins.map.zoomOut": "Zoom out",
+  "ui.plugins.map.marks.hide": "Hide ergo's pins and routes to see the map underneath",
+  "ui.plugins.map.marks.show": "Show ergo's pins and routes again",
   "ui.plugins.map.locate.button": "Show my location",
   "ui.plugins.map.locate.busy": "Finding your location…",
   "ui.plugins.map.locate.phone": "Couldn't get this device's location ({why}). This is where your phone was {ago}",
