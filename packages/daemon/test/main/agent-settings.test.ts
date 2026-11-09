@@ -291,6 +291,8 @@ describe("清空当前对话：新开一段会话，旧的不删", () => {
 
     const cleared = await agentSettingsApi.clear(td.url, "pm-1", "k-project");
     expect(cleared.status).toBe(200);
+    // 新开一段的事件是 WebSocket 上推的（长帧压了再发），可能比 HTTP 的响应晚到：等它到了再看
+    await frontend.settled();
     const segments = frontend.events({ channel: PM1, type: EVENT_TYPES.segment }).map((f) => f.payload as SegmentEventPayload);
     expect(segments.filter((s) => s.change === "opened").at(-1)?.segment.reset).toBe(true);
     const after = await say1(frontend, "现在呢", PM1);

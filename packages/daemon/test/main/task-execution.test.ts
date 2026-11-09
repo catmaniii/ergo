@@ -1070,6 +1070,8 @@ describe("全局执行名额", () => {
     expect(tasksOf(frontend).filter((e) => e.task.id === t2).at(-1)).toMatchObject({ change: "requeued", from: "paused", by: "user", task: { state: "queued" } });
     ok(await frontend.taskAction({ taskId: t3, action: "cancel" }));
     await waitUntil(() => state(t2) === "running", { timeoutMs: 10_000, describe: () => "任务二回到执行中" });
+    // 守护进程里已经是执行中，看板上的那条事件（长帧压了再发）可能还在路上：等推给这条连接的都到了再数
+    await frontend.settled();
     expect(tasksOf(frontend).filter((e) => e.task.id === t2 && e.change === "started")).toHaveLength(2);
     // 第一次开始时交代过的阶段不重新交代；继续时排着的那条通知由它接着处理
     await turnsOf(frontend, maintainerChannel("tm-2"), 3);

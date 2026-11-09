@@ -225,7 +225,7 @@ adb -s <设备号> logcat -s ErgoApp                  # App 和网页的日志
 ### 测试底座
 
 - **立项后负责人先开口**：正式跑时点"立项"会叫醒负责人（`projects.ts` 的 `kickoffFromCard`）；`startTestDaemon` 默认关着（`kickoffOpening`），假模型的剧本不多一轮，要测的写 `true`。
-- **主切面**（`packages/daemon/test/main/`）：`startTestDaemon(options)` 起一个真的守护进程（临时数据目录、系统挑的空闲端口，**从不占用 8810、8811**），秘书、负责人、评审、子 agent 接 pi 的 faux provider 按剧本回话，子进程真的拉起；`TestFrontend` 扮演前端，经 WebSocket 和 HTTP 收发、按频道等事件。时钟用 `ManualClock` 拨，不真等。
+- **主切面**（`packages/daemon/test/main/`）：`startTestDaemon(options)` 起一个真的守护进程（临时数据目录、系统挑的空闲端口，**从不占用 8810、8811**），秘书、负责人、评审、子 agent 接 pi 的 faux provider 按剧本回话，子进程真的拉起；`TestFrontend` 扮演前端，经 WebSocket 和 HTTP 收发、按频道等事件。WebSocket 上的长帧压了再发（守护进程压完才写、这边解压完才交出来），订阅的响应、HTTP 请求的响应、守护进程里的状态都可能比刚推的事件先到：要看"订阅补发了什么""刚才那个 HTTP 请求推了什么"的，先 `await frontend.settled()`（和网页的回执一个做法：空订阅的响应到了，之前推的就都到了），不要猜着等。时钟用 `ManualClock` 拨，不真等。
 - **守卫切面**（`packages/daemon/test/guard/`）：只调判定函数，不起进程；场景文件 `scenarios/*.guard.json` 逐个跑。
 - **pi 契约测试**（`packages/daemon/test/contract/`）：只验二狗依赖的 pi 行为。
 - **网页**：状态层用录下的事件流回放（`recordings/`，主切面现场录：`ERGO_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/recordings.test.ts`），页面用 `page-opens.test.ts` 在真 Chrome 里打开原型，也就是演示页那份构建（本机没有 Chrome 时跳过）；`build.test.ts` 查安装版里没有假数据。
