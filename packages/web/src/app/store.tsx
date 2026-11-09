@@ -59,6 +59,7 @@ import {
   type WorkFolderChoice,
 } from "../state/index.ts";
 import { nowIso } from "../util/time.ts";
+import type { ChatCache, ChatCacheStats } from "./chat-cache.ts";
 import type { Connection, ConnectionStats } from "./connection.ts";
 import type { DaemonHttp } from "./daemon-http.ts";
 import { useLocale } from "./locale.ts";
@@ -196,6 +197,8 @@ interface Store {
    * （本机快照、换了一版后本机存的事件、什么都没有；没有本机快照这回事的——原型、开发服务器——不带）
    */
   connectionStats(): ConnectionStats & { readonly openedFrom?: OpenedFrom };
+  /** 手机本机存的聊天记录存了多少（Debug 工具集）；没有这回事的（原型、开发服务器）是 undefined */
+  chatCacheStats(): ChatCacheStats | undefined;
   /** Debug 工具集的"断开重连" */
   reconnect(): void;
 }
@@ -237,10 +240,28 @@ function useSnapshotSaving(snapshots: PageSnapshots | undefined, state: UiState,
   }, [snapshots]);
 }
 
+/** 切到后台、关页面时马上写本机存的聊天记录（攒着的不丢） */
+function useChatCacheFlush(chatCache: ChatCache | undefined): void {
+  useEffect(() => {
+    if (!chatCache || typeof document === "undefined") return;
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") chatCache.flush();
+    };
+    const onLeave = () => chatCache.flush();
+    document.addEventListener("visibilitychange", onHidden);
+    window.addEventListener("pagehide", onLeave);
+    return () => {
+      document.removeEventListener("visibilitychange", onHidden);
+      window.removeEventListener("pagehide", onLeave);
+    };
+  }, [chatCache]);
+}
+
 /**
- * snapshots：本机快照（安装版由守护进程提供的页面才有，app/open-snapshot.ts）；没有时照旧从头补（原型、开发服务器、测试）
+ * snapshots：本机快照（安装版由守护进程提供的页面才有，app/open-snapshot.ts）；没有时照旧从头补（原型、开发服务器、测试）。
+ * chatCache：手机本机存的聊天记录（457，app/chat-cache.ts）：往上翻时本机有的直接用，没有才向电脑要；同样只有安装版有
  */
-export function StoreProvider({ connection, http, snapshots, children }: { connection: Connection; http: DaemonHttp; snapshots?: PageSnapshots; children: ReactNode }) {
+export function StoreProvider({ connection, http, snapshots, chatCache, children }: { connection: Connection; http: DaemonHttp; snapshots?: PageSnapshots; chatCache?: ChatCache; children: ReactNode }) {
   const [state, dispatch] = useReducer(reduce, initialUiState);
   // 装上了新的词典（换了语言、守护进程的词典到了）时给一份新的 ui（浅拷贝，内容不变）：各处 useMemo(() => …(ui), [ui])
   // 里拼出来的字（会话的条目、阶段框、日期分隔……）跟着重算，不停在旧语言（由守护进程提供的页面先按中文打开、词典随后才到）
@@ -256,30 +277,43 @@ export function StoreProvider({ connection, http, snapshots, children }: { conne
   // 连上就收事件；断开重连时带上每个频道最后收到的序号，重复补发的事件由状态层丢掉。
   // 有本机快照（snapshots，app/open-snapshot.ts）时先读它：读到同一版的快照就先用它把界面画出来，订阅时带它的游标，守护进程只补增量；
   // 网页换了一版、快照不能用了，读到存着的事件就用新版本的状态层重新折一遍（452），订阅时带事件的游标（会话频道没存，从 0 要最近一页）。
-  // 连接交来的每一样都先给 snapshots 记一下（要存的事件），再交给状态层
+  // 连接交来的每一样都先给 snapshots 记一下（要存的事件），再交给状态层。
+  // 本机存的聊天记录（chatCache）同样每一样都看一眼（会话频道上的消息照收到的存，作废的照着改）；连上之前先告诉它这次订阅带的游标
+  // （热打开时它从快照的游标接着存，见 app/chat-cache.ts）
   const openedFrom = useRef<OpenedFrom | undefined>(undefined);
   useEffect(() => {
-    if (!snapshots) return connection.connect(resumeCursors(uiRef.current), dispatch);
-    let gone = false;
-    let stop: (() => void) | undefined;
     const deliver = (input: UiInput) => {
-      snapshots.note(input);
+      snapshots?.note(input);
+      chatCache?.note(input);
       dispatch(input);
     };
+    if (!snapshots) {
+      const cursors = resumeCursors(uiRef.current);
+      chatCache?.begin(cursors);
+      return connection.connect(cursors, chatCache ? deliver : dispatch);
+    }
+    let gone = false;
+    let stop: (() => void) | undefined;
     void snapshots.load().then((start) => {
       if (gone) return;
       openedFrom.current = start === undefined ? { kind: "scratch" } : start.kind === "snapshot" ? { kind: "snapshot" } : { kind: "events", events: start.events.length };
-      if (start?.kind === "snapshot") dispatch({ kind: "restore", snapshot: start.snapshot });
-      if (start?.kind === "events") dispatch(refoldInput(start.events));
       const cursors = start === undefined ? resumeCursors(uiRef.current) : start.kind === "snapshot" ? { ...start.snapshot.cursors } : { ...start.cursors };
+      chatCache?.begin(cursors, start?.kind === "snapshot" ? (conversation) => start.snapshot.conversations[conversation]?.branches : undefined);
+      if (start?.kind === "snapshot") dispatch({ kind: "restore", snapshot: start.snapshot });
+      if (start?.kind === "events") {
+        const refold = refoldInput(start.events);
+        chatCache?.note(refold);
+        dispatch(refold);
+      }
       stop = connection.connect(cursors, deliver);
     });
     return () => {
       gone = true;
       stop?.();
     };
-  }, [connection, snapshots]);
+  }, [connection, snapshots, chatCache]);
   useSnapshotSaving(snapshots, state, uiRef);
+  useChatCacheFlush(chatCache);
 
   const sendMessage = useCallback(
     (conversation: ConversationId, parts: MessagePart[], taskId?: string, browsing?: BrowsingContext, map?: MapContext) => {
@@ -432,14 +466,26 @@ export function StoreProvider({ connection, http, snapshots, children }: { conne
   const seeAgentVoiceArrival = useCallback((voiceId: string) => dispatch({ kind: "agent_voice_arrival_seen", voiceId }), []);
   const notePageUpdate = useCallback((input: PageUpdateInput) => dispatch(input), []);
 
+  // 往上翻：手机本机存着这一段的直接用（马上出来，没网也能看）；没有、拼不出、信不过才向电脑要，要来的存下（457）
   const loadOlder = useCallback(
     async (conversation: ConversationId, limit?: number) => {
       const { canLoadOlder, before } = olderHistory(uiRef.current, conversation);
-      if (!canLoadOlder) return;
+      if (!canLoadOlder || before === undefined) return;
+      if (chatCache) {
+        const cached = await chatCache.page(conversation, before, limit, uiRef.current.conversations[conversation]?.branches);
+        const input: UiInput | undefined = cached && { kind: "history_page", conversation, page: cached };
+        // 拼出来的这一页得真的往前翻了（防着本机存的和手里的对不上时原地打转）；没往前就当没有，向电脑要
+        if (input && olderHistory(reduce(uiRef.current, input), conversation).before !== before) {
+          dispatch(input);
+          return;
+        }
+      }
+      const ticket = chatCache?.ticket(conversation);
       const page = await http.history(conversation, before, limit);
       dispatch({ kind: "history_page", conversation, page });
+      if (ticket !== undefined) chatCache?.keep(conversation, before, page, ticket);
     },
-    [http],
+    [http, chatCache],
   );
 
   const loadCalendarMonth = useCallback(
@@ -498,6 +544,7 @@ export function StoreProvider({ connection, http, snapshots, children }: { conne
 
   const daemonInfo = useCallback(() => connection.daemonInfo(), [connection]);
   const connectionStats = useCallback(() => ({ ...connection.stats(), ...(openedFrom.current === undefined ? {} : { openedFrom: openedFrom.current }) }), [connection]);
+  const chatCacheStats = useCallback(() => chatCache?.stats(), [chatCache]);
   const reconnect = useCallback(() => connection.reconnect(), [connection]);
 
   const store = useMemo(
@@ -557,9 +604,10 @@ export function StoreProvider({ connection, http, snapshots, children }: { conne
       http,
       daemonInfo,
       connectionStats,
+      chatCacheStats,
       reconnect,
     }),
-    [ui, sendMessage, cardAction, inboxAction, deviceBatchAction, startTask, createReminder, taskAction, taskBatchAction, reminderAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, projectServicesAction, resetMaintainer, watchChannels, retryVoice, stopReply, rollbackSession, switchBranch, requestEffectUndo, loadBranch, removeQueued, reorderQueued, setToolkit, scheduledJobAction, rescheduleJob, runJobNow, setVoiceAnnounce, setProjectVoiceAnnounce, seeRead, markRead, showAlert, seeSecretaryTurn, seeAlert, seeFailure, seeAgentVoiceArrival, notePageUpdate, loadOlder, loadCalendarMonth, loadVoiceModels, loadAgentRoles, createAgentRole, updateAgentRole, deleteAgentRole, setDefaultAgentRole, assignAgentRole, loadUserName, saveUserName, quoteCard, unquoteCard, http, daemonInfo, connectionStats, reconnect],
+    [ui, sendMessage, cardAction, inboxAction, deviceBatchAction, startTask, createReminder, taskAction, taskBatchAction, reminderAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, projectServicesAction, resetMaintainer, watchChannels, retryVoice, stopReply, rollbackSession, switchBranch, requestEffectUndo, loadBranch, removeQueued, reorderQueued, setToolkit, scheduledJobAction, rescheduleJob, runJobNow, setVoiceAnnounce, setProjectVoiceAnnounce, seeRead, markRead, showAlert, seeSecretaryTurn, seeAlert, seeFailure, seeAgentVoiceArrival, notePageUpdate, loadOlder, loadCalendarMonth, loadVoiceModels, loadAgentRoles, createAgentRole, updateAgentRole, deleteAgentRole, setDefaultAgentRole, assignAgentRole, loadUserName, saveUserName, quoteCard, unquoteCard, http, daemonInfo, connectionStats, chatCacheStats, reconnect],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

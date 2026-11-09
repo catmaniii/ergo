@@ -195,6 +195,7 @@ export {
   FRONTEND_PROTOCOL_VERSION,
   // 会话频道第一次补发、往上翻的一页多少条（本机快照里的会话也只留这么多）
   HISTORY_PAGE_SIZE,
+  MAX_HISTORY_LIMIT,
   HTTP_PATHS,
   HTTP_QUERY,
   INBOX_ACTIONS,
@@ -492,6 +493,7 @@ export type {
   EventFrame,
   HistoryMessage,
   HistoryPage,
+  HistoryStageStart,
   HttpErrorBody,
   InboxAction,
   InboxActionParams,
@@ -594,6 +596,8 @@ export {
   agentVoiceCoversReply,
   agentVoiceHoldsTurn,
   agentVoiceIdsOf,
+  // 一条消息里引用的用户语音（手机本机存的聊天记录拼一页时按它带上语音对象）
+  voiceIdsOf,
   REFERENCE_VOICE_MAX_BYTES,
   REFERENCE_VOICE_MAX_MS,
   REFERENCE_VOICE_MIN_MS,
