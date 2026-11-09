@@ -1,8 +1,14 @@
-// 本机的 Codex 在哪、版本够不够、交给它的环境（ADR-0046）。Codex 不随二狗分发、不是 npm 依赖：用用户自己装的 codex（npm i -g @openai/codex），
-// 用它自己的登录和配置。守护进程这一侧（插件的 missing）和子进程（拉起 app-server）都用这一份，这里不 import 子进程的模块。
-// - 找入口：Node 在 Windows 上起进程不搜 PATHEXT、起不了 .cmd（照 claude-env.ts 的 findClaudeExecutable）。按 PATH 里的目录找：
-//   codex.exe 直接起；npm 装的是 codex.cmd 这类包装脚本，旁边 node_modules/@openai/codex/bin/codex.js 才是真的入口，用二狗自己的 Node 起它
-//   （它再拉起平台包里的原生程序，带上官方要的环境）；
+// 本机的 Codex 在哪、版本够不够、交给它的环境（ADR-0046）。Codex 不随二狗分发、不是 npm 依赖：用设置 · 组件装的那份（454，从 npm 官方下
+// @openai/codex 和它的 win32-x64 平台包，装到 <组件区>\codex），或者用户自己装的 codex（npm i -g @openai/codex），都用 Codex 自己的登录和配置。
+// 守护进程这一侧（插件的 missing、体检）和子进程（拉起 app-server）都用这一份，这里不 import 子进程的模块。
+// - 找入口：先找组件区（组件装的版本钉在核对过 app-server 协议的那一版，用户是在二狗里点了装的；不想用它就在组件页删掉），
+//   再按 PATH 里的目录找。组件区在哪：守护进程这一侧传进来，子进程从守护进程带的 ERGO_COMPONENTS_DIR 取。
+//   Node 在 Windows 上起进程不搜 PATHEXT、起不了 .cmd（照 claude-env.ts 的 findClaudeExecutable）：codex.exe 直接起；
+//   npm 装的是 codex.cmd 这类包装脚本，旁边 node_modules/@openai/codex/bin/codex.js 才是真的入口，用二狗自己的 Node 起它
+//   （它再按 require.resolve 找平台包 @openai/codex-win32-x64、拉起里面 vendor/<目标>/bin/codex.exe，带上官方要的环境）；
+//   组件区里也是同样的 node_modules 结构，一样用二狗自己的 Node 起 codex.js；
+// - 登录：二狗不登录、不读凭据（Codex 自己存在它的配置目录或系统的凭据管理器里）。组件装的不在 PATH 上，告诉用户登录时要写出
+//   完整的命令（codexLoginCommand：PowerShell 的写法）；
 // - 版本：npm 装的读包里的 package.json，不起进程；codex.exe 跑一次 --version（不联网）。低于 CODEX_MIN_VERSION 不装配：
 //   app-server 的协议就是按这一版核对的（test/fixtures/codex-app-server.schema.json）。读到的按"入口文件 + 修改时间"缓存，
 //   体检（414，codexVersionChecked）读同一份，没缓存时异步跑一次 --version；
@@ -12,6 +18,7 @@ import { execFile, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { t } from "@ergo/protocol";
+import { COMPONENTS_DIR_ENV } from "../process/child-env.ts";
 
 /** 最低版本：app-server 的协议按这一版核对 */
 export const CODEX_MIN_VERSION = "0.166.0";
@@ -59,17 +66,52 @@ export function codexProcessEnv(parent: Readonly<Record<string, string | undefin
 export interface CodexEntry {
   command: string;
   args: string[];
+  /** 设置 · 组件装的那份（不在 PATH 上：登录要写完整的命令） */
+  component?: true;
 }
+
+/** 组件区里装 Codex 的那个组件（组件清单里 codex 的 target 是 components/codex） */
+export const CODEX_COMPONENT = "codex";
 
 const NPM_ENTRY = ["node_modules", "@openai", "codex", "bin", "codex.js"] as const;
 
+export interface FindCodexOptions {
+  platform?: NodeJS.Platform;
+  exists?: (file: string) => boolean;
+  /** 起 codex.js 用的 Node（不给是本进程的：守护进程、子进程自己的） */
+  node?: string;
+  /** 组件区（数据目录的 components\）；不给按 env 里的 ERGO_COMPONENTS_DIR（守护进程给子进程带的），都没有就只找 PATH */
+  componentsDir?: string | undefined;
+}
+
+/** 环境变量按名字取（Windows 上不分大小写） */
+function envValue(env: Readonly<Record<string, string | undefined>>, name: string): string | undefined {
+  const key = Object.keys(env).find((k) => k.toUpperCase() === name.toUpperCase());
+  const value = key === undefined ? undefined : env[key];
+  return value === undefined || value.trim() === "" ? undefined : value;
+}
+
+/** 组件区里 codex 的入口文件（不管在不在）：<组件区>\codex\node_modules\@openai\codex\bin\codex.js */
+export function codexComponentScript(componentsDir: string, platform: NodeJS.Platform = process.platform): string {
+  return (platform === "win32" ? path.win32 : path.posix).join(componentsDir, CODEX_COMPONENT, ...NPM_ENTRY);
+}
+
 /**
- * 本机的 codex（见文件开头）：按 PATH 里的目录先后找；都没有是 undefined。node 是起 codex.js 用的 Node（守护进程、子进程自己的）
+ * 本机的 codex（见文件开头）：先找组件区里装的，再按 PATH 里的目录先后找；都没有是 undefined
  */
-export function findCodexEntry(
-  env: Readonly<Record<string, string | undefined>>,
-  options: { platform?: NodeJS.Platform; exists?: (file: string) => boolean; node?: string } = {},
-): CodexEntry | undefined {
+export function findCodexEntry(env: Readonly<Record<string, string | undefined>>, options: FindCodexOptions = {}): CodexEntry | undefined {
+  const platform = options.platform ?? process.platform;
+  const exists = options.exists ?? fs.existsSync;
+  const componentsDir = options.componentsDir ?? envValue(env, COMPONENTS_DIR_ENV);
+  if (componentsDir !== undefined) {
+    const script = codexComponentScript(componentsDir, platform);
+    if (exists(script)) return { command: options.node ?? process.execPath, args: [script], component: true };
+  }
+  return findCodexOnPath(env, options);
+}
+
+/** 只按 PATH 找（用户自己装的那份；组件区不算）：都没有是 undefined */
+export function findCodexOnPath(env: Readonly<Record<string, string | undefined>>, options: Omit<FindCodexOptions, "componentsDir"> = {}): CodexEntry | undefined {
   const platform = options.platform ?? process.platform;
   const exists = options.exists ?? fs.existsSync;
   const node = options.node ?? process.execPath;
@@ -165,11 +207,38 @@ export function versionOlder(a: string, b: string): boolean {
   return false;
 }
 
-/** 没装、版本太低时给人看的一句（没装什么、怎么装、怎么登录）；能用是 undefined（插件定义的 missing）。登录没登录这里不查：要起 app-server，第一轮才知道 */
-export function codexMissing(env: Readonly<Record<string, string | undefined>> = process.env): string | undefined {
-  const entry = findCodexEntry(env);
-  if (!entry) return t("codex.plugin.notInstalled");
+/**
+ * 没装、版本太低时给人看的一句（没装什么、怎么装：设置 · 组件里装「Codex 接入」，或者自己 npm i -g）；能用是 undefined（插件定义的 missing）。
+ * 登录没登录这里不查：要起 app-server，第一轮才知道
+ */
+export function codexMissing(env: Readonly<Record<string, string | undefined>> = process.env, componentsDir?: string): string | undefined {
+  const entry = findCodexEntry(env, { componentsDir });
+  if (!entry) return t("codex.plugin.notInstalled", { component: CODEX_COMPONENT });
   const version = codexVersion(entry);
-  if (version === undefined) return t("codex.plugin.unknownVersion", { min: CODEX_MIN_VERSION });
-  return versionOlder(version, CODEX_MIN_VERSION) ? t("codex.plugin.tooOld", { version, min: CODEX_MIN_VERSION }) : undefined;
+  if (version === undefined) return t("codex.plugin.unknownVersion", { min: CODEX_MIN_VERSION, component: CODEX_COMPONENT });
+  return versionOlder(version, CODEX_MIN_VERSION) ? t("codex.plugin.tooOld", { version, min: CODEX_MIN_VERSION, component: CODEX_COMPONENT }) : undefined;
+}
+
+/**
+ * PATH 上用户自己装的、版本够的 codex（组件页的 provided：codex-cli——有了它就不用从组件页装）：在哪（npm 装的是 codex.js，别的是程序本身）、
+ * 什么版本；没有、版本读不出、太旧都是 undefined
+ */
+export function codexOnPath(env: Readonly<Record<string, string | undefined>>): { where: string; version: string } | undefined {
+  const entry = findCodexOnPath(env);
+  if (!entry) return undefined;
+  const version = codexVersion(entry);
+  if (version === undefined || versionOlder(version, CODEX_MIN_VERSION)) return undefined;
+  return { where: entry.args[0] ?? entry.command, version };
+}
+
+/** PowerShell 里一个参数的写法：单引号包起来（里面的单引号写两个），不展开 $ 和反引号 */
+const psQuote = (value: string): string => `'${value.replace(/'/g, "''")}'`;
+
+/**
+ * 登录要在终端里运行的命令：PATH 上的就是 codex login；组件装的不在 PATH 上，写完整的——用二狗自己的 Node 起组件里的 codex.js
+ * （PowerShell 的写法：& '<node.exe>' '<codex.js>' login）。没找到 codex 也写 codex login
+ */
+export function codexLoginCommand(entry: CodexEntry | undefined): string {
+  if (!entry?.component) return "codex login";
+  return `& ${[entry.command, ...entry.args].map(psQuote).join(" ")} login`;
 }

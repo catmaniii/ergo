@@ -52,6 +52,10 @@ If the data directory isn't the default (you set `ERGO_DATA_DIR`), set this vari
 
 The Agent SDK (`@anthropic-ai/claude-agent-sdk`) is under Anthropic's own license, and ergo treats it only as an optional dependency. Running from source, run `npm install --no-save @anthropic-ai/claude-agent-sdk@<version>` in the ergo directory (the version is in `optionalDependencies` in `packages/daemon/package.json`), then click "Turn on" in Settings · Plugins.
 
+### Codex integration
+
+Codex isn't an npm dependency. Use the one on this computer: `npm i -g @openai/codex`, or install "Codex integration" under Settings · Components (it goes into `components\codex` in the data folder; ergo looks there first, then on PATH; see the addendum to ADR-0046). The component's version is pinned to the one the app-server schema was generated from (`codexVersion` in `test/fixtures/codex-app-server.schema.json`; `test/components/manifest.test.ts` locks them equal). To change versions: regenerate the schema and run `real-codex.test.ts` with `ERGO_TEST_REAL_CODEX=1` first, then update the version, both packages' sizes and `sha512` in the `codex` entry of `packages/daemon/src/components/manifest.json` — all from the npm registry metadata (`dist.integrity` of `https://registry.npmjs.org/@openai/codex/<version>` and `<version>-win32-x64`, converted to hex; the size from a HEAD on the tarball with `Range: bytes=0-0`, reading the total in `Content-Range`), without downloading the packages.
+
 ## Common commands
 
 From the repository root:

@@ -177,6 +177,7 @@ See [Skills, MCP, toolkits and plugins](skills-mcp-plugins.en.md#plugins) for mo
 | Speech program audio.cpp | The speech service itself. Installed first when you install a model | About 31 MB to 853 MB, depending on whether you have an NVIDIA GPU | Asks first |
 | Speech model Fish S2 Pro | Voice replies | About 6 GB | Asks first |
 | Claude Code integration | Using Claude Code for tasks | About 120 MB | Installed only if Claude Code is on this computer |
+| Codex integration | Using Codex for tasks (open source, Apache-2.0; signs in with your own Codex account, see [Codex](codex.en.md#before-you-start)) | About 170 MB | Installed only if Codex is on this computer |
 
 **Installing one:**
 
@@ -193,7 +194,7 @@ See [Skills, MCP, toolkits and plugins](skills-mcp-plugins.en.md#plugins) for mo
 - **Remove:** The confirmation box says which folder gets deleted and which features will be grayed out. Install it again when you need it.
 - **Start, Stop:** Only on the speech program block, which also shows running status, port and whether it starts at boot.
 
-The **Available** tag means you've already set it up elsewhere; it's left alone here, and the line below says what provides it.
+The **Available** tag means you've already set it up elsewhere; it's left alone here, and the line below says what provides it. For example, if your own new enough Codex is already on PATH, "Codex integration" says Available.
 
 **Good to know:**
 

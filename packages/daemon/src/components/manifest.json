@@ -173,6 +173,41 @@
           ]
         }
       ]
+    },
+    {
+      "id": "codex",
+      "version": "0.166.0",
+      "default": "detected",
+      "detect": "on-path:codex",
+      "provided": "codex-cli",
+      "enables": ["runtime.codex"],
+      "target": "components/codex",
+      "license": { "name": "Apache-2.0", "summary": "Open source; free to use.", "url": "https://github.com/openai/codex/blob/rust-v0.166.0/LICENSE", "confirm": false },
+      "sources": [{ "id": "npm", "title": "npm", "url": "https://registry.npmjs.org/{path}" }],
+      "variants": [
+        {
+          "id": "win32-x64",
+          "when": { "platform": ["win32"], "arch": ["x64"] },
+          "parts": [
+            {
+              "files": [
+                {
+                  "path": "@openai/codex/-/codex-0.166.0.tgz",
+                  "size": 4992,
+                  "sha512": "d92ce5a75975733e535f571ca57e19a24dc366ba2df717997b4926fbaff5bfc266ab1003c3227128125a878741ca6930b52db98ffbba762a49bac4ce23ded9f1",
+                  "extract": { "format": "tgz", "strip": 1, "to": "node_modules/@openai/codex", "unpackedSize": 13570 }
+                },
+                {
+                  "path": "@openai/codex/-/codex-0.166.0-win32-x64.tgz",
+                  "size": 180706795,
+                  "sha512": "352f0fb39a06e6bd7da42acc0945f052a3ae8baa1d9d4228065424ae3089fa1d64e8a8b00b30bffa623d7779d2642a85a1538d3c14e6ab2abc358ab761a146c8",
+                  "extract": { "format": "tgz", "strip": 1, "to": "node_modules/@openai/codex-win32-x64", "unpackedSize": 502654591 }
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

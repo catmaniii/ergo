@@ -11,6 +11,7 @@ const FEATURE_NAME = tTable({
   "voice.input": "doctor.feature.voiceInput",
   "voice.reply": "doctor.feature.voiceReply",
   "runtime.claude-code": "doctor.feature.runtimeClaudeCode",
+  "runtime.codex": "doctor.feature.runtimeCodex",
 });
 
 const featureName = (id: string): string => (FEATURE_NAME as Readonly<Record<string, string>>)[id] ?? id;

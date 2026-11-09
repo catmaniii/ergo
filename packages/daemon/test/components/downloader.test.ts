@@ -1,5 +1,6 @@
-// 组件的下载器：断点续传、一个镜像慢 / 坏 / 卡住 / 给错内容、校验对不上、中止后接着下、探速、走代理。
+// 组件的下载器：断点续传、一个镜像慢 / 坏 / 卡住 / 给错内容、校验对不上（sha256，npm 的包是 sha512）、中止后接着下、探速、走代理。
 // 全部对本机起的假下载服务，不连外网。
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
@@ -10,6 +11,9 @@ import { blob, type FakeDownloads, sha256, startFakeDownloads, startFakeProxy } 
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 const transport = createHttpTransport({ headersTimeoutMs: 5000 });
+
+/** npm registry 给的那种校验值：sha512（十六进制） */
+const sha512 = (data: Buffer) => createHash("sha512").update(data).digest("hex");
 
 function urlsOf(fake: FakeDownloads, file: string, ...mirrors: string[]): DownloadUrl[] {
   return mirrors.map((m) => ({ sourceId: m, title: m, url: fake.source(m).replace("{path}", file) }));
@@ -163,6 +167,72 @@ describe("下载一个文件", () => {
     const error = await downloadFile(target(dir, "m.bin", body, urlsOf(fake, "m.bin", "a")), context().ctx).catch((err: unknown) => err);
     expect((error as DownloadError).kind).toBe("unreachable");
     expect((error as DownloadError).message).toContain("HTTP 500");
+  });
+});
+
+describe("npm 的包：清单写 sha512（registry 的 dist.integrity，454）", () => {
+  /** 只写 sha512、不写 sha256 的文件（Codex 接入的两个包就是这样） */
+  const npmTarget = (dir: string, name: string, body: Buffer, urls: DownloadUrl[], hash = sha512(body)): DownloadFile => ({ name, urls, size: body.length, sha512: hash, part: path.join(dir, `${name}.part`), dest: path.join(dir, name) });
+
+  test("对的过：下全、核对 sha512 才改成正式的名字", async () => {
+    const fake = await startFakeDownloads();
+    const body = blob(150_000, 31);
+    fake.put("codex.tgz", body);
+    const dir = makeTempDir();
+    const file = npmTarget(dir, "codex.tgz", body, urlsOf(fake, "codex.tgz", "npm"));
+    const verifying: string[] = [];
+    await downloadFile(file, { ...context().ctx, onVerifying: () => verifying.push("v") });
+    expect(fs.readFileSync(file.dest).equals(body)).toBe(true);
+    expect(fs.existsSync(file.part)).toBe(false);
+    expect(verifying).toEqual(["v"]);
+  });
+
+  test("错的拒：内容和 sha512 对不上，这一份不用、不再用那个地址；都不对就报校验对不上，什么都不留", async () => {
+    const fake = await startFakeDownloads();
+    const body = blob(40_000, 32);
+    fake.put("codex.tgz", body);
+    fake.behave("evil", { kind: "corrupt" });
+    const dir = makeTempDir();
+    const { ctx, logs } = context();
+    await downloadFile(npmTarget(dir, "codex.tgz", body, urlsOf(fake, "codex.tgz", "evil", "npm")), ctx);
+    expect(fs.readFileSync(path.join(dir, "codex.tgz")).equals(body)).toBe(true);
+    expect(logs.join("\n")).toContain("sha512 对不上");
+    expect(fake.requests.filter((r) => r.mirror === "evil")).toHaveLength(1);
+
+    // 清单里的 sha512 本身不对（哪个地址给的都对不上）：报校验对不上
+    const other = makeTempDir();
+    const error = await downloadFile(npmTarget(other, "codex.tgz", body, urlsOf(fake, "codex.tgz", "npm"), sha512(Buffer.from("别的"))), context().ctx).catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(DownloadError);
+    expect((error as DownloadError).kind).toBe("checksum");
+    expect((error as DownloadError).message).toMatch(/^sha512 [0-9a-f]{128}$/);
+    expect(fs.readdirSync(other)).toEqual([]);
+  });
+
+  test("下了一半的续上照旧：断了从已经下到的地方接着下，下全了再核对 sha512", async () => {
+    const fake = await startFakeDownloads();
+    const body = blob(200_000, 33);
+    fake.put("codex.tgz", body);
+    fake.behave("npm", { kind: "cut", bytes: 80_000, times: 1 });
+    const dir = makeTempDir();
+    const file = npmTarget(dir, "codex.tgz", body, urlsOf(fake, "codex.tgz", "npm"));
+    await downloadFile(file, context().ctx);
+    expect(fs.readFileSync(file.dest).equals(body)).toBe(true);
+    expect(fake.requests.map((r) => r.range)).toEqual([undefined, "bytes=80000-"]);
+  });
+
+  test("sha256、sha512 都写了：两个都核对，哪个对不上都不用", async () => {
+    const fake = await startFakeDownloads();
+    const body = blob(30_000, 34);
+    fake.put("both.bin", body);
+    const dir = makeTempDir();
+    const good = { ...npmTarget(dir, "both.bin", body, urlsOf(fake, "both.bin", "a")), sha256: sha256(body) };
+    await downloadFile(good, context().ctx);
+    expect(fs.existsSync(good.dest)).toBe(true);
+    const other = makeTempDir();
+    const badSha256 = { ...npmTarget(other, "both.bin", body, urlsOf(fake, "both.bin", "a")), sha256: sha256(Buffer.from("别的")) };
+    const error = await downloadFile(badSha256, context().ctx).catch((err: unknown) => err);
+    expect((error as DownloadError).kind).toBe("checksum");
+    expect((error as DownloadError).message).toMatch(/^sha256 /);
   });
 });
 

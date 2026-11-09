@@ -163,6 +163,17 @@ describe("设置里的插件那一块", () => {
     expect(row).toContain(">移除<");
   });
 
+  test("按现在的样子补的一句（Codex 用的是组件装的那份：登录要运行的完整命令，454）：写在一句话下面，命令单独一块；没有就不写", () => {
+    const note = "用的是设置 · 组件装的 Codex 0.166.0（不在 PATH 上）。还没登录的话，在这台电脑的 PowerShell 里运行下面这条命令，按提示登录：";
+    const noteCommand = "& 'C:\\ergo\\node.exe' 'C:\\Users\\me\\.ergo\\components\\codex\\node_modules\\@openai\\codex\\bin\\codex.js' login";
+    const codex: PluginInfo = { name: "codex", title: "Codex", summary: "用本机的 Codex 跑会话", note, noteCommand, state: "running", brings: { tools: [], cards: [], jobs: [] }, needs: [], neededBy: [], stopsWith: [], startsWith: [] };
+    const html = render([plugin("reminders"), codex]);
+    const escaped = noteCommand.replace(/&/g, "&amp;").replace(/'/g, "&#x27;");
+    expect(html).toContain(`<div class="plugin-summary">用本机的 Codex 跑会话</div><div class="plugin-note">${note}<code class="plugin-note-command">${escaped}</code></div>`);
+    expect(render([plugin("reminders"), { ...codex, noteCommand: undefined }])).toContain(`<div class="plugin-note">${note}</div>`);
+    expect(render([plugin("reminders")])).not.toContain("plugin-note");
+  });
+
   test("日历：守护进程那一半没带工具、卡片，网页上是导航里的「日历」页；没写明连数据删，移除时没有那个勾选", () => {
     const calendar: PluginInfo = { name: "calendar", title: "日历", summary: "按月看每天上班还是休息", state: "running", brings: { tools: [], cards: [], jobs: [] }, needs: [], neededBy: [], stopsWith: [], startsWith: [] };
     const html = render([plugin("reminders"), plugin("memory"), calendar]);

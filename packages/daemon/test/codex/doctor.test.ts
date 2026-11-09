@@ -31,6 +31,8 @@ describe("程序和版本（判法）", () => {
     expect(codexProgramFinding({ found: true })).toMatchObject({ level: "warn", fact: { key: "codex.doctor.program.noVersion" } });
     expect(codexProgramFinding({ found: true, version: "0.100.0" })).toMatchObject({ level: "error", fact: { key: "codex.doctor.program.tooOld", params: { version: "0.100.0", min: CODEX_MIN_VERSION } } });
     expect(codexProgramFinding({ found: true, version: CODEX_MIN_VERSION })).toEqual({ level: "ok", fact: { key: "codex.doctor.program.ok", params: { version: CODEX_MIN_VERSION, min: CODEX_MIN_VERSION } } });
+    // 设置 · 组件装的（454）：写明
+    expect(codexProgramFinding({ found: true, version: CODEX_MIN_VERSION, component: true })).toEqual({ level: "ok", fact: { key: "codex.doctor.program.okComponent", params: { version: CODEX_MIN_VERSION, min: CODEX_MIN_VERSION } } });
   });
 
   it("这一项是 local、超时放到 --version 的上限之后", () => {
@@ -42,6 +44,15 @@ describe("读版本", () => {
   it("npm 装的读 package.json；PATH 里没有是找不到", async () => {
     expect(await probeCodexProgram({ PATH: npmInstall("0.170.2") })).toEqual({ found: true, version: "0.170.2" });
     expect(await probeCodexProgram({ PATH: makeTempDir("ergo-empty-path-") })).toEqual({ found: false });
+  });
+
+  it("设置 · 组件装的（454）：组件区里的先认，版本读包里的 package.json，标明是组件装的", async () => {
+    const componentsDir = makeTempDir("ergo-fake-components-");
+    const pkg = path.join(componentsDir, "codex", "node_modules", "@openai", "codex");
+    fs.mkdirSync(path.join(pkg, "bin"), { recursive: true });
+    fs.writeFileSync(path.join(pkg, "bin", "codex.js"), "");
+    fs.writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ version: "0.166.0" }));
+    expect(await probeCodexProgram({ PATH: npmInstall("0.170.2") }, componentsDir)).toEqual({ found: true, version: "0.166.0", component: true });
   });
 
   it("codex.exe：异步跑 --version（假的），读过一次记住、不再跑；文件变了再跑；跑不出来是读不出；文件没了不跑", async () => {

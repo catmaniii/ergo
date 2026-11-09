@@ -35,6 +35,13 @@ export interface PluginInfo {
   title: string;
   /** 一句话说它是做什么的 */
   summary: string;
+  /**
+   * 按现在的样子补的一句（给人看的；插件自己写）：Codex 用的是设置 · 组件装的那份时，它不在 PATH 上、登录要在终端运行一条完整的命令。
+   * 没有就不写
+   */
+  note?: string;
+  /** 那一句里要用户照抄运行的命令（单独一行显示，好选中复制；Codex 的登录命令）；没有就不写 */
+  noteCommand?: string;
   state: PluginState;
   /** 没装上的原因（给人看的说法；skipped 才有） */
   problem?: string;

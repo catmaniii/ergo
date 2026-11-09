@@ -4,6 +4,8 @@ import type { Phrases } from "./phrases.ts";
 export const EN_RUNTIMES: Phrases = {
   "跟 Claude Code 自己的设置": "Follow Claude Code's own settings",
   "跟 Codex 自己的设置": "Follow Codex's own settings",
+  "没装 Codex。到设置 · 组件里装「Codex 接入」（从 npm 官方下载；也可以在终端运行 ergo components add codex），或者自己用 npm i -g @openai/codex 装。装好后回到这里点「启用」，第一次用之前在终端登录 Codex（用你自己的账号）。别的功能不受影响。":
+    'Codex isn\'t installed. Install "Codex integration" under Settings · Components (downloaded from the official npm registry; or run ergo components add codex in a terminal), or install it yourself with npm i -g @openai/codex. Then come back here, click Turn on, and sign in to Codex in a terminal before first use (with your own account). Everything else keeps working.',
   "列表里看不出它是不是还开着：可能还开着，先在那边关掉，或者分叉一份接管": "The list can't tell whether it's still open. It may be: close it there first, or take over a fork",
   "3 分钟前还有活动，可能还开着": "Active 3 min ago, so it may still be open",
   "把导出改成流式": "Make the export streaming",

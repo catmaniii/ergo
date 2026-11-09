@@ -6,7 +6,7 @@ import { t } from "@ergo/protocol";
 import { installBuiltinLocales } from "../../i18n/builtin.ts";
 import { CHILD_LANGUAGE_ENV } from "../../runtime/host-protocol.ts";
 import { encodeLine, readJsonLines } from "../../runtime/line-channel.ts";
-import { codexProcessEnv, findCodexEntry } from "../install.ts";
+import { CODEX_COMPONENT, codexProcessEnv, findCodexEntry } from "../install.ts";
 import type { CodexSessionsRequest } from "../sessions-protocol.ts";
 import { CodexRpc, spawnCodexServer } from "./app-server.ts";
 import { handleSessionsRequest } from "./sessions.ts";
@@ -21,7 +21,7 @@ function finish(reply: unknown, code: number): void {
 
 async function run(request: CodexSessionsRequest): Promise<unknown> {
   const entry = findCodexEntry(process.env);
-  if (!entry) throw new Error(t("codex.plugin.notInstalled"));
+  if (!entry) throw new Error(t("codex.plugin.notInstalled", { component: CODEX_COMPONENT }));
   const log = (line: string) => process.stderr.write(`${line}\n`);
   const proc = spawnCodexServer(entry)(["app-server"], { env: codexProcessEnv(process.env), cwd: process.cwd(), log });
   const rpc = new CodexRpc(proc, {

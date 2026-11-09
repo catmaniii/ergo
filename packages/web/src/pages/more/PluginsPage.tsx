@@ -147,6 +147,13 @@ function PluginRow({ plugin: p, all, web, busy, onAct }: { plugin: PluginInfo; a
         <span className={STATE_CHIP[p.state]}>{pluginStateText(p.state, p.missing)}</span>
       </div>
       {p.summary && <div className="plugin-summary">{p.summary}</div>}
+      {/* 按现在的样子补的一句（Codex 用的是组件装的那份：登录要在终端运行的完整命令，单独一行、好选中复制） */}
+      {p.note && (
+        <div className="plugin-note">
+          {p.note}
+          {p.noteCommand && <code className="plugin-note-command">{p.noteCommand}</code>}
+        </div>
+      )}
       {/* 外部组件没装：那一句本身就写着没装什么、怎么装，不再套"没装上：" */}
       {p.problem !== undefined && <div className="field-error">{p.missing ? p.problem : t("pages.plugins.problem", { reason: p.problem })}</div>}
       {p.cannotEnable !== undefined && p.state !== "skipped" && <div className="field-error">{t("pages.plugins.cannotEnable", { reason: p.cannotEnable })}</div>}

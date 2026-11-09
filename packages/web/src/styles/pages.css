@@ -5532,6 +5532,25 @@ a.att-icon:hover {
   font-size: var(--fs-m);
   line-height: 1.5;
 }
+/* 按现在的样子补的一句（Codex 用的是组件装的那份时登录的完整命令）：命令单独一块、点一下全选好复制；里面是长路径，窄屏上要能断开 */
+.plugin-note {
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.plugin-note-command {
+  display: block;
+  margin-top: 4px;
+  padding: 6px 8px;
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  user-select: all;
+  overflow-wrap: anywhere;
+}
 .plugin-brings {
   margin: 2px 0 0;
   padding-left: 16px;
@@ -5611,9 +5630,11 @@ a.att-icon:hover {
   font-size: var(--fs-m);
   line-height: 1.5;
 }
+/* 谁提供的：里面常是长路径（PATH 上自己装的 Codex 的 codex.js），窄屏上要能断开，不撑出横向滚动 */
 .component-provided {
   font-size: var(--fs-s);
   color: var(--ok);
+  overflow-wrap: anywhere;
 }
 .component-lines {
   display: grid;

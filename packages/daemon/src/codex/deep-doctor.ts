@@ -3,20 +3,22 @@
 // 看到的就是二狗用它时的登录）。它把结果写在标准错误里："Logged in using ChatGPT"、"Logged in using an API key - sk-…***"、
 // "Not logged in"（没登录时退出码是 1）。二狗不读 auth.json、不回显 Key 的任何部分，只认是哪种登录。
 // cost: deep——跑本机的外部程序，平时体检不跑，只有用户点了"深度体检"才跑。
-// 没登录 → 坏了（用它跑的任务、项目起不来），修法是在终端里跑 codex login；没找到 codex、命令没跑成、说的认不出来 → 没查出来。
+// 没登录 → 坏了（用它跑的任务、项目起不来），修法是在终端里跑登录的命令（PATH 上的是 codex login；设置 · 组件装的不在 PATH 上，
+// 写完整的命令，454）；没找到 codex、命令没跑成、说的认不出来 → 没查出来。
 import { execFile } from "node:child_process";
 import type { DoctorCheck, DoctorFinding } from "../doctor/checks.ts";
 import { buildChildEnv } from "../process/child-env.ts";
-import { codexProcessEnv, findCodexEntry } from "./install.ts";
+import { codexLoginCommand, codexProcessEnv, findCodexEntry } from "./install.ts";
 
 /** `codex login status` 最多等多久（毫秒） */
 export const CODEX_LOGIN_TIMEOUT_MS = 15_000;
 
-/** 一条命令跑完：退出码（被结束的是 null）、标准输出、标准错误 */
+/** 一条命令跑完：退出码（被结束的是 null）、标准输出、标准错误；loginCommand 是没登录时叫用户在终端运行的命令（不给是 codex login） */
 export interface CodexCommandResult {
   code: number | null;
   stdout: string;
   stderr: string;
+  loginCommand?: string;
 }
 
 /** 跑一次 `codex login status`（正式的见 codexLoginStatus；测试换成假的）。没找到 codex、起不来抛错 */
@@ -26,15 +28,16 @@ export type CodexLoginStatus = (signal: AbortSignal) => Promise<CodexCommandResu
 const TEXT_MAX = 120;
 
 /**
- * 正式的：按 PATH 找本机的 codex（和插件的 missing 同一个找法），跑 `codex login status`。env 现取守护进程自己的环境，
+ * 正式的：先找组件区、再按 PATH 找本机的 codex（和插件的 missing 同一个找法），跑 `codex login status`。env 现取守护进程自己的环境，
  * 照子进程的白名单（buildChildEnv）再去掉 Codex 认的那些改账号变量（codexProcessEnv）
  */
-export function codexLoginStatus(env: () => Readonly<Record<string, string | undefined>>): CodexLoginStatus {
+export function codexLoginStatus(env: () => Readonly<Record<string, string | undefined>>, componentsDir: () => string | undefined = () => undefined): CodexLoginStatus {
   return (signal) =>
     new Promise((resolve, reject) => {
       const parent = env();
-      const entry = findCodexEntry(parent);
-      if (!entry) return reject(new Error("codex not found on PATH")); // @i18n-ignore log：给开发者看的，页面上写的是 codex.doctor.login.failed
+      const entry = findCodexEntry(parent, { componentsDir: componentsDir() });
+      if (!entry) return reject(new Error("codex not found")); // @i18n-ignore log：给开发者看的，页面上写的是 codex.doctor.login.failed
+      const loginCommand = codexLoginCommand(entry);
       execFile(
         entry.command,
         [...entry.args, "login", "status"],
@@ -43,22 +46,24 @@ export function codexLoginStatus(env: () => Readonly<Record<string, string | und
           // 退出码不是 0 也交回（没登录就是 1）；起不来、被结束的才算出错
           const code: unknown = err === null ? 0 : (err as { code?: unknown }).code;
           if (typeof code !== "number") return reject(err ?? new Error("codex login status failed")); // @i18n-ignore log：给开发者看的
-          resolve({ code, stdout: String(stdout), stderr: String(stderr) });
+          resolve({ code, stdout: String(stdout), stderr: String(stderr), loginCommand });
         },
       );
     });
 }
 
-const notLoggedIn: DoctorFinding = { level: "error", fact: { key: "codex.doctor.login.no" }, fix: { key: "codex.doctor.login.fix" } };
+/** 没登录：修法里写在终端运行哪条命令 */
+const notLoggedIn = (command: string): DoctorFinding => ({ level: "error", fact: { key: "codex.doctor.login.no" }, fix: { key: "codex.doctor.login.fix", params: { command } } });
 
 /** 判 `codex login status` 跑完的结果 */
 export function judgeCodexLogin(result: CodexCommandResult): DoctorFinding {
   const text = `${result.stdout}\n${result.stderr}`;
-  if (/not\s+logged\s+in/i.test(text)) return notLoggedIn;
+  const command = result.loginCommand ?? codexLoginCommand(undefined);
+  if (/not\s+logged\s+in/i.test(text)) return notLoggedIn(command);
   if (/logged\s+in\s+using\s+chatgpt/i.test(text)) return { level: "ok", fact: { key: "codex.doctor.login.chatgpt" } };
   if (/logged\s+in\s+using\s+an?\s+api\s+key/i.test(text)) return { level: "ok", fact: { key: "codex.doctor.login.apiKey" } };
   if (/logged\s+in/i.test(text) && result.code === 0) return { level: "ok", fact: { key: "codex.doctor.login.ok" } };
-  if (result.code !== 0 && result.code !== null) return notLoggedIn;
+  if (result.code !== 0 && result.code !== null) return notLoggedIn(command);
   const line = text.trim().replace(/\s+/g, " ");
   return { level: "unknown", fact: { key: "codex.doctor.login.unreadable", params: { text: (line.length > TEXT_MAX ? `${line.slice(0, TEXT_MAX)}…` : line) || "?" } }, fix: { key: "doctor.fix.retry" } };
 }

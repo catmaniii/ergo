@@ -1,9 +1,12 @@
 // 组件服务：装、删、更新、暂停、继续、取消、离线导入、默认装不装、依赖、别处已经有了、磁盘不够、换到一半被打断。
+// npm 的包写 sha512（Codex 接入的样子，454）：装好后 Codex 插件按组件区认得出、版本读包里的 package.json。
 // 用自己编的小清单和本机的假下载服务（不连外网、不下真模型）。
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { ComponentsView } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";
+import { codexLoginCommand, codexVersion, findCodexEntry } from "../../src/codex/install.ts";
 import { type ComponentProbes, createComponents, type LoadedManifest, parseManifest } from "../../src/components/index.ts";
 import { createHttpTransport } from "../../src/components/transport.ts";
 import { RequestRejected } from "../../src/errors.ts";
@@ -430,5 +433,157 @@ describe("离线导入", () => {
     const bad = path.join(makeTempDir(), "bad.tar");
     fs.writeFileSync(bad, blob(3000));
     await expect(components.importFrom(bad)).rejects.toThrow("这个包读不了");
+  });
+});
+
+// ───────── npm 的包写 sha512：Codex 接入的样子（454） ─────────
+
+const sha512 = (data: Buffer) => createHash("sha512").update(data).digest("hex");
+/** 编的 @openai/codex 主包：bin/codex.js、package.json（版本） */
+const CODEX_MAIN = makeTar(
+  [
+    { path: "package/package.json", body: '{"name":"@openai/codex","version":"0.166.0","type":"module","bin":{"codex":"bin/codex.js"}}' },
+    { path: "package/bin/codex.js", body: "// 编的入口\n" },
+  ],
+  true,
+);
+/** 编的平台包（npm 上是 @openai/codex@0.166.0-win32-x64，装成 @openai/codex-win32-x64）：vendor/<目标>/bin/codex.exe */
+const CODEX_WIN = makeTar(
+  [
+    { path: "package/package.json", body: '{"name":"@openai/codex","version":"0.166.0-win32-x64","os":["win32"],"cpu":["x64"]}' },
+    { path: "package/vendor/x86_64-pc-windows-msvc/bin/codex.exe", body: blob(20_000, 41) },
+  ],
+  true,
+);
+
+/** 只有一个 codex 组件的清单（照随程序发布的那一条，地址换成假下载服务；sha512 可以换成错的） */
+function codexManifest(fake: FakeDownloads, over: { winSha512?: string } = {}): LoadedManifest {
+  fake.put("@openai/codex/-/codex-0.166.0.tgz", CODEX_MAIN);
+  fake.put("@openai/codex/-/codex-0.166.0-win32-x64.tgz", CODEX_WIN);
+  return {
+    signed: false,
+    manifest: parseManifest({
+      format: 1,
+      release: "test",
+      components: [
+        {
+          id: "codex",
+          version: "0.166.0",
+          default: "detected",
+          detect: "on-path:codex",
+          provided: "codex-cli",
+          enables: ["runtime.codex"],
+          target: "components/codex",
+          license: { name: "Apache-2.0", summary: "Open source; free to use.", url: "https://github.com/openai/codex/blob/rust-v0.166.0/LICENSE", confirm: false },
+          sources: [{ id: "npm", title: "npm", url: fake.source("npm") }],
+          variants: [
+            {
+              id: "win32-x64",
+              when: { platform: ["win32"], arch: ["x64"] },
+              parts: [
+                {
+                  files: [
+                    { path: "@openai/codex/-/codex-0.166.0.tgz", size: CODEX_MAIN.length, sha512: sha512(CODEX_MAIN), extract: { format: "tgz", strip: 1, to: "node_modules/@openai/codex", unpackedSize: 1000 } },
+                    { path: "@openai/codex/-/codex-0.166.0-win32-x64.tgz", size: CODEX_WIN.length, sha512: over.winSha512 ?? sha512(CODEX_WIN), extract: { format: "tgz", strip: 1, to: "node_modules/@openai/codex-win32-x64", unpackedSize: 30_000 } },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+  };
+}
+
+function startCodex(root: string, manifest: LoadedManifest, probes: ComponentProbes = fakeProbes()) {
+  return createComponents({
+    root,
+    componentsDir: path.join(root, "components"),
+    manifest,
+    probes,
+    transport: createHttpTransport({ headersTimeoutMs: 5000 }),
+    machine: { platform: "win32", arch: "x64" },
+    stallMs: 2000,
+    diskMargin: 0,
+    log: () => {},
+  });
+}
+
+describe("npm 的包写 sha512：Codex 接入（454）", () => {
+  test("装：两个包按 sha512 核对、解到 node_modules，功能 runtime.codex 打开；Codex 插件先找组件区，认得出、版本读包里的 package.json、登录写完整的命令", async () => {
+    const fake = await startFakeDownloads();
+    const root = makeTempDir();
+    const components = startCodex(root, codexManifest(fake));
+    const before = components.view();
+    expect(one(before, "codex")).toMatchObject({ state: "missing", size: CODEX_MAIN.length + CODEX_WIN.length, variant: { id: "win32-x64" }, license: { name: "Apache-2.0", confirm: false } });
+    expect(before.features).toEqual([{ feature: "runtime.codex", component: "codex", title: "Codex 接入", ready: false }]);
+    // 许可不用确认：直接装
+    await components.act("codex", "install");
+    await components.whenIdle("codex");
+    const view = components.view();
+    expect(one(view, "codex")).toMatchObject({ state: "installed", installedVersion: "0.166.0" });
+    expect(view.features.find((f) => f.feature === "runtime.codex")?.ready).toBe(true);
+    const dir = path.join(root, "components", "codex", "node_modules", "@openai");
+    expect(fs.existsSync(path.join(dir, "codex", "bin", "codex.js"))).toBe(true);
+    expect(fs.existsSync(path.join(dir, "codex-win32-x64", "vendor", "x86_64-pc-windows-msvc", "bin", "codex.exe"))).toBe(true);
+
+    // Codex 插件那边：组件区里装的先认（PATH 上什么都没有也找得到），用二狗自己的 Node 起 codex.js
+    const componentsDir = path.join(root, "components");
+    const entry = findCodexEntry({ PATH: makeTempDir("ergo-empty-path-") }, { componentsDir, node: "C:\\ergo\\node.exe" });
+    expect(entry).toEqual({ command: "C:\\ergo\\node.exe", args: [path.join(dir, "codex", "bin", "codex.js")], component: true });
+    expect(codexVersion(entry!)).toBe("0.166.0");
+    expect(codexLoginCommand(entry)).toBe(`& 'C:\\ergo\\node.exe' '${path.join(dir, "codex", "bin", "codex.js")}' login`);
+    // 子进程那边：守护进程带的 ERGO_COMPONENTS_DIR
+    expect(findCodexEntry({ PATH: "", ERGO_COMPONENTS_DIR: componentsDir })?.component).toBe(true);
+  });
+
+  test("sha512 对不上：不换上，停在出错了、写明校验对不上，正式目录里什么都没有", async () => {
+    const fake = await startFakeDownloads();
+    const root = makeTempDir();
+    const components = startCodex(root, codexManifest(fake, { winSha512: sha512(Buffer.from("别的包")) }));
+    await components.act("codex", "install");
+    await components.whenIdle("codex");
+    const codex = one(components.view(), "codex");
+    expect(codex.state).toBe("failed");
+    expect(codex.error).toContain("sha512");
+    expect(codex.manualDownload?.map((f) => f.name)).toEqual(["codex-0.166.0-win32-x64.tgz"]);
+    expect(fs.existsSync(path.join(root, "components", "codex"))).toBe(false);
+    expect(components.view().features[0]?.ready).toBe(false);
+  });
+
+  test("本机 PATH 上有 codex：默认该装（detected）；版本够的算别处已经有了（provided），功能照样能用、不用从这里装", async () => {
+    const fake = await startFakeDownloads();
+    const manifest = codexManifest(fake);
+    const detected = startCodex(makeTempDir(), manifest, fakeProbes({ detect: { "on-path:codex": "检测到了：C:\\npm\\codex.cmd" } })).view();
+    expect(one(detected, "codex")).toMatchObject({ state: "missing", wanted: true, defaultText: "本机装了 Codex 才装", detectedText: "检测到了：C:\\npm\\codex.cmd" });
+    // PATH 上的版本太旧（provided 没有）：照默认该装，"装上默认的组件"会装它
+    expect(detected.defaultsMissing).toEqual(["codex"]);
+    const provided = startCodex(
+      makeTempDir(),
+      manifest,
+      fakeProbes({ detect: { "on-path:codex": "检测到了：C:\\npm\\codex.cmd" }, provided: { "codex-cli": "本机已经装了 Codex 0.170.0，在用它" } }),
+    ).view();
+    expect(one(provided, "codex")).toMatchObject({ state: "provided", providedBy: "本机已经装了 Codex 0.170.0，在用它" });
+    expect(provided.features.find((f) => f.feature === "runtime.codex")?.ready).toBe(true);
+    expect(provided.defaultsMissing).toEqual([]);
+    // 没检测到：不默认装
+    expect(one(startCodex(makeTempDir(), manifest).view(), "codex")).toMatchObject({ wanted: false, detectedText: "没检测到" });
+  });
+
+  test("离线导入：自己下好的 npm 包按 sha512 认出来，凑齐了装上", async () => {
+    const fake = await startFakeDownloads();
+    const root = makeTempDir();
+    const components = startCodex(root, codexManifest(fake));
+    const dir = makeTempDir();
+    fs.writeFileSync(path.join(dir, "codex-0.166.0.tgz"), CODEX_MAIN);
+    fs.writeFileSync(path.join(dir, "codex-0.166.0-win32-x64.tgz"), CODEX_WIN);
+    // 同样大小、内容不同的：认不出
+    fs.writeFileSync(path.join(dir, "fake.tgz"), Buffer.alloc(CODEX_MAIN.length, 1));
+    const result = await components.importFrom(dir);
+    expect(result.installed).toEqual(["codex"]);
+    expect(result.matched.map((m) => m.file).toSorted()).toEqual(["@openai/codex/-/codex-0.166.0-win32-x64.tgz", "@openai/codex/-/codex-0.166.0.tgz"]);
+    expect(result.unknown).toEqual(["fake.tgz"]);
+    expect(fake.requests).toEqual([]);
   });
 });

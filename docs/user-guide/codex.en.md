@@ -12,16 +12,24 @@ Codex support is experimental. What it can and can't do is gathered in [the last
 
 ## Before you start
 
-1. Install Codex: `npm i -g @openai/codex`. Version 0.166.0 or newer is needed.
-2. Sign in: run `codex login` in a terminal. ergo doesn't look at your login; it uses Codex's own.
-3. Open **Settings · Abilities · Plugins** and find Codex. "Running" means you're done. If it says "Not installed", the line below says what's missing; install it, then click "Enable".
+1. Install Codex, either way works:
+   - Under **Settings · Abilities · Components**, install "Codex integration": it downloads Codex 0.166.0 from the official npm registry (about 170 MB, about 480 MB once installed) into `components\codex` in the data folder, not on PATH. You can also run `ergo components add codex` in a terminal.
+   - Install it yourself: `npm i -g @openai/codex`. Version 0.166.0 or newer is needed.
+
+   If both are there, the one from Components is used (ergo has checked that version). To use your own, delete "Codex integration" on the Components page. If a new enough Codex is already on PATH, its block on the Components page says "Available" and there's nothing to install.
+2. Sign in: ergo doesn't sign in for you or look at your login; it uses Codex's own (Codex keeps it in its own config folder or the system credential store). Sign in once in a terminal:
+   - Installed yourself: run `codex login`.
+   - Installed from Components: it isn't on PATH, so the full command is needed. It's written under Codex in **Settings · Abilities · Plugins**; copy it into PowerShell. It looks like `& 'C:\…\node.exe' 'C:\Users\you\.ergo\components\codex\node_modules\@openai\codex\bin\codex.js' login`.
+
+   Follow the prompts to sign in with your ChatGPT account in the browser. Both copies of Codex share the same login, so once is enough.
+3. Open **Settings · Abilities · Plugins** and find Codex. "Running" means you're done. If it says "Not installed", the line below says what's missing; install it, then click "Turn on".
 
 After that, the "Runtime" row in the new task and new project dialogs has a **Codex** option.
 
 **Good to know**
 
-- If it isn't installed, everything else keeps working. When other runtimes can be picked, Codex shows greyed out in "Runtime"; click it to see how to install.
-- If it isn't signed in, the turn ends with an error telling you to run `codex login`. Sign in, then send another message to carry on.
+- If it isn't installed, everything else keeps working. When other runtimes can be picked, Codex shows greyed out in "Runtime": with the component not installed, clicking it takes you to Settings · Components; installed but not turned on yet, clicking it says what to do.
+- If it isn't signed in, the turn ends with an error saying which command to run in PowerShell to sign in (the full one for the Components copy). Sign in, then send another message to carry on. "Deep checkup" on the checkup page also checks the sign-in and shows the same command when you're not signed in.
 - When the plugin is disabled, owners using Codex don't start. Running tasks go to "Waiting for you" and carry on once it's enabled.
 
 ## New task or project with Codex

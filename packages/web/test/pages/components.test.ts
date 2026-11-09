@@ -243,6 +243,47 @@ describe("一个组件一块", () => {
   });
 });
 
+describe("Codex 接入（454）", () => {
+  const codex = (extra: Partial<ComponentView> = {}) =>
+    component({
+      id: "codex",
+      title: "Codex 接入",
+      summary: "让任务、项目可以交给 Codex 做（OpenAI 的开源命令行程序，从 npm 官方下载；登录用你自己的 Codex 账号，二狗不碰）。",
+      version: "0.166.0",
+      default: "detected",
+      defaultText: "本机装了 Codex 才装",
+      wanted: false,
+      detectedText: "没检测到",
+      variant: { id: "win32-x64", title: "Windows x64" },
+      size: 4_992 + 180_706_795,
+      enables: [{ id: "runtime.codex", title: "用 Codex 做任务" }],
+      sources: ["npm"],
+      location: "C:\\data\\components\\codex",
+      license: { name: "Apache-2.0", summary: "开源（Apache-2.0），可以免费使用", url: "https://github.com/openai/codex/blob/rust-v0.166.0/LICENSE", confirm: false, accepted: false },
+      ...extra,
+    });
+
+  test("没装：一块写版本、大小、许可（Apache-2.0，不用确认）、打开的功能、从 npm 下；有安装按钮；功能 runtime.codex 灰着、点了去装它", () => {
+    const html = render([codex()]);
+    expect(html).toContain("Codex 接入");
+    expect(html).toContain("0.166.0");
+    expect(html).toContain("Apache-2.0");
+    expect(html).toContain("用 Codex 做任务");
+    expect(html).toContain("npm");
+    expect(componentActions(codex())).toEqual(["install"]);
+    expect(missingComponentFor(view([codex()]), "runtime.codex")).toEqual({ feature: "runtime.codex", component: "codex", title: "Codex 接入", ready: false });
+    expect(missingComponentFor(view([codex({ state: "installed", installedVersion: "0.166.0" })]), "runtime.codex")).toBeUndefined();
+  });
+
+  test("本机 PATH 上已有够版本的：写在用它，功能不灰（想换成这里装的也能装）", () => {
+    const provided = codex({ state: "provided", wanted: true, detectedText: "检测到了：C:\\npm\\codex.cmd", providedBy: "本机已经装了 Codex 0.170.2，在用它（C:\\npm\\node_modules\\@openai\\codex\\bin\\codex.js）" });
+    const html = render([provided]);
+    expect(html).toContain("本机已经装了 Codex 0.170.2，在用它");
+    expect(componentActions(provided)).toEqual(["install"]);
+    expect(missingComponentFor(view([provided]), "runtime.codex")).toBeUndefined();
+  });
+});
+
 describe("说法", () => {
   test("还要多久", () => {
     expect(etaText(30)).toBe("不到 1 分钟");

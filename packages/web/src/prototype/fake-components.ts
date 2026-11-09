@@ -1,18 +1,23 @@
 // 原型里的设置 · 组件：演示页没有守护进程，这里编清单里的五个组件看样子——
 // 向量模型正在从 hf-mirror 下（每秒走一截，下完是装好了）；语音识别用的是自己配的（别处有，不能从这里装）；
-// 语音合成的程序和模型默认是"已有自己配的、在用它"；Claude Code 接入检测到了、装好了。
+// 语音合成的程序和模型默认是"已有自己配的、在用它"；Claude Code 接入检测到了、装好了；Codex 接入（454）从这里装好了（本机 PATH 上没有 codex）。
 // 动作只改内存里的样子（装、暂停、继续、取消、删、启动、停止），从文件导入回"原型里不导入"那样的结果。
 // 地址里带 ?demo-components-missing 时语音识别、语音合成都没有（别处也没有）：看功能灰掉的样子（输入框的话筒、设置 · 语音）。
 // 地址里带 ?demo-tts=missing|installing|running|stopped|failed|manual|download-failed|runtime-missing 看语音合成的几种状态；带 ?demo-gpu=none 看没有 N 卡的样子。
 // 地址里带 ?demo-asr=missing|installing|running|configured|external 看语音识别的几种状态（configured 是配了自己的语音识别，external 是 8090 上已有自己配的 audio.cpp）。
 // 向导的"能力"那一步、检查更新：?demo-bge=missing|failed 看向量模型没装、下载失败的样子；?demo-fail=tts 点了装就失败（看失败能跳过）；
 // ?demo-updates=available|failed|not-published 看查更新的几种结果（available 时点"检查更新"向量模型有新版本，failed 时写没查成，not-published 是发布页上还没有清单）；?demo-autostart=off|elsewhere|dev 看开机自启的样子。
+// ?demo-codex=missing|path 看 Codex 接入没装（插件也就没装上、新建时灰着）、本机 PATH 上已有自己装的 codex 的样子（不给是从这里装好了，插件页写登录的完整命令）。
 import { type AutostartView, type ComponentAction, type ComponentImportResult, type ComponentServiceState, type ComponentsView, type ComponentView, nowIso } from "../state/index.ts";
 import { demoParam } from "./fake-connection.ts";
 
 const MB = 1024 * 1024;
 const BGE_SIZE = 770 + 1173 + 17_082_821 + 569_694_530;
 const SDK_SIZE = 1_599_938 + 117_726_124;
+/** Codex 0.166.0：@openai/codex 和它的 win32-x64 平台包（大小是 npm registry 的，HEAD 拿的） */
+const CODEX_SIZE = 4_992 + 180_706_795;
+/** 解开后多大（registry 元数据的 unpackedSize 加起来） */
+const CODEX_DISK = 13_570 + 502_654_591;
 /** audio.cpp v0.9.3 的 Windows 包：CUDA 版是程序包 + 运行库包，CPU 版一个包 */
 const AUDIOCPP_CUDA_SIZE = 277_336_614 + 575_457_454;
 const AUDIOCPP_CPU_SIZE = 30_547_092;
@@ -34,6 +39,15 @@ interface Sim {
 
 /** 这台电脑有没有 N 卡（?demo-gpu=none 是没有） */
 const noGpu = (): boolean => demoParam("demo-gpu") === "none";
+
+/** Codex 是哪种样子（?demo-codex=missing|path；不给是从组件页装好了）：组件页、插件页、运行时、体检都照它 */
+export function codexDemo(): "component" | "missing" | "path" {
+  const scene = demoParam("demo-codex");
+  return scene === "missing" || scene === "path" ? scene : "component";
+}
+
+/** 原型里组件装的 codex 登录要运行的完整命令（守护进程 codex/install.ts 的 codexLoginCommand 那种写法） */
+export const FAKE_CODEX_LOGIN = "& 'C:\\Users\\me\\AppData\\Local\\Programs\\ergo\\versions\\0.4.4\\node\\node.exe' 'C:\\Users\\me\\.ergo\\components\\codex\\node_modules\\@openai\\codex\\bin\\codex.js' login";
 
 /** 编的组件（字是守护进程按语言写好交来的那种，原型里只编中文的） */
 function base(): Omit<ComponentView, "state">[] {
@@ -138,6 +152,24 @@ function base(): Omit<ComponentView, "state">[] {
       sources: ["npm"],
       location: "C:\\Users\\me\\.ergo\\components\\claude-code",
     },
+    {
+      id: "codex",
+      title: "Codex 接入",
+      summary: "让任务、项目可以交给 Codex 做（OpenAI 的开源命令行程序，从 npm 官方下载；登录用你自己的 Codex 账号，二狗不碰）。",
+      version: "0.166.0",
+      default: "detected",
+      defaultText: "本机装了 Codex 才装",
+      wanted: codexDemo() === "path",
+      detectedText: codexDemo() === "path" ? "检测到了：C:\\Users\\me\\AppData\\Roaming\\npm\\codex.cmd" : "没检测到",
+      variant: { id: "win32-x64", title: "Windows x64" },
+      size: CODEX_SIZE,
+      enables: [{ id: "runtime.codex", title: "用 Codex 做任务" }],
+      dependsOn: [],
+      sources: ["npm"],
+      location: "C:\\Users\\me\\.ergo\\components\\codex",
+      license: { name: "Apache-2.0", summary: "开源（Apache-2.0），可以免费使用", url: "https://github.com/openai/codex/blob/rust-v0.166.0/LICENSE", confirm: false, accepted: false },
+      providedBy: "本机已经装了 Codex 0.170.2，在用它（C:\\Users\\me\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\bin\\codex.js）",
+    },
   ];
 }
 
@@ -224,6 +256,7 @@ export class FakeComponents {
     ["audiocpp", recognizerStart().audiocpp ?? speechStart().audiocpp],
     ["tts", speechStart().tts],
     ["claude-code", { state: "installed", done: 0 }],
+    ["codex", { state: codexDemo() === "missing" ? "missing" : codexDemo() === "path" ? "provided" : "installed", done: 0 }],
   ]);
 
   private tick(): void {
@@ -264,7 +297,7 @@ export class FakeComponents {
         ...(license ? { license: { ...license, accepted: license.accepted || this.licenseAccepted.has(c.id) || installed } } : {}),
         state: shownState,
         ...(newer !== undefined ? { version: newer } : {}),
-        ...(installed ? { installedVersion: c.version, diskSize: c.id === "claude-code" ? 266_028_594 : c.size } : {}),
+        ...(installed ? { installedVersion: c.version, diskSize: c.id === "claude-code" ? 266_028_594 : c.id === "codex" ? CODEX_DISK : c.size } : {}),
         ...(sim.service
           ? {
               service: {

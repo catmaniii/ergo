@@ -41,6 +41,8 @@ export const COMPONENT_FEATURES = {
   voiceReply: "voice.reply",
   /** 用 Claude Code 做任务、项目 */
   runtimeClaudeCode: "runtime.claude-code",
+  /** 用 Codex 做任务、项目（设置 · 组件里的「Codex 接入」，或者 PATH 上自己装的） */
+  runtimeCodex: "runtime.codex",
 } as const;
 
 /** 下载的进度 */

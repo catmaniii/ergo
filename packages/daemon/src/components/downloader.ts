@@ -1,5 +1,6 @@
 // 下载一个文件：几个下载地址按探速排好，从快的下起；先写 <文件>.part，断了从已经下到的地方接着下（Range），
-// 一个地址出错、卡住（多久没收到字节）就换下一个、接着下；下全了核对大小和 sha256，对了才改成正式的名字（放在临时目录里，
+// 一个地址出错、卡住（多久没收到字节）就换下一个、接着下；下全了核对大小和校验值（sha256，npm 的包是 sha512；清单里写了哪个核对哪个），
+// 对了才改成正式的名字（放在临时目录里，
 // 整个组件都下好、校验过才换上）。内容对不上的：这一份删掉，只由一个地址下的就不再用它，换别的从头下；所有地址都不对就报"校验对不上"。
 // 暂停、取消都是中止信号：下了一半的 .part 留着（取消时由上层删整个临时目录）。
 // 以前的 npm run download-model（embedding/model-files.ts 的 downloadModelFiles）并进了这里。
@@ -26,6 +27,8 @@ export interface DownloadFile {
   urls: readonly DownloadUrl[];
   size: number;
   sha256?: string | undefined;
+  /** npm 的包：registry 给的 sha512（十六进制） */
+  sha512?: string | undefined;
   /** 下了一半的写在这里 */
   part: string;
   /** 下全、校验过的改成这个名字 */
@@ -70,11 +73,43 @@ export function sizeOf(file: string): number {
   }
 }
 
+/** 认的校验算法 */
+export type ChecksumAlgorithm = "sha256" | "sha512";
+
+/** 一个文件要核对的校验值（清单里写了的，按 sha256、sha512 的先后）；一个都没写是空的 */
+export function checksumsOf(file: { sha256?: string | undefined; sha512?: string | undefined }): { algorithm: ChecksumAlgorithm; hex: string }[] {
+  return [
+    ...(file.sha256 === undefined ? [] : [{ algorithm: "sha256" as const, hex: file.sha256 }]),
+    ...(file.sha512 === undefined ? [] : [{ algorithm: "sha512" as const, hex: file.sha512 }]),
+  ];
+}
+
+/** 整个文件的几种校验值（读一遍算齐） */
+export async function digestFile(file: string, algorithms: readonly ChecksumAlgorithm[], signal?: AbortSignal): Promise<Partial<Record<ChecksumAlgorithm, string>>> {
+  const hashes = algorithms.map((algorithm) => ({ algorithm, hash: createHash(algorithm) }));
+  for await (const chunk of fs.createReadStream(file, signal ? { signal } : {})) for (const { hash } of hashes) hash.update(chunk as Buffer);
+  return Object.fromEntries(hashes.map(({ algorithm, hash }) => [algorithm, hash.digest("hex")]));
+}
+
 /** 整个文件的 sha256 */
 export async function sha256File(file: string, signal?: AbortSignal): Promise<string> {
-  const hash = createHash("sha256");
-  for await (const chunk of fs.createReadStream(file, signal ? { signal } : {})) hash.update(chunk as Buffer);
-  return hash.digest("hex");
+  return (await digestFile(file, ["sha256"], signal)).sha256!;
+}
+
+/** 对不上清单的那一项（算法、算出来的），都对得上（或者清单没写校验值）是 undefined */
+export function checksumMismatch(
+  expected: readonly { algorithm: ChecksumAlgorithm; hex: string }[],
+  digests: Partial<Record<ChecksumAlgorithm, string>>,
+): { algorithm: ChecksumAlgorithm; digest: string; expected: string } | undefined {
+  const wrong = expected.find((e) => digests[e.algorithm] !== e.hex);
+  return wrong === undefined ? undefined : { algorithm: wrong.algorithm, digest: digests[wrong.algorithm] ?? "", expected: wrong.hex };
+}
+
+/** 这个文件的内容和清单写的校验值对得上（没写校验值的算对得上） */
+export async function matchesChecksums(target: string, file: { sha256?: string | undefined; sha512?: string | undefined }, signal?: AbortSignal): Promise<boolean> {
+  const expected = checksumsOf(file);
+  if (expected.length === 0) return true;
+  return checksumMismatch(expected, await digestFile(target, expected.map((e) => e.algorithm), signal)) === undefined;
 }
 
 /** Content-Range: bytes 100-199/1000 */
@@ -181,19 +216,28 @@ export async function downloadFile(file: DownloadFile, ctx: DownloadContext): Pr
         }
         continue;
       }
-      // 下全了：核对
+      // 下全了：核对（清单里写了哪几种校验值就核对哪几种）
       ctx.onVerifying?.();
-      const digest = file.sha256 === undefined ? undefined : await sha256File(file.part, ctx.signal).catch((err: unknown) => {
-        if (ctx.signal.aborted) throw stopped();
-        throw err;
-      });
-      if (file.sha256 !== undefined && digest !== file.sha256) {
+      const expected = checksumsOf(file);
+      const digests =
+        expected.length === 0
+          ? {}
+          : await digestFile(
+              file.part,
+              expected.map((e) => e.algorithm),
+              ctx.signal,
+            ).catch((err: unknown) => {
+              if (ctx.signal.aborted) throw stopped();
+              throw err;
+            });
+      const wrong = checksumMismatch(expected, digests);
+      if (wrong !== undefined) {
         fs.rmSync(file.part, { force: true });
         // 只由一个地址下的：就是它给的不对；几个地址拼起来的说不清是谁，都留着、从头再下
         if (contributors.size === 1) bad.add([...contributors][0]!);
-        ctx.log(`${file.name}：下全了但 sha256 对不上（${digest}，应为 ${file.sha256}），这一份不用`);
+        ctx.log(`${file.name}：下全了但 ${wrong.algorithm} 对不上（${wrong.digest}，应为 ${wrong.expected}），这一份不用`);
         contributors.clear();
-        lastError = new DownloadError("checksum", `sha256 ${digest}`);
+        lastError = new DownloadError("checksum", `${wrong.algorithm} ${wrong.digest}`);
         continue;
       }
       await renameRetryingAsync(file.part, file.dest);

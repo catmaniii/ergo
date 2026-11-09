@@ -38,7 +38,7 @@ import {
   type SessionModel,
   type TurnOutcome,
 } from "../../runtime/host-protocol.ts";
-import { codexProcessEnv } from "../install.ts";
+import { codexLoginCommand, codexProcessEnv, findCodexEntry } from "../install.ts";
 import { codexChoices } from "../settings.ts";
 import { CodexRpc, CodexRpcError, type CodexServerSpawn, isWriterConflict } from "./app-server.ts";
 import { type Bridge, openBridge } from "./bridge.ts";
@@ -131,15 +131,23 @@ function userInput(text: string, images: readonly InputImage[]): unknown[] {
   return [...(text ? [{ type: "text", text, text_elements: [] }] : []), ...images.map((image) => ({ type: "image", url: `data:${image.mime};base64,${image.data}` }))];
 }
 
-/** turn 的 error → 给人看的一句 */
-function turnError(error: unknown, fallback: string | undefined): string {
+/**
+ * 没登录时的那句：在终端运行哪条命令登录（PATH 上的是 codex login；设置 · 组件装的不在 PATH 上，写完整的命令，454）。
+ * 按适配子进程自己的环境找（和拉起 app-server 的是同一个：组件区在 ERGO_COMPONENTS_DIR）
+ */
+function notLoggedIn(env: Readonly<Record<string, string | undefined>>): string {
+  return t("codex.child.notLoggedIn", { command: codexLoginCommand(findCodexEntry(env)) });
+}
+
+/** turn 的 error → 给人看的一句；env 是适配子进程自己的（没登录时找登录的命令） */
+function turnError(error: unknown, fallback: string | undefined, env: Readonly<Record<string, string | undefined>>): string {
   const e = (typeof error === "object" && error !== null ? error : {}) as { message?: unknown; codexErrorInfo?: unknown };
   const message = typeof e.message === "string" && e.message !== "" ? e.message : fallback;
   const info = e.codexErrorInfo;
   // 实测：有的错是 { httpConnectionFailed: { httpStatusCode: 401 } } 这样带状态码的（登录过期时也可能这样），不只是枚举值
   const status = typeof info === "object" && info !== null ? (Object.values(info)[0] as { httpStatusCode?: unknown } | null | undefined)?.httpStatusCode : undefined;
   if (info === "usageLimitExceeded" || info === "rateLimitExceeded" || info === "sessionBudgetExceeded" || status === 429) return t("codex.child.usageLimit", { detail: message ?? "" });
-  if (info === "unauthorized" || status === 401) return t("codex.child.notLoggedIn");
+  if (info === "unauthorized" || status === 401) return notLoggedIn(env);
   if (isModelUnavailable(error)) return t("codex.child.modelUnavailable", { detail: message ?? "" });
   return message ?? t("codex.child.turnFailed");
 }
@@ -594,7 +602,7 @@ export class CodexSessionRunner {
       if (!this.loggedIn) {
         // 登录是另一个进程（codex login）做的：关掉这个 app-server，下一条输入重新起才看得到新的登录
         this.closeServer();
-        return this.finishTurn("error", t("codex.child.notLoggedIn"));
+        return this.finishTurn("error", notLoggedIn(this.deps.env));
       }
     } catch (err) {
       this.deps.log(`起 Codex 出错：${describe(err)}`);
@@ -902,7 +910,7 @@ export class CodexSessionRunner {
         else if (parent !== undefined) this.onSubAgentUsage(threadId!, parent, params.tokenUsage as TokenUsageNotice | undefined);
         return;
       case "error":
-        if (threadId === current && params.willRetry !== true && phase.kind === "turn") phase.failure = turnError(params.error, undefined);
+        if (threadId === current && params.willRetry !== true && phase.kind === "turn") phase.failure = turnError(params.error, undefined, this.deps.env);
         else this.deps.log(`Codex 报错（${params.willRetry === true ? "它会重试" : "不重试"}）：${JSON.stringify(params.error)}`);
         return;
       case "model/rerouted":
@@ -1027,7 +1035,7 @@ export class CodexSessionRunner {
       if (phase.compacted) return this.finishCompaction({ type: "compacted", reason: "manual", outcome: "done" });
       if (turn.status === "completed") return this.finishCompaction({ type: "compacted", reason: "manual", outcome: "nothing" });
       if (turn.status === "interrupted") return this.finishCompaction({ type: "compacted", reason: "manual", outcome: "aborted" });
-      return this.finishCompaction({ type: "compacted", reason: "manual", outcome: "failed", error: turnError(turn.error, t("codex.child.compactFailed")) });
+      return this.finishCompaction({ type: "compacted", reason: "manual", outcome: "failed", error: turnError(turn.error, t("codex.child.compactFailed"), this.deps.env) });
     }
     if (phase.kind !== "turn") {
       this.deps.log(`没有进行中的一轮时来了 turn/completed（${String(turn.id)}），不报轮次结束`);
@@ -1044,7 +1052,7 @@ export class CodexSessionRunner {
     if (turn.status === "interrupted" || phase.aborting) return this.finishTurn("aborted");
     if (turn.status === "failed") {
       if (isModelUnavailable(turn.error)) this.opened.record.modelUnavailable = true;
-      return this.finishTurn("error", turnError(turn.error, phase.failure));
+      return this.finishTurn("error", turnError(turn.error, phase.failure, this.deps.env));
     }
     delete this.opened.record.modelUnavailable;
     this.finishTurn("completed");
@@ -1066,7 +1074,7 @@ export class CodexSessionRunner {
       case "turn/completed": {
         const turn = params.turn as { status?: string; error?: unknown };
         if (phase.timedOut) return phase.done({ error: t("codex.child.handoffInterrupted") });
-        if (turn.status !== "completed") return phase.done({ error: turnError(turn.error, t("codex.child.handoffFailed")) });
+        if (turn.status !== "completed") return phase.done({ error: turnError(turn.error, t("codex.child.handoffFailed"), this.deps.env) });
         return phase.done(phase.text.trim() ? { text: phase.text.trim() } : { error: t("codex.child.handoffEmpty") });
       }
       default:

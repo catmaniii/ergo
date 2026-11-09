@@ -43,6 +43,7 @@
   "doctor.feature.voiceInput": "按住说话",
   "doctor.feature.voiceReply": "用语音回复",
   "doctor.feature.runtimeClaudeCode": "用 Claude Code 做任务",
+  "doctor.feature.runtimeCodex": "用 Codex 做任务",
   "doctor.fix.ports": "看看这两个端口被谁占着（netstat -ano 里找这个端口号），关掉占着它的程序；或者在 config/ergo.json 里把 ports.local / ports.external 换两个空着的端口，重启二狗。是另一个二狗占着的话，先在服务管家里把它停掉",
   "doctor.fix.portsUnverified": "两个端口都连得上，多半是系统的端口表一时没报对：过一会儿点「再查一遍」。一直这样的话，在 netstat -ano 里找这个端口号，看看除了二狗还有哪个程序也在听它",
   "doctor.fix.node": "二狗和 pi 用的 Node 跟着 pi 的测试线走（现在是 22）。装二狗自带的那个 Node（或者装上 Node 22）再启动二狗",

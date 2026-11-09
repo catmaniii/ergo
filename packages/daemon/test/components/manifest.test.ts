@@ -1,25 +1,28 @@
 // 组件清单：随程序发布的那份读得进来、和代码里锁的版本一致；默认装不装写在数据里；清单写错了读的时候就报。
 import fs from "node:fs";
 import { describe, expect, test } from "vitest";
+import { CODEX_COMPONENT, CODEX_MIN_VERSION, versionOlder } from "../../src/codex/install.ts";
 import { fileSources, loadManifest, parseManifest, pendingParts, pickVariant, variantFiles } from "../../src/components/manifest.ts";
 import { BGE_M3 } from "../../src/materials/embedding/bge-m3.ts";
 import { AUDIOCPP_RECOGNIZER_MODEL } from "../../src/voice/recognizer-audiocpp.ts";
+import { codexSchema } from "../helpers/codex-schema.ts";
 
 const { manifest, signed } = loadManifest();
 const byId = (id: string) => manifest.components.find((c) => c.id === id)!;
 
 describe("随程序发布的清单", () => {
   test("读得进来；没签名（发布钥匙的签名发版时加）", () => {
-    expect(manifest.components.map((c) => c.id)).toEqual(["bge-m3", "asr", "audiocpp", "tts", "claude-code"]);
+    expect(manifest.components.map((c) => c.id)).toEqual(["bge-m3", "asr", "audiocpp", "tts", "claude-code", "codex"]);
     expect(signed).toBe(false);
   });
 
-  test("默认写在数据里：向量模型默认装，语音问了再装，Claude Code 检测到才装", () => {
+  test("默认写在数据里：向量模型默认装，语音问了再装，Claude Code、Codex 检测到才装", () => {
     expect(byId("bge-m3").default).toBe("install");
     expect(byId("asr").default).toBe("ask");
     expect(byId("audiocpp").default).toBe("ask");
     expect(byId("tts").default).toBe("ask");
     expect(byId("claude-code")).toMatchObject({ default: "detected", detect: "on-path:claude", provided: "node-package:@anthropic-ai/claude-agent-sdk" });
+    expect(byId("codex")).toMatchObject({ default: "detected", detect: "on-path:codex", provided: "codex-cli", enables: ["runtime.codex"] });
   });
 
   test("向量模型和代码里锁的 bge-m3 一致：版本、装在模型区、文件的大小和 sha256", () => {
@@ -86,6 +89,34 @@ describe("随程序发布的清单", () => {
     expect(fileSources(c, c.variants[0]!.parts[0]!, variantFiles(c.variants[0]!)[0]!.file)[0]?.url).toBe(`https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-${c.version}.tgz`);
   });
 
+  test("Codex 接入（454）：钉的版本就是 app-server 协议核对过的那一版；从 npm 官方下主包和 win32-x64 平台包，大小、sha512 是 registry 元数据的；装到 Codex 插件找的地方", () => {
+    const c = byId("codex");
+    // 版本：和生成协议 schema 的那一版（fixtures/codex-app-server.schema.json 的 codexVersion）一样，不低于运行时的最低版本
+    expect(c.version).toBe(codexSchema.version);
+    expect(versionOlder(c.version, CODEX_MIN_VERSION)).toBe(false);
+    expect(c.target).toBe(`components/${CODEX_COMPONENT}`);
+    expect(c.license).toEqual({ name: "Apache-2.0", summary: "Open source; free to use.", url: `https://github.com/openai/codex/blob/rust-v${c.version}/LICENSE`, confirm: false });
+    expect(c.sources?.map((s) => s.url)).toEqual(["https://registry.npmjs.org/{path}"]);
+    expect(c.variants.map((v) => v.id)).toEqual(["win32-x64"]);
+    expect(pickVariant(c, { platform: "win32", arch: "x64", gpu: "none" })?.id).toBe("win32-x64");
+    expect(pickVariant(c, { platform: "win32", arch: "arm64", gpu: "none" })).toBeUndefined();
+    const variant = c.variants[0]!;
+    // registry 元数据里的 dist.integrity（sha512 的 base64）原样抄在这里，清单里是它的十六进制；大小是对 tarball 发 HEAD 拿的（没下载）
+    const integrity: Record<string, string> = {
+      [`@openai/codex/-/codex-${c.version}.tgz`]: "sha512-2Szlp1l1cz5TX1ccpX4Zok3DZrot9xeZe0km+6/1v8JmqxADwyJxKBJah4dBymkwtS25j/u6dipJusTOI97Z8Q==",
+      [`@openai/codex/-/codex-${c.version}-win32-x64.tgz`]: "sha512-NS8Ps5oG5r19pCrMCUXwUqOui6odnUIoBlQkrjCJ+h1k6KiwCzC/+mI9d3nSZCqFoVONPBTmqyq8NYq3YaFGyA==",
+    };
+    expect(variantFiles(variant).map(({ file }) => [file.path, file.size, file.sha256, file.extract])).toEqual([
+      [`@openai/codex/-/codex-${c.version}.tgz`, 4_992, undefined, { format: "tgz", strip: 1, to: "node_modules/@openai/codex", unpackedSize: 13_570 }],
+      [`@openai/codex/-/codex-${c.version}-win32-x64.tgz`, 180_706_795, undefined, { format: "tgz", strip: 1, to: "node_modules/@openai/codex-win32-x64", unpackedSize: 502_654_591 }],
+    ]);
+    for (const { file } of variantFiles(variant)) {
+      expect(file.sha512).toBe(Buffer.from(integrity[file.path]!.replace(/^sha512-/, ""), "base64").toString("hex"));
+    }
+    // 平台包在 npm 上是同名包的另一个版本（optionalDependencies 里 npm:@openai/codex@<版本>-win32-x64 的别名），解到 bin/codex.js 找的 @openai/codex-win32-x64
+    expect(fileSources(c, variant.parts[0]!, variantFiles(variant)[1]!.file)[0]?.url).toBe(`https://registry.npmjs.org/@openai/codex/-/codex-${c.version}-win32-x64.tgz`);
+  });
+
   test("语音识别模型：Fun-ASR Nano，用 audio.cpp 那个程序；不打包不镜像，地址钉死到提交，校验值是 Hugging Face 的；要确认 v1.1 许可、标来源；默认不装", () => {
     const asr = byId("asr");
     expect(asr.default).toBe("ask");
@@ -136,6 +167,13 @@ describe("清单写错了读的时候就报", () => {
     expect(parse([{ ...base, target: "../outside" }])).toThrow("不是安全的相对路径");
     expect(parse([{ ...base, target: "C:/Windows" }])).toThrow("不是安全的相对路径");
     expect(parse([{ ...base, variants: [{ id: "v", parts: [{ sources: [{ id: "s", title: "S", url: "http://x/{path}" }], files: [{ path: "a/../../b", size: 1 }] }] }] }])).toThrow("不是安全的相对路径");
+  });
+
+  test("sha512 要是 128 位十六进制（registry 给的 base64 要换过来）", () => {
+    const withFile = (file: unknown) => [{ ...base, variants: [{ id: "v", parts: [{ sources: [{ id: "s", title: "S", url: "http://x/{path}" }], files: [file] }] }] }];
+    expect(parse(withFile({ path: "a.tgz", size: 1, sha512: "a".repeat(128) }))).not.toThrow();
+    expect(parse(withFile({ path: "a.tgz", size: 1, sha512: "sha512-2Szlp1l1cz5TX1ccpX4Zok3DZrot9xeZe0km+6/1v8JmqxADwyJxKBJah4dBymkwtS25j/u6dipJusTOI97Z8Q==" }))).toThrow("组件清单不对");
+    expect(parse(withFile({ path: "a.tgz", size: 1, sha512: "a".repeat(64) }))).toThrow("组件清单不对");
   });
 
   test("id 重复、依赖不在、依赖绕圈、检测到才装却没写 detect、有文件没写下载地址、少了字段", () => {
