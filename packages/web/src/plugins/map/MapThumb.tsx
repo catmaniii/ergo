@@ -44,7 +44,8 @@ export function MapThumb({ content }: { content: MapCardContent }) {
     const view = thumbView(content.bounds, host.clientWidth || 320, host.clientHeight || 168);
     // 这里只画 OpenStreetMap（聊天页不加载高德、谷歌的脚本；它们的卡片用静态预览图）
     host.dataset.basemap = "osm";
-    const engine = createOsmEngine(host, { view, tileUrl: osmTileUrl, maxTileZoom: 19, engineName: "thumb", onMoveEnd: () => {} });
+    // 缩略图上不写点旁边的字（map-card.css），不用排字
+    const engine = createOsmEngine(host, { view, tileUrl: osmTileUrl, maxTileZoom: 19, engineName: "thumb", labelLayout: false, onMoveEnd: () => {} });
     engine.setScene(content.scene);
     engine.setDark(darkRef.current);
     engineRef.current = engine;

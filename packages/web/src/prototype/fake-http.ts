@@ -802,7 +802,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return Promise.resolve({ known: body.provider === "google" });
   }
 
-  /** 我的足迹：编的（昨天一整天、四天前半天，见 prototype/fake-footprints.ts） */
+  /** 我的足迹：编的（昨天一整天、四天前半天、六天前绕西湖走一圈，见 prototype/fake-footprints.ts） */
   mapDay(date: string): Promise<MapDayView> {
     return Promise.resolve(demoMapDay(date));
   }

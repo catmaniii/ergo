@@ -19,8 +19,8 @@
 .map-card-thumb .map-osm {
   cursor: default;
 }
-/* 缩略图上不写点旁边的字（名字写在地图下面那一行） */
-.map-card-thumb .map-mark-label {
+/* 缩略图上不写点旁边的字（名字写在地图下面那一行），也就没有引线 */
+.map-card-thumb :is(.map-mark-label, .map-leaders) {
   display: none;
 }
 /* 整块都能点：点了去地图页；右上角一个"看大地图"（下面是署名） */

@@ -2,6 +2,7 @@
 // - 昨天一整天（杭州）：家 07:00–08:15 → 路上 → 公司 08:50–17:30 → 路上 → 西湖边 18:10–20:30，三处停留、一条轨迹，
 //   西湖边拍了几张照片（一处三张、一处一张），公司附近午饭时一张，还有一张没有地点；
 // - 四天前：家、健身房两处停留；今天什么都没有（页面自己跳到最近有足迹的一天）；
+// - 六天前（451 补）：绕西湖走了一圈，八处停留（中间五处挨得很近）、一路拍照——地图上的字很挤，看"字不互相盖住"用；
 // - 起了名的常去的地方：家、公司、健身房（健身房昨天没去，只画范围圈）。
 // 坐标是编的（挑在西湖一带，演示页的底图是占位图，看不出真地方），停留按守护进程的口径算好了写死。
 // - 手机最近交来的一个位置点（442，FakeDaemonHttp.mapLatest）：12 分钟前、西湖边。
@@ -109,6 +110,41 @@ function shortDay(date: string): Pick<MapDayView, "points" | "stays" | "photos" 
   return { points, stays, photos: [], unlocatedPhotos: 0 };
 }
 
+/** 六天前绕西湖走走停停的八处：断桥、白堤、宝石山在外头，中间五处都在孤山脚下一百米上下 */
+const WALK: ReadonlyArray<{ readonly name: string; readonly where: Where; readonly from: [number, number]; readonly to: [number, number] }> = [
+  { name: "断桥", where: { lat: 30.2602, lon: 120.1503 }, from: [9, 0], to: [9, 25] },
+  { name: "白堤", where: { lat: 30.2592, lon: 120.1478 }, from: [9, 35], to: [10, 0] },
+  { name: "平湖秋月", where: { lat: 30.2582, lon: 120.1452 }, from: [10, 10], to: [10, 40] },
+  { name: "孤山", where: { lat: 30.2587, lon: 120.1441 }, from: [10, 50], to: [11, 50] },
+  { name: "楼外楼", where: { lat: 30.258, lon: 120.144 }, from: [12, 0], to: [13, 10] },
+  { name: "西泠印社", where: { lat: 30.259, lon: 120.143 }, from: [13, 20], to: [13, 55] },
+  { name: "湖边咖啡馆", where: { lat: 30.2596, lon: 120.1447 }, from: [14, 5], to: [14, 40] },
+  { name: "宝石山", where: { lat: 30.2632, lon: 120.147 }, from: [14, 50], to: [15, 30] },
+];
+
+/** 六天前：绕西湖走走停停，八处停留挨得很近，一路拍照（地图上的字很挤） */
+function walkDay(date: string): Pick<MapDayView, "points" | "stays" | "photos" | "unlocatedPhotos"> {
+  const points: MapDayPoint[] = [];
+  WALK.forEach((w, i) => {
+    points.push(...staying(date, w.from, w.to, w.where));
+    const next = WALK[i + 1];
+    if (next) points.push(...moving(date, w.to, next.from, [w.where, next.where]));
+  });
+  const stays = WALK.map((w) => stay(date, points, w.from, w.to, `walk-${w.from.join("")}`, { address: w.name }));
+  const photo = (id: string, hh: number, mm: number, where: Where): MapDayPhoto => ({ id: `demo-fp-walk-photo-${id}`, at: at(date, hh, mm), lat: where.lat, lon: where.lon });
+  const photos = [
+    photo("1", 9, 10, { lat: 30.26, lon: 120.1498 }),
+    photo("2", 9, 45, { lat: 30.259, lon: 120.1475 }),
+    photo("3", 10, 20, { lat: 30.2583, lon: 120.1455 }),
+    photo("4", 10, 25, { lat: 30.2584, lon: 120.1456 }),
+    photo("5", 11, 15, { lat: 30.2589, lon: 120.1438 }),
+    photo("6", 12, 30, { lat: 30.2579, lon: 120.1442 }),
+    photo("7", 13, 30, { lat: 30.2592, lon: 120.1427 }),
+    photo("8", 15, 10, { lat: 30.2629, lon: 120.1473 }),
+  ];
+  return { points, stays, photos, unlocatedPhotos: 0 };
+}
+
 /** 手机"最近交来"的那个点在哪、几分钟前、精度（米） */
 const LATEST = { ...LAKE, minutesAgo: 12, accuracy: 35 };
 
@@ -120,11 +156,12 @@ export function demoMapLatest(now: Date): MapLatestView {
   return { point: { at: nowIso(new Date(now.getTime() - LATEST.minutesAgo * 60_000)), lat: LATEST.lat, lon: LATEST.lon, accuracy: LATEST.accuracy } };
 }
 
-/** 演示页某一天的足迹（日期按这台设备的今天算：昨天一整天、四天前半天，别的日子什么都没有） */
+/** 演示页某一天的足迹（日期按这台设备的今天算：昨天一整天、四天前半天、六天前绕西湖走一圈，别的日子什么都没有） */
 export function demoMapDay(date: string): MapDayView {
   const today = localDate(new Date());
   const yesterday = shiftMapDate(today, -1);
   const earlier = shiftMapDate(today, -4);
-  const body = date === yesterday ? fullDay(date) : date === earlier ? shortDay(date) : { points: [], stays: [], photos: [], unlocatedPhotos: 0 };
-  return { date, ...body, places: [...PLACES], days: [yesterday, earlier], linked: { location: true, photos: true } };
+  const walk = shiftMapDate(today, -6);
+  const body = date === yesterday ? fullDay(date) : date === earlier ? shortDay(date) : date === walk ? walkDay(date) : { points: [], stays: [], photos: [], unlocatedPhotos: 0 };
+  return { date, ...body, places: [...PLACES], days: [yesterday, earlier, walk], linked: { location: true, photos: true } };
 }

@@ -463,7 +463,7 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, ownPrev
 /**
  * 那一家在这台设备上加载不了时，盖在地图那块上的静态大图（451）：和卡片同一个接口（GET /api/map/preview），按地图那块的大小要
  * （最大 1024，各家再按自己的上限缩），高清；取不到告诉地图那块（退回原来的那句"画不上去"）。
- * 453 起那张是光底图，查到的点和线照回应头里的视野在本机画上去（static-overlay.tsx）
+ * 453 起那张是光底图，查到的点和线照回应头里的视野在本机画上去（static-overlay.tsx）；点旁边写名字、字互相让开（451 补）
  */
 function OwnStaticPreview({ query, scene, name, dark, onFailed }: { query: Pick<MapPreviewQuery, "card" | "lookup">; scene: MapScene; name: string; dark: boolean; onFailed(reason: string): void }) {
   const { http } = useStore();
@@ -477,7 +477,7 @@ function OwnStaticPreview({ query, scene, name, dark, onFailed }: { query: Pick<
   }, [failed, onFailed]);
   return (
     <div className="map-static" ref={setEl} data-preview={preview?.state ?? "loading"}>
-      {preview?.state === "ready" ? <StaticPreview url={preview.url} view={preview.view} scene={scene} alt={name} /> : <div className="map-loading">{t("ui.plugins.map.card.previewLoading")}</div>}
+      {preview?.state === "ready" ? <StaticPreview url={preview.url} view={preview.view} scene={scene} alt={name} labels /> : <div className="map-loading">{t("ui.plugins.map.card.previewLoading")}</div>}
     </div>
   );
 }

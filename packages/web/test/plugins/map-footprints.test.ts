@@ -240,7 +240,7 @@ describe("画出来的", () => {
 });
 
 describe("原型的假足迹", () => {
-  test("昨天：三处停留、一条轨迹、几张照片、起了名的三处；四天前两处；别的日子空着、都列着有足迹的两天", () => {
+  test("昨天：三处停留、一条轨迹、几张照片、起了名的三处；四天前两处；六天前八处挤在一起；别的日子空着、都列着有足迹的三天", () => {
     const today = localDate(new Date());
     const yesterday = demoMapDay(shiftMapDate(today, -1));
     const d = footprintDay(yesterday);
@@ -251,6 +251,11 @@ describe("原型的假足迹", () => {
     // 停留的中心、点数按自己的点算得对得上
     for (const s of yesterday.stays) expect(yesterday.points.filter((p) => p.at >= s.from && p.at <= s.to)).toHaveLength(s.points);
     expect(footprintDay(demoMapDay(shiftMapDate(today, -4))).spots).toHaveLength(2);
-    expect(demoMapDay(today)).toMatchObject({ points: [], stays: [], days: [shiftMapDate(today, -1), shiftMapDate(today, -4)] });
+    // 六天前（451 补，看字不互相盖住）：绕西湖走一圈，八处停留、一条轨迹，停留的点数对得上
+    const walk = demoMapDay(shiftMapDate(today, -6));
+    expect(footprintDay(walk).spots.map((s) => s.address)).toEqual(["断桥", "白堤", "平湖秋月", "孤山", "楼外楼", "西泠印社", "湖边咖啡馆", "宝石山"]);
+    expect(trackLines(walk)).toHaveLength(1);
+    for (const s of walk.stays) expect(walk.points.filter((p) => p.at >= s.from && p.at <= s.to)).toHaveLength(s.points);
+    expect(demoMapDay(today)).toMatchObject({ points: [], stays: [], days: [shiftMapDate(today, -1), shiftMapDate(today, -4), shiftMapDate(today, -6)] });
   });
 });

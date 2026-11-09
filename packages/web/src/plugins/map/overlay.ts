@@ -6,10 +6,12 @@
 //   原型量过，等一帧要慢一帧，当场摆和底图同一帧）；
 // - 手势穿透：这一层整块 pointer-events: none，拖、捏、滚轮都落到底图上；只有点能点（出详情）。按住一个点拖时，
 //   这一层把挪了多少转给底图（onPan），不卡住；拖过了就不算点了一下；
-// - 还没报过视野（底图还在加载）时整层藏着。
+// - 还没报过视野（底图还在加载）时整层藏着；
+// - 点旁边的字不互相盖住（451 补，label-place.ts）：每次摆完点排一次（只是拖时用上一次的，每帧最多排一次），挪开了的画引线。
 import { type LatLon, wgsToGcj } from "../../state/index.ts";
 import type { MapSurfaceView } from "./engine.ts";
-import { fillMark } from "./osm-engine.ts";
+import { createLabelPlacer, type PlacedMark } from "./label-place.ts";
+import { fillMark, type MarkParts } from "./osm-engine.ts";
 import type { MapScene } from "./scene.ts";
 import { metersPerPixel, screenPoint } from "./tiles.ts";
 
@@ -50,10 +52,14 @@ export function createMapOverlay(container: HTMLElement, options: MapOverlayOpti
   markPane.className = "map-marks";
   root.append(shapes, markPane);
   container.append(root);
+  // 引线那一层（在点下面）、排字
+  const labels = createLabelPlacer(root);
 
   let scene: MapScene = { marks: [], lines: [], circles: [] };
   let view: MapSurfaceView | undefined;
   const markEls = new Map<string, HTMLButtonElement>();
+  /** 每个点的针和字（排字用） */
+  const markParts = new Map<string, MarkParts>();
 
   const placeShapes = (v: MapSurfaceView) => {
     shapes.setAttribute("width", String(v.width));
@@ -82,13 +88,18 @@ export function createMapOverlay(container: HTMLElement, options: MapOverlayOpti
   };
 
   const placeMarks = (v: MapSurfaceView) => {
+    const placed: PlacedMark[] = [];
     for (const m of scene.marks) {
       const el = markEls.get(m.id);
       if (!el) continue;
       const p = surfacePoint(m, v);
       el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px)`;
       el.hidden = p.x < -200 || p.y < -200 || p.x > v.width + 200 || p.y > v.height + 200;
+      const parts = markParts.get(m.id);
+      // 不取整：只是拖时彼此的相对位置一点不变（排字用上一次的），各自取整会差一像素、每帧都重排
+      placed.push({ id: m.id, kind: m.kind ?? "place", el, pin: parts?.pin, label: parts?.label, x: p.x, y: p.y });
     }
+    labels.update(placed, { left: 0, top: 0, right: v.width, bottom: v.height });
   };
 
   const render = () => {
@@ -148,6 +159,7 @@ export function createMapOverlay(container: HTMLElement, options: MapOverlayOpti
         if (!ids.has(id)) {
           el.remove();
           markEls.delete(id);
+          markParts.delete(id);
         }
       }
       for (const m of next.marks) {
@@ -157,7 +169,7 @@ export function createMapOverlay(container: HTMLElement, options: MapOverlayOpti
           markEls.set(m.id, el);
         }
         el.dataset.kind = m.kind ?? "place";
-        fillMark(el, m.label);
+        markParts.set(m.id, fillMark(el, m.label));
       }
       // 照给的先后叠（后画的在上面；"我现在的位置"放最后）
       markPane.replaceChildren(...next.marks.toSorted((a, b) => Number(a.kind === "me") - Number(b.kind === "me")).map((m) => markEls.get(m.id)!));
@@ -168,8 +180,10 @@ export function createMapOverlay(container: HTMLElement, options: MapOverlayOpti
       render();
     },
     destroy() {
+      labels.destroy();
       root.remove();
       markEls.clear();
+      markParts.clear();
     },
   };
 }

@@ -176,6 +176,26 @@
   white-space: nowrap;
   box-shadow: var(--shadow-btn);
 }
+/*
+ * 字不互相盖住（451 补，plugins/map/label-place.ts）：挤的时候字挪到针旁边别的位置，或者挪开一些（data-moved），
+ * 挪开的从字框边上画一条细线连到点（针尖、圆点中心）。引线那一层压在点下面、线和圈上面（和点那一层同一套坐标）；
+ * 颜色用字的颜色（--text）、半透明：细的灰线，和红色的轨迹、路线分得开，深色时跟着变浅；看得清又不抢眼
+ */
+.map-leaders {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.map-leader {
+  stroke: var(--text);
+  stroke-linecap: round;
+  stroke-opacity: 0.55;
+  stroke-width: 1.25;
+}
 
 /* 盖在地图上的：左上是哪种底图，右上放大缩小，下面一句提示，右下署名 */
 .map-badge,
@@ -214,8 +234,8 @@
 .map-zoom .icon-btn + .icon-btn {
   border-top: 1px solid var(--border);
 }
-/* 藏起二狗画的那一层（右上第三个按钮，眼睛）：点、路线、足迹线、停留圈、照片小点都不画，"当前位置"照旧；地图照样能拖、能点底图 */
-.map-canvas[data-marks="hidden"] :is(.map-line, .map-circle, .map-mark:not([data-kind="me"])) {
+/* 藏起二狗画的那一层（右上第三个按钮，眼睛）：点、路线、足迹线、停留圈、照片小点、字的引线都不画，"当前位置"照旧；地图照样能拖、能点底图 */
+.map-canvas[data-marks="hidden"] :is(.map-line, .map-circle, .map-mark:not([data-kind="me"]), .map-leader:not([data-kind="me"])) {
   visibility: hidden;
 }
 .map-marks-toggle[aria-pressed="true"] {

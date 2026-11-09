@@ -359,6 +359,67 @@ async function openMap(
   await page.locator(".map-canvas:not([data-basemap=loading])").waitFor({ timeout: 5000 });
   return { context, page, errors, outside };
 }
+/** 字框、引线怎么量（在页面里跑；这个文件不带 DOM 的类型，写成字符串）：交回 labelReport 那几样 */
+const LABEL_REPORT = `(scope) => {
+  const canvas = document.querySelector(scope).getBoundingClientRect();
+  const seen = (el) => el.checkVisibility({ visibilityProperty: true });
+  const labels = [...document.querySelectorAll(scope + " .map-mark-label")].filter((l) => {
+    const r = l.getBoundingClientRect();
+    return seen(l) && r.width > 0 && r.right > canvas.left && r.left < canvas.right && r.bottom > canvas.top && r.top < canvas.bottom;
+  });
+  const rects = labels.map((l) => ({ text: l.textContent || "", r: l.getBoundingClientRect() }));
+  const hits = [];
+  for (let i = 0; i < rects.length; i++) {
+    for (let j = i + 1; j < rects.length; j++) {
+      const a = rects[i].r;
+      const b = rects[j].r;
+      if (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom) hits.push(rects[i].text + " × " + rects[j].text);
+    }
+  }
+  const leaders = [...document.querySelectorAll(scope + " .map-leader")].filter(seen);
+  const bad = [];
+  const moved = labels.filter((l) => l.dataset.moved !== undefined);
+  for (const l of moved) {
+    const mark = l.closest(".map-mark");
+    const line = leaders.find((x) => x.getAttribute("data-id") === mark.dataset.id);
+    if (!line) {
+      bad.push(l.textContent + "：没有引线");
+      continue;
+    }
+    const svg = line.ownerSVGElement.getBoundingClientRect();
+    const at = (n) => Number(line.getAttribute(n));
+    const start = { x: svg.left + at("x1"), y: svg.top + at("y1") };
+    const end = { x: svg.left + at("x2"), y: svg.top + at("y2") };
+    // 另一头在点上：点的元素底边正中
+    const m = mark.getBoundingClientRect();
+    if (Math.abs(end.x - (m.left + m.width / 2)) > 1.5 || Math.abs(end.y - m.bottom) > 1.5) bad.push(l.textContent + "：引线没连到点");
+    // 起点在字框的边上
+    const r = l.getBoundingClientRect();
+    const inside = start.x >= r.left - 1.5 && start.x <= r.right + 1.5 && start.y >= r.top - 1.5 && start.y <= r.bottom + 1.5;
+    const onEdge = Math.min(Math.abs(start.x - r.left), Math.abs(start.x - r.right), Math.abs(start.y - r.top), Math.abs(start.y - r.bottom)) <= 1.5;
+    if (!inside || !onEdge) bad.push(l.textContent + "：引线不是从字框边上起的");
+  }
+  return { labels: rects.length, moved: moved.length, leaders: leaders.length, hits, bad };
+}`;
+/**
+ * 地图上点旁边的字（451 补：字不互相盖住）：地图那块里看得见的字框（屏幕坐标）两两相交的、一共几个、挪开了几个（data-moved）、
+ * 看得见的引线几条；挪开了却没有引线的、引线不是从字框边上连到点（针尖、圆点中心）的。scope 是看哪一块（静态大图盖着时看它）
+ */
+async function labelReport(page: Page, scope = ".map-canvas") {
+  return (await page.evaluate(`(${LABEL_REPORT})(${JSON.stringify(scope)})`)) as { labels: number; moved: number; leaders: number; hits: string[]; bad: string[] };
+}
+/** 字排稳了再量（一帧最多排一次：等几帧） */
+async function labelsSettled(page: Page, scope?: string) {
+  await page.evaluate(`new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done))))`);
+  await page.waitForTimeout(150);
+  return labelReport(page, scope);
+}
+/** 演示页六天前那一天（绕西湖走一圈，字很挤）的地址：按页面里的今天算 */
+async function walkDayHash(page: Page): Promise<string> {
+  return (await page.evaluate(
+    `(() => { const d = new Date(); d.setDate(d.getDate() - 6); return "#/more/map/" + [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-"); })()`,
+  )) as string;
+}
 /** 点"回到我现在的位置"，等它取完 */
 async function locate(page: Page, label = "回到我现在的位置") {
   await page.locator(`.map-locate button[aria-label="${label}"]`).click();
@@ -1287,6 +1348,12 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     // 盖着静态图：不放放大缩小、不写底图的名字
     expect(await page.locator(".map-zoom").count()).toBe(0);
     expect(await page.locator(".map-badge").count()).toBe(0);
+    // 静态大图上点旁边写名字（和地图页别的底图一样，451 补），字互相让开：两两不相交
+    await expect.poll(async () => (await labelsSettled(page, ".map-static")).labels, { timeout: 5000 }).toBeGreaterThanOrEqual(4);
+    expect(await page.locator(".map-static .map-mark-label").allInnerTexts()).toContain("Maxwell Food Centre");
+    const labels = await labelsSettled(page, ".map-static");
+    expect(labels.hits).toEqual([]);
+    expect(labels.bad).toEqual([]);
     // Maps Static API 也没开：退回原来那一句（地图照常）
     await page.goto(pageUrl + "?demo-google=unreachable&demo-map-preview=google-off");
     await page.evaluate(`window.location.hash = "#/more/map/card/c-map-hawker"`);
@@ -1480,6 +1547,78 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(outside).toEqual([]);
     expect(errors).toEqual([]);
   }, 60_000);
+  // 地图上的字不互相盖住（451 补，用户 11-09）：演示页六天前绕西湖走了一圈（八处停留，中间五处挨得很近，一路拍照），字很挤——
+  // 照旧在针的右边，挤的挪到针旁边别处或挪开、挪开的从字框边上画一条引线连到点；地图那块里看得见的字框两两不相交。
+  // 高德（盖在上面的那一层）、OpenStreetMap、谷歌（隔离框外面那一层）、手机宽电脑宽、缩小一级以后都这样；「当前位置」的字一起让；
+  // 眼睛钮藏起二狗画的那一层时引线一起藏（「当前位置」的字回到右边）；一个请求都不往外发
+  for (const [name, viewport, choice] of [
+    ["手机宽、高德", { width: 390, height: 844 }, undefined],
+    ["手机宽、OpenStreetMap", { width: 390, height: 844 }, "osm"],
+    ["电脑宽、谷歌", { width: 1280, height: 800 }, "google"],
+  ] as const) {
+    test(`地图上的字不互相盖住${name}：字很挤的一天字框两两不相交、挪开的有引线连到点，缩小一级照样；「当前位置」一起让；眼睛钮藏起来时引线也藏`, async () => {
+      // 只在地图页本身设（init 脚本也进谷歌的隔离框，框里读不了 localStorage）
+      const init = choice === undefined ? undefined : `if (window === window.top) localStorage.setItem("ergo-map-choice", JSON.stringify({ mainland: "${choice}" }))`;
+      const { context, page, errors, outside } = await openMap(viewport, { footprintsOn: true, ...(init ? { init } : {}) });
+      try {
+        await page.evaluate(`window.location.hash = ${JSON.stringify(await walkDayHash(page))}`);
+        const stays = page.locator('.map-mark[data-kind="stay"]');
+        await expect.poll(() => stays.count(), { timeout: 8000 }).toBe(8);
+        await page.locator(`.map-canvas[data-basemap="${choice ?? "amap"}"]`).waitFor({ timeout: 8000 });
+        // 高德、谷歌：字画在盖在底图上面的自己那一层；OpenStreetMap 自己画
+        expect(await page.locator(choice === "osm" ? '[data-engine="osm"] .map-leaders' : ".map-page-overlay .map-leaders").count()).toBe(1);
+        await expect.poll(async () => (await labelsSettled(page)).labels, { timeout: 5000 }).toBeGreaterThanOrEqual(12);
+        const first = await labelsSettled(page);
+        // 手机宽一打开就挤（有挪开的）；电脑宽地方大，挪到针旁边就够了
+        expect(viewport.width >= 600 || first.moved > 0).toBe(true);
+        expect(first.hits).toEqual([]);
+        expect(first.bad).toEqual([]);
+        expect(first.leaders).toBe(first.moved);
+        // 不挤的照旧在右边、不画线：最东边的断桥离别的远
+        const bridge = page.locator('.map-mark[data-kind="stay"]').filter({ hasText: "断桥" }).locator(".map-mark-label");
+        expect(await bridge.getAttribute("data-moved")).toBeNull();
+        expect(await bridge.evaluate((l) => l.style.transform)).toBe("");
+        // 缩小一级：更挤了，重排后照样不相交
+        await page.locator('.map-zoom button[aria-label="缩小"]').click();
+        await expect.poll(async () => (await labelsSettled(page)).moved, { timeout: 5000 }).toBeGreaterThan(first.moved);
+        const out = await labelsSettled(page);
+        expect(out.hits).toEqual([]);
+        expect(out.bad).toEqual([]);
+        expect(out.leaders).toBe(out.moved);
+        // 眼睛钮：二狗画的连同引线都藏起来；再点又出来，引线也回来
+        expect(out.leaders).toBeGreaterThan(0);
+        await page.locator(".map-marks-toggle").click();
+        await expect.poll(async () => (await labelsSettled(page)).leaders, { timeout: 5000 }).toBe(0);
+        expect((await labelsSettled(page)).labels).toBe(0);
+        await page.locator(".map-marks-toggle").click();
+        await expect.poll(async () => (await labelsSettled(page)).leaders, { timeout: 5000 }).toBeGreaterThan(0);
+        const back = await labelsSettled(page);
+        expect(back.hits).toEqual([]);
+        expect(back.leaders).toBe(back.moved);
+        // 「当前位置」（浏览器没给权限，用手机 12 分钟前交来的点，西湖边、旁边写"手机 · 几点"）的字一起让
+        await locate(page);
+        const me = page.locator('.map-mark[data-kind="me"] .map-mark-label');
+        expect(await me.innerText()).toMatch(/^手机 · \d\d:\d\d$/);
+        await expect.poll(async () => (await labelsSettled(page)).labels, { timeout: 5000 }).toBeGreaterThan(1);
+        const withMe = await labelsSettled(page);
+        expect(withMe.hits).toEqual([]);
+        expect(withMe.bad).toEqual([]);
+        expect(withMe.leaders).toBe(withMe.moved);
+        // 藏起来时只剩「当前位置」：它的字回到右边、没有引线
+        await page.locator(".map-marks-toggle").click();
+        await expect.poll(async () => (await labelsSettled(page)).labels, { timeout: 5000 }).toBe(1);
+        expect((await labelsSettled(page)).leaders).toBe(0);
+        expect(await me.isVisible()).toBe(true);
+        await expect.poll(() => me.evaluate((l) => l.style.transform), { timeout: 5000 }).toBe("");
+        expect(await me.getAttribute("data-moved")).toBeNull();
+      } finally {
+        await context.close();
+      }
+      expect(outside).toEqual([]);
+      expect(errors).toEqual([]);
+    }, 60_000);
+  }
+
   test("回到我现在的位置电脑宽：开着足迹（选了 OpenStreetMap、左边列这一天），挪过去时让开左边那一栏；深色下钮、蓝点照样在", async () => {
     const { context, page, errors, outside } = await openMap({ width: 1280, height: 800 }, { geo: WEST_LAKE, init: `localStorage.setItem("ergo-theme", "dark"); localStorage.setItem("ergo-map-choice", JSON.stringify({ mainland: "osm" }))`, footprintsOn: true });
     try {

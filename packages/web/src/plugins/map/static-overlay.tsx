@@ -7,9 +7,12 @@
 //   东西落进去的被裁掉（守护进程看全时下面也留了这么多边，一般落不进去）；
 // - 点带序号（numberedMarks）：主要的那一种按先后写 1、2、3……（足迹是停留、查到的是搜到的、别的是地点），没有上限；
 //   "现在在哪"、照片、没去的常去地方只画点不写号；点旁边的字不写（名字写在卡片下面那一行），样子和地图页的点一样（map.css）。
+// - 点开卡片时地图页那张静态大图（labels）：点旁边写名字（和地图页别的底图一样），字互相让开、挪开的画引线（451 补，label-place.ts）；
+//   卡片上的缩略图照旧不写字。
 // 整块不能点（卡片上那一层"看大地图"盖在上面）。
-import { type CSSProperties, useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { type LatLon, type MapPreviewView, wgsToGcj } from "../../state/index.ts";
+import { createLabelPlacer, type LabelPlacer, type PlacedMark } from "./label-place.ts";
 import type { MapMark, MapScene } from "./scene.ts";
 import { metersPerPixel, screenPoint } from "./tiles.ts";
 
@@ -40,8 +43,41 @@ export function numberedMarks(marks: readonly MapMark[]): Map<string, number> {
   return out;
 }
 
-/** 图上那一层：盒子是装着图的那一块（量出来的宽高） */
-export function StaticOverlay({ scene, view, box }: { scene: MapScene; view: MapPreviewView; box: { width: number; height: number } }) {
+/**
+ * 图上那一层：盒子是装着图的那一块（量出来的宽高）；labels 时点旁边写名字、字互相让开（地图页的静态大图，卡片上不写）
+ */
+export function StaticOverlay({ scene, view, box, labels = false }: { scene: MapScene; view: MapPreviewView; box: { width: number; height: number }; labels?: boolean }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const placerRef = useRef<{ host: HTMLElement; placer: LabelPlacer } | undefined>(undefined);
+  // 排字：画出来以后量字、排、画引线（这一层不动：图、盒子、画的东西变了才重排）
+  useLayoutEffect(() => {
+    const host = rootRef.current;
+    if (!labels || !host) return;
+    if (placerRef.current?.host !== host) {
+      placerRef.current?.placer.destroy();
+      placerRef.current = { host, placer: createLabelPlacer(host) };
+    }
+    const fit = coverFit(box, view);
+    const els = new Map([...host.querySelectorAll<HTMLElement>(".map-marks > .map-mark")].map((el) => [el.dataset.id ?? "", el]));
+    const placed: PlacedMark[] = [];
+    for (const m of scene.marks) {
+      const el = els.get(m.id);
+      if (!el) continue;
+      const q = previewPoint(m, view);
+      placed.push({ id: m.id, kind: m.kind ?? "place", el, pin: el.querySelector<HTMLElement>(".map-pin") ?? undefined, label: el.querySelector<HTMLElement>(".map-mark-label") ?? undefined, x: Math.round(q.x * fit.scale), y: Math.round(q.y * fit.scale) });
+    }
+    const width = view.width * fit.scale;
+    const height = Math.max(0, (view.height - LOGO_BAND) * fit.scale);
+    // 出了这一层的字被裁掉（看得见的那一块：盒子里、标志那一条上面）
+    placerRef.current.placer.update(placed, { left: Math.max(0, -fit.left), top: Math.max(0, -fit.top), right: Math.min(width, box.width - fit.left), bottom: Math.min(height, box.height - fit.top) });
+  }, [labels, scene, view, box]);
+  useEffect(
+    () => () => {
+      placerRef.current?.placer.destroy();
+      placerRef.current = undefined;
+    },
+    [],
+  );
   if (box.width <= 0 || box.height <= 0) return null;
   const fit = coverFit(box, view);
   const width = view.width * fit.scale;
@@ -53,7 +89,7 @@ export function StaticOverlay({ scene, view, box }: { scene: MapScene; view: Map
   const numbers = numberedMarks(scene.marks);
   const style: CSSProperties = { left: `${fit.left}px`, top: `${fit.top}px`, width: `${width}px`, height: `${height}px` };
   return (
-    <div className="map-overlay map-static-overlay" style={style} aria-hidden="true" data-zoom={view.zoom}>
+    <div className="map-overlay map-static-overlay" ref={rootRef} style={style} aria-hidden="true" data-zoom={view.zoom}>
       <svg className="map-shapes" width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
         {scene.circles.map((c) => {
           const p = at(c);
@@ -83,6 +119,7 @@ export function StaticOverlay({ scene, view, box }: { scene: MapScene; view: Map
             <span key={m.id} className="map-mark" data-id={m.id} data-kind={m.kind ?? "place"} data-n={n} style={{ transform: `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px)` }}>
               <span className="map-pin" />
               {n !== undefined && <span className="map-mark-num">{n}</span>}
+              {labels && m.label && <span className="map-mark-label">{m.label}</span>}
             </span>
           );
         })}
@@ -93,9 +130,9 @@ export function StaticOverlay({ scene, view, box }: { scene: MapScene; view: Map
 
 /**
  * 一张静态预览图加上面自己画的那一层（卡片、地图页的静态大图都用）：图铺满盒子（object-fit: cover），量盒子的大小（会变：转屏、拖窗口），
- * 那一层照着摆。view 没有（旧守护进程：图里自己带着点）就只放图
+ * 那一层照着摆。view 没有（旧守护进程：图里自己带着点）就只放图。labels：点旁边写名字（地图页的静态大图）
  */
-export function StaticPreview({ url, view, scene, alt, imgClass }: { url: string; view: MapPreviewView | undefined; scene: MapScene | undefined; alt: string; imgClass?: string | undefined }) {
+export function StaticPreview({ url, view, scene, alt, imgClass, labels = false }: { url: string; view: MapPreviewView | undefined; scene: MapScene | undefined; alt: string; imgClass?: string | undefined; labels?: boolean }) {
   const [el, setEl] = useState<HTMLDivElement | null>(null);
   const [box, setBox] = useState({ width: 0, height: 0 });
   useEffect(() => {
@@ -110,7 +147,7 @@ export function StaticPreview({ url, view, scene, alt, imgClass }: { url: string
   return (
     <div className="map-preview" ref={setEl} data-overlay={view !== undefined && scene !== undefined ? "" : undefined}>
       <img className={imgClass} src={url} alt={alt} />
-      {view !== undefined && scene !== undefined && <StaticOverlay scene={scene} view={view} box={box} />}
+      {view !== undefined && scene !== undefined && <StaticOverlay scene={scene} view={view} box={box} labels={labels} />}
     </div>
   );
 }
