@@ -214,6 +214,12 @@ function runBridge(win: FakeWin, config: GoogleBridgeConfig = CONFIG, asString =
   return { out, container, send: (m: Record<string, unknown> & { type: string }) => handlers.forEach((fn) => fn(m)), types: () => out.map((m) => m.type) };
 }
 const flush = () => new Promise((r) => setTimeout(r, 0));
+/** Web 墨卡托：第 z 级的世界像素（256 一张瓦片） */
+function world(p: { lat: number; lng: number }, z: number) {
+  const size = 256 * 2 ** z;
+  const s = Math.sin((p.lat * Math.PI) / 180);
+  return { x: ((p.lng + 180) / 360) * size, y: (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * size };
+}
 
 describe("谷歌的小桥（453：框里跑的那一段）", () => {
   test("自成一体：整段转成字符串、在只有 env、config 的地方照样跑（框里就是这样）；假谷歌、演示瓦片那两段也一样", async () => {
@@ -231,10 +237,15 @@ describe("谷歌的小桥（453：框里跑的那一段）", () => {
     const FakeMap = (await fake.importLibrary("maps")).Map;
     const el = other.doc.createElement("div");
     expect(new FakeMap(el, { center: { lat: 1.28, lng: 103.86 }, zoom: 15 })).toBeDefined();
-    const tiles = el.children[0]!.children;
+    // 458：瓦片和覆盖物那一层在同一块上（捏合时整块拉伸）；瓦片上写着 z/x/y
+    const [pane, logo] = el.children;
+    const tiles = pane!.children[0]!.children;
     expect(tiles.length).toBeGreaterThan(0);
     expect(tiles[0]!.src).toMatch(/^data:image\/svg\+xml/);
-    expect(el.children[1]!.textContent).toBe("Google");
+    expect(tiles[0]!.dataset.tile).toMatch(/^15\/\d+\/\d+$/);
+    expect(logo!.textContent).toBe("Google");
+    // 也有 OverlayView（小桥放探针用）
+    expect(typeof ((await fake.importLibrary("maps")) as { OverlayView?: unknown }).OverlayView).toBe("function");
   });
 
   test("没有谷歌时照官方加载法加脚本：版本写死、Key、语言、回调 google.maps.__ib__；好了以后 importLibrary(\"maps\")，建一张只有底图的地图", async () => {
@@ -297,6 +308,112 @@ describe("谷歌的小桥（453：框里跑的那一段）", () => {
     const failing = runBridge(other.win);
     await flush();
     expect(failing.out).toEqual([{ type: "failed", reason: "连不上谷歌", auth: false }]);
+  });
+
+  // 458：谷歌的栅格地图捏合、回弹、惯性、双击时画面整块变换，getZoom/getCenter 不跟；小桥在覆盖物那一层放两个探针，
+  // 照它们在屏幕上的位置报"画面此刻等于哪个中心、哪一级"
+  test("探针：画面整块拉伸、平移时（谷歌说的级别、中心没变）报的是画面此刻的中心和级别（带小数）；谷歌换了级别、画面不动时报的也不动；探针量歪了退回谷歌说的；停下来 moveend 照旧报谷歌说的", async () => {
+    const { win } = fakeDom();
+    const { lib, seen } = fakeLibrary();
+    // 画面在模型之上的变换（屏幕 = s · 覆盖物那一层的像素 + t），测试来拧
+    const visual = { s: 1, tx: 0, ty: 0 };
+    const make = win.document.createElement;
+    const layer = make("div");
+    const rectOf = (el: FakeEl) => {
+      const left = Number.parseFloat(el.style.left ?? "") || 0;
+      const top = Number.parseFloat(el.style.top ?? "") || 0;
+      return el.parent === layer ? { left: visual.s * left + visual.tx, top: visual.s * top + visual.ty } : { left: 0, top: 0 };
+    };
+    win.document.createElement = (tag: string) => Object.assign(make(tag), { isConnected: true, getBoundingClientRect(this: FakeEl) { return rectOf(this); } });
+    // 谷歌的投影（覆盖物那一层的像素：600×400 的框，这一份中心、级别下相对左上角）
+    const divPixel = (p: { lat: number; lng: number }) => {
+      const a = world(p, seen.zoom);
+      const c = world(seen.center, seen.zoom);
+      return { x: 300 + a.x - c.x, y: 200 + a.y - c.y };
+    };
+    const overlays: Array<{ draw?: () => void; onRemove?: () => void }> = [];
+    class OverlayView {
+      onAdd?: () => void;
+      draw?: () => void;
+      onRemove?: () => void;
+      setMap(m: unknown) {
+        if (!m) return this.onRemove?.();
+        overlays.push(this);
+        queueMicrotask(() => {
+          this.onAdd?.();
+          this.draw?.();
+        });
+      }
+      getPanes() {
+        return { overlayLayer: layer };
+      }
+      getProjection() {
+        return { fromLatLngToDivPixel: divPixel };
+      }
+    }
+    win.google = { maps: { importLibrary: () => Promise.resolve({ ...lib, OverlayView }) } };
+    const bridge = runBridge(win);
+    await flush();
+    // 探针放好了：两个看不见的空 div 在覆盖物那一层里，钉在这一屏中心左上、右下四分之一处
+    expect(layer.children).toHaveLength(2);
+    expect(layer.children.map((p) => [p.style.left, p.style.top])).toEqual([
+      ["150px", "100px"],
+      ["450px", "300px"],
+    ]);
+    const lastSurface = () => bridge.out.filter((m) => m.type === "surface").at(-1) as { lat: number; lng: number; zoom: number };
+    const poke = () => {
+      for (const fn of bridge.container.listeners.touchmove ?? []) fn({});
+    };
+    /** 照报的视野，一个经纬度在屏幕上的位置 */
+    const onScreen = (v: { lat: number; lng: number; zoom: number }, p: { lat: number; lng: number }) => {
+      const a = world(p, v.zoom);
+      const c = world(v, v.zoom);
+      return { x: 300 + a.x - c.x, y: 200 + a.y - c.y };
+    };
+    // 一个和探针无关的点（模型的像素 (100, 320)），它在屏幕上此刻该在 visual 变换后的地方
+    const c15 = world(seen.center, 15);
+    const size15 = 256 * 2 ** 15;
+    const n = Math.PI - (2 * Math.PI * (c15.y + 120)) / size15;
+    const spot = { lat: (180 / Math.PI) * Math.atan(Math.sinh(n)), lng: ((c15.x - 200) / size15) * 360 - 180 };
+    const expectOn = (want: { x: number; y: number }) => {
+      const got = onScreen(lastSurface(), spot);
+      expect(Math.abs(got.x - want.x)).toBeLessThan(1e-3);
+      expect(Math.abs(got.y - want.y)).toBeLessThan(1e-3);
+    };
+    poke();
+    expect(lastSurface().zoom).toBeCloseTo(15, 9);
+    expectOn({ x: 100, y: 320 });
+    // 捏合放大 1.5 倍（围着 (450, 250)）、手指再往左上挪 (-30, -20)：谷歌说的还是 15 级，画面已经是 15.58 级
+    Object.assign(visual, { s: 1.5, tx: 450 * (1 - 1.5) - 30, ty: 250 * (1 - 1.5) - 20 });
+    poke();
+    expect(seen.zoom).toBe(15);
+    expect(lastSurface().zoom).toBeCloseTo(15 + Math.log2(1.5), 9);
+    expectOn({ x: 1.5 * 100 + visual.tx, y: 1.5 * 320 + visual.ty });
+    // 捏到一半谷歌换到 16 级（中心不变）、拉伸折回 0.75 倍、重摆覆盖物：画面没动，报的也没动
+    const before = lastSurface();
+    seen.zoom = 16;
+    // 同一画面：屏幕 = 1.5·p15 + t15，p16 = 2·(p15 − 中心) + 中心 → 屏幕 = 0.75·p16 + (t15 + 1.5·中心 − 0.75·中心)
+    const t15 = { x: 450 * (1 - 1.5) - 30, y: 250 * (1 - 1.5) - 20 };
+    Object.assign(visual, { s: 0.75, tx: t15.x + 0.75 * 300, ty: t15.y + 0.75 * 200 });
+    for (const o of overlays) o.draw?.();
+    poke();
+    expect(lastSurface().zoom).toBeCloseTo(before.zoom, 9);
+    expectOn({ x: 1.5 * 100 + t15.x, y: 1.5 * 320 + t15.y });
+    // 探针量歪了（画面看着转了）：退回谷歌说的
+    const saved = layer.children[1]!.style.left ?? "";
+    layer.children[1]!.style.left = "-900px";
+    poke();
+    expect(lastSurface().zoom).toBe(16);
+    layer.children[1]!.style.left = saved;
+    // 停下来：谷歌说的和画面一致了；moveend 报谷歌说的，探针重新钉在这一屏上
+    Object.assign(visual, { s: 1, tx: 0, ty: 0 });
+    for (const l of seen.listeners.filter((x) => x.event === "idle")) l.fn();
+    expect(bridge.out.findLast((m) => m.type === "moveend")).toEqual({ type: "moveend", lat: seen.center.lat, lng: seen.center.lng, zoom: 16 });
+    expect(layer.children.map((p) => [p.style.left, p.style.top])).toEqual([
+      ["150px", "100px"],
+      ["450px", "300px"],
+    ]);
+    expect(lastSurface().zoom).toBeCloseTo(16, 9);
   });
 });
 

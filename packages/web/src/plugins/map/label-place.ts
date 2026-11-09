@@ -8,6 +8,9 @@
 // - 字尽量不出这一块（clip：地图那块、静态图看得见的那一块），出了边看不见；
 // - 每帧最多排一次：同一份（哪几个、彼此的相对位置、字框大小都没变，这一块的边挪了不到 BOUNDS_STEP——只是拖了一点）
 //   直接用上一次的；变了而这一帧已经排过，留到下一帧；
+// - 缩放的途中不排（458）：还是那几个点、字框大小没变，只是彼此的相对位置变了（捏合、滚轮、回弹、双击放大的动画里每一帧都这样）——
+//   字照上一次排的位置跟着点走（字是点的子元素，引线照点重画），停下来 ZOOM_SETTLE_MS 没再变才排一次。手机上几十个字一帧排一次要好几毫秒，
+//   捏合时每帧都排会掉帧；缩放途中字可能暂时挨着，停下来就让开；
 // - 摆：字用 transform 从照旧的位置挪过去（回到照旧就清掉），挪开了的标 data-moved，在引线那一层（.map-leaders，压在点下面、
 //   线和圈上面）画一条细线从字框边上连到点（针尖、圆点中心）。线的 data-kind 跟着点：眼睛钮藏起来时「当前位置」那条照旧。
 import { type LabelBox, type LabelPlacement, layoutLabels, type PinBox, type Rect } from "./label-layout.ts";
@@ -15,6 +18,8 @@ import { type LabelBox, type LabelPlacement, layoutLabels, type PinBox, type Rec
 const SVG_NS = "http://www.w3.org/2000/svg";
 /** 拖的时候这一块的边（相对点）挪了这么多（像素）才重排：靠边的字该换边时换，不用每一帧都排 */
 const BOUNDS_STEP = 16;
+/** 缩放停下来多久（毫秒）没再变才重排（458：缩放途中字跟着点走，不每帧排） */
+export const ZOOM_SETTLE_MS = 100;
 
 /** 先排谁（大的先）：停留、搜到的、查路线的那一头 > 地点 > 「当前位置」 > 照片的时间 */
 const RANK: Readonly<Record<string, number>> = { stay: 4, search: 4, here: 4, place: 3, me: 2, photo: 1 };
@@ -81,6 +86,12 @@ export function createLabelPlacer(host: HTMLElement): LabelPlacer {
   /** 上一次各自排在哪 */
   let placements = new Map<string, LabelPlacement>();
   let lastKey = "";
+  /** 上一次排的时候：哪几个字、多大；彼此的相对位置（缩放途中不排时，拿它看是不是只是在缩放） */
+  let lastStructure = "";
+  let lastShape = "";
+  /** 缩放停下来以后排的那一次（到点了：这一次不再当"缩放途中"跳过） */
+  let settleNow = false;
+  let settleTimer: ReturnType<typeof setTimeout> | undefined;
   let latest: { marks: readonly PlacedMark[]; clip: Rect | undefined } = { marks: [], clip: undefined };
   let frame = 0;
   /** 这一帧已经排过一次了 */
@@ -194,19 +205,31 @@ export function createLabelPlacer(host: HTMLElement): LabelPlacer {
     }
     const x0 = shown[0]?.m.x ?? 0;
     const y0 = shown[0]?.m.y ?? 0;
-    // 这一份长什么样：只是拖（相对位置没变）就和上一次一样
-    const key = [
-      hiddenMode ? "h" : "s",
-      clip ? [clip.left - x0, clip.top - y0, clip.right - x0, clip.bottom - y0].map((n) => Math.round(n / BOUNDS_STEP)).join(",") : "",
-      ...shown.map(({ m, size }) => `${m.id}:${(m.x - x0).toFixed(1)},${(m.y - y0).toFixed(1)}:${size.label ? `${size.label.width}x${size.label.height}` : "-"}`),
-    ].join("|");
+    // 这一份长什么样：哪几个字、多大（structure），彼此的相对位置（shape），这一块的边相对点在哪（只是拖时只有它在变）
+    const structure = [hiddenMode ? "h" : "s", ...shown.map(({ m, size }) => `${m.id}:${size.label ? `${size.label.width}x${size.label.height}` : "-"}`)].join("|");
+    const shape = shown.map(({ m }) => `${(m.x - x0).toFixed(1)},${(m.y - y0).toFixed(1)}`).join("|");
+    const bounds = clip ? [clip.left - x0, clip.top - y0, clip.right - x0, clip.bottom - y0].map((n) => Math.round(n / BOUNDS_STEP)).join(",") : "";
+    const key = `${structure}#${shape}#${bounds}`;
     if (key !== lastKey) {
-      if (busy && raf) {
+      if (!settleNow && placements.size > 0 && structure === lastStructure && shape !== lastShape) {
+        // 缩放的途中（458）：字照上一次排的跟着点走，停下来再排
+        clearTimeout(settleTimer);
+        settleTimer = setTimeout(() => {
+          settleTimer = undefined;
+          settleNow = true;
+          run();
+        }, ZOOM_SETTLE_MS);
+      } else if (busy && raf) {
         // 这一帧排过了：留到下一帧
         dirty = true;
         tick();
       } else {
         lastKey = key;
+        lastStructure = structure;
+        lastShape = shape;
+        settleNow = false;
+        clearTimeout(settleTimer);
+        settleTimer = undefined;
         busy = raf !== undefined;
         tick();
         const labels: LabelBox[] = [];
@@ -261,6 +284,7 @@ export function createLabelPlacer(host: HTMLElement): LabelPlacer {
     },
     destroy() {
       destroyed = true;
+      clearTimeout(settleTimer);
       if (frame !== 0) win?.cancelAnimationFrame(frame);
       sizes?.disconnect();
       observed.clear();

@@ -9,6 +9,13 @@
 // 框里已经有 google.maps.importLibrary（演示页、测试先装好的假谷歌，demo-google.ts）就直接用它，不加载脚本。
 // 谷歌说 Key 不对（gm_authFailure）、加载不上、等太久：报 failed（只报一次），外层退回下一家。
 // 坐标：进出都是谷歌自己的坐标（大陆里 GCJ-02），外层转。
+// 探针（458）：谷歌的普通（栅格）地图在双指捏合、松手后的回弹、惯性滑动、双击放大的动画里，画面是整块拉伸、平移过去的（CSS 变换），
+// getZoom()/getCenter() 要么还是旧的、要么一下就跳到终点，停下来才和画面一致——照它报，外层那一层就一路漂、停下才对齐（458 量过：
+// 捏合差到 80 像素，惯性 150）。谷歌变换画面时覆盖物那一层（OverlayView 的 overlayLayer）跟着一起变，所以在那一层放两个看不见的空 div，
+// 钉在两个固定的经纬度上（停下来时这一屏中心左上、右下各四分之一处，跟着视野换；**和足迹、地点无关**——框里照旧拿不到二狗的数据），
+// 每一帧读它们在屏幕上的位置：两点之间的距离给出画面此刻的级别（带小数），其中一点给出此刻的中心。报出去的 surface 就是"画面此刻
+// 等于哪个中心、哪一级"，外层照它投影，和平时一样。探针还没放好（谷歌还没给投影）、量出来不对劲（两点方向和世界里的不一样：
+// 跨了 180 度经线、到了两极）时照旧报 getCenter/getZoom。停下来报的 moveend 照旧用 getCenter/getZoom（那时两者一致）。
 
 /** 框里的环境（map-frame.html 给的；不进框时 google-engine.ts 给的） */
 export interface GoogleBridgeEnv {
@@ -43,6 +50,7 @@ export interface GoogleBridgeConfig {
 /** 跑起来；交回拆掉的函数（不进框时用；框里拆框就行） */
 export function googleBridge(env: GoogleBridgeEnv, config: GoogleBridgeConfig): () => void {
   type LatLngFn = { lat(): number; lng(): number };
+  type LatLng = { lat: number; lng: number };
   type Listener = { remove(): void };
   type GMap = {
     getCenter(): LatLngFn | undefined;
@@ -51,7 +59,16 @@ export function googleBridge(env: GoogleBridgeEnv, config: GoogleBridgeConfig): 
     setZoom(z: number): void;
     addListener(event: string, fn: () => void): Listener;
   };
-  type GLib = { Map: new (el: HTMLElement, options: Record<string, unknown>) => GMap };
+  /** 谷歌的覆盖物（只用来放探针）：谷歌在 setMap 后叫 onAdd、每次投影变了叫 draw，拿掉时叫 onRemove */
+  type GOverlay = {
+    setMap(m: GMap | null): void;
+    getPanes(): { overlayLayer?: HTMLElement } | null | undefined;
+    getProjection(): { fromLatLngToDivPixel(p: LatLng): { x: number; y: number } | null } | null | undefined;
+    onAdd?: () => void;
+    draw?: () => void;
+    onRemove?: () => void;
+  };
+  type GLib = { Map: new (el: HTMLElement, options: Record<string, unknown>) => GMap; OverlayView?: new () => GOverlay };
   type GMaps = { importLibrary?: (name: string) => Promise<unknown>; [k: string]: unknown };
   const win = env.win as Window & typeof globalThis & { google?: { maps?: GMaps }; gm_authFailure?: () => void };
   const doc = win.document;
@@ -74,10 +91,20 @@ export function googleBridge(env: GoogleBridgeEnv, config: GoogleBridgeConfig): 
   // 谷歌说 Key 不对时叫的全局函数（谷歌文档写的办法）
   win.gm_authFailure = () => fail(config.authFailed, true);
 
-  // ---- 此刻画着哪一片：动着的时候每一帧报，停下来二十帧没变就歇着 ----
-  let last = "";
-  let frame = 0;
-  let still = 0;
+  // ---- Web 墨卡托：第 0 级的世界像素（256 一张瓦片）；整段要转成字符串交给框，只能写在里面 ----
+  const MAX_LAT = 85.05112878;
+  // oxlint-disable-next-line unicorn/consistent-function-scoping
+  const toWorld = (p: LatLng) => {
+    const s = Math.sin((Math.max(-MAX_LAT, Math.min(MAX_LAT, p.lat)) * Math.PI) / 180);
+    return { x: ((p.lng + 180) / 360) * 256, y: (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * 256 };
+  };
+  // oxlint-disable-next-line unicorn/consistent-function-scoping
+  const fromWorld = (x: number, y: number): LatLng => {
+    const n = Math.PI - (2 * Math.PI * y) / 256;
+    return { lat: (180 / Math.PI) * Math.atan(Math.sinh(n)), lng: (x / 256) * 360 - 180 };
+  };
+
+  // ---- 谷歌说的视野（getCenter/getZoom）：停着的时候就是画面；动画、捏合的途中不是 ----
   const read = () => {
     if (!map) return undefined;
     const c = map.getCenter();
@@ -85,9 +112,92 @@ export function googleBridge(env: GoogleBridgeEnv, config: GoogleBridgeConfig): 
     if (!c || z === undefined) return undefined;
     return { lat: c.lat(), lng: c.lng(), zoom: z, width: env.container.clientWidth, height: env.container.clientHeight };
   };
-  const check = () => {
+
+  // ---- 探针（458）：覆盖物那一层里两个看不见的空 div，钉在两个固定的经纬度上，跟着画面一起变换 ----
+  const probes: [HTMLElement, HTMLElement] = [doc.createElement("div"), doc.createElement("div")];
+  for (const p of probes) {
+    p.style.position = "absolute";
+    p.style.width = "0";
+    p.style.height = "0";
+    p.style.pointerEvents = "none";
+  }
+  let probe: GOverlay | undefined;
+  let anchors: LatLng[] | undefined;
+  /** 照谷歌此刻的投影把探针摆到钉着的经纬度上（谷歌在投影变了时叫 draw） */
+  const placeProbes = () => {
+    const projection = probe?.getProjection();
+    if (!projection || !anchors) return;
+    anchors.forEach((a, i) => {
+      const px = projection.fromLatLngToDivPixel(a);
+      if (!px) return;
+      probes[i]!.style.left = `${px.x}px`;
+      probes[i]!.style.top = `${px.y}px`;
+    });
+  };
+  /** 重新钉（停下来时）：这一屏中心往左上、右下各四分之一屏处；出了世界的范围（跨 180 度经线、两极）就不钉，照旧报谷歌说的 */
+  const anchor = () => {
     const v = read();
     if (!v || v.width <= 0 || v.height <= 0) return;
+    const scale = 2 ** v.zoom;
+    const c = toWorld(v);
+    const dx = v.width / 4 / scale;
+    const dy = v.height / 4 / scale;
+    const corners = [
+      [c.x - dx, c.y - dy],
+      [c.x + dx, c.y + dy],
+    ] as const;
+    anchors = corners.every(([x, y]) => x > 0 && x < 256 && y > 0 && y < 256) ? corners.map(([x, y]) => fromWorld(x, y)) : undefined;
+    placeProbes();
+  };
+  /** 给这张地图放探针（谷歌的库里有 OverlayView 时；测试的假库没有就不放） */
+  const addProbe = (m: GMap) => {
+    probe?.setMap(null);
+    probe = undefined;
+    anchors = undefined;
+    const Overlay = lib?.OverlayView;
+    if (typeof Overlay !== "function") return;
+    const o = new Overlay();
+    o.onAdd = () => {
+      o.getPanes()?.overlayLayer?.append(...probes);
+      anchor();
+    };
+    o.draw = placeProbes;
+    o.onRemove = () => {
+      for (const p of probes) p.remove();
+    };
+    o.setMap(m);
+    probe = o;
+  };
+  /** 画面此刻等于哪个中心、哪一级：读两个探针在屏幕上的位置换算；量不了、不对劲时 undefined */
+  const live = (width: number, height: number) => {
+    const [a, b] = probes;
+    if (!anchors || !a.isConnected || !b.isConnected || typeof a.getBoundingClientRect !== "function") return undefined;
+    const box = env.container.getBoundingClientRect();
+    const ra = a.getBoundingClientRect();
+    const rb = b.getBoundingClientRect();
+    const s0 = { x: ra.left - box.left, y: ra.top - box.top };
+    const s1 = { x: rb.left - box.left, y: rb.top - box.top };
+    const w0 = toWorld(anchors[0]!);
+    const w1 = toWorld(anchors[1]!);
+    const dw = Math.hypot(w1.x - w0.x, w1.y - w0.y);
+    const ds = Math.hypot(s1.x - s0.x, s1.y - s0.y);
+    if (!(dw > 0) || !(ds > 4) || !Number.isFinite(ds)) return undefined;
+    // 画面不转不斜：屏幕上两点的方向要和世界里的一样，不一样就是量歪了
+    const cos = ((w1.x - w0.x) * (s1.x - s0.x) + (w1.y - w0.y) * (s1.y - s0.y)) / (dw * ds);
+    if (!(cos > 0.999)) return undefined;
+    const scale = ds / dw;
+    const c = fromWorld(w0.x + (width / 2 - s0.x) / scale, w0.y + (height / 2 - s0.y) / scale);
+    return { lat: c.lat, lng: c.lng, zoom: Math.log2(scale), width, height };
+  };
+
+  // ---- 此刻画着哪一片：动着的时候每一帧报，停下来二十帧没变就歇着 ----
+  let last = "";
+  let frame = 0;
+  let still = 0;
+  const check = () => {
+    const said = read();
+    if (!said || said.width <= 0 || said.height <= 0) return;
+    const v = live(said.width, said.height) ?? said;
     const key = `${v.lat}|${v.lng}|${v.zoom}|${v.width}|${v.height}`;
     if (key === last) {
       still += 1;
@@ -111,10 +221,15 @@ export function googleBridge(env: GoogleBridgeEnv, config: GoogleBridgeConfig): 
     check();
     if (frame === 0) frame = win.requestAnimationFrame(tick);
   };
-  const inputs = ["pointerdown", "pointermove", "wheel", "touchstart", "touchmove"];
+  // 手指、鼠标一动就叫醒；松手也叫（458：松手后谷歌还要回弹、惯性滑、双击放大，那一段画面还在动）
+  const inputs = ["pointerdown", "pointermove", "pointerup", "pointercancel", "wheel", "touchstart", "touchmove", "touchend", "touchcancel", "dblclick"];
   for (const e of inputs) env.container.addEventListener(e, poke, { capture: true, passive: true });
   const resize = typeof win.ResizeObserver === "function" ? new win.ResizeObserver(poke) : undefined;
   resize?.observe(env.container);
+  // 谷歌每改一次画面的变换（它自己的动画帧里改 style）就当场再读一次（458）：只靠我们自己的动画帧，读的时候谷歌这一帧可能还没挪，
+  // 报出去的就慢一帧（回弹、惯性、双击的动画里差 4～17 像素，量过）。停着的时候谷歌不改样式，这里也不动
+  const moves = typeof win.MutationObserver === "function" ? new win.MutationObserver(poke) : undefined;
+  moves?.observe(env.container, { attributes: true, attributeFilter: ["style"], subtree: true });
 
   // ---- 建一张谷歌地图（第一次、换深浅色时：colorScheme 只能建的时候定） ----
   const build = () => {
@@ -140,10 +255,14 @@ export function googleBridge(env: GoogleBridgeEnv, config: GoogleBridgeConfig): 
     });
     env.post({ type: "loaded" });
     const m = map;
+    addProbe(m);
     listeners.push(
       m.addListener("idle", () => {
         const v = read();
         if (v) env.post({ type: "moveend", lat: v.lat, lng: v.lng, zoom: v.zoom });
+        // 停下来了：探针重新钉在这一屏上（下一次捏合、滑动从这里量起）
+        anchor();
+        poke();
       }),
     );
     for (const e of ["bounds_changed", "center_changed", "zoom_changed"]) listeners.push(m.addListener(e, poke));
@@ -211,13 +330,9 @@ export function googleBridge(env: GoogleBridgeEnv, config: GoogleBridgeConfig): 
       // 平移多少像素：在这一级的世界像素里挪中心（Web 墨卡托，256 一张瓦片）
       const v = read();
       if (!v) return;
-      const size = 256 * 2 ** v.zoom;
-      const lat = Math.max(-85.05112878, Math.min(85.05112878, v.lat));
-      const s = Math.sin((lat * Math.PI) / 180);
-      const x = ((v.lng + 180) / 360) * size - num(msg.dx, 0);
-      const y = (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * size - num(msg.dy, 0);
-      const n = Math.PI - (2 * Math.PI * y) / size;
-      map.setCenter({ lat: (180 / Math.PI) * Math.atan(Math.sinh(n)), lng: (x / size) * 360 - 180 });
+      const scale = 2 ** v.zoom;
+      const w = toWorld(v);
+      map.setCenter(fromWorld(w.x - num(msg.dx, 0) / scale, w.y - num(msg.dy, 0) / scale));
       poke();
     } else if (msg.type === "setDark" && typeof msg.dark === "boolean" && msg.dark !== dark) {
       dark = msg.dark;
@@ -236,8 +351,11 @@ export function googleBridge(env: GoogleBridgeEnv, config: GoogleBridgeConfig): 
     if (frame !== 0) win.cancelAnimationFrame(frame);
     for (const e of inputs) env.container.removeEventListener(e, poke, { capture: true });
     resize?.disconnect();
+    moves?.disconnect();
     for (const l of listeners) l.remove();
     listeners = [];
+    probe?.setMap(null);
+    probe = undefined;
     env.container.replaceChildren();
   };
 }

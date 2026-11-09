@@ -20,12 +20,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { type Browser, chromium, type Page } from "playwright-core";
+import { type Browser, type BrowserContext, chromium, type Page } from "playwright-core";
 import { build, type Rolldown } from "vite";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { MORE_PAGES } from "../src/app/route-hash.ts";
 import { MEMORY_ITEMS } from "../src/plugins/memory/route.ts";
-import { LANGUAGE_SETTING_TITLE } from "../src/state/index.ts";
+import { demoMapDay } from "../src/prototype/fake-footprints.ts";
+import { LANGUAGE_SETTING_TITLE, localDate, shiftMapDate, wgsToGcj } from "../src/state/index.ts";
 import { VISUAL_STYLES } from "../src/visual-styles/index.ts";
 import { findChrome } from "../build/chrome.ts";
 
@@ -295,6 +296,25 @@ const FRAME_MESSAGE_FIELDS: Record<string, readonly string[]> = {
   setDark: ["dark"],
 };
 const FRAME_CONFIG_FIELDS = ["authFailed", "dark", "key", "language", "lat", "lng", "maxZoom", "minZoom", "scriptUrl", "timeoutMs", "unreachable", "version", "zoom"];
+/** 同 expectOnlyViewMessages，不抛错：交回不对的地方（458 的跟手测试一并收集） */
+function frameMessageProblems(got: readonly string[]): string[] {
+  if (got.length === 0) return ["框里一条消息都没收到"];
+  const out: string[] = [];
+  for (const text of got) {
+    const m = JSON.parse(text) as { type: string; config?: Record<string, unknown> };
+    const fields = FRAME_MESSAGE_FIELDS[m.type];
+    if (!fields) {
+      out.push(`框收到不认识的消息：${text.slice(0, 120)}`);
+      continue;
+    }
+    const keys = Object.keys(m)
+      .filter((k) => k !== "type" && k !== "ergoMapFrame")
+      .toSorted();
+    if (keys.join(",") !== fields.toSorted().join(",")) out.push(`框收到的 ${m.type} 多了或少了字段：${keys.join(",")}`);
+    if (m.type === "init" && Object.keys(m.config ?? {}).toSorted().join(",") !== FRAME_CONFIG_FIELDS.join(",")) out.push(`init 的设置多了或少了字段：${Object.keys(m.config ?? {}).join(",")}`);
+  }
+  return out;
+}
 function expectOnlyViewMessages(got: readonly string[]) {
   expect(got.length).toBeGreaterThan(0);
   for (const text of got) {
@@ -336,10 +356,27 @@ async function open(viewport: { width: number; height: number }, search = ""): P
  */
 async function openMap(
   viewport: { width: number; height: number },
-  opts: { geo?: { latitude: number; longitude: number; accuracy: number }; init?: string; search?: string; footprintsOff?: boolean; footprintsOn?: boolean } = {},
+  opts: {
+    geo?: { latitude: number; longitude: number; accuracy: number };
+    init?: string;
+    search?: string;
+    footprintsOff?: boolean;
+    footprintsOn?: boolean;
+    touch?: boolean;
+    /** 开页面之前对 context 做的（458：拦请求） */
+    beforeOpen?: (context: BrowserContext) => Promise<unknown>;
+    /** 不等底图出来（458：真谷歌要联网，慢） */
+    noWait?: boolean;
+  } = {},
 ) {
-  const context = await browser!.newContext({ viewport, ...(opts.geo ? { geolocation: opts.geo, permissions: ["geolocation"] } : {}) });
+  const context = await browser!.newContext({
+    viewport,
+    ...(opts.geo ? { geolocation: opts.geo, permissions: ["geolocation"] } : {}),
+    // 手指（458：CDP 发触摸事件模拟双指捏合）；时区和这边一样（演示页的足迹按"今天"排日子，这边照同一天算点的经纬度）
+    ...(opts.touch ? { hasTouch: true, isMobile: true, timezoneId: Intl.DateTimeFormat().resolvedOptions().timeZone } : {}),
+  });
   if (opts.init) await context.addInitScript(opts.init);
+  await opts.beforeOpen?.(context);
   const page = await context.newPage();
   const errors: string[] = [];
   const outside: string[] = [];
@@ -354,7 +391,7 @@ async function openMap(
   if (opts.footprintsOff) await page.evaluate(`localStorage.setItem("ergo-map-footprints", "off")`);
   if (opts.footprintsOn) await page.evaluate(`localStorage.setItem("ergo-map-footprints", "on")`);
   await page.evaluate(`window.location.hash = "#/more/map"`);
-  await page.locator(".map-canvas:not([data-basemap=loading])").waitFor({ timeout: 5000 });
+  if (!opts.noWait) await page.locator(".map-canvas:not([data-basemap=loading])").waitFor({ timeout: 5000 });
   return { context, page, errors, outside };
 }
 /** 字框、引线怎么量（在页面里跑；这个文件不带 DOM 的类型，写成字符串）：交回 labelReport 那几样 */
@@ -412,6 +449,243 @@ async function labelsSettled(page: Page, scope?: string) {
   await page.waitForTimeout(150);
   return labelReport(page, scope);
 }
+/** 世界坐标（第 20 级的 Web 墨卡托像素，256 一张瓦片） */
+const WORLD_ZOOM = 20;
+function worldOf(p: { lat: number; lon: number }): { x: number; y: number } {
+  const size = 256 * 2 ** WORLD_ZOOM;
+  const s = Math.sin((p.lat * Math.PI) / 180);
+  return { x: ((p.lon + 180) / 360) * size, y: (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * size };
+}
+/**
+ * 底图此刻把世界坐标画在哪（在页面或框里跑）：屏幕 = k · 世界 + o。瓦片的 img 上写着 data-tile="z/x/y"（OpenStreetMap、假高德、假谷歌），
+ * 真谷歌的瓦片地址里带着（!1i z !2i x !3i y）；取张数最多的那一级，按瓦片左上角最小二乘拟合（缩放共用一个 k）
+ */
+const TILE_TRUTH = `((root) => {
+  const ZR = ${WORLD_ZOOM};
+  const rows = [];
+  for (const img of document.querySelectorAll(root + " img")) {
+    let z, x, y;
+    if (img.dataset.tile) [z, x, y] = img.dataset.tile.split("/").map(Number);
+    else {
+      const m = /!1i(\\d+)!2i(\\d+)!3i(\\d+)/.exec(img.src);
+      if (!m) continue;
+      [z, x, y] = [Number(m[1]), Number(m[2]), Number(m[3])];
+    }
+    const r = img.getBoundingClientRect();
+    if (r.width < 4 || img.classList.contains("broken")) continue;
+    rows.push({ z, X: x * 256 * 2 ** (ZR - z), Y: y * 256 * 2 ** (ZR - z), L: r.left, T: r.top });
+  }
+  const count = new Map();
+  for (const r of rows) count.set(r.z, (count.get(r.z) || 0) + 1);
+  const best = [...count].sort((a, b) => b[1] - a[1])[0];
+  if (!best || best[1] < 2) return undefined;
+  const use = rows.filter((r) => r.z === best[0]);
+  let mX = 0, mL = 0, mY = 0, mT = 0;
+  for (const r of use) { mX += r.X; mL += r.L; mY += r.Y; mT += r.T; }
+  mX /= use.length; mL /= use.length; mY /= use.length; mT /= use.length;
+  let num = 0, den = 0;
+  for (const r of use) { num += (r.X - mX) * (r.L - mL) + (r.Y - mY) * (r.T - mT); den += (r.X - mX) ** 2 + (r.Y - mY) ** 2; }
+  if (!(den > 0)) return undefined;
+  const k = num / den;
+  return { k, ox: mL - k * mX, oy: mT - k * mY };
+})`;
+/** 看得见的点（选择器）的针尖（元素底边正中），按 data-id */
+const MARK_TIPS = `((sel) => {
+  const out = {};
+  for (const el of document.querySelectorAll(sel)) {
+    if (el.hidden) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width > 0) out[el.dataset.id] = { x: r.left + r.width / 2, y: r.bottom };
+  }
+  return out;
+})`;
+const ONE_FRAME = `new Promise((done) => requestAnimationFrame(() => done()))`;
+const TWO_FRAMES = `new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done())))`;
+/** 真的谷歌（458 页面测试）：框里拦下演示页的假谷歌（它装 google 时不收），小桥就去加载谷歌的脚本 */
+const REAL_GOOGLE_INIT = `if (window !== window.top) {
+  let real;
+  Object.defineProperty(window, "google", { configurable: true, get() { return real; }, set(v) {
+    if (!real && v && v.maps && typeof v.maps.importLibrary === "function") return;
+    real = v;
+  } });
+}`;
+
+/**
+ * 458：在地图页上用手指捏、松手、双击、甩，量二狗画的点和底图差多少（见用到它的那几条测试）。skipped 是跳过的原因（只有真谷歌会跳过）
+ */
+async function followCheck(kind: "google" | "amap" | "osm" | "google-real"): Promise<{ skipped?: string; problems: string[] }> {
+  /** 不对的地方（一条一句，测试里断言它是空的） */
+  const problems: string[] = [];
+  const google = kind === "google" || kind === "google-real";
+  const basemap = google ? "google" : kind;
+  const yesterday = shiftMapDate(localDate(new Date()), -1);
+  // 点的世界坐标：演示页昨天的足迹里停留（每一处按第一段停留的位置，地图页那一层这样画）和没去的常去地方（家、公司、西湖边、健身房，
+  // 隔着几公里），高德、谷歌在大陆里用 GCJ-02。照片那几个挨着西湖边，不量（这个文件不带 DOM 的类型，不引地图插件的整理函数）
+  const day = demoMapDay(yesterday);
+  const worlds = new Map<string, { x: number; y: number }>();
+  const conv = (p: { lat: number; lon: number }) => (kind === "osm" ? p : wgsToGcj(p));
+  for (const s of day.stays.toSorted((a, b) => Date.parse(a.from) - Date.parse(b.from))) {
+    if (!worlds.has(`fp-stay-${s.spot}`)) worlds.set(`fp-stay-${s.spot}`, worldOf(conv(s)));
+  }
+  const visited = new Set(day.stays.flatMap((s) => (s.placeId === undefined ? [] : [s.placeId])));
+  for (const p of day.places) if (!visited.has(p.id)) worlds.set(`fp-place-${p.id}`, worldOf(conv(p)));
+  const init = [
+    basemap === "amap" ? "" : `if (window === window.top) localStorage.setItem("ergo-map-choice", JSON.stringify({ mainland: "${basemap}" }))`,
+    google ? FRAME_SPY : "",
+    kind === "google-real" ? REAL_GOOGLE_INIT : "",
+  ].join("\n");
+  // 真谷歌：地址里去掉演示页的假 Key（不带 Key 谷歌照样出图）；别的请求照常。加载要联网、慢，打开时不等它
+  const beforeOpen =
+    kind === "google-real"
+      ? (c: BrowserContext) =>
+          c.route(/maps\.googleapis\.com\/maps\/api\/js/, (route) => {
+            const u = new URL(route.request().url());
+            u.searchParams.delete("key");
+            return route.continue({ url: u.href });
+          })
+      : undefined;
+  const { context, page, errors, outside } = await openMap({ width: 390, height: 844 }, { footprintsOn: true, touch: true, init, ...(beforeOpen ? { beforeOpen, noWait: true } : {}) });
+  try {
+    await page.evaluate(`window.location.hash = "#/more/map/${yesterday}"`);
+    if (kind === "google-real") {
+      try {
+        await page.locator('.map-google[data-state="ready"]').waitFor({ timeout: 25_000 });
+      } catch {
+        return { skipped: "连不上谷歌（这台机器上不了谷歌，或谷歌不给不带 Key 的出图），这一条跳过", problems };
+      }
+    } else if (google) await page.locator('.map-google[data-state="ready"]').waitFor({ timeout: 8000 });
+    await page.locator(`.map-canvas[data-basemap="${basemap}"]`).waitFor({ timeout: 8000 });
+    const marksSel = kind === "osm" ? '[data-engine="osm"] .map-marks .map-mark' : ".map-page-overlay .map-mark";
+    await expect.poll(() => page.locator(`${marksSel}[data-kind="stay"]`).count(), { timeout: 8000 }).toBe(3);
+    const frame = google ? await googleFrame(page) : undefined;
+    const truth = async () =>
+      (frame ? await frame.evaluate(`(${TILE_TRUTH})("")`) : await page.evaluate(`(${TILE_TRUTH})(${JSON.stringify(kind === "osm" ? '[data-engine="osm"]' : '[data-engine="amap-demo"]')})`)) as
+        | { k: number; ox: number; oy: number }
+        | undefined;
+    if (kind === "google-real") {
+      // 没 Key 时谷歌弹的那一框：点掉（不点也不挡下面的地图，只是挡手指）
+      await frame!
+        .locator("button.dismissButton")
+        .click({ timeout: 5000 })
+        .catch(() => undefined);
+      for (let i = 0; i < 60 && (await truth()) === undefined; i++) await page.waitForTimeout(250);
+      if ((await truth()) === undefined) return { skipped: "谷歌出了图，但瓦片地址里认不出 z/x/y（谷歌改了格式），量不了，这一条跳过", problems };
+    }
+    const canvas = (await page.locator(".map-canvas").boundingBox())!;
+    const frameBox = frame ? (await page.locator('[data-engine="google"] iframe.map-frame').boundingBox())! : { x: 0, y: 0 };
+    const cdp = await context.newCDPSession(page);
+    const touch = (type: "touchStart" | "touchMove" | "touchEnd", pts: ReadonlyArray<{ x: number; y: number }>) =>
+      cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map((p, id) => ({ x: p.x, y: p.y, id, radiusX: 4, radiusY: 4, force: 1 })) });
+    const nextFrames = async () => {
+      if (frame) await frame.evaluate(ONE_FRAME);
+      await page.evaluate(TWO_FRAMES);
+    };
+    /** 量一次：底图此刻 vs 我们画的；谷歌的框和外层是分开读的，读的中间框里又动了就不算这一次 */
+    const samples: Array<{ at: string; worst: number; n: number }> = [];
+    let k = 0;
+    const measure = async (at: string) => {
+      const t1 = await truth();
+      const ours = (await page.evaluate(`(${MARK_TIPS})(${JSON.stringify(marksSel)})`)) as Record<string, { x: number; y: number }>;
+      if (!t1) return;
+      if (frame) {
+        const t2 = await truth();
+        if (!t2 || Math.abs(t2.k / t1.k - 1) > 1e-4 || Math.abs(t2.ox - t1.ox) > 0.05 || Math.abs(t2.oy - t1.oy) > 0.05) return;
+      }
+      k = t1.k;
+      let worst = 0;
+      let n = 0;
+      for (const [id, w] of worlds) {
+        const o = ours[id];
+        if (!o) continue;
+        const tx = frameBox.x + t1.ox + t1.k * w.x;
+        const ty = frameBox.y + t1.oy + t1.k * w.y;
+        if (tx < canvas.x || ty < canvas.y || tx > canvas.x + canvas.width || ty > canvas.y + canvas.height) continue;
+        n += 1;
+        worst = Math.max(worst, Math.hypot(o.x - tx, o.y - ty));
+      }
+      if (n > 0) samples.push({ at, worst: Math.round(worst * 10) / 10, n });
+    };
+    const watch = async (at: string, ms: number) => {
+      const until = Date.now() + ms;
+      while (Date.now() < until) {
+        await page.evaluate(ONE_FRAME);
+        await measure(at);
+      }
+    };
+    await measure("开始");
+    const k0 = k;
+    // 两指边捏边挪：两指中间从 (0.4, 0.55) 往右上挪 (60, -80)，两指间距 90 → 260
+    const fx = canvas.x + canvas.width * 0.4;
+    const fy = canvas.y + canvas.height * 0.55;
+    const fingers = (d: number, f: number) => [
+      { x: fx - d + 60 * f, y: fy - 80 * f },
+      { x: fx + d + 60 * f, y: fy - 80 * f },
+    ];
+    await touch("touchStart", fingers(45, 0));
+    for (let i = 1; i <= 12; i++) {
+      await touch("touchMove", fingers(45 + (85 * i) / 12, i / 12));
+      await nextFrames();
+      await measure(`捏第 ${i} 步`);
+    }
+    await touch("touchEnd", []);
+    await watch("松手后", 700);
+    // 放大了（约 3 倍，谷歌回弹到整数级）
+    if (!(k / k0 > 1.9)) problems.push(`捏合没放大：${(k / k0).toFixed(2)} 倍`);
+    // 双击（挑一处空地：不落在点、字、按钮上）
+    const spot = (await page.evaluate(`(() => {
+      const c = ${JSON.stringify(canvas)};
+      for (const [fx, fy] of [[0.6, 0.35], [0.3, 0.3], [0.7, 0.6], [0.25, 0.7], [0.5, 0.45], [0.75, 0.25]]) {
+        const x = c.x + c.width * fx, y = c.y + c.height * fy;
+        const el = document.elementFromPoint(x, y);
+        if (el && !el.closest(".map-mark, button, a, .map-hint, .map-badge")) return { x, y };
+      }
+      return { x: c.x + c.width * 0.6, y: c.y + c.height * 0.35 };
+    })()`)) as { x: number; y: number };
+    const kTap = k;
+    for (let i = 0; i < 2; i++) {
+      await touch("touchStart", [spot]);
+      await page.waitForTimeout(30);
+      await touch("touchEnd", []);
+      await page.waitForTimeout(80);
+    }
+    await watch("双击后", 700);
+    if (!(k / kTap > 1.4)) problems.push(`双击没放大：${(k / kTap).toFixed(2)} 倍`);
+    // 一指甩一下（谷歌、高德松手后接着滑；OpenStreetMap 自己不滑）
+    const sx = canvas.x + canvas.width * 0.5;
+    const sy = canvas.y + canvas.height * 0.6;
+    await touch("touchStart", [{ x: sx, y: sy }]);
+    for (let i = 1; i <= 5; i++) {
+      await touch("touchMove", [{ x: sx - 30 * i, y: sy + 15 * i }]);
+      await page.waitForTimeout(16);
+    }
+    await touch("touchEnd", []);
+    await watch("甩完", 700);
+    // 每一次都量到了点（一开始四处都在屏幕上），过程中、动画里不差过 2 像素
+    if (samples[0]?.at !== "开始" || samples[0].n !== 4) problems.push(`一开始没量到四处：${JSON.stringify(samples[0])}`);
+    if (samples.length <= 30) problems.push(`量到的太少：${samples.length} 次`);
+    for (const s of samples) if (s.worst > 2) problems.push(`${s.at}：差 ${s.worst} 像素（量了 ${s.n} 处）`);
+    // 停下来字照样两两不相交（缩放途中字跟着点走、不每帧重排，停下来再排）
+    await page.waitForTimeout(300);
+    const labels = await labelsSettled(page);
+    problems.push(...labels.hits.map((h) => `字叠在一起：${h}`), ...labels.bad);
+    // 交给谷歌框的照旧只有设置和视野（458 没加新的消息），见 FRAME_MESSAGE_FIELDS
+    if (frame) problems.push(...frameMessageProblems((await frame.evaluate("window.__got")) as string[]));
+    if (kind === "google-real") {
+      // 发给谷歌的请求里没有足迹的经纬度（停留、照片、常去的地方；WGS-84、GCJ-02 都查，四位小数）
+      const coords = [...day.stays, ...day.photos, ...day.places].flatMap((m) => {
+        const g = wgsToGcj(m);
+        return [m.lat, m.lon, g.lat, g.lon].map((v) => v.toFixed(4));
+      });
+      for (const url of outside) for (const c of coords) if (url.includes(c)) problems.push(`发给谷歌的请求里有足迹的坐标 ${c}：${url.slice(0, 160)}`);
+    } else problems.push(...outside.map((u) => `往外发了请求：${u}`));
+  } finally {
+    await context.close();
+  }
+  // 真谷歌没 Key 时自己会在控制台报错（还有它框里一处 SecurityError），不算
+  if (kind !== "google-real") problems.push(...errors);
+  return { problems };
+}
+
 /** 演示页六天前那一天（绕西湖走一圈，字很挤）的地址：按页面里的今天算 */
 async function walkDayHash(page: Page): Promise<string> {
   return (await page.evaluate(
@@ -1574,6 +1848,28 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(outside).toEqual([]);
     expect(errors).toEqual([]);
   }, 60_000);
+  // 458：双指捏合、松手回弹、双击放大、一指甩出去的惯性，这些过程中二狗画的那一层（足迹的点）跟着底图走、不漂（用户 11-09：
+  // "缩放过程中标记漂移，停下来才对齐"）。用 CDP 发触摸事件：两指边捏边挪（放大约 3 倍、挪开几十像素），每一步量；松手后回弹的
+  // 每一帧量；再双击、再甩一下，动画的每一帧量。量的是我们画的点（针尖）和底图此刻把同一个经纬度画在哪（瓦片 img 上写着 z/x/y，
+  // 按瓦片的屏幕位置拟合"世界坐标 → 屏幕"）差多少像素：不超过 2。点的经纬度照演示页昨天的足迹在这边算（大陆里高德、谷歌用 GCJ-02）。
+  // 谷歌是假的、关在隔离框里，照真谷歌的样子动（捏合时整块拉伸、getZoom 不跟，回弹、双击、惯性时 getZoom/getCenter 先跳到终点；
+  // 458 修好以前这里差到上百像素）；高德是假的（自己一帧一帧画）；OpenStreetMap 自己画。停下来字照样两两不相交；交给谷歌框的照旧
+  // 只有设置和视野；一个请求都不往外发。
+  for (const kind of ["google", "amap", "osm"] as const) {
+    test(`捏合、回弹、双击、惯性的过程中点跟着底图走手机宽（${kind === "google" ? "谷歌，隔离框" : kind === "amap" ? "高德" : "OpenStreetMap"}）`, async () => {
+      const r = await followCheck(kind);
+      expect(r.skipped).toBeUndefined();
+      expect(r.problems).toEqual([]);
+    }, 90_000);
+  }
+  // 同上，用真的谷歌脚本（不带 Key：谷歌照样出图、带"仅供开发"的水印；演示页的假谷歌在框里拦下，请求里去掉演示的假 Key）。
+  // 要联网：连不上谷歌、谷歌不出图、瓦片地址认不出 z/x/y 时跳过并写明。另外查：发给谷歌的请求里没有足迹的经纬度
+  test("捏合、回弹、双击、惯性的过程中点跟着底图走手机宽（真的谷歌，不带 Key，要联网）", async ({ skip }) => {
+    const r = await followCheck("google-real");
+    if (r.skipped) skip(r.skipped);
+    expect(r.problems).toEqual([]);
+  }, 120_000);
+
   // 地图上的字不互相盖住（451 补，用户 11-09）：演示页六天前绕西湖走了一圈（八处停留，中间五处挨得很近，一路拍照），字很挤——
   // 照旧在针的右边，挤的挪到针旁边别处或挪开、挪开的从字框边上画一条引线连到点；地图那块里看得见的字框两两不相交。
   // 高德（盖在上面的那一层）、OpenStreetMap、谷歌（隔离框外面那一层）、手机宽电脑宽、缩小一级以后都这样；「当前位置」的字一起让；
