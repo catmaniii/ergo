@@ -239,29 +239,39 @@ const p = (id: string, over: Partial<MapProviderView>): MapProviderView => ({ id
 /** 这一页上：都登记了，哪几家加载失败了 */
 const page = (failed: Record<string, string> = {}): BasemapPage => ({ has: () => true, failed: (id) => failed[id] });
 
-describe("挑底图：谷歌接进来以后", () => {
-  const AMAP = p("amap", { regions: ["mainland"], manualRegions: ["mainland"], priority: 100, key: "a" });
+describe("挑底图：谷歌接进来以后（451：一个区域一家当前地图，国外谷歌 > 高德 > OpenStreetMap）", () => {
+  // 451 起高德的底图国内国外都管，国外的优先级 30（低于谷歌 50）
+  const AMAP = p("amap", { regions: ["mainland", "abroad"], manualRegions: ["mainland", "abroad"], priority: 100, regionPriority: { abroad: 30 }, key: "a" });
   const OSM = p("osm", { regions: ["mainland", "abroad"], manualRegions: ["mainland", "abroad"], ownBasemapOnly: false });
   const GOOGLE = p("google", { manualRegions: ["abroad", "mainland"], priority: 50, key: "g" });
   const ALL = [AMAP, OSM, GOOGLE];
 
-  test("\"自动\"：大陆外谷歌、大陆里高德；地图切换里国内国外都列谷歌", () => {
+  test("\"自动\"：大陆外谷歌、大陆里高德；地图切换里国内国外都列谷歌，\"自动\"会挑的排前面、只能手动选的排后面；看足迹也用当前地图", () => {
     expect(autoBasemap("abroad", ALL, page())).toBe("google");
     expect(autoBasemap("mainland", ALL, page())).toBe("amap");
-    expect(switchEntries("abroad", ALL, page()).map((e) => e.id)).toEqual(["google", "osm"]);
-    expect(switchEntries("mainland", ALL, page()).map((e) => e.id)).toEqual(["amap", "google", "osm"]);
-    expect(pickBasemap({ region: "mainland", choice: "google", providers: ALL, page: page() })).toEqual({ wanted: "google", auto: "amap", manual: true });
-    // 看足迹一律 OpenStreetMap
-    expect(pickBasemap({ region: "abroad", providers: ALL, page: page(), footprints: true }).wanted).toBe("osm");
+    expect(switchEntries("abroad", ALL, page()).map((e) => e.id)).toEqual(["google", "amap", "osm"]);
+    expect(switchEntries("mainland", ALL, page()).map((e) => e.id)).toEqual(["amap", "osm", "google"]);
+    expect(pickBasemap({ region: "mainland", choice: "google", providers: ALL, page: page() })).toEqual({ wanted: "google", auto: "amap", manual: true, current: "google", temporary: false });
+    expect(pickBasemap({ region: "abroad", providers: ALL, page: page(), footprints: true }).wanted).toBe("google");
   });
 
-  test("这台设备连不上谷歌（在大陆）：切换里标\"连不上\"，手动选的要退回\"自动\"，大陆外\"自动\"退到 OpenStreetMap", () => {
+  test("国外没填谷歌（或者谷歌的插件停了、超了）：\"自动\"是高德；高德也没填才是 OpenStreetMap；国内\"自动\"照旧高德", () => {
+    const noGoogle = [AMAP, OSM, { ...GOOGLE, ready: false }];
+    expect(autoBasemap("abroad", noGoogle, page())).toBe("amap");
+    expect(autoBasemap("abroad", [AMAP, OSM], page())).toBe("amap");
+    expect(autoBasemap("abroad", [{ ...AMAP, ready: false }, OSM], page())).toBe("osm");
+    expect(autoBasemap("mainland", ALL, page())).toBe("amap");
+    expect(switchEntries("abroad", noGoogle, page()).map((e) => e.id)).toEqual(["amap", "osm"]);
+  });
+
+  test("这台设备连不上谷歌（在大陆）：切换里标\"连不上\"，手动选的要退回\"自动\"，大陆外\"自动\"退到高德（高德也加载不上才 OpenStreetMap）", () => {
     const broken = page({ google: "连不上谷歌" });
     expect(switchEntries("mainland", ALL, broken).find((e) => e.id === "google")).toEqual({ id: "google", failed: "连不上谷歌" });
     expect(choiceBroken("mainland", "google", ALL, broken)).toBe(true);
-    expect(autoBasemap("abroad", ALL, broken)).toBe("osm");
+    expect(autoBasemap("abroad", ALL, broken)).toBe("amap");
+    expect(autoBasemap("abroad", ALL, page({ google: "连不上谷歌", amap: "timeout" }))).toBe("osm");
     // 谷歌那边超了免费量、Key 被拒：守护进程报 ready: false，切换里不列
-    expect(switchEntries("abroad", [AMAP, OSM, { ...GOOGLE, ready: false }], page()).map((e) => e.id)).toEqual(["osm"]);
+    expect(switchEntries("abroad", [AMAP, OSM, { ...GOOGLE, ready: false }], page()).map((e) => e.id)).toEqual(["amap", "osm"]);
   });
 });
 

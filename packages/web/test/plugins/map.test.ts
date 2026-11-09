@@ -11,7 +11,7 @@ import { describe, expect, test, vi } from "vitest";
 import { AmapPanelView, type AmapPanelViewProps, amapResultOf } from "../../src/plugins/map/AmapPanel.tsx";
 import { type AmapNamespace, createAmapEngine } from "../../src/plugins/map/amap-engine.ts";
 import { mapWebPlugin } from "../../src/plugins/map/plugin.tsx";
-import { AMAP_WITH_FOOTPRINTS, chooseBasemap, clampZoom, DEFAULT_VIEW, parseSavedView, viewToFit } from "../../src/plugins/map/scene.ts";
+import { chooseBasemap, FOOTPRINTS_ON_CURRENT_MAP, clampZoom, DEFAULT_VIEW, parseSavedView, viewToFit } from "../../src/plugins/map/scene.ts";
 import { metersPerPixel, pointAt, pointOnScreen, screenPoint, tilesFor, worldPoint } from "../../src/plugins/map/tiles.ts";
 import { createWebPluginHost } from "../../src/plugins/host.ts";
 import { WEB_PLUGIN_MANIFEST } from "../../src/plugins/manifest.ts";
@@ -82,10 +82,10 @@ describe("一屏用哪种底图", () => {
     expect(chooseBasemap(HONG_KONG, true)).toBe("osm");
   });
 
-  test("画着用户自己的足迹：大陆里高德能用也用 OpenStreetMap（足迹不和高德的脚本在同一个页面里，431 用户定的）", () => {
-    expect(AMAP_WITH_FOOTPRINTS).toBe(false);
-    expect(chooseBasemap(HANGZHOU, true, true)).toBe("osm");
-    expect(chooseBasemap(HANGZHOU, true, false)).toBe("amap");
+  test("画着用户自己的足迹：451 起也用当前地图（用户 2026-11-09 定，改了 11-07 的一律 OpenStreetMap）——大陆里高德能用就是高德", () => {
+    expect(FOOTPRINTS_ON_CURRENT_MAP).toBe(true);
+    expect(chooseBasemap(HANGZHOU, true, true)).toBe("amap");
+    expect(chooseBasemap(HANGZHOU, false, true)).toBe("osm");
   });
 });
 
