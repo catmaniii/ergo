@@ -438,6 +438,17 @@ describe("冷补发只发最新的（456）：全量冷补发 = 合并后冷补�
     }
   });
 
+  test("没做成的快速动作在往上翻出来的更早一页里，和最近一页一样写卡上的\"没做成：…\"，不是操作记录里的原话", () => {
+    const { log } = cardsLog("failed");
+    // 卡片频道折完（卡在手里），会话里还没有这条操作记录：它在往上翻才取到的那一页
+    const cardsOnly = coldOpen(new Map([["cards", log.get("cards")!]]));
+    const recordFrame = log.get("secretary")!.find((f) => f.type === "quick_action_executed" && (f.payload as { cardId?: string }).cardId === "q-1")!;
+    const page = { conversation: "secretary" as const, messages: [], records: [{ seq: recordFrame.seq, type: recordFrame.type, payload: recordFrame.payload }], hasMore: false };
+    const after = reduce(cardsOnly, { kind: "history_page", conversation: "secretary", page } as UiInput);
+    expect(summaryOf(after)).toBe("没做成：日历没连上");
+    expect(summaryOf(after)).toBe(summaryOf(coldOpen(log)));
+  });
+
   test("定时作业的运行、删掉的待办和设备、往回的已读位置、只有一份的设置", () => {
     const { log } = othersLog();
     expectSameAsFull(log, "别的几类");

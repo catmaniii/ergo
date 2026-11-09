@@ -612,9 +612,14 @@ function recordOf(type: string, payload: unknown): ConversationRecord | undefine
 function withRecord(state: UiState, frame: EventFrame): UiState {
   const record = recordOf(frame.type, frame.payload);
   if (!record) return state;
-  const card = record.type === "operation" ? state.cards[record.operation.cardId]?.card : undefined;
-  const shown: ConversationRecord = record.type === "operation" && card?.type === "quick_action" ? { type: "operation", operation: operationAsCard(record.operation, card.payload as QuickActionCardPayload) } : record;
+  const shown = shownRecord(state, record);
   return updateConversation(state, frame.channel, (conv) => ({ ...conv, records: [...conv.records, { seq: frame.seq, record: shown }] }));
+}
+
+/** 记录照手里的样子显示：操作记录的快速动作卡已经在手里，就按卡片现在的版本换标题、参数、结果说明（实时、补发、往上翻的一页都走这里） */
+function shownRecord(state: UiState, record: ConversationRecord): ConversationRecord {
+  const card = record.type === "operation" ? state.cards[record.operation.cardId]?.card : undefined;
+  return record.type === "operation" && card?.type === "quick_action" ? { type: "operation", operation: operationAsCard(record.operation, card.payload as QuickActionCardPayload) } : record;
 }
 
 /** 操作记录照它的快速动作卡换标题、参数、结果说明（卡上还没有结果说明的留着记录自己的） */
@@ -1237,7 +1242,8 @@ function mergeHistoryPage(state: UiState, conversation: ConversationId, page: Hi
     const knownRecords = new Set(conv.records.map((r) => r.seq));
     const olderRecords = page.records.filter((r) => !knownRecords.has(r.seq)).flatMap(({ seq, type, payload }: HistoryRecord) => {
       const record = recordOf(type, payload);
-      return record ? [{ seq, record }] : [];
+      // 往上翻出来的操作记录和最近一页一样照快速动作卡现在的版本显示（没做成的写"没做成：…"，不是原话）
+      return record ? [{ seq, record: shownRecord(state, record) }] : [];
     });
     const records = [...olderRecords, ...conv.records].toSorted((a, b) => a.seq - b.seq);
     // 长程任务阶段开始的记号：和记录一样插在前面
