@@ -1598,6 +1598,7 @@
   "pages.personalFiles.via.explicit": "你在聊天里说的",
   "pages.personalFiles.via.confirmed": "你在核对卡上确认的",
   "pages.personalFiles.via.curator": "管理员提议、你确认的",
+  "pages.personalFiles.via.tidy": "二狗统一了写法",
   "pages.personalFiles.fromUserName": "来自设置 · 身份的「我的名字」",
   "pages.personalFiles.since": "{date} 起",
   "pages.personalFiles.between": "{from} 到 {to}",

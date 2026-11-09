@@ -2,6 +2,7 @@
 // 公历 / 农历切换，年（第一项"不记得哪年"，往下今年到 1900 年）、月、日三个下拉；打开时按现在的值预选；公历的日按年月限
 // （2 月 29 日只在闰年或不记得哪年时有），换年换月日子往回收；农历的月是正月…腊月、可勾闰月，日是初一…三十；拼成存的样子。
 // 每年提醒那句小字：农历写"暂时不能自动提醒"，认不出的不在那里说（值旁边提示）。中英两种语言。用 React 在 Node 里渲染出来查。
+// 460：以前随手写的值由二狗统一成存的样子，档案页上那一条的出处写"二狗统一了写法"（不写谁改的、没有原话）。
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test } from "vitest";
@@ -17,6 +18,8 @@ import {
   changeAnnualDraft,
   DEFAULT_LANGUAGE,
   setActiveLocale,
+  sourceQuote,
+  valueSourceLine,
 } from "../../src/state/index.ts";
 import { TEST_LOCALES } from "../setup-locales.ts";
 
@@ -124,5 +127,21 @@ describe("选择器", () => {
     expect(html).toContain("Leap month");
     expect(optionsOf(render(annualDraftOf("1990-03-02")), "Month")[2]).toBe("Mar");
     expect(annualNote({ blocked: "not_gregorian" }, "lunar:--08-15")).toBe("Yearly reminders for lunar dates aren't supported yet");
+  });
+});
+
+describe("460：二狗统一了写法的那一条", () => {
+  const tidied = { value: "2018-10-01", since: "2026-11-10T08:00:00+08:00", source: { via: "tidy" as const, at: "2026-11-10T08:00:00+08:00" } };
+  const old = { value: "2018年10月1日", since: "2026-10-25T20:30:00+08:00", until: "2026-11-10T08:00:00+08:00", source: { via: "page" as const, at: "2026-10-25T20:30:00+08:00" } };
+
+  test("出处写一句好懂的话，不写谁改的、没有原话；原来的写法照旧写到哪天为止", () => {
+    expect(valueSourceLine(tidied)).toBe("2026-11-10 起 · 二狗统一了写法");
+    expect(sourceQuote(tidied.source)).toBeUndefined();
+    expect(valueSourceLine(old)).toBe("2026-10-25 到 2026-11-10 · 你在档案页填的");
+  });
+
+  test("英文", () => {
+    inEnglish();
+    expect(valueSourceLine(tidied)).toBe("since 2026-11-10 · ergo standardized the format");
   });
 });

@@ -18,6 +18,8 @@
 // （283 时建的同名自定义字段接着写）。
 // 档案里的人分组（家人、重要的人、其他人）——建人时选（addPerson 的 group）、档案页上改（set_group），记成 group_set；
 // 没选过的按"和我的关系"现猜（协议包的 guessPersonGroup），列表和一份档案上写 groupGuessed。秘书、记忆管理员提议建的人都没选分组。
+// 460：起来时先把以前随手写的生日、纪念日统一成存的样子（annual-tidy.ts，留痕 via tidy），再对每年提醒。统一写法不算"换了新值"：
+// 不通知记忆插件、每晚对的"以前换过的值"里不列它换掉的那个；以后用户再改这个值时，让旧事实到期连统一之前的写法一起（事实图谱里记的是原话的说法）。
 import { randomUUID } from "node:crypto";
 import {
   type AddPersonBody,
@@ -64,6 +66,7 @@ import { type PurgeDeps, purgePlan, type QuickActionTrace, type ToolCallMention 
 import { readUserTurn } from "../quick-actions/index.ts";
 import type { UserNameService } from "../user-name/index.ts";
 import { type AnnualReminderPort, createAnnualReminders } from "./annual.ts";
+import { annualTidy } from "./annual-tidy.ts";
 import { type CandidateInput, cardEventsOf, createCandidates, defineSuggestCardType, deletedMaterials, type PersonalFileCandidates } from "./candidates.ts";
 import { carriesValue, PERSONAL_FILE_EVENT, PERSONAL_FILES_CHANNEL, type PersonalFileChange, personalFileEvent, type PersonalFileTrail } from "./events.ts";
 import { backgroundText, type FieldReplaced, type FileForMemory, type PersonalFilesForMemory, type PersonForMemory, withheldValues } from "./memory-link.ts";
@@ -185,6 +188,20 @@ function fieldsOf(kind: PersonalFileKind, values: readonly StoredValue[]): strin
   return personalFieldOrder(kind, values.toReversed().map((v) => v.field));
 }
 
+/**
+ * 460：一个值在记忆这一侧的几种写法（字段换了新值时，事实图谱里说的是这些的事实到期）：它自己；它是二狗统一写法改写的（via tidy）
+ * 再带上改写之前的那个——事实图谱里记的是用户原来的说法（"3月2号"），不是存的样子（"--03-02"）
+ */
+function writtenAs(values: readonly StoredValue[], row: StoredValue): string[] {
+  if (row.trail.via !== "tidy") return [row.value];
+  // values 新的在前：同一字段比它早的第一个就是它换掉的那个
+  const before = values.find((v) => v.field === row.field && v.globalSeq < row.globalSeq);
+  return before === undefined ? [row.value] : [row.value, ...writtenAs(values, before)];
+}
+
+/** 460：换掉这个旧值的那一条（同一字段比它晚的里最早的；values 新的在前） */
+const replacedBy = (values: readonly StoredValue[], row: StoredValue) => values.findLast((v) => v.field === row.field && v.globalSeq > row.globalSeq);
+
 /** 这份档案已有的字段（认字段名时用：302） */
 const presentFields = (values: readonly StoredValue[]): string[] => [...new Set(values.map((v) => v.field))];
 
@@ -228,7 +245,8 @@ export function createPersonalFilesService(options: PersonalFilesServiceOptions)
   };
 
   const sourceOf = (trail: PersonalFileTrail, at: string): PersonalFileSource => {
-    if (trail.via === "page") return { via: "page", at };
+    // 460：二狗统一写法的和档案页里改的一样，没有原话
+    if (trail.via === "page" || trail.via === "tidy") return { via: trail.via, at };
     return {
       via: trail.via,
       basis: trail.basis,
@@ -364,11 +382,13 @@ export function createPersonalFilesService(options: PersonalFilesServiceOptions)
         changed.push(field);
         continue;
       }
-      const before = currentOf(values, field)?.value;
+      const current = currentOf(values, field);
+      const before = current?.value;
       if (before === value && !changed.includes(field)) continue;
       events.push(personalFileEvent({ change: "field_set", personId, field, value, trail: write.trail }));
       changed.push(field);
-      if (before !== undefined && before !== value && field !== "name") replaced.push({ field, oldValue: before });
+      // 460：换掉的是二狗统一过写法的值，连统一之前的写法一起
+      if (current !== undefined && before !== value && field !== "name") for (const oldValue of writtenAs(values, current)) replaced.push({ field, oldValue });
     }
     if (write.note) {
       events.push(personalFileEvent({ change: "note_added", personId, noteId: newNoteId(), text: write.note.text, date: write.note.date, trail: write.trail }));
@@ -553,7 +573,10 @@ export function createPersonalFilesService(options: PersonalFilesServiceOptions)
       for (const f of filesForMemory()) {
         for (const v of f.values) {
           if (v.until === undefined || v.field === "name") continue;
-          out.push({ personId: f.id, kind: f.kind, names: namesOf(f.id, f.kind), field: v.field, label: personalFieldLabel(f.kind, v.field), oldValue: v.value, at: v.until });
+          // 460：被二狗统一写法换掉的不算换了新值（日子没变）；统一过的值再被换掉时连统一之前的写法一起
+          if (replacedBy(f.values, v)?.trail.via === "tidy") continue;
+          const base = { personId: f.id, kind: f.kind, names: namesOf(f.id, f.kind), field: v.field, label: personalFieldLabel(f.kind, v.field), at: v.until };
+          for (const oldValue of writtenAs(f.values, v)) out.push({ ...base, oldValue });
         }
       }
       return out;
@@ -714,7 +737,17 @@ export function createPersonalFilesService(options: PersonalFilesServiceOptions)
     suggestCardType: () => defineSuggestCardType({ store, files: candidateFiles }),
     remindersOn: () => options.annual?.() !== undefined,
     start() {
-      // 守护进程起来时对一遍每年提醒（提醒插件停用期间开的补建、看板上取消了的清掉）
+      // 460：以前随手写的生日、纪念日统一成存的样子（一个字段只整理一次；出错只记日志，不挡起来）
+      try {
+        const tidy = annualTidy(store);
+        if (tidy.events.length > 0) store.appendBatch(tidy.events);
+        if (tidy.changed + tidy.unreadable + tidy.keptForReminder > 0) {
+          options.log(`个人档案：生日、纪念日统一写法，改了 ${tidy.changed} 条，认不出没动 ${tidy.unreadable} 条，开着每年提醒、会变成农历的没动 ${tidy.keptForReminder} 条`);
+        }
+      } catch (err) {
+        options.log(`个人档案：生日、纪念日统一写法没成（${err instanceof Error ? err.message : String(err)}）`);
+      }
+      // 守护进程起来时对一遍每年提醒（提醒插件停用期间开的补建、看板上取消了的清掉；统一了写法的公历日子不变，提醒不改）
       annual.reconcile();
       // 出处的素材被忘掉、彻底删除、别推断：只靠它们的候选作废（落盘之后另起一批，不在别人的事务里追加）
       return store.onAppend((event) => {

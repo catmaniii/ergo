@@ -1642,6 +1642,7 @@
   "pages.personalFiles.via.explicit": "you said it in chat",
   "pages.personalFiles.via.confirmed": "you confirmed it on a check card",
   "pages.personalFiles.via.curator": "suggested by the memory curator, confirmed by you",
+  "pages.personalFiles.via.tidy": "ergo standardized the format",
   "pages.personalFiles.fromUserName": "From \"My name\" in Settings · Identity",
   "pages.personalFiles.since": "since {date}",
   "pages.personalFiles.between": "{from} to {to}",
