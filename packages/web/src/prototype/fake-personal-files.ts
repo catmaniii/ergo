@@ -3,6 +3,8 @@
 // 生日、纪念日的每年提醒（只记开没开、提前几天，下次提醒的日子按这台设备的日历算）；"二狗了解到的"是编的几条。
 // 内置字段"纪念日"（本人有一个编的结婚纪念日，开着每年提醒；妈妈那份空着）；字段的先后照协议包的 personalFieldOrder。
 // 分组——妈妈、女儿没选分组（按关系猜成家人），同事小张建时选了"重要的人"，装修的王师傅没写关系（猜成其他人）；能改分组。
+// 449：生日、纪念日存成统一的样子（妈妈的农历生日 "lunar:--08-15"）；本人的结婚纪念日是以前存的写法（认得出，照新样子显示），
+// 相识纪念日是以前随手写的、认不出的（档案页上提示点"改"重新选）。改的时候用选择器，值经 checkPersonalValue 规范化。
 import {
   type AddPersonBody,
   guessPersonGroup,
@@ -110,6 +112,7 @@ export class FakePersonalFiles {
         id_card: [{ value: "123456789012345678", since: at("10-21", "21:40"), source: chat(at("10-21", "21:40"), "记住我身份证号是 123456789012345678", "confirmed") }],
         birthday: [{ value: "1990-01-01", since: at("10-12", "09:00"), source: page(at("10-12", "09:00")) }],
         "anniversary:结婚纪念日": [{ value: "2018年10月1日", since: at("10-25", "20:30"), source: chat(at("10-25", "20:30"), "我们的结婚纪念日是2018年10月1日", "explicit") }],
+        "anniversary:相识纪念日": [{ value: "大学开学那天", since: at("10-13", "21:00"), source: page(at("10-13", "21:00")) }],
         phone: [{ value: "13800000000", since: at("10-12", "09:00"), source: page(at("10-12", "09:00")) }],
         address: [
           { value: "示例市旧城区示例街 3 号", since: at("10-12", "09:00"), until: at("10-24", "20:15"), source: page(at("10-12", "09:00")) },
@@ -125,7 +128,7 @@ export class FakePersonalFiles {
           name: [{ value: "妈妈", since: at("10-12", "09:05"), source: page(at("10-12", "09:05")) }],
           aliases: [{ value: "老妈", since: at("10-12", "09:05"), source: page(at("10-12", "09:05")) }],
           relation: [{ value: "母亲", since: at("10-12", "09:05"), source: page(at("10-12", "09:05")) }],
-          birthday: [{ value: "农历八月十五", since: at("10-12", "09:05"), source: page(at("10-12", "09:05")) }],
+          birthday: [{ value: "lunar:--08-15", since: at("10-12", "09:05"), source: page(at("10-12", "09:05")) }],
           phone: [{ value: "13900000000", since: at("10-12", "09:05"), source: page(at("10-12", "09:05")) }],
           health: [{ value: "无", since: at("10-12", "09:05"), source: page(at("10-12", "09:05")) }],
         },

@@ -9852,6 +9852,51 @@ a.ops-sum-row-in:hover {
   width: 100%;
   box-sizing: border-box;
 }
+/*
+ * 449：生日、纪念日的选择器（pages/more/AnnualDatePicker.tsx）：公历 / 农历一排小的分段切换，下面年、月、日三个下拉一行
+ * （窄的时候折行），农历多一个"闰月"的勾；以前存的认不出的值旁边一句提示
+ */
+.pf-date {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pf-date .seg.pf-date-cal {
+  align-self: flex-start;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+}
+.pf-date .seg.pf-date-cal button {
+  padding: 3px 12px;
+}
+.pf-date-selects {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 32em;
+}
+.pf-field-editing .pf-date-selects .input {
+  width: auto;
+  min-width: 0;
+  flex: 1 1 5.5em;
+}
+.pf-field-editing .pf-date-selects .pf-date-year {
+  flex: 1.5 1 8em;
+}
+.pf-date-leap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-m);
+  white-space: nowrap;
+}
+.pf-date-unreadable {
+  color: var(--high-fg);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
 .pf-value {
   min-width: 0;
   display: flex;

@@ -1,8 +1,14 @@
 // 个人档案在网页上怎么写（纯函数，档案页、核对卡用）：一份档案在列表上叫什么、"出处"那一行、
 // 号码分组、删一样东西时有几句出处的原话可以一起彻底删除。档案经 HTTP 现取（不走事件），形状在协议包的 personal-files-schema.ts。
 // 列表分四组（我、家人、重要的人、其他人），personalFileGroups。
+// 449：生日、纪念日的选择器（公历 / 农历，年、月、日三个下拉，农历可勾闰月）的草稿：从现在的值预选、改一样以后日子往回收、拼成存的样子。
 import { MEMORY_CONFIDENCE_LABEL, MEMORY_EPISTEMIC_LABEL, MEMORY_TIER_LABEL } from "./memory-graph.ts";
 import {
+  type AnnualCalendar,
+  annualDayMax,
+  ANNUAL_YEAR_MIN,
+  formatAnnualDate,
+  parseAnnualDate,
   type MemoryClaimTier,
   type MemoryConfidence,
   type MemoryEpistemic,
@@ -117,9 +123,12 @@ export function annualPickable(annual: PersonalAnnualView): boolean {
   return annual.monthDay !== undefined && annual.blocked === undefined;
 }
 
-/** 档案页上每年提醒的那句小字：认不出日子、提醒插件没启用、下次哪天提醒（都没有是 undefined） */
-export function annualNote(annual: PersonalAnnualView): string | undefined {
-  if (annual.blocked === "not_gregorian") return t("pages.personalFiles.annual.notGregorian");
+/**
+ * 档案页上每年提醒的那句小字：农历的暂时不能自动提醒、提醒插件没启用、下次哪天提醒（都没有是 undefined）。
+ * 449：值认不出的（以前随手写的）不在这里说——值旁边已经提示了"格式认不出，点「改」重新选"
+ */
+export function annualNote(annual: PersonalAnnualView, value?: string): string | undefined {
+  if (annual.blocked === "not_gregorian") return value !== undefined && parseAnnualDate(value) === undefined ? undefined : t("pages.personalFiles.annual.notGregorian");
   if (annual.blocked === "reminders_off") return annual.daysBefore === undefined ? t("pages.personalFiles.annual.remindersOff") : t("pages.personalFiles.annual.onButOff");
   return annual.nextAt === undefined || annual.daysBefore === undefined ? undefined : t("pages.personalFiles.annual.next", { date: personalDate(annual.nextAt) });
 }
@@ -161,4 +170,63 @@ export function suggestGroups(items: readonly PersonalFileSuggestItem[]): Sugges
 export function suggestHeard(item: PersonalFileSuggestItem): string | undefined {
   if (item.heard.length === 0) return undefined;
   return t("pages.personalFiles.suggest.heard", { dates: item.heard.map((d) => d.slice(5)).join(t("pages.personalFiles.suggest.dateSep")) });
+}
+
+// ----------生日、纪念日的选择器（449） ----------
+
+/** 选择器的草稿：公历 / 农历，年（没有是"不记得哪年"）、月、日（没选的没有），农历的闰月 */
+export interface AnnualDraft {
+  calendar: AnnualCalendar;
+  year?: number;
+  month?: number;
+  day?: number;
+  leap: boolean;
+}
+
+/** 打开时按现在的值预选（认得出的话）；没有值、认不出的从公历、不记得哪年、月日没选起 */
+export function annualDraftOf(value: string | undefined): AnnualDraft {
+  const date = value === undefined ? undefined : parseAnnualDate(value);
+  if (!date) return { calendar: "solar", leap: false };
+  return { calendar: date.calendar, ...(date.year === undefined ? {} : { year: date.year }), month: date.month, day: date.day, leap: date.leap === true };
+}
+
+/** 选的月份最多几号（月份还没选的按最长的算：公历 31、农历 30） */
+const dayMaxOf = (draft: AnnualDraft) => annualDayMax(draft.calendar, draft.year, draft.month ?? 1);
+
+/**
+ * 改一样：换公历 / 农历（换成公历不再有闰月）、换年（null 是不记得哪年）、换月、换日、勾闰月。日子超过这个月最多几号的往回收
+ * （2 月 29 日换成平年变 28 日，农历三十换成公历 2 月变 29 日）
+ */
+export function changeAnnualDraft(draft: AnnualDraft, change: { calendar?: AnnualCalendar; year?: number | null; month?: number; day?: number; leap?: boolean }): AnnualDraft {
+  const { year: _year, ...base } = draft;
+  const year = change.year === undefined ? draft.year : change.year === null ? undefined : change.year;
+  const calendar = change.calendar ?? draft.calendar;
+  const next: AnnualDraft = {
+    ...base,
+    ...(year === undefined ? {} : { year }),
+    calendar,
+    ...(change.month === undefined ? {} : { month: change.month }),
+    ...(change.day === undefined ? {} : { day: change.day }),
+    leap: calendar === "lunar" && (change.leap ?? draft.leap),
+  };
+  if (next.day !== undefined) next.day = Math.min(next.day, dayMaxOf(next));
+  return next;
+}
+
+/** 选好了（月、日都选了）拼成存的样子（"--03-02""lunar:1990-L04-15"）；没选好是 undefined */
+export function annualDraftValue(draft: AnnualDraft): string | undefined {
+  if (draft.month === undefined || draft.day === undefined) return undefined;
+  return formatAnnualDate({ calendar: draft.calendar, ...(draft.year === undefined ? {} : { year: draft.year }), month: draft.month, day: draft.day, ...(draft.leap ? { leap: true } : {}) });
+}
+
+/** 年份的选项：今年到 1900 年（新的在前）；现在的值是更早或者以后的年份时也列上 */
+export function annualYearChoices(thisYear: number, current?: number): number[] {
+  const years = Array.from({ length: thisYear - ANNUAL_YEAR_MIN + 1 }, (_, i) => thisYear - i);
+  if (current !== undefined && !years.includes(current)) years.push(current);
+  return years.toSorted((a, b) => b - a);
+}
+
+/** 日子的选项：1 到这个月最多几号（公历按年月，农历到三十） */
+export function annualDayChoices(draft: AnnualDraft): number[] {
+  return Array.from({ length: dayMaxOf(draft) }, (_, i) => i + 1);
 }

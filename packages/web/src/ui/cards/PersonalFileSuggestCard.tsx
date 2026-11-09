@@ -5,9 +5,20 @@
 // 从手机通讯录挑的人（origin contacts）也上这张卡——建档那一条写"从手机通讯录挑的"，电话照核对卡一位一位列在小格子里，
 // 底下多一句"号码请一位一位对一遍"。
 // 导入的通讯录 vCard（origin vcard，Google 联系人导出的）也上这张卡——建档那一条写"从导入的通讯录来的"，底下的话写明没勾的以后不再提。
+// 449：生日、纪念日的值写成好读的样子（"3 月 2 日""农历八月十五"）。
 import { useState } from "react";
 import { toHash } from "../../app/route.ts";
-import { numberGroups, type PersonalFileSuggestCardPayload, type PersonalFileSuggestInput, type PersonalFileSuggestItem, PURGED_TEXT, suggestGroups, suggestHeard, t } from "../../state/index.ts";
+import {
+  numberGroups,
+  type PersonalFileSuggestCardPayload,
+  type PersonalFileSuggestInput,
+  type PersonalFileSuggestItem,
+  personalValueText,
+  PURGED_TEXT,
+  suggestGroups,
+  suggestHeard,
+  t,
+} from "../../state/index.ts";
 import { AnnualRemindPick } from "./AnnualRemindPick.tsx";
 import { Digits } from "./PersonalFileCard.tsx";
 import { Btn } from "./cards.tsx";
@@ -26,7 +37,8 @@ function Value({ item }: { item: PersonalFileSuggestItem }) {
 
 function valueText(item: PersonalFileSuggestItem): string {
   if (item.value === undefined) return "";
-  return item.number === true && item.value !== PURGED_TEXT ? numberGroups(item.value).map((g) => g.join("")).join(" ") : item.value;
+  if (item.number === true && item.value !== PURGED_TEXT) return numberGroups(item.value).map((g) => g.join("")).join(" ");
+  return item.field === undefined ? item.value : personalValueText(item.field, item.value);
 }
 
 export function PersonalFileSuggestCard({ state, payload: p, act }: CardProps<PersonalFileSuggestCardPayload>) {
@@ -130,7 +142,7 @@ export function PersonalFileSuggestCard({ state, payload: p, act }: CardProps<Pe
                       ) : (
                         t("ui.cards.personalFileSuggest.fieldLine", { label: item.label ?? "", value: valueText(item) })
                       )}
-                      {item.previous !== undefined && <span className="muted pf-suggest-previous">{t("ui.cards.personalFile.previous", { value: item.previous })}</span>}
+                      {item.previous !== undefined && <span className="muted pf-suggest-previous">{t("ui.cards.personalFile.previous", { value: item.field === undefined ? item.previous : personalValueText(item.field, item.previous) })}</span>}
                       {suggestHeard(item) !== undefined && <span className="muted pf-suggest-heard">{suggestHeard(item)}</span>}
                     </span>
                   </label>
