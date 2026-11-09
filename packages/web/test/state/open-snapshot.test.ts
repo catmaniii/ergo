@@ -1,15 +1,20 @@
 // 打开页面时先用的本机快照（388）：存哪些、会话留多少、先用快照再补增量和从头补出来的一样；补发攒着一次交（batch）和逐帧交一样。
+// 本机存的事件（452）：网页换了一版时用本机存的事件重新折一遍、再补增量，和守护进程冷补发折出来的一样。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
+  CHANNELS,
   conversationView,
   type EventFrame,
   HISTORY_PAGE_SIZE,
   initialUiState,
+  isEphemeralEventType,
   isOpenSnapshot,
+  keepsOpenEvents,
   olderHistory,
   reduce,
+  refoldInput,
   replay,
   snapshotChanged,
   snapshotOf,
@@ -85,6 +90,93 @@ describe("先用快照再补增量，和从头补出来的一样（录下的真�
     const agentVoice = { id: "av-1", conversation: "secretary", scope: {}, inputMessageId: "m-1", replyMessageIds: [], status: "done", version: 2, createdAt: "2026-11-03T09:00:00.000+08:00", messageId: "m-later" };
     const state = replay([message(1, "user"), { channel: "secretary", seq: 2, type: "agent_voice", payload: { voice: agentVoice } }]);
     expect(Object.keys(snapshotOf(state).agentVoices)).toEqual(["av-1"]);
+  });
+});
+
+/** 页面一打开就订阅的频道，照 App.tsx 的先后（守护进程冷补发按订阅的先后一个频道一个频道补） */
+const OPENING_ORDER: readonly string[] = [
+  CHANNELS.secretary,
+  CHANNELS.cards,
+  CHANNELS.inbox,
+  CHANNELS.board,
+  CHANNELS.activity,
+  CHANNELS.devices,
+  CHANNELS.workdayCalendar,
+  CHANNELS.watchCategories,
+  CHANNELS.projects,
+  CHANNELS.assistantName,
+  CHANNELS.readMarks,
+  CHANNELS.language,
+  CHANNELS.plugins,
+  CHANNELS.backgroundAgents,
+];
+
+/** 录下的输入里守护进程最后的事件日志：按频道、序号（重新同步过的频道只留之后的；临时事件不算，两边订阅时都补推同样的） */
+function serverLog(inputs: readonly UiInput[]): Map<string, EventFrame[]> {
+  const log = new Map<string, Map<number, EventFrame>>();
+  const visit = (input: UiInput): void => {
+    if (input.kind === "batch") return input.inputs.forEach(visit);
+    if (input.kind === "resync") return void log.delete(input.channel);
+    if (input.kind !== "frame" || isEphemeralEventType(input.frame.type)) return;
+    const channel = log.get(input.frame.channel) ?? new Map<number, EventFrame>();
+    log.set(input.frame.channel, channel);
+    channel.set(input.frame.seq, input.frame);
+  };
+  inputs.forEach(visit);
+  return new Map([...log].map(([c, m]) => [c, [...m.values()].toSorted((a, b) => a.seq - b.seq)]));
+}
+
+/** 订阅的先后：一打开就订阅的，后面是后来多订阅的（负责人的会话） */
+const orderOf = (log: Map<string, EventFrame[]>): string[] => [...OPENING_ORDER.filter((c) => log.has(c)), ...[...log.keys()].filter((c) => !OPENING_ORDER.includes(c)).toSorted()];
+
+/** 守护进程从头补发（游标全 0）：一个频道一个频道补完，攒着一次交，最后 synced（会话频道两边补的一样，这里补全部） */
+function coldOpen(log: Map<string, EventFrame[]>): UiState {
+  const inputs: UiInput[] = orderOf(log).flatMap((c) => log.get(c)!.map((frame): UiInput => ({ kind: "frame", frame, catchUp: true })));
+  return reduce(initialUiState, { kind: "batch", inputs: [...inputs, { kind: "synced" }] });
+}
+
+/**
+ * 换了一版：本机存着各频道到 cut 为止的事件（会话频道不存），读出来（IndexedDB 是结构化克隆，这里用 JSON 走一遍）按订阅的先后重新折一遍；
+ * 再带着游标订阅——存了的频道守护进程只补 cut 之后的，会话频道游标 0 照冷打开补
+ */
+function refoldThenIncrement(log: Map<string, EventFrame[]>, cut: (channel: string, frames: EventFrame[]) => number): UiState {
+  const order = orderOf(log);
+  const cuts = new Map(order.map((c) => [c, keepsOpenEvents(c) ? cut(c, log.get(c)!) : 0]));
+  const stored = JSON.parse(JSON.stringify(order.flatMap((c) => log.get(c)!.filter((f) => f.seq <= cuts.get(c)!)))) as EventFrame[];
+  const refolded = reduce(initialUiState, refoldInput(stored));
+  const increment: UiInput[] = order.flatMap((c) => log.get(c)!.filter((f) => f.seq > cuts.get(c)!).map((frame): UiInput => ({ kind: "frame", frame, catchUp: true })));
+  return reduce(refolded, { kind: "batch", inputs: [...increment, { kind: "synced" }] });
+}
+
+describe("换了一版：本机存的事件重新折一遍再补增量，和守护进程冷补发折出来的一样（452）", () => {
+  const names = fs.readdirSync(RECORDINGS).filter((f) => f.endsWith(".json"));
+  for (const name of names) {
+    test(`录下的 ${name}`, () => {
+      const log = serverLog(load(name));
+      const cold = coldOpen(log);
+      for (const fraction of [0, 1 / 3, 1 / 2, 4 / 5, 1]) {
+        const after = refoldThenIncrement(log, (_c, frames) => frames[Math.floor(frames.length * fraction) - 1]?.seq ?? 0);
+        expect(snapshotOf(after), `各频道存到 ${fraction} 处`).toEqual(snapshotOf(cold));
+        expect(after.cursors).toEqual(cold.cursors);
+      }
+    });
+  }
+
+  test("合成的用户量级数据（一万多条、十来 MB）：存到一半、存全了，都和冷补发的一样", () => {
+    const synthetic = syntheticLog();
+    const log = new Map([...synthetic.channels].map(([c, frames]) => [c, frames]));
+    const cold = coldOpen(log);
+    for (const fraction of [1 / 2, 1]) {
+      const after = refoldThenIncrement(log, (_c, frames) => frames[Math.floor(frames.length * fraction) - 1]?.seq ?? 0);
+      expect(snapshotOf(after)).toEqual(snapshotOf(cold));
+      expect(after.cursors).toEqual(cold.cursors);
+    }
+  });
+
+  test("会话频道（秘书会话、负责人的会话）不存，别的都存", () => {
+    expect(keepsOpenEvents(CHANNELS.secretary)).toBe(false);
+    expect(keepsOpenEvents("maintainer:tm-1")).toBe(false);
+    for (const channel of OPENING_ORDER.filter((c) => c !== CHANNELS.secretary)) expect(keepsOpenEvents(channel)).toBe(true);
   });
 });
 

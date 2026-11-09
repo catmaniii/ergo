@@ -566,12 +566,15 @@ Gmail 可以连几个账号（`google/gmail-accounts.ts`）。密钥区 `secrets
 - **界面字号**（设置 · 外观与风格 · 显示）：在 token 那一层缩放，不用 `zoom`、`transform`，不改 `html` 的字号。根元素上的 `--fs-k` 是这台设备、这种屏幕形态（窄屏 < 600、中屏 600–840、宽屏 ≥ 840，各记一份 `ergo-font-scale-<形态>`）选的比例，没调过是 1、什么都不写。生成的样式表把字号阶写成 `max(Npx * var(--fs-k), min(N, 11)px)`、间距乘 `--space-k`（0.7 + 0.3 × 比例）、`bar-h` 调大封顶（最多高 12px、不超过 max(56px, 本来的高)，调小不变矮），见 `tokens.ts` 的 `scaledTokenValue`；栏（标题栏、详情页的标题栏、导航）上把 `--fs-k` 换成 `--bar-k`（调大只跟四成）、字号阶重算一遍；调小时（根元素挂 `data-font-scale="down"`）能点的东西（按钮、链接、输入框）上把 `--fs-k` 换成 1，点击区不跟着变小，只缩看的字。比例是 1 时每个算式都等于原值，十一套风格一像素不变。样式里写死像素的字号一律写成 `calc(Npx * var(--fs-k))`（不到 13px 的兜下限），图标框里的字形行尾写"不跟字号"（`test/visual-styles/font-scale.test.ts` 查）。只在调过时才要的排版（标题、次要信息收成一行，标题栏里胶囊让位）在 `styles/font-scale.css`，挂在 `:root[data-font-scale="up"]` 下。`index.html` 的第二段内联脚本在页面脚本之前写好 `--fs-k`，和 `app/font-scale.ts` 同一套算法；真页面上的验收（两个视口 × 四个比例、十一套风格的溢出检查、标题栏高、消息列表占比、点击区、换形态、重开）在 `test/font-scale-page.test.ts`（集成车道）。
 - **加一套风格**：建 `src/visual-styles/<id>/style.ts`（`{ id, name, blurb, tokens, fonts? }`）和 `style.css`，在 `src/visual-styles/index.ts` 登记一行；要字体的 `npm install -D --save-exact <fontsource 包>@<版本> -w @ergo/web`；跑 `npx vitest run packages/web/test/visual-styles packages/web/test/app/theme.test.ts packages/web/test/build.test.ts`（对比度、字体、规则的前缀自动查），再 `npm run build:web` 打开看浅色深色。设置里的风格预览自动就有。
 
-### 打开页面：补发攒着一次放、本机快照只补增量
+### 打开页面：补发攒着一次放、本机快照和本机存的事件只补增量
 
-页面一打开订阅十几个频道，守护进程按游标补发（会话频道游标为 0 时只补最近一页，别的从头）。用久了是一万多条、十来 MB，所以（[ADR-0048](adr/0048-open-snapshot-on-device-batch-catch-up.md)）：
+页面一打开订阅十几个频道，守护进程按游标补发（会话频道游标为 0 时只补最近一页，别的从头）。用久了是一两万条、一二十 MB，所以（[ADR-0048](adr/0048-open-snapshot-on-device-batch-catch-up.md)、[ADR-0058](adr/0058-open-events-on-device-refold-after-update.md)）：
 
 - **补发攒着一次交**（`app/ws-connection.ts`）：订阅之后到回执（`synced`）之前收到的帧、要重新同步的频道、被拒的请求先攒着，回执到了作为一个 `batch` 输入一次交给状态层，界面只画补完的样子，不一帧帧画中间状态。断了先把攒着的交掉再报断开；攒了 10 秒回执还没到就先交一次。实时帧照旧逐帧交。补了几帧、多少字节、多久在 Debug 工具集的"连接"里。
 - **本机快照**（`state/open-snapshot.ts` 定存哪些，`app/open-snapshot.ts` 定什么时候存、什么时候作废，存在 IndexedDB，`app/open-snapshot-idb.ts`）：状态层里由事件折出来的那部分连同各频道的游标（不含发送中的、弹窗、正在生成的回复这些临时的；会话只留最近一页），补完、连着时闲下来写一份。下次打开先用它把界面画出来，订阅带它的游标，守护进程只补增量。网页版本（构建产物的哈希）、协议版本、快照格式有一样对不上就不用、删掉；订阅回 `resync` 的频道照旧清掉从头补；回到配对页（还没配对、被吊销、过期）时删掉。读写都不抛错，存不了、读不了照从头补。原型、开发服务器的页面不用快照。
+- **本机存的事件**（452，同一个文件和同一张 IndexedDB 表：快照在键 `latest`，事件一条一个键 `[频道, 序号]`）：会话频道以外的落盘事件原样存下（`state/open-snapshot.ts` 的 `keepsOpenEvents`；会话频道冷打开本来就只补最近一页，不存），和快照一个事务写，记着"各频道到哪一条为止是全的"（和快照的游标相同，只认从 1 起一条不缺的那一段）。网页换了一版（快照不能用了）而协议版本没变时，读出存着的事件，按订阅的先后用新版本的状态层重新折一遍（`refoldInput`，等于本机自己做一次"从头补"），订阅带事件的游标（会话频道是 0），守护进程只补增量和会话最近一页；某个频道存得不全就只从头补它。协议版本变了才全删、从头补；订阅回 `resync` 的频道清掉它存着的；回到配对页时快照和事件一起删。"本机重折 + 增量"和"冷补发"折出来的一样，由 `test/state/open-snapshot.test.ts`（54 份录下的事件流、各频道存到几处）和页面测试锁住。状态层里新加跨频道的归并（按别的频道里的东西删、改）要照 `pluginDataPurged` 那样不依赖到达的先后。
+- **WebSocket 压缩**（`gateway/gateway.ts`）：守护进程的 `/ws` 开 permessage-deflate，同一条连接共用压缩上下文（窗口 2^13、memLevel 7，每条连接约 100 KB），短于 128 字的帧不压；新设备第一次打开、协议变了这类仍要全量补的，经隧道的字节少很多。不提这个扩展的客户端照常。
+- 量过（452：合成的 1.2 万条事件、CPU 降速 4 倍、限速 4 Mbps / 200 ms，页面和 /ws 一起限）：换了一版之后再打开（包括手机切回前台时刷新），补完画好从约 25 秒降到 3.4～3.7 秒，和同一版热打开（3.3 秒）差不多，只补 599 帧 / 515 KB（以前 1.2 万帧 / 11 MB）；新设备第一次打开线上从 12.1 MB 降到 1.5 MB（大头是 1 MB 的页面），补完从 26 秒到 5.4 秒。
 - 页面测试 `packages/web/test/open-snapshot-page.test.ts`（集成车道）：构建安装版，由假守护进程补一份照真实用量编的事件日志（一万一千多帧、10 MB），在真 Chrome 里量 React 提交了几次、补了几帧。改之前冷打开要画五六十到近百遍（每收一批帧画一遍），现在补发在路上时不画，补完画一次；热打开只补关掉之后的增量。
 
 ### 后台放久了切回来

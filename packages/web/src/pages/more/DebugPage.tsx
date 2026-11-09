@@ -18,7 +18,7 @@ import { closeDebug, notifyLog, PAGE_OPENED_AT, pageLog, useDebugUnlock, useList
 import { pageNativeApp } from "../../app/page-native.ts";
 import { pageNotifier } from "../../app/page-notify.ts";
 import type { Navigate } from "../../app/route.ts";
-import { useStore } from "../../app/store.tsx";
+import { type OpenedFrom, useStore } from "../../app/store.tsx";
 import {
   ASSISTANT_NAME_MARK,
   type ConnectionStatus,
@@ -349,7 +349,7 @@ const CONNECTION_LABEL: Readonly<Record<ConnectionStatus, string>> = tTable({
 function ConnectionCard() {
   const { ui, daemonInfo, connectionStats, reconnect, notePageUpdate } = useStore();
   const toast = useToast();
-  const [stats, setStats] = useState<ConnectionStats & { readonly fromSnapshot?: boolean }>(connectionStats);
+  const [stats, setStats] = useState<ConnectionStats & { readonly openedFrom?: OpenedFrom }>(connectionStats);
   const [pings, setPings] = useState<string[]>([]);
   useEffect(() => {
     const timer = setInterval(() => setStats(connectionStats()), 1000);
@@ -411,15 +411,22 @@ function ConnectionCard() {
 }
 
 /**
- * 打开、重连上之后最近一次补发收了几帧、多少字节、多久补完；打开时先用了本机快照没有（388：量打开时把历史过一遍的那一下，
- * 手机上看得到）
+ * 打开、重连上之后最近一次补发收了几帧、多少字节、多久补完；打开时先用了什么（388：本机快照；452：网页换了一版后本机存的事件，
+ * 重新折了几条）——量打开时把历史过一遍的那一下，手机上看得到
  */
-function CatchUpRow({ stats }: { stats: ConnectionStats & { readonly fromSnapshot?: boolean } }) {
-  const { catchUp, fromSnapshot } = stats;
+function CatchUpRow({ stats }: { stats: ConnectionStats & { readonly openedFrom?: OpenedFrom } }) {
+  const { catchUp, openedFrom } = stats;
   const value = catchUp
     ? t("pages.debug.connection.catchUpValue", { frames: catchUp.frames, size: sizeLabel(catchUp.bytes), seconds: (catchUp.ms / 1000).toFixed(1) })
     : t("pages.debug.connection.catchUpNone");
-  const from = fromSnapshot === undefined ? undefined : t(fromSnapshot ? "pages.debug.connection.fromSnapshot" : "pages.debug.connection.fromScratch");
+  const from =
+    openedFrom === undefined
+      ? undefined
+      : openedFrom.kind === "snapshot"
+        ? t("pages.debug.connection.fromSnapshot")
+        : openedFrom.kind === "events"
+          ? t("pages.debug.connection.fromEvents", { count: openedFrom.events })
+          : t("pages.debug.connection.fromScratch");
   return <DebugRow label={t("pages.debug.connection.catchUp")}>{from === undefined ? value : `${value} · ${from}`}</DebugRow>;
 }
 
