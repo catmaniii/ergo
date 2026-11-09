@@ -447,7 +447,7 @@ export const notesWebPlugin: WebPluginDefinition = {
   };
 ```
 
-- **管哪儿、谁先**：`regions` 是选"自动"时管的区域（`mainland` 中国大陆、`abroad` 大陆以外，按点在不在大陆分），`priority` 是同一个区域里的先后（数大的先：高德 100、OpenStreetMap 0，谷歌写 50 就是"大陆外、高于高德和 OpenStreetMap"）；某个区域要另一个数时写可选的 `regionPriority: { mainland?, abroad? }`（高德大陆外是 30：大陆外 谷歌 > 高德 > OpenStreetMap，ADR-0058）。`manualRegions` 是用户在地图页的地图切换里手动选它时还能用的区域（谷歌在大陆也能手动选，它自己转 GCJ-02）；切换菜单里"自动"会挑的排前面、只能手动选的排后面。查询管的区域和底图不一样时写可选的 `lookupRegions`（高德写 `["mainland"]`：底图大陆外也能用，查询只管大陆）。
+- **管哪儿、谁先**：`regions` 是选"自动"时管的区域（`mainland` 中国大陆、`abroad` 大陆以外，按点在不在大陆分），`priority` 是同一个区域里的先后（数大的先：高德 100、OpenStreetMap 0，谷歌写 50 就是"大陆外、高于高德和 OpenStreetMap"）；某个区域要另一个数时写可选的 `regionPriority: { mainland?, abroad? }`（高德大陆外是 30：大陆外 谷歌 > 高德 > OpenStreetMap，ADR-0059）。`manualRegions` 是用户在地图页的地图切换里手动选它时还能用的区域（谷歌在大陆也能手动选，它自己转 GCJ-02）；切换菜单里"自动"会挑的排前面、只能手动选的排后面。查询管的区域和底图不一样时写可选的 `lookupRegions`（高德写 `["mainland"]`：底图大陆外也能用，查询只管大陆）。
 - **底图**（`basemap()`）：此刻能不能用、页面加载它的脚本要的浏览器用的 Key（会进页面，只放本来就在页面上的那一种）、Key 不对的那一句。网页那一半在网页插槽 `mapBasemaps` 登记同一个编号（`MapBasemapSlot`：`title`、`prepare(key)` 加载脚本、交回建引擎的函数，引擎照 `packages/web/src/model/map.ts` 的 `MapEngine` 写，坐标一律 WGS-84 进出、要转的自己转）。
 - **查询**（`lookup()`）：能查交回 `LookupProvider`（查地点、周边、地址 ↔ 位置、路线，结果统一成 432/433 的形状，坐标 WGS-84 进出，出错抛 `MapLookupError`，都从 `map/api.ts` 拿），查不了交回给模型的一句原因。秘书的查地点、算路线工具按"自动"挑；工具的 `map` 参数是用户地图上现在用的那家，先问它，查不了时退回同区域下一家、回答里说一句。
 - **规矩**：`ownBasemapOnly` 的（高德、谷歌）查来的只画在它自己的底图上（地图页点开这种卡片时这一屏临时用它）；451 起用户自己的足迹也画在当前地图上（地图页管，插件不用管）。

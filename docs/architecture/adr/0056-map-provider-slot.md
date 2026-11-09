@@ -2,7 +2,7 @@
 
 状态：已定（445，用户 2026-11-08："海外能集成谷歌地图吗？如果可以的话，做成插件""到时候在国内和国外都可以在可用的地图之间切换"）。不改 ADR-0051、0053、0055 的决定："自动"时国内高德、国外 OpenStreetMap，挑法一样；只是把写死的两家改成按插槽登记的两家，再让别的插件能登记。
 
-**451 修订**（[ADR-0058](0058-map-one-current-map.md)）：插槽多了 `regionPriority`、`lookupRegions`、`staticMap`；高德大陆外也管底图（优先级 30），"自动"在大陆外是 谷歌 > 高德 > OpenStreetMap。
+**451 修订**（[ADR-0059](0059-map-one-current-map.md)）：插槽多了 `regionPriority`、`lookupRegions`、`staticMap`；高德大陆外也管底图（优先级 30），"自动"在大陆外是 谷歌 > 高德 > OpenStreetMap。
 
 ## 背景
 

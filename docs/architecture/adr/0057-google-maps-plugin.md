@@ -2,7 +2,7 @@
 
 状态：已定（446，用户 2026-11-08："海外能集成谷歌地图吗？如果可以的话，做成插件""国内和国外都可以在可用的地图之间切换"）。建在 ADR-0056 的插槽上，不改"自动"时国内高德、国外 OpenStreetMap 的挑法——只是大陆外多了一家优先级更高的。
 
-**451 修订**（[ADR-0058](0058-map-one-current-map.md)）：谷歌多一项静态地图（Maps Static API，计费项 `staticMaps`）；大陆外没填谷歌、谷歌停用或超额时退回高德（高德也没有才 OpenStreetMap）。
+**451 修订**（[ADR-0059](0059-map-one-current-map.md)）：谷歌多一项静态地图（Maps Static API，计费项 `staticMaps`）；大陆外没填谷歌、谷歌停用或超额时退回高德（高德也没有才 OpenStreetMap）。
 
 ## 背景
 
