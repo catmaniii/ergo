@@ -533,7 +533,7 @@
   "ui.plugins.map.day.goName": "Name this place",
   "ui.plugins.map.day.focus": "Zoom here",
   "ui.plugins.map.day.close": "Close",
-  "ui.plugins.map.day.privacy": "Footprints are drawn only inside ergo and never sent to any map service",
+  "ui.plugins.map.day.privacy": "Footprints are drawn on the current map: AMap and Google can see them; to keep them from seeing it, pick OpenStreetMap under Map",
   "ui.plugins.map.brings.card": "Map cards in chats",
   "ui.plugins.map.card.loading": "Loading…",
   "ui.plugins.map.card.open": "Open map",
@@ -635,7 +635,7 @@
   "ui.plugins.map.panel.unknown": "unknown reason",
   "ui.plugins.map.panel.howTo": "In the AMap Open Platform console, create a key with the \"Web (JS API)\" platform; its security code is listed under the same key. Looking up places needs another key with the \"Web service\" platform",
   "ui.plugins.map.panel.keySafe": "The keys and security code stay on this computer; the security code is never sent to the web page — ergo adds it when forwarding AMap's requests",
-  "ui.plugins.map.panel.privacy": "For maps inside China, your browser fetches map data directly from AMap (AMap sees this device's IP and the area you're viewing); OpenStreetMap tiles go through this computer. Where you went each day and where your photos were taken are never sent to map services",
+  "ui.plugins.map.panel.privacy": "For maps inside China, your browser fetches map data directly from AMap (AMap sees this device's IP and the area you're viewing); OpenStreetMap tiles go through this computer. When AMap is the current map, footprints are drawn on AMap and chat card previews are fetched from AMap, so AMap can see the points and lines drawn on them",
   "ui.plugins.map.try.title": "Test lookup",
   "ui.plugins.map.try.hint": "Search a fixed place with the Web service key (Tiananmen in Beijing, not your location) to see whether place and route lookups work",
   "ui.plugins.map.try.needKey": "Enter the Web service key (test and save) first; place and route lookups need it",
@@ -2114,10 +2114,10 @@
   "ui.plugins.googleMaps.panel.unknown": "Unknown reason",
   "ui.plugins.googleMaps.panel.usageTitle": "Used in {month} / free each month",
   "ui.plugins.googleMaps.panel.usageCount": "{count} / {limit}",
-  "ui.plugins.googleMaps.panel.overPaused": "Over the free usage this month, paused: {items} — OpenStreetMap is used instead until next month",
+  "ui.plugins.googleMaps.panel.overPaused": "Over the free usage this month, paused: {items} — AMap or OpenStreetMap is used instead until next month",
   "ui.plugins.googleMaps.panel.overAllowed": "Over the free usage this month: {items} — you allowed it, so Google bills the extra",
-  "ui.plugins.googleMaps.panel.allowOverage": "Keep using it after the free usage (Google bills the extra; unticked, it pauses and falls back to OpenStreetMap)",
+  "ui.plugins.googleMaps.panel.allowOverage": "Keep using it after the free usage (Google bills the extra; unticked, it pauses and falls back to AMap or OpenStreetMap)",
   "ui.plugins.googleMaps.panel.howTo": "How to enable the APIs in Google Cloud, create the two keys and restrict them: see the \"Google Maps\" section of User guide · Map",
   "ui.plugins.googleMaps.panel.billing": "Google requires billing on the project (ergo never touches payment details): set budget alerts and a daily cap for each API in Google Cloud so you aren't charged by surprise",
-  "ui.plugins.googleMaps.panel.privacy": "Outside mainland China your browser loads map data straight from Google (Google sees this device's IP and the area you're viewing); place and route lookups send only the one or two spots you ask about, and results aren't stored. Footprints always use OpenStreetMap"
+  "ui.plugins.googleMaps.panel.privacy": "Outside mainland China your browser loads map data straight from Google (Google sees this device's IP and the area you're viewing); place and route lookups send only the one or two spots you ask about, and results aren't stored. When Google is the current map, footprints are drawn on Google Maps and chat card previews are fetched from Google, so Google can see the points and lines drawn on them"
 }

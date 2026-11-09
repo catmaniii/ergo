@@ -199,7 +199,7 @@ describe("设置 · 数据源 · 高德地图那一块", () => {
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>测试并保存<\/button>/);
     expect(html).toContain("在高德开放平台的控制台建");
     expect(html).toContain("只存在这台电脑上");
-    expect(html).toContain("你每天去过哪里、照片在哪拍的不发给地图服务");
+    expect(html).toContain("高德是当前地图时，足迹画在高德地图上、聊天卡片的预览图向高德要，高德看得到画上去的点和线");
     expect(html).not.toMatch(/秘书|待我处理/);
   });
 

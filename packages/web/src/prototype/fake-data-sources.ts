@@ -168,7 +168,7 @@ function initial(): DataSourcesView {
       {
         id: "amap",
         title: "高德地图",
-        summary: "填了 Key，地图页在国内用高德地图，查国内的地点、路线也用它（只在你问的时候把起点、终点、\"附近\"的那一处发给高德；没填时国内也用 OpenStreetMap 查，店名和小路可能不全）。Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给高德",
+        summary: "填了 Key，地图页在国内用高德地图，查国内的地点、路线也用它（只在你问的时候把起点、终点、\"附近\"的那一处发给高德；没填时国内也用 OpenStreetMap 查，店名和小路可能不全）。Key 只存在这台电脑上；当前地图是高德时，足迹画在高德地图上、聊天卡片的预览图向高德要，高德看得到画上去的点和线",
         plugin: "map",
         pluginTitle: "地图",
         available: true,
@@ -183,14 +183,14 @@ function initial(): DataSourcesView {
         files: [],
         configurable: true,
         panel: amapPanel(),
-        disconnectNote: "填过的 Key 和安全密钥从这台电脑上删掉，地图页在国内改用 OpenStreetMap",
+        disconnectNote: "填过的 Key 和安全密钥从这台电脑上删掉，地图页在国内（和没填谷歌时的国外）改用 OpenStreetMap",
         hasLive: true,
       },
       // 谷歌地图（446）：演示页当作两个 Key 都填好了（地图页在新加坡用"谷歌"，fake-map.ts）；按需查开着、带着这个月每一项的用量（编的）
       {
         id: "google-maps",
         title: "谷歌地图",
-        summary: "填了 Key，地图页在大陆以外用谷歌地图，查大陆以外的地点、路线也用它（只在你问的时候把起点、终点、“附近”的那一处发给谷歌，查到的不存）。服务端用的 Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给谷歌",
+        summary: "填了 Key，地图页在大陆以外用谷歌地图，查大陆以外的地点、路线也用它（只在你问的时候把起点、终点、“附近”的那一处发给谷歌，查到的不存）。服务端用的 Key 只存在这台电脑上；当前地图是谷歌时，足迹画在谷歌地图上、聊天卡片的预览图向谷歌要，谷歌看得到画上去的点和线",
         plugin: "google-maps",
         pluginTitle: "谷歌地图",
         available: true,
@@ -205,7 +205,7 @@ function initial(): DataSourcesView {
         files: [],
         configurable: true,
         panel: googleMapsPanel(false),
-        disconnectNote: "填过的两个 Key 从这台电脑上删掉（Google Cloud 里的 Key 还在，不用了可以去那边删），地图页和查询在大陆以外改用 OpenStreetMap",
+        disconnectNote: "填过的两个 Key 从这台电脑上删掉（Google Cloud 里的 Key 还在，不用了可以去那边删），大陆以外的地图页改用高德地图（没填高德用 OpenStreetMap），查询改用 OpenStreetMap",
       },
       {
         id: "demo-camera",

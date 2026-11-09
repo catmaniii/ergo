@@ -224,7 +224,7 @@ describe("画出来的", () => {
     expect(wide.match(/class="map-day-entry"/g)).toHaveLength(4);
     expect(wide).toContain("08:00–10:00");
     expect(wide).toContain("另有 1 张没有地点");
-    expect(wide).toContain("足迹只在二狗里画，不发给任何地图服务");
+    expect(wide).toContain("足迹画在当前地图上：是高德、谷歌时它们看得到；不想让它们看到，在「地图」里选 OpenStreetMap");
     expect(wide).toContain('data-spot="spot-1"');
     expect(wide).toContain("待了 4 小时");
     expect(wide).toContain("这里拍了 2 张照片");

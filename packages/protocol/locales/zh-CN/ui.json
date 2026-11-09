@@ -506,7 +506,7 @@
   "ui.plugins.map.day.goName": "去起个名字",
   "ui.plugins.map.day.focus": "看这里",
   "ui.plugins.map.day.close": "关上",
-  "ui.plugins.map.day.privacy": "足迹只在二狗里画，不发给任何地图服务",
+  "ui.plugins.map.day.privacy": "足迹画在当前地图上：是高德、谷歌时它们看得到；不想让它们看到，在「地图」里选 OpenStreetMap",
   "ui.plugins.map.brings.card": "聊天里的地图卡片",
   "ui.plugins.map.card.loading": "正在取…",
   "ui.plugins.map.card.open": "看大地图",
@@ -605,7 +605,7 @@
   "ui.plugins.map.panel.unknown": "原因不明",
   "ui.plugins.map.panel.howTo": "在高德开放平台的控制台建一个服务平台是「Web端(JS API)」的 Key，安全密钥在同一个 Key 下面；查地点要另建一个「Web服务」的 Key",
   "ui.plugins.map.panel.keySafe": "Key 和安全密钥只存在这台电脑上；安全密钥不发给网页，二狗转发高德的请求时自己拼上",
-  "ui.plugins.map.panel.privacy": "看国内地图时，地图数据由你的浏览器直接从高德取（高德看得到这台设备的 IP 和你正在看的那片）；OpenStreetMap 的瓦片经这台电脑转发。你每天去过哪里、照片在哪拍的不发给地图服务",
+  "ui.plugins.map.panel.privacy": "看国内地图时，地图数据由你的浏览器直接从高德取（高德看得到这台设备的 IP 和你正在看的那片）；OpenStreetMap 的瓦片经这台电脑转发。高德是当前地图时，足迹画在高德地图上、聊天卡片的预览图向高德要，高德看得到画上去的点和线",
   "ui.plugins.map.try.title": "试查一下",
   "ui.plugins.map.try.hint": "拿 Web 服务 Key 搜一个固定的地点（北京的天安门，不是你的位置），看查地点、算路线通不通",
   "ui.plugins.map.try.needKey": "填好 Web 服务 Key（测试并保存）以后才能试查；查地点、算路线要用它",
@@ -2035,10 +2035,10 @@
   "ui.plugins.googleMaps.panel.unknown": "原因不明",
   "ui.plugins.googleMaps.panel.usageTitle": "{month} 用了几次 / 每月免费量",
   "ui.plugins.googleMaps.panel.usageCount": "{count} / {limit}",
-  "ui.plugins.googleMaps.panel.overPaused": "这个月超了免费量，先停用了：{items}——改用 OpenStreetMap，下个月恢复",
+  "ui.plugins.googleMaps.panel.overPaused": "这个月超了免费量，先停用了：{items}——改用高德或 OpenStreetMap，下个月恢复",
   "ui.plugins.googleMaps.panel.overAllowed": "这个月超了免费量：{items}——你放开了，超出的谷歌按量收费",
-  "ui.plugins.googleMaps.panel.allowOverage": "超了免费量还接着用（超出的谷歌按量收费；不勾就先停用、退回 OpenStreetMap）",
+  "ui.plugins.googleMaps.panel.allowOverage": "超了免费量还接着用（超出的谷歌按量收费；不勾就先停用、退回高德或 OpenStreetMap）",
   "ui.plugins.googleMaps.panel.howTo": "怎么在 Google Cloud 开这几个 API、建两个 Key、加限制：见用户手册 · 地图 的「谷歌地图」一节",
   "ui.plugins.googleMaps.panel.billing": "谷歌要求项目开结算（二狗不碰付款信息）：请在 Google Cloud 设好预算提醒、给每个 API 设每日上限，防止扣钱",
-  "ui.plugins.googleMaps.panel.privacy": "大陆以外看地图时，地图数据由你的浏览器直接从谷歌取（谷歌看得到这台设备的 IP 和你正在看的那片）；查地点、算路线只发你问的那一两个点，查到的不存。看足迹时一律 OpenStreetMap"
+  "ui.plugins.googleMaps.panel.privacy": "大陆以外看地图时，地图数据由你的浏览器直接从谷歌取（谷歌看得到这台设备的 IP 和你正在看的那片）；查地点、算路线只发你问的那一两个点，查到的不存。谷歌是当前地图时，足迹画在谷歌地图上、聊天卡片的预览图向谷歌要，谷歌看得到画上去的点和线"
 }

@@ -60,11 +60,13 @@ describe("地图卡片", () => {
   });
 });
 
+/** 地址里取一个参数的函数（照网关的写法） */
+const get = (path: string) => {
+  const url = new URL(path, "http://x");
+  return (name: string) => url.searchParams.get(name);
+};
+
 describe("卡片的预览图（451）", () => {
-  const get = (path: string) => {
-    const url = new URL(path, "http://x");
-    return (name: string) => url.searchParams.get(name);
-  };
 
   it("地址拼得出、拆得回：只有编号、用哪家、宽高、深浅、清晰度，没有坐标", () => {
     const q = { card: "c-1", provider: "amap", width: 400, height: 200, dark: true, scale: 2 as const };
