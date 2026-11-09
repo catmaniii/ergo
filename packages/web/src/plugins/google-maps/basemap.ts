@@ -12,13 +12,21 @@ import { googleAuthFailed, loadGoogle, onGoogleAuthFailure, setGoogleLoader } fr
 import { demoTileUrl } from "../../prototype/fake-map.ts";
 
 /**
- * 演示页：假的谷歌（编的占位瓦片）。照真的加载法那样挂上全局的 gm_authFailure（页面测试叫它扮"谷歌说 Key 不对"）
+ * 演示页：假的谷歌（编的占位瓦片）。照真的加载法那样挂上全局的 gm_authFailure（页面测试叫它扮"谷歌说 Key 不对"）。
+ * 地址带 ?demo-google=unreachable（或者这台设备存了 ergo-demo-google-fail）时扮"这台设备连不上谷歌"（设备在中国大陆）：过一会儿加载失败
  */
 const DEMO =
   import.meta.env.MODE === "demo"
     ? () =>
         setGoogleLoader(() => {
           (window as Window & { gm_authFailure?: () => void }).gm_authFailure = googleAuthFailed;
+          let unreachable = false;
+          try {
+            unreachable = new URLSearchParams(window.location.search).get("demo-google") === "unreachable" || localStorage.getItem("ergo-demo-google-fail") === "1";
+          } catch {
+            unreachable = false;
+          }
+          if (unreachable) return new Promise((_, reject) => setTimeout(() => reject(new Error(t("ui.plugins.googleMaps.unreachable"))), 600));
           return Promise.resolve(fakeGoogleMaps((z, x, y) => demoTileUrl("google", z, x, y)));
         })
     : undefined;

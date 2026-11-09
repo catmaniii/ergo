@@ -459,19 +459,24 @@ function amapPanel(): AmapSourcePanel {
   return { kind: "amap", lookup: true, usage: { month: nowIso().slice(0, 7), search: 37, lbs: 212, searchLimit: 5000, lbsLimit: 150000 } };
 }
 
-/** 谷歌地图那一块（446）：两个 Key 都填了，这个月每一项用了几次（编的，离免费量都还远） */
+/**
+ * 谷歌地图那一块（446）：两个 Key 都填了，这个月每一项用了几次（编的，离免费量都还远）；451 起多一项卡片预览图（Maps Static API）——
+ * 地址带 ?demo-map-preview=google-off 时扮"Maps Static API 没开"
+ */
 function googleMapsPanel(allowOverage: boolean): GoogleMapsSourcePanel {
+  const staticOff = typeof location !== "undefined" && new URLSearchParams(location.search).get("demo-map-preview") === "google-off";
   return {
     kind: "google-maps",
     browserKey: true,
     serverKey: true,
     usage: {
       month: nowIso().slice(0, 7),
-      counts: { dynamicMaps: 46, textSearch: 23, nearbySearch: 4, geocoding: 31, routesEssentials: 12, routesPro: 9 },
-      limits: { dynamicMaps: 10000, textSearch: 5000, nearbySearch: 5000, geocoding: 10000, routesEssentials: 10000, routesPro: 5000 },
+      counts: { dynamicMaps: 46, textSearch: 23, nearbySearch: 4, geocoding: 31, routesEssentials: 12, routesPro: 9, staticMaps: 58 },
+      limits: { dynamicMaps: 10000, textSearch: 5000, nearbySearch: 5000, geocoding: 10000, routesEssentials: 10000, routesPro: 5000, staticMaps: 10000 },
     },
     allowOverage,
     over: [],
+    staticMap: staticOff ? "off" : "ok",
   };
 }
 

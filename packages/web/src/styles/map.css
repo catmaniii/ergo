@@ -234,6 +234,42 @@
   justify-content: center;
   color: var(--muted);
 }
+/* 想用的那一家还在加载（451）：中性的空底，不先画 OpenStreetMap */
+.map-loading-basemap {
+  background: var(--fill);
+  font-size: var(--fs-s);
+}
+/* 这一屏临时用查它的那一家（451）：地图上面正中一句（左上是底图的名字、右上是放大缩小） */
+.map-own-note {
+  position: absolute;
+  z-index: 205;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 150px);
+  padding: 4px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  text-align: center;
+  box-shadow: var(--shadow-btn);
+}
+/* 那一家在这台设备上加载不了（451）：盖在地图那块上的静态大图，铺满、多的裁掉 */
+.map-static {
+  position: absolute;
+  inset: 0;
+  z-index: 150;
+  background: var(--fill);
+}
+.map-static img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
 /*
  * 回到我现在的位置（442，plugins/map/LocateControl.tsx）：

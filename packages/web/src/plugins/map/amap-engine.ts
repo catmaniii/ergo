@@ -145,6 +145,9 @@ export function createAmapEngine(host: HTMLElement, AMap: AmapNamespace, options
     viewMode: "2D",
     resizeEnable: true,
     mapStyle: options.dark ? "amap://styles/dark" : "amap://styles/normal",
+    // 国外也用高德时（451：国外没填谷歌默认高德）要它的"世界地图"——高德要提工单给 Key 开通，没开通时国外可能很空；
+    // 照样带上，不因此报错（用户可以在地图切换里改用 OpenStreetMap）
+    showOversea: true,
   });
   let overlays: AmapOverlay[] = [];
   let timer: ReturnType<typeof setTimeout> | undefined;

@@ -105,3 +105,7 @@
   display: block;
   margin-top: 2px;
 }
+/* 卡片预览图（Maps Static API，451）那一行：没开时用"注意"的颜色（不挡保存） */
+.google-maps-panel .field .google-maps-static[data-static-map="off"] {
+  color: var(--high-fg);
+}

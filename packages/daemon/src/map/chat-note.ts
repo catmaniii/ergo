@@ -32,15 +32,8 @@ export function mapChatNote(mark: MapMark): string {
   const loading = mark.basemap === BASEMAP_LOADING;
   /** 是地图服务的编号（工具的 map 认的写法）才叫秘书照它查；别的写法（不认得的）只照原样写底图 */
   const id = !loading && MAP_PROVIDER_ID.test(mark.basemap) ? mark.basemap : undefined;
-  /** 开着足迹：底图一律 OpenStreetMap，编号是这一带查询用的那一家（不是画着的） */
-  const footprints = mark.footprints !== undefined;
-  const basemap = loading
-    ? "底图还没画上"
-    : id
-      ? footprints
-        ? `看足迹时底图一律画 OpenStreetMap，这一带查地点用的地图服务是${basemapText(id)}（地图服务编号 ${id}）`
-        : `地图上用的是${basemapText(id)}（地图服务编号 ${id}）`
-      : `底图是${mark.basemap}`;
+  // 451 起看足迹时底图也是当前地图：开不开足迹，编号都是画着的那一家（查询跟着它走）
+  const basemap = loading ? "底图还没画上" : id ? `地图上用的是${basemapText(id)}（地图服务编号 ${id}）` : `底图是${mark.basemap}`;
   const view = `地图现在看的中心在纬度 ${coord(mark.lat)}、经度 ${coord(mark.lon)}（WGS-84），缩放 ${Math.round(mark.zoom * 10) / 10} 级（3 级看全国、11 级看一个城市、17 级看街道），${basemap}`;
   const looking = mark.card
     ? `看的是聊天里的一张地图卡片${mark.card.title ? `「${mark.card.title}」` : ""}（卡片 ${mark.card.id}）`
@@ -52,11 +45,7 @@ export function mapChatNote(mark: MapMark): string {
     `用户说"这里""这一片""附近"多半指地图现在看的这一带，不一定是他本人现在的位置（他的位置不在这段里）。`,
     ...(id === undefined
       ? []
-      : [
-          footprints
-            ? `查地点、地址、算路线（${MAP_TOOL.search}、${MAP_TOOL.geocode}、${MAP_TOOL.reverse}、${MAP_TOOL.route}）时把 map 写成"${id}"：查询跟着他这一带用的那家地图走（看足迹时底图固定是 OpenStreetMap，查询不跟它）。`
-            : `查地点、地址、算路线（${MAP_TOOL.search}、${MAP_TOOL.geocode}、${MAP_TOOL.reverse}、${MAP_TOOL.route}）时把 map 写成"${id}"：查询跟着他地图上用的这一家走，查来的结果才画得到这张地图上。`,
-        ]),
+      : [`查地点、地址、算路线（${MAP_TOOL.search}、${MAP_TOOL.geocode}、${MAP_TOOL.reverse}、${MAP_TOOL.route}）时把 map 写成"${id}"：查询跟着他地图上用的这一家走，查来的结果才画得到这张地图上。`]),
     `要在地图上给他看地点、路线、某一天的足迹，用 ${SHOW_ON_MAP_TOOL} 画成聊天里的地图卡片（他点开就在地图页上看）。`,
     ...(mark.via === "button" ? ["从悬浮按钮来的：用户在地图上按钮旁边的小气泡里看你的回话，回话要短，一两句话（30 字上下），不列清单。"] : []),
   ];

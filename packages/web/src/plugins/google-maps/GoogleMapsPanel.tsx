@@ -4,6 +4,7 @@
 //   回来的整页里没有它们，发完马上清掉；
 // - 每个框下面一句怎么在 Google Cloud 给它加限制：浏览器用的会进网页（谷歌的设计），加"网站限制"写这台设备打开二狗的地址
 //   （和在外面打开二狗用的地址）、"API 限制"只勾 Maps JavaScript API；服务端用的加"IP 地址"限制、"API 限制"只勾那三个；
+// - 服务端 Key 下面一行"卡片预览图（Maps Static API）：能用 / 没开"（451：测 Key、取预览图时谷歌怎么说的；没开不挡保存）；
 // - 这个月每一项用了几次 / 每月免费量；超了的写明先停用了、退回 OpenStreetMap；"超了还接着用"的开关（超出的谷歌按量收费）；
 // - 几句说明：去哪看建 Key、设预算提醒和每日上限的步骤（用户手册 · 地图），隐私。
 // 组件本身是纯渲染加一个请求（GoogleMapsPanelView 不碰 HTTP，测试在 Node 里直接渲染）。
@@ -84,6 +85,11 @@ export function GoogleMapsPanelView({ source, values, busy, result, origin, onVa
             onChange={(e) => onValue(field, e.currentTarget.value)}
           />
           <small className="hint">{field === "browserKey" ? t("ui.plugins.googleMaps.panel.browserHint", { origin }) : t("ui.plugins.googleMaps.panel.serverHint")}</small>
+          {field === "serverKey" && panel?.staticMap !== undefined && (
+            <small className="hint google-maps-static" data-static-map={panel.staticMap}>
+              {t(panel.staticMap === "ok" ? "ui.plugins.googleMaps.panel.staticOk" : "ui.plugins.googleMaps.panel.staticOff")}
+            </small>
+          )}
         </label>
       ))}
       <div className="plugin-actions">

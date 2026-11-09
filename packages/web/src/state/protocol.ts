@@ -736,7 +736,8 @@ export { MAP_CARD_ITEM, mapCardPath, mapCardTitle, parseMapCardPath } from "@erg
 // "在地图上看"（447）：地图页的页面 id（浏览插件不 import 地图插件也知道去哪）、看查到的一处的地址、查一处的请求和结果
 export { MAP_FIND_TEXT_MAX, MAP_LOOKUP_ITEM, MAP_PAGE_ID, mapLookupPath, parseMapLookupPath } from "@ergo/protocol";
 export type { MapFindBody, MapFindResult } from "@ergo/protocol";
-export type { MapCardMark, MapCardPayload, MapCardShow, MapDrawing } from "@ergo/protocol";
+export type { MapCardMark, MapCardPayload, MapCardShow, MapDrawing, MapPreviewQuery } from "@ergo/protocol";
+export { MAP_PREVIEW_MAX_SIDE, MAP_PREVIEW_MIN_SIDE } from "@ergo/protocol";
 // 查地点、算路线（432）：设置 · 数据源 · 高德地图那一块要的（Web 服务 Key 填了没有、这个月的用量）、查到的能画的那一份
 export { isAmapSourcePanel, MAP_ROUTE_MODES } from "@ergo/protocol";
 export type { AmapSourcePanel, AmapUsageView, MapLookupDrawing, MapLookupLine, MapLookupMark, MapRouteMode } from "@ergo/protocol";
