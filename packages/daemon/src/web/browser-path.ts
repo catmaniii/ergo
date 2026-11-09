@@ -2,7 +2,7 @@
 // （环境变量 AGENT_BROWSER_EXECUTABLE_PATH）用同一个，选择和探测只在这里有一份。
 //
 // 选法：候选的顺序（用户在二狗的配置里显式写的 web.browserPath → 外部显式指定的 AGENT_BROWSER_EXECUTABLE_PATH
-// → agent-browser 自带 → 系统 Chrome）、读 PE 签名表的探测、"先跳过没签名的，一个不剩才按存在兜底"、
+// → agent-browser 自带 → 系统 Chrome → 系统 Edge）、读 PE 签名表的探测、"先跳过没签名的，一个不剩才按存在兜底"、
 // 结果一个进程只探一次（没找到也记住，不设环境变量）。
 //
 // 背景：一些安全软件（比如 360 主动防御）会杀掉没有签名的浏览器的沙箱子进程——进程秒退、退出码 3、一行日志都没有。
@@ -60,9 +60,20 @@ export function systemChromePaths(env: Readonly<Record<string, string | undefine
 }
 
 /**
+ * 系统的 Edge（Program Files (x86)、Program Files 两处）：每台 Windows 10 / 11 都带、有签名，没装 Chrome 的电脑上靠它联网，
+ * 排在系统 Chrome 后面（454）
+ */
+export function systemEdgePaths(env: Readonly<Record<string, string | undefined>>): BrowserCandidate[] {
+  const edge = "Microsoft/Edge/Application/msedge.exe";
+  return [envValue(env, "ProgramFiles(x86)"), envValue(env, "ProgramFiles")].flatMap((root) =>
+    root ? [{ path: path.join(root, edge), why: "系统 Edge 兜底（没有 Chrome）" }] : [], // @i18n-ignore log：选浏览器的理由只进日志
+  );
+}
+
+/**
  * 全部候选，按优先级排：① 外部显式指定的——用户在二狗的配置里写了 web.browserPath 的排最前，
  * 然后是守护进程环境里的 AGENT_BROWSER_EXECUTABLE_PATH（用户想换 Chrome / Edge 时不覆盖）→ ② agent-browser 自带（版本固定）
- * → ③ 系统 Chrome 兜底
+ * → ③ 系统 Chrome 兜底 → ④ 系统 Edge 兜底
  */
 export function browserCandidates(input: { configured?: string | undefined; homeDir: string; env: Readonly<Record<string, string | undefined>> }): BrowserCandidate[] {
   const fromEnv = envValue(input.env, AGENT_BROWSER_ENV);
@@ -73,6 +84,7 @@ export function browserCandidates(input: { configured?: string | undefined; home
     ...agentBrowserCandidates(input.homeDir).map((p) => ({ path: p, why: "agent-browser 自带（版本固定）" })),
     // @i18n-ignore-end
     ...systemChromePaths(input.env),
+    ...systemEdgePaths(input.env),
   ];
 }
 
@@ -199,7 +211,7 @@ export function createBrowserLocator(input: {
       const tried = pick().rejected;
       // @i18n-ignore-start model：交回模型（联网工具的出错说明）
       return (
-        "找不到浏览器。在数据目录的配置里写 web.browserPath（Chrome 或 Edge 的可执行文件的绝对路径），或者装上 Chrome，然后重启二狗" +
+        "找不到浏览器。在数据目录的配置里写 web.browserPath（Chrome 或 Edge 的可执行文件的绝对路径），或者装上 Chrome 或 Edge，然后重启二狗" +
         (tried.length > 0 ? `。找过：${tried.join("；")}` : "")
       );
       // @i18n-ignore-end

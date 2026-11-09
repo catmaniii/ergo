@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { agentBrowserCandidates, browserCandidates, createBrowserLocator, pickBrowser, probeEmbeddedSignature, systemChromePaths } from "../../src/web/index.ts";
+import { agentBrowserCandidates, browserCandidates, createBrowserLocator, pickBrowser, probeEmbeddedSignature, systemChromePaths, systemEdgePaths } from "../../src/web/index.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 /** 一段最小的 PE 文件头：MZ、PE 签名、可选头的 magic（PE32+ 或 PE32），签名表（data directory 第 4 项）有没有 */
@@ -49,7 +49,7 @@ describe("签名探测（读 PE 文件头的签名表）", () => {
 });
 
 describe("候选的顺序", () => {
-  it("配置（写了才有）→ 守护进程环境里的 AGENT_BROWSER_EXECUTABLE_PATH → agent-browser 自带（版本高的在前）→ 系统 Chrome（没有 Edge）", () => {
+  it("配置（写了才有）→ 守护进程环境里的 AGENT_BROWSER_EXECUTABLE_PATH → agent-browser 自带（版本高的在前）→ 系统 Chrome → 系统 Edge（454）", () => {
     const home = makeTempDir("ergo-home-");
     const ab = path.join(home, ".agent-browser", "browsers");
     fakeExe(path.join(ab, "chrome-131.0.1", "chrome.exe"), peHeader(true));
@@ -68,6 +68,8 @@ describe("候选的顺序", () => {
       path.join("C:\\PF", "Google/Chrome/Application/chrome.exe"),
       path.join("C:\\PF86", "Google/Chrome/Application/chrome.exe"),
       path.join("C:\\Users\\me\\AppData\\Local", "Google/Chrome/Application/chrome.exe"),
+      path.join("C:\\PF86", "Microsoft/Edge/Application/msedge.exe"),
+      path.join("C:\\PF", "Microsoft/Edge/Application/msedge.exe"),
     ]);
     expect(candidates[0]!.why).toBe("外部显式指定（二狗的配置 web.browserPath）");
     expect(candidates[1]!.why).toBe("外部显式指定（AGENT_BROWSER_EXECUTABLE_PATH）");
@@ -75,6 +77,29 @@ describe("候选的顺序", () => {
     expect(browserCandidates({ homeDir: home, env }).map((c) => c.path)).toEqual(candidates.slice(1).map((c) => c.path));
     expect(browserCandidates({ configured: "", homeDir: home, env: { AGENT_BROWSER_EXECUTABLE_PATH: "  " } }).map((c) => c.path)).toEqual(agentBrowserCandidates(home));
     expect(systemChromePaths({})).toEqual([]);
+    expect(systemEdgePaths({})).toEqual([]);
+    expect(candidates.at(-1)!.why).toBe("系统 Edge 兜底（没有 Chrome）");
+  });
+
+  it("没装 Chrome、只有系统 Edge（带签名）：选 Edge", () => {
+    const home = makeTempDir("ergo-home-");
+    const pf = makeTempDir("ergo-pf-");
+    const pf86 = makeTempDir("ergo-pf86-");
+    const local = makeTempDir("ergo-local-");
+    const edge = fakeExe(path.join(pf86, "Microsoft", "Edge", "Application", "msedge.exe"), peHeader(true));
+    const env = { ProgramFiles: pf, "ProgramFiles(x86)": pf86, LOCALAPPDATA: local };
+    const logs: string[] = [];
+    const locator = createBrowserLocator({ homeDir: home, env, log: (l) => logs.push(l) });
+    expect(locator.path()).toBe(edge);
+    expect(logs[0]).toBe(`浏览器用 ${edge}：系统 Edge 兜底（没有 Chrome），已验签`);
+    // 三处 Chrome 都不在：跳过的写进日志
+    expect(logs[1]).toContain(`${path.join(pf, "Google/Chrome/Application/chrome.exe")} —— 文件不存在`);
+    // Edge 只在 Program Files 下的也找得到；Chrome 在的时候 Chrome 排前面
+    const pfOnly = makeTempDir("ergo-pf-");
+    const edge64 = fakeExe(path.join(pfOnly, "Microsoft", "Edge", "Application", "msedge.exe"), peHeader(true));
+    expect(pickBrowser(browserCandidates({ homeDir: home, env: { ProgramFiles: pfOnly } })).path).toBe(edge64);
+    const chrome = fakeExe(path.join(pfOnly, "Google", "Chrome", "Application", "chrome.exe"), peHeader(true));
+    expect(pickBrowser(browserCandidates({ homeDir: home, env: { ProgramFiles: pfOnly } })).path).toBe(chrome);
   });
 });
 
@@ -122,7 +147,7 @@ describe("守护进程里的探测", () => {
     const configured = path.join(home, "browser", "chrome.exe");
     const logs: string[] = [];
     const locator = createBrowserLocator({ configured, homeDir: home, env: {}, log: (l) => logs.push(l) });
-    expect(locator.missingReason()).toMatch(/^找不到浏览器。在数据目录的配置里写 web\.browserPath（Chrome 或 Edge 的可执行文件的绝对路径），或者装上 Chrome，然后重启二狗/);
+    expect(locator.missingReason()).toMatch(/^找不到浏览器。在数据目录的配置里写 web\.browserPath（Chrome 或 Edge 的可执行文件的绝对路径），或者装上 Chrome 或 Edge，然后重启二狗/);
     expect(locator.missingReason()).toContain(`${configured} —— 文件不存在`);
     expect(locator.path()).toBeUndefined();
     fakeExe(configured, peHeader(true));
