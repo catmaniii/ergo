@@ -43,6 +43,7 @@ import {
   type PersonalFileSource,
   type PersonalFilesView,
   type PersonalFileSummary,
+  personalValueText,
   type PersonalFileView,
   type PersonGroup,
   guessPersonGroup,
@@ -628,7 +629,8 @@ export function createPersonalFilesService(options: PersonalFilesServiceOptions)
           if (body.daysBefore !== null) {
             const value = currentOf(valuesOf(reader, personId), field)?.value;
             if (value === undefined) throw new RequestRejected("bad_params", t("personalFiles.noValue"));
-            if (monthDayOf(value) === undefined) throw new RequestRejected("bad_params", t("personalFiles.annual.notGregorian", { value }));
+            // 449：值写成好读的样子（"农历八月十五"，不是存的 "lunar:--08-15"）
+            if (monthDayOf(value) === undefined) throw new RequestRejected("bad_params", t("personalFiles.annual.notGregorian", { value: personalValueText(field, value) }));
             if (!options.annual?.()) throw new RequestRejected("not_allowed", t("personalFiles.annual.remindersOff"));
           }
           const events = annual.setEvents(personId, field, body.daysBefore, { via: "page" });
