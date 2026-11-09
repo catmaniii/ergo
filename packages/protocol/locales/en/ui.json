@@ -2088,7 +2088,6 @@
   "ui.plugins.googleMaps.basemap": "Google Maps",
   "ui.plugins.googleMaps.noKey": "No browser key entered yet",
   "ui.plugins.googleMaps.unreachable": "Can't reach Google (this device may be in mainland China, or offline)",
-  "ui.plugins.googleMaps.reloadForKey": "The Google key changed: reload the page to use it",
   "ui.plugins.googleMaps.authFailed": "Google rejected the browser key (see Settings · Data sources · Google Maps)",
   "ui.plugins.googleMaps.sku.dynamicMaps": "Map loads",
   "ui.plugins.googleMaps.sku.textSearch": "Place search",

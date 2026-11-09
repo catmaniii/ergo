@@ -49,6 +49,12 @@ export function parseMapTilePath(pathname: string): MapTileAddress | undefined {
 /** 高德安全密钥代理的前缀（高德定的名字，不能改；后面跟高德原来的路径，比如 /_AMapService/v3/geocode/regeo） */
 export const AMAP_SERVICE_PREFIX = "/_AMapService";
 
+/**
+ * 地图页的隔离框（453，ADR-0059）：别家地图的脚本（谷歌）关在这一页里跑（<iframe sandbox="allow-scripts">），读不到地图页。
+ * 网页构建时原样拷进产物（packages/web/public/map-frame.html），网关按这个地址给，回应头里写 sandbox
+ */
+export const MAP_FRAME_PATH = "/map-frame.html";
+
 /** 高德地图那个数据源的 id（设置 · 数据源里填 Key 的那一格，密钥区里的文件名也是它） */
 export const AMAP_SOURCE_ID = "amap";
 

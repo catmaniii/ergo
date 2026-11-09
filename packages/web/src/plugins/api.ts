@@ -26,4 +26,4 @@ export type {
 } from "./slots.ts";
 export { usePlugins, useRouteAvailable } from "./react.tsx";
 // 地图服务的底图（445）要照着写的引擎外形
-export type { MapCircle, MapEngine, MapEngineEvents, MapEngineFactory, MapEngineOptions, MapLine, MapMark, MapScene, MapView } from "../model/map.ts";
+export type { MapCircle, MapEngine, MapEngineEvents, MapEngineFactory, MapEngineOptions, MapLine, MapMark, MapScene, MapSurfaceView, MapView } from "../model/map.ts";

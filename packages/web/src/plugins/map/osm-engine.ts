@@ -6,7 +6,7 @@
 // - 深色：瓦片那一层加 CSS 滤镜（styles/map.css 的 .map-tiles），点、线、圈不受影响；
 // - 署名角标由地图页画（MapView.tsx），这里不管。
 // 瓦片的地址由外面给（tileUrl）：真的页面是守护进程的 /tiles/osm/<z>/<x>/<y>，演示页是编的占位图。
-import type { MapEngine, MapEngineEvents } from "./engine.ts";
+import type { MapEngineEvents, SceneEngine } from "./engine.ts";
 import { clampZoom, EMPTY_SCENE, type MapScene, type MapView } from "./scene.ts";
 import { metersPerPixel, pointAt, pointOnScreen, screenPoint, TILE_SIZE, tilesFor, worldPoint } from "./tiles.ts";
 
@@ -26,7 +26,7 @@ const DRAG_THRESHOLD = 4;
 /** 滚轮停下多久算缩放完 */
 const WHEEL_SETTLE_MS = 250;
 
-export function createOsmEngine(host: HTMLElement, options: OsmEngineOptions): MapEngine {
+export function createOsmEngine(host: HTMLElement, options: OsmEngineOptions): SceneEngine {
   const doc = host.ownerDocument;
   const root = doc.createElement("div");
   root.className = "map-osm";

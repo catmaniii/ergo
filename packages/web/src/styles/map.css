@@ -101,7 +101,19 @@
 .map-marks {
   pointer-events: none;
 }
-/* 盖在别家底图上的自己那一层（453：卡片的静态预览图、地图页的高德谷歌上面）：点、线、圈按它报的视野自己投影，摆法和 OSM 那一种一样 */
+/*
+ * 盖在别家底图上的自己那一层（453：卡片的静态预览图、地图页的高德谷歌上面）：点、线、圈按它报的视野自己投影，摆法和 OSM 那一种一样。
+ * 地图页那一层整块不接手势（拖、捏、滚轮落到底图上），只有点能点；压在按钮、提示（200 上下）、静态大图（150）下面
+ */
+.map-overlay-layer,
+.map-page-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.map-overlay-layer {
+  z-index: 100;
+}
 .map-overlay .map-shapes,
 .map-overlay .map-marks {
   position: absolute;

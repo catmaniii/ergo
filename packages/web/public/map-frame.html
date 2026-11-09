@@ -1,0 +1,69 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>map</title>
+    <!--
+      二狗地图页的隔离框（453，ADR-0059）：别家的地图（谷歌）关在这里跑，读不到外面的页面（足迹、聊天窗）。
+      地图页用 <iframe sandbox="allow-scripts"> 打开它（守护进程给它的回应头里同样写着 sandbox）：不透明来源，没有本地存储、
+      cookie，碰不到外层页面，也不能把外层导航走。这里只是个空壳：外层用 postMessage 交来要跑的那一段（那家的小桥：加载地图、
+      按外层说的挪视野、把视野报出去），这里原样跑，之后的指令转给它。外层只交视野和 Key，足迹、点、线不进这个框。
+    -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      #map {
+        position: absolute;
+        inset: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script>
+      (function () {
+        var MARK = "ergoMapFrame";
+        var started = false;
+        var handlers = [];
+        function post(msg) {
+          var out = { type: msg.type };
+          for (var k in msg) out[k] = msg[k];
+          out[MARK] = 1;
+          parent.postMessage(out, "*");
+        }
+        window.addEventListener("message", function (e) {
+          if (e.source !== parent || !e.data || e.data[MARK] !== 1) return;
+          var m = e.data;
+          if (m.type === "init") {
+            if (started) return;
+            started = true;
+            try {
+              new Function("env", "config", m.code)(
+                {
+                  win: window,
+                  container: document.getElementById("map"),
+                  post: post,
+                  listen: function (fn) {
+                    handlers.push(fn);
+                  },
+                },
+                m.config,
+              );
+            } catch (err) {
+              post({ type: "failed", reason: String((err && err.message) || err) });
+            }
+            return;
+          }
+          for (var i = 0; i < handlers.length; i++) handlers[i](m);
+        });
+        post({ type: "frame-ready" });
+      })();
+    </script>
+  </body>
+</html>

@@ -73,35 +73,45 @@ export function demoBasemapNote(): string {
   return fakeText("演示底图：编的街区，不是真的地图");
 }
 
-/** 两种占位底图的颜色：底、街道、公园、水 */
-const PALETTE = {
-  osm: { ground: "#f2efe9", street: "#ffffff", edge: "#d9d2c5", park: "#cfe8c4", water: "#aad3df" },
-  amap: { ground: "#eef1f6", street: "#ffffff", edge: "#d4dae6", park: "#d3ecd0", water: "#9ec7f0" },
-  google: { ground: "#f5f5f5", street: "#ffffff", edge: "#dadce0", park: "#c8e6c9", water: "#a4cdf5" },
-  // 谷歌深色（451 预览图的 colorscheme=dark）
-  googleDark: { ground: "#242f3e", street: "#38414e", edge: "#212a37", park: "#263c3f", water: "#17263c" },
-} as const;
-
-type TileStyle = keyof typeof PALETTE;
-
-/** 一个整数的哈希（编街道、公园用：同一个位置每次一样） */
-function hash(a: number, b: number, c: number): number {
-  let h = (Math.imul(a, 73856093) ^ Math.imul(b, 19349663) ^ Math.imul(c, 83492791)) >>> 0;
-  h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0;
-  return (h ^ (h >>> 13)) >>> 0;
-}
+/** 占位底图的几种颜色（osm、amap、google、googleDark：谷歌深色，451 预览图的 colorscheme=dark） */
+type TileStyle = "osm" | "amap" | "google" | "googleDark";
 
 /**
  * 一张占位瓦片（SVG 的 data: 地址）：每张分成 4×4 格，格子随机是街区、公园或水；街道按全局的行列号定，横竖连得上。
  * 是编的，不对应任何真实的地方
  */
-export function demoTileUrl(style: "osm" | "amap" | "google", z: number, x: number, y: number): string {
+export function demoTileUrl(style: TileStyle, z: number, x: number, y: number): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">${demoTileBody(style, z, x, y)}</svg>`)}`;
 }
 
-/** 一张占位瓦片里面画的东西（SVG 片段，256×256）：拼预览图时直接嵌进去，不经 data: 地址 */
-function demoTileBody(style: TileStyle, z: number, x: number, y: number): string {
-  const c = PALETTE[style];
+/**
+ * 隔离框里（453：假谷歌在框里跑）用的同一种瓦片：一段能原样交给框的函数源码 (style, z, x, y) => 地址。
+ * demoTileBody 自成一体（颜色表、哈希都在里面），所以能整段转成字符串
+ */
+export function demoTileSource(): string {
+  return `(style, z, x, y) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">' + (${demoTileBody.toString()})(style, z, x, y) + "</svg>")`;
+}
+
+/**
+ * 一张占位瓦片里面画的东西（SVG 片段，256×256）：拼预览图时直接嵌进去，不经 data: 地址。
+ * 自成一体（不引用外面的东西）：隔离框里的假谷歌要整段拿去用（demoTileSource）
+ */
+function demoTileBody(style: string, z: number, x: number, y: number): string {
+  // 底、街道、公园、水
+  const palette: Record<string, { ground: string; street: string; edge: string; park: string; water: string }> = {
+    osm: { ground: "#f2efe9", street: "#ffffff", edge: "#d9d2c5", park: "#cfe8c4", water: "#aad3df" },
+    amap: { ground: "#eef1f6", street: "#ffffff", edge: "#d4dae6", park: "#d3ecd0", water: "#9ec7f0" },
+    google: { ground: "#f5f5f5", street: "#ffffff", edge: "#dadce0", park: "#c8e6c9", water: "#a4cdf5" },
+    googleDark: { ground: "#242f3e", street: "#38414e", edge: "#212a37", park: "#263c3f", water: "#17263c" },
+  };
+  // 一个整数的哈希（编街道、公园用：同一个位置每次一样）；要整段转成字符串，只能写在里面
+  // oxlint-disable-next-line unicorn/consistent-function-scoping
+  const hash = (a: number, b: number, h0: number): number => {
+    let h = (Math.imul(a, 73856093) ^ Math.imul(b, 19349663) ^ Math.imul(h0, 83492791)) >>> 0;
+    h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0;
+    return (h ^ (h >>> 13)) >>> 0;
+  };
+  const c = palette[style] ?? palette.osm!;
   const cells: string[] = [];
   for (let i = 0; i < 4; i++) {
     for (let j = 0; j < 4; j++) {

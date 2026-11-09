@@ -2,7 +2,7 @@
 // - OpenStreetMap（osm）：自己写的瓦片地图（osm-engine.ts），瓦片经守护进程的 /tiles/osm 转发；不用 Key、不用加载外站的脚本，
 //   也是地图页的退路（别的还在加载、加载不上、看足迹时都先画它）；
 // - 高德（amap）：高德 JS API（amap-engine.ts），第一次真要用时才从高德加载脚本（同一个 Key 只加载一次），Key 是守护进程给的
-//   Web 端 Key。
+//   Web 端 Key。453 起只出底图，足迹、点、线由地图页盖在上面的自己那一层画（overlay.ts）。
 // 演示页（MODE === "demo"）里瓦片是编的占位图、高德是假的（demo-amap.ts），不连任何地图服务；安装版这个分支摇掉（字面的 MODE 比较）。
 import { mapTilePath, t } from "../../state/index.ts";
 import type { MapBasemapSlot, MapEngineFactory } from "../api.ts";
@@ -52,6 +52,6 @@ export const amapBasemap: MapBasemapSlot = {
     if (key === undefined) throw new Error("no key");
     const ns = await loadAmap(key);
     if (typeof ns.Map !== "function") throw new Error("AMap.Map missing");
-    return (host, o) => createAmapEngine(host, ns, { view: o.view, dark: o.dark, onMoveEnd: o.onMoveEnd, ...(o.onMarkClick === undefined ? {} : { onMarkClick: o.onMarkClick }) });
+    return (host, o) => createAmapEngine(host, ns, o);
   },
 };

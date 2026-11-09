@@ -2009,7 +2009,6 @@
   "ui.plugins.googleMaps.basemap": "谷歌地图",
   "ui.plugins.googleMaps.noKey": "还没填浏览器用的 Key",
   "ui.plugins.googleMaps.unreachable": "连不上谷歌（这台设备可能在中国大陆，或者断网了）",
-  "ui.plugins.googleMaps.reloadForKey": "换了谷歌的 Key：刷新页面后生效",
   "ui.plugins.googleMaps.authFailed": "谷歌拒了浏览器用的 Key（去 设置 · 数据源 · 谷歌地图 看看）",
   "ui.plugins.googleMaps.sku.dynamicMaps": "地图加载",
   "ui.plugins.googleMaps.sku.textSearch": "搜地点",

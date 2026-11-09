@@ -10,6 +10,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import { AmapPanelView, type AmapPanelViewProps, amapResultOf } from "../../src/plugins/map/AmapPanel.tsx";
 import { type AmapNamespace, createAmapEngine } from "../../src/plugins/map/amap-engine.ts";
+import type { MapSurfaceView } from "../../src/plugins/map/engine.ts";
 import { mapWebPlugin } from "../../src/plugins/map/plugin.tsx";
 import { chooseBasemap, FOOTPRINTS_ON_CURRENT_MAP, clampZoom, DEFAULT_VIEW, parseSavedView, viewToFit } from "../../src/plugins/map/scene.ts";
 import { metersPerPixel, pointAt, pointOnScreen, screenPoint, tilesFor, worldPoint } from "../../src/plugins/map/tiles.ts";
@@ -113,7 +114,7 @@ describe("看哪里", () => {
   });
 });
 
-describe("高德那一种：进出都转坐标", () => {
+describe("高德那一种：进出都转坐标；453 起只出底图", () => {
   /** 一个最小的假 AMap（只记下中心）和一个最小的假宿主元素：Node 里没有 DOM */
   function fakeAmap() {
     const seen: { center?: [number, number]; zoom?: number } = {};
@@ -133,16 +134,17 @@ describe("高德那一种：进出都转坐标", () => {
         seen.center = center;
       }
       setZoom() {}
+      setCenter(center: [number, number]) {
+        seen.center = center;
+      }
       setMapStyle() {}
       on() {}
-      add() {}
-      remove() {}
       destroy() {}
     }
     return { ns: { Map: FakeMap } as unknown as AmapNamespace, seen };
   }
-  const element = () => ({ className: "", dataset: {}, remove() {}, append() {} });
-  const host = { ownerDocument: { createElement: element }, append() {} } as unknown as HTMLElement;
+  const doc = { createElement: () => ({ className: "", dataset: {}, clientWidth: 400, clientHeight: 300, remove() {}, append() {}, addEventListener() {} }), defaultView: { requestAnimationFrame: () => 1, cancelAnimationFrame() {} } };
+  const host = { ownerDocument: doc, append() {} } as unknown as HTMLElement;
   const events = { onMoveEnd() {} };
 
   test("大陆里：交给高德的是 GCJ-02（偏几百米），拿回来的转回 WGS-84（差不到 1 米）", () => {
@@ -162,6 +164,20 @@ describe("高德那一种：进出都转坐标", () => {
     const { ns, seen } = fakeAmap();
     createAmapEngine(host, ns, { view: { ...SINGAPORE, zoom: 14 }, dark: false, ...events });
     expect(seen.center).toEqual([SINGAPORE.lon, SINGAPORE.lat]);
+  });
+
+  test("只出底图：没有 setScene（足迹、点、线不交给高德）；一建好就报此刻画着哪一片（高德的坐标、datum gcj02、底图的大小）；按住点拖时 panBy 挪中心", () => {
+    const { ns, seen } = fakeAmap();
+    const surfaces: MapSurfaceView[] = [];
+    const engine = createAmapEngine(host, ns, { view: { ...HANGZHOU, zoom: 14 }, dark: false, ...events, onSurface: (v) => surfaces.push(v) });
+    expect(engine.setScene).toBeUndefined();
+    const gcj = wgsToGcj(HANGZHOU);
+    expect(surfaces[0]).toEqual({ lat: gcj.lat, lon: gcj.lon, zoom: 14, width: 400, height: 300, datum: "gcj02" });
+    // 往右拖 256 像素：第 14 级里中心往西挪 256 / (256·2^14) 圈
+    engine.panBy!(256, 0);
+    expect(seen.center![0]).toBeCloseTo(gcj.lon - 360 / 2 ** 14, 9);
+    expect(seen.center![1]).toBeCloseTo(gcj.lat, 9);
+    expect(surfaces.at(-1)!.lon).toBeCloseTo(gcj.lon - 360 / 2 ** 14, 9);
   });
 });
 

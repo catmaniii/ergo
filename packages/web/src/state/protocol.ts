@@ -724,7 +724,7 @@ export {
 } from "@ergo/protocol";
 export type { CalendarDay, CalendarDayCounts, CalendarExternalEntry, CalendarJobEntry, CalendarJobStatus, CalendarMonthView, CalendarReminderEntry, CalendarReminderStatus, ExternalCalendarEventPayload } from "@ergo/protocol";
 // 地图（429 地图插件）：坐标转换（WGS-84 和高德的 GCJ-02）、在不在中国大陆、瓦片地址、高德安全密钥代理的前缀、地图页要的设置
-export { AMAP_SERVICE_PREFIX, AMAP_SOURCE_ID, distanceMeters, gcjToWgs, inMainlandChina, mapFocusItem, mapTilePath, parseMapFocusItem, wgsToGcj } from "@ergo/protocol";
+export { AMAP_SERVICE_PREFIX, AMAP_SOURCE_ID, MAP_FRAME_PATH, distanceMeters, gcjToWgs, inMainlandChina, mapFocusItem, mapTilePath, parseMapFocusItem, wgsToGcj } from "@ergo/protocol";
 export type { LatLon, MapBasemapEventBody, MapBasemapEventReply, MapConfigView } from "@ergo/protocol";
 // 地图上的"我的足迹"（430）：某一天的点、停留、照片地点、常去的地方；地图页地址里的日期
 export { isMapDate, mapDayItem, parseMapDayItem, shiftMapDate } from "@ergo/protocol";

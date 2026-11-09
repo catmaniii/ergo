@@ -3,4 +3,4 @@
 // - amap-engine.ts：高德 JS API（运行时从高德加载的脚本）。
 // 坐标一律 WGS-84 进出，高德那一种自己转。
 // 445：接口挪到核心（model/map.ts），别的插件经地图服务插槽 mapBasemaps 登记的底图也照它写；这里原样转出。
-export type { MapEngine, MapEngineEvents, MapEngineFactory, MapEngineOptions } from "../../model/map.ts";
+export type { MapEngine, MapEngineEvents, MapEngineFactory, MapEngineOptions, MapSurfaceView, SceneEngine } from "../../model/map.ts";

@@ -14,6 +14,9 @@
 // - 放大、缩小的按钮在右上（手机上捏合、电脑上滚轮也行）；"回到我现在的位置"在右下（442，地图页画，LocateControl.tsx），
 //   它要说的那句话（notice）放在下面那句提示的位置上；
 // - 画着用户自己的足迹时也用当前地图（451，FOOTPRINTS_ON_CURRENT_MAP；11-07 定的"一律 OpenStreetMap"反过来了）；
+// - 453 起高德、谷歌只出底图：足迹、二狗给的点和线、查到的点和线都不交给它们的接口，画在盖在底图上面的自己那一层
+//   （overlay.ts，照引擎每动一下报的视野投影）；谷歌的底图还关在隔离的框里（谷歌地图插件的 google-engine.ts），读不到这个页面；
+//   OpenStreetMap 照旧自己画；
 // - 某一家查来的地点和路线（ownScene，431 的地图卡片点开）只画在那一家的地图上（高德协议 4.12.4 不许脱离它的服务展示，谷歌同样）：
 //   451 起这一屏临时用那一家（不改这台设备记着的选择），地图上面写一句"这些是高德查的，用高德地图显示"；那家用不了时照常挑、
 //   不画它们，写一句为什么（没填 Key 去填、它没加载上）；那家在这台设备上加载不了（设备在大陆连不上谷歌）而有这张卡的编号时，
@@ -27,7 +30,8 @@ import { AMAP_SOURCE_ID, MAP_PREVIEW_MAX_SIDE, type MapChoice, type MapConfigVie
 import { Icon } from "../../ui/icons.tsx";
 import { type MapEngineFactory, usePlugins } from "../api.ts";
 import { AMAP_BASEMAP, demoBasemapNoteText, OSM_BASEMAP, osmEngine } from "./basemaps.ts";
-import type { MapEngine } from "./engine.ts";
+import type { MapEngine, MapSurfaceView } from "./engine.ts";
+import { createMapOverlay, type MapOverlay } from "./overlay.ts";
 import { previewSize, useBoxSize, useMapPreview } from "./preview.ts";
 import { StaticPreview } from "./static-overlay.tsx";
 import { type BasemapPage, choiceBroken, pickBasemap, priorityIn, providersOf, switchEntries } from "./providers.ts";
@@ -117,7 +121,10 @@ interface Hint {
 
 export function MapCanvas({ config, scene, footprints = false, ownScene, ownPreview, initial, jump, onView, onMarkClick, navigate, notice, switcher }: MapCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  /** 盖在底图上面的自己那一层放在这里（453） */
+  const layerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<MapEngine | undefined>(undefined);
+  const overlayRef = useRef<MapOverlay | undefined>(undefined);
   /** 现在看的地方（换底图时带过去）；停下来时更新 */
   const viewRef = useRef<MapView>(initial);
   const dark = useDark();
@@ -160,6 +167,9 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, ownPrev
   const pending = ready && wanted !== OSM_BASEMAP && renderedFactory === undefined && failedOf(wanted) === undefined;
   const rendered = renderedFactory ? wanted : OSM_BASEMAP;
   const engineFactory = renderedFactory ?? osmEngine;
+  // 引擎建好了、还在加载（453：隔离框里的谷歌）：和上面一样当作"还在加载"显示（不写底图名字、不说提示），好了再说
+  const [engineLoading, setEngineLoading] = useState<string>();
+  const waiting = pending || (engineLoading !== undefined && engineLoading === rendered);
   const amapFailed = failedOf(AMAP_BASEMAP);
   const inChina = region === "mainland";
   // 真画上去的：某一家查来的只在底图是它时加上
@@ -209,7 +219,11 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, ownPrev
   // 画地图的那一层：底图换了就整个换掉，带着同一个中心和级别；想用的那一家还在加载时空着（451：不先画 OpenStreetMap）
   useEffect(() => {
     const host = hostRef.current;
-    if (!host || !ready || pending) return;
+    const layer = layerRef.current;
+    if (!host || !layer || !ready || pending) return;
+    // 只出底图的引擎（453：高德、谷歌）：足迹、点、线画在盖在上面的自己那一层（overlay.ts），照引擎报的视野投影
+    let engineNow: MapEngine | undefined;
+    const overlay = createMapOverlay(layer, { onMarkClick: (id) => latest.current.onMarkClick?.(id), onPan: (dx, dy) => engineNow?.panBy?.(dx, dy) });
     const options = {
       view: viewRef.current,
       dark: latest.current.dark,
@@ -219,10 +233,14 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, ownPrev
         setSettled(v);
       },
       onMarkClick: (id: string) => latest.current.onMarkClick?.(id),
-      // 建好以后这一家又说不能用了（谷歌说 Key 不对）：记成这一页加载失败，下一轮退回 OpenStreetMap（446）
+      onSurface: (v: MapSurfaceView) => overlay.setView(v),
+      // 建好时还在加载的（隔离框里的谷歌）加载好了
+      onReady: () => setEngineLoading((cur) => (cur === rendered ? undefined : cur)),
+      // 建好以后这一家又说不能用了（谷歌说 Key 不对、框里加载不上）：记成这一页加载失败，下一轮退回下一家（446）
       onFailed: (reason: string) => {
         const id = rendered;
         const key = keyOf(id);
+        setEngineLoading((cur) => (cur === id ? undefined : cur));
         setPrepared((before) => ({ ...before, [id]: { key, state: "failed", reason } }));
       },
     };
@@ -236,18 +254,33 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, ownPrev
       const id = rendered;
       void Promise.resolve().then(() => setPrepared((before) => ({ ...before, [id]: { key, state: "failed", reason: reasonOf(err) } })));
     }
+    engineNow = engine;
+    setEngineLoading(engine.loading === true ? rendered : undefined);
     engine.setDark(latest.current.dark);
-    engine.setScene(latest.current.scene);
+    if (engine.setScene) {
+      // 自己画点线的（OpenStreetMap）：照旧交给它画，那一层不要
+      overlay.destroy();
+      engine.setScene(latest.current.scene);
+    } else {
+      overlay.setScene(latest.current.scene);
+      overlayRef.current = overlay;
+    }
     engineRef.current = engine;
     return () => {
       viewRef.current = engine.view();
       engine.destroy();
+      overlay.destroy();
       if (engineRef.current === engine) engineRef.current = undefined;
+      if (overlayRef.current === overlay) overlayRef.current = undefined;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在换了底图（哪一家、准备好的那一份）、等加载开始结束时整个换
   }, [rendered, engineFactory, ready, pending]);
 
-  useEffect(() => engineRef.current?.setScene(drawn), [drawn]);
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (engine?.setScene) engine.setScene(drawn);
+    else overlayRef.current?.setScene(drawn);
+  }, [drawn]);
   useEffect(() => engineRef.current?.setDark(dark), [dark]);
   // 跳过去：引擎停下来时报回来（onMoveEnd），底图按新的地方再挑
   useEffect(() => {
@@ -302,7 +335,7 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, ownPrev
   };
 
   const hint = ((): Hint | undefined => {
-    if (!ready || pending) return undefined;
+    if (!ready || waiting) return undefined;
     if (fellBackShown !== undefined) return { text: t("ui.plugins.map.switch.fellBack", { name: titleOf(fellBackShown) }), onClose: () => setFellBack(undefined) };
     // 某一家查来的没画上（那家用不了、这台设备加载不了它）：不管现在画着谁都说一句
     if (ownExtra && !ownShown) return ownHint(ownScene.source);
@@ -336,8 +369,8 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, ownPrev
   return (
     <div
       className="map-canvas"
-      data-basemap={ready && !pending ? rendered : "loading"}
-      data-pending={pending ? wanted : undefined}
+      data-basemap={ready && !waiting ? rendered : "loading"}
+      data-pending={waiting ? wanted : undefined}
       data-choice={chosen ?? "auto"}
       data-temporary={pick.temporary ? wanted : undefined}
       data-amap={factoryOf(AMAP_BASEMAP) ? "ready" : amapFailed !== undefined ? "failed" : "idle"}
@@ -345,14 +378,15 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, ownPrev
       data-amap-results={ownExtra && ownScene.source === AMAP_BASEMAP ? (ownShown ? "shown" : "hidden") : undefined}
     >
       <div className="map-host" ref={hostRef} />
+      <div className="map-overlay-layer" ref={layerRef} />
       {!ready && <div className="map-loading">{t("ui.plugins.map.loading")}</div>}
-      {pending && (
+      {waiting && (
         <div className="map-loading map-loading-basemap" data-loading={wanted}>
           {t("ui.plugins.map.loadingMap", { name: titleOf(wanted) })}
         </div>
       )}
       {staticShown && <OwnStaticPreview query={ownPreview} scene={ownScene.scene} name={titleOf(ownScene.source)} dark={dark} onFailed={setStaticFailed} />}
-      {!pending && !staticShown && (
+      {!waiting && !staticShown && (
         <span className="map-badge" data-basemap={rendered}>
           {entryTitle}
         </span>
@@ -398,7 +432,7 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, ownPrev
           )}
         </div>
       )}
-      {rendered === OSM_BASEMAP && !pending && !staticShown && (
+      {rendered === OSM_BASEMAP && !waiting && !staticShown && (
         <div className="map-attribution">
           <a href={OSM_COPYRIGHT_URL} target="_blank" rel="noopener noreferrer">
             © OpenStreetMap
@@ -407,7 +441,7 @@ export function MapCanvas({ config, scene, footprints = false, ownScene, ownPrev
           {demoBasemapNoteText && <span className="map-demo-note"> · {demoBasemapNoteText()}</span>}
         </div>
       )}
-      {rendered !== OSM_BASEMAP && !pending && !staticShown && demoBasemapNoteText && <div className="map-attribution">{demoBasemapNoteText()}</div>}
+      {rendered !== OSM_BASEMAP && !waiting && !staticShown && demoBasemapNoteText && <div className="map-attribution">{demoBasemapNoteText()}</div>}
     </div>
   );
 }

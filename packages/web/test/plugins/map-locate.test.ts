@@ -3,10 +3,12 @@
 //   一直不回）→ 手机最近交来的点（假的 GET /api/map/latest）→ 都没有；前一处拿到了就不问后一处；
 // - 挪到哪、放大到几级（精度圈比一屏大时退几级）、画什么（蓝点、精度圈，手机的点旁边写几点交来的）、说哪句话（中英）；
 // - 一分钟内这台设备上定到的算新的，再点直接回去；手机交来的不算；
-// - 高德底图上画蓝点时转了坐标（大陆内交给高德的是 GCJ-02，大陆外原样），精度圈是"跟你有关的颜色"；
+// - 高德底图上的蓝点（453 起不交给高德，在地图页自己那一层画）：按高德报的 GCJ-02 视野投影、压在别的点上面，精度圈是 accuracy 那一种；
+//   引擎一个高德的标记、圆、折线都不建；
 // - 演示页的退路数据：12 分钟前、西湖边；手机插件停用了没有。
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { type AmapNamespace, createAmapEngine } from "../../src/plugins/map/amap-engine.ts";
+import { createMapOverlay, surfacePoint } from "../../src/plugins/map/overlay.ts";
 import {
   type AppPlaceFix,
   agoText,
@@ -213,13 +215,9 @@ describe("挪到哪、画什么", () => {
   });
 });
 
-/** 假 AMap 的标记、圆收到的参数 */
-type SeenMarker = { position: [number, number]; zIndex?: number; content: { dataset: Record<string, string> } };
-
-/** 假 AMap：记下标记、圆收到的参数（地图本身什么都不做） */
+/** 假 AMap：要是有人建了标记、圆、折线就记下来（453 起一个都不该建：蓝点在地图页自己那一层画） */
 function fakeAmap() {
-  const markers: SeenMarker[] = [];
-  const circles: Array<Record<string, unknown>> = [];
+  const built: string[] = [];
   class FakeMap {
     getCenter() {
       return { getLng: () => 0, getLat: () => 0 };
@@ -229,60 +227,84 @@ function fakeAmap() {
     }
     setZoomAndCenter() {}
     setZoom() {}
+    setCenter() {}
     setMapStyle() {}
     on() {}
-    add() {}
-    remove() {}
     destroy() {}
   }
-  const Marker = function (options: SeenMarker) {
-    markers.push(options);
-  };
-  const Circle = function (options: Record<string, unknown>) {
-    circles.push(options);
-  };
-  return { ns: { Map: FakeMap, Marker, Circle, Polyline: Circle } as unknown as AmapNamespace, markers, circles };
+  const spy = (name: string) =>
+    function () {
+      built.push(name);
+    };
+  return { ns: { Map: FakeMap, Marker: spy("Marker"), Circle: spy("Circle"), Polyline: spy("Polyline") } as unknown as AmapNamespace, built };
 }
 
-/** Node 里没有 DOM：一个最小的元素（fillMark、取颜色要用到的那几样） */
-function element(): Record<string, unknown> {
-  return {
+/** Node 里没有 DOM：一个最小的元素（引擎、自己那一层要用到的那几样），记下属性和孩子 */
+function element(tag = "div"): Record<string, unknown> {
+  const el: Record<string, unknown> = {
+    tag,
     className: "",
-    dataset: {},
-    style: {},
+    dataset: {} as Record<string, string>,
+    style: {} as Record<string, string>,
+    attrs: {} as Record<string, string>,
+    children: [] as unknown[],
+    hidden: false,
+    clientWidth: 390,
+    clientHeight: 700,
     ownerDocument: doc,
     remove() {},
-    append() {},
-    replaceChildren() {},
-    setAttribute() {},
-    removeAttribute() {},
+    append(...kids: unknown[]) {
+      (el.children as unknown[]).push(...kids);
+    },
+    replaceChildren(...kids: unknown[]) {
+      el.children = kids;
+    },
+    setAttribute(name: string, value: string) {
+      (el.attrs as Record<string, string>)[name] = value;
+    },
+    removeAttribute(name: string) {
+      delete (el.attrs as Record<string, string>)[name];
+    },
     addEventListener() {},
   };
+  return el;
 }
-const doc = { createElement: element };
+const doc = { createElement: (tag: string) => element(tag), createElementNS: (_ns: string, tag: string) => element(tag), defaultView: { requestAnimationFrame: () => 1, cancelAnimationFrame() {} } };
 
-describe("高德底图上画蓝点：转了坐标", () => {
+describe("高德底图上的蓝点：453 起不交给高德，在地图页自己那一层画（转了坐标）", () => {
   const host = { ownerDocument: doc, append() {} } as unknown as HTMLElement;
-  vi.stubGlobal("getComputedStyle", () => ({ color: "rgb(0, 0, 0)", getPropertyValue: (name: string) => (name === "--you" ? "#2a5ff5" : name === "--primary" ? "#3b6cf6" : "") }));
 
-  test("大陆里：蓝点交给高德的是 GCJ-02（偏几百米），压在别的点上面；精度圈同样转了、是 --you 的颜色", () => {
-    const { ns, markers, circles } = fakeAmap();
+  test("引擎只出底图：没有 setScene，高德的标记、圆、折线一个都不建", () => {
+    const { ns, built } = fakeAmap();
     const engine = createAmapEngine(host, ns, { view: { ...HANGZHOU, zoom: 15 }, dark: false, onMoveEnd() {} });
-    engine.setScene(withHere({ marks: [{ id: "p", lat: 30.25, lon: 120.14 }], lines: [], circles: [] }, hereScene({ ...HANGZHOU, accuracy: 30, source: "browser", gotAt: NOW })));
-    const me = markers.find((m) => m.content.dataset.kind === "me")!;
-    const gcj = wgsToGcj(HANGZHOU);
-    expect(me.position).toEqual([gcj.lon, gcj.lat]);
-    expect(distanceMeters({ lat: me.position[1], lon: me.position[0] }, HANGZHOU)).toBeGreaterThan(100);
-    expect(me.zIndex).toBeGreaterThan(markers.find((m) => m.content.dataset.id === "p")!.zIndex!);
-    expect(circles).toHaveLength(1);
-    expect(circles[0]).toMatchObject({ center: [gcj.lon, gcj.lat], radius: 30, strokeColor: "#2a5ff5", fillColor: "#2a5ff5", extData: { id: HERE_CIRCLE_ID, kind: "accuracy" } });
+    expect(engine.setScene).toBeUndefined();
+    expect(built).toEqual([]);
   });
 
-  test("大陆外：原样交给高德", () => {
-    const { ns, markers } = fakeAmap();
-    const engine = createAmapEngine(host, ns, { view: { ...SINGAPORE, zoom: 15 }, dark: false, onMoveEnd() {} });
-    engine.setScene(hereScene({ ...SINGAPORE, source: "app", gotAt: NOW }));
-    expect(markers[0]!.position).toEqual([SINGAPORE.lon, SINGAPORE.lat]);
+  test("大陆里：蓝点和精度圈按 GCJ-02 投影（和高德报的中心同一套坐标），压在别的点上面；精度圈是 accuracy 那一种", () => {
+    const layer = element();
+    const overlay = createMapOverlay(layer as unknown as HTMLElement);
+    overlay.setScene(withHere({ marks: [{ id: "p", lat: 30.25, lon: 120.14 }], lines: [], circles: [] }, hereScene({ ...HANGZHOU, accuracy: 30, source: "browser", gotAt: NOW })));
+    const gcj = wgsToGcj(HANGZHOU);
+    // 高德报来的中心正好是蓝点（GCJ-02）：蓝点在正中
+    overlay.setView({ lat: gcj.lat, lon: gcj.lon, zoom: 15, width: 390, height: 700, datum: "gcj02" });
+    const root = (layer.children as Array<Record<string, unknown>>)[0]!;
+    const [svg, marks] = root.children as Array<Record<string, unknown>>;
+    const buttons = marks!.children as Array<{ dataset: Record<string, string>; style: Record<string, string> }>;
+    expect(buttons.at(-1)!.dataset.kind).toBe("me");
+    expect(buttons.at(-1)!.style.transform).toBe("translate(195px, 350px)");
+    const circle = (svg!.children as Array<{ attrs: Record<string, string> }>).find((c) => c.attrs["data-id"] === HERE_CIRCLE_ID)!;
+    expect(circle.attrs.class).toBe("map-circle map-circle-accuracy");
+    expect(circle.attrs.cx).toBe("195.0");
+    // 不转坐标的话会差出几百米（第 15 级几十个像素）：确实是按 GCJ-02 投影的
+    const wgsCenter = surfacePoint(HANGZHOU, { lat: HANGZHOU.lat, lon: HANGZHOU.lon, zoom: 15, width: 390, height: 700, datum: "wgs84" });
+    expect(wgsCenter).toEqual({ x: 195, y: 350 });
+    expect(distanceMeters(gcj, HANGZHOU)).toBeGreaterThan(100);
+  });
+
+  test("大陆外：不转", () => {
+    const p = surfacePoint(SINGAPORE, { lat: SINGAPORE.lat, lon: SINGAPORE.lon, zoom: 15, width: 390, height: 700, datum: "gcj02" });
+    expect(p).toEqual({ x: 195, y: 350 });
   });
 });
 
