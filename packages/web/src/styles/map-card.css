@@ -93,7 +93,7 @@
   justify-content: center;
   width: 20px;
   height: 20px;
-  color: var(--primary-text);
+  color: var(--map-ink-text);
   font-family: var(--font-num);
   font-size: 11px; /* 不跟字号：针头是 20×20 的圆，里面的序号跟着它不跟字号 */
   font-weight: 700;

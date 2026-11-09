@@ -2,7 +2,13 @@
  * 地图页（地图插件，plugins/map/）：上面一条标题栏、一排地点，下面整块是地图。
  * 地图本身（瓦片、高德画的）不跟风格走：十一套风格只管地图外面那圈（标题栏、地点、按钮、署名角标、点的样子）。
  * 深色时 OpenStreetMap 的瓦片加一层滤镜（反色再转回色相，水还是蓝的、路是暗的）；高德换它自己的深色样式（MapView.tsx）。
+ * 二狗画在地图上的东西（点、路线、足迹线、停留圈、照片小点，地图页和卡片上一样）一律用 --map-ink（红），不跟风格的主色走：
+ * 主色是绿、蓝的风格下，点和线跟底图上的绿地、水面、地图自己的标注混在一起分不开（用户 2026-11-09）。
  */
+:root {
+  --map-ink: #d93025;
+  --map-ink-text: #fff;
+}
 .map-page {
   display: flex;
   flex-direction: column;
@@ -83,7 +89,7 @@
 }
 .map-line {
   fill: none;
-  stroke: var(--primary);
+  stroke: var(--map-ink);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-opacity: 0.85;
@@ -93,9 +99,9 @@
   stroke-width: 6;
 }
 .map-circle {
-  fill: var(--primary);
+  fill: var(--map-ink);
   fill-opacity: 0.12;
-  stroke: var(--primary);
+  stroke: var(--map-ink);
   stroke-width: 1;
 }
 .map-marks {
@@ -146,7 +152,7 @@
   height: 20px;
   border: 2px solid var(--surface);
   border-radius: 50% 50% 50% 0;
-  background: var(--primary-fill);
+  background: var(--map-ink);
   box-shadow: var(--shadow-btn);
   transform: rotate(-45deg);
 }
