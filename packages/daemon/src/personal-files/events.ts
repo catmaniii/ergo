@@ -13,6 +13,8 @@
 //   candidates_resolved：写了、没写、出处被删了作废）。候选带着值，彻底删除时照样改写；
 // - 留痕多了 curator：记忆管理员提议（每晚整理攒的候选、访谈）、用户在候选核对卡上点了才写。
 // 加了 group_set：用户给档案里的人选的分组（家人、重要的人、其他人）；没选过的按关系猜，不记事件。分组不是原话，彻底删除不改写它。
+// 460：留痕多了 tidy——二狗把以前随手写的生日、纪念日统一成存的样子（annual-tidy.ts，守护进程起来时整理一遍）。照常的 field_set，
+// 留痕里不带原话、不带旧值（旧值在前一条事件里），彻底删除这个字段时和别的写入一样改写。
 import { PURGED_TEXT, type PersonalFileDeleteMode, type PersonGroup, type PersonalSuggestOrigin, type QuickActionBasis } from "@ergo/protocol";
 import type { NewEvent } from "../events/event-store.ts";
 import type { PurgeRewriter } from "../events/purge.ts";
@@ -27,10 +29,12 @@ export const PERSONAL_FILE_EVENT = "personal_file";
  * （basis explicit）或者在核对卡上确认（confirmed）；curator 有两种：
  * -记忆管理员提议的候选、用户在候选核对卡（personal_file_suggest）上点了——带 origin，没有 actionId；
  * -记忆管理员在了解你访谈里记下、收尾时合成的档案核对卡（interview_files）上逐条确认的——经快速动作 personal_file 的执行器写，
- *   字段和 secretary 一样（带 actionId：操作记录、卡片、记下它的调用按它找）。两种按有没有 actionId 分
+ *   字段和 secretary 一样（带 actionId：操作记录、卡片、记下它的调用按它找）。两种按有没有 actionId 分；
+ * tidy：460，二狗把以前随手写的生日、纪念日改写成存的样子（日子没变），不是谁的话，什么都不带
  */
 export type PersonalFileTrail =
   | { via: "page" }
+  | { via: "tidy" }
   | {
       via: "secretary" | "curator";
       basis: QuickActionBasis;

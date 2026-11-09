@@ -2,6 +2,7 @@
 // 填网页表单时秘书先读档案、再用现有的网页工具填；问"我以前住哪"答得出（以前的值连同到哪天为止）。只读，不落入任何类别。
 // 不给 person 是列出有哪些人、各填了哪些字段（不带值）。
 // 449：生日、纪念日写成好读的样子（"3 月 2 日""农历八月十五"），后面带着存的样子（彻底删除时按存的值找读过它的调用）。
+// 460：二狗统一写法改写的那条（via tidy）写明日子没变。
 // @i18n-ignore-file model：工具的说明、参数说明、交回秘书的结果给模型看；工具的名字走 t()
 import { builtinFields, forModel, isAnniversaryField, type PersonalFileKind, type PersonalFileSource, personalFieldLabel, personalFieldOf, personalValueText, t, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
@@ -29,6 +30,8 @@ function valueText(field: string, value: string): { text: string; stored: string
 function sourceText(source: PersonalFileSource | PersonalFileTrail | undefined): string {
   if (source === undefined) return "设置里的「我的名字」";
   if (source.via === "page") return "用户在档案页里填的";
+  // 460：以前随手写的生日、纪念日统一成存的样子，日子没变；用户原来的写法在"以前"那条
+  if (source.via === "tidy") return "二狗把以前的写法统一成了存的样子，日子没变";
   if (source.via === "curator") return "记忆管理员提议、用户确认的";
   return source.basis === "explicit" ? "用户在聊天里明说的" : "用户在核对卡上确认过";
 }

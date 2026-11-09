@@ -11,9 +11,10 @@ import { LocalDate } from "./workday-calendar.ts";
 
 /**
  * 档案里的东西是怎么写进来的：用户在档案页里直接改的（改了就算确认）、秘书转达的（用户原话里明说了直接写，或者在核对卡上确认）、
- * 记忆管理员提议的（每晚整理攒的候选、访谈，用户在候选核对卡上点了才写）
+ * 记忆管理员提议的（每晚整理攒的候选、访谈，用户在候选核对卡上点了才写）、
+ * 二狗统一写法的（tidy：449 以前随手写的生日、纪念日，认得出的守护进程起来时改写成存的样子，日子没变；不带原话、不带旧值）
  */
-export const PERSONAL_FILE_VIAS = ["page", "secretary", "curator"] as const;
+export const PERSONAL_FILE_VIAS = ["page", "secretary", "curator", "tidy"] as const;
 export type PersonalFileVia = (typeof PERSONAL_FILE_VIAS)[number];
 
 /**
