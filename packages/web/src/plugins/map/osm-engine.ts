@@ -79,6 +79,8 @@ export function createOsmEngine(host: HTMLElement, options: OsmEngineOptions): S
         schedule();
       });
       img.src = options.tileUrl(t.z, t.wrappedX, t.y);
+      // 哪一张（z/x/y，x 没取模）：页面测试照它算底图此刻把一个点画在哪（458）
+      img.dataset.tile = t.key;
       tiles.set(t.key, entry);
       tilePane.append(img);
     }

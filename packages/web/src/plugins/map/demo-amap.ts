@@ -26,8 +26,10 @@ export function fakeAmap(tileUrl: (z: number, x: number, y: number) => string): 
       const v = this.engine.view();
       return { getLng: () => v.lon, getLat: () => v.lat };
     }
-    getZoom() {
-      return this.engine.view().zoom;
+    /** 和真高德 2.0 一样：不说留几位小数就留 2 位（458） */
+    getZoom(digits = 2) {
+      const z = this.engine.view().zoom;
+      return Number(z.toFixed(Math.max(0, Math.min(20, Math.floor(digits)))));
     }
     setZoomAndCenter(zoom: number, center: [number, number]) {
       this.engine.setView({ lat: center[1], lon: center[0], zoom });

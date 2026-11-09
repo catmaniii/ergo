@@ -179,6 +179,30 @@ describe("高德那一种：进出都转坐标；453 起只出底图", () => {
     expect(seen.center![1]).toBeCloseTo(gcj.lat, 9);
     expect(surfaces.at(-1)!.lon).toBeCloseTo(gcj.lon - 360 / 2 ** 14, 9);
   });
+
+  // 458：捏合到一半级别带小数；高德 2.0 的 getZoom() 默认只留 2 位，离中心远的点会差一两个像素
+  test("捏合途中报给那一层的级别要够准（getZoom 默认只留两位，要 6 位）；松手、双击也叫醒（松手后高德还在滑、在放大）", () => {
+    const { ns, seen } = fakeAmap();
+    const Base = (ns as unknown as { Map: new (el: unknown, o: Record<string, unknown>) => object }).Map;
+    class Rounding extends Base {
+      getZoom(digits = 2) {
+        return Number(seen.zoom!.toFixed(digits));
+      }
+    }
+    const listened: string[] = [];
+    const frames: Array<() => void> = [];
+    const doc2 = {
+      createElement: () => ({ className: "", dataset: {}, clientWidth: 400, clientHeight: 300, remove() {}, append() {}, addEventListener: (type: string) => listened.push(type) }),
+      defaultView: { requestAnimationFrame: (fn: () => void) => frames.push(fn), cancelAnimationFrame() {} },
+    };
+    const host2 = { ownerDocument: doc2, append() {} } as unknown as HTMLElement;
+    const surfaces: MapSurfaceView[] = [];
+    createAmapEngine(host2, { Map: Rounding } as unknown as AmapNamespace, { view: { ...HANGZHOU, zoom: 14 }, dark: false, ...events, onSurface: (v) => surfaces.push(v) });
+    seen.zoom = 14.123456789;
+    for (const fn of frames.splice(0)) fn();
+    expect(surfaces.at(-1)!.zoom).toBeCloseTo(14.123457, 6);
+    for (const e of ["touchend", "touchcancel", "pointerup", "pointercancel", "dblclick"]) expect(listened).toContain(e);
+  });
 });
 
 function amapSource(extra: Partial<DataSourceView> = {}): DataSourceView {

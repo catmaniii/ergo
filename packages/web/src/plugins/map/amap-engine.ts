@@ -7,6 +7,9 @@
 //   （overlay.ts）。这里每动一下报一次此刻画着哪一片（onSurface：GCJ-02 的中心、级别、大小），那一层照它投影。
 //   高德的脚本和页面在同一个页面里（放不进隔离的框：它的安全密钥代理要带这台设备的凭证、本机端口要同源，框里发的请求两样都没有，
 //   见 ADR-0059），技术上仍读得到页面；只是数据不再经它的接口；
+// - 捏合、惯性、双击的过程中跟手（458）：高德 2.0 是自己一帧一帧画的（不像谷歌的栅格地图整块拉伸），中心和级别在动画里就是画面上的；
+//   这里动着的时候每一帧读（surface-watch.ts），高德的 mapmove、zoomchange 来了当场再读，松手也叫醒；级别多要几位小数
+//   （getZoom 默认只留两位）。没有真高德能量（要 Key），真机上看；要是真高德捏合时还漂，下一步照谷歌那样放探针（ADR-0059 的 458 修订）；
 // - 不让转、不让斜（rotateEnable、pitchEnable 关掉）：上面那一层按正北朝上的 Web 墨卡托投影；
 // - 坐标：二狗的 WGS-84 交给高德之前转 GCJ-02（大陆内才转），从高德拿回的中心转回 WGS-84；
 // - 深色：高德自带的深色样式（amap://styles/dark）。
@@ -31,7 +34,8 @@ export interface AmapLngLat {
 /** 高德的地图对象：只列用到的 */
 export interface AmapMap {
   getCenter(): AmapLngLat;
-  getZoom(): number;
+  /** digits：小数留几位（高德 2.0 不给时留 2 位） */
+  getZoom(digits?: number): number;
   setZoomAndCenter(zoom: number, center: [number, number], immediately?: boolean): void;
   setZoom(zoom: number): void;
   setCenter(center: [number, number], immediately?: boolean): void;
@@ -113,6 +117,11 @@ export interface AmapEngineOptions extends MapEngineEvents {
 
 /** 停下来多久算"移动完"（高德的 moveend、zoomend 可能连着来） */
 const SETTLE_MS = 120;
+/**
+ * 报给上面那一层的级别留几位小数（458）：高德 2.0 的 getZoom() 默认只留 2 位，捏合到一半时级别差 0.005 就是 0.35% 的比例，
+ * 离屏幕中心 400 像素的点差 1.4 像素；留 6 位就看不出来了
+ */
+const SURFACE_ZOOM_DIGITS = 6;
 
 export function createAmapEngine(host: HTMLElement, AMap: AmapNamespace, options: AmapEngineOptions): MapEngine {
   const doc = host.ownerDocument;
@@ -147,7 +156,7 @@ export function createAmapEngine(host: HTMLElement, AMap: AmapNamespace, options
   /** 此刻画着哪一片（高德自己的坐标：大陆里 GCJ-02） */
   const surface = (): MapSurfaceView => {
     const c = map.getCenter();
-    return { lat: c.getLat(), lon: c.getLng(), zoom: map.getZoom(), width: root.clientWidth, height: root.clientHeight, datum: "gcj02" };
+    return { lat: c.getLat(), lon: c.getLng(), zoom: map.getZoom(SURFACE_ZOOM_DIGITS), width: root.clientWidth, height: root.clientHeight, datum: "gcj02" };
   };
   const watch = watchSurface(
     () => (destroyed ? undefined : surface()),
@@ -164,8 +173,10 @@ export function createAmapEngine(host: HTMLElement, AMap: AmapNamespace, options
   map.on("moveend", settled);
   map.on("zoomend", settled);
   for (const e of ["mapmove", "zoomchange", "resize"] as const) map.on(e, () => watch.poke());
-  // 手指、鼠标、滚轮一动就叫醒（拖的时候、惯性滑的时候每一帧都报）
-  for (const e of ["pointerdown", "pointermove", "wheel", "touchstart", "touchmove"] as const) root.addEventListener(e, () => watch.poke(), { capture: true, passive: true });
+  // 手指、鼠标、滚轮一动就叫醒（拖的时候、惯性滑的时候每一帧都报）；松手也叫（458：松手后高德还要惯性滑、双击放大，那一段还在动）
+  for (const e of ["pointerdown", "pointermove", "pointerup", "pointercancel", "wheel", "touchstart", "touchmove", "touchend", "touchcancel", "dblclick"] as const) {
+    root.addEventListener(e, () => watch.poke(), { capture: true, passive: true });
+  }
   const resize = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(() => watch.poke());
   resize?.observe(root);
   watch.poke();
