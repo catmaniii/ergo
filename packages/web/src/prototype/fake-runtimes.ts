@@ -2,6 +2,7 @@
 // claude-code/runtime.ts、settings.ts；模型列表是编的，真的是 Claude Code 起来时报回的）。"个人博客"项目的负责人用 Claude Code
 // （卡上标出、⚙ 里多权限模式和思考档位、输入框的候选是 Claude Code 的命令）。
 import { type AgentRuntimeView, PI_RUNTIME_ID, type ResumableSessionView, RUNTIME_OPERATIONS, type RuntimeCapabilities, type SlashCommandEntry } from "../state/index.ts";
+import { codexDemo } from "./fake-components.ts";
 
 /** Claude Code 运行时的 id（守护进程 claude-code/api.ts 的 CLAUDE_CODE_RUNTIME_ID） */
 export const FAKE_CLAUDE_CODE = "claude-code";
@@ -68,7 +69,10 @@ export function fakeRuntimes(): AgentRuntimeView[] {
       id: FAKE_CODEX,
       title: "Codex",
       plugin: "codex",
-      available: true,
+      // ?demo-codex=missing：要的 Codex 没装，插件没装上（新建时灰着，点一下写怎么装）
+      ...(codexDemo() === "missing"
+        ? { available: false, missing: true as const, unavailable: "没装 Codex。到设置 · 组件里装「Codex 接入」（从 npm 官方下载；也可以在终端运行 ergo components add codex），或者自己用 npm i -g @openai/codex 装。装好后回到这里点「启用」，第一次用之前在终端登录 Codex（用你自己的账号）。别的功能不受影响。" }
+        : { available: true }),
       // 能力清单照守护进程 codex/runtime.ts：撤回只回对话，不恢复文件；分支摘要它不写
       capabilities: caps(["interject", "compact", "rollback", "branch_switch", "model_handoff", "thinking_levels", "take_over", "scope_review"]),
       models: [

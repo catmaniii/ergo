@@ -87,9 +87,11 @@ describe("设置 · 组件", () => {
       ["audiocpp", "missing", "ask"],
       ["tts", "missing", "ask"],
       ["claude-code", "missing", "detected"],
+      ["codex", "missing", "detected"],
     ]);
     expect(one(before.body, "bge-m3")).toMatchObject({ title: "向量模型 bge-m3", defaultText: "默认装", wanted: true, location: path.join(td.dataDir, "models", "Xenova", "bge-m3") });
     expect(one(before.body, "claude-code")).toMatchObject({ defaultText: "本机装了 Claude Code 才装", detectedText: "没检测到", wanted: false });
+    expect(one(before.body, "codex")).toMatchObject({ title: "Codex 接入", defaultText: "本机装了 Codex 才装", detectedText: "没检测到", wanted: false, license: { name: "Apache-2.0", confirm: false } });
     expect(one(before.body, "tts")).toMatchObject({ recommended: true, license: { name: "Fish Audio Research License", confirm: true, accepted: false } });
     expect(before.body.features.find((f) => f.feature === "memory.semantic")).toMatchObject({ component: "bge-m3", ready: false });
     expect(before.body.features.find((f) => f.feature === "voice.input")?.ready).toBe(true);

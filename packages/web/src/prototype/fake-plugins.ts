@@ -3,7 +3,9 @@
 // 加了 Claude Code（有了网页的那一半：设置 · Claude Code）。
 // 地址带 ?demo-plugins-off=memory,reminders,calendar,voice,browsing,phone,google,looki 时那几个开头就是停用的，
 // ?demo-plugins-removed=reminders 时开头就是移除了的。给人看的字是守护进程按当前语言写的，原型里按打开时的语言挑中文或英文。
+// Codex（454）：?demo-codex=missing 时没装上（要的 Codex 没装：写怎么装、启用不了）；不给时用的是组件装的那份，多一句登录的完整命令（note）。
 import { activeLocale, type PluginAction, type PluginActionResult, type PluginInfo, type PluginState, type PluginStatusEventPayload, type PluginsView } from "../state/index.ts";
+import { codexDemo, FAKE_CODEX_LOGIN } from "./fake-components.ts";
 
 /** 原型的演示数据：中文、英文各一句（守护进程那边是它的语言文件） */
 const say = (zh: string, en: string) => (activeLocale().meta.id === "en" ? en : zh);
@@ -202,6 +204,16 @@ function about(name: string): Omit<PluginInfo, "state" | "needs" | "neededBy" | 
       name,
       title: "Codex",
       summary: say("项目、任务的负责人能用本机的 Codex 跑会话；能接管本机已有的会话；设置里定新建时的默认文件夹", "Lets project and task owners run sessions with Codex on this computer and take over existing sessions; set the default folder for new work in Settings"),
+      // 用的是组件装的那份：它不在 PATH 上，登录要写完整的命令（守护进程 codex/plugin.ts 的 note）
+      ...(codexDemo() === "component"
+        ? {
+            note: say(
+              "用的是设置 · 组件装的 Codex 0.166.0（不在 PATH 上）。还没登录的话，在这台电脑的 PowerShell 里运行下面这条命令，按提示登录；登录用你自己的 Codex 账号，二狗不碰：",
+              "Using Codex 0.166.0 installed under Settings · Components (it isn't on PATH). If you haven't signed in yet, run the command below in PowerShell on this computer and sign in when prompted; it uses your own Codex account, and ergo never touches it:",
+            ),
+            noteCommand: FAKE_CODEX_LOGIN,
+          }
+        : {}),
       brings: { tools: [], cards: [], jobs: [] },
     };
   }
@@ -256,6 +268,16 @@ function about(name: string): Omit<PluginInfo, "state" | "needs" | "neededBy" | 
   };
 }
 
+/** ?demo-codex=missing：Codex 插件没装上（要的 Codex 没装），写的是守护进程 codex.plugin.notInstalled 那句、启用不了 */
+function codexMissing(name: string, state: PluginState): Pick<PluginInfo, "state" | "problem" | "missing" | "cannotEnable"> {
+  if (name !== "codex" || codexDemo() !== "missing" || state === "removed" || state === "disabled") return { state };
+  const how = say(
+    "没装 Codex。到设置 · 组件里装「Codex 接入」（从 npm 官方下载；也可以在终端运行 ergo components add codex），或者自己用 npm i -g @openai/codex 装。装好后回到这里点「启用」，第一次用之前在终端登录 Codex（用你自己的账号）。别的功能不受影响。",
+    'Codex isn\'t installed. Install "Codex integration" under Settings · Components (downloaded from the official npm registry; or run ergo components add codex in a terminal), or install it yourself with npm i -g @openai/codex. Then come back here, click Turn on, and sign in to Codex in a terminal before first use (with your own account). Everything else keeps working.',
+  );
+  return { state: "skipped", problem: how, missing: true, cannotEnable: how };
+}
+
 export class FakePlugins {
   private readonly states = new Map<string, PluginState>();
 
@@ -265,11 +287,11 @@ export class FakePlugins {
 
   /** 插件频道上的临时事件 plugin_status 的负载 */
   status(): PluginStatusEventPayload {
-    return { plugins: [...this.states].map(([name, state]) => ({ name, title: about(name).title, state })) };
+    return { plugins: [...this.states].map(([name, state]) => ({ name, title: about(name).title, state: codexMissing(name, state).state })) };
   }
 
   view(): PluginsView {
-    return { plugins: [...this.states].map(([name, state]) => ({ ...about(name), state, needs: [], neededBy: [], stopsWith: [], startsWith: [] })) };
+    return { plugins: [...this.states].map(([name, state]) => ({ ...about(name), ...codexMissing(name, state), needs: [], neededBy: [], stopsWith: [], startsWith: [] })) };
   }
 
   /** 停用、启用、移除（几个插件之间没有必需的依赖：只动它自己；日历要的提醒是可选的）；交回这次变了的和之后的清单 */

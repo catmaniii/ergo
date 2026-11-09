@@ -35,6 +35,7 @@ export {
   probeEmbeddedSignature,
   type SignatureProbe,
   systemChromePaths,
+  systemEdgePaths,
 } from "./browser-path.ts";
 export {
   DIRECT_MAX_BYTES,

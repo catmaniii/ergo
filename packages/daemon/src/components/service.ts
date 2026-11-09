@@ -5,7 +5,7 @@
 //   直接按装好后的样子摆在 root/ 下，压缩包放 archives/、全下好以后解进 root/——都下好、校验过了才把 root 整个换成正式的目录
 //   （旧的先改名成 .old-<时间>，换上了再删；换到一半被打断的，下次启动时改回来），正式的目录里不会出现下了一半的东西。
 // - 暂停、取消、守护进程停下：中止正在下的；暂停和停下留着下了一半的（重启后是"暂停了"，点继续接着下），取消连临时目录一起删。
-// - 离线导入：一个文件、一个文件夹、一个 .tar / .tgz 包，按清单里的大小和 sha256 认（没写 sha256 的小文件按大小和名字），
+// - 离线导入：一个文件、一个文件夹、一个 .tar / .tgz 包，按清单里的大小和校验值认（sha256；npm 的包是 sha512；都没写的小文件按大小和名字），
 //   认得的放进临时目录、凑齐了就照常换上；还差的写明，点继续会从网上下剩下的。
 // - 只认清单里的校验值：镜像只是换个地方下，内容对不上就不用（见 downloader.ts）。
 // - 许可：清单里写了要确认的，第一次下载前接口要带 licenseAccepted，没带不开始；确认过的记在 <组件区>/licenses.json，
@@ -35,7 +35,7 @@ import { RequestRejected } from "../errors.ts";
 import { sizeLabel } from "../media/file-types.ts";
 import { compareVersions } from "../release/layout.ts";
 import { renameRetryingAsync, writeFileAtomic } from "../util/atomic-file.ts";
-import { DownloadError, type DownloadUrl, downloadFile, freeBytesOf, probeSources, sha256File, sizeOf } from "./downloader.ts";
+import { type ChecksumAlgorithm, checksumMismatch, checksumsOf, DownloadError, type DownloadUrl, digestFile, downloadFile, freeBytesOf, matchesChecksums, probeSources, sizeOf } from "./downloader.ts";
 import type { ComponentHost } from "./host.ts";
 import {
   type ComponentManifest,
@@ -550,13 +550,13 @@ export function createComponents(options: ComponentsOptions): Components {
     throw new Error(t("components.error.locked", { pid: "?" }));
   };
 
-  /** 正式目录里已经有的（以前用下载命令放进去的）：大小、sha256 对得上的直接拿来用，下了一半的 .part 挪过来接着下 */
+  /** 正式目录里已经有的（以前用下载命令放进去的）：大小、校验值对得上的直接拿来用，下了一半的 .part 挪过来接着下 */
   const reuseInstalled = async (files: ReturnType<typeof plan>, signal: AbortSignal, onVerifying: () => void) => {
     for (const f of files) {
       if (f.file.extract || fs.existsSync(f.staged)) continue;
       if (sizeOf(f.installed) === f.file.size && fs.existsSync(f.installed)) {
         onVerifying();
-        if (f.file.sha256 !== undefined && (await sha256File(f.installed, signal)) !== f.file.sha256) continue;
+        if (!(await matchesChecksums(f.installed, f.file, signal))) continue;
         fs.mkdirSync(path.dirname(f.staged), { recursive: true });
         try {
           fs.linkSync(f.installed, f.staged);
@@ -691,7 +691,7 @@ export function createComponents(options: ComponentsOptions): Components {
         const base = files.filter((x) => x !== f).reduce((sum, x) => sum + (fs.existsSync(x.staged) && sizeOf(x.staged) === x.file.size ? x.file.size : 0), 0);
         const urls = toUrls(c, f.part, f.file).toSorted((a, b) => (rank.get(a.sourceId) ?? 99) - (rank.get(b.sourceId) ?? 99));
         await downloadFile(
-          { name: `${c.id}/${f.file.extract ? f.file.path : f.key}`, urls, size: f.file.size, sha256: f.file.sha256, part: `${f.staged}.part`, dest: f.staged },
+          { name: `${c.id}/${f.file.extract ? f.file.path : f.key}`, urls, size: f.file.size, sha256: f.file.sha256, sha512: f.file.sha512, part: `${f.staged}.part`, dest: f.staged },
           {
             transport: options.transport,
             signal,
@@ -843,7 +843,7 @@ export function createComponents(options: ComponentsOptions): Components {
     } catch {
       throw new RequestRejected("bad_params", t("components.reject.importMissing", { path: resolved }));
     }
-    // 认得的文件：按大小分好，再按 sha256（没写的按名字）对
+    // 认得的文件：按大小分好，再按校验值（sha256、sha512，都没写的按名字）对
     const records = readRecords();
     const candidates = new Map<number, { c: ManifestComponent; variant: ManifestVariant; f: ReturnType<typeof plan>[number] }[]>();
     for (const entry of manifest.components) {
@@ -863,14 +863,25 @@ export function createComponents(options: ComponentsOptions): Components {
     const matched: ComponentImportResult["matched"] = [];
     const unknown: string[] = [];
     const touched = new Set<string>();
-    const place = async (name: string, size: number, digest: () => Promise<string>, copyTo: (dest: string) => Promise<void>): Promise<boolean> => {
+    const place = async (name: string, size: number, digest: (algorithm: ChecksumAlgorithm) => Promise<string>, copyTo: (dest: string) => Promise<void>): Promise<boolean> => {
       const list = candidates.get(size) ?? [];
       if (list.length === 0) return false;
-      let hash: string | undefined;
+      // 同一个文件的同一种校验值只算一次
+      const known = new Map<ChecksumAlgorithm, Promise<string>>();
+      const digestOf = (algorithm: ChecksumAlgorithm) => {
+        let value = known.get(algorithm);
+        if (value === undefined) {
+          value = digest(algorithm);
+          known.set(algorithm, value);
+        }
+        return value;
+      };
       for (const { c, variant, f } of list) {
-        if (f.file.sha256 !== undefined) {
-          hash ??= await digest();
-          if (hash !== f.file.sha256) continue;
+        const expected = checksumsOf(f.file);
+        if (expected.length > 0) {
+          const digests: Partial<Record<ChecksumAlgorithm, string>> = {};
+          for (const e of expected) digests[e.algorithm] = await digestOf(e.algorithm);
+          if (checksumMismatch(expected, digests) !== undefined) continue;
         } else if (path.basename(f.file.path) !== path.basename(name)) continue;
         if (!touched.has(c.id)) prepareStaging(c, variant);
         touched.add(c.id);
@@ -887,7 +898,7 @@ export function createComponents(options: ComponentsOptions): Components {
       return false;
     };
     const fromFile = async (file: string, size: number) => {
-      const ok = await place(file, size, () => sha256File(file), (dest) => fs.promises.copyFile(file, dest));
+      const ok = await place(file, size, async (algorithm) => (await digestFile(file, [algorithm]))[algorithm]!, (dest) => fs.promises.copyFile(file, dest));
       if (!ok) unknown.push(path.basename(file));
     };
     if (stat.isDirectory()) {
@@ -910,16 +921,18 @@ export function createComponents(options: ComponentsOptions): Components {
           }
           const scratch = path.join(temp, String(n++));
           const out = fs.createWriteStream(scratch);
-          const hash = createHash("sha256");
+          // 包里的一项不知道要对哪种校验值：边写边把两种都算上
+          const hashes = { sha256: createHash("sha256"), sha512: createHash("sha512") };
           return {
             async write(chunk: Buffer) {
-              hash.update(chunk);
+              hashes.sha256.update(chunk);
+              hashes.sha512.update(chunk);
               if (!out.write(chunk)) await new Promise<void>((resolve) => out.once("drain", resolve));
             },
             async end() {
               await new Promise<void>((resolve, reject) => out.end((err?: Error | null) => (err ? reject(err) : resolve())));
-              const digest = hash.digest("hex");
-              const ok = await place(entry.path, entry.size, () => Promise.resolve(digest), (dest) => renameRetryingAsync(scratch, dest));
+              const digests = { sha256: hashes.sha256.digest("hex"), sha512: hashes.sha512.digest("hex") };
+              const ok = await place(entry.path, entry.size, (algorithm) => Promise.resolve(digests[algorithm]), (dest) => renameRetryingAsync(scratch, dest));
               if (!ok) unknown.push(entry.path);
               fs.rmSync(scratch, { force: true });
             },

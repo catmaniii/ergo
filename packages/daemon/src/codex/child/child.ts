@@ -10,6 +10,7 @@ import { installBuiltinLocales } from "../../i18n/builtin.ts";
 import { type AgentReport, CHILD_LANGUAGE_ENV, errorReport, failedScopeReview, HOST_PROTOCOL_VERSION, type HostCommand, type SessionAssembly } from "../../runtime/host-protocol.ts";
 import { encodeLine, readJsonLines } from "../../runtime/line-channel.ts";
 import type { CodexServerSpawn } from "./app-server.ts";
+import { CODEX_COMPONENT } from "../install.ts";
 import { CodexSessionRunner } from "./session.ts";
 
 export interface CodexChildIo {
@@ -61,7 +62,7 @@ export function runCodexChild(io: CodexChildIo, deps: CodexChildDeps): { shutdow
     heartbeat.unref();
     try {
       const spawn = deps.spawnFor(command.session);
-      if (!spawn) throw new Error(t("codex.plugin.notInstalled"));
+      if (!spawn) throw new Error(t("codex.plugin.notInstalled", { component: CODEX_COMPONENT }));
       runner = await CodexSessionRunner.open(command.session, emit, { spawn, env: io.env, log: io.log });
     } catch (err) {
       emit(errorReport("start_failed", err instanceof Error ? err.message : String(err), true));

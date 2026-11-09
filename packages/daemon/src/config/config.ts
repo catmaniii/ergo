@@ -248,7 +248,7 @@ export const DEFAULT_SETUP_CONFIG: Readonly<SetupConfig> = Object.freeze({ forma
 /**
  * 浏览器：联网搜索、读网页用 playwright-core 驱动它（不下载浏览器），agent 的 bash 里的 AGENT_BROWSER_EXECUTABLE_PATH
  * 也是它。browserPath 是 Chrome / Edge 的可执行文件的绝对路径，写了就排最前；不写就按固定的候选顺序找（web/browser-path.ts：
- * 环境变量 AGENT_BROWSER_EXECUTABLE_PATH、agent-browser 自带的那份签名的 Chrome、系统 Chrome）。示例配置里是占位符（`<…>`），原样用时当没写
+ * 环境变量 AGENT_BROWSER_EXECUTABLE_PATH、agent-browser 自带的那份签名的 Chrome、系统 Chrome、系统 Edge）。示例配置里是占位符（`<…>`），原样用时当没写
  */
 export interface WebConfig {
   browserPath?: string;

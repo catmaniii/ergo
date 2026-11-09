@@ -65,15 +65,16 @@ export function RemoteBadge({ badge, className }: { badge: { label: string; url?
 
 /**
  * 新建项目、任务时选运行时：现在能用的几个排成一排；只有 pi 能选时什么都不显示。
- * Claude Code 接入的组件没装（别处也没有）时那一项灰掉，点一下去设置 · 组件装；
- * 要的外部程序没装的（Codex：runtimeChoices 的 unavailable）也灰掉，点一下写明缺什么、怎么装
+ * Claude Code 接入、Codex 接入的组件没装（别处也没有）时那一项灰掉，点一下去设置 · 组件装；
+ * 组件有了、插件却还没装上的（没点启用：runtimeChoices 的 unavailable）也灰掉，点一下写明缺什么、怎么办
  */
 export function RuntimePicker({ value, onChange }: { value: string; onChange(runtime: string): void }) {
   const choices = runtimeChoices(useRuntimes(true));
   const claudeCodeOff = useComponentGate(COMPONENT_FEATURES.runtimeClaudeCode);
+  const codexOff = useComponentGate(COMPONENT_FEATURES.runtimeCodex);
   const [why, setWhy] = useState<string>();
   if (choices.length === 0) return null;
-  const off = (id: string) => (id === "claude-code" ? claudeCodeOff : undefined);
+  const off = (id: string) => (id === "claude-code" ? claudeCodeOff : id === "codex" ? codexOff : undefined);
   const missing = choices.map((choice) => off(choice.id)).find((gate) => gate !== undefined);
   return (
     <fieldset className="field runtime-picker">

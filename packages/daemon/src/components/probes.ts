@@ -1,7 +1,8 @@
 // 组件的几样检测：这台电脑有没有 N 卡（挑 CUDA 版还是 CPU 版）、清单里 detect 写的检测到没有
 // （on-path:<程序>：PATH 上有这个程序，比如 claude）、provided 写的别处是不是已经有了（voice-recognizer：用户自己配的语音识别，见下；
 // voice-speech：用户自己配的合成服务，由 audiocpp-host.ts 现探、这里只取结果；node-package:<包名>：程序目录的 node_modules
-// 里解析得到这个包，比如随程序装好的 Claude Code SDK）。
+// 里解析得到这个包，比如随程序装好的 Claude Code SDK；codex-cli：PATH 上有用户自己装的、版本够的 codex——找法和版本线是 Codex 插件的，
+// 从它的 api.ts 拿：npm 装的读包里的 package.json，codex.exe 跑一次 --version，按文件缓存）。
 // 语音识别能从组件页装了，"自己配的"要看得准，不然 PATH 上随便有个 Python 就装不了：
 // LSM 模式、写了 audiocpp 模式、配置里写了 Python（路径在）都算；默认的 python 要 PATH 上有、而且装了 faster-whisper 才算（问一次记住）。
 // 要查的程序名、包名写在清单里（数据），这里只认这几种写法。
@@ -10,6 +11,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { t } from "@ergo/protocol";
+import { codexOnPath } from "../codex/api.ts";
 import { DEFAULT_VOICE_CONFIG, type ErgoConfig, isPlaceholder } from "../config/config.ts";
 
 export interface ComponentProbes {
@@ -115,6 +117,10 @@ export function createComponentProbes(options: { config: ErgoConfig; env: NodeJS
         }
         case "voice-speech":
           return options.speechProvided?.();
+        case "codex-cli": {
+          const found = codexOnPath(options.env);
+          return found === undefined ? undefined : t("components.provided.codexCli", { version: found.version, path: found.where });
+        }
         default:
           return undefined;
       }

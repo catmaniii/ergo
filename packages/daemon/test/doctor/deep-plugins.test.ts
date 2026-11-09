@@ -162,7 +162,7 @@ describe("深度体检里的插件项", () => {
 
     codexReply.current = { code: 1, stdout: "", stderr: "Not logged in\n" };
     view = await run();
-    expect(byId(view)["codex:login"]!.item).toMatchObject({ level: "error", fix: { key: "codex.doctor.login.fix" } });
+    expect(byId(view)["codex:login"]!.item).toMatchObject({ level: "error", fix: { key: "codex.doctor.login.fix" }, text: { fix: "在这台电脑的 PowerShell 里运行 codex login，按提示登录；二狗不碰你的登录" } });
 
     await k.host.disable("codex");
     view = await run();
@@ -186,5 +186,12 @@ describe("登录输出的认法", () => {
     expect(JSON.stringify(judgeCodexLogin({ code: 0, stdout: "", stderr: "Logged in using an API key - sk-proj-***ABCDE\n" }))).not.toContain("ABCDE");
     expect(judgeCodexLogin({ code: 1, stdout: "", stderr: "Not logged in\n" }).level).toBe("error");
     expect(judgeCodexLogin({ code: 0, stdout: "???", stderr: "" }).level).toBe("unknown");
+  });
+
+  it("codex login status 没登录：修法写在终端运行哪条命令——PATH 上的是 codex login，设置 · 组件装的写完整的（454）", () => {
+    expect(judgeCodexLogin({ code: 1, stdout: "", stderr: "Not logged in\n" }).fix).toEqual({ key: "codex.doctor.login.fix", params: { command: "codex login" } });
+    const command = "& 'C:\\ergo\\node.exe' 'C:\\Users\\me\\.ergo\\components\\codex\\node_modules\\@openai\\codex\\bin\\codex.js' login";
+    expect(judgeCodexLogin({ code: 1, stdout: "", stderr: "Not logged in\n", loginCommand: command }).fix).toEqual({ key: "codex.doctor.login.fix", params: { command } });
+    expect(judgeCodexLogin({ code: 2, stdout: "", stderr: "", loginCommand: command }).fix).toEqual({ key: "codex.doctor.login.fix", params: { command } });
   });
 });

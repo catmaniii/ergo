@@ -49,7 +49,7 @@ Claude Code 的目录照搬：
 - **能力清单逐项照实写**，`packages/protocol/src/runtimes.ts` 的 `RUNTIME_OPERATIONS` 每一项都要有布尔值，没做的填 `false`。少一项登记时抛错。
 - `take_over` 是 `true` 要给齐 `sessions`、`sessionBusy`、`forkSession`、`sessionHistory`；`remote_control` 是 `true` 要给 `remoteControl`、`currentSession`。不然登记时抛错。第一版都填 `false`。
 
-外部组件不随二狗分发的，定义里给 `missing()`，没装时交回一句"没装什么、怎么装"。npm 依赖写成 `packages/daemon/package.json` 的 `optionalDependencies`，照 `packages/daemon/src/claude-code/sdk-installed.ts`；用本机程序的按 PATH 找，照 `packages/daemon/src/codex/install.ts`。
+外部组件不随二狗分发的，定义里给 `missing()`，没装时交回一句"没装什么、怎么装"。npm 依赖写成 `packages/daemon/package.json` 的 `optionalDependencies`，照 `packages/daemon/src/claude-code/sdk-installed.ts`；用本机程序的按 PATH 找，照 `packages/daemon/src/codex/install.ts`（它也先找设置 · 组件装的那份：组件清单里一条、装进组件区，ADR-0046 的补充）。
 
 网页不用写：核心按 `GET /api/runtimes` 画新建时的选择和 ⚙，按能力清单收起按钮。要设置页才加 `settingsPages`，照 `packages/web/src/plugins/claude-code/`。
 

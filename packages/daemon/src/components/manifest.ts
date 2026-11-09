@@ -2,7 +2,8 @@
 // 每个组件写：id、版本、默认（install 默认装 / ask 问了再装 / detected 检测到才装，detect 写检测什么）、别处已经有了算不算有
 // （provided 写查什么）、打开哪些功能（enables）、依赖哪些别的组件（dependsOn）、装到数据目录的哪里（target）、几个下载地址
 // （sources，url 里的 {path} 换成文件的路径）、几版（variants：按这台电脑有没有 N 卡、什么平台挑第一个对得上的），每版几部分（parts：
-// 一组同源的文件放进 target 下的 dir；还没接上的部分写 pending，这一版就不能从这里装）。文件写大小和 sha256，压缩包写怎么解开（extract）。
+// 一组同源的文件放进 target 下的 dir；还没接上的部分写 pending，这一版就不能从这里装）。文件写大小和 sha256（npm 的包写 sha512：registry 的
+// dist.integrity 给的就是它，不用为了算 sha256 把包下下来），压缩包写怎么解开（extract）。
 // 加了四样：license（名字、一句话、链接、下载前要不要确认）、recommended（标"推荐"）、slowWithoutGpu（没有 N 卡时写明会很慢）；
 // service（这个程序是常驻服务：程序叫什么、服务管家里叫什么、端口、健康检查）和 serve（这个模型由哪个程序组件的服务加载）——
 // 语音识别模型就是再写一条带 serve 的组件，服务的配置和重启不用改代码（audiocpp-host.ts）。
@@ -17,6 +18,8 @@ import { type MinisignPublicKey, verify } from "../release/minisign.ts";
 import { releasePublicKey } from "../release/public-key.ts";
 
 const Sha256 = Type.String({ pattern: "^[0-9a-f]{64}$" });
+/** npm 的包：registry 元数据里 dist.integrity 的 sha512（base64 换成十六进制） */
+const Sha512 = Type.String({ pattern: "^[0-9a-f]{128}$" });
 /** 数据目录里、或者组件目录里的相对路径：/ 分隔，不能是绝对路径、不能有 ..（parseManifest 里用 safeRelPath 查） */
 const RelPath = Type.String({ minLength: 1, maxLength: 300 });
 
@@ -53,8 +56,10 @@ const File = Type.Object(
     /** 下载地址里的 {path}；不解开的文件也照它放进 target（前面加上这部分的 dir） */
     path: RelPath,
     size: Type.Integer({ minimum: 0 }),
-    /** 有就核对；没有的只核对大小和名字（小的配置文件，以前的下载命令就是这样） */
+    /** 有就核对；sha256、sha512 都没有的只核对大小和名字（小的配置文件，以前的下载命令就是这样） */
     sha256: Type.Optional(Sha256),
+    /** 有就核对（npm 的包：registry 只给 sha512）；两个都写了两个都核对 */
+    sha512: Type.Optional(Sha512),
     extract: Type.Optional(Extract),
   },
   { additionalProperties: false },
@@ -154,7 +159,10 @@ const Component = Type.Object(
     default: Type.Enum(COMPONENT_DEFAULTS),
     /** default 是 detected 时检测什么（on-path:<程序>：PATH 上有这个程序） */
     detect: Type.Optional(Type.String()),
-    /** 别处已经有了也算有（voice-recognizer：配置里的识别程序；voice-speech：用户自己配的合成服务；node-package:<包名>：随程序装好的 npm 包） */
+    /**
+     * 别处已经有了也算有（voice-recognizer：配置里的识别程序；voice-speech：用户自己配的合成服务；node-package:<包名>：随程序装好的 npm 包；
+     * codex-cli：PATH 上有够版本的 codex，用户自己 npm i -g 装的）
+     */
     provided: Type.Optional(Type.String()),
     enables: Type.Array(Type.String({ minLength: 1 })),
     dependsOn: Type.Optional(Type.Array(Type.String())),

@@ -4,7 +4,8 @@
 // - 运行时是 Codex 的任务：负责人经 Codex 的子进程跑完一轮、任务自动完成；会话频道里的事件（网页显示的就是它们）和同一个剧本由 pi 跑出来的一样；用量进账本；
 // - 工具调用：Codex 自带的（命令）过真的守卫、进会话、判定写在记录上；二狗的工具经中转走守护进程；
 // - 额度用完：这一轮出错，任务转等我、写明；
-// - 插件在配置里停用着：任务转等我；本机没装（missing）：运行时灰着、写明怎么装，任务转等我，别的不受影响。
+// - 插件在配置里停用着：任务转等我；本机没装（missing）：运行时灰着、写明怎么装，任务转等我，别的不受影响；
+// - 设置 · 组件装的（454）：插件按宿主交来的组件区认出它（PATH 上没有也装配），设置 · 插件里写登录的完整命令。
 import fs from "node:fs";
 import path from "node:path";
 import { type CardEventPayload, CHANNELS, EVENT_TYPES, maintainerChannel, type MessageEventPayload, runtimeBillingOf, type Task } from "@ergo/protocol";
@@ -16,11 +17,12 @@ import { codexSettings } from "../../src/codex/settings.ts";
 import { LEDGER_CHANNEL, TOKEN_USAGE_EVENT, type TokenUsagePayload } from "../../src/ledger/entry.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
-import { FAKE_CODEX_CHILD, fakeCodexPlugin } from "../helpers/fake-codex.ts";
+import { FAKE_CODEX_CHILD, FakeCodexSessions, fakeCodexPlugin } from "../helpers/fake-codex.ts";
 import { FAKE_CODEX_STORE, FakeCodexStore } from "../helpers/fake-codex-app-server.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
-import { runtimesApi } from "../helpers/http.ts";
+import { pluginsApi, runtimesApi } from "../helpers/http.ts";
 import { waitUntil } from "../helpers/process.ts";
+import { makeTempDir } from "../helpers/temp-dir.ts";
 
 const taskNow = (td: TestDaemon, taskId: string): Task => td.daemon.tasks.get(taskId)!;
 const waitState = (td: TestDaemon, taskId: string, state: Task["state"]) =>
@@ -183,4 +185,29 @@ describe("Codex 插件（假 app-server）", () => {
     expect(health.status).toBe("ok");
     expect(health.plugins.skipped.map((s) => s.plugin)).toEqual([CODEX_PLUGIN]);
   }, 90_000);
+
+  it("设置 · 组件装的 Codex（454）：数据目录的组件区里有，插件就装配（用真的 missing，不看这台机器的 PATH）；设置 · 插件里写版本和登录的完整命令", async () => {
+    // 照组件装好后的样子编：<数据目录>\components\codex\node_modules\@openai\codex\bin\codex.js 和 package.json（不起它，只认）
+    const dataDir = makeTempDir("ergo-data-");
+    const pkg = path.join(dataDir, "components", "codex", "node_modules", "@openai", "codex");
+    fs.mkdirSync(path.join(pkg, "bin"), { recursive: true });
+    fs.writeFileSync(path.join(pkg, "bin", "codex.js"), "");
+    fs.writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ name: "@openai/codex", version: "0.166.0" }));
+    // missing、note 用真的（先找组件区：找到了就不往 PATH 找、不跑任何 codex）；体检、深度体检的登录换成假的
+    const plugin = createCodexPlugin({
+      entry: FAKE_CODEX_CHILD,
+      sessions: new FakeCodexSessions(),
+      program: () => Promise.resolve({ found: true, version: "0.166.0", component: true }),
+      loginStatus: () => Promise.resolve({ code: 1, stdout: "", stderr: "Not logged in\n" }),
+    });
+    const td = await startTestDaemon({ extraPlugins: [plugin], reuse: { dataDir, homeDir: makeTempDir("ergo-home-") } });
+    const runtime = (await runtimesApi.view(td.url)).body.runtimes.find((r) => r.id === CODEX_RUNTIME_ID);
+    expect(runtime).toMatchObject({ available: true });
+    expect(runtime).not.toHaveProperty("missing");
+    const info = (await pluginsApi.view(td.url)).body.plugins.find((p) => p.name === CODEX_PLUGIN);
+    expect(info).toMatchObject({ state: "running" });
+    expect(info?.note).toContain("用的是设置 · 组件装的 Codex 0.166.0（不在 PATH 上）");
+    expect(info?.noteCommand).toMatch(/^& '.+node(\.exe)?' '.+' login$/);
+    expect(info?.noteCommand).toContain(`'${path.join(pkg, "bin", "codex.js")}' login`);
+  }, 60_000);
 });

@@ -1,4 +1,4 @@
-// 组件的检测：on-path:<程序>（PATH 上有没有）、node-package:<包名>（程序的 node_modules 里有没有）、
+// 组件的检测：on-path:<程序>（PATH 上有没有）、node-package:<包名>（程序的 node_modules 里有没有）、codex-cli（PATH 上有没有够版本的 codex）、
 // 配置里的识别程序（LSM 模式、配置写的 Python 在不在）和合成服务。不联网、不跑模型；N 卡那一项要真跑 nvidia-smi，这里不测。
 import fs from "node:fs";
 import path from "node:path";
@@ -84,5 +84,33 @@ describe("检测", () => {
     const dir = makeTempDir();
     fs.writeFileSync(path.join(dir, "python.exe"), "");
     expect(createComponentProbes({ config: config({ mode: "spawn", python: "python" }), env: { PATH: dir, PATHEXT: ".exe" } }).provided("voice-recognizer")).toBeUndefined();
+  });
+});
+
+describe("codex-cli：PATH 上有用户自己装的、版本够的 codex 算别处已经有了（454）", () => {
+  /** 编一个 npm 装好的 codex（codex.cmd、旁边的 codex.js、package.json 里的版本）：不起真的 codex */
+  function npmInstall(version: string): string {
+    const dir = makeTempDir("ergo-fake-npm-");
+    const pkg = path.join(dir, "node_modules", "@openai", "codex");
+    fs.mkdirSync(path.join(pkg, "bin"), { recursive: true });
+    fs.writeFileSync(path.join(dir, process.platform === "win32" ? "codex.cmd" : "codex"), "");
+    fs.writeFileSync(path.join(pkg, "bin", "codex.js"), "");
+    fs.writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ version }));
+    return dir;
+  }
+  const probes = (env: NodeJS.ProcessEnv) => createComponentProbes({ config: config({ mode: "spawn", python: "python" }), env });
+
+  test("版本够的：写明版本和在哪；太旧的、没有的不算（太旧的照样从组件页装）；组件区里装的不算别处", () => {
+    const dir = npmInstall("0.170.2");
+    expect(probes({ PATH: dir }).provided("codex-cli")).toBe(`本机已经装了 Codex 0.170.2，在用它（${path.join(dir, "node_modules", "@openai", "codex", "bin", "codex.js")}）`);
+    expect(probes({ PATH: npmInstall("0.100.0") }).provided("codex-cli")).toBeUndefined();
+    expect(probes({ PATH: makeTempDir("ergo-empty-path-") }).provided("codex-cli")).toBeUndefined();
+    // 组件区里装的（ERGO_COMPONENTS_DIR 指着）不算"别处已经有了"：那就是这个组件本身
+    const componentsDir = makeTempDir("ergo-components-");
+    const script = path.join(componentsDir, "codex", "node_modules", "@openai", "codex", "bin", "codex.js");
+    fs.mkdirSync(path.dirname(script), { recursive: true });
+    fs.writeFileSync(script, "");
+    fs.writeFileSync(path.join(path.dirname(script), "..", "package.json"), JSON.stringify({ version: "0.166.0" }));
+    expect(probes({ PATH: makeTempDir("ergo-empty-path-"), ERGO_COMPONENTS_DIR: componentsDir }).provided("codex-cli")).toBeUndefined();
   });
 });

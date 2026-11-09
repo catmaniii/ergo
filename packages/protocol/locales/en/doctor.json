@@ -44,6 +44,7 @@
   "doctor.feature.voiceInput": "Hold to speak",
   "doctor.feature.voiceReply": "Reply with voice",
   "doctor.feature.runtimeClaudeCode": "Do tasks with Claude Code",
+  "doctor.feature.runtimeCodex": "Do tasks with Codex",
   "doctor.fix.ports": "See who holds these ports (look the port number up in netstat -ano) and close that program; or change ports.local / ports.external in config/ergo.json to two free ports and restart ergo. If another copy of ergo holds it, stop that one in the service manager first",
   "doctor.fix.portsUnverified": "Both ports answer, so most likely the system's port table was briefly wrong: press \"Run again\" in a moment. If it stays like this, look the port number up in netstat -ano and see which other program is listening on it besides ergo",
   "doctor.fix.node": "Ergo and pi follow pi's tested Node line (22 for now). Use the Node that ships with ergo (or install Node 22) and start ergo again",

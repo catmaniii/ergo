@@ -878,4 +878,24 @@ describe("运行中启用、移除（设置里的热插拔）", () => {
     const twice: PluginDefinition = { name: "twice", title: "两次", contracts: (ctx) => [1, 2].forEach(() => ctx.removal.declare(spec)), setup: () => {} };
     await expect(kernel(hostOf([twice]).host)).rejects.toThrow("已经写过了");
   });
+
+  it("按现在的样子补的一句（note，454：Codex 用的是组件装的那份时登录的完整命令）：每次列清单现取，命令单独交；没有就不写", async () => {
+    let note: { text: string; command?: string } | undefined = { text: "用的是组件装的那份，登录运行：", command: "& 'C:\\node.exe' 'C:\\codex.js' login" };
+    const plugin: PluginDefinition = {
+      name: "noted",
+      title: "带说明的",
+      get note() {
+        return note;
+      },
+      setup: () => {},
+    };
+    const { host } = hostOf([plugin]);
+    await kernel(host);
+    expect(host.info()[0]).toMatchObject({ name: "noted", note: "用的是组件装的那份，登录运行：", noteCommand: "& 'C:\\node.exe' 'C:\\codex.js' login", state: "running" });
+    note = { text: "只有一句" };
+    expect(host.info()[0]).toMatchObject({ note: "只有一句" });
+    expect(host.info()[0]).not.toHaveProperty("noteCommand");
+    note = undefined;
+    expect(host.info()[0]).not.toHaveProperty("note");
+  });
 });

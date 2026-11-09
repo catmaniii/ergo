@@ -734,6 +734,35 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }, 60_000);
   }
 
+  // Codex 接入（454）：演示页默认是从组件页装好了（插件页写登录的完整命令）；?demo-codex=missing 时组件没装、插件没装上（写怎么装）、新建任务时 Codex 灰着
+  test("设置 · 组件里有 Codex 接入一行；设置 · 插件里 Codex 写登录的完整命令；没装时写怎么装、能从组件页装", async () => {
+    const { page, errors } = await open({ width: 1280, height: 800 });
+    await page.evaluate(`window.location.hash = "#/more/components"`);
+    await page.locator('[data-component="codex"]').waitFor();
+    const row = await page.locator('[data-component="codex"]').innerText();
+    expect(row).toContain("Codex 接入");
+    expect(row).toContain("0.166.0");
+    expect(row).toContain("Apache-2.0");
+    await page.evaluate(`window.location.hash = "#/more/plugins"`);
+    await page.locator('[data-plugin="codex"] .plugin-note-command').waitFor();
+    expect(await page.locator('[data-plugin="codex"] .plugin-note').innerText()).toContain("在这台电脑的 PowerShell 里运行下面这条命令");
+    expect(await page.locator('[data-plugin="codex"] .plugin-note-command').innerText()).toMatch(/^& '.+node\.exe' '.+components\\codex\\node_modules\\@openai\\codex\\bin\\codex\.js' login$/);
+    await page.close();
+
+    const missing = await open({ width: 390, height: 844 }, "?demo-codex=missing");
+    await missing.page.evaluate(`window.location.hash = "#/more/plugins"`);
+    await missing.page.locator('[data-plugin="codex"]').waitFor();
+    const plugin = await missing.page.locator('[data-plugin="codex"]').innerText();
+    expect(plugin).toContain("没装");
+    expect(plugin).toContain("到设置 · 组件里装「Codex 接入」");
+    expect(await missing.page.locator('[data-plugin="codex"] .plugin-note').count()).toBe(0);
+    await missing.page.evaluate(`window.location.hash = "#/more/components"`);
+    await missing.page.locator('[data-component="codex"]').waitFor();
+    expect(await missing.page.locator('[data-component="codex"] .component-actions').innerText()).toContain("安装");
+    await missing.page.close();
+    expect([...errors, ...missing.errors]).toEqual([]);
+  }, 60_000);
+
   test("默认全开电脑宽：导航里有记忆，设置里不列删除素材（在记忆页里），看板上有提醒卡", async () => {
     const { page, errors } = await open({ width: 1280, height: 800 });
     await page.evaluate(`window.location.hash = "#/more/settings"`);

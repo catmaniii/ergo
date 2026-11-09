@@ -1,6 +1,6 @@
 # ADR-0046 Codex 运行时：守卫接在钩子、审批、事后核对三个口子，二狗的工具走 stdio MCP 中转
 
-状态：已定（"Codex 做成运行时插件、每次工具调用都过守卫、照实写拦不住的"是用户定的，下面是接 0.166 的 `codex app-server` 时的取舍）
+状态：已定（"Codex 做成运行时插件、每次工具调用都过守卫、照实写拦不住的"是用户定的，下面是接 0.166 的 `codex app-server` 时的取舍）；2026-11-09 补充：设置 · 组件装的也认（见文末）
 
 ## 背景
 
@@ -73,3 +73,15 @@
 - 能力清单：`interject`、`compact`、`rollback`、`branch_switch`、`model_handoff`、`thinking_levels`、`take_over`、`scope_review`（`recordedScopeReview`，由二狗另起）是 `true`；`branch_summary`、`rewind_files`、`slash_passthrough`、`purge_rewrite`、`yield`、`live_toolkit`、`remote_control` 是 `false`。
 - 假 app-server 的回复、通知和适配子进程发的请求都按生成的 schema 校验（`packages/daemon/test/fixtures/codex-app-server.schema.json`，`trim-codex-schema.mjs` 裁出）。Codex 升级要重新生成、重新核对。
 - 宿主协议没变。`ResumableSessionView` 多 `unsure`，`AgentRuntimeView` 多 `missing`（外部程序没装时灰着列出来）。
+
+## 补充：设置 · 组件装的 Codex 也认（票 454，2026-11-09）
+
+用户要能从二狗的页面装 Codex，照 Claude Code 接入的样子做成组件。决定 1–10 都不变，只是"用户本机的 codex"多了一个来处。
+
+- **组件「Codex 接入」**：组件清单里一条 `codex`，从 npm 官方下 `@openai/codex@0.166.0`（主包，只有 `bin/codex.js`）和 Windows x64 的平台包。平台包在 npm 上是同名包的另一个版本 `0.166.0-win32-x64`，主包的 `optionalDependencies` 里用别名 `@openai/codex-win32-x64` 引它；两个都解进 `<组件区>\codex\node_modules\@openai\` 下（`codex`、`codex-win32-x64`），和 `npm i -g` 装出来的结构一样。`bin/codex.js` 按 `require.resolve("@openai/codex-win32-x64/package.json")` 找平台包、拉起里面的 `vendor/x86_64-pc-windows-msvc/bin/codex.exe`：读的是 GitHub 上 `rust-v0.166.0` 的 `codex-cli/bin/codex.js`，和 npm 包里那份按 jsDelivr 列的文件 sha256 核对过是同一份；平台包没有安装脚本。
+- **版本钉 0.166.0**：就是生成 app-server schema 的那一版（`test/fixtures/codex-app-server.schema.json` 的 `codexVersion`），测试锁住两者相等、不低于 `CODEX_MIN_VERSION`。npm 上已经有更新的（0.167.0），没跑过真的程序核对协议，不换；换版本要先重新生成 schema、跑 `real-codex.test.ts`，再改清单。
+- **校验值是 registry 的**：npm 的元数据只给 sha512（`dist.integrity`），清单的文件加 `sha512`（十六进制），下载器、离线导入、"正式目录里已经有了"都认；大小对 tarball 发 HEAD（带 `Range: bytes=0-0`，看 `Content-Range` 的总长；不带时 registry 不回 `Content-Length`），没下载包。许可是 Apache-2.0（两个包的 package.json、仓库的 LICENSE），清单照写、不用确认。
+- **先找组件区，再找 PATH**：组件是用户在二狗里点了装的，版本是核对过协议的那一版；想用自己 PATH 上的，在组件页删掉组件。守护进程这一侧（插件的 `missing`、体检、深度体检、设置 · 插件里的说明）用宿主交来的组件区，子进程（适配子进程、一次性子进程）用守护进程带的 `ERGO_COMPONENTS_DIR`。起法照 npm 装的那条：二狗自己的 Node 起组件里的 `codex.js`，版本读包里的 `package.json`。
+- **默认和"已有"**：`default: detected`（PATH 上有 `codex` 才默认装）；PATH 上有用户自己装的、版本够的算"已有"（`provided: codex-cli`，找法和版本线从 Codex 插件的 `api.ts` 拿），不用从组件页装；PATH 上的太旧时照默认装组件。打开功能 `runtime.codex`：没装、也没有"已有"时新建任务、项目里的 Codex 灰着，点了去设置 · 组件。
+- **登录照旧是用户自己的**：二狗不登录、不读凭据。组件装的不在 PATH 上，所以设置 · 插件里 Codex 那一块（插件的 `note`，`PluginInfo.note`）、没登录时这一轮的出错、深度体检"登录"一项的修法都写完整的命令，PowerShell 的写法 `& '<二狗的 node.exe>' '<组件区>\codex\node_modules\@openai\codex\bin\codex.js' login`（单引号，路径里的单引号写两个）。命令按当前的程序路径现拼，二狗升级换了版本目录也对。用 PATH 上的照旧写 `codex login`。
+- **代价**：组件装好后插件不会自己装配，要回设置 · 插件点「启用」（和 Claude Code 接入一样）；在那之前运行时那一项写的还是装之前的那句"没装"。设置向导的"能力"一步没有列 Codex。

@@ -27,7 +27,7 @@ export const EN_DOCTOR: Phrases = {
   "有 2 条，语音回复用「示例音色」": "2 available; voice replies use “Sample voice”",
   "找到了：C:\\Tools\\ffmpeg\\bin\\ffmpeg.exe": "Found: C:\\Tools\\ffmpeg\\bin\\ffmpeg.exe",
   "N 卡": "NVIDIA GPU",
-  "没装 Codex：在终端里跑 npm i -g @openai/codex，装好后在设置 · 插件里启用": "Codex isn't installed: run npm i -g @openai/codex in a terminal, then enable it in Settings · Plugins",
+  "没装 Codex：到设置 · 组件里装「Codex 接入」（或者在终端里跑 npm i -g @openai/codex），装好后在设置 · 插件里启用": "Codex isn't installed: install \"Codex integration\" under Settings · Components (or run npm i -g @openai/codex in a terminal), then enable it in Settings · Plugins",
   "tailnet 节点离线": "tailnet node offline",
   "进程退出（代码 3221225477）": "process exited (code 3221225477)",
   "家里的平板": "Home tablet",

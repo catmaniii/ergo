@@ -215,6 +215,11 @@ export interface PluginDefinition {
   /** 设置 · 插件里一句话说它是做什么的：取值函数，跟着当前语言 */
   readonly summary?: string;
   /**
+   * 设置 · 插件里按现在的样子补的一句（取值函数，每次列清单时现取，跟着当前语言）：Codex 用的是组件装的那份时，登录要运行的完整命令
+   * （command：要用户照抄运行的，网页上单独一行）。没有是 undefined
+   */
+  readonly note?: { text: string; command?: string } | undefined;
+  /**
    * 设置 · 插件里列的"它带来了什么"（守护进程这一半）：给 agent 的工具、卡片、定时作业给人看的名字。取值函数，跟着当前语言。
    * 工具的个数要和它实际登记的对上（主切面测试比对秘书拿到的）；网页上的页面、栏目由网页插件自己写
    */
@@ -1022,10 +1027,12 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
         const plan = active(s) ? undefined : enablePlan(s);
         const removal = removals.get(s.def.name);
         const own = new Set(ids(s.def.provides));
+        const note = s.def.note;
         return {
           name: s.def.name,
           title: s.def.title,
           summary: s.def.summary ?? "",
+          ...(note ? { note: note.text, ...(note.command ? { noteCommand: note.command } : {}) } : {}),
           state,
           ...(state === "skipped" ? { problem: s.problem?.() ?? s.reason ?? "" } : {}),
           ...(state === "skipped" && s.missing !== undefined ? { missing: true as const } : {}),

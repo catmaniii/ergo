@@ -178,7 +178,7 @@ function extras(name: string): DoctorItemView[] {
 
 /** Codex：要的外部程序没装、也没有任务用它（只是提示） */
 function codexItems(): DoctorItemView[] {
-  const reason = fakeText("没装 Codex：在终端里跑 npm i -g @openai/codex，装好后在设置 · 插件里启用");
+  const reason = fakeText("没装 Codex：到设置 · 组件里装「Codex 接入」（或者在终端里跑 npm i -g @openai/codex），装好后在设置 · 插件里启用");
   return [
     keyed("plugin", "na", { key: "doctor.plugin.title" }, { key: "doctor.plugin.missing", params: { reason } }),
     keyed("runtime:codex", "na", { key: "doctor.runtime.title", params: { name: "Codex" } }, { key: "doctor.runtime.missing", params: { reason } }),

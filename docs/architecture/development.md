@@ -52,6 +52,10 @@ node bin\lsm.mjs start ergo-daemon
 
 Agent SDK（`@anthropic-ai/claude-agent-sdk`）是 Anthropic 自己的许可，二狗只把它当可选依赖。从源码跑时在二狗目录里 `npm install --no-save @anthropic-ai/claude-agent-sdk@<版本>`，版本写在 `packages/daemon/package.json` 的 `optionalDependencies`，装好后到设置 · 插件点"启用"。
 
+### Codex 接入
+
+Codex 不是 npm 依赖。用本机的：`npm i -g @openai/codex`，或者在设置 · 组件里装「Codex 接入」（装在数据目录的 `components\codex`，二狗先找它、再找 PATH，ADR-0046 的补充）。组件的版本钉在生成 app-server schema 的那一版（`test/fixtures/codex-app-server.schema.json` 的 `codexVersion`，`test/components/manifest.test.ts` 锁住两者相等）。换版本：先重新生成 schema、跑 `ERGO_TEST_REAL_CODEX=1` 的 `real-codex.test.ts`，再改 `packages/daemon/src/components/manifest.json` 里 `codex` 那一条的版本、两个包的大小和 `sha512`——都从 npm registry 的元数据取（`https://registry.npmjs.org/@openai/codex/<版本>` 和 `<版本>-win32-x64` 的 `dist.integrity` 换成十六进制；大小对 tarball 发带 `Range: bytes=0-0` 的 HEAD，看 `Content-Range` 的总长），不用把包下下来。
+
 ## 常用命令
 
 都在仓库根目录跑：

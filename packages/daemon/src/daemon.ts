@@ -536,7 +536,7 @@ export interface StartDaemonOptions {
   serviceThumbnail?: (url: string, signal: AbortSignal) => Promise<Buffer>;
   /**
    * 测试用：浏览器路径的探测换成假的（返回 undefined 是没找到）；不填按 web/browser-path.ts 找（配置的 web.browserPath、
-   * 环境变量 AGENT_BROWSER_EXECUTABLE_PATH、agent-browser 自带的签名 Chrome、系统 Chrome；一个进程只探一次）。联网工具用它，拉起 agent 时注入 bash 环境的 AGENT_BROWSER_EXECUTABLE_PATH 也是它
+   * 环境变量 AGENT_BROWSER_EXECUTABLE_PATH、agent-browser 自带的签名 Chrome、系统 Chrome、系统 Edge；一个进程只探一次）。联网工具用它，拉起 agent 时注入 bash 环境的 AGENT_BROWSER_EXECUTABLE_PATH 也是它
    */
   browserPath?: () => string | undefined;
   /**
