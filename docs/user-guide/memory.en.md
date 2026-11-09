@@ -156,7 +156,7 @@ Gregorian days follow the year and month: February 29 is only there in leap year
 
 After saving, it shows as "Mar 2, 1990", "Mar 2" or "Lunar 8th month, day 15". If you say "Mom's birthday is March 2" in chat, ergo saves it the same way; if you can't name a day ("next month"), it asks you first.
 
-Dates written freely before this change that can be read ("March 2nd", "1990/3/2" and the like) have been converted by ergo to the same format. The date doesn't change, and yearly reminders you'd already turned on stay as they were. The source line for that entry says **ergo standardized the format**, and the original wording is under the earlier values. Chinese month-and-day without 日 or 号 ("八月十五") counts as lunar; entries that would become lunar this way and have a yearly reminder on were left alone for you to change with **Edit**.
+Dates written freely before this change that can be read ("March 2nd", "1990/3/2" and the like) have been converted by ergo to the same format. The date doesn't change, and yearly reminders you'd already turned on stay as they were. The source line for that entry says **ergo standardized the format**, and the original entry (since when, and how it was filled in) is under the earlier values. Chinese month-and-day without 日 or 号 ("八月十五") counts as lunar; entries that would become lunar this way and have a yearly reminder on were left alone for you to change with **Edit**.
 
 Dates that can't be read aren't rewritten. They're shown as they were, with **Couldn't read this date. Tap "Edit" to pick it again** next to it. Click **Edit** and pick the date once.
 
