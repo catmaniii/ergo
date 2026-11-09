@@ -199,6 +199,20 @@ describe("起来时统一以前随手写的生日、纪念日", () => {
     expect(t.logs.filter((l) => l.includes("统一写法")).at(-1)).toBe("个人档案：生日、纪念日统一写法，改了 0 条，认不出没动 1 条，开着每年提醒、会变成农历的没动 1 条");
   });
 
+  it("449 以前按公历建过提醒、现在认成农历的（\"闰4月15日\"：以前的认法只看数字，认成 4 月 15 日）：不迁，计数", () => {
+    const t = setup();
+    oldValue(t.store, SELF_PERSON_ID, "birthday", "闰4月15日");
+    // 449 以前开的提醒：按公历 4 月 15 日建的那条、设置、链接
+    const { id } = t.reminders.port.create({ text: "4 月 15 日是你的生日（还有 3 天）", schedule: { kind: "yearly", time: "09:00", month: 4, day: 12 } });
+    t.store.append(personalFileEvent({ change: "reminder_set", personId: SELF_PERSON_ID, field: "birthday", daysBefore: 3, trail: { via: "page" } }));
+    t.store.append(personalFileEvent({ change: "reminder_linked", personId: SELF_PERSON_ID, field: "birthday", reminderId: id }));
+    const before = changes(t.store).filter((c) => c.change === "field_set").length;
+    t.files.start();
+    expect(changes(t.store).filter((c) => c.change === "field_set").length).toBe(before);
+    expect(fieldOf(t.files, SELF_PERSON_ID, "birthday")).toMatchObject({ current: { value: "闰4月15日" }, annual: { daysBefore: 3, blocked: "not_gregorian" } });
+    expect(t.logs).toContain("个人档案：生日、纪念日统一写法，改了 0 条，认不出没动 0 条，开着每年提醒、会变成农历的没动 1 条");
+  });
+
   it("用户撤销了统一写法的那一条（回到原来的写法）：下次起来不再改回去", () => {
     const t = setup();
     const { mom } = seed(t);
