@@ -65,15 +65,24 @@ describe("地图服务插槽的登记表", () => {
     expect(reg.list().map((p) => p.id)).toEqual(["google"]);
   });
 
-  it("给页面的：底图能不能用、浏览器用的 Key、Key 不对的那一句、能不能查；手动区域不写同自动的", () => {
+  it("给页面的：底图能不能用、浏览器用的 Key、Key 不对的那一句、能不能查；手动区域不写同自动的；按区域的优先级、能不能出预览图（451）", () => {
     const reg = createMapProviders();
-    reg.register(providerOf("a", { regions: ["mainland"], priority: 100, ownBasemapOnly: true, basemap: () => ({ ready: true, key: "k" }) }));
+    reg.register(
+      providerOf("a", {
+        regions: ["mainland"],
+        priority: 100,
+        regionPriority: { abroad: 30 },
+        ownBasemapOnly: true,
+        basemap: () => ({ ready: true, key: "k" }),
+        staticMap: () => Promise.resolve({ ok: false, failure: "other", reason: "-" }),
+      }),
+    );
     reg.register(providerOf("b", { manualRegions: ["abroad", "mainland"], basemap: () => ({ ready: false, problem: "Key 不对" }), lookup: () => ({ ready: false, why: "没填" }) }));
     reg.register(providerOf("c", { basemap: undefined }));
     expect(reg.views()).toEqual([
-      { id: "a", title: "a", regions: ["mainland"], manualRegions: ["mainland"], priority: 100, ownBasemapOnly: true, basemap: true, ready: true, key: "k", lookup: true },
-      { id: "b", title: "b", regions: ["abroad"], manualRegions: ["abroad", "mainland"], priority: 0, ownBasemapOnly: false, basemap: true, ready: false, problem: "Key 不对", lookup: false },
-      { id: "c", title: "c", regions: ["abroad"], manualRegions: ["abroad"], priority: 0, ownBasemapOnly: false, basemap: false, ready: false, lookup: true },
+      { id: "a", title: "a", regions: ["mainland"], manualRegions: ["mainland"], priority: 100, regionPriority: { abroad: 30 }, ownBasemapOnly: true, basemap: true, ready: true, key: "k", lookup: true, preview: true },
+      { id: "b", title: "b", regions: ["abroad"], manualRegions: ["abroad", "mainland"], priority: 0, ownBasemapOnly: false, basemap: true, ready: false, problem: "Key 不对", lookup: false, preview: false },
+      { id: "c", title: "c", regions: ["abroad"], manualRegions: ["abroad"], priority: 0, ownBasemapOnly: false, basemap: false, ready: false, lookup: true, preview: false },
     ]);
   });
 
@@ -91,6 +100,23 @@ describe("地图服务插槽的登记表", () => {
     expect([osm!.covers(HANGZHOU), osm!.covers(SINGAPORE)]).toEqual([true, true]);
     expect(google!.regions).toEqual(["abroad"]);
     expect(reg.lookups()[1]).toBe(google);
+  });
+
+  it("查询管的区域和底图分开（451 lookupRegions）：高德的底图国内国外都管，查询只管大陆——自动、手动选它都不拿国外的点问它，回答里说它不管大陆以外", () => {
+    const reg = createMapProviders();
+    reg.register(providerOf("osm", { regions: ["mainland", "abroad"], priority: 0 }));
+    reg.register(providerOf("amap", { title: "高德地图", regions: ["mainland", "abroad"], manualRegions: ["mainland", "abroad"], lookupRegions: ["mainland"], priority: 100, regionPriority: { abroad: 30 } }));
+    const auto = reg.lookups();
+    expect(auto.map((p) => [p.id, p.regions])).toEqual([
+      ["amap", ["mainland"]],
+      ["osm", ["mainland", "abroad"]],
+    ]);
+    expect(auto[0]!.covers(SINGAPORE)).toBe(false);
+    const chosen = reg.lookups("amap");
+    expect(chosen[0]!.regions).toEqual(["mainland"]);
+    expect(chosen[0]!.covers(SINGAPORE)).toBe(false);
+    expect(chosen[0]!.covers(HANGZHOU)).toBe(true);
+    expect(reg.chosenNote("amap", chosen.at(-1)!)).toBe("（地图上用的是高德地图，它不管大陆以外，这里用osm查的。）");
   });
 
   it("地图上手动选了某一家：它排最前、多管它手动能用的区域；选的查不了、没登记的照\"自动\"；回答里那一句写明为什么", () => {
@@ -153,8 +179,9 @@ describe("地图服务插槽：假\"第三家\"接进来、停用退回", () => 
   it("接进来：页面的 providers 多一家（带浏览器用的 Key）；大陆外的查询走它、大陆里照旧（没填高德 Key 走 OpenStreetMap）；体检多一项用量；工具说明里提一句", async () => {
     const { amap, osm, fake, k } = await setup();
     expect(k.host.report().running).toContain(FAKE_WORLD_MAP_PLUGIN);
+    // 451：高德的底图国外也管（国外的优先级 30，低于假世界地图的 50）
     expect(views(k).map((p) => [p.id, p.regions, p.manualRegions, p.priority, p.ready, p.key])).toEqual([
-      ["amap", ["mainland"], ["mainland"], 100, false, undefined],
+      ["amap", ["mainland", "abroad"], ["mainland", "abroad"], 100, false, undefined],
       ["osm", ["mainland", "abroad"], ["mainland", "abroad"], 0, true, undefined],
       [FAKE_WORLD_MAP, ["abroad"], ["abroad", "mainland"], 50, true, FAKE_WORLD_MAP_BROWSER_KEY],
     ]);
@@ -181,6 +208,12 @@ describe("地图服务插槽：假\"第三家\"接进来、停用退回", () => 
     expect((await run(k, MAP_TOOL.reverse, { where: `${SINGAPORE.lat},${SINGAPORE.lon}` })).text).toContain("假世界地图上的一处地址");
     expect(osm.requests).toEqual([]);
     expect(amap.requests.length).toBeGreaterThan(0);
+    // 451：国外地图上用的是高德（底图）时，查询照旧不问高德（只管大陆），回答里说一句
+    const asked = amap.requests.length;
+    const abroad = await run(k, MAP_TOOL.reverse, { where: `${SINGAPORE.lat},${SINGAPORE.lon}`, map: "amap" });
+    expect(abroad.text).toContain("假世界地图上的一处地址");
+    expect(abroad.text).toContain("（地图上用的是高德地图，它不管大陆以外，这里用假世界地图查的。）");
+    expect(amap.requests.length).toBe(asked);
   });
 
   it("跟着地图走（map 参数）：选了假世界地图时大陆里也用它（手动能用）；选了 OpenStreetMap 时大陆外不用它；选的查不了退回、回答里说一句", async () => {

@@ -19,6 +19,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { onTestFinished } from "vitest";
 import { encodePolyline } from "../../src/google-maps/polyline.ts";
+import { TINY_PNG } from "./fake-map.ts";
 import { fakeSecret } from "./fake-secrets.ts";
 
 /** 测试用的两个 Key（运行时拼：源码里看不出完整的 Key 样子；39 个字，和真的一样长） */
@@ -131,7 +132,7 @@ export const GOOGLE_FAILURES = {
 } as const satisfies Record<string, FakeGoogleFailure>;
 
 export interface FakeGoogleRequest {
-  readonly api: "places" | "routes" | "geocoding";
+  readonly api: "places" | "routes" | "geocoding" | "static";
   readonly path: string;
   readonly key: string | undefined;
   readonly fieldMask: string | undefined;
@@ -158,13 +159,14 @@ function sendJson(res: http.ServerResponse, status: number, value: unknown): voi
 /** 起一个假谷歌：hosts 交给插件，一个服务扮三个地址 */
 export async function startFakeGoogleMaps() {
   const requests: FakeGoogleRequest[] = [];
-  const state: { fail?: { api?: FakeGoogleRequest["api"]; failure: FakeGoogleFailure } | undefined; replies: Record<string, unknown> } = { replies: {} };
+  // staticOff：Maps Static API 没开（回 403 和谷歌的那句话，451）
+  const state: { fail?: { api?: FakeGoogleRequest["api"]; failure: FakeGoogleFailure } | undefined; replies: Record<string, unknown>; staticOff?: boolean } = { replies: {} };
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://fake");
     const chunks: Buffer[] = [];
     req.on("data", (c: Buffer) => chunks.push(c));
     req.on("end", () => {
-      const api: FakeGoogleRequest["api"] = url.pathname.startsWith("/v1/places") ? "places" : url.pathname.startsWith("/directions") ? "routes" : "geocoding";
+      const api: FakeGoogleRequest["api"] = url.pathname.startsWith("/v1/places") ? "places" : url.pathname.startsWith("/directions") ? "routes" : url.pathname.startsWith("/maps/api/staticmap") ? "static" : "geocoding";
       const text = Buffer.concat(chunks).toString("utf8");
       let body: Record<string, unknown> | undefined;
       try {
@@ -172,11 +174,20 @@ export async function startFakeGoogleMaps() {
       } catch {
         body = undefined;
       }
-      const key = api === "geocoding" ? (url.searchParams.get("key") ?? undefined) : (req.headers["x-goog-api-key"] as string | undefined);
+      const key = api === "geocoding" || api === "static" ? (url.searchParams.get("key") ?? undefined) : (req.headers["x-goog-api-key"] as string | undefined);
       const fieldMask = req.headers["x-goog-fieldmask"] as string | undefined;
       requests.push({ api, path: url.pathname, key, fieldMask, body, query: url.searchParams });
       const apiError = (f: FakeGoogleFailure) => sendJson(res, f.http, { error: { code: f.http, message: f.message, status: f.status, details: f.reason ? [{ "@type": "type.googleapis.com/google.rpc.ErrorInfo", reason: f.reason, domain: "googleapis.com" }] : [] } });
       const fail = state.fail && (state.fail.api === undefined || state.fail.api === api) ? state.fail.failure : undefined;
+      // 静态地图（451）：Key 不对、没开这个 API 回 403 和一句话（谷歌回的是字，不是 JSON）；对的回一张 1×1 的 PNG
+      if (api === "static") {
+        if (key !== GOOGLE_TEST_SERVER_KEY || state.staticOff) {
+          res.writeHead(403, { "Content-Type": "text/plain; charset=UTF-8" });
+          return void res.end(key !== GOOGLE_TEST_SERVER_KEY ? "The provided API key is invalid." : "This API project is not authorized to use this API.");
+        }
+        res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" });
+        return void res.end(TINY_PNG);
+      }
       if (api === "geocoding") {
         if (key !== GOOGLE_TEST_SERVER_KEY) return sendJson(res, 200, { error_message: "The provided API key is invalid. ", results: [], status: "REQUEST_DENIED" });
         if (fail) return sendJson(res, 200, { error_message: fail.message, results: [], status: fail.http === 429 ? "OVER_QUERY_LIMIT" : "REQUEST_DENIED" });
