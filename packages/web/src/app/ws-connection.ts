@@ -5,7 +5,13 @@
 // - 协议版本对不上就报"页面过旧"，不再重连，等用户刷新；
 // - 订阅的响应里点名要重新同步的频道（前端的序号比服务端还大），交给状态层清掉，服务端接着从头补发；
 // - 外网端口上（经隧道的已配对设备）：断线后先问一下这台设备还被信任吗（checkAccess）。凭证失效了（被吊销、太久没用）
-//   就报 unpaired、不再重连，界面回到配对等待页；问不到（网断了）照常重连。
+//   就报 unpaired、不再重连，界面回到配对等待页；问不到（网断了）照常重连；5 秒没问到也照常重连（450：手机刚回到前台时网还半死，
+//   这一问可能一直挂着，原来就一直不重连）。
+// - 回到前台（450）：页面又看得见了、解冻了、从往返缓存回来、网回来了，叫一声 wake。手机 App 退到后台几秒后整个被挂起，
+//   守护进程那边心跳没回早就把连接断了，可断开的消息常常到不了手机（网换了、VPN 睡了），回来时这条 WebSocket 看着还连着、
+//   其实不通（半开），原来要等系统的 TCP 保活发现（几十秒到几分钟），这段时间界面停在旧样子、发什么都没反应。所以：
+//   连着的发一个空订阅探一下，4 秒里一点动静（任何一帧）都没有就当它死了——不等它的 close（半开的连接关起来也可能要等很久），
+//   当场按断开处理、马上重连（不退避、不先问被不被信任）；正在连的 4 秒还没连上同样重来；断着、正等着退避重连的不等了，马上连。
 // - 补发和实时推来的分开标（补发的 agent 语音不自动播）：服务端处理订阅时先回响应、再补发；发订阅时紧跟着
 //   发一个空订阅（cursors 为空，服务端什么也不补、什么也不改）当回执。服务端按顺序处理同一条连接上的请求，补发在处理订阅时
 //   一口气推完，所以回执的响应一定排在补发的帧后面：它到之前，这次订阅的频道上来的帧都标成补发的（catchUp）。多订阅频道时同样。
@@ -81,9 +87,21 @@ export interface WebSocketConnectionOptions {
    * 不给就不问（本机端口总是被信任）
    */
   checkAccess?: () => Promise<AccessInfo>;
+  /** 问"还被信任吗"最多等多久（毫秒），过了照常重连 */
+  accessTimeoutMs?: number;
+  /** 页面回到前台时叫 wake（返回退订）：页面上是 page-foreground.ts 的 pageForeground；不给就不听（测试里手动叫） */
+  onForeground?: (wake: () => void) => () => void;
+  /** 回到前台之后多久（毫秒）一点动静都没有就当连接死了 */
+  wakeTimeoutMs?: number;
 }
 
 const DEFAULT_RETRY_DELAYS_MS = [500, 1000, 2000, 5000, 10_000];
+
+/** 断线后问"还被信任吗"最多等多久 */
+const ACCESS_TIMEOUT_MS = 5000;
+
+/** 回到前台之后多久一点动静都没有就当连接死了（半开），扔掉重连 */
+const WAKE_TIMEOUT_MS = 4000;
 
 /** 补发攒着最多多久就先交一次（回执还没到也交） */
 const HOLD_MAX_MS = 10_000;
@@ -146,6 +164,12 @@ export class WebSocketConnection implements Connection {
   private appVersion: ReportAppVersionParams | undefined;
   /** 办 browser_request 的 */
   private readonly browserListeners = new Set<(request: BrowserRequest) => void>();
+  /** 现在这条连接上收到了几帧（任何帧都算）：回到前台后看它有没有动静 */
+  private heard = 0;
+  /** 回到前台后在等动静 */
+  private wakeTimer: ReturnType<typeof setTimeout> | undefined;
+  /** 不再听"回到前台" */
+  private offForeground: (() => void) | undefined;
 
   constructor(options: WebSocketConnectionOptions) {
     this.options = options;
@@ -155,11 +179,17 @@ export class WebSocketConnection implements Connection {
     this.stopped = false;
     this.deliver = deliver;
     this.cursors = { ...cursors };
+    this.offForeground?.();
+    this.offForeground = this.options.onForeground?.(() => this.wake());
     this.open();
     return () => {
       this.stopped = true;
       this.deliver = undefined;
+      this.offForeground?.();
+      this.offForeground = undefined;
       if (this.retryTimer !== undefined) clearTimeout(this.retryTimer);
+      if (this.wakeTimer !== undefined) clearTimeout(this.wakeTimer);
+      this.wakeTimer = undefined;
       if (this.heldTimer !== undefined) clearTimeout(this.heldTimer);
       this.heldTimer = undefined;
       this.held = [];
@@ -417,6 +447,42 @@ export class WebSocketConnection implements Connection {
     }, 0);
   }
 
+  /**
+   * 页面回到前台（450）：断着的马上连（不等退避、不等"还被信任吗"问完）；连着的发一个空订阅探一下、正在连的等它连上，
+   * wakeTimeoutMs 里这条连接一点动静都没有（连着的没收到任何一帧、正在连的还没订阅上）就当它死了，扔掉马上重连。
+   * 已经在等动静了的不重复探
+   */
+  wake(): void {
+    if (this.stopped || !this.deliver) return;
+    const socket = this.socket;
+    if (!socket) {
+      if (this.retryTimer !== undefined) clearTimeout(this.retryTimer);
+      this.retryTimer = undefined;
+      this.attempt = 0;
+      this.open();
+      return;
+    }
+    if (this.wakeTimer !== undefined) return;
+    const heardBefore = this.heard;
+    if (this.online) {
+      // 空订阅：服务端什么也不补、什么也不改，只回一个响应（排在这条连接上已经在推的帧后面）
+      const params: SubscribeParams = { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: {} };
+      socket.send(JSON.stringify({ id: this.nextId(), method: METHODS.subscribe, params } satisfies RequestFrame));
+    }
+    const timeoutMs = this.options.wakeTimeoutMs ?? WAKE_TIMEOUT_MS;
+    this.wakeTimer = setTimeout(() => {
+      this.wakeTimer = undefined;
+      if (this.stopped || socket !== this.socket) return;
+      if (this.online && this.heard !== heardBefore) return;
+      this.closed(socket, { kind: "stale", seconds: timeoutMs / 1000 });
+      try {
+        socket.close();
+      } catch {
+        // 已经关了
+      }
+    }, timeoutMs);
+  }
+
   /** 只读的查询：连着才发，不进 outbox、不重发；断了、被拒、10 秒没回都拒绝 */
   private query<T>(method: Method, params: unknown): Promise<T> {
     const socket = this.socket;
@@ -481,54 +547,85 @@ export class WebSocketConnection implements Connection {
       this.catchUpCount = { startedAt: Date.now(), frames: 0, bytes: 0 };
     });
     socket.addEventListener("message", (ev) => {
-      if (socket === this.socket) this.onFrame(String(ev.data));
+      if (socket !== this.socket) return;
+      this.heard += 1;
+      this.onFrame(String(ev.data));
     });
     // 出错之后总会跟着 close，在那里处理
     socket.addEventListener("close", (ev) => {
       if (socket !== this.socket) return;
-      const wasOnline = this.online;
       const manual = this.manualDrop;
       this.manualDrop = false;
-      this.socket = undefined;
-      this.online = false;
-      // 攒着的先交掉（游标已经推过去了，不交就丢了）；回执是这条连接上的，重连后重新订阅、重新等
-      this.release(false);
-      this.catchUps.clear();
-      this.mainReceipt = undefined;
-      this.catchUpCount = undefined;
-      // 只读的查询不重发
-      for (const query of this.queries.values()) query.reject(new Error(t("app.ws.dropped")));
-      this.queries.clear();
-      // 连着的断了才算一次断线（一直连不上的那几次不算）
-      if (wasOnline) {
-        this.drops += 1;
-        this.lastDrop = { at: nowIso(), reason: manual ? manualReconnect() : closeReasonText(ev?.code, ev?.reason) };
-      }
-      if (this.stopped) return;
-      this.deliver?.({ kind: "connection", status: "offline" });
-      if (manual) {
-        this.attempt = 0;
-        this.retryTimer = setTimeout(() => {
-          this.retryTimer = undefined;
-          if (!this.stopped && !this.socket) this.open();
-        }, 0);
-        return;
-      }
-      const check = this.options.checkAccess;
-      if (!check) return this.scheduleReconnect();
-      check().then(
-        (info) => {
-          // 已经停了、或者等着问的时候已经连上了（点了"断开重连"）
-          if (this.stopped || this.socket) return;
-          if (info.access !== "none") return this.scheduleReconnect();
-          this.stopped = true;
-          this.deliver?.({ kind: "connection", status: "unpaired", ...(info.reason === undefined ? {} : { reason: info.reason }) });
-        },
-        () => {
-          if (!this.stopped && !this.socket) this.scheduleReconnect();
-        },
-      );
+      this.closed(socket, manual ? { kind: "manual" } : { kind: "closed", code: ev?.code, reason: ev?.reason });
     });
+  }
+
+  /**
+   * 这条连接断了：浏览器报的 close（closed）、Debug 工具集里点的"断开重连"（manual）、回到前台时探出来已经死了（stale，
+   * 不等它的 close 就当场算断开，之后它再报 close 也不认）。后两种马上重连，别的先问还被信任吗再退避重连
+   */
+  private closed(socket: SocketLike, why: { kind: "closed"; code?: number; reason?: string } | { kind: "manual" } | { kind: "stale"; seconds: number }): void {
+    if (socket !== this.socket) return;
+    const wasOnline = this.online;
+    // 点了"断开重连"的那条还没报 close 就被当成死了扔掉：记号不留给下一条
+    this.manualDrop = false;
+    this.socket = undefined;
+    this.online = false;
+    this.heard = 0;
+    if (this.wakeTimer !== undefined) clearTimeout(this.wakeTimer);
+    this.wakeTimer = undefined;
+    // 攒着的先交掉（游标已经推过去了，不交就丢了）；回执是这条连接上的，重连后重新订阅、重新等
+    this.release(false);
+    this.catchUps.clear();
+    this.mainReceipt = undefined;
+    this.catchUpCount = undefined;
+    // 只读的查询不重发
+    for (const query of this.queries.values()) query.reject(new Error(t("app.ws.dropped")));
+    this.queries.clear();
+    // 连着的断了才算一次断线（一直连不上的那几次不算）
+    if (wasOnline) {
+      this.drops += 1;
+      const reason = why.kind === "manual" ? manualReconnect() : why.kind === "stale" ? t("app.ws.stale", { seconds: why.seconds }) : closeReasonText(why.code, why.reason);
+      this.lastDrop = { at: nowIso(), reason };
+    }
+    if (this.stopped) return;
+    this.deliver?.({ kind: "connection", status: "offline" });
+    if (why.kind !== "closed") {
+      this.attempt = 0;
+      if (this.retryTimer !== undefined) clearTimeout(this.retryTimer);
+      this.retryTimer = setTimeout(() => {
+        this.retryTimer = undefined;
+        if (!this.stopped && !this.socket) this.open();
+      }, 0);
+      return;
+    }
+    const check = this.options.checkAccess;
+    if (!check) return this.scheduleReconnect();
+    // 问不到、问太久都照常重连；晚到的答复不再算数
+    let answered = false;
+    const timer = setTimeout(() => {
+      if (answered) return;
+      answered = true;
+      if (!this.stopped && !this.socket) this.scheduleReconnect();
+    }, this.options.accessTimeoutMs ?? ACCESS_TIMEOUT_MS);
+    check().then(
+      (info) => {
+        if (answered) return;
+        answered = true;
+        clearTimeout(timer);
+        // 已经停了、或者等着问的时候已经连上了（点了"断开重连"、回到前台马上连了）
+        if (this.stopped || this.socket) return;
+        if (info.access !== "none") return this.scheduleReconnect();
+        this.stopped = true;
+        this.deliver?.({ kind: "connection", status: "unpaired", ...(info.reason === undefined ? {} : { reason: info.reason }) });
+      },
+      () => {
+        if (answered) return;
+        answered = true;
+        clearTimeout(timer);
+        if (!this.stopped && !this.socket) this.scheduleReconnect();
+      },
+    );
   }
 
   private scheduleReconnect(): void {

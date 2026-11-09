@@ -7,6 +7,7 @@ import { createRequire } from "node:module";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import zlib from "node:zlib";
 import { FRONTEND_PROTOCOL_VERSION, type SubscribeResult, webVersionInHtml } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { serviceKey } from "../../src/plugins/host.ts";
@@ -119,6 +120,34 @@ describe("本机端口", () => {
     expect(res.body).toBe(TEST_PAGE);
     expect(res.headers["set-cookie"]).toBeUndefined();
     expect((await get(url, "/nope")).status).toBe(404);
+  });
+
+  it("浏览器说收 gzip 时页面压缩了发（450：手机切回前台要重新下页面时少等几秒），解开和原文一字不差；不说的原样发；页面换了跟着换", async () => {
+    const webRoot = makeTempDir("ergo-gzip-web-");
+    const big = `<!doctype html><html><head><meta charset="utf-8"></head><body><div id="root"></div><script>${"const 二狗 = '把记忆还给你';\n".repeat(20_000)}</script></body></html>`;
+    fs.writeFileSync(path.join(webRoot, "index.html"), big);
+    const { url, externalUrl } = await startTestDaemon({ webRoot });
+    const zipped = await getRaw(url, "/", "gzip, deflate, br");
+    expect(zipped.status).toBe(200);
+    expect(zipped.headers["content-encoding"]).toBe("gzip");
+    expect(zipped.headers["vary"]).toBe("Accept-Encoding");
+    expect(zipped.headers["content-type"]).toBe("text/html; charset=utf-8");
+    expect(zipped.body.length).toBeLessThan(Buffer.byteLength(big) / 10);
+    expect(zlib.gunzipSync(zipped.body).toString("utf8")).toBe(big);
+    // 外网端口上还没配对的新设备拿到的配对页同样压缩
+    const viaTunnel = await getRaw(externalUrl, "/", "gzip");
+    expect(viaTunnel.headers["content-encoding"]).toBe("gzip");
+    expect(zlib.gunzipSync(viaTunnel.body).toString("utf8")).toBe(big);
+    // 不收 gzip（没说、q=0）：原样
+    for (const accept of [undefined, "identity", "gzip;q=0", "br"]) {
+      const plain = await getRaw(url, "/", accept);
+      expect({ accept, encoding: plain.headers["content-encoding"] }).toEqual({ accept, encoding: undefined });
+      expect(plain.body.toString("utf8")).toBe(big);
+    }
+    // 重新构建了（页面换了）：压的是新的
+    const rebuilt = big.replace("把记忆还给你", "越懂你，越放心");
+    fs.writeFileSync(path.join(webRoot, "index.html"), rebuilt);
+    expect(zlib.gunzipSync((await getRaw(url, "/", "gzip")).body).toString("utf8")).toBe(rebuilt);
   });
 
   it("页面脚本里没有任何私钥或令牌：现场构建真正的 Web UI，经本机端口和外网端口（还没配对的新设备）取回来扫一遍", async () => {
@@ -244,6 +273,23 @@ interface HttpResult {
   status: number;
   headers: http.IncomingHttpHeaders;
   body: string;
+}
+
+/** 取原始字节（带 Accept-Encoding 时不解压） */
+function getRaw(base: string, pathname: string, acceptEncoding?: string): Promise<{ status: number; headers: http.IncomingHttpHeaders; body: Buffer }> {
+  const url = new URL(pathname, base);
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { host: url.hostname, port: url.port, path: url.pathname, method: "GET", headers: { accept: "text/html", ...(acceptEncoding === undefined ? {} : { "accept-encoding": acceptEncoding }) } },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) }));
+      },
+    );
+    req.on("error", reject);
+    req.end();
+  });
 }
 
 function get(base: string, pathname: string, headers: { host?: string; origin?: string } = {}): Promise<HttpResult> {

@@ -106,7 +106,7 @@ Local network addresses and this computer's own addresses aren't accepted, and t
 2. When you see the pairing page, follow [Pairing: check and approve](#pairing-check-and-approve) below.
 3. To open it like an app, use the browser's **Add to Home Screen**.
 
-**Good to know:** After the server updates, open pages show **A new version of ergo is available** at the very top. Tap **Refresh**, or tap **Later** to hide it for now.
+**Good to know:** After the server updates, open pages show **A new version of ergo is available** at the very top. Tap **Refresh**, or tap **Later** to hide it for now. If the update came while the page was in the background with nothing typed and no voice playing, the page switches to the new version by itself (on a computer while it is still in the background, on the phone when you switch back); no tap needed. When you come back after a long time in the background and the connection is dead, it reconnects within seconds and catches up on what happened meanwhile.
 
 ## Install the app
 

@@ -13,11 +13,14 @@
 //   状态层的 unsentWork）；
 // - 直接刷新、点"刷新"都是 location.reload()（鸿蒙 App 的 ArkWeb 里一样）。点"刷新"前把输入框里打的字存进这个标签页的
 //   sessionStorage，刷新后同一个会话的输入框挂上时放回去（reload-drafts.ts）。
+// - 还在后台就直接刷新（450）：刷新前在这个标签页的 sessionStorage 记下为哪一版刷新的，刷新后同一版不再在后台刷新；
+//   正在放语音（page-voice.ts 的播放器）时不直接刷新。
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { type ConversationId, fieldsHaveText, pageUpdateAction, type TextField, type UiState, unsentWork } from "../state/index.ts";
 // 页面自己是哪一版（构建时写进 index.html 的）；开发服务器的页面、读不到是 undefined（和关于页共用 build-info.ts 那一份）
 import { PAGE_WEB_VERSION } from "./build-info.ts";
 import { pageBack } from "./page-back.ts";
+import { pageVoicePlayer } from "./page-voice.ts";
 import { createComposerDrafts, reloadDraftsIn } from "./reload-drafts.ts";
 import { usePageVisible } from "./secretary-unread.ts";
 import { useStore } from "./store.tsx";
@@ -30,6 +33,33 @@ const RETURN_GRACE_MS = 1000;
 
 /** 刷新前后留住输入框里的字：这个标签页的 sessionStorage */
 const reloadDrafts = reloadDraftsIn(() => sessionStorage);
+
+/** 这个标签页上一次在后台为哪一版刷新过（sessionStorage 的键） */
+const BACKGROUND_RELOAD_KEY = "ergo-background-reload";
+
+function backgroundReloadedFor(): string | undefined {
+  try {
+    return sessionStorage.getItem(BACKGROUND_RELOAD_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function noteBackgroundReload(version: string | undefined): void {
+  if (version === undefined) return;
+  try {
+    sessionStorage.setItem(BACKGROUND_RELOAD_KEY, version);
+  } catch {
+    // 存不了（隐私模式）：最多在后台多刷新一次
+  }
+}
+
+/** 有没有哪一条语音在放 */
+function useVoicePlayingAny(): boolean {
+  const player = pageVoicePlayer();
+  return useSyncExternalStore(player.subscribe, () => player.anyPlaying());
+}
+
 /** 开着的输入框里打的字 */
 const composers = createComposerDrafts();
 
@@ -149,10 +179,14 @@ export function usePageUpdate(): { prompt: boolean; refresh(): void; later(): vo
     };
   }, [http, notePageUpdate]);
 
-  const action = pageUpdateAction(ui.webVersion, PAGE_WEB_VERSION, { visible, busy, idle: pageIdle(ui) });
+  const playing = useVoicePlayingAny();
+  const action = pageUpdateAction(ui.webVersion, PAGE_WEB_VERSION, { visible, busy, idle: pageIdle(ui), playing, reloadedFor: backgroundReloadedFor() });
+  const server = ui.webVersion.server;
   useEffect(() => {
-    if (action === "reload") window.location.reload();
-  }, [action]);
+    if (action !== "reload") return;
+    if (document.visibilityState !== "visible") noteBackgroundReload(server);
+    window.location.reload();
+  }, [action, server]);
 
   const refresh = useCallback(() => {
     reloadDrafts.keep(composers.current());

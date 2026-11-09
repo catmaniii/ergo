@@ -46,6 +46,7 @@ import { TasksPage } from "./pages/TasksPage.tsx";
 import type { Connection } from "./app/connection.ts";
 import { type DaemonHttp, HttpDaemonClient } from "./app/daemon-http.ts";
 import { daemonSocketUrl, WebSocketConnection } from "./app/ws-connection.ts";
+import { pageForeground } from "./app/page-foreground.ts";
 import { CardOutcomeToasts } from "./app/card-outcome-toasts.tsx";
 import { PAGE_WEB_VERSION } from "./app/build-info.ts";
 import { type PageSnapshots, pageSnapshots } from "./app/open-snapshot.ts";
@@ -124,7 +125,10 @@ async function checkAccess(): Promise<AccessInfo> {
 }
 
 /** 前端连接只在这里注入，别处不认具体的连接（原型的看板等假数据也只看前端状态层里的变化） */
-const connection: Connection = demo ? demo.connection : new WebSocketConnection({ url: daemonSocketUrl(window.location), channels: OPENING_CHANNELS, checkAccess });
+const connection: Connection = demo
+  ? demo.connection
+  : // 回到前台时探一下连接还通不通（450：后台放久了切回来，连接看着还连着、其实不通）
+    new WebSocketConnection({ url: daemonSocketUrl(window.location), channels: OPENING_CHANNELS, checkAccess, onForeground: pageForeground });
 
 /** HTTP 那一半（上传附件、往上翻历史、媒体地址、改工作日历）：同样只在这里注入 */
 const http: DaemonHttp = demo ? demo.http : new HttpDaemonClient();

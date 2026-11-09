@@ -133,6 +133,7 @@
   "app.ws.manualReconnect": "Disconnect & reconnect was tapped in Debug tools",
   "app.ws.offline": "Not connected to the daemon",
   "app.ws.timeout": "The daemon didn't reply within {seconds} seconds",
+  "app.ws.stale": "The connection was dead when the page came back (no reply within {seconds} seconds); reconnected",
   "app.ws.dropped": "The connection dropped",
   "app.ws.daemonTooOld": "The daemon is too old for this request ({message})",
   "app.pageCommands.target.image": "this image",

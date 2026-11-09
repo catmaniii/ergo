@@ -130,6 +130,7 @@
   "app.ws.manualReconnect": "在 Debug 工具集里点了断开重连",
   "app.ws.offline": "没连上守护进程",
   "app.ws.timeout": "守护进程 {seconds} 秒没回",
+  "app.ws.stale": "回到前台时连接已经不通（{seconds} 秒没有动静），重新连上",
   "app.ws.dropped": "连接断了",
   "app.ws.daemonTooOld": "守护进程太旧，还不认这个请求（{message}）",
   "app.pageCommands.target.image": "这张图",
