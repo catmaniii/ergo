@@ -289,10 +289,12 @@ function reworkLog(): LogBuilder {
 /**
  * 卡片的版本：一般的卡留版本最大的；快速动作卡每版都改会话里的操作记录。照守护进程现在的样子编：q-1 等确认、执行了（这一版带结果，
  * 操作记录同一事务）；q-2 执行过又被彻底删除（旧版本改写成"已删除"标记，另来一版去掉原话的，操作记录也原地改写了）。
- * dropResult：q-1 没做成，再来一版没有结果说明（守护进程不会这样：结果有了就一直有）——前端是"这一版没有就留着上一版的"，只留最后一版就不一样，
+ * failed：q-1 没做成——卡上的结果说明是"没做成：…"，操作记录里是原话（守护进程 quick-actions.ts 的 performConfirmed 就是这样）。
+ * dropResult：没做成之后再来一版没有结果说明（守护进程不会这样：结果有了就一直有）——前端是"这一版没有就留着上一版的"，只留最后一版就不一样，
  * 所以快速动作卡不合并
  */
-function cardsLog(dropResult = false): LogBuilder {
+function cardsLog(variant: "done" | "failed" | "dropResult" = "done"): LogBuilder {
+  const failed = variant !== "done";
   const b = new LogBuilder();
   const created = b.time();
   const cardOf = (id: string, version: number, type: string, payload: Record<string, unknown>) => ({ id, type, typeVersion: 1, version, status: version > 1 ? "handled" : "pending", createdAt: created, ...(version > 1 ? { handledAt: b.time() } : {}), payload });
@@ -306,10 +308,10 @@ function cardsLog(dropResult = false): LogBuilder {
   // 同一版本又来一条（后到的前端不认）
   b.push("cards", "card", { card: cardOf("c-2", 1, "suggest_task", { title: "建议（后到的）", request: "编的", reason: "编的" }) });
   b.push("cards", "card", { card: quick("q-1", 1, "记住：周三体检") });
-  // dropResult 那份照没做成的写：卡上的结果说明和操作记录自己的不一样（"没做成：…"）
-  record("q-1", "记住：周三体检", dropResult ? "日历没连上" : "记下了");
-  b.push("cards", "card", { card: quick("q-1", 2, "记住：周三体检", dropResult ? "没做成：日历没连上" : "记下了") });
-  if (dropResult) b.push("cards", "card", { card: quick("q-1", 3, "记住：周三体检") });
+  // 没做成的：卡上的结果说明和操作记录自己的不一样（"没做成：…"）
+  record("q-1", "记住：周三体检", failed ? "日历没连上" : "记下了");
+  b.push("cards", "card", { card: quick("q-1", 2, "记住：周三体检", failed ? "没做成：日历没连上" : "记下了") });
+  if (variant === "dropResult") b.push("cards", "card", { card: quick("q-1", 3, "记住：周三体检") });
   b.push("cards", "card_dismissed", { cardId: "c-2", time: b.time() });
   // q-2 执行过、又被彻底删除了：两个旧版本改写成"已删除"标记，操作记录原地改写，另来一版去掉原话的
   b.push("cards", "card", { deleted: true, deletedAt: b.time() });
@@ -353,6 +355,12 @@ function othersLog(): LogBuilder {
   }
   chat(b, "secretary", 14);
   return b;
+}
+
+/** 秘书会话里 q-1 那条操作记录的结果说明 */
+function summaryOf(state: UiState): string | undefined {
+  const op = state.conversations.secretary!.records.find((r) => r.record.type === "operation" && r.record.operation.cardId === "q-1")!.record;
+  return op.type === "operation" ? op.operation.result.summary : undefined;
 }
 
 describe("冷补发只发最新的（456）：全量冷补发 = 合并后冷补发 = 本机合并后重折 + 增量", () => {
@@ -407,7 +415,7 @@ describe("冷补发只发最新的（456）：全量冷补发 = 合并后冷补�
     expect(full.calendar.changedAt.board).toBe(log.get(CHANNELS.board)!.at(-2)!.seq);
 
     // 快速动作卡来了一版没有结果说明的：一版版改下来操作记录留着上一版的结果；只留最后一版就成了操作记录自己的——所以它不合并
-    const dropped = cardsLog(true).log;
+    const dropped = cardsLog("dropResult").log;
     const coldDropped = coldOpen(dropped);
     expect(coldOpen(compacted(dropped))).toEqual(coldDropped);
     const op = coldDropped.conversations.secretary!.records.find((r) => r.record.type === "operation" && r.record.operation.cardId === "q-1")!.record;
@@ -415,6 +423,19 @@ describe("冷补发只发最新的（456）：全量冷补发 = 合并后冷补�
     const onlyLast = new Map(dropped);
     onlyLast.set(CHANNELS.cards, dropped.get(CHANNELS.cards)!.filter((f) => (f.payload as { card?: { id: string; version: number } }).card?.id !== "q-1" || (f.payload as { card: { version: number } }).card.version === 3));
     expect(coldOpen(onlyLast).conversations.secretary).not.toEqual(coldDropped.conversations.secretary);
+  });
+
+  test("没做成的快速动作（卡上写\"没做成：…\"、操作记录里是原话）：换了一版本机重折（卡片频道先折、会话后补）和冷打开一样（452 起就不一样，456 修）", () => {
+    const { log } = cardsLog("failed");
+    expectSameAsFull(log, "没做成的快速动作");
+    const cold = coldOpen(log);
+    expect(summaryOf(cold)).toBe("没做成：日历没连上");
+    // 452 的本机存的事件（没合并的整段）一样：存到哪儿重折都和冷打开的一样
+    for (const fraction of [1 / 2, 4 / 5, 1]) {
+      const after = refoldThenIncrement(log, (_c, frames) => frames[Math.floor(frames.length * fraction) - 1]?.seq ?? 0);
+      expect(summaryOf(after), `本机存到 ${fraction} 处`).toBe("没做成：日历没连上");
+      expect(snapshotOf(after)).toEqual(snapshotOf(cold));
+    }
   });
 
   test("定时作业的运行、删掉的待办和设备、往回的已读位置、只有一份的设置", () => {
