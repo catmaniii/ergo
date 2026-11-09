@@ -1,8 +1,7 @@
 // 地图页上画什么、看哪里（429 地图插件）：纯的类型和函数，不碰 DOM，测试在 Node 里跑。
 // - 坐标一律 WGS-84（二狗里存的、手机交来的就是它）；画到高德地图上时由高德那一套（amap-engine.ts）自己转 GCJ-02；
-// - 一屏用哪种底图（chooseBasemap）：看的那一片的中心在中国大陆、高德能用（填了 Key、脚本加载上了）用高德，别的用 OpenStreetMap；
-//   画着用户自己的足迹时一律 OpenStreetMap（AMAP_WITH_FOOTPRINTS）。445 起地图页按登记了的几家和手动切换挑（providers.ts），
-//   规矩同一份；
+// - 一屏用哪种底图（chooseBasemap）：看的那一片的中心在中国大陆、高德能用（填了 Key、脚本加载上了）用高德，别的用 OpenStreetMap。
+//   445 起地图页按登记了的几家和手动切换挑（providers.ts），规矩同一份；451 起看足迹也用当前地图（FOOTPRINTS_ON_CURRENT_MAP）；
 // - 地图上的东西（MapScene）：点（地点、停留、照片、搜到的）、线（轨迹、路线）、圈（常去的地方的范围）。429 只有原型里的两个地点，
 //   430（我的足迹）、431（聊天里的地图卡片）、432（高德查地点、路线）往里放各自的东西，地图页和两种底图都照这一份画；
 //   聊天里地图卡片的缩略图（MapThumb.tsx）也照它画。
@@ -25,15 +24,15 @@ export const MAP_MAX_ZOOM = 19;
 /** 什么都没有时看哪里：整个中国大致在中间（第一次打开、没记住上次看哪里时） */
 export const DEFAULT_VIEW: MapView = { lat: 34.5, lon: 108.9, zoom: 4 };
 
-// 画着足迹时用不用高德（AMAP_WITH_FOOTPRINTS）445 起和挑底图的规矩一起放在 providers.ts，这里原样转出
-export { AMAP_WITH_FOOTPRINTS } from "./providers.ts";
+// 看足迹时用不用当前地图（FOOTPRINTS_ON_CURRENT_MAP，451 起是用）和挑底图的规矩一起放在 providers.ts，这里原样转出
+export { FOOTPRINTS_ON_CURRENT_MAP } from "./providers.ts";
 
 /**
  * 这一屏用哪种底图（只有自带两家时的说法；地图页按登记了的几家、手动切换挑，用的是 providers.ts 的 pickBasemap，规矩同一份）：
  * 中心在中国大陆、高德能用时用高德；别的（国外、香港澳门台湾、没填 Key、高德没加载上）用 OpenStreetMap。
  * 大陆外 GCJ-02 和 WGS-84 一样，OSM 的瓦片、二狗的点都对得上；大陆里只有高德的底图和二狗转过的点对得上。
  * - amapUsable：这个页面上高德能用（填了 Key、高德没说它不对、脚本加载上了）。聊天页不加载高德的脚本，卡片的缩略图传 false；
- * - footprints：画着用户自己的足迹（地图页开着"足迹"、聊天里的足迹卡片），按 AMAP_WITH_FOOTPRINTS 走（现在是一律 OpenStreetMap）。
+ * - footprints：画着用户自己的足迹（地图页开着"足迹"、聊天里的足迹卡片），按 FOOTPRINTS_ON_CURRENT_MAP 走（451 起和别的一样）。
  */
 export function chooseBasemap(view: Pick<MapView, "lat" | "lon">, amapUsable: boolean, footprints = false): BasemapKind {
   const providers = providersOf(amapUsable ? { amapKey: "-" } : {});

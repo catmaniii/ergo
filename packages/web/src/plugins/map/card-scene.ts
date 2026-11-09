@@ -2,8 +2,8 @@
 // 看全要看的点、卡上地图下面写的几行字。纯函数，不碰 DOM、不联网，测试在 Node 里跑。卡片的缩略图（MapThumb.tsx）和点开后的地图页
 // （MapPage.tsx）都照这一份画。坐标一律 WGS-84。
 // **高德查来的结果（地点、路线）只能画在高德的地图上**（高德开放平台服务协议 4.12.4 不许脱离它的服务单独展示、7.7 要标明"高德地图"）：
-// 这种内容 amapOnly，卡片上不画缩略图（聊天页不加载高德的脚本）、只写文字和"在地图上看"，地图页只在底图是高德时画它。
-// 用户自己的足迹、秘书给的点和路线、以后 OpenStreetMap 查来的（433）能画在 OpenStreetMap 上。
+// 这种内容 amapOnly（445 起别家查来的同样，ownBasemap 写是哪一家）：451 起卡片放那一家的静态预览图（取不到只写文字和"在地图上看"），
+// 地图页这一屏临时用那一家画它。用户自己的足迹、秘书给的点和路线、OpenStreetMap 查来的（433）哪家地图上都能画（用当前地图）。
 import { type LatLon, type MapCardShow, type MapDayView, type MapDrawing, t } from "../../state/index.ts";
 import { ownBasemapOf } from "./providers.ts";
 import { daySummary, footprintDay, spotTitle } from "./footprints.ts";
@@ -90,6 +90,14 @@ export function drawingContent(drawing: MapDrawing): MapCardContent {
   const text = [found, modes.length > 0 ? modes.join(t("pages.common.listSep")) : undefined, sourceLine(drawing.source)].filter((l): l is string => l !== undefined && l !== "");
   const own = ownBasemapOf(drawing.source);
   return { scene: { marks, lines, circles: [] }, bounds, lines: text, footprints: false, amapOnly: own !== undefined, ...(own === undefined ? {} : { ownBasemap: own }), title: drawing.title };
+}
+
+/** 内容的中心（外接框的中心）：卡片按它在哪个区域挑当前地图（451）；没有点给 0,0 */
+export function contentCenter(content: Pick<MapCardContent, "bounds">): LatLon {
+  if (content.bounds.length === 0) return { lat: 0, lon: 0 };
+  const lats = content.bounds.map((p) => p.lat);
+  const lons = content.bounds.map((p) => p.lon);
+  return { lat: (Math.max(...lats) + Math.min(...lats)) / 2, lon: (Math.max(...lons) + Math.min(...lons)) / 2 };
 }
 
 /** 地图卡片点开后地图页那一条写的：标题后面跟的那几行（不重复标题） */

@@ -16,10 +16,18 @@
 // 每个 agent 的会话里的 ⚙：面板、单独的提示词、清空当前对话、现在压缩；项目、任务的负责人单独配模型。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 演示页是原型的假实现（prototype/fake-http.ts）。
-import { type BackgroundAgentList, type BackgroundAgentTranscript, type AutostartBody, type AutostartView, type AgentAutoCompactBody, type AgentModelBody, type AgentPromptBody, type AgentRuntimeBody, type RuntimeFolderBody, type RuntimeSessionsView, type WorkFolderCheckResult, type TakeoverAction, type TakeOverBody, type TakeOverResult, type AgentRoleAssignmentBody, type AgentRoleBody, type AgentRolesView, type AgentRoleUpdateBody, type AgentSettingsView, type AppUpdateView, type AssistantNameResult, type BranchView, type CalendarMonthView, type MapBasemapEventBody, type MapBasemapEventReply, type MapConfigView, type MapDayView, type MapDrawing, type MapFindBody, type MapFindResult, MAP_FIND_TEXT_MAX, type MapLatestView, type ConversationId, type DebugRecognizeBody, type DebugRecognizeResult, type DebugSpeakBody, type DebugSpeakResult, type DeleteMaterialsBody, type DeleteMaterialsResult, type FileTextResult, type FolderBrowseView, type FolderGrantAddBody, type FolderGrantsClearBody, type FolderGrantsView, type FolderGrantUsesView,type FramePreview, type HistoryPage, HTTP_PATHS, type HttpErrorBody, type ImportReferenceVoiceBody, type ImportSkillBody, type ImportSkillResult, type InterviewStartResult, type InterviewStatusView, type LanguageResult, type LocaleDictionaryView, type LocaleListView, type LocalFoldersBody, type LocalFoldersChangeBody, type LocalFoldersView, type MaterialDetailView, type MaterialListFilter, type MaterialListPage, type MaterialScope, type MaterialScopeSummary, type MediaTextResult, type MediaTextView, type MemoryClaimDetailView, type MemoryClaimListPage, type MemoryClaimQuery, type MemoryDeleteMode, type MemoryQuestionsView, type MemoryStrategiesView, type MemorySettingsBody, type MemorySettingsView, type MemorySummaryView, type SafetySettingsBody, type SafetySettingsView, type ModelSettingsBody, type ModelSettingsView, type ModelTestBody, type ModelTestResult, type ModelCustomModelsBody, type ModelCustomModelsResult, type PageVoiceBody, type PageVoiceResult, type PluginAction, type PluginActionResult, type PluginsView, type ProjectStandardView, type ReferenceVoice, type ReferenceVoiceList, type RollbackPreview, type RollbackTarget, type SaveWebPageBody, type SaveWebPageResult, type SecretarySkillsBody, type SecretarySkillsView, type SlashCommandList, type SystemPromptBody, type SystemPromptDetail, type SystemPromptList, t, type TaskStageView, type ToolCallCleanupResult, type ToolCallDetail, type ToolCallStorageView, type BackupConfigBody, type BackupFolderCheck, type BackupOpenResult, type BackupPlace, type BackupSnapshotsView, type BackupStatusView, type ToolkitCatalog, type UploadedMedia, type UsageSummary, type ProviderBalanceView, type UserNameResult, type UserNameView, type AddPersonBody, type PersonalFileChangeBody, type PersonalFileDeleteBody, type PersonalFileDeleteResult, type PersonalFileLearnedView, type PersonalFilesView, type PersonalFileView, type VoiceModelsView, type WebSettingsBody, type WebSettingsView, type WebVersionView, type WorkdayChange, type WorkdayChangeResult, type RuntimesView, type DataSourceActionBody, type DataSourceActionResult, type DataSourceLiveBody, type DataSourceLiveResult, type DataSourceStoredBody, type DataSourceStoredPage, type DataSourcesView, type ImportFolderActionBody, type ImportFolderActionResult, type DataSourcePushBody, type DataSourcePushResult, type ModelKeyBody, type ModelKeyView, type ModelKeyWriteResult, type ComponentAction, type ComponentImportResult, type ComponentsView, type DoctorDeepView, type DoctorView, type DoctorWatchKey, type DoctorWatchView, type ManagedServiceAction, type ManagedServiceActionResult, type ManagedServiceLogsView, type ManagedServicesView } from "../state/index.ts";
+import { type BackgroundAgentList, type BackgroundAgentTranscript, type AutostartBody, type AutostartView, type AgentAutoCompactBody, type AgentModelBody, type AgentPromptBody, type AgentRuntimeBody, type RuntimeFolderBody, type RuntimeSessionsView, type WorkFolderCheckResult, type TakeoverAction, type TakeOverBody, type TakeOverResult, type AgentRoleAssignmentBody, type AgentRoleBody, type AgentRolesView, type AgentRoleUpdateBody, type AgentSettingsView, type AppUpdateView, type AssistantNameResult, type BranchView, type CalendarMonthView, type MapBasemapEventBody, type MapBasemapEventReply, type MapConfigView, type MapDayView, type MapDrawing, type MapFindBody, type MapFindResult, MAP_FIND_TEXT_MAX, type MapLatestView, type MapPreviewQuery, type MapPreviewView, MAP_VIEW_HEADER, parseMapPreviewView, type ConversationId, type DebugRecognizeBody, type DebugRecognizeResult, type DebugSpeakBody, type DebugSpeakResult, type DeleteMaterialsBody, type DeleteMaterialsResult, type FileTextResult, type FolderBrowseView, type FolderGrantAddBody, type FolderGrantsClearBody, type FolderGrantsView, type FolderGrantUsesView,type FramePreview, type HistoryPage, HTTP_PATHS, type HttpErrorBody, type ImportReferenceVoiceBody, type ImportSkillBody, type ImportSkillResult, type InterviewStartResult, type InterviewStatusView, type LanguageResult, type LocaleDictionaryView, type LocaleListView, type LocalFoldersBody, type LocalFoldersChangeBody, type LocalFoldersView, type MaterialDetailView, type MaterialListFilter, type MaterialListPage, type MaterialScope, type MaterialScopeSummary, type MediaTextResult, type MediaTextView, type MemoryClaimDetailView, type MemoryClaimListPage, type MemoryClaimQuery, type MemoryDeleteMode, type MemoryQuestionsView, type MemoryStrategiesView, type MemorySettingsBody, type MemorySettingsView, type MemorySummaryView, type SafetySettingsBody, type SafetySettingsView, type ModelSettingsBody, type ModelSettingsView, type ModelTestBody, type ModelTestResult, type ModelCustomModelsBody, type ModelCustomModelsResult, type PageVoiceBody, type PageVoiceResult, type PluginAction, type PluginActionResult, type PluginsView, type ProjectStandardView, type ReferenceVoice, type ReferenceVoiceList, type RollbackPreview, type RollbackTarget, type SaveWebPageBody, type SaveWebPageResult, type SecretarySkillsBody, type SecretarySkillsView, type SlashCommandList, type SystemPromptBody, type SystemPromptDetail, type SystemPromptList, t, type TaskStageView, type ToolCallCleanupResult, type ToolCallDetail, type ToolCallStorageView, type BackupConfigBody, type BackupFolderCheck, type BackupOpenResult, type BackupPlace, type BackupSnapshotsView, type BackupStatusView, type ToolkitCatalog, type UploadedMedia, type UsageSummary, type ProviderBalanceView, type UserNameResult, type UserNameView, type AddPersonBody, type PersonalFileChangeBody, type PersonalFileDeleteBody, type PersonalFileDeleteResult, type PersonalFileLearnedView, type PersonalFilesView, type PersonalFileView, type VoiceModelsView, type WebSettingsBody, type WebSettingsView, type WebVersionView, type WorkdayChange, type WorkdayChangeResult, type RuntimesView, type DataSourceActionBody, type DataSourceActionResult, type DataSourceLiveBody, type DataSourceLiveResult, type DataSourceStoredBody, type DataSourceStoredPage, type DataSourcesView, type ImportFolderActionBody, type ImportFolderActionResult, type DataSourcePushBody, type DataSourcePushResult, type ModelKeyBody, type ModelKeyView, type ModelKeyWriteResult, type ComponentAction, type ComponentImportResult, type ComponentsView, type DoctorDeepView, type DoctorView, type DoctorWatchKey, type DoctorWatchView, type ManagedServiceAction, type ManagedServiceActionResult, type ManagedServiceLogsView, type ManagedServicesView } from "../state/index.ts";
 import { fetchFileText } from "./file-source.ts";
 import { httpErrorMessage, notJsonMessage } from "./http-error.ts";
 import { type UploadProgress, uploadFile } from "./uploader.ts";
+
+/** 一张卡片预览图（451）：能放进 <img> 的地址（本页的 blob: 地址，演示页是 data:），用完 release 放掉 */
+export interface MapPreviewImage {
+  readonly url: string;
+  /** 这张图看的是哪一片（453，回应头 X-Map-View）：页面照它在图上画点和线；旧守护进程没给是 undefined */
+  readonly view?: MapPreviewView | undefined;
+  release(): void;
+}
 
 export interface DaemonHttp {
   /** 上传一个文件（分片续传，断网恢复后接着传），进度经 onProgress 报；取消用 signal */
@@ -137,6 +145,11 @@ export interface DaemonHttp {
   mapFind(text: string): Promise<MapFindResult>;
   /** 地图页报一家底图的事（446）：建了一次（谷歌按次计费，守护进程数用量）、那家拒了浏览器用的 Key。地图插件没启用时抛错 */
   mapBasemap(body: MapBasemapEventBody): Promise<MapBasemapEventReply>;
+  /**
+   * 聊天卡片的预览图（451，GET /api/map/preview）：一张那家的静态地图，交回能放进 <img> 的地址（用完 release）。取不到（那家没开静态地图、
+   * 没填 Key、超了、过期了、插件没启用）抛错，message 是原因；signal 断了不再等
+   */
+  mapPreview(q: MapPreviewQuery, signal?: AbortSignal): Promise<MapPreviewImage>;
   /** 参考音色：全部（按导入的先后）和现在用的那个 */
   referenceVoices(): Promise<ReferenceVoiceList>;
   /** 导入一个参考音色（名字、音频；逐字稿不给就自动识别）；不合规矩的抛错，message 是原因 */
@@ -594,6 +607,17 @@ export class HttpDaemonClient implements DaemonHttp {
 
   async mapLatest(): Promise<MapLatestView> {
     return this.json<MapLatestView>(await fetch(`${this.baseUrl}${HTTP_PATHS.mapLatest}`));
+  }
+
+  async mapPreview(q: MapPreviewQuery, signal?: AbortSignal): Promise<MapPreviewImage> {
+    const res = await fetch(`${this.baseUrl}${HTTP_PATHS.mapPreview(q)}`, signal ? { signal } : {});
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(httpErrorMessage(res.status, body));
+    }
+    const view = parseMapPreviewView(res.headers.get(MAP_VIEW_HEADER));
+    const url = URL.createObjectURL(await res.blob());
+    return { url, view, release: () => URL.revokeObjectURL(url) };
   }
 
   async mapBasemap(body: MapBasemapEventBody): Promise<MapBasemapEventReply> {

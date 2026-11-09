@@ -724,7 +724,7 @@ export {
 } from "@ergo/protocol";
 export type { CalendarDay, CalendarDayCounts, CalendarExternalEntry, CalendarJobEntry, CalendarJobStatus, CalendarMonthView, CalendarReminderEntry, CalendarReminderStatus, ExternalCalendarEventPayload } from "@ergo/protocol";
 // 地图（429 地图插件）：坐标转换（WGS-84 和高德的 GCJ-02）、在不在中国大陆、瓦片地址、高德安全密钥代理的前缀、地图页要的设置
-export { AMAP_SERVICE_PREFIX, AMAP_SOURCE_ID, distanceMeters, gcjToWgs, inMainlandChina, mapFocusItem, mapTilePath, parseMapFocusItem, wgsToGcj } from "@ergo/protocol";
+export { AMAP_SERVICE_PREFIX, AMAP_SOURCE_ID, MAP_FRAME_PATH, distanceMeters, gcjToWgs, inMainlandChina, mapFocusItem, mapTilePath, parseMapFocusItem, wgsToGcj } from "@ergo/protocol";
 export type { LatLon, MapBasemapEventBody, MapBasemapEventReply, MapConfigView } from "@ergo/protocol";
 // 地图上的"我的足迹"（430）：某一天的点、停留、照片地点、常去的地方；地图页地址里的日期
 export { isMapDate, mapDayItem, parseMapDayItem, shiftMapDate } from "@ergo/protocol";
@@ -736,7 +736,8 @@ export { MAP_CARD_ITEM, mapCardPath, mapCardTitle, parseMapCardPath } from "@erg
 // "在地图上看"（447）：地图页的页面 id（浏览插件不 import 地图插件也知道去哪）、看查到的一处的地址、查一处的请求和结果
 export { MAP_FIND_TEXT_MAX, MAP_LOOKUP_ITEM, MAP_PAGE_ID, mapLookupPath, parseMapLookupPath } from "@ergo/protocol";
 export type { MapFindBody, MapFindResult } from "@ergo/protocol";
-export type { MapCardMark, MapCardPayload, MapCardShow, MapDrawing } from "@ergo/protocol";
+export type { MapCardMark, MapCardPayload, MapCardShow, MapDatum, MapDrawing, MapPreviewQuery, MapPreviewView } from "@ergo/protocol";
+export { MAP_PREVIEW_MAX_SIDE, MAP_PREVIEW_MIN_SIDE, MAP_VIEW_HEADER, parseMapPreviewView } from "@ergo/protocol";
 // 查地点、算路线（432）：设置 · 数据源 · 高德地图那一块要的（Web 服务 Key 填了没有、这个月的用量）、查到的能画的那一份
 export { isAmapSourcePanel, MAP_ROUTE_MODES } from "@ergo/protocol";
 export type { AmapSourcePanel, AmapUsageView, MapLookupDrawing, MapLookupLine, MapLookupMark, MapRouteMode } from "@ergo/protocol";

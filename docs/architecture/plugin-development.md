@@ -447,14 +447,15 @@ export const notesWebPlugin: WebPluginDefinition = {
   };
 ```
 
-- **管哪儿、谁先**：`regions` 是选"自动"时管的区域（`mainland` 中国大陆、`abroad` 大陆以外，按点在不在大陆分），`priority` 是同一个区域里的先后（数大的先：高德 100、OpenStreetMap 0，谷歌写 50 就是"大陆外、高于 OpenStreetMap"）；`manualRegions` 是用户在地图页的地图切换里手动选它时还能用的区域（谷歌在大陆也能手动选，它自己转 GCJ-02；高德大陆外不列）。
-- **底图**（`basemap()`）：此刻能不能用、页面加载它的脚本要的浏览器用的 Key（会进页面，只放本来就在页面上的那一种）、Key 不对的那一句。网页那一半在网页插槽 `mapBasemaps` 登记同一个编号（`MapBasemapSlot`：`title`、`prepare(key)` 加载脚本、交回建引擎的函数，引擎照 `packages/web/src/model/map.ts` 的 `MapEngine` 写，坐标一律 WGS-84 进出、要转的自己转）。
+- **管哪儿、谁先**：`regions` 是选"自动"时管的区域（`mainland` 中国大陆、`abroad` 大陆以外，按点在不在大陆分），`priority` 是同一个区域里的先后（数大的先：高德 100、OpenStreetMap 0，谷歌写 50 就是"大陆外、高于高德和 OpenStreetMap"）；某个区域要另一个数时写可选的 `regionPriority: { mainland?, abroad? }`（高德大陆外是 30：大陆外 谷歌 > 高德 > OpenStreetMap，ADR-0059）。`manualRegions` 是用户在地图页的地图切换里手动选它时还能用的区域（谷歌在大陆也能手动选，它自己转 GCJ-02）；切换菜单里"自动"会挑的排前面、只能手动选的排后面。查询管的区域和底图不一样时写可选的 `lookupRegions`（高德写 `["mainland"]`：底图大陆外也能用，查询只管大陆）。
+- **底图**（`basemap()`）：此刻能不能用、页面加载它的脚本要的浏览器用的 Key（会进页面，只放本来就在页面上的那一种）、Key 不对的那一句。网页那一半在网页插槽 `mapBasemaps` 登记同一个编号（`MapBasemapSlot`：`title`、`prepare(key)` 加载脚本、交回建引擎的函数，引擎照 `packages/web/src/model/map.ts` 的 `MapEngine` 写，坐标一律 WGS-84 进出、要转的自己转）。453 起地图公司的引擎**只出底图**：不写 `setScene`，每动一下调 `MapEngineOptions.onSurface(MapSurfaceView)`（此刻画着的中心、级别、宽高，用这家自己的坐标、写明 `datum`），写 `panBy(dx, dy)`；地图页在上面盖自己的一层画点线（`plugins/map/overlay.ts`），交给你的只有视野。建好时还在加载的（比如在隔离框里加载的）写 `loading: true`，好了调 `onReady()`。外站脚本能关进隔离框的照谷歌那样关（核心 `packages/web/src/ui/map-frame.ts` 的 `openMapFrame`，框里跑的代码要自成一体、整段转成字符串交过去）。
 - **查询**（`lookup()`）：能查交回 `LookupProvider`（查地点、周边、地址 ↔ 位置、路线，结果统一成 432/433 的形状，坐标 WGS-84 进出，出错抛 `MapLookupError`，都从 `map/api.ts` 拿），查不了交回给模型的一句原因。秘书的查地点、算路线工具按"自动"挑；工具的 `map` 参数是用户地图上现在用的那家，先问它，查不了时退回同区域下一家、回答里说一句。
-- **规矩**：`ownBasemapOnly` 的（高德、谷歌）查来的只画在它自己的底图上；用户自己的足迹一律 OpenStreetMap，不加载商业地图的脚本（地图页管，插件不用管）。
+- **规矩**：`ownBasemapOnly` 的（高德、谷歌）查来的只画在它自己的底图上（地图页点开这种卡片时这一屏临时用它）；451 起用户自己的足迹也画在当前地图上，453 起画在地图页自己那一层（地图页管，插件不用管、也拿不到）。
+- **静态地图**（`staticMap`，可选，451；453 起是 `MapStaticSource`）：聊天卡片的预览图，**只出光底图**。写明这家的上限（`maxSide` 一边最多多少逻辑像素、`minZoom` / `maxZoom`，`scale` 2 时级别上限不同写 `maxZoomHiDpi`）和坐标 `datum`（`gcj02` 或 `wgs84`）；地图插件照它算好视野（`map/static-map.ts` 的 `planStatic`：看全要画的东西、四周留边、下面留出标志和版权那一条，Web 墨卡托、整数级别），调 `get(req, signal)`，`req`（`MapStaticRequest`）只有中心（已转成这家的坐标）、级别、宽高（缩到上限以内）、`scale`（1 或 2）、`dark`——**没有点、没有线**，各家只拼自己的参数。图的视野由地图插件写进回应头 `X-Map-View`，网页照它自己画点线。交回 `{ ok: true, reply }`（图片的 `MapReply`，上游的 `Cache-Control` 放进 headers，地图插件照转、不缓存）或 `{ ok: false, failure, reason }`（`no_key`、`off`、`over`、`key`、`quota`、`network`、`other`，`reason` 是给用户看的一句，网页写成"预览图没出来：…"）。Key 只在守护进程里用，地址里的 Key 不进日志。写了它，`GET /api/map/config` 里这一家报 `preview: true`，网页才去 `GET /api/map/preview` 取；没写的照旧由页面自己画 OpenStreetMap（`ownBasemapOnly` 的查到的只写字）。
 - **用量**（`usage`）：每月离免费量多远（照 432 的高德用量：八成注意、到了坏了），地图插件替它在体检的"地图"那一块登记一项"<编号>-usage"。
 - **测**：`packages/daemon/test/helpers/fake-map-provider.ts` 是一个只给测试的假"第三家"，`packages/daemon/test/map/providers.test.ts`（假内核：接进来、跟着地图走、停用退回）、`packages/daemon/test/main/map-providers.test.ts`（主切面）、`packages/web/test/plugins/map-providers.test.ts`（网页那一半）照着写。
 - **页面报的事**（`basemapEvent`，可选）：地图页建了一次这家的底图（按"一次地图加载"计费的据此数用量）、这家拒了浏览器用的 Key，经 `POST /api/map/basemap` 转给它；要快、不联网。网页那一半的引擎建好以后又不能用了（比如谷歌加载上以后才说 Key 不对）调 `MapEngineOptions.onFailed(原因)`，地图页当成加载失败（退回 OpenStreetMap、切换里标"连不上"）。
-- **真的例子**：谷歌地图插件（446，ADR-0057）——守护进程 `packages/daemon/src/google-maps/`（`service.ts` 登记的那一家、`keys.ts` 两个 Key、`lookup.ts` 查询、`usage.ts` 按计费项数用量），网页 `packages/web/src/plugins/google-maps/`（`basemap.ts` 插槽那一条、`loader.ts` 外站脚本、`google-engine.ts` 引擎）；测试 `packages/daemon/test/google-maps/`（本机的假谷歌 `test/helpers/fake-google-maps.ts`）、`packages/web/test/plugins/google-maps.test.ts`。
+- **真的例子**：谷歌地图插件（446，ADR-0057）——守护进程 `packages/daemon/src/google-maps/`（`service.ts` 登记的那一家、`keys.ts` 两个 Key、`lookup.ts` 查询、`static-map.ts` 静态地图、`usage.ts` 按计费项数用量），网页 `packages/web/src/plugins/google-maps/`（`basemap.ts` 插槽那一条、`google-engine.ts` 引擎、`google-bridge.ts` 关在隔离框里跑的小桥）；测试 `packages/daemon/test/google-maps/`（本机的假谷歌 `test/helpers/fake-google-maps.ts`）、`packages/web/test/plugins/google-maps.test.ts`。
 
 ## 7. 数据契约
 
@@ -985,9 +986,9 @@ export const remindersPlugin: PluginDefinition = {
 | `KERNEL.dataSourceUsage`、`DataSourceUsageSwitch` | `packages/daemon/src/plugins/kernel.ts` | 数据源的按需查、导入现在开没开（工具由插件自己给的数据源调用时看开关：地图插件的高德；内核服务） |
 | `PullableSync` | `packages/daemon/src/data-sources/service.ts` | 整理之前同步时一个数据源的那一次：开始了（同步的结果）、刚同步过、连接出错没同步 |
 | `fakeDataSourcePlugin` | `packages/daemon/test/helpers/fake-data-source.ts` | 测试用的假数据源插件 |
-| `MAP_PROVIDERS`、`MapProvider`、`MapProviders`、`LookupProvider`、`MapLookupError` | `packages/daemon/src/map/api.ts` | 地图服务插槽：登记一家地图（管哪儿、优先级、底图、查询、用量）；查询的统一外形和出错 |
+| `MAP_PROVIDERS`、`MapProvider`、`MapProviders`、`LookupProvider`、`MapLookupError`、`MapStaticSource`、`MapStaticRequest`、`MapStaticResult`、`staticView`、`MAP_STATIC_PAD` | `packages/daemon/src/map/api.ts` | 地图服务插槽：登记一家地图（管哪儿、按区域的优先级、底图、查询、静态地图、用量）；查询的统一外形和出错；静态地图（光底图）的上限、视野和留边 |
 | `MapBasemapSlot` | `packages/web/src/plugins/slots.ts` | 地图服务插槽的网页一半：地图页的一种底图 |
-| `MapEngine`、`MapEngineFactory`、`MapScene` | `packages/web/src/model/map.ts` | 画地图的那一层、建引擎的函数、地图上画什么 |
+| `MapEngine`、`MapEngineFactory`、`MapScene`、`MapSurfaceView`、`SceneEngine` | `packages/web/src/model/map.ts` | 画地图的那一层、建引擎的函数、地图上画什么；只出底图的引擎报的视野、自己画点线的引擎 |
 | `fakeWorldMapPlugin` | `packages/daemon/test/helpers/fake-map-provider.ts` | 测试用的假"第三家"地图服务插件 |
 | `DataSourceSchedule`、`DataSourceItem` | `packages/daemon/src/data-sources/api.ts` | 定期导入的时间（提醒那一套或每隔几分钟）、数据源下面的一样 |
 | `IntervalSchedule`、`JobSchedule` | `packages/daemon/src/scheduler/internal-jobs.ts` | 内部作业的"每隔几分钟"、内部作业的时间表 |

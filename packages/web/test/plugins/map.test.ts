@@ -10,8 +10,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import { AmapPanelView, type AmapPanelViewProps, amapResultOf } from "../../src/plugins/map/AmapPanel.tsx";
 import { type AmapNamespace, createAmapEngine } from "../../src/plugins/map/amap-engine.ts";
+import type { MapSurfaceView } from "../../src/plugins/map/engine.ts";
 import { mapWebPlugin } from "../../src/plugins/map/plugin.tsx";
-import { AMAP_WITH_FOOTPRINTS, chooseBasemap, clampZoom, DEFAULT_VIEW, parseSavedView, viewToFit } from "../../src/plugins/map/scene.ts";
+import { chooseBasemap, FOOTPRINTS_ON_CURRENT_MAP, clampZoom, DEFAULT_VIEW, parseSavedView, viewToFit } from "../../src/plugins/map/scene.ts";
 import { metersPerPixel, pointAt, pointOnScreen, screenPoint, tilesFor, worldPoint } from "../../src/plugins/map/tiles.ts";
 import { createWebPluginHost } from "../../src/plugins/host.ts";
 import { WEB_PLUGIN_MANIFEST } from "../../src/plugins/manifest.ts";
@@ -82,10 +83,10 @@ describe("一屏用哪种底图", () => {
     expect(chooseBasemap(HONG_KONG, true)).toBe("osm");
   });
 
-  test("画着用户自己的足迹：大陆里高德能用也用 OpenStreetMap（足迹不和高德的脚本在同一个页面里，431 用户定的）", () => {
-    expect(AMAP_WITH_FOOTPRINTS).toBe(false);
-    expect(chooseBasemap(HANGZHOU, true, true)).toBe("osm");
-    expect(chooseBasemap(HANGZHOU, true, false)).toBe("amap");
+  test("画着用户自己的足迹：451 起也用当前地图（用户 2026-11-09 定，改了 11-07 的一律 OpenStreetMap）——大陆里高德能用就是高德", () => {
+    expect(FOOTPRINTS_ON_CURRENT_MAP).toBe(true);
+    expect(chooseBasemap(HANGZHOU, true, true)).toBe("amap");
+    expect(chooseBasemap(HANGZHOU, false, true)).toBe("osm");
   });
 });
 
@@ -113,7 +114,7 @@ describe("看哪里", () => {
   });
 });
 
-describe("高德那一种：进出都转坐标", () => {
+describe("高德那一种：进出都转坐标；453 起只出底图", () => {
   /** 一个最小的假 AMap（只记下中心）和一个最小的假宿主元素：Node 里没有 DOM */
   function fakeAmap() {
     const seen: { center?: [number, number]; zoom?: number } = {};
@@ -133,16 +134,17 @@ describe("高德那一种：进出都转坐标", () => {
         seen.center = center;
       }
       setZoom() {}
+      setCenter(center: [number, number]) {
+        seen.center = center;
+      }
       setMapStyle() {}
       on() {}
-      add() {}
-      remove() {}
       destroy() {}
     }
     return { ns: { Map: FakeMap } as unknown as AmapNamespace, seen };
   }
-  const element = () => ({ className: "", dataset: {}, remove() {}, append() {} });
-  const host = { ownerDocument: { createElement: element }, append() {} } as unknown as HTMLElement;
+  const doc = { createElement: () => ({ className: "", dataset: {}, clientWidth: 400, clientHeight: 300, remove() {}, append() {}, addEventListener() {} }), defaultView: { requestAnimationFrame: () => 1, cancelAnimationFrame() {} } };
+  const host = { ownerDocument: doc, append() {} } as unknown as HTMLElement;
   const events = { onMoveEnd() {} };
 
   test("大陆里：交给高德的是 GCJ-02（偏几百米），拿回来的转回 WGS-84（差不到 1 米）", () => {
@@ -162,6 +164,20 @@ describe("高德那一种：进出都转坐标", () => {
     const { ns, seen } = fakeAmap();
     createAmapEngine(host, ns, { view: { ...SINGAPORE, zoom: 14 }, dark: false, ...events });
     expect(seen.center).toEqual([SINGAPORE.lon, SINGAPORE.lat]);
+  });
+
+  test("只出底图：没有 setScene（足迹、点、线不交给高德）；一建好就报此刻画着哪一片（高德的坐标、datum gcj02、底图的大小）；按住点拖时 panBy 挪中心", () => {
+    const { ns, seen } = fakeAmap();
+    const surfaces: MapSurfaceView[] = [];
+    const engine = createAmapEngine(host, ns, { view: { ...HANGZHOU, zoom: 14 }, dark: false, ...events, onSurface: (v) => surfaces.push(v) });
+    expect(engine.setScene).toBeUndefined();
+    const gcj = wgsToGcj(HANGZHOU);
+    expect(surfaces[0]).toEqual({ lat: gcj.lat, lon: gcj.lon, zoom: 14, width: 400, height: 300, datum: "gcj02" });
+    // 往右拖 256 像素：第 14 级里中心往西挪 256 / (256·2^14) 圈
+    engine.panBy!(256, 0);
+    expect(seen.center![0]).toBeCloseTo(gcj.lon - 360 / 2 ** 14, 9);
+    expect(seen.center![1]).toBeCloseTo(gcj.lat, 9);
+    expect(surfaces.at(-1)!.lon).toBeCloseTo(gcj.lon - 360 / 2 ** 14, 9);
   });
 });
 
@@ -199,7 +215,7 @@ describe("设置 · 数据源 · 高德地图那一块", () => {
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>测试并保存<\/button>/);
     expect(html).toContain("在高德开放平台的控制台建");
     expect(html).toContain("只存在这台电脑上");
-    expect(html).toContain("你每天去过哪里、照片在哪拍的不发给地图服务");
+    expect(html).toContain("足迹、二狗画的点和线只在这台设备上画在高德地图上面，不交给高德；聊天卡片的预览图只向高德要那一片的底图");
     expect(html).not.toMatch(/秘书|待我处理/);
   });
 

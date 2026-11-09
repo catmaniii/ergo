@@ -7,10 +7,12 @@
 // - fail：之后的请求一律回这个错（{ infocode, info }），比如 10001 INVALID_USER_KEY、10044 USER_DAILY_QUERY_OVER_LIMIT、10021 CUQPS_HAS_EXCEEDED_THE_LIMIT；
 // - replies：某个路径回的东西换掉（空结果、只有一种字段写法）；
 // 也照 fake-map.ts 那样认 Web 端的 Key（要带对的安全密钥），地图插件填 Key 时的测试照样过。记下每个请求（地址带查询串）。
+// 静态地图（451，/v3/staticmap）：Key 对回一张 1×1 的 PNG（带 Cache-Control: max-age=300，看它原样转给浏览器）；fail 拨了回那个错的 JSON
+// （高德出错时回的是 JSON，不是图）。
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { onTestFinished } from "vitest";
-import { AMAP_TEST_JS_KEY, AMAP_TEST_SECURITY_CODE, AMAP_TEST_SERVICE_KEY } from "./fake-map.ts";
+import { AMAP_TEST_JS_KEY, AMAP_TEST_SECURITY_CODE, AMAP_TEST_SERVICE_KEY, TINY_PNG } from "./fake-map.ts";
 
 const OK = { status: "1", info: "OK", infocode: "10000" };
 
@@ -235,6 +237,10 @@ export async function startFakeAmapLookup(): Promise<FakeAmapLookup> {
     }
     if (key !== AMAP_TEST_SERVICE_KEY) return reply(res, { status: "0", info: "INVALID_USER_KEY", infocode: "10001" });
     if (state.fail) return reply(res, { status: "0", ...state.fail });
+    if (path === "/v3/staticmap") {
+      res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "max-age=300" });
+      return void res.end(TINY_PNG);
+    }
     const body = state.replies[path] ?? FAKE_AMAP_REPLIES[path];
     if (body === undefined) return reply(res, { status: "0", info: "SERVICE_NOT_AVAILABLE", infocode: "10002" });
     reply(res, body);

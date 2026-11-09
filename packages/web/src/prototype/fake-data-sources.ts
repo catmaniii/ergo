@@ -168,7 +168,7 @@ function initial(): DataSourcesView {
       {
         id: "amap",
         title: "高德地图",
-        summary: "填了 Key，地图页在国内用高德地图，查国内的地点、路线也用它（只在你问的时候把起点、终点、\"附近\"的那一处发给高德；没填时国内也用 OpenStreetMap 查，店名和小路可能不全）。Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给高德",
+        summary: "填了 Key，地图页在国内用高德地图，查国内的地点、路线也用它（只在你问的时候把起点、终点、\"附近\"的那一处发给高德；没填时国内也用 OpenStreetMap 查，店名和小路可能不全）。Key 只存在这台电脑上；足迹、二狗画的点和线只在这台设备上画在高德地图上面，聊天卡片的预览图只向高德要那一片的底图：高德只知道你在看哪一片",
         plugin: "map",
         pluginTitle: "地图",
         available: true,
@@ -183,14 +183,14 @@ function initial(): DataSourcesView {
         files: [],
         configurable: true,
         panel: amapPanel(),
-        disconnectNote: "填过的 Key 和安全密钥从这台电脑上删掉，地图页在国内改用 OpenStreetMap",
+        disconnectNote: "填过的 Key 和安全密钥从这台电脑上删掉，地图页在国内（和没填谷歌时的国外）改用 OpenStreetMap",
         hasLive: true,
       },
       // 谷歌地图（446）：演示页当作两个 Key 都填好了（地图页在新加坡用"谷歌"，fake-map.ts）；按需查开着、带着这个月每一项的用量（编的）
       {
         id: "google-maps",
         title: "谷歌地图",
-        summary: "填了 Key，地图页在大陆以外用谷歌地图，查大陆以外的地点、路线也用它（只在你问的时候把起点、终点、“附近”的那一处发给谷歌，查到的不存）。服务端用的 Key 只存在这台电脑上；你每天去过哪里、照片在哪拍的不发给谷歌",
+        summary: "填了 Key，地图页在大陆以外用谷歌地图，查大陆以外的地点、路线也用它（只在你问的时候把起点、终点、“附近”的那一处发给谷歌，查到的不存）。服务端用的 Key 只存在这台电脑上；足迹、二狗画的点和线只在这台设备上画在谷歌地图上面，谷歌的地图关在单独的框里，聊天卡片的预览图只向谷歌要那一片的底图：谷歌只知道你在看哪一片",
         plugin: "google-maps",
         pluginTitle: "谷歌地图",
         available: true,
@@ -205,7 +205,7 @@ function initial(): DataSourcesView {
         files: [],
         configurable: true,
         panel: googleMapsPanel(false),
-        disconnectNote: "填过的两个 Key 从这台电脑上删掉（Google Cloud 里的 Key 还在，不用了可以去那边删），地图页和查询在大陆以外改用 OpenStreetMap",
+        disconnectNote: "填过的两个 Key 从这台电脑上删掉（Google Cloud 里的 Key 还在，不用了可以去那边删），大陆以外的地图页改用高德地图（没填高德用 OpenStreetMap），查询改用 OpenStreetMap",
       },
       {
         id: "demo-camera",
@@ -459,19 +459,24 @@ function amapPanel(): AmapSourcePanel {
   return { kind: "amap", lookup: true, usage: { month: nowIso().slice(0, 7), search: 37, lbs: 212, searchLimit: 5000, lbsLimit: 150000 } };
 }
 
-/** 谷歌地图那一块（446）：两个 Key 都填了，这个月每一项用了几次（编的，离免费量都还远） */
+/**
+ * 谷歌地图那一块（446）：两个 Key 都填了，这个月每一项用了几次（编的，离免费量都还远）；451 起多一项卡片预览图（Maps Static API）——
+ * 地址带 ?demo-map-preview=google-off 时扮"Maps Static API 没开"
+ */
 function googleMapsPanel(allowOverage: boolean): GoogleMapsSourcePanel {
+  const staticOff = typeof location !== "undefined" && new URLSearchParams(location.search).get("demo-map-preview") === "google-off";
   return {
     kind: "google-maps",
     browserKey: true,
     serverKey: true,
     usage: {
       month: nowIso().slice(0, 7),
-      counts: { dynamicMaps: 46, textSearch: 23, nearbySearch: 4, geocoding: 31, routesEssentials: 12, routesPro: 9 },
-      limits: { dynamicMaps: 10000, textSearch: 5000, nearbySearch: 5000, geocoding: 10000, routesEssentials: 10000, routesPro: 5000 },
+      counts: { dynamicMaps: 46, textSearch: 23, nearbySearch: 4, geocoding: 31, routesEssentials: 12, routesPro: 9, staticMaps: 58 },
+      limits: { dynamicMaps: 10000, textSearch: 5000, nearbySearch: 5000, geocoding: 10000, routesEssentials: 10000, routesPro: 5000, staticMaps: 10000 },
     },
     allowOverage,
     over: [],
+    staticMap: staticOff ? "off" : "ok",
   };
 }
 

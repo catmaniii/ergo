@@ -56,6 +56,102 @@ export interface MapDrawing {
   readonly lines: readonly { readonly id: string; readonly points: readonly LatLon[]; readonly kind: "route"; readonly mode?: string }[];
 }
 
+/**
+ * 聊天里地图卡片的预览图（451，GET /api/map/preview）：一张那家的静态地图，守护进程拿 Key 去取（Key 不进页面、地址里不放坐标）。
+ * 查到的（别家只能画在自己地图上的）一律用查它的那家，provider 不管；足迹、点、路线用页面挑的那家（内容中心那个区域的当前地图）
+ */
+export interface MapPreviewQuery {
+  /** 哪张地图卡片（卡片编号）；和 lookup 二选一 */
+  readonly card?: string | undefined;
+  /** 不经卡片直接看查到的一处（447 的编号） */
+  readonly lookup?: string | undefined;
+  /** 用哪家画（地图服务的编号） */
+  readonly provider?: string | undefined;
+  /** 宽、高（逻辑像素，MAP_PREVIEW_MIN_SIDE 到 MAP_PREVIEW_MAX_SIDE；各家再按自己的上限等比缩） */
+  readonly width: number;
+  readonly height: number;
+  readonly dark: boolean;
+  /** 1 普通、2 高清（宽高的像素各翻一倍，看的范围不变） */
+  readonly scale: 1 | 2;
+}
+
+/** 预览图一边最少、最多多少逻辑像素 */
+export const MAP_PREVIEW_MIN_SIDE = 64;
+export const MAP_PREVIEW_MAX_SIDE = 1024;
+
+/**
+ * 一家地图在中国大陆里用的坐标（453）：gcj02 是大陆里 GCJ-02、大陆外 WGS-84（高德、谷歌的大陆街道图；protocol 的 wgsToGcj 就是这么转的），
+ * wgs84 是处处 WGS-84。守护进程按它把静态图的中心转好再交给那家，页面按它投影自己画的点和线
+ */
+export type MapDatum = "gcj02" | "wgs84";
+
+/** 预览图的回应头（453）：这张图看的是哪一片，页面照它在图上自己画点和线（点和线不进发给地图公司的请求） */
+export const MAP_VIEW_HEADER = "X-Map-View";
+
+/**
+ * 一张预览图看的是哪一片（453，回应头 X-Map-View 里写的）：图的正中（WGS-84）、级别（整数，Web 墨卡托、256 像素一张瓦片）、
+ * 图的宽高（逻辑像素，那家按自己的上限缩过以后的）、清晰度（2 时像素翻倍、看的范围不变）、那家的坐标（datum）。
+ * 页面拿它算：一个点（WGS-84，datum 是 gcj02 时先转）落在图上哪个像素
+ */
+export interface MapPreviewView {
+  readonly lat: number;
+  readonly lon: number;
+  readonly zoom: number;
+  readonly width: number;
+  readonly height: number;
+  readonly scale: 1 | 2;
+  readonly datum: MapDatum;
+}
+
+/** 写成回应头：JSON（只有数和那两个词，都是 ASCII） */
+export function formatMapPreviewView(view: MapPreviewView): string {
+  return JSON.stringify({ lat: Number(view.lat.toFixed(7)), lon: Number(view.lon.toFixed(7)), zoom: view.zoom, width: view.width, height: view.height, scale: view.scale, datum: view.datum });
+}
+
+/** 是不是 [lo, hi] 里的一个数 */
+const inRange = (n: unknown, lo: number, hi: number): n is number => typeof n === "number" && Number.isFinite(n) && n >= lo && n <= hi;
+
+/** 读回应头：写法不对、数不在范围里给 undefined（页面就不在图上画，退回别的办法） */
+export function parseMapPreviewView(text: string | null | undefined): MapPreviewView | undefined {
+  if (!text) return undefined;
+  let v: unknown;
+  try {
+    v = JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+  if (typeof v !== "object" || v === null) return undefined;
+  const { lat, lon, zoom, width, height, scale, datum } = v as Record<string, unknown>;
+  if (!inRange(lat, -90, 90) || !inRange(lon, -180, 180) || !inRange(zoom, 0, 22) || !Number.isInteger(zoom)) return undefined;
+  if (!inRange(width, 1, 4096) || !inRange(height, 1, 4096) || (scale !== 1 && scale !== 2) || (datum !== "gcj02" && datum !== "wgs84")) return undefined;
+  return { lat, lon, zoom, width, height, scale, datum };
+}
+
+/**
+ * 拆预览图的查询参数（get 是取一个参数的函数，URLSearchParams.get 那样）：卡片编号和查到的编号要且只要一个、宽高是范围里的整数、
+ * scale 是 1 或 2（不写当 1）；不对的给 undefined
+ */
+export function parseMapPreviewQuery(get: (name: string) => string | null): MapPreviewQuery | undefined {
+  const card = get("card")?.trim() || undefined;
+  const lookup = get("lookup")?.trim() || undefined;
+  if ((card === undefined) === (lookup === undefined)) return undefined;
+  if ((card?.length ?? 0) > 80 || (lookup !== undefined && !LOOKUP_ID.test(lookup))) return undefined;
+  const side = (name: string) => {
+    const text = get(name) ?? "";
+    if (!/^\d{1,5}$/.test(text)) return undefined;
+    const n = Number(text);
+    return n >= MAP_PREVIEW_MIN_SIDE && n <= MAP_PREVIEW_MAX_SIDE ? n : undefined;
+  };
+  const width = side("w");
+  const height = side("h");
+  if (width === undefined || height === undefined) return undefined;
+  const provider = get("provider")?.trim() || undefined;
+  if (provider !== undefined && !/^[a-z][a-z0-9-]{0,19}$/.test(provider)) return undefined;
+  const scaleText = get("scale") ?? "1";
+  if (scaleText !== "1" && scaleText !== "2") return undefined;
+  return { ...(card === undefined ? {} : { card }), ...(lookup === undefined ? {} : { lookup }), ...(provider === undefined ? {} : { provider }), width, height, dark: get("dark") === "1", scale: scaleText === "2" ? 2 : 1 };
+}
+
 /** 地图卡片点开去地图页的哪里（Route 的 item、sub）：足迹卡看那一天，别的看这张卡 */
 export function mapCardPath(cardId: string, show: MapCardShow): { item: string; sub?: string } {
   return show.kind === "day" ? { item: show.date } : { item: MAP_CARD_ITEM, sub: cardId };

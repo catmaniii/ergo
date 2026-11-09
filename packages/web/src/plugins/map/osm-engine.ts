@@ -2,11 +2,12 @@
 // 只做看地图要的那几样：
 // - 拖动平移（一个手指、鼠标），双指捏合缩放、滚轮缩放（以手指、鼠标所在的点为中心），双击放大一级；
 // - 瓦片按需取：只取这一屏看得见的（不预取），换级别时上一级的瓦片先垫着，新的都到了再拿掉；
-// - 地图上的点（按钮，能点）、线和圈（SVG），坐标 WGS-84；
+// - 地图上的点（按钮，能点）、线和圈（SVG），坐标 WGS-84；点旁边的字不互相盖住（451 补，label-place.ts：每帧最多排一次）；
 // - 深色：瓦片那一层加 CSS 滤镜（styles/map.css 的 .map-tiles），点、线、圈不受影响；
 // - 署名角标由地图页画（MapView.tsx），这里不管。
 // 瓦片的地址由外面给（tileUrl）：真的页面是守护进程的 /tiles/osm/<z>/<x>/<y>，演示页是编的占位图。
-import type { MapEngine, MapEngineEvents } from "./engine.ts";
+import type { MapEngineEvents, SceneEngine } from "./engine.ts";
+import { createLabelPlacer, type LabelPlacer, type PlacedMark } from "./label-place.ts";
 import { clampZoom, EMPTY_SCENE, type MapScene, type MapView } from "./scene.ts";
 import { metersPerPixel, pointAt, pointOnScreen, screenPoint, TILE_SIZE, tilesFor, worldPoint } from "./tiles.ts";
 
@@ -18,6 +19,8 @@ export interface OsmEngineOptions extends MapEngineEvents {
   maxTileZoom: number;
   /** 根元素上的 data-engine（演示页的假高德借它画，写 amap） */
   engineName?: string;
+  /** 点旁边的字互相让开（451 补）；聊天卡片的缩略图不写字，给 false 省掉 */
+  labelLayout?: boolean;
 }
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -26,7 +29,7 @@ const DRAG_THRESHOLD = 4;
 /** 滚轮停下多久算缩放完 */
 const WHEEL_SETTLE_MS = 250;
 
-export function createOsmEngine(host: HTMLElement, options: OsmEngineOptions): MapEngine {
+export function createOsmEngine(host: HTMLElement, options: OsmEngineOptions): SceneEngine {
   const doc = host.ownerDocument;
   const root = doc.createElement("div");
   root.className = "map-osm";
@@ -39,6 +42,8 @@ export function createOsmEngine(host: HTMLElement, options: OsmEngineOptions): M
   markPane.className = "map-marks";
   root.append(tilePane, shapes, markPane);
   host.append(root);
+  // 引线那一层（在点下面）、排字
+  const labels: LabelPlacer | undefined = options.labelLayout === false ? undefined : createLabelPlacer(root);
 
   let center = { lat: options.view.lat, lon: options.view.lon };
   let zoom = clampZoom(options.view.zoom);
@@ -48,6 +53,8 @@ export function createOsmEngine(host: HTMLElement, options: OsmEngineOptions): M
   /** 摆着的瓦片：键是 z/x/y（x 没取模） */
   const tiles = new Map<string, { img: HTMLImageElement; z: number; x: number; y: number; loaded: boolean }>();
   const markEls = new Map<string, HTMLButtonElement>();
+  /** 每个点的针和字（排字用） */
+  const markParts = new Map<string, MarkParts>();
 
   const size = () => ({ w: root.clientWidth || host.clientWidth || 1, h: root.clientHeight || host.clientHeight || 1 });
 
@@ -128,13 +135,18 @@ export function createOsmEngine(host: HTMLElement, options: OsmEngineOptions): M
   };
 
   const placeMarks = (w: number, h: number) => {
+    const placed: PlacedMark[] = [];
     for (const m of scene.marks) {
       const el = markEls.get(m.id);
       if (!el) continue;
       const p = screenPoint(m, center, zoom, w, h);
       el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px)`;
       el.hidden = p.x < -200 || p.y < -200 || p.x > w + 200 || p.y > h + 200;
+      const parts = markParts.get(m.id);
+      // 不取整：只是拖时彼此的相对位置一点不变（排字用上一次的），各自取整会差一像素、每帧都重排
+      placed.push({ id: m.id, kind: m.kind ?? "place", el, pin: parts?.pin, label: parts?.label, x: p.x, y: p.y });
     }
+    labels?.update(placed, { left: 0, top: 0, right: w, bottom: h });
   };
 
   const render = () => {
@@ -283,6 +295,7 @@ export function createOsmEngine(host: HTMLElement, options: OsmEngineOptions): M
         if (!ids.has(id)) {
           el.remove();
           markEls.delete(id);
+          markParts.delete(id);
         }
       }
       for (const m of next.marks) {
@@ -297,7 +310,7 @@ export function createOsmEngine(host: HTMLElement, options: OsmEngineOptions): M
           markPane.append(el);
         }
         el.dataset.kind = m.kind ?? "place";
-        fillMark(el, m.label);
+        markParts.set(m.id, fillMark(el, m.label));
       }
       schedule();
     },
@@ -309,15 +322,23 @@ export function createOsmEngine(host: HTMLElement, options: OsmEngineOptions): M
       if (frame !== 0) (doc.defaultView ?? globalThis).cancelAnimationFrame(frame);
       clearTimeout(wheelTimer);
       resize?.disconnect();
+      labels?.destroy();
       root.remove();
       tiles.clear();
       markEls.clear();
+      markParts.clear();
     },
   };
 }
 
-/** 一个点的样子：一枚定位针，旁边写字（两种底图共用：高德那一种把它当标记的内容） */
-export function fillMark(el: HTMLElement, label: string | undefined): void {
+/** 一个点里的针和字（排字时要量它们） */
+export interface MarkParts {
+  readonly pin: HTMLElement;
+  readonly label: HTMLElement | undefined;
+}
+
+/** 一个点的样子：一枚定位针，旁边写字（OpenStreetMap 和盖在高德、谷歌上面的那一层共用）；交回针和字 */
+export function fillMark(el: HTMLElement, label: string | undefined): MarkParts {
   const doc = el.ownerDocument;
   const pin = doc.createElement("span");
   pin.className = "map-pin";
@@ -329,5 +350,8 @@ export function fillMark(el: HTMLElement, label: string | undefined): void {
     text.textContent = label;
     el.append(text);
     el.setAttribute("aria-label", label);
-  } else el.removeAttribute("aria-label");
+    return { pin, label: text };
+  }
+  el.removeAttribute("aria-label");
+  return { pin, label: undefined };
 }

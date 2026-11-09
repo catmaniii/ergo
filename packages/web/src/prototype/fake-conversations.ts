@@ -1026,7 +1026,24 @@ export const FAKE_CARDS: Card[] = [
   // 从公司到西湖边的路线（高德查的，按编号现取 fake-map.ts 的那一份；只能画在高德的地图上，卡上不画缩略图）
   card("c-map-day", "map", { show: { kind: "day", date: MAP_DAY_DATE } } satisfies MapCardPayload, { status: "handled", createdAt: at("10-07", "09:05") }),
   card("c-map-route", "map", { title: "从公司到西湖边", show: { kind: "lookup", lookup: "amap-r2", what: "route", source: "amap" } } satisfies MapCardPayload, { status: "handled", createdAt: at("10-07", "09:10") }),
-  // 新加坡附近的 hawker centre（446：谷歌地图查的，按编号现取 fake-map.ts 的那一份；只能画在谷歌的地图上，卡上不画缩略图）
+  // 秘书自己给的一组点（451：周末想去的三处，杭州的公开景点、坐标是大概的）：预览图跟着当前地图（演示页国内是高德）
+  card(
+    "c-map-points",
+    "map",
+    {
+      title: "周末想去的三处",
+      show: {
+        kind: "points",
+        marks: [
+          { id: "p1", lat: 30.2421, lon: 120.1012, label: "灵隐寺" },
+          { id: "p2", lat: 30.2247, lon: 120.1266, label: "龙井村" },
+          { id: "p3", lat: 30.2036, lon: 120.1238, label: "九溪烟树" },
+        ],
+      },
+    } satisfies MapCardPayload,
+    { status: "handled", createdAt: at("10-07", "09:20") },
+  ),
+  // 新加坡附近的 hawker centre（446：谷歌地图查的，按编号现取 fake-map.ts 的那一份；只能画在谷歌的地图上，451 起卡上是谷歌的预览图）
   card("c-map-hawker", "map", { title: "附近的 hawker centre", show: { kind: "lookup", lookup: "google-p1", what: "places", source: "google" } } satisfies MapCardPayload, { status: "handled", createdAt: at("10-07", "12:06") }),
   // 两个流程的计划卡（fake-workflow.ts）：退回的 v1、授权的 v2，定时流程的那一份
   ...WORKFLOW_CARDS,
@@ -1766,6 +1783,19 @@ const SECRETARY_MAP: MessageEnvelope[] = [
       toolAs("call-map-route-show", "show_on_map", "lookup=amap-r2", { nature: "look", result: "已在聊天里放了一张地图卡片「从公司到西湖边」（2 个点、2 条路线；卡上写着数据来自哪家）。" }),
       text("走过去约 **25 分钟**（1.9 公里）；开车约 9 分钟。"),
       cardRef("c-map-route"),
+    ],
+  },
+  // 451：秘书自己给坐标标一组点（不经查询），预览图跟着当前地图
+  { id: "msg-map-points-ask", conversation: S, speaker: "user", time: at("10-07", "09:19"), parts: [text("周末想去灵隐寺、龙井村、九溪烟树走走，标在地图上")] },
+  {
+    id: "msg-map-points-reply",
+    conversation: S,
+    speaker: "agent",
+    time: at("10-07", "09:20"),
+    parts: [
+      toolAs("call-map-points", "show_on_map", "points=灵隐寺,龙井村,九溪烟树", { nature: "look", result: "已在聊天里放了一张地图卡片「周末想去的三处」，标了 3 个点。卡片已经在聊天里了：回复不用再念坐标。" }),
+      text("标好了：三处都在西湖西南边，从灵隐寺往南经龙井村到九溪，一路走下来大约 6 公里。"),
+      cardRef("c-map-points"),
     ],
   },
 ];

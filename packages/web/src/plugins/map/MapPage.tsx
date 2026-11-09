@@ -6,7 +6,7 @@
 //   地图上画那一天的轨迹、停留、照片、常去的地方，点停留点看详情；地址里可以带日期（#/more/map/<YYYY-MM-DD>）。
 // - 聊天里的地图卡片点开（431，#/more/map/card/<卡片编号>）：从手里的卡片状态取出这张卡，画它的点、线（和卡片同一份 card-scene.ts），
 //   视野挪到看全它；标题栏下面一条写卡片的标题和概况，"×"回到足迹。看卡片时不画足迹。高德（445 起别家）查来的只在底图是那一家时画
-//   （amap-results.ts）。
+//   （amap-results.ts）；451 起这一屏临时用那一家画（不改记着的选择），那家在这台设备上加载不了时放它的静态大图（ownPreview）。
 // - 不经卡片直接看查到的一处（447，#/more/map/lookup/<查到的编号>）："浏览"里网页上选中地址点了"在地图上看"，守护进程查到一处、
 //   网页跳过来：和看查到的卡片一样画（按编号现取，高德查的只画在高德底图上），标题栏写查的那段字，"×"回到地图。
 // - 地图切换（445，MapSwitch.tsx）：标题栏右边那一格（.map-bar-tools）的最前面，"地图：自动 / 高德 / OpenStreetMap……"，宽的时候一个下拉、窄的时候收进 ⋮；
@@ -244,8 +244,10 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
     [base, showCard, cardContent, fp.shown, fp.day, here.scene],
   );
   const ownScene = cardContent?.ownBasemap === undefined ? undefined : { source: cardContent.ownBasemap, scene: cardContent.scene };
-  // "足迹"开着就当画着足迹（还没取到、这一天空着也算）：底图一律 OpenStreetMap，也不为它加载高德的脚本（scene.ts 的 AMAP_WITH_FOOTPRINTS）；
-  // 看的是足迹卡也一样（按卡上写的认，不等取到）
+  // 它们的静态大图按什么取（那家在这台设备上加载不了时，451）：看卡片按卡片编号，看查到的一处按查到的编号
+  const ownPreview = useMemo(() => (cardId !== undefined ? { card: cardId } : lookupShow !== undefined ? { lookup: lookupShow.lookup } : undefined), [cardId, lookupShow]);
+  // "足迹"开着就当画着足迹（还没取到、这一天空着也算；看的是足迹卡也一样，按卡上写的认）：451 起底图照样是当前地图
+  // （providers.ts 的 FOOTPRINTS_ON_CURRENT_MAP），这个值只交给挑底图的那一处
   const footprintsDrawn = showCard ? cardPayload?.show.kind === "day" : fp.shown;
   // 查到的一处（447）：标题是查的那段字（取到之前按种类写"查到的地点"）
   const cardTitle = lookupShow ? (cardContent?.title ?? mapCardTitle({ show: lookupShow })) : cardPayload ? mapCardTitle(cardPayload) : undefined;
@@ -253,8 +255,7 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
 
   // 聊天窗、二狗按钮发的消息带的地图上下文：这一刻看的中心、缩放、底图、看哪一天的足迹或哪张卡片；不带"回到我现在的位置"定到的点。
   // 底图是地图服务插槽（445）里那一家的编号——地图那块报给地图切换的"真画着的那一家"（basemapSwitch.status.rendered），
-  // 秘书照它把查询工具的 map 写成这一家（查询跟着地图走）；还没画上是 loading。画着足迹时底图固定 OpenStreetMap，这里不跟着写 osm，
-  // 写这个区域手动选的那家、没选过按"自动"（国内即高德，providers.ts 的 lookupBasemap，用户 2026-11-08 定）。
+  // 秘书照它把查询工具的 map 写成这一家（查询跟着地图走）；还没画上是 loading。451 起看足迹也用当前地图，就写它（providers.ts 的 lookupBasemap）。
   // 它是 state，变了就重渲染、这个函数跟着换新的
   const mapContext = (): Omit<MapContext, "via" | "spoken"> => {
     const v = viewNow.current;
@@ -313,7 +314,7 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
         )}
         {/* 标题栏最右边那一格：地图切换（445）、"足迹"、右边聊天窗的开合（444，二狗按钮在最右，和"浏览"顶栏一致） */}
         <div className="map-bar-tools">
-          <MapSwitch sw={basemapSwitch} compact={barCompact} footprints={footprintsDrawn} />
+          <MapSwitch sw={basemapSwitch} compact={barCompact} />
           {!showCard && <FootprintToggle fp={fp} compact={barCompact} />}
           <MapChatToggle open={chatOpen} onToggle={toggleChat} />
         </div>
@@ -334,6 +335,7 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
             scene={scene}
             footprints={footprintsDrawn}
             ownScene={ownScene}
+            ownPreview={ownPreview}
             switcher={basemapSwitch}
             initial={initial}
             jump={jump}

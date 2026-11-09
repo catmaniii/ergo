@@ -3,7 +3,8 @@
 // - 列的是现在看的这个区域（国内 / 国外）"自动"和能用的几家（有 Key、Key 没坏、插件开着、这家支持这个区域——地图那块报上来的，
 //   MapView.tsx 的 BasemapStatus），这台设备加载不上的那一家标"连不上"、点不了；
 // - 选了记在这台设备上（浏览器里，MAP_CHOICE_KEY），国内选的和国外选的分开记；那一家不能用了地图那块退回"自动"并说一句；
-// - 查地点、算路线跟着现在用的那家走（秘书查的时候拿到地图上用的是谁才这样；拿不到按"自动"）；看足迹时一律 OpenStreetMap，菜单里写一句。
+// - 查地点、算路线跟着现在用的那家走（秘书查的时候拿到地图上用的是谁才这样；拿不到按"自动"）；451 起足迹、聊天卡片的预览图也用这一家
+//   （"当前地图"），菜单最后那一句照新规矩写；"自动"会挑的几家排在前面，只能手动选的排后面（providers.ts 的 switchEntries）。
 // useBasemapSwitch 把"记着的、改它、地图那块报上来的样子"放在一起：地图页建一份，交给 MapCanvas（switcher）和这个开关。
 import { useCallback, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -14,7 +15,8 @@ import { PopupMenu } from "../../ui/popup.tsx";
 import type { BasemapStatus, BasemapSwitcher } from "./MapView.tsx";
 import { MAP_CHOICE_KEY, parseMapChoice, withChoice } from "./providers.ts";
 
-function loadChoice(): MapChoice {
+/** 这台设备按区域记的手动选择（聊天卡片挑地图也用它，451） */
+export function loadChoice(): MapChoice {
   try {
     return parseMapChoice(localStorage.getItem(MAP_CHOICE_KEY));
   } catch {
@@ -52,7 +54,7 @@ export function useBasemapSwitch(): BasemapSwitch {
 }
 
 /** 菜单里的几项（下拉、底部弹层共用；标题栏以后有别的 ⋮ 收纳菜单时可以把它放进去） */
-export function MapSwitchItems({ status, current, footprints, onPick }: { status: BasemapStatus; current: string | undefined; footprints: boolean; onPick(id: string | undefined): void }) {
+export function MapSwitchItems({ status, current, onPick }: { status: BasemapStatus; current: string | undefined; onPick(id: string | undefined): void }) {
   const item = (id: string | undefined, label: string, note: string | undefined, disabled: boolean) => {
     const checked = current === id;
     return (
@@ -83,13 +85,12 @@ export function MapSwitchItems({ status, current, footprints, onPick }: { status
       {status.options.map((o) => item(o.id, o.title, o.failed === undefined ? undefined : t("ui.plugins.map.switch.unreachable"), o.failed !== undefined))}
       <div className="menu-sep" role="separator" />
       <div className="map-switch-note">{t("ui.plugins.map.switch.lookupNote")}</div>
-      {footprints && <div className="map-switch-note">{t("ui.plugins.map.switch.footprintsNote")}</div>}
     </>
   );
 }
 
 /** 标题栏里的地图切换：宽的时候一个下拉，窄的时候收进 ⋮ */
-export function MapSwitch({ sw, compact = false, footprints = false }: { sw: BasemapSwitch; compact?: boolean; footprints?: boolean }) {
+export function MapSwitch({ sw, compact = false }: { sw: BasemapSwitch; compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLButtonElement>(null);
   const status = sw.status;
@@ -102,7 +103,7 @@ export function MapSwitch({ sw, compact = false, footprints = false }: { sw: Bas
     sw.setChoice(status.region, id);
     close();
   };
-  const items = <MapSwitchItems status={status} current={current} footprints={footprints} onPick={pick} />;
+  const items = <MapSwitchItems status={status} current={current} onPick={pick} />;
   return (
     <>
       <button

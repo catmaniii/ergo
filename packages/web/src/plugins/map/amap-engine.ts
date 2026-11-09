@@ -1,17 +1,21 @@
 // 高德地图那一种（429）：国内、填了高德 Key 时用高德 JS API 2.0 画地图。
 // - 加载（loadAmap）：先设 window._AMapSecurityConfig = { serviceHost: <本页的来源>/_AMapService }（要在加载脚本之前），
 //   再从 webapi.amap.com 加载高德的脚本。安全密钥不在页面上：高德的脚本把要带它的请求发到 serviceHost，
-//   守护进程拼上再转给高德（网关的 /_AMapService/）。这是二狗唯一一处运行时从外站加载的脚本（用户定了用高德，ADR-0051）；
-//   只在真要画高德地图时才加载（看国外、没填 Key 时一次都不连高德）；
-// - 坐标：二狗给的点是 WGS-84，交给高德之前转 GCJ-02（大陆内才转），从高德拿回的中心转回 WGS-84；
-// - 深色：高德自带的深色样式（amap://styles/dark）；
-// - 点用和 OSM 那一种同一个样子（fillMark），线、圈用高德的折线、圆，颜色取这套风格的 token；
-//   "回到我现在的位置"（442）的蓝点也是这样交给高德（同样先转 GCJ-02），精度圈取 --you。
+//   守护进程拼上再转给高德（网关的 /_AMapService/）。这是二狗运行时从外站加载的脚本之一（用户定了用高德，ADR-0051）；
+//   只在真要画高德地图时才加载（看国外没选高德、没填 Key 时一次都不连高德）；
+// - 453 起**只出底图**：足迹、点、线、圈不交给高德的覆盖物（Marker、Polyline、Circle 一个都不建），由地图页盖在上面的自己那一层画
+//   （overlay.ts）。这里每动一下报一次此刻画着哪一片（onSurface：GCJ-02 的中心、级别、大小），那一层照它投影。
+//   高德的脚本和页面在同一个页面里（放不进隔离的框：它的安全密钥代理要带这台设备的凭证、本机端口要同源，框里发的请求两样都没有，
+//   见 ADR-0059），技术上仍读得到页面；只是数据不再经它的接口；
+// - 不让转、不让斜（rotateEnable、pitchEnable 关掉）：上面那一层按正北朝上的 Web 墨卡托投影；
+// - 坐标：二狗的 WGS-84 交给高德之前转 GCJ-02（大陆内才转），从高德拿回的中心转回 WGS-84；
+// - 深色：高德自带的深色样式（amap://styles/dark）。
 // 用到的高德接口只有下面类型里写的这几样；测试和演示页换成假的（setAmapLoader），不连真的高德。
 import { AMAP_SERVICE_PREFIX, gcjToWgs, wgsToGcj } from "../../state/index.ts";
-import type { MapEngine, MapEngineEvents } from "./engine.ts";
-import { fillMark } from "./osm-engine.ts";
-import { clampZoom, type MapScene, type MapView } from "./scene.ts";
+import type { MapEngine, MapEngineEvents, MapSurfaceView } from "./engine.ts";
+import { clampZoom, type MapView } from "./scene.ts";
+import { watchSurface } from "./surface-watch.ts";
+import { pointOnScreen } from "./tiles.ts";
 
 /** 高德 JS API 的脚本地址 */
 export const AMAP_SCRIPT_URL = "https://webapi.amap.com/maps";
@@ -24,40 +28,25 @@ export interface AmapLngLat {
   getLat(): number;
 }
 
-/** 地图上的一样东西（标记、折线、圆） */
-export interface AmapOverlay {
-  on?(event: "click", handler: () => void): void;
-}
-
 /** 高德的地图对象：只列用到的 */
 export interface AmapMap {
   getCenter(): AmapLngLat;
   getZoom(): number;
   setZoomAndCenter(zoom: number, center: [number, number], immediately?: boolean): void;
   setZoom(zoom: number): void;
+  setCenter(center: [number, number], immediately?: boolean): void;
   setMapStyle(style: string): void;
-  on(event: "moveend" | "zoomend", handler: () => void): void;
-  add(overlays: AmapOverlay[]): void;
-  remove(overlays: AmapOverlay[]): void;
+  /** 移动、缩放的事件：mapmove、zoomchange、moveend、zoomend、resize（2.0 的名字） */
+  on(event: AmapEvent, handler: () => void): void;
   destroy(): void;
 }
 
-/** 高德的命名空间（window.AMap）：只列用到的 */
+/** 用到的高德地图事件 */
+export type AmapEvent = "mapmove" | "zoomchange" | "moveend" | "zoomend" | "resize";
+
+/** 高德的命名空间（window.AMap）：只列用到的（453 起只用 Map，覆盖物一个都不建） */
 export interface AmapNamespace {
   Map: new (container: HTMLElement, options: Record<string, unknown>) => AmapMap;
-  Marker: new (options: { position: [number, number]; content: HTMLElement; anchor: string; zIndex?: number }) => AmapOverlay;
-  Polyline: new (options: { path: [number, number][]; strokeColor: string; strokeWeight: number; strokeOpacity: number; lineJoin: string; lineCap: string }) => AmapOverlay;
-  Circle: new (options: {
-    center: [number, number];
-    radius: number;
-    strokeColor: string;
-    strokeWeight: number;
-    strokeOpacity?: number;
-    fillColor: string;
-    fillOpacity: number;
-    /** 高德原样留着的附加数据：记下是哪一个圈、哪一种（演示页的假高德按它画样式） */
-    extData?: { id: string; kind?: string };
-  }) => AmapOverlay;
 }
 
 /** 怎么拿到高德：Key、serviceHost → 命名空间 */
@@ -111,12 +100,6 @@ export function loadAmap(key: string): Promise<AmapNamespace> {
   return loader(key, `${window.location.origin}${AMAP_SERVICE_PREFIX}`);
 }
 
-/** 这套风格的一个颜色（高德的折线、圆要写成颜色值，不认 CSS 变量） */
-function tokenColor(el: HTMLElement, name: string, fallback: string): string {
-  const v = getComputedStyle(el).getPropertyValue(name).trim();
-  return v === "" ? fallback : v;
-}
-
 /** 二狗的点（WGS-84）→ 交给高德的 [经度, 纬度]（GCJ-02，大陆内才转） */
 function toAmap(p: { lat: number; lon: number }): [number, number] {
   const g = wgsToGcj(p);
@@ -133,6 +116,7 @@ const SETTLE_MS = 120;
 
 export function createAmapEngine(host: HTMLElement, AMap: AmapNamespace, options: AmapEngineOptions): MapEngine {
   const doc = host.ownerDocument;
+  const win = doc.defaultView ?? window;
   const root = doc.createElement("div");
   root.className = "map-amap";
   root.dataset.engine = "amap";
@@ -144,9 +128,14 @@ export function createAmapEngine(host: HTMLElement, AMap: AmapNamespace, options
     zooms: [3, 20],
     viewMode: "2D",
     resizeEnable: true,
+    // 上面那一层按正北朝上投影：不让转、不让斜
+    rotateEnable: false,
+    pitchEnable: false,
     mapStyle: options.dark ? "amap://styles/dark" : "amap://styles/normal",
+    // 国外也用高德时（451：国外没填谷歌默认高德）要它的"世界地图"——高德要提工单给 Key 开通，没开通时国外可能很空；
+    // 照样带上，不因此报错（用户可以在地图切换里改用 OpenStreetMap）
+    showOversea: true,
   });
-  let overlays: AmapOverlay[] = [];
   let timer: ReturnType<typeof setTimeout> | undefined;
   let destroyed = false;
 
@@ -155,7 +144,18 @@ export function createAmapEngine(host: HTMLElement, AMap: AmapNamespace, options
     const w = gcjToWgs({ lat: c.getLat(), lon: c.getLng() });
     return { lat: w.lat, lon: w.lon, zoom: map.getZoom() };
   };
+  /** 此刻画着哪一片（高德自己的坐标：大陆里 GCJ-02） */
+  const surface = (): MapSurfaceView => {
+    const c = map.getCenter();
+    return { lat: c.getLat(), lon: c.getLng(), zoom: map.getZoom(), width: root.clientWidth, height: root.clientHeight, datum: "gcj02" };
+  };
+  const watch = watchSurface(
+    () => (destroyed ? undefined : surface()),
+    (v) => options.onSurface?.(v),
+    win,
+  );
   const settled = () => {
+    watch.poke();
     clearTimeout(timer);
     timer = setTimeout(() => {
       if (!destroyed) options.onMoveEnd(view());
@@ -163,53 +163,29 @@ export function createAmapEngine(host: HTMLElement, AMap: AmapNamespace, options
   };
   map.on("moveend", settled);
   map.on("zoomend", settled);
+  for (const e of ["mapmove", "zoomchange", "resize"] as const) map.on(e, () => watch.poke());
+  // 手指、鼠标、滚轮一动就叫醒（拖的时候、惯性滑的时候每一帧都报）
+  for (const e of ["pointerdown", "pointermove", "wheel", "touchstart", "touchmove"] as const) root.addEventListener(e, () => watch.poke(), { capture: true, passive: true });
+  const resize = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(() => watch.poke());
+  resize?.observe(root);
+  watch.poke();
 
   return {
     kind: "amap",
     view,
     setView(v) {
       map.setZoomAndCenter(clampZoom(v.zoom), toAmap(v), true);
+      watch.poke();
     },
     zoomBy(delta) {
       map.setZoom(Math.round(map.getZoom()) + delta);
+      watch.poke();
     },
-    setScene(scene: MapScene) {
-      if (overlays.length > 0) map.remove(overlays);
-      const line = tokenColor(root, "--primary", getComputedStyle(root).color);
-      const next: AmapOverlay[] = [];
-      for (const c of scene.circles) {
-        // 定位的精度圈（442）和蓝点同色（--you："跟你有关的蓝"），别的范围圈用强调色
-        const color = c.kind === "accuracy" ? tokenColor(root, "--you", line) : line;
-        next.push(
-          new AMap.Circle({
-            center: toAmap(c),
-            radius: c.radius,
-            strokeColor: color,
-            strokeWeight: 1,
-            ...(c.kind === "accuracy" ? { strokeOpacity: 0.5 } : {}),
-            fillColor: color,
-            fillOpacity: c.kind === "accuracy" ? 0.15 : 0.12,
-            extData: { id: c.id, ...(c.kind ? { kind: c.kind } : {}) },
-          }),
-        );
-      }
-      for (const l of scene.lines) {
-        if (l.points.length < 2) continue;
-        next.push(new AMap.Polyline({ path: l.points.map(toAmap), strokeColor: line, strokeWeight: l.kind === "route" ? 6 : 4, strokeOpacity: 0.85, lineJoin: "round", lineCap: "round" }));
-      }
-      for (const m of scene.marks) {
-        const el = doc.createElement("button");
-        el.type = "button";
-        el.className = "map-mark";
-        el.dataset.id = m.id;
-        el.dataset.kind = m.kind ?? "place";
-        fillMark(el, m.label);
-        el.addEventListener("click", () => options.onMarkClick?.(m.id));
-        // "我现在的位置"的蓝点压在别的点上面
-        next.push(new AMap.Marker({ position: toAmap(m), content: el, anchor: "bottom-center", zIndex: m.kind === "me" ? 130 : 120 }));
-      }
-      overlays = next;
-      if (next.length > 0) map.add(next);
+    panBy(dx, dy) {
+      const s = surface();
+      const c = pointOnScreen(s.width / 2 - dx, s.height / 2 - dy, { lat: s.lat, lon: s.lon }, s.zoom, s.width, s.height);
+      map.setCenter([c.lon, c.lat], true);
+      watch.poke();
     },
     setDark(dark) {
       map.setMapStyle(dark ? "amap://styles/dark" : "amap://styles/normal");
@@ -217,6 +193,8 @@ export function createAmapEngine(host: HTMLElement, AMap: AmapNamespace, options
     destroy() {
       destroyed = true;
       clearTimeout(timer);
+      watch.stop();
+      resize?.disconnect();
       map.destroy();
       root.remove();
     },

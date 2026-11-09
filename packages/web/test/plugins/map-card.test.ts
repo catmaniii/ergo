@@ -7,7 +7,8 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { dayContent, drawingContent, type MapCardData, shownContent } from "../../src/plugins/map/card-scene.ts";
+import { contentCenter, dayContent, drawingContent, type MapCardData, shownContent } from "../../src/plugins/map/card-scene.ts";
+import { previewSize } from "../../src/plugins/map/preview.ts";
 import { MapCardView } from "../../src/plugins/map/MapCard.tsx";
 import { FAKE_CARDS } from "../../src/prototype/fake-conversations.ts";
 import { demoMapDay } from "../../src/prototype/fake-footprints.ts";
@@ -53,7 +54,7 @@ const COFFEE: MapDrawing = {
   lines: [],
 };
 
-const render = (cardId: string, payload: MapCardPayload, data: MapCardData) => renderToStaticMarkup(createElement(MapCardView, { cardId, payload, data }));
+const render = (cardId: string, payload: MapCardPayload, data: MapCardData, more: Partial<Parameters<typeof MapCardView>[0]> = {}) => renderToStaticMarkup(createElement(MapCardView, { cardId, payload, data, ...more }));
 const textOf = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
 describe("卡片画什么", () => {
@@ -144,14 +145,16 @@ describe("卡片画出来的样子", () => {
   });
 });
 
-describe("原型里的三张地图卡", () => {
-  test("昨天的足迹（画得出原型的假足迹）、从公司到西湖边（高德查的、取得到原型的假路线）、附近的 hawker centre（446：谷歌查的），都是已处理", async () => {
+describe("原型里的四张地图卡", () => {
+  test("昨天的足迹（画得出原型的假足迹）、从公司到西湖边（高德查的、取得到原型的假路线）、周末想去的三处（451：秘书给的点）、附近的 hawker centre（446：谷歌查的），都是已处理", async () => {
     const cards = FAKE_CARDS.filter((c) => c.type === "map");
     expect(cards.map((c) => [c.id, c.status])).toEqual([
       ["c-map-day", "handled"],
       ["c-map-route", "handled"],
+      ["c-map-points", "handled"],
       ["c-map-hawker", "handled"],
     ]);
+    expect((cards[2]!.payload as MapCardPayload).show).toMatchObject({ kind: "points" });
     expect(cards[0]!.payload).toEqual({ show: { kind: "day", date: yesterday } });
     expect(dayContent(demoMapDay(yesterday)).state).toBe("ready");
     const route = cards[1]!.payload as MapCardPayload;
@@ -159,5 +162,65 @@ describe("原型里的三张地图卡", () => {
     expect(route.show).toEqual({ kind: "lookup", lookup: "amap-r2", what: "route", source: "amap" });
     expect((await demoMapDrawing(route.show.lookup)).source).toBe("amap");
     await expect(demoMapDrawing("amap-r1")).rejects.toThrow("已经过期了");
+  });
+});
+
+describe("卡片的预览图（451：跟着当前地图，高德、谷歌放守护进程取来的静态图）", () => {
+  const amapRoute: MapCardPayload = { title: "从家到公司", show: { kind: "lookup", lookup: "amap-r1", what: "route", source: "amap" } };
+  const points: MapCardPayload = { show: { kind: "points", marks: [{ id: "p1", lat: 30.24, lon: 120.1, label: "灵隐寺" }] } };
+  const routeData: MapCardData = { state: "ready", content: drawingContent(AMAP_ROUTE) };
+  const pointsData: MapCardData = { state: "ready", content: shownContent(points.show as Extract<MapCardPayload["show"], { kind: "points" }>) };
+
+  test("取到了：一张图铺满那一块、右上角\"看大地图\"；查到的不再另写\"在高德地图上看\"；图里有那家的标志，不另写署名", () => {
+    const html = render("c-1", amapRoute, routeData, { thumb: { kind: "image", provider: "amap", preview: { state: "ready", url: "blob:x" }, name: "高德地图" } });
+    expect(html).toContain('data-thumb="image"');
+    expect(html).toContain('<img class="map-card-img" src="blob:x" alt="高德地图上的「从家到公司」"/>');
+    expect(html).toContain('href="#/more/map/card/c-1"');
+    expect(textOf(html)).toContain("看大地图");
+    expect(textOf(html)).not.toContain("在高德地图上看");
+    expect(html).not.toContain("map-attribution");
+    expect(textOf(html)).toContain("数据来自高德地图");
+  });
+
+  test("在取：那一块写\"正在取预览图…\"（不先画 OpenStreetMap）", () => {
+    const html = render("c-1", points, pointsData, { thumb: { kind: "image", provider: "amap", preview: { state: "loading" } } });
+    expect(html).toContain('data-preview="loading"');
+    expect(textOf(html)).toContain("正在取预览图…");
+    expect(html).not.toContain("thumb-stub");
+  });
+
+  test("查到的取不到图：只有字，加一句原因和\"在谷歌地图上看\"；点、路线、足迹取不到退回 OpenStreetMap 自己画", () => {
+    const google: MapCardPayload = { title: "附近", show: { kind: "lookup", lookup: "google-p1", what: "places", source: "google" } };
+    const html = render("c-2", google, routeData, { thumb: { kind: "none", reason: "谷歌的 Maps Static API 没开" }, ownName: "谷歌地图" });
+    expect(html).toContain('data-thumb="none"');
+    expect(html).not.toContain("map-card-thumb");
+    expect(textOf(html)).toContain("预览图没出来：谷歌的 Maps Static API 没开");
+    expect(textOf(html)).toContain("在谷歌地图上看");
+    const fallback = render("c-3", points, pointsData, { thumb: { kind: "osm" } });
+    expect(fallback).toContain("thumb-stub");
+    expect(fallback).toContain('data-provider="osm"');
+  });
+
+  test("深色：高德的图压暗一点（它没有深色），谷歌的不压（取的就是深色的）；英文", () => {
+    const amap = render("c-1", points, pointsData, { dark: true, thumb: { kind: "image", provider: "amap", preview: { state: "ready", url: "blob:a" } } });
+    expect(amap).toContain('class="map-card-img dim"');
+    const google = render("c-1", points, pointsData, { dark: true, thumb: { kind: "image", provider: "google", preview: { state: "ready", url: "blob:g" } } });
+    expect(google).toContain('class="map-card-img"');
+    setActiveLocale(activeLocaleFrom(TEST_LOCALES, "en"));
+    expect(textOf(render("c-1", points, pointsData, { thumb: { kind: "image", provider: "amap", preview: { state: "loading" } } }))).toContain("Getting the preview…");
+    expect(textOf(render("c-2", amapRoute, routeData, { thumb: { kind: "none", reason: "x" } }))).toContain("No preview: x");
+  });
+});
+
+describe("预览图要多大、内容在哪个区域（451）", () => {
+  test("宽取整到 40 的倍数、收在 640 以内（高按比例），太小的抬到 64；像素密度普通的不要高清", () => {
+    expect(previewSize(358, 168, 640)).toEqual({ width: 360, height: 169, scale: 1 });
+    expect(previewSize(1182, 168, 640)).toEqual({ width: 640, height: 91, scale: 1 });
+    expect(previewSize(30, 20, 640)).toEqual({ width: 64, height: 64, scale: 1 });
+  });
+
+  test("内容的中心（外接框的中心）：卡片按它挑国内国外的当前地图", () => {
+    expect(contentCenter({ bounds: [{ lat: 30, lon: 120 }, { lat: 31, lon: 121 }] })).toEqual({ lat: 30.5, lon: 120.5 });
+    expect(contentCenter({ bounds: [] })).toEqual({ lat: 0, lon: 0 });
   });
 });

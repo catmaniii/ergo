@@ -2,7 +2,13 @@
  * 地图页（地图插件，plugins/map/）：上面一条标题栏、一排地点，下面整块是地图。
  * 地图本身（瓦片、高德画的）不跟风格走：十一套风格只管地图外面那圈（标题栏、地点、按钮、署名角标、点的样子）。
  * 深色时 OpenStreetMap 的瓦片加一层滤镜（反色再转回色相，水还是蓝的、路是暗的）；高德换它自己的深色样式（MapView.tsx）。
+ * 二狗画在地图上的东西（点、路线、足迹线、停留圈、照片小点，地图页和卡片上一样）一律用 --map-ink（红），不跟风格的主色走：
+ * 主色是绿、蓝的风格下，点和线跟底图上的绿地、水面、地图自己的标注混在一起分不开（用户 2026-11-09）。
  */
+:root {
+  --map-ink: #d93025;
+  --map-ink-text: #fff;
+}
 .map-page {
   display: flex;
   flex-direction: column;
@@ -83,7 +89,7 @@
 }
 .map-line {
   fill: none;
-  stroke: var(--primary);
+  stroke: var(--map-ink);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-opacity: 0.85;
@@ -93,13 +99,31 @@
   stroke-width: 6;
 }
 .map-circle {
-  fill: var(--primary);
+  fill: var(--map-ink);
   fill-opacity: 0.12;
-  stroke: var(--primary);
+  stroke: var(--map-ink);
   stroke-width: 1;
 }
 .map-marks {
   pointer-events: none;
+}
+/*
+ * 盖在别家底图上的自己那一层（453：卡片的静态预览图、地图页的高德谷歌上面）：点、线、圈按它报的视野自己投影，摆法和 OSM 那一种一样。
+ * 地图页那一层整块不接手势（拖、捏、滚轮落到底图上），只有点能点；压在按钮、提示（200 上下）、静态大图（150）下面
+ */
+.map-overlay-layer,
+.map-page-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.map-overlay-layer {
+  z-index: 100;
+}
+.map-overlay .map-shapes,
+.map-overlay .map-marks {
+  position: absolute;
+  inset: 0;
 }
 
 /* 一个点：24×30 的一枚定位针，针尖在点上（OSM 那一种按左上角摆，往左上挪；高德的按 bottom-center 摆），字在右边 */
@@ -114,7 +138,7 @@
   cursor: pointer;
   pointer-events: auto;
 }
-.map-osm .map-mark {
+:is(.map-osm, .map-overlay) .map-mark {
   position: absolute;
   left: 0;
   top: 0;
@@ -128,7 +152,7 @@
   height: 20px;
   border: 2px solid var(--surface);
   border-radius: 50% 50% 50% 0;
-  background: var(--primary-fill);
+  background: var(--map-ink);
   box-shadow: var(--shadow-btn);
   transform: rotate(-45deg);
 }
@@ -151,6 +175,26 @@
   font-size: var(--fs-xs);
   white-space: nowrap;
   box-shadow: var(--shadow-btn);
+}
+/*
+ * 字不互相盖住（451 补，plugins/map/label-place.ts）：挤的时候字挪到针旁边别的位置，或者挪开一些（data-moved），
+ * 挪开的从字框边上画一条细线连到点（针尖、圆点中心）。引线那一层压在点下面、线和圈上面（和点那一层同一套坐标）；
+ * 颜色用字的颜色（--text）、半透明：细的灰线，和红色的轨迹、路线分得开，深色时跟着变浅；看得清又不抢眼
+ */
+.map-leaders {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.map-leader {
+  stroke: var(--text);
+  stroke-linecap: round;
+  stroke-opacity: 0.55;
+  stroke-width: 1.25;
 }
 
 /* 盖在地图上的：左上是哪种底图，右上放大缩小，下面一句提示，右下署名 */
@@ -189,6 +233,13 @@
 }
 .map-zoom .icon-btn + .icon-btn {
   border-top: 1px solid var(--border);
+}
+/* 藏起二狗画的那一层（右上第三个按钮，眼睛）：点、路线、足迹线、停留圈、照片小点、字的引线都不画，"当前位置"照旧；地图照样能拖、能点底图 */
+.map-canvas[data-marks="hidden"] :is(.map-line, .map-circle, .map-mark:not([data-kind="me"]), .map-leader:not([data-kind="me"])) {
+  visibility: hidden;
+}
+.map-marks-toggle[aria-pressed="true"] {
+  color: var(--map-ink);
 }
 .map-hint {
   left: 10px;
@@ -233,6 +284,42 @@
   align-items: center;
   justify-content: center;
   color: var(--muted);
+}
+/* 想用的那一家还在加载（451）：中性的空底，不先画 OpenStreetMap */
+.map-loading-basemap {
+  background: var(--fill);
+  font-size: var(--fs-s);
+}
+/* 这一屏临时用查它的那一家（451）：地图上面正中一句（左上是底图的名字、右上是放大缩小） */
+.map-own-note {
+  position: absolute;
+  z-index: 205;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 150px);
+  padding: 4px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  text-align: center;
+  box-shadow: var(--shadow-btn);
+}
+/* 那一家在这台设备上加载不了（451）：盖在地图那块上的静态大图，铺满、多的裁掉 */
+.map-static {
+  position: absolute;
+  inset: 0;
+  z-index: 150;
+  background: var(--fill);
+}
+.map-static img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /*
@@ -291,7 +378,7 @@
   height: 18px;
   cursor: default;
 }
-.map-osm .map-mark[data-kind="me"] {
+:is(.map-osm, .map-overlay) .map-mark[data-kind="me"] {
   margin: -18px 0 0 -9px;
 }
 .map-mark[data-kind="me"] .map-pin {

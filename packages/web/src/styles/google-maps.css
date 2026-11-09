@@ -1,76 +1,19 @@
 /*
- * 谷歌地图插件（446）的底图（plugins/google-maps/google-engine.ts）：谷歌画的那一张铺满地图那一块，点放在谷歌的 overlayMouseTarget 层里，
- * 按投影摆（针尖在点上，和 OSM 那一种一样往左上挪）。地图本身不跟风格走；谷歌自己的标志、版权行不遮（条款要求清楚可见）。
- * 演示页的假谷歌（demo-google.ts）：自己画的占位瓦片、线和圈、点那一层，左下角写一个"Google"当标志。
+ * 谷歌地图插件（446）的底图（plugins/google-maps/google-engine.ts）：453 起谷歌关在一个隔离框里（.map-frame，public/map-frame.html），
+ * 铺满地图那一块；足迹、点、线不在谷歌里画，在地图页盖在上面的自己那一层（map.css 的 .map-page-overlay）。地图本身不跟风格走；
+ * 谷歌自己的标志、版权行不遮（条款要求清楚可见）。框里的谷歌加载好之前写"正在加载谷歌地图…"（.map-loading，map.css）。
+ * 演示页的假谷歌也在框里（demo-google.ts），样式写在它自己的元素上（框里没有页面的样式表）。
  */
 .map-google,
-.map-google-canvas {
+.map-google-canvas,
+.map-google .map-frame {
   position: absolute;
   inset: 0;
 }
-.map-google-marks {
-  position: absolute;
-  left: 0;
-  top: 0;
-}
-.map-google-marks .map-mark {
-  position: absolute;
-  left: 0;
-  top: 0;
-  margin: -30px 0 0 -12px;
-}
-.map-google-marks .map-mark[data-kind="me"] {
-  z-index: 1;
-}
-
-/* 演示页的假谷歌 */
-.map-google-demo {
-  overflow: hidden;
-  touch-action: none;
-  user-select: none;
-  cursor: grab;
-  background: var(--fill);
-}
-.map-google-demo-tiles,
-.map-google-demo-shapes,
-.map-google-demo-pane {
-  position: absolute;
-  inset: 0;
-}
-.map-google-demo-tiles img {
-  position: absolute;
-  left: 0;
-  top: 0;
-  max-width: none;
-  pointer-events: none;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-.map-google-demo.dark .map-google-demo-tiles {
-  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.85) saturate(0.6);
-}
-.map-google-demo-shapes {
-  overflow: visible;
-  pointer-events: none;
-}
-.map-google-demo-line {
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-opacity: 0.85;
-}
-.map-google-demo-pane {
-  pointer-events: none;
-}
-.map-google-demo-logo {
-  position: absolute;
-  left: 8px;
-  bottom: 4px;
-  color: var(--muted);
-  font-family: var(--font-body);
-  font-size: var(--fs-s);
-  font-weight: 600;
-  pointer-events: none;
+.map-google .map-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
 }
 
 /* 设置 · 数据源 · 谷歌地图那一块：这个月每一项用了几次 */
@@ -104,4 +47,8 @@
 .google-maps-panel .field .hint {
   display: block;
   margin-top: 2px;
+}
+/* 卡片预览图（Maps Static API，451）那一行：没开时用"注意"的颜色（不挡保存） */
+.google-maps-panel .field .google-maps-static[data-static-map="off"] {
+  color: var(--high-fg);
 }

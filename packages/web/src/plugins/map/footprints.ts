@@ -6,7 +6,7 @@
 // - 停留点（kind stay）：同一处（spot）的几段一个点，旁边写名字（起的名字 > 系统地名 > 几点到的）和一共待了多久；
 // - 照片小点（kind photo）：挨着拍的（半小时内、百米以内）合成一个，旁边写几点拍的（几张）；
 // - 常去的地方：起了名的每一处画范围圈；这一天没在那里待过的另写一个名字。
-// 这些点只在二狗里画，不发给任何地图服务。
+// 这些点由二狗自己画；451 起底图是当前地图，453 起画在盖在底图上面的自己那一层上（overlay.ts），不交给高德、谷歌。
 import { clockLabel, distanceMeters, type LatLon, type MapDayPhoto, type MapDayStay, type MapDayView, t } from "../../state/index.ts";
 import type { MapCircle, MapLine, MapMark, MapScene } from "./scene.ts";
 

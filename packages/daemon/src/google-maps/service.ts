@@ -6,13 +6,15 @@
 // - 查询（lookup）：按需查开着、填了服务端 Key、谷歌没说它不对、查询的几项没超免费量（或者放开了）才能查；
 //   查不了时交回给模型的原因，秘书的工具自动退回 OpenStreetMap、说一句（445 的插槽管）；
 // - 用量（usage）：地图插件替它在体检"地图"那一块登记 google-usage；
-// - 地图页报来的（basemapEvent）：loaded 数一次地图加载，auth_failed 记下浏览器用的 Key 被拒了。
+// - 地图页报来的（basemapEvent）：loaded 数一次地图加载，auth_failed 记下浏览器用的 Key 被拒了；
+// - 静态地图（staticMap，451）：聊天卡片的预览图，服务端 Key 调 Maps Static API（static-map.ts），超了免费量、没放开时不取。
 import { type GoogleMapsSourcePanel, GOOGLE_MAP_PROVIDER, t } from "@ergo/protocol";
 import type { DataSourceSecrets, DataSourceStatus } from "../data-sources/api.ts";
 import type { MapProvider } from "../map/api.ts";
 import { createGoogleClient, type GoogleHosts } from "./client.ts";
 import { ALLOW_OVERAGE_FIELD, createGoogleMapsKeys, GOOGLE_MAPS_SECRET } from "./keys.ts";
 import { createGoogleLookup } from "./lookup.ts";
+import { createGoogleStatic } from "./static-map.ts";
 import { LOOKUP_SKUS, openGoogleMapsUsage, skuTitle, usageFinding } from "./usage.ts";
 
 /** "自动"时同一个区域里的先后：大陆以外高于 OpenStreetMap（0），低于高德（100，高德只管大陆） */
@@ -60,6 +62,13 @@ export function createGoogleMapsService(options: GoogleMapsServiceOptions): Goog
 
   /** 这个月超了免费量、又没放开的几项 */
   const blocked = () => (usage.allowOverage() ? [] : usage.over());
+  const staticMap = createGoogleStatic({
+    client,
+    key: () => keys.serverKey(options.secrets()),
+    over: () => blocked().includes("staticMaps"),
+    noted: (state) => keys.staticNoted(state),
+    log: options.log,
+  });
   /** 为什么查不了（给模型看的）；能查是 undefined */
   const lookupWhy = (): string | undefined => {
     const secrets = options.secrets();
@@ -103,6 +112,7 @@ export function createGoogleMapsService(options: GoogleMapsServiceOptions): Goog
       },
     },
     basemapEvent: (event) => (event === "loaded" ? usage.count("dynamicMaps") : keys.browserRejected()),
+    staticMap,
   };
 
   /** 设置 · 数据源 · 谷歌地图那一块要的 */
@@ -113,6 +123,7 @@ export function createGoogleMapsService(options: GoogleMapsServiceOptions): Goog
     usage: usage.view(),
     allowOverage: usage.allowOverage(),
     over: usage.over(),
+    ...(keys.staticMap() === undefined ? {} : { staticMap: keys.staticMap() }),
   });
   const status = (secrets: DataSourceSecrets): DataSourceStatus => {
     const s = keys.status(secrets);

@@ -180,7 +180,7 @@ export interface DataSourceSlot {
  * 地图服务的底图（445，地图插件开的"地图服务"插槽的网页一半）：地图页能画的一种底图。键是地图服务的编号，和守护进程那一半
  * 登记的一样（amap、osm、google）。地图页按守护进程报的（GET /api/map/config 的 providers：管哪儿、优先级、浏览器用的 Key、
  * 现在能不能用）和这里登记了的挑一家画、列地图切换；插件停用时这一条撤掉，地图页退回下一家（手动选了它的退回"自动"并说一句）。
- * 坐标一律 WGS-84 进出，要转的（大陆里的 GCJ-02）由它的引擎自己转；用户自己的足迹一律 OpenStreetMap，不为它加载商业地图的脚本。
+ * 坐标一律 WGS-84 进出，要转的（大陆里的 GCJ-02）由它的引擎自己转；451 起用户自己的足迹也画在当前地图上（地图插件的 FOOTPRINTS_ON_CURRENT_MAP）。
  */
 export interface MapBasemapSlot {
   readonly id: string;

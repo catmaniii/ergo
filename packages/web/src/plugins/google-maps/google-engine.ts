@@ -1,65 +1,27 @@
-// 谷歌地图那一种底图（446）：用 Maps JavaScript API 画地图，照核心 model/map.ts 的 MapEngine 写（地图页只经这个接口用它）。
-// - 坐标：二狗给的点是 WGS-84；谷歌在中国大陆的街道图是 GCJ-02——交给谷歌之前转 GCJ-02（大陆里才转），从谷歌拿回的中心转回 WGS-84
-//   （protocol 的 geo.ts，和高德那一种一样）。大陆外原样；
-// - 只要地图本身：不要谷歌自带的按钮（disableDefaultUI，放大缩小用地图页自己的）、不让点谷歌的兴趣点（clickableIcons: false），
-//   谷歌的标志和版权行谷歌自己画、不遮（条款要求署名清楚可见）；
-// - 深色：colorScheme（只能建地图时定）——外观换了就带着同一个中心和级别重建一次（谷歌按"一次地图加载"计费，外观很少换）；
-// - 点：用和 OSM、高德那两种同一个样子（fillMark 的写法照抄在这里：插件之间不互相 import），放在一个 OverlayView 的
-//   overlayMouseTarget 层里，按谷歌给的投影摆；线、圈用谷歌的 Polyline、Circle，颜色取这套风格的 token；
-// - 每建一次谷歌地图报一次 onLoaded（守护进程数用量）；谷歌说 Key 不对（gm_authFailure，loader.ts 转来）时报 onFailed，地图页退回 OpenStreetMap。
-// 用到的谷歌接口只有下面类型里写的这几样；测试和演示页换成假的（loader.ts 的 setGoogleLoader），不连真的谷歌。
-import { gcjToWgs, wgsToGcj } from "../../state/index.ts";
-import type { MapEngine, MapEngineOptions, MapMark, MapScene, MapView } from "../api.ts";
+// 谷歌地图那一种底图（446；453 起只出底图、关在隔离框里），照核心 model/map.ts 的 MapEngine 写（地图页只经这个接口用它）。
+// - 隔离（isolated，默认）：谷歌的脚本关进 <iframe sandbox="allow-scripts">（核心的 ui/map-frame.ts、public/map-frame.html），
+//   读不到地图页——足迹、点、线画在地图页盖在上面的自己那一层（地图插件的 overlay.ts），右侧的聊天窗也在外面。
+//   框里跑的是 google-bridge.ts 的小桥（整段转成字符串交过去）：加载谷歌、建地图、照这里说的挪，报此刻画着哪一片；
+//   不隔离（isolated: false）时同一段小桥直接在页面里跑（万一隔离框在真机上跑不通时的退路），数据照样不交给谷歌的接口；
+// - 交给框的只有视野（中心、级别）、深浅和 Key（Key 本来就要进页面：谷歌的设计，网站限制管着它），**足迹、点、线一样都不交**；
+// - 坐标：二狗的 WGS-84 交给谷歌之前转 GCJ-02（大陆里才转），框里报回来的转回 WGS-84；报给那一层的视野是谷歌的坐标（datum gcj02）；
+// - 深色：colorScheme（只能建地图时定）——换了就带着同一个中心和级别在框里重建一次（谷歌按"一次地图加载"计费，外观很少换）；
+// - 每建一次谷歌地图报一次 onLoaded（守护进程数用量）；谷歌说 Key 不对、加载不上、等太久报 onFailed（只报一次），地图页退回下一家；
+// - 建好时还在加载（loading）：框里的谷歌加载好了报 onReady，地图页在那之前写"正在加载谷歌地图…"、不先画别家。
+// 测试和演示页里框里装的是假谷歌（demo-google.ts，先于小桥跑），不连真的谷歌。
+import { activeLanguage, gcjToWgs, wgsToGcj } from "../../state/index.ts";
+import { type MapFrame, openMapFrame } from "../../ui/map-frame.ts";
+import type { MapEngine, MapEngineOptions, MapSurfaceView, MapView } from "../api.ts";
+import { googleBridge, type GoogleBridgeConfig, type GoogleBridgeEnv } from "./google-bridge.ts";
 
-/** 谷歌的经纬度（getCenter 交回的） */
-export interface GoogleLatLng {
-  lat(): number;
-  lng(): number;
-}
-
-/** 交给谷歌的经纬度 */
-export interface GoogleLatLngLiteral {
-  lat: number;
-  lng: number;
-}
-
-/** 监听的句柄（addListener 交回的） */
-export interface GoogleListener {
-  remove(): void;
-}
-
-/** 谷歌的地图对象：只列用到的 */
-export interface GoogleMap {
-  getCenter(): GoogleLatLng | undefined;
-  getZoom(): number | undefined;
-  setCenter(center: GoogleLatLngLiteral): void;
-  setZoom(zoom: number): void;
-  addListener(event: "idle", handler: () => void): GoogleListener;
-}
-
-/** 放在地图上的一样东西（线、圈） */
-export interface GoogleShape {
-  setMap(map: GoogleMap | null): void;
-}
-
-/** 投影：经纬度 → 覆盖层里的像素 */
-export interface GoogleProjection {
-  fromLatLngToDivPixel(latLng: GoogleLatLngLiteral): { x: number; y: number } | null;
-}
-
-/** 自己画的覆盖层（谷歌的 OverlayView，子类写 onAdd、draw、onRemove） */
-export interface GoogleOverlayView extends GoogleShape {
-  getPanes(): { overlayMouseTarget: HTMLElement } | null;
-  getProjection(): GoogleProjection | null;
-}
-
-/** importLibrary("maps") 交回的：只列用到的 */
-export interface GoogleMapsLibrary {
-  Map: new (container: HTMLElement, options: Record<string, unknown>) => GoogleMap;
-  Polyline: new (options: { path: GoogleLatLngLiteral[]; strokeColor: string; strokeWeight: number; strokeOpacity: number; clickable: boolean; map: GoogleMap }) => GoogleShape;
-  Circle: new (options: { center: GoogleLatLngLiteral; radius: number; strokeColor: string; strokeWeight: number; strokeOpacity: number; fillColor: string; fillOpacity: number; clickable: boolean; map: GoogleMap }) => GoogleShape;
-  OverlayView: (new () => GoogleOverlayView) & { preventMapHitsAndGesturesFrom?(element: HTMLElement): void };
-}
+/** 谷歌 Maps JavaScript API 的脚本地址 */
+export const GOOGLE_MAPS_SCRIPT_URL = "https://maps.googleapis.com/maps/api/js";
+/** 写死的版本（谷歌的"quarterly"那一版的版本号，2026-11；谷歌每季度出一版、每版留大约一年，升级时改这一个数、跑页面测试） */
+export const GOOGLE_MAPS_VERSION = "3.65";
+/** 框里加载谷歌最多等多久 */
+export const GOOGLE_LOAD_TIMEOUT_MS = 15_000;
+/** 外层兜底：框本身没起来（没说"好了"）、小桥一直不回，等这么久算加载不了 */
+const FRAME_TIMEOUT_MS = GOOGLE_LOAD_TIMEOUT_MS + 3_000;
 
 /** 谷歌地图能放大到第几级、最小第几级（和别的两种差不多） */
 const MIN_ZOOM = 3;
@@ -67,185 +29,159 @@ const MAX_ZOOM = 20;
 const clamp = (zoom: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
 
 /** 二狗的点（WGS-84）→ 交给谷歌的（GCJ-02，大陆内才转） */
-export function toGoogle(p: { lat: number; lon: number }): GoogleLatLngLiteral {
+export function toGoogle(p: { lat: number; lon: number }): { lat: number; lng: number } {
   const g = wgsToGcj(p);
   return { lat: g.lat, lng: g.lon };
 }
 
-/** 这套风格的一个颜色（谷歌的线、圈要写成颜色值，不认 CSS 变量） */
-function tokenColor(el: HTMLElement, name: string, fallback: string): string {
-  const v = typeof getComputedStyle === "function" ? getComputedStyle(el).getPropertyValue(name).trim() : "";
-  return v === "" ? fallback : v;
-}
-
-/** 一个点的样子：一枚定位针，旁边写字（和地图插件的 fillMark 一样的结构，样式在 map.css） */
-function fillMark(el: HTMLElement, label: string | undefined): void {
-  const doc = el.ownerDocument;
-  const pin = doc.createElement("span");
-  pin.className = "map-pin";
-  pin.setAttribute("aria-hidden", "true");
-  el.replaceChildren(pin);
-  if (label) {
-    const text = doc.createElement("span");
-    text.className = "map-mark-label";
-    text.textContent = label;
-    el.append(text);
-    el.setAttribute("aria-label", label);
-  } else el.removeAttribute("aria-label");
+/** 框里先跑的一段（演示页、测试的假谷歌）：code 是交给框的源码，install 是不进框时在页面里直接装 */
+export interface GoogleFake {
+  readonly code: string;
+  install(win: Window & typeof globalThis): void;
 }
 
 export interface GoogleEngineOptions extends MapEngineOptions {
+  /** 浏览器用的 Key */
+  readonly key: string;
+  /** 关进隔离框（默认）；false 时小桥直接在页面里跑 */
+  readonly isolated?: boolean;
+  /** 假谷歌（演示页、测试） */
+  readonly fake?: GoogleFake | undefined;
   /** 建了一次谷歌地图（计费的"一次地图加载"）：报给守护进程数用量 */
   onLoaded?(): void;
-  /** 谷歌说 Key 不对时登记（loader.ts 的 onGoogleAuthFailure），交回撤销 */
-  watchAuth?(handler: () => void): () => void;
-  /** 谷歌说 Key 不对时给人看的一句 */
-  authFailedText?: string;
+  /** 谷歌说 Key 不对时报（给守护进程记下）；onFailed 照样报 */
+  onAuthFailed?(): void;
+  /** 给人看的两句：连不上、Key 不对 */
+  readonly texts: { readonly unreachable: string; readonly authFailed: string };
+  /** 框的地址（测试换） */
+  readonly frameSrc?: string;
 }
 
-export function createGoogleEngine(host: HTMLElement, lib: GoogleMapsLibrary, options: GoogleEngineOptions): MapEngine {
+/** 框里报来的一个数（不是有限的数当没有） */
+const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+
+/** 交给框的那一段：先装假谷歌（有的话），再跑小桥 */
+export function bridgeCode(fake?: GoogleFake): string {
+  return `${fake ? `${fake.code}\n` : ""}(${googleBridge.toString()})(env, config);`;
+}
+
+export function createGoogleEngine(host: HTMLElement, options: GoogleEngineOptions): MapEngine {
   const doc = host.ownerDocument;
   const root = doc.createElement("div");
   root.className = "map-google";
   root.dataset.engine = "google";
+  const isolated = options.isolated !== false;
+  root.dataset.isolated = isolated ? "frame" : "page";
+  root.dataset.state = "loading";
   host.append(root);
+
   let last: MapView = { ...options.view, zoom: clamp(options.view.zoom) };
-  let dark = options.dark;
-  let scene: MapScene = { marks: [], lines: [], circles: [] };
-  let shapes: GoogleShape[] = [];
-  let destroyed = false;
   let failed = false;
+  let destroyed = false;
+  const start = toGoogle(last);
+  const config: GoogleBridgeConfig = {
+    key: options.key,
+    version: GOOGLE_MAPS_VERSION,
+    language: activeLanguage(),
+    scriptUrl: GOOGLE_MAPS_SCRIPT_URL,
+    lat: start.lat,
+    lng: start.lng,
+    zoom: last.zoom,
+    dark: options.dark,
+    minZoom: MIN_ZOOM,
+    maxZoom: MAX_ZOOM,
+    timeoutMs: GOOGLE_LOAD_TIMEOUT_MS,
+    unreachable: options.texts.unreachable,
+    authFailed: options.texts.authFailed,
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
 
-  /** 点那一层：一个 OverlayView，里面每个点一个按钮，按投影摆 */
-  const pane = doc.createElement("div");
-  pane.className = "map-google-marks";
-  let markEls: Array<{ mark: MapMark; el: HTMLElement }> = [];
-  class Marks extends lib.OverlayView {
-    onAdd() {
-      this.getPanes()?.overlayMouseTarget.append(pane);
-    }
-    draw() {
-      const projection = this.getProjection();
-      if (!projection) return;
-      for (const { mark, el } of markEls) {
-        const p = projection.fromLatLngToDivPixel(toGoogle(mark));
-        if (!p) continue;
-        el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px)`;
+  /** 框里（或页面里的小桥）报来的 */
+  const handle = (msg: { readonly type: string; readonly [field: string]: unknown }) => {
+    if (destroyed) return;
+    const lat = num(msg.lat);
+    const lng = num(msg.lng);
+    const zoom = num(msg.zoom);
+    switch (msg.type) {
+      case "surface": {
+        const width = num(msg.width);
+        const height = num(msg.height);
+        if (lat === undefined || lng === undefined || zoom === undefined || width === undefined || height === undefined) return;
+        const view: MapSurfaceView = { lat, lon: lng, zoom, width, height, datum: "gcj02" };
+        options.onSurface?.(view);
+        return;
       }
+      case "moveend": {
+        if (lat === undefined || lng === undefined || zoom === undefined) return;
+        const w = gcjToWgs({ lat, lon: lng });
+        last = { lat: w.lat, lon: w.lon, zoom };
+        options.onMoveEnd(last);
+        return;
+      }
+      case "loaded":
+        options.onLoaded?.();
+        return;
+      case "ready":
+        if (root.dataset.state !== "loading") return;
+        clearTimeout(timer);
+        root.dataset.state = "ready";
+        options.onReady?.();
+        return;
+      case "failed":
+        if (failed) return;
+        failed = true;
+        clearTimeout(timer);
+        root.dataset.state = "failed";
+        if (msg.auth === true) options.onAuthFailed?.();
+        options.onFailed?.(typeof msg.reason === "string" ? msg.reason : options.texts.unreachable);
+        return;
     }
-    onRemove() {
-      pane.remove();
-    }
-  }
-
-  let map: GoogleMap;
-  let idle: GoogleListener | undefined;
-  let marks: Marks | undefined;
-
-  const view = (): MapView => {
-    const c = map.getCenter();
-    const zoom = map.getZoom();
-    if (c === undefined || zoom === undefined) return last;
-    const w = gcjToWgs({ lat: c.lat(), lon: c.lng() });
-    last = { lat: w.lat, lon: w.lon, zoom };
-    return last;
   };
 
-  /** 线、圈、点照这一份画（换了地图要重放一遍） */
-  const draw = () => {
-    for (const s of shapes) s.setMap(null);
-    const line = tokenColor(root, "--primary", "#3367d6");
-    const next: GoogleShape[] = [];
-    for (const c of scene.circles) {
-      const color = c.kind === "accuracy" ? tokenColor(root, "--you", line) : line;
-      next.push(new lib.Circle({ center: toGoogle(c), radius: c.radius, strokeColor: color, strokeWeight: 1, strokeOpacity: c.kind === "accuracy" ? 0.5 : 0.85, fillColor: color, fillOpacity: c.kind === "accuracy" ? 0.15 : 0.12, clickable: false, map }));
-    }
-    for (const l of scene.lines) {
-      if (l.points.length < 2) continue;
-      next.push(new lib.Polyline({ path: l.points.map(toGoogle), strokeColor: line, strokeWeight: l.kind === "route" ? 6 : 4, strokeOpacity: 0.85, clickable: false, map }));
-    }
-    shapes = next;
-    markEls = scene.marks.map((mark) => {
-      const el = doc.createElement("button");
-      el.type = "button";
-      el.className = "map-mark";
-      el.dataset.id = mark.id;
-      el.dataset.kind = mark.kind ?? "place";
-      fillMark(el, mark.label);
-      el.addEventListener("click", () => options.onMarkClick?.(mark.id));
-      lib.OverlayView.preventMapHitsAndGesturesFrom?.(el);
-      return { mark, el };
-    });
-    // "我现在的位置"的蓝点压在别的点上面：放在最后
-    pane.replaceChildren(...markEls.toSorted((a, b) => Number(a.mark.kind === "me") - Number(b.mark.kind === "me")).map((m) => m.el));
-    marks?.draw();
-  };
-
-  /** 建一张谷歌地图（第一次、换深浅色时） */
-  const build = () => {
-    idle?.remove();
-    marks?.setMap(null);
-    for (const s of shapes) s.setMap(null);
-    shapes = [];
-    root.replaceChildren();
+  timer = setTimeout(() => handle({ type: "failed", reason: options.texts.unreachable }), FRAME_TIMEOUT_MS);
+  let send: (msg: { readonly type: string; readonly [field: string]: unknown }) => void;
+  let frame: MapFrame | undefined;
+  let stopBridge: (() => void) | undefined;
+  if (isolated) {
+    frame = openMapFrame(root, { code: bridgeCode(options.fake), config }, handle, options.frameSrc);
+    send = (msg) => frame?.post(msg);
+  } else {
+    // 不隔离：同一段小桥在页面里跑（退路）
+    const win = (doc.defaultView ?? window) as Window & typeof globalThis;
+    options.fake?.install(win);
     const canvas = doc.createElement("div");
     canvas.className = "map-google-canvas";
     root.append(canvas);
-    map = new lib.Map(canvas, {
-      center: toGoogle(last),
-      zoom: clamp(last.zoom),
-      minZoom: MIN_ZOOM,
-      maxZoom: MAX_ZOOM,
-      colorScheme: dark ? "DARK" : "LIGHT",
-      disableDefaultUI: true,
-      gestureHandling: "greedy",
-      clickableIcons: false,
-      keyboardShortcuts: false,
-    });
-    options.onLoaded?.();
-    idle = map.addListener("idle", () => {
-      if (!destroyed) options.onMoveEnd(view());
-    });
-    marks = new Marks();
-    marks.setMap(map);
-    draw();
-  };
-  build();
-
-  // 谷歌说 Key 不对：报给地图页（退回 OpenStreetMap、标"连不上"），只报一次
-  const unwatch = options.watchAuth?.(() => {
-    if (destroyed || failed) return;
-    failed = true;
-    options.onFailed?.(options.authFailedText ?? "auth");
-  });
+    const listeners: Array<(msg: { readonly type: string; readonly [field: string]: unknown }) => void> = [];
+    const env: GoogleBridgeEnv = { win, container: canvas, post: handle, listen: (fn) => listeners.push(fn) };
+    stopBridge = googleBridge(env, config);
+    send = (msg) => {
+      for (const fn of listeners) fn(msg);
+    };
+  }
 
   return {
     kind: "google",
-    view,
+    loading: true,
+    view: () => last,
     setView(v) {
       last = { ...v, zoom: clamp(v.zoom) };
-      map.setZoom(clamp(v.zoom));
-      map.setCenter(toGoogle(v));
+      send({ type: "setView", ...toGoogle(v), zoom: last.zoom });
     },
     zoomBy(delta) {
-      map.setZoom(clamp(Math.round(view().zoom) + delta));
+      send({ type: "zoomBy", delta });
     },
-    setScene(next) {
-      scene = next;
-      draw();
+    panBy(dx, dy) {
+      send({ type: "panBy", dx, dy });
     },
-    setDark(next) {
-      if (next === dark) return;
-      dark = next;
-      view();
-      build();
+    setDark(dark) {
+      send({ type: "setDark", dark });
     },
     destroy() {
       destroyed = true;
-      unwatch?.();
-      idle?.remove();
-      marks?.setMap(null);
-      for (const s of shapes) s.setMap(null);
+      clearTimeout(timer);
+      frame?.destroy();
+      stopBridge?.();
       root.remove();
     },
   };

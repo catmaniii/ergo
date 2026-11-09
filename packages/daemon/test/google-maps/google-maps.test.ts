@@ -114,17 +114,18 @@ describe("谷歌地图插件：填 Key", () => {
     expect(mapTools(k)[0]!.spec.description).toContain("另外大陆以外优先用谷歌地图");
   });
 
-  it("服务端 Key 先测再存：三个 API 各问一次（固定的地方），都过了才存；浏览器用的只看写法；日志里没有 Key", async () => {
+  it("服务端 Key 先测再存：三个 API 各问一次（固定的地方），都过了才存，顺带取一张小静态地图（451，预览图能不能用）；浏览器用的只看写法；日志里没有 Key", async () => {
     const { google, k } = await setup();
     await connected(k);
-    expect(google.requests.map((r) => `${r.api} ${r.fieldMask ?? "-"}`)).toEqual(["geocoding -", "places places.id", "routes routes.distanceMeters"]);
+    expect(google.requests.map((r) => `${r.api} ${r.fieldMask ?? "-"}`)).toEqual(["geocoding -", "places places.id", "routes routes.distanceMeters", "static -"]);
+    expect(google.requests[3]!.query.get("center")).toBe("1.2868,103.8545");
     expect(google.requests[0]!.query.get("latlng")).toBe("1.2868,103.8545");
     const s = source(k);
     expect(s.account).toBe("浏览器用的 Key：已填 · 服务端用的 Key：已填");
     expect(s.problem).toBeUndefined();
-    expect(s.panel).toMatchObject({ kind: "google-maps", browserKey: true, serverKey: true, allowOverage: false, over: [] });
-    // 测 Key 那三次里地址和路线各数一次（只要编号的搜索不收费、不数）
-    expect((s.panel as { usage: { counts: Record<string, number> } }).usage.counts).toMatchObject({ geocoding: 1, routesEssentials: 1, textSearch: 0 });
+    expect(s.panel).toMatchObject({ kind: "google-maps", browserKey: true, serverKey: true, allowOverage: false, over: [], staticMap: "ok" });
+    // 测 Key 那几次里地址、路线、静态地图各数一次（只要编号的搜索不收费、不数）
+    expect((s.panel as { usage: { counts: Record<string, number> } }).usage.counts).toMatchObject({ geocoding: 1, routesEssentials: 1, textSearch: 0, staticMaps: 1 });
     expect(googleView(k)).toMatchObject({ ready: true, key: GOOGLE_TEST_BROWSER_KEY, lookup: true });
     expect(fs.existsSync(secretFile(k))).toBe(true);
     expect(leaks(k)).toEqual([]);

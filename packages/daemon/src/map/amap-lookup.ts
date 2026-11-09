@@ -75,6 +75,11 @@ const FAILURES: Readonly<Record<string, MapLookupFailure>> = {
   "20012": "params",
 };
 
+/** 高德的 infocode（和 info）→ 哪一种出错（静态地图 451 也用） */
+export function amapFailureOf(infocode: string, info: string): MapLookupFailure {
+  return FAILURES[infocode] ?? (/^3\d{4}$/.test(infocode) ? "server" : info === "INVALID_USER_KEY" ? "key" : "other");
+}
+
 /** 高德的值：字符串原样（去掉首尾空白），别的（[]、对象、没有）当没有 */
 const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
 /** 高德写成字符串的数：认不出是 undefined */
@@ -326,7 +331,7 @@ export function createAmapLookup(options: AmapLookupOptions): AmapLookup {
     if (str(b.status) === "1") return b;
     const code = str(b.infocode);
     const info = redact(str(b.info), key) || `HTTP ${res.status}`;
-    const failure = FAILURES[code] ?? (/^3\d{4}$/.test(code) ? "server" : info === "INVALID_USER_KEY" ? "key" : "other");
+    const failure = amapFailureOf(code, info);
     options.log(`高德：${path} 没查成（${code || "?"} ${info}）`); // @i18n-ignore log
     throw new MapLookupError(failure, info, code === "" ? undefined : code);
   };

@@ -5,7 +5,8 @@
 // - nearbySearch 周边（Nearby Search Pro：不说找什么、列出附近有什么）：每月 5,000 次；
 // - geocoding 地址 ↔ 位置（Geocoding API）：每月 10,000 次；
 // - routesEssentials 步行、公交的路线（Routes API Compute Routes Essentials）：每月 10,000 次；
-// - routesPro 开车的路线（带实时路况 TRAFFIC_AWARE，算 Compute Routes Pro）：每月 5,000 次。
+// - routesPro 开车的路线（带实时路况 TRAFFIC_AWARE，算 Compute Routes Pro）：每月 5,000 次；
+// - staticMaps 聊天卡片的预览图（451，Maps Static API 取一张静态地图）：每月 10,000 次。
 // 只数次数，不记查了什么。存在插件自己的存储（数据目录的 google-maps/usage.json，{ format: 1, months: { "2026-11": { … } } }，
 // 留最近 12 个月），写文件先写临时文件再改名；读不了当从 0 数、记日志。月份按本地日期算（谷歌按太平洋时间的自然月，月初差几个小时）。
 // 每发一次请求就记一次（Key 不认、限流的也算：宁可多数）。测服务端 Key 时那三次也算（搜地点那一次只要编号，算谷歌不限量的 IDs Only，不数）。
@@ -26,12 +27,13 @@ export const GOOGLE_MAPS_MONTHLY_FREE: Readonly<Record<GoogleMapsSku, number>> =
   geocoding: 10_000,
   routesEssentials: 10_000,
   routesPro: 5_000,
+  staticMaps: 10_000,
 };
 
 /** 到了免费量的几成提醒 */
 export const GOOGLE_MAPS_WARN_RATIO = 0.8;
 
-/** 查询用的几项（服务端 Key）：哪一项超了，秘书先不用谷歌查 */
+/** 查询用的几项（服务端 Key）：哪一项超了，秘书先不用谷歌查（静态地图那一项超了只是卡片没有谷歌的预览图，不影响查询） */
 export const LOOKUP_SKUS: readonly GoogleMapsSku[] = ["textSearch", "nearbySearch", "geocoding", "routesEssentials", "routesPro"];
 
 /** 留最近几个月 */

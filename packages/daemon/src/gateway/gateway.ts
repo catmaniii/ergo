@@ -124,6 +124,7 @@ import type { EventStore, NewEvent, StoredEvent } from "../events/event-store.ts
 import { DEVICE_COOKIE, readCookie } from "../pairing/credentials.ts";
 import { checkExternalOrigin, clearDeviceCookie, deviceCookie, type DevicePairing, handlePairingRoute, requestSource } from "./external.ts";
 import { FONTS_PREFIX, serveFont } from "./fonts.ts";
+import { MAP_FRAME_PATH, serveMapFrame } from "./map-frame.ts";
 import { isMapPath, serveMap } from "./map-routes.ts";
 import { type HttpApi, sendError, sendJson } from "./http-api.ts";
 import { checkLocalRequest } from "./local-origin.ts";
@@ -396,8 +397,9 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
       return reply(res, status, "application/json; charset=utf-8", JSON.stringify(body));
     }
     if (isPage(pathname)) return servePage(res);
-    // 地图：瓦片转发、高德安全密钥代理
+    // 地图：瓦片转发、高德安全密钥代理；地图页的隔离框（453：谷歌关在里面跑）
     if (isMapPath(pathname)) return serveMap(req, res, url, options.map?.(), log);
+    if (pathname === MAP_FRAME_PATH) return serveMapFrame(req, res, options.webRoot);
     // 视觉风格的字体：构建产物 fonts/ 下的样式表、woff2、许可证
     if (pathname.startsWith(FONTS_PREFIX)) return serveFont(req, res, options.webRoot, pathname);
     // 报告页预览 PDF 用的 pdf.js：构建产物 pdfjs/ 下的脚本、cmap、字体、许可证

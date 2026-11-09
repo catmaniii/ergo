@@ -51,7 +51,7 @@ import { type BackupService, createBackupService } from "./backup/backup.ts";
 import type { SnapshotFiles } from "./backup/files.ts";
 import { BoardKindRegistry, type BoardKinds } from "./board/kinds.ts";
 import { CALENDAR } from "./calendar/api.ts";
-import { MAP, MAP_DAY, MAP_DRAWING, MAP_FIND } from "./map/api.ts";
+import { MAP, MAP_DAY, MAP_DRAWING, MAP_FIND, MAP_PREVIEW } from "./map/api.ts";
 import { cardPurge, type CardService, createCardService } from "./cards/cards.ts";
 import { createRuntimeQuestions, runtimeQuestionCardType } from "./conversation/runtime-questions.ts";
 import { createSessionRollbacks, type RollbackSession, type SessionRollbackHook } from "./conversation/rollback.ts";
@@ -3020,6 +3020,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 地图卡片按编号取查地点、算路线查到的那一份：同样现取（只在地图插件的内存里）
         mapDrawing: { drawing: (lookup) => plugins.active(MAP_DRAWING).drawing(lookup) },
         mapFind: { find: (text, signal) => plugins.active(MAP_FIND).find(text, signal) },
+        // 聊天卡片的预览图（451）：地图插件按卡片编号取点和线、交给那家的静态地图（同样现取）
+        mapPreview: { preview: (q, signal) => plugins.active(MAP_PREVIEW).preview(q, signal) },
         ledger,
         // 消耗页顶上的服务商余额（440）：GET 取、POST 刷新
         balance: providerBalances,

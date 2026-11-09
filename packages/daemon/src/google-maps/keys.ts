@@ -10,6 +10,8 @@
 // - 浏览器用的 Key：谷歌只让在网页里测它（守护进程拿它调接口不算数：网站限制按浏览器带的来源认），所以这里只看写法（像个 Key：
 //   不带空白、长度对）就存；真不对时地图页加载谷歌底图会收到谷歌的 gm_authFailure，报给守护进程（POST /api/map/basemap），
 //   这里记下：连接状态报出错（要重新填）、地图页不再拿这个 Key、退回 OpenStreetMap。它没法在后台再测，重新填（或断开）才清掉。
+// 451 起服务端 Key 还给 Maps Static API（聊天卡片的预览图）：测的时候多取一张很小的静态地图（同一个固定的地方），谷歌回 403 就记
+// "预览图：没开"（没开这个 API、Key 的 API 限制没勾它）——不挡保存、不算 Key 有问题，只是卡片没有谷歌的预览图；取卡片预览图时也照样记。
 // 查地点、算路线时谷歌说服务端 Key 不对、没权限（client.ts 的 onReply），同样记下：连接状态报出错、秘书先不用谷歌查（退回 OpenStreetMap）；
 // 内核每小时叫 recheck 拿存着的再测，好了就回来。Key 不进日志、不进事件、不进给页面的（除了浏览器用的那一个），出错的原因里碰到就换成 ***。
 import { t } from "@ergo/protocol";
@@ -55,10 +57,14 @@ export interface GoogleMapsKeys {
   browserRejected(): void;
   /** 查地点、算路线时谷歌的回应（client.ts 的 onReply） */
   serverReply(reply: GoogleReply): void;
+  /** 静态地图（451，预览图）能不能用：测 Key、取预览图时谷歌怎么说的；还不知道是 undefined */
+  staticMap(): "ok" | "off" | undefined;
+  /** 取预览图时谷歌怎么说的（static-map.ts 报来） */
+  staticNoted(state: "ok" | "off"): void;
 }
 
-/** 一次测服务端 Key 的结果 */
-type ProbeResult = { ok: true; limit?: string } | { ok: false; failure: "key" | "denied" | "other"; text: string };
+/** 一次测服务端 Key 的结果（staticMap：顺带取的那张小静态地图，451；没取或说不清是 undefined） */
+type ProbeResult = ({ ok: true; limit?: string } | { ok: false; failure: "key" | "denied" | "other"; text: string }) & { staticMap?: "ok" | "off" };
 
 /** 一句话里出现的 Key 换成 *** */
 function redact(text: string, keys: readonly (string | undefined)[]): string {
@@ -87,6 +93,21 @@ const filled = (secrets: DataSourceSecrets) => ({ browser: secrets.has(GOOGLE_MA
 
 export function createGoogleMapsKeys(options: { client: GoogleClient; log: (line: string) => void }): GoogleMapsKeys {
   const problems: Partial<Record<Part, Problem>> = {};
+  /** 静态地图能不能用（451）：测 Key、取预览图时记下 */
+  let staticState: "ok" | "off" | undefined;
+
+  /** 顺带取一张很小的静态地图（同一个固定的地方）：能用、没开（403）；说不清（连不上、别的错）是 undefined */
+  const probeStatic = async (key: string, signal?: AbortSignal): Promise<"ok" | "off" | undefined> => {
+    try {
+      const params = new URLSearchParams({ center: `${PROBE.lat},${PROBE.lon}`, zoom: "15", size: "64x64", format: "png" });
+      const reply = await options.client.image(params, key, signal);
+      if (reply.status === 200 && reply.contentType.startsWith("image/")) return "ok";
+      return reply.status === 403 ? "off" : undefined;
+    } catch (err) {
+      if (signal?.aborted) throw err;
+      return undefined;
+    }
+  };
 
   /** 拿服务端 Key 调一次三个 API */
   const probe = async (key: string, signal?: AbortSignal): Promise<ProbeResult> => {
@@ -123,9 +144,12 @@ export function createGoogleMapsKeys(options: { client: GoogleClient; log: (line
         else other ??= err.failure === "network" ? t("googleMaps.error.network", { reason: err.detail }) : t("googleMaps.error.other", { api: step.api, detail: err.detail });
       }
     }
-    if (failed.length > 0) return { ok: false, failure: "denied", text: failed.join(t("googleMaps.problem.joiner")) };
-    if (other !== undefined) return { ok: false, failure: "other", text: other };
-    return limit === undefined ? { ok: true } : { ok: true, limit };
+    // 静态地图（451）没开不挡保存：只记下，卡片没有谷歌的预览图
+    const staticMap = await probeStatic(key, signal);
+    const withStatic = staticMap === undefined ? {} : { staticMap };
+    if (failed.length > 0) return { ok: false, failure: "denied", text: failed.join(t("googleMaps.problem.joiner")), ...withStatic };
+    if (other !== undefined) return { ok: false, failure: "other", text: other, ...withStatic };
+    return limit === undefined ? { ok: true, ...withStatic } : { ok: true, limit, ...withStatic };
   };
 
   /** 一个 Key 的问题那一句 */
@@ -146,6 +170,7 @@ export function createGoogleMapsKeys(options: { client: GoogleClient; log: (line
 
   /** 测完记下：过了清掉（到上限记成一时的），Key 不认、没权限记成要重新填的 */
   const note = (result: ProbeResult) => {
+    if (result.staticMap !== undefined) staticState = result.staticMap;
     if (result.ok) {
       if (result.limit) problems.server = { kind: "limit", text: result.limit };
       else delete problems.server;
@@ -188,6 +213,7 @@ export function createGoogleMapsKeys(options: { client: GoogleClient; log: (line
       if (result.ok) {
         secrets.set(GOOGLE_MAPS_SECRET.serverKey, key);
         note(result);
+        if (result.staticMap === "off") options.log("谷歌地图：服务端 Key 不能用静态地图（Maps Static API 没开或没勾），聊天卡片先不画谷歌的预览图"); // @i18n-ignore log
         options.log(`谷歌地图：服务端 Key 测过了${result.limit ? "（谷歌说用量到上限了）" : ""}`); // @i18n-ignore log
         return;
       }
@@ -210,6 +236,14 @@ export function createGoogleMapsKeys(options: { client: GoogleClient; log: (line
     reset() {
       delete problems.browser;
       delete problems.server;
+      staticState = undefined;
+    },
+
+    staticMap: () => staticState,
+
+    staticNoted(state) {
+      if (state !== staticState) options.log(state === "ok" ? "谷歌地图：静态地图能用了" : "谷歌地图：谷歌说服务端 Key 不能用静态地图（Maps Static API 没开或没勾）"); // @i18n-ignore log
+      staticState = state;
     },
 
     browserKey(secrets) {

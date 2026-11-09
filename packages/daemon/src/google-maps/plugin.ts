@@ -8,7 +8,8 @@
 // - 网页那一半（packages/web/src/plugins/google-maps/）：地图服务插槽的底图 google（官方加载器、固定版本），设置 · 数据源 · 谷歌地图
 //   填 Key 的那一块。
 // - 隐私：查询时只把要查的那一两个点（起终点、"附近"的中心）发给谷歌，结果不存；浏览器用的 Key 本来就在页面上（谷歌的设计），
-//   服务端用的不进页面；谷歌底图是设备直接连谷歌（看足迹时一律 OpenStreetMap，不加载谷歌的脚本，地图插件管）。
+//   服务端用的不进页面；谷歌底图是设备直接连谷歌（451 起看足迹也用当前地图：画着足迹时谷歌的脚本看得到轨迹；聊天卡片的静态预览图
+//   由守护进程拿服务端 Key 取，画上去的点和线谷歌也看得到）。
 import path from "node:path";
 import { GOOGLE_MAPS_SOURCE_ID, t } from "@ergo/protocol";
 import type { DataSource } from "../data-sources/api.ts";
