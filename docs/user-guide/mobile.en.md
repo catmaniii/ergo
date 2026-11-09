@@ -469,7 +469,7 @@ If the address is recognizably a tailnet one, the Tailscale item comes first.
 - If a credential isn't used even once within 24 hours of being issued, it's automatically void.
 - If you lose your phone, revoke it from your computer.
 - A revoked phone says **This device has been revoked**. Tap **Request pairing** to apply again, and you'll have to approve it again too.
-- The phone keeps a copy of how things looked last time (only in this phone's browser storage). Next time it shows that first, then fetches from your computer only what changed since, instead of going through the whole history every time. The copy is deleted when this phone is revoked, expires or goes back to the pairing page, and it isn't used on the first open after ergo is upgraded.
+- The phone keeps a copy of how things looked last time, together with the records it has fetched (everything except conversations: cards, Inbox, the task board, activity and so on; only in this phone's browser storage). Next time it shows that first, then fetches from your computer only what changed since, instead of going through the whole history every time. After ergo updates its web page (including the automatic refresh when you switch back), the new version rebuilds from the records on the phone and still fetches only what's new; conversations fetch their latest page from the computer again. All of this is deleted when this phone is revoked, expires or goes back to the pairing page.
 
 ## Update the app
 

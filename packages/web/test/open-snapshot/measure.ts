@@ -116,6 +116,41 @@ export async function storedSnapshot(page: Page): Promise<{ webVersion: string; 
   })`)) as never;
 }
 
+/** 这台设备上存着的整份快照（不只是几样：比两次打开存下的一样不一样）；没有是 null */
+export async function storedSnapshotFull(page: Page): Promise<{ webVersion: string; snapshot: Record<string, unknown>; events?: { through: Record<string, number> } } | null> {
+  return (await page.evaluate(`new Promise((resolve) => {
+    const open = indexedDB.open("ergo-page", 1);
+    open.onupgradeneeded = () => { if (!open.result.objectStoreNames.contains("open-snapshot")) open.result.createObjectStore("open-snapshot"); };
+    open.onerror = () => resolve(null);
+    open.onsuccess = () => {
+      const db = open.result;
+      const get = db.transaction("open-snapshot").objectStore("open-snapshot").get("latest");
+      get.onsuccess = () => { db.close(); resolve(get.result ?? null); };
+      get.onerror = () => { db.close(); resolve(null); };
+    };
+  })`)) as never;
+}
+
+/** 这台设备上存着的事件（452：和快照同一张表，键是 [频道, 序号]），按频道数 */
+export async function storedEventCounts(page: Page): Promise<Record<string, number>> {
+  return (await page.evaluate(`new Promise((resolve) => {
+    const open = indexedDB.open("ergo-page", 1);
+    open.onupgradeneeded = () => { if (!open.result.objectStoreNames.contains("open-snapshot")) open.result.createObjectStore("open-snapshot"); };
+    open.onerror = () => resolve({});
+    open.onsuccess = () => {
+      const db = open.result;
+      const keys = db.transaction("open-snapshot").objectStore("open-snapshot").getAllKeys(IDBKeyRange.lowerBound([]));
+      keys.onsuccess = () => {
+        db.close();
+        const counts = {};
+        for (const [channel] of keys.result) counts[channel] = (counts[channel] ?? 0) + 1;
+        resolve(counts);
+      };
+      keys.onerror = () => { db.close(); resolve({}); };
+    };
+  })`)) as never;
+}
+
 /** 等本机快照存下来（闲下来 3 秒才写），并且游标追上 cursors（给了的话） */
 export async function waitStored(page: Page, cursors?: Record<string, number>, timeoutMs = 15_000): Promise<NonNullable<Awaited<ReturnType<typeof storedSnapshot>>>> {
   const deadline = Date.now() + timeoutMs;

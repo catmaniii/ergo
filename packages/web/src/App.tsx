@@ -9,7 +9,8 @@
  * 由守护进程提供页面时先问一次这个页面被信任吗（/api/access）：外网端口上还没配对的设备只看到配对等待页；
  * 用着用着凭证失效了（被吊销、过期），连接报 unpaired，也回到配对等待页。被吊销的设备不自动重新申请：
  * 浏览器里留着"本设备已被吊销"的记号，刷新之后也一样（state/pairing-gate.ts、app/revoked-mark.ts）。
- * 打开时先用这台设备上存的快照把界面画出来、只补增量（app/open-snapshot.ts，388）；回到配对等待页时删掉它。
+ * 打开时先用这台设备上存的快照把界面画出来、只补增量（app/open-snapshot.ts，388）；网页换了一版时用这台设备上存的事件重新折一遍、
+ * 同样只补增量（452）；回到配对等待页时都删掉。
  *
  * 网页插件（ADR-0027 的网页插槽）在这里装：插件清单（plugins/manifest.ts，只有这里引它）建成网页插件宿主，经 PluginHostProvider
  * 交给界面；守护进程在插件频道上报的状况变了就装、停（PluginStatusSync）。导航里网页插件的页面（记忆）按它登记的 order 插进来。
@@ -134,11 +135,13 @@ const connection: Connection = demo
 const http: DaemonHttp = demo ? demo.http : new HttpDaemonClient();
 
 /**
- * 本机快照（app/open-snapshot.ts）：安装版由守护进程提供的页面才有（原型、开发服务器的页面没有网页版本，不用）。
- * 页面脚本一开始就读，和问"被信任吗"同时，不多等
+ * 本机快照和本机存的事件（app/open-snapshot.ts）：安装版由守护进程提供的页面才有（原型、开发服务器的页面没有网页版本，不用）。
+ * 页面脚本一开始就读，和问"被信任吗"同时，不多等；换了一版时按订阅的先后重新折存着的事件（和守护进程从头补发的先后一样）
  */
 const snapshots: PageSnapshots | undefined =
-  demo || PAGE_WEB_VERSION === undefined ? undefined : pageSnapshots({ webVersion: PAGE_WEB_VERSION, protocolVersion: FRONTEND_PROTOCOL_VERSION, backend: indexedDbSnapshotBackend() });
+  demo || PAGE_WEB_VERSION === undefined
+    ? undefined
+    : pageSnapshots({ webVersion: PAGE_WEB_VERSION, protocolVersion: FRONTEND_PROTOCOL_VERSION, backend: indexedDbSnapshotBackend(), channelOrder: OPENING_CHANNELS });
 void snapshots?.load();
 
 /**

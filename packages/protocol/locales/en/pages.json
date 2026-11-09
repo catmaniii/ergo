@@ -646,6 +646,7 @@
   "pages.debug.connection.catchUpNone": "Not finished yet",
   "pages.debug.connection.fromSnapshot": "Started from this device's snapshot, fetched only what changed",
   "pages.debug.connection.fromScratch": "No usable snapshot on this device; fetched everything",
+  "pages.debug.connection.fromEvents": "Page updated: rebuilt from {count} events stored on this device, fetched only what changed",
   "pages.debug.connection.measure": "Measure latency",
   "pages.debug.connection.reconnecting": "Disconnected; reconnecting now",
   "pages.debug.connection.reconnect": "Reconnect",

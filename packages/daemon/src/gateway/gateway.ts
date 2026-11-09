@@ -110,7 +110,7 @@ import {
   WS_CLOSE_UNPAIRED,
   t,
 } from "@ergo/protocol";
-import { WebSocket, WebSocketServer } from "ws";
+import { type PerMessageDeflateOptions, WebSocket, WebSocketServer } from "ws";
 import type { AppProxy, AppRequestContext } from "../apps/proxy.ts";
 import { type BrowserLinks, type BrowserPeer, browsingOff } from "../browsing/api.ts";
 import type { MapService } from "../map/api.ts";
@@ -133,6 +133,16 @@ import { DEFAULT_WEB_VERSION_POLL_MS, watchWebVersion } from "./web-version.ts";
 export const LOCAL_HOST = "127.0.0.1";
 /** 单帧上限：文本消息足够；图片和文件走 HTTP 上传 */
 const MAX_FRAME_BYTES = 1024 * 1024;
+/**
+ * 前端 WebSocket 的压缩（permessage-deflate，452）：冷打开、新设备第一次打开要把会话频道以外的历史全部补一遍（用户那台 2026-11-09
+ * 数过：一打开就订阅的那几个频道约 1.7 万条、22 MB），经隧道到手机时字节少很多。同一条连接共用压缩上下文（一帧帧事件的 JSON 很像：
+ * 合成的用户量级数据压到原来的 4%，内容换成随机汉字也有 32%）；每条连接压缩那头约 100 KB 内存（窗口 2^13、memLevel 7，比 zlib 默认的
+ * 约 300 KB 小，压缩比只差几个百分点）。浏览器（Chromium 内核，鸿蒙 ArkWeb 也是）握手时会提；不提的客户端照常不压。
+ * 注意 ws 的 threshold 只在不共用上下文时才管用，所以小帧不压是发的时候按帧挑（COMPRESS_MIN_CHARS）
+ */
+const PER_MESSAGE_DEFLATE: PerMessageDeflateOptions = { zlibDeflateOptions: { memLevel: 7 }, serverMaxWindowBits: 13 };
+/** 短于这么多字（UTF-16 码元，汉字按字节只会更多）的帧不压：回执、空订阅的响应这类，压了省不下几个字节，白走一趟 zlib */
+export const COMPRESS_MIN_CHARS = 128;
 /** WebSocket 心跳的默认间隔（nginx 的 proxy_read_timeout 比它长得多，隧道上不会因为没流量被掐） */
 export const DEFAULT_HEARTBEAT_INTERVAL_MS = 30_000;
 
@@ -445,7 +455,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     return sendError(res, "unauthorized", t("gateway.unpaired"));
   });
 
-  const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME_BYTES });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME_BYTES, perMessageDeflate: PER_MESSAGE_DEFLATE });
   const accept = (req: http.IncomingMessage, socket: Duplex, head: Buffer, deviceId: string | undefined) => {
     wss.handleUpgrade(req, socket, head, (ws) => {
       const device: DeviceSession | undefined = deviceId === undefined ? undefined : { deviceId, refresh: () => pairing.refresh(deviceId) };
@@ -848,6 +858,9 @@ class FrontendConnection implements BrowserPeer {
   }
 
   private send(frame: EventFrame | ResponseFrame): void {
-    if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(frame));
+    if (this.ws.readyState !== WebSocket.OPEN) return;
+    const text = JSON.stringify(frame);
+    // 协商了压缩的连接上，短帧照原样发（没协商的 compress 不起作用）
+    this.ws.send(text, { compress: text.length >= COMPRESS_MIN_CHARS });
   }
 }

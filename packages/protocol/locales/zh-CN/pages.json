@@ -635,6 +635,7 @@
   "pages.debug.connection.catchUpNone": "还没补完过",
   "pages.debug.connection.fromSnapshot": "先用了本机快照，只补增量",
   "pages.debug.connection.fromScratch": "本机没有能用的快照，从头补",
+  "pages.debug.connection.fromEvents": "网页换了一版：用本机存的 {count} 条事件重算，只补增量",
   "pages.debug.connection.measure": "测一次延迟",
   "pages.debug.connection.reconnecting": "断开了，马上重连",
   "pages.debug.connection.reconnect": "断开重连",

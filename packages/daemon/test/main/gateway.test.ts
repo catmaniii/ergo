@@ -10,6 +10,7 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { FRONTEND_PROTOCOL_VERSION, type SubscribeResult, webVersionInHtml } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
+import { COMPRESS_MIN_CHARS } from "../../src/gateway/gateway.ts";
 import { serviceKey } from "../../src/plugins/host.ts";
 import { startTestDaemon, TEST_PAGE } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
@@ -264,6 +265,134 @@ describe("请求帧", () => {
     expect(frontend.events({ persistedOnly: true }).map((f) => f.type)).toEqual(["message", "turn_start", "message", "turn_end"]);
   });
 });
+
+describe("WebSocket 压缩（permessage-deflate，452）", () => {
+  it("提了 permessage-deflate 的（浏览器那样）协商上：长的事件帧压了发、解开一字不差，短的响应照原样；没提的照常不压", async () => {
+    const { url } = await startTestDaemon({ secretary: [{ kind: "reply", text: "收到".repeat(400) }] });
+    const writer = await TestFrontend.connect(url);
+    await writer.subscribe({ secretary: 0 });
+    await writer.sendText("这是一段要压的长话。".repeat(200));
+    await writer.next("secretary", "turn_end");
+    const expected = writer.events({ persistedOnly: true }).map((f) => JSON.stringify(f));
+
+    const port = Number(new URL(url).port);
+    const zipped = await rawWebSocket(port, true);
+    expect(zipped.extensions).toMatch(/^permessage-deflate/);
+    zipped.sendText(JSON.stringify({ id: "s1", method: "subscribe", params: { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { secretary: 0 } } }));
+    const zFrames = await zipped.readUntil((texts) => texts.filter((t) => t.startsWith('{"channel"')).length >= expected.length);
+    zipped.close();
+    const response = zFrames.find((f) => f.text.startsWith('{"id":"s1"'))!;
+    expect(response.text.length).toBeLessThan(COMPRESS_MIN_CHARS);
+    expect(response.rsv1).toBe(false);
+    const events = zFrames.filter((f) => f.text.startsWith('{"channel"'));
+    expect(events.map((f) => f.text)).toEqual(expected);
+    // 长的（两条消息）压了，线上比原文小得多
+    const long = events.filter((f) => f.text.length >= 1000);
+    expect(long.length).toBeGreaterThanOrEqual(2);
+    for (const f of long) {
+      expect(f.rsv1).toBe(true);
+      expect(f.wireBytes).toBeLessThan(Buffer.byteLength(f.text) / 5);
+    }
+    for (const f of events) expect(f.rsv1).toBe(f.text.length >= COMPRESS_MIN_CHARS);
+
+    const plain = await rawWebSocket(port, false);
+    expect(plain.extensions).toBeUndefined();
+    plain.sendText(JSON.stringify({ id: "s1", method: "subscribe", params: { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { secretary: 0 } } }));
+    const pFrames = await plain.readUntil((texts) => texts.filter((t) => t.startsWith('{"channel"')).length >= expected.length);
+    plain.close();
+    expect(pFrames.every((f) => !f.rsv1)).toBe(true);
+    expect(pFrames.filter((f) => f.text.startsWith('{"channel"')).map((f) => f.text)).toEqual(expected);
+  });
+});
+
+/** 线上收到的一帧：RSV1（压没压）、线上多少字节（不含帧头）、解开后的文字 */
+interface WireFrame {
+  rsv1: boolean;
+  wireBytes: number;
+  text: string;
+}
+
+/**
+ * 自己握手、自己拆帧的 WebSocket 客户端（ws 的客户端看不到帧头）：deflate 时像浏览器那样提 permessage-deflate，
+ * 压了的帧接上 00 00 FF FF 交给同一个 inflate（共用上下文）解开
+ */
+async function rawWebSocket(port: number, deflate: boolean): Promise<{ extensions: string | undefined; sendText(text: string): void; readUntil(done: (texts: string[]) => boolean): Promise<WireFrame[]>; close(): void }> {
+  const socket = net.connect(port, "127.0.0.1");
+  await new Promise<void>((resolve, reject) => {
+    socket.once("connect", resolve);
+    socket.once("error", reject);
+  });
+  const key = Buffer.from(Array.from({ length: 16 }, (_, i) => i * 7)).toString("base64");
+  socket.write(
+    [`GET /ws HTTP/1.1`, `Host: 127.0.0.1:${port}`, "Upgrade: websocket", "Connection: Upgrade", `Sec-WebSocket-Key: ${key}`, "Sec-WebSocket-Version: 13", ...(deflate ? ["Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits"] : []), "", ""].join("\r\n"),
+  );
+  let buffer = Buffer.alloc(0);
+  let wake: (() => void) | undefined;
+  socket.on("data", (chunk: Buffer) => {
+    buffer = Buffer.concat([buffer, chunk]);
+    wake?.();
+  });
+  const more = () => new Promise<void>((resolve) => (wake = resolve));
+  while (!buffer.includes("\r\n\r\n")) await more();
+  const end = buffer.indexOf("\r\n\r\n");
+  const head = buffer.subarray(0, end).toString("latin1");
+  buffer = buffer.subarray(end + 4);
+  if (!head.startsWith("HTTP/1.1 101")) throw new Error(head.split("\r\n")[0]);
+  const extensions = /^sec-websocket-extensions:\s*(.+)$/im.exec(head)?.[1];
+  const inflater = zlib.createInflateRaw();
+  const inflate = (payload: Buffer) =>
+    new Promise<Buffer>((resolve, reject) => {
+      const out: Buffer[] = [];
+      const onData = (d: Buffer) => out.push(d);
+      inflater.on("data", onData);
+      inflater.write(Buffer.concat([payload, Buffer.from([0x00, 0x00, 0xff, 0xff])]));
+      inflater.flush(zlib.constants.Z_SYNC_FLUSH, () => {
+        inflater.off("data", onData);
+        resolve(Buffer.concat(out));
+      });
+      inflater.once("error", reject);
+    });
+  return {
+    extensions,
+    sendText(body) {
+      const payload = Buffer.from(body, "utf8");
+      const mask = Buffer.from([1, 2, 3, 4]);
+      const len = payload.length < 126 ? Buffer.from([0x80 | payload.length]) : Buffer.from([0x80 | 126, payload.length >> 8, payload.length & 0xff]);
+      socket.write(Buffer.concat([Buffer.from([0x81]), len, mask, payload.map((b, i) => b ^ mask[i % 4]!)]));
+    },
+    async readUntil(done) {
+      const frames: WireFrame[] = [];
+      for (;;) {
+        while (buffer.length >= 2) {
+          let len = buffer[1]! & 0x7f;
+          let at = 2;
+          if (len === 126) {
+            if (buffer.length < 4) break;
+            len = buffer.readUInt16BE(2);
+            at = 4;
+          } else if (len === 127) {
+            if (buffer.length < 10) break;
+            len = Number(buffer.readBigUInt64BE(2));
+            at = 10;
+          }
+          if (buffer.length < at + len) break;
+          const rsv1 = (buffer[0]! & 0x40) !== 0;
+          const opcode = buffer[0]! & 0x0f;
+          const payload = buffer.subarray(at, at + len);
+          buffer = buffer.subarray(at + len);
+          if (opcode !== 0x1) continue;
+          frames.push({ rsv1, wireBytes: len, text: (rsv1 ? await inflate(payload) : payload).toString("utf8") });
+        }
+        if (done(frames.map((f) => f.text))) return frames;
+        await more();
+      }
+    },
+    close() {
+      socket.destroy();
+      inflater.close();
+    },
+  };
+}
 
 function text(t: string) {
   return { conversation: "secretary", parts: [{ type: "text", text: t }] };

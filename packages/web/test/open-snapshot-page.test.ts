@@ -2,8 +2,9 @@
 // 系统挑的端口）提供页面和 /ws，补发一份照用户那台二狗的量级编的事件日志（一万多条、十来 MB），在真的 Chrome 里打开：
 // - 冷打开（本机没快照）：一万多条补发攒着一次交，补发在路上时界面不画中间状态（React 的提交次数，挂开发者工具的钩子数）；
 // - 热打开（本机有快照）：先用快照把界面画出来（补发还没到时就看得到上次的内容），订阅带快照的游标，只补增量；
-// - 网页升级后第一次打开不用旧快照，从头补；
-// - 设备被吊销、回到配对页时本机快照删掉。
+// - 网页升级后第一次打开不用旧快照，用本机存的事件重新折一遍（452）：订阅只带会话频道以外的游标，守护进程只补增量（加秘书会话最近一页），
+//   补完存下的快照和一台新设备冷打开存下的一样；
+// - 设备被吊销、回到配对页时本机快照和事件都删掉。
 // 不碰真的守护进程、~/.ergo、固定端口。本机没有 Chrome（或 Edge）时跳过。
 import { type Browser, chromium, type Page } from "playwright-core";
 import { build, type Rolldown } from "vite";
@@ -11,7 +12,7 @@ import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { fileURLToPath } from "node:url";
 import { findChrome } from "../build/chrome.ts";
 import { type FakeDaemon, startFakeDaemon } from "./open-snapshot/fake-daemon.ts";
-import { MEASURE_SCRIPT, storedSnapshot, waitOpened, waitStored } from "./open-snapshot/measure.ts";
+import { MEASURE_SCRIPT, storedEventCounts, storedSnapshot, storedSnapshotFull, waitOpened, waitStored } from "./open-snapshot/measure.ts";
 import { type SyntheticLog, syntheticIncrement, syntheticLog, USER_SCALE } from "./open-snapshot/synthetic.ts";
 
 const CHROME = findChrome();
@@ -42,9 +43,9 @@ afterAll(async () => {
   for (const d of daemons) await d.close();
 });
 
-async function open(log: SyntheticLog): Promise<{ daemon: FakeDaemon; page: Page; errors: string[] }> {
-  const daemon = await startFakeDaemon(html, log);
-  daemons.push(daemon);
+async function open(log: SyntheticLog, existing?: FakeDaemon): Promise<{ daemon: FakeDaemon; page: Page; errors: string[] }> {
+  const daemon = existing ?? (await startFakeDaemon(html, log));
+  if (!existing) daemons.push(daemon);
   const context = await browser!.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
   const errors: string[] = [];
@@ -95,22 +96,54 @@ describe.skipIf(!CHROME)("打开页面：补发攒着一次放、本机快照只
     expect(errors).toEqual([]);
   }, 180_000);
 
-  test("网页升级后第一次打开不用旧快照，从头补；补完存的是新版本的", async () => {
+  test("网页升级后再打开：快照不用，本机存的事件重新折一遍，只补增量；补完存的和新设备冷打开存的一样（452）", async () => {
     const log = syntheticLog();
-    const { daemon, page } = await open(log);
+    const { daemon, page, errors } = await open(log);
     await page.goto(daemon.url);
     await waitOpened(page);
-    const before = await waitStored(page, { board: log.lastSeq("board") });
+    const kept = [...log.channels.keys()].filter((c) => c !== "secretary");
+    const lastOf = (channels: string[]) => Object.fromEntries(channels.map((c) => [c, log.lastSeq(c)]));
+    const before = await waitStored(page, lastOf(kept));
+    // 会话频道以外的事件一条不落存下了
+    await expect.poll(() => storedEventCounts(page), { timeout: 10_000, interval: 300 }).toEqual(lastOf(kept));
+
+    // 关掉期间又发生了一点事；网页换了一版
+    const through = lastOf(kept);
+    const base = log.lastSeq("secretary");
+    syntheticIncrement(log, 3);
     daemon.setWebVersion("0123456789abcdef");
     await page.reload();
-    await waitOpened(page);
+    const reopened = await waitOpened(page);
     const conn = daemon.connections.at(-1)!;
-    expect(Object.values(conn.cursors!).every((n) => n === 0)).toBe(true);
-    expect(conn.frames).toBeGreaterThan(10_000);
-    const after = await waitStored(page);
-    expect(after.webVersion).toBe("0123456789abcdef");
-    expect(before.webVersion).not.toBe(after.webVersion);
-  }, 180_000);
+    // 存了事件的频道带着游标、只补增量；秘书会话游标 0，补最近一页（50 条消息起的那一段）
+    expect(conn.cursors).toEqual({ ...Object.fromEntries(Object.keys(conn.cursors!).map((c) => [c, 0])), ...through });
+    expect(conn.cursors!.secretary).toBe(0);
+    const keptAdded = kept.reduce((n, c) => n + log.lastSeq(c) - through[c]!, 0);
+    const secretaryPage = log.channels.get("secretary")!.filter((f) => f.seq > firstPageAfter(log)).length;
+    expect(conn.frames).toBe(keptAdded + secretaryPage);
+    expect(reopened.frames).toBe(conn.frames);
+    expect(reopened.commitsWhileCatchingUp).toBeLessThanOrEqual(3);
+    await shown(page, 100_000 + base + 3);
+
+    // 补完存下的是新版本的快照，事件接着存全了
+    const all = lastOf([...log.channels.keys()]);
+    await waitStored(page, all);
+    const after = await storedSnapshotFull(page);
+    expect(after!.webVersion).toBe("0123456789abcdef");
+    expect(before.webVersion).not.toBe(after!.webVersion);
+    await expect.poll(() => storedEventCounts(page), { timeout: 10_000, interval: 300 }).toEqual(lastOf(kept));
+
+    // 一台新设备（空的浏览器）冷打开同一个守护进程：补全部，存下的快照和上面那台一模一样
+    const fresh = await open(log, daemon);
+    await fresh.page.goto(daemon.url);
+    await waitOpened(fresh.page);
+    expect(Object.values(daemon.connections.at(-1)!.cursors!).every((n) => n === 0)).toBe(true);
+    await waitStored(fresh.page, all);
+    const cold = await storedSnapshotFull(fresh.page);
+    expect(after!.snapshot).toEqual(cold!.snapshot);
+    expect(errors).toEqual([]);
+    expect(fresh.errors).toEqual([]);
+  }, 240_000);
 
   test("设备被吊销、回到配对页：本机快照删掉", async () => {
     const log = syntheticLog({ ...USER_SCALE, tasks: 20, activityEvents: 50, readMarks: 20, cards: 20, inboxItems: 20, deviceEvents: 8, projectEvents: 20 });
@@ -118,12 +151,21 @@ describe.skipIf(!CHROME)("打开页面：补发攒着一次放、本机快照只
     await page.goto(daemon.url);
     await waitOpened(page);
     await waitStored(page, { board: log.lastSeq("board") });
+    await expect.poll(async () => Object.keys(await storedEventCounts(page)).length, { timeout: 10_000, interval: 300 }).toBeGreaterThan(0);
     daemon.revoke();
     await page.locator(".pair-page").waitFor({ timeout: 15_000 });
     await expect.poll(() => storedSnapshot(page), { timeout: 5000, interval: 200 }).toBeNull();
+    expect(await storedEventCounts(page)).toEqual({});
     // 刷新之后还在配对页，也没有快照
     await page.reload();
     await page.locator(".pair-page").waitFor({ timeout: 15_000 });
     expect(await storedSnapshot(page)).toBeNull();
+    expect(await storedEventCounts(page)).toEqual({});
   }, 180_000);
 });
+
+/** 游标为 0 时秘书会话从哪条之后补（照 fake-daemon.ts：最近一页消息起的） */
+function firstPageAfter(log: SyntheticLog): number {
+  const messages = log.channels.get("secretary")!.filter((f) => f.type === "message");
+  return messages.length < 50 ? 0 : messages[messages.length - 50]!.seq - 1;
+}

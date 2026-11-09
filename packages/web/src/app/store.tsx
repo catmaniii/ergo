@@ -22,6 +22,7 @@ import {
   type ProjectAction,
   type ProjectServicesAction,
   reduce,
+  refoldInput,
   type RescheduleJobResult,
   type RollbackSessionResult,
   type RollbackTarget,
@@ -62,6 +63,9 @@ import type { Connection, ConnectionStats } from "./connection.ts";
 import type { DaemonHttp } from "./daemon-http.ts";
 import { useLocale } from "./locale.ts";
 import type { PageSnapshots } from "./open-snapshot.ts";
+
+/** 打开时先用了什么（Debug 工具集）：本机快照、换了一版后本机存的事件（重新折了几条）、什么都没有（从头补） */
+export type OpenedFrom = { readonly kind: "snapshot" } | { readonly kind: "events"; readonly events: number } | { readonly kind: "scratch" };
 
 interface Store {
   ui: UiState;
@@ -188,10 +192,10 @@ interface Store {
   /** 守护进程是哪一版、什么时候起来的、它此刻的时间（关于页、Debug 工具集）；没连上、太旧的守护进程拒绝 */
   daemonInfo(): Promise<DaemonInfo>;
   /**
-   * 这次打开以来断线、重连各几次，最近一次断线，最近一次补发收了多少（Debug 工具集）；fromSnapshot：打开时先用了本机快照没有
-   * （没有本机快照这回事的——原型、开发服务器——不带）
+   * 这次打开以来断线、重连各几次，最近一次断线，最近一次补发收了多少（Debug 工具集）；openedFrom：打开时先用了什么
+   * （本机快照、换了一版后本机存的事件、什么都没有；没有本机快照这回事的——原型、开发服务器——不带）
    */
-  connectionStats(): ConnectionStats & { readonly fromSnapshot?: boolean };
+  connectionStats(): ConnectionStats & { readonly openedFrom?: OpenedFrom };
   /** Debug 工具集的"断开重连" */
   reconnect(): void;
 }
@@ -250,17 +254,25 @@ export function StoreProvider({ connection, http, snapshots, children }: { conne
   }, [ui]);
 
   // 连上就收事件；断开重连时带上每个频道最后收到的序号，重复补发的事件由状态层丢掉。
-  // 有本机快照（snapshots，app/open-snapshot.ts）时先读它：读到能用的就先用它把界面画出来，订阅时带它的游标，守护进程只补增量
-  const fromSnapshot = useRef<boolean | undefined>(undefined);
+  // 有本机快照（snapshots，app/open-snapshot.ts）时先读它：读到同一版的快照就先用它把界面画出来，订阅时带它的游标，守护进程只补增量；
+  // 网页换了一版、快照不能用了，读到存着的事件就用新版本的状态层重新折一遍（452），订阅时带事件的游标（会话频道没存，从 0 要最近一页）。
+  // 连接交来的每一样都先给 snapshots 记一下（要存的事件），再交给状态层
+  const openedFrom = useRef<OpenedFrom | undefined>(undefined);
   useEffect(() => {
     if (!snapshots) return connection.connect(resumeCursors(uiRef.current), dispatch);
     let gone = false;
     let stop: (() => void) | undefined;
-    void snapshots.load().then((snapshot) => {
+    const deliver = (input: UiInput) => {
+      snapshots.note(input);
+      dispatch(input);
+    };
+    void snapshots.load().then((start) => {
       if (gone) return;
-      fromSnapshot.current = snapshot !== undefined;
-      if (snapshot) dispatch({ kind: "restore", snapshot });
-      stop = connection.connect(snapshot ? { ...snapshot.cursors } : resumeCursors(uiRef.current), dispatch);
+      openedFrom.current = start === undefined ? { kind: "scratch" } : start.kind === "snapshot" ? { kind: "snapshot" } : { kind: "events", events: start.events.length };
+      if (start?.kind === "snapshot") dispatch({ kind: "restore", snapshot: start.snapshot });
+      if (start?.kind === "events") dispatch(refoldInput(start.events));
+      const cursors = start === undefined ? resumeCursors(uiRef.current) : start.kind === "snapshot" ? { ...start.snapshot.cursors } : { ...start.cursors };
+      stop = connection.connect(cursors, deliver);
     });
     return () => {
       gone = true;
@@ -485,7 +497,7 @@ export function StoreProvider({ connection, http, snapshots, children }: { conne
   );
 
   const daemonInfo = useCallback(() => connection.daemonInfo(), [connection]);
-  const connectionStats = useCallback(() => ({ ...connection.stats(), ...(fromSnapshot.current === undefined ? {} : { fromSnapshot: fromSnapshot.current }) }), [connection]);
+  const connectionStats = useCallback(() => ({ ...connection.stats(), ...(openedFrom.current === undefined ? {} : { openedFrom: openedFrom.current }) }), [connection]);
   const reconnect = useCallback(() => connection.reconnect(), [connection]);
 
   const store = useMemo(
