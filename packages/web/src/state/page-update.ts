@@ -9,6 +9,9 @@
 //   才知道的新版本，回到前台时页面上没有会丢的东西——输入框是空的（没打字、没引用卡片）、没在录音、没有附件、没开着弹层，
 //   页面上别的文本框也都是空的（问题卡的"自己写"、计划卡的修改意见、宽屏详情里的输入……，fieldsHaveText）、没有没发出去的消息和
 //   卡片操作（unsentWork）——就直接刷新，不提示；有的照旧提示。问服务端的那几秒里又切到后台的，晚到的"问完了"（page_settled）不算数；
+//   还在后台时就知道了（电脑上放在后台的标签页：守护进程换了一版推来、重启后重连上订阅的响应里带着）的，趁还在后台、没有会丢的东西
+//   就先刷新（450：切回来那一刻才刷新，要重新下整个页面、从头补一遍，网慢时白屏好几秒、内容要十几秒才回来，像卡住了）；
+//   正在放语音时不直接刷新（会把放着的掐断），照旧提示，放完了再看；
 // - 正在录音、输入框上方有附件（在传、或传好了等着发）时先不提示（刷新会丢掉它们），完了再提示；输入框里打的字点"刷新"前存下、
 //   刷新后放回（app/reload-drafts.ts）；
 // - "等会儿"（update_later）记下这时服务端的那一版，同一版不再提示；切回前台（page_foreground）、或者服务端又换了一版时再提示。
@@ -93,19 +96,27 @@ export interface PageNow {
    * 没有没发出去的消息和卡片操作（unsentWork）
    */
   readonly idle: boolean;
+  /** 正在放语音（agent 的回复、点开的语音）：直接刷新会把它掐断 */
+  readonly playing?: boolean;
+  /**
+   * 这个标签页上一次在后台为哪一版刷新过：同一版不再在后台刷新（页面和服务端说的一直对不上时——比如重新构建的途中——
+   * 不至于在后台一遍遍刷新），回到前台时照旧
+   */
+  readonly reloadedFor?: string;
 }
 
 /** 怎么办：什么都不做、提示"有新版本 · 刷新"、直接刷新 */
 export type PageUpdateAction = "none" | "prompt" | "reload";
 
 /**
- * 页面自己的（own）和服务端的都知道、对不上时：在后台时来的、页面看得见了（回到前台）、没在忙、没有会丢的东西，直接刷新；
- * 别的提示，除非正在忙、这一版点过"等会儿"
+ * 页面自己的（own）和服务端的都知道、对不上时：在后台时来的、没在忙、没在放语音、没有会丢的东西，还在后台就直接刷新（回来时已经是
+ * 新的），切回前台才知道的回到前台时直接刷新；别的提示，除非正在忙、这一版点过"等会儿"
  */
 export function pageUpdateAction(state: WebVersionState, own: string | undefined, page: PageNow): PageUpdateAction {
   const { server, later } = state;
   if (own === undefined || server === undefined || server === own) return "none";
   if (page.busy) return "none";
-  if (page.visible && state.away && state.cameAway === server && page.idle) return "reload";
+  const cameAway = state.away && state.cameAway === server && page.idle && !page.playing;
+  if (cameAway && (page.visible || (state.hidden && page.reloadedFor !== server))) return "reload";
   return server === later ? "none" : "prompt";
 }

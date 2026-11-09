@@ -4,7 +4,8 @@
 //   切回前台、或者又来了新的一版时再出；
 // - 在后台时来的（页面在后台、或者刚切回前台还在问服务端时才知道的）：回到前台、输入框是空的、没在录音、没有附件、没开着弹层，直接刷新；
 //   有会丢的东西的照旧提示。页面上任何一个文本框里有字（问题卡的"自己写"、计划卡的修改意见……）、有没发出去的消息和
-//   卡片操作（断网时排着的）也算有东西会丢；问服务端的那几秒里又切到后台，晚到的"问完了"不算数。
+//   卡片操作（断网时排着的）也算有东西会丢；问服务端的那几秒里又切到后台，晚到的"问完了"不算数；
+// - 还在后台时就知道了的，趁还在后台、没有会丢的东西、没在放语音就先刷新（450）；这个标签页为同一版在后台刷新过的不再在后台刷新。
 import { describe, expect, test } from "vitest";
 import { EVENT_TYPES, fieldsHaveText, type PageNow, pageUpdateAction, replay, type UiInput, type UiState, unsentWork } from "../../src/state/index.ts";
 import { card, frame, textMessage } from "./events.ts";
@@ -71,9 +72,9 @@ describe("在前台时：只提示", () => {
 });
 
 describe("在后台时来的：回到前台、没有会丢的东西就直接刷新", () => {
-  test("在后台时推来的：还在后台（看不见）不刷新；回到前台、什么都没打开，直接刷新", () => {
+  test("在后台时推来的：还在后台、什么都没打开就先刷新（450：回来时已经是新的，不在切回来那一刻刷新）；回到前台时才轮到的照样直接刷新", () => {
     const away = replay([told(OWN), HIDDEN, pushed(NEWER)]);
-    expect(action(away, { visible: false })).toBe("prompt");
+    expect(action(away, { visible: false })).toBe("reload");
     const back = replay([FOREGROUND], away);
     expect(action(back)).toBe("reload");
     // 问完了服务端（还是这一版）也一样：这一版是在后台时来的
@@ -110,10 +111,39 @@ describe("在后台时来的：回到前台、没有会丢的东西就直接刷�
   test("回到前台还在问服务端时又切到后台：晚到的“问完了”不算数，之后在后台来的新版本回到前台照样直接刷新", () => {
     // 切回前台、问着服务端时又切走了；问完的那一下到的时候页面还在后台
     const away = replay([told(OWN), HIDDEN, FOREGROUND, HIDDEN, SETTLED, pushed(NEWER)]);
-    expect(action(away, { visible: false })).toBe("prompt");
+    expect(action(away, { visible: false })).toBe("reload");
+    expect(action(away, { visible: false, idle: false })).toBe("prompt");
     expect(action(replay([FOREGROUND], away))).toBe("reload");
     // 回来之后问完了：照常算回到前台了，之后来的只提示
     expect(action(replay([FOREGROUND, SETTLED, pushed(NEWEST)], away))).toBe("prompt");
+  });
+});
+
+describe("还在后台就刷新（450）", () => {
+  const away = replay([told(OWN), HIDDEN, pushed(NEWER)]);
+  const back = replay([FOREGROUND], away);
+
+  test("有会丢的东西：照旧提示（回到前台时也只提示）；在录音、有附件：先不出", () => {
+    expect(action(away, { visible: false, idle: false })).toBe("prompt");
+    expect(action(back, { idle: false })).toBe("prompt");
+    expect(action(away, { visible: false, busy: true })).toBe("none");
+  });
+
+  test("正在放语音：不直接刷新（会把放着的掐断），照旧提示；放完了再刷新", () => {
+    expect(action(away, { visible: false, playing: true })).toBe("prompt");
+    expect(action(away, { visible: false, playing: false })).toBe("reload");
+    expect(action(back, { playing: true })).toBe("prompt");
+  });
+
+  test("这个标签页已经为这一版在后台刷新过（刷新后页面和服务端说的还对不上）：不再在后台刷新，回到前台时照旧直接刷新", () => {
+    expect(action(away, { visible: false, reloadedFor: NEWER })).toBe("prompt");
+    expect(action(back, { reloadedFor: NEWER })).toBe("reload");
+    // 为别的版本刷新过不算
+    expect(action(away, { visible: false, reloadedFor: NEWEST })).toBe("reload");
+  });
+
+  test("在前台时来的新版本：切到后台也不刷新，只提示", () => {
+    expect(action(replay([told(OWN), pushed(NEWER), HIDDEN]), { visible: false })).toBe("prompt");
   });
 });
 

@@ -4,6 +4,8 @@
 //   没有凭证只能拿到页面本身、查"我有没有被信任"、发配对请求（external.ts）。本机信任只看从哪个端口进来，不看来源 IP。
 // 两个端口提供同样的东西：
 // - Web UI 的静态文件（单文件构建产物 index.html，每次请求重新读，重新构建后不用重启；原样发出，不往页面里塞任何密钥或令牌）；
+//   浏览器说收 gzip 的压缩了发（450：页面近 4 MB，压完 1 MB 左右；手机经隧道切回前台、页面换了一版要重新下的时候白屏的那几秒
+//   主要花在下载上），页面没变就用上次压好的；
 //   视觉风格的字体在构建产物的 fonts/ 下，按 /fonts/ 提供（fonts.ts）；报告页预览 PDF 用的 pdf.js 在 pdfjs/ 下，
 //   按 /pdfjs/ 提供（pdfjs.ts，页面打开 PDF 时才取）；
 // - 地图（429，map-routes.ts）：/tiles/<源>/<z>/<x>/<y> 转发 OpenStreetMap 的瓦片（带缓存），/_AMapService/… 是高德 JS API 的
@@ -26,6 +28,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import type { Duplex } from "node:stream";
+import zlib from "node:zlib";
 import {
   type AccessInfo,
   type BrowserRequest,
@@ -339,6 +342,8 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     return { status: ok ? 200 : 503, body: { ok, status, ...rest.details, webUi, reasons } };
   };
 
+  /** 上一次压好的页面：页面没变（逐字节比）就接着用 */
+  let gzipped: { page: Buffer; body: Buffer } | undefined;
   const servePage = (res: http.ServerResponse) => {
     let page: Buffer;
     try {
@@ -346,7 +351,9 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     } catch {
       return reply(res, 503, "text/plain; charset=utf-8", "Web UI 还没构建：在仓库根目录运行 npm run build:web\n"); // @i18n-ignore log：开发时才见得到
     }
-    reply(res, 200, "text/html; charset=utf-8", page);
+    if (!acceptsGzip(res.req.headers["accept-encoding"])) return reply(res, 200, "text/html; charset=utf-8", page, { Vary: "Accept-Encoding" });
+    if (!gzipped || !gzipped.page.equals(page)) gzipped = { page, body: zlib.gzipSync(page) };
+    reply(res, 200, "text/html; charset=utf-8", gzipped.body, { "Content-Encoding": "gzip", Vary: "Accept-Encoding" });
   };
 
   /** 已经被信任的请求（本机端口，或者外网端口上带着有效凭证的设备） */
@@ -530,15 +537,31 @@ async function listen(server: http.Server, port: number): Promise<number> {
   return (server.address() as AddressInfo).port;
 }
 
-function reply(res: http.ServerResponse, status: number, contentType: string, body: string | Buffer): void {
+function reply(res: http.ServerResponse, status: number, contentType: string, body: string | Buffer, headers: Record<string, string> = {}): void {
   res.writeHead(status, {
     "Content-Type": contentType,
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
+    ...headers,
   });
   res.end(res.req.method === "HEAD" ? undefined : body);
+}
+
+/** 请求说收 gzip：Accept-Encoding 里有 gzip（没写的看 *），q 不是 0 */
+export function acceptsGzip(header: string | undefined): boolean {
+  if (header === undefined) return false;
+  let gzip: number | undefined;
+  let any: number | undefined;
+  for (const part of header.split(",")) {
+    const [coding = "", ...params] = part.toLowerCase().split(";").map((p) => p.trim());
+    const q = params.find((p) => p.startsWith("q="));
+    const weight = q === undefined ? 1 : Number(q.slice(2));
+    if (coding === "gzip") gzip = weight;
+    else if (coding === "*") any = weight;
+  }
+  return (gzip ?? any ?? 0) > 0;
 }
 
 /**

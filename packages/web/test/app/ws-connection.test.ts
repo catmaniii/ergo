@@ -14,11 +14,15 @@ class FakeSocket implements SocketLike {
   private emit(type: string, data: unknown = undefined) {
     for (const listener of this.listeners[type] ?? []) listener({ data });
   }
+  /** 半开：对面早没了，断开的消息没到这边。发出去的石沉大海，关它也迟迟不报 close */
+  halfOpen = false;
+  closeCalled = false;
   send(data: string) {
     this.sent.push(JSON.parse(data));
   }
   close() {
-    this.drop();
+    this.closeCalled = true;
+    if (!this.halfOpen) this.drop();
   }
   // ── 测试里扮演服务端 ──
   open() {
@@ -669,8 +673,159 @@ describe("关于页、Debug 工具集要的", () => {
   });
 });
 
+/** 页面回到前台的那一声（测试里手动叫） */
+function foreground() {
+  const wakes: Array<() => void> = [];
+  let subscribed = 0;
+  const onForeground = (wake: () => void) => {
+    wakes.push(wake);
+    subscribed += 1;
+    return () => {
+      subscribed -= 1;
+    };
+  };
+  return { onForeground, wake: () => wakes.at(-1)!(), subscribed: () => subscribed };
+}
+
+/** 回到前台时发的探测：订阅回执之外又发的空订阅 */
+const probes = (s: FakeSocket) => s.subscribes().filter(isReceipt).slice(1);
+
+describe("回到前台（450：后台放久了切回来卡住）", () => {
+
+  test("连着的：发一个空订阅探一下，有回应就照旧，不重连；已经在探的不重复探", () => {
+    const fg = foreground();
+    connect({}, { onForeground: fg.onForeground });
+    const socket = openAndSubscribe();
+    fg.wake();
+    fg.wake();
+    expect(probes(socket)).toHaveLength(1);
+    expect(probes(socket)[0]!.params).toEqual({ protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: {} });
+    socket.reply(probes(socket)[0]!.id, { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync: [] });
+    vi.advanceTimersByTime(10_000);
+    expect(sockets).toHaveLength(1);
+    expect(inputs.filter((i) => i.kind === "connection").at(-1)).toEqual({ kind: "connection", status: "online" });
+    // 探完了，下次回到前台再探
+    fg.wake();
+    expect(probes(socket)).toHaveLength(2);
+  });
+
+  test("连着的在推别的帧（补发很多、网慢，探测的回应还排在后面）：有动静就算活着", () => {
+    const fg = foreground();
+    connect({}, { onForeground: fg.onForeground });
+    const socket = openAndSubscribe();
+    fg.wake();
+    vi.advanceTimersByTime(3000);
+    socket.push(event("secretary", 1));
+    vi.advanceTimersByTime(5000);
+    expect(sockets).toHaveLength(1);
+  });
+
+  test("半开（看着连着、其实不通）：4 秒一点动静都没有就当场算断开、马上重连，不等它报 close、不退避、不先问被不被信任；没回的请求在新连接上重发", async () => {
+    const fg = foreground();
+    const checkAccess = vi.fn<() => Promise<AccessInfo>>(async () => ({ access: "local" }));
+    const { connection } = connect({ secretary: 3 }, { onForeground: fg.onForeground, checkAccess });
+    const first = openAndSubscribe();
+    first.push(event("secretary", 4));
+    first.halfOpen = true;
+    connection.sendMessage({ conversation: "secretary", idempotencyKey: "k-stuck", parts: [{ type: "text", text: "在吗" }] });
+    fg.wake();
+    vi.advanceTimersByTime(3999);
+    expect(sockets).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    expect(first.closeCalled).toBe(true);
+    expect(inputs.at(-1)).toEqual({ kind: "connection", status: "offline" });
+    vi.advanceTimersByTime(1);
+    expect(sockets).toHaveLength(2);
+    const second = openAndSubscribe();
+    expect(second.subscription().params).toEqual({ protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { secretary: 4, cards: 0 } });
+    expect(second.sent.filter((f) => f.method === "send_message").map((f) => f.idempotencyKey)).toEqual(["k-stuck"]);
+    expect(checkAccess).not.toHaveBeenCalled();
+    expect(connection.stats()).toMatchObject({ drops: 1, reconnects: 1, lastDrop: { reason: "回到前台时连接已经不通（4 秒没有动静），重新连上" } });
+    // 旧的那条很久以后才报 close：已经不认它了
+    const before = inputs.length;
+    first.drop();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(inputs).toHaveLength(before);
+    expect(sockets).toHaveLength(2);
+  });
+
+  test("正在连的：4 秒还没订阅上就重来", () => {
+    const fg = foreground();
+    connect({}, { onForeground: fg.onForeground });
+    const stuck = sockets[0]!;
+    stuck.halfOpen = true;
+    fg.wake();
+    vi.advanceTimersByTime(4000);
+    expect(stuck.closeCalled).toBe(true);
+    vi.advanceTimersByTime(1);
+    expect(sockets).toHaveLength(2);
+    openAndSubscribe();
+    expect(inputs.filter((i) => i.kind === "connection").at(-1)).toEqual({ kind: "connection", status: "online" });
+  });
+
+  test("断着、正等着退避重连（间隔已经拉到最长）：不等了，马上连；连上之后间隔从头算", () => {
+    const fg = foreground();
+    connect({}, { onForeground: fg.onForeground });
+    sockets[0]!.drop();
+    vi.advanceTimersByTime(500);
+    sockets[1]!.drop();
+    vi.advanceTimersByTime(2000);
+    sockets[2]!.drop();
+    // 下一次要等 2 秒
+    vi.advanceTimersByTime(100);
+    expect(sockets).toHaveLength(3);
+    fg.wake();
+    expect(sockets).toHaveLength(4);
+    // 原来那个退避的定时器不再多开一条
+    vi.advanceTimersByTime(5000);
+    expect(sockets).toHaveLength(4);
+    openAndSubscribe().drop();
+    vi.advanceTimersByTime(500);
+    expect(sockets).toHaveLength(5);
+  });
+
+  test("断开连接（页面卸载）之后不再听回到前台，叫了也什么都不做", () => {
+    const fg = foreground();
+    const { disconnect } = connect({}, { onForeground: fg.onForeground });
+    openAndSubscribe();
+    expect(fg.subscribed()).toBe(1);
+    disconnect();
+    expect(fg.subscribed()).toBe(0);
+    fg.wake();
+    vi.advanceTimersByTime(10_000);
+    expect(sockets).toHaveLength(1);
+  });
+
+  test("问还被信任吗一直没回（网半死，请求挂着）：5 秒后照常重连，晚到的答复不再算数", async () => {
+    let answer: ((info: AccessInfo) => void) | undefined;
+    connect({}, { checkAccess: () => new Promise<AccessInfo>((resolve) => (answer = resolve)) });
+    openAndSubscribe().drop();
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(sockets).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1 + 500);
+    expect(sockets).toHaveLength(2);
+    openAndSubscribe();
+    answer?.({ access: "none", reason: "revoked" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(inputs.filter((i) => i.kind === "connection").at(-1)).toEqual({ kind: "connection", status: "online" });
+  });
+
+  test("回到前台时正问着还被信任吗：马上连，问到的答复不再算数", async () => {
+    const fg = foreground();
+    let answer: ((info: AccessInfo) => void) | undefined;
+    connect({}, { onForeground: fg.onForeground, checkAccess: () => new Promise<AccessInfo>((resolve) => (answer = resolve)) });
+    openAndSubscribe().drop();
+    fg.wake();
+    expect(sockets).toHaveLength(2);
+    openAndSubscribe();
+    answer?.({ access: "device", device: { id: "d1", name: "我的手机" } });
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(sockets).toHaveLength(2);
+  });
+});
+
 describe("浏览侧边栏", () => {
-  const STATUS = { browser: "b-0123456789abcdef", page: { title: "报名", url: "https://form.example.cn/apply" } };
+  const STATUS ={ browser: "b-0123456789abcdef", page: { title: "报名", url: "https://form.example.cn/apply" } };
 
   test("侧边栏发的消息带网页上下文", () => {
     const { connection } = connect();
