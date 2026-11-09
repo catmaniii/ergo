@@ -56,7 +56,7 @@ describe("候选核对卡上从手机通讯录挑的人", () => {
     });
     expect(html).toContain("张丽（母亲）");
     expect(html).toContain("建一份档案（从导入的通讯录来的）");
-    expect(html).toContain("相识纪念日：2015-06-30");
+    expect(html).toContain("相识纪念日：2015 年 6 月 30 日");
     expect(html.match(/class="pf-digit"/g)).toHaveLength(11);
     expect(html).toContain("从导入的通讯录来的，勾了的才写进档案；没勾的以后不再提；号码请一位一位对一遍。");
     expect(html).not.toContain("从聊天里听来的");

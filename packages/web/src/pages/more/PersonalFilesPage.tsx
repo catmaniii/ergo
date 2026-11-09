@@ -16,6 +16,9 @@
 //   （照删素材的规矩问你）；本人那份删不掉，删一个人连他的整份档案；
 // - 本人的姓名就是设置 · 身份里的"我的名字"：这里改了那里跟着变，反过来也是（没有历史）。
 // -一份档案的头上（名字、关系旁边）一个"分组"的下拉，改了当场生效；没选过的写"按关系猜的，可以改"。
+// - 449：生日、纪念日（isAnnualField 认的：生日、每一个纪念日、名字带生日纪念日的自定义字段）"改""填写"时不打字，用选择器
+//   （公历 / 农历，年、月、日三个下拉，AnnualDatePicker），打开时按现在的值预选；值显示成好读的样子（"1990 年 3 月 2 日""农历八月十五"），
+//   以前存的认不出的原样显示，旁边写"格式认不出，点「改」重新选"。加自定义字段时名字里带生日、纪念日的也换成选择器。
 // 档案经 HTTP 现取（不走事件）；每次改完用接口回的那份。版式照现有设计体系（分节、行、按钮、Sheet 确认框都是现成的类），
 import { type FormEvent, Fragment, useCallback, useEffect, useState } from "react";
 import { useStore } from "../../app/store.tsx";
@@ -24,11 +27,16 @@ import {
   anniversaryFieldOf,
   anniversaryNameOf,
   ANNUAL_REMINDER_DEFAULT_DAYS,
+  annualDraftOf,
+  annualDraftValue,
+  type AnnualDraft,
   annualNote,
   annualPickable,
+  annualValueUnreadable,
   ASSISTANT_NAME_MARK,
   customFieldOf,
   deletableSources,
+  isAnnualField,
   numberGroups,
   type PersonalFieldView,
   type PersonalFileDeleteMode,
@@ -45,6 +53,7 @@ import {
   PERSON_GROUPS,
   type PersonGroup,
   isPersonGroup,
+  personalValueText,
   sourceQuote,
   sourceVia,
   t,
@@ -54,6 +63,7 @@ import { NamedText } from "../../ui/assistant-name.tsx";
 import { AnnualRemindPick } from "../../ui/cards/AnnualRemindPick.tsx";
 import { Section, Sheet, TopBar } from "../../ui/common.tsx";
 import { useToast } from "../../ui/toast.tsx";
+import { AnnualDatePicker } from "./AnnualDatePicker.tsx";
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 /** 今天（这台设备的日子）：记一件事默认写它 */
@@ -409,7 +419,7 @@ function AnnualRow({
 }) {
   const { http } = useStore();
   const [busy, setBusy] = useState(false);
-  const note = annualNote(annual);
+  const note = annualNote(annual, field.current?.value);
   const pickable = annualPickable(annual);
   return (
     <div className="pf-annual">
@@ -542,7 +552,16 @@ function FieldRow({
     <div className="pf-field" data-field={field.field}>
       <div className="pf-label">{field.label}</div>
       <div className="pf-value">
-        {current ? field.number ? <NumberValue value={current.value} /> : <span className="pf-text">{current.value}</span> : <span className="muted">{t("pages.personalFiles.empty")}</span>}
+        {current ? (
+          field.number ? (
+            <NumberValue value={current.value} />
+          ) : (
+            <span className="pf-text">{personalValueText(field.field, current.value)}</span>
+          )
+        ) : (
+          <span className="muted">{t("pages.personalFiles.empty")}</span>
+        )}
+        {annualValueUnreadable(field.field, current?.value) && <small className="pf-date-unreadable">{t("pages.personalFiles.date.unreadable")}</small>}
         {!current && field.field === ANNIVERSARY_FIELD && <small className="muted">{t("pages.personalFiles.anniversaryHint")}</small>}
         {current && (
           <small className="muted pf-source">
@@ -561,7 +580,7 @@ function FieldRow({
           <ul className="pf-history">
             {field.history.map((old, i) => (
               <li key={i}>
-                <span className="pf-text">{old.value}</span>
+                <span className="pf-text">{personalValueText(field.field, old.value)}</span>
                 <small className="muted">{valueSourceLine(old)}</small>
               </li>
             ))}
@@ -592,7 +611,11 @@ function FieldEditor({
   onDelete(): void;
 }) {
   const { http } = useStore();
-  const [draft, setDraft] = useState(field.current?.value ?? "");
+  // 449：生日、纪念日用选择器（按现在的值预选），别的字段一个文本框
+  const annual = isAnnualField(field.field);
+  const [text, setText] = useState(field.current?.value ?? "");
+  const [date, setDate] = useState<AnnualDraft>(() => annualDraftOf(field.current?.value));
+  const draft = annual ? (annualDraftValue(date) ?? "") : text;
   const [busy, setBusy] = useState(false);
   const run = (request: () => Promise<PersonalFileView>) => {
     setBusy(true);
@@ -614,7 +637,14 @@ function FieldEditor({
     >
       <div className="pf-label">{field.label}</div>
       <div className="pf-value">
-        <input className="input" value={draft} autoFocus aria-label={field.label} onChange={(e) => setDraft(e.currentTarget.value)} />
+        {annual ? (
+          <>
+            <AnnualDatePicker label={field.label} draft={date} disabled={busy} onChange={setDate} />
+            {current !== undefined && annualValueUnreadable(field.field, current.value) && <small className="muted">{t("pages.personalFiles.date.was", { value: current.value })}</small>}
+          </>
+        ) : (
+          <input className="input" value={text} autoFocus aria-label={field.label} onChange={(e) => setText(e.currentTarget.value)} />
+        )}
         {field.linked === "user_name" && <small className="muted">{t("pages.personalFiles.linkedHint")}</small>}
         <div className="pf-form-actions">
           {canUndo && (
@@ -642,14 +672,18 @@ function FieldEditor({
 
 /**
  * 加一个自定义字段：名字和值。anniversary 是加一个纪念日——名字（"结婚纪念日"，不填就叫"纪念日"）和日子，
- * 写进内置的"纪念日"（"anniversary:<名字>"），认得出公历日子的保存后能开每年提醒
+ * 写进内置的"纪念日"（"anniversary:<名字>"），认得出公历日子的保存后能开每年提醒。
+ * 449：纪念日的日子、名字里带生日纪念日的自定义字段（"女儿生日"）的值用选择器选，不打字
  */
 function NewFieldRow({ file, apply, onDone, anniversary = false }: { file: PersonalFileView; apply(request: Promise<PersonalFileView>): Promise<boolean>; onDone(): void; anniversary?: boolean }) {
   const { http } = useStore();
   const [label, setLabel] = useState("");
-  const [value, setValue] = useState("");
+  const [text, setText] = useState("");
+  const [date, setDate] = useState<AnnualDraft>(() => annualDraftOf(undefined));
   const [busy, setBusy] = useState(false);
   const field = anniversary ? (label.trim() === "" ? ANNIVERSARY_FIELD : anniversaryFieldOf(label)) : customFieldOf(label);
+  const annual = anniversary || isAnnualField(field);
+  const value = annual ? (annualDraftValue(date) ?? "") : text;
   return (
     <form
       className="pf-field pf-field-editing"
@@ -673,13 +707,17 @@ function NewFieldRow({ file, apply, onDone, anniversary = false }: { file: Perso
         />
       </div>
       <div className="pf-value">
-        <input
-          className="input"
-          value={value}
-          placeholder={t(anniversary ? "pages.personalFiles.anniversaryDatePlaceholder" : "pages.personalFiles.customValuePlaceholder")}
-          aria-label={t(anniversary ? "pages.personalFiles.anniversaryDate" : "pages.personalFiles.customValue")}
-          onChange={(e) => setValue(e.currentTarget.value)}
-        />
+        {annual ? (
+          <AnnualDatePicker label={t(anniversary ? "pages.personalFiles.anniversaryDate" : "pages.personalFiles.customValue")} draft={date} disabled={busy} onChange={setDate} />
+        ) : (
+          <input
+            className="input"
+            value={text}
+            placeholder={t("pages.personalFiles.customValuePlaceholder")}
+            aria-label={t("pages.personalFiles.customValue")}
+            onChange={(e) => setText(e.currentTarget.value)}
+          />
+        )}
         <div className="pf-form-actions">
           <span className="pf-spacer" />
           <button type="button" className="btn ghost small" onClick={onDone}>

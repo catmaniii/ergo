@@ -20,7 +20,6 @@ export const EN_PERSONAL_FILES: Phrases = {
   "我搬家了，新地址是示例市示例区示例路 18 号": "I moved. My new address is 18 Example Road, Example City",
   "示例科技 · 产品经理": "Example Tech · Product manager",
   "青霉素过敏": "Penicillin allergy",
-  "农历八月十五": "15th day of the 8th lunar month",
   "无": "None",
   "腿脚不好，爬楼吃力": "Bad legs, stairs are hard",
   "示例小学一年级": "First grade, Example Primary School",
@@ -33,4 +32,7 @@ export const EN_PERSONAL_FILES: Phrases = {
   "认不出字段「{}」": "Unknown field “{}”",
   "你本人的档案删不掉，可以删里面的字段": "Your own profile can't be deleted, but you can delete fields in it",
   "结婚纪念日": "Wedding anniversary",
+  "anniversary:相识纪念日": "anniversary:The day we met",
+  "相识纪念日": "The day we met",
+  "大学开学那天": "The first day of college",
 };

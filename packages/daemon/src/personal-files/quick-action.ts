@@ -12,6 +12,8 @@
 // 彻底删除时核对卡上每年提醒那一勾（带着生日、纪念日的月日）整个去掉。
 // 记忆管理员在了解你访谈里记下的档案信息，收尾时合成一张档案核对卡（interview_files，memory/interview.ts）逐条确认，
 // 确认的也经这个执行器写（卡在它的会话里，留痕写 curator）；不在访谈里时它的工具 propose_personal_file 照常提这个动作（总是出核对卡）。
+// 449：生日、纪念日的值规范成统一的样子再存（"3月2号" 存成 "--03-02"；认不出的拒绝，错误写明怎么写）；算不算点明按秘书照抄的原话比
+// （规范化以后的样子不在用户的话里）；卡上、回执里写好读的样子。
 import {
   ANNUAL_REMINDER_DEFAULT_DAYS,
   checkPersonalNote,
@@ -29,6 +31,7 @@ import {
   PersonalFileExecuteInput,
   type PersonalFileKind,
   personalFieldLabel,
+  personalValueText,
   PURGED_TEXT,
   spelledNumber,
   t,
@@ -40,7 +43,7 @@ import { actionContext, defineQuickAction, foundIn, type QuickActionExecutor, ty
 import type { JsonValue } from "../runtime/index.ts";
 import type { PersonalFileTrail } from "./events.ts";
 import { checkFieldFor, type PersonalFilesService } from "./personal-files.ts";
-import { PERSONAL_FILE_ACTION } from "./tool-names.ts";
+import { ANNUAL_VALUE_HINT, PERSONAL_FILE_ACTION } from "./tool-names.ts";
 
 /** 一次最多写几个字段 */
 const MAX_FIELDS = 20;
@@ -61,7 +64,8 @@ const Params = Type.Object(
           description:
             "要写的固定信息，每项 {field, value}。field 写字段名——本人：姓名、身份证号、护照号、驾照号、生日、纪念日、手机、邮箱、住址、单位和职位、过敏和用药；" +
             "别人：别名、和我的关系、生日、纪念日、电话、住址、单位或学校、过敏和用药；纪念日可以有几个，写带名字的（\"结婚纪念日\"）；别的写一个自定义的名字（\"车牌号\"）。" +
-            "value 照抄用户原话里的值，号码一位都不能改；同一字段的新值会把旧值记成历史",
+            "value 照抄用户原话里的值，号码一位都不能改；同一字段的新值会把旧值记成历史。" +
+            ANNUAL_VALUE_HINT,
         },
       ),
     ),
@@ -87,6 +91,8 @@ interface PersonalFileParams {
   remind?: PersonalFileCardRemind[];
   /** 283：用户在核对卡上勾了的每年提醒（确认时才有；没有就照 remind 默认的） */
   chosen?: Array<{ field: string; daysBefore: number }>;
+  /** 449：规范化以后和秘书照抄的不一样的字段（生日、纪念日）：字段 → 照抄的原话（判断点没点明用；不上卡，彻底删除时连参数一起换掉） */
+  said?: Record<string, string>;
 }
 
 /** 卡上"写了什么"那一截：字段名，记下一件事 */
@@ -163,6 +169,7 @@ export function personalFileAction(files: PersonalFilesService): QuickActionExec
         }
       }
       const byField = new Map<string, PersonalFileCardField>();
+      const said: Record<string, string> = {};
       for (const { field: rawField, value: rawValue } of fields) {
         // 带上这份档案已有的字段认（283 时建的同名自定义纪念日接着写）
         const field = files.fieldOf(found?.id, kind, rawField);
@@ -174,6 +181,8 @@ export function personalFileAction(files: PersonalFilesService): QuickActionExec
         const previous = found ? files.currentValue(found.id, field) : undefined;
         if (previous === value.value) continue;
         byField.set(field, { field, label, value: value.value, number: isNumberField(field, value.value), ...(previous === undefined ? {} : { previous }) });
+        if (isAnnualField(field) && value.value !== rawValue.trim()) said[field] = rawValue.trim();
+        else delete said[field];
       }
       let checkedNote: { text: string; date: string } | undefined;
       if (note !== undefined) {
@@ -201,8 +210,11 @@ export function personalFileAction(files: PersonalFilesService): QuickActionExec
         fields: [...byField.values()],
         ...(checkedNote === undefined ? {} : { note: checkedNote }),
         ...(remind.length === 0 ? {} : { remind }),
+        ...(Object.keys(said).length === 0 ? {} : { said }),
       };
-      const content = [...params.fields.map((f) => t("personalFiles.action.fieldLine", { label: f.label, value: f.value })), ...(checkedNote ? [checkedNote.text] : [])].join(t("personalFiles.action.contentSep"));
+      const content = [...params.fields.map((f) => t("personalFiles.action.fieldLine", { label: f.label, value: personalValueText(f.field, f.value) })), ...(checkedNote ? [checkedNote.text] : [])].join(
+        t("personalFiles.action.contentSep"),
+      );
       return { params: params as unknown as JsonValue, title: t("personalFiles.action.cardTitle", { person: name, what: whatOf(params) }), target: name, content };
     },
     explicit(action, turn) {
@@ -210,7 +222,8 @@ export function personalFileAction(files: PersonalFilesService): QuickActionExec
       // 号码类、新建一个人：总要用户核对
       if (p.isNew || p.fields.some((f) => f.number)) return undefined;
       let finding: ReturnType<typeof foundIn>;
-      for (const piece of [...p.fields.map((f) => f.value), ...(p.note ? [p.note.text] : [])]) {
+      // 规范化过的生日、纪念日按秘书照抄的原话比（"3月2号"在用户的话里，"--03-02"不在）
+      for (const piece of [...p.fields.map((f) => p.said?.[f.field] ?? f.value), ...(p.note ? [p.note.text] : [])]) {
         const found = foundIn(turn, piece);
         // 只认用户自己说的话（打的字、语音转写）：引用块、引用的卡片里的不算用户要记的
         if (!found || (found.source !== "typed" && found.source !== "voice")) return undefined;
@@ -261,7 +274,11 @@ function cardText(p: PersonalFileCardPayload): string {
   const lines = [p.title];
   if (p.person.isNew) lines.push(p.person.relation === undefined ? t("personalFiles.card.newPerson", { name: p.person.name }) : t("personalFiles.card.newPersonRelation", { name: p.person.name, relation: p.person.relation }));
   for (const f of p.fields) {
-    lines.push(f.number && f.value !== PURGED_TEXT ? t("personalFiles.card.numberLine", { label: f.label, value: f.value, digits: spelledNumber(f.value) }) : t("personalFiles.action.fieldLine", { label: f.label, value: f.value }));
+    lines.push(
+      f.number && f.value !== PURGED_TEXT
+        ? t("personalFiles.card.numberLine", { label: f.label, value: f.value, digits: spelledNumber(f.value) })
+        : t("personalFiles.action.fieldLine", { label: f.label, value: personalValueText(f.field, f.value) }),
+    );
   }
   if (p.note) lines.push(t("personalFiles.card.noteLine", { date: p.note.date, text: p.note.text }));
   for (const r of p.remind ?? []) lines.push(t("personalFiles.card.remindLine", { label: r.label, count: r.daysBefore }));

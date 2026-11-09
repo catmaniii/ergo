@@ -7,6 +7,8 @@
 // 加了内置字段"纪念日"：能有几个、各带名字（字段编号 "anniversary:<名字>"），档案页上排在生日后面；一个都没有时列一个空的
 // "纪念日"（编号 "anniversary"，只占位置、不存值）。283 认"名字带纪念日的自定义字段"的规矩照旧。
 // 加了分组：档案里的人（本人以外）分家人、重要的人、其他人三组；建人时选、能改，没选的按"和我的关系"猜（guessPersonGroup）。
+// 449：生日、纪念日这几类字段的值统一成一种写法（annual-date.ts）：写进来的都规范化（认不出的拒绝），显示成好读的样子。
+import { annualDateText, normalizeAnnualDate, parseAnnualDate } from "./annual-date.ts";
 import { t, tTable } from "./i18n/runtime.ts";
 import { isMonthDay, type MonthDay } from "./reminder-schedule.ts";
 
@@ -231,7 +233,9 @@ export type PersonalValueCheck = { ok: true; value: string } | { ok: false; erro
 
 /**
  * 一个字段的值合不合规，合规时给出要存的样子：去掉首尾空白；号码类字段去掉中间的空白（"138 0000 1111" 存成 "13800001111"），
- * 身份证号、护照号的字母写成大写；不能是空的、不能太长、不能有换行和控制字符
+ * 身份证号、护照号的字母写成大写；不能是空的、不能太长、不能有换行和控制字符。
+ * 449：生日、纪念日这几类字段（isAnnualField）只收认得出的日子，存成统一的样子（"3月2号" 存成 "--03-02"，"农历八月十五" 存成
+ * "lunar:--08-15"）；认不出的拒绝，错误里写明怎么写。档案页、秘书、访谈、候选、通讯录写进来的都经这里
  */
 export function checkPersonalValue(field: string, raw: string): PersonalValueCheck {
   let value = raw.trim();
@@ -240,7 +244,25 @@ export function checkPersonalValue(field: string, raw: string): PersonalValueChe
   if (value === "") return { ok: false, error: t("protocol.personalFiles.error.empty") };
   if ([...value].length > PERSONAL_FIELD_VALUE_MAX) return { ok: false, error: t("protocol.personalFiles.error.tooLong", { max: PERSONAL_FIELD_VALUE_MAX }) };
   if (/[\p{Cc}\u2028\u2029]/u.test(value)) return { ok: false, error: t("protocol.personalFiles.error.lineBreak") };
+  if (isAnnualField(field)) {
+    const date = normalizeAnnualDate(value);
+    if (date === undefined) return { ok: false, error: t("protocol.personalFiles.error.annualDate") };
+    value = date;
+  }
   return { ok: true, value };
+}
+
+/**
+ * 449：一个字段的值给人看的样子：生日、纪念日这几类认得出的写成好读的（按当前语言："1990 年 3 月 2 日""农历八月十五"），
+ * 认不出的（以前随手写的）和别的字段原样
+ */
+export function personalValueText(field: string, value: string): string {
+  return isAnnualField(field) ? (annualDateText(value) ?? value) : value;
+}
+
+/** 449：生日、纪念日这几类字段以前存的值认不出（档案页上原样显示，旁边提示点"改"重新选）；别的字段、没有值都是 false */
+export function annualValueUnreadable(field: string, value: string | undefined): boolean {
+  return value !== undefined && isAnnualField(field) && parseAnnualDate(value) === undefined;
 }
 
 /** 记下的一件事合不合规：去掉首尾空白，不能是空的、不能太长（可以有换行） */
@@ -279,7 +301,7 @@ const ANNIVERSARY_LABEL = /纪念日|anniversary/iu;
 
 /** 农历的写法：认出来就不当公历的日子（只做了公历每年） */
 // @i18n-ignore-next data：认用户写的中文"农历"
-const LUNAR = /农历|阴历|旧历|lunar/iu;
+const LUNAR = /农历|阴历|旧历|夏历|lunar/iu;
 
 /** 这个字段是不是每年要提醒的日子：生日，纪念日（内置字段，每一个），名字里带"生日""纪念日"的自定义字段 */
 export function isAnnualField(field: string): boolean {
@@ -289,10 +311,13 @@ export function isAnnualField(field: string): boolean {
 }
 
 /**
- * 值里认出公历的某月某日（生日、纪念日建每年提醒用）："3月2日""3 月 2 号""1990年3月2日""1990-03-02""1990/3/2""03-02"。
+ * 值里认出公历的某月某日（生日、纪念日建每年提醒用）：存的样子（"1990-03-02""--03-02"），以前存的各种写法
+ * （"3月2日""3 月 2 号""1990年3月2日""1990/3/2""03-02"；449 以前随手写的"每年 12 月 31 日"这样的也照旧认）。
  * 写的是农历、认不出、日历上没有这一天（2 月 30 日）都是 undefined（2 月 29 日算有：闰年有）
  */
 export function monthDayOf(value: string): MonthDay | undefined {
+  const parsed = parseAnnualDate(value);
+  if (parsed !== undefined) return parsed.calendar === "solar" ? { month: parsed.month, day: parsed.day } : undefined;
   const text = value.replace(/\s+/g, "");
   if (LUNAR.test(text)) return undefined;
   // @i18n-ignore-start data：认用户写的中文日期

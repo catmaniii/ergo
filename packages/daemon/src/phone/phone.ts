@@ -20,6 +20,7 @@ import {
   type PhoneContactsPush,
   type PhoneContactsReply,
   PHONE_CONTACTS_SOURCE,
+  personalValueText,
   t,
 } from "@ergo/protocol";
 import type { DataSourceCalendarEvent, DataSourcePushOutcome, DataSourceStatus, DataSourceStoredQuery, DataSourceStoredResult } from "../data-sources/api.ts";
@@ -117,8 +118,11 @@ export interface PhoneService extends PhoneMediaService {
 // @i18n-ignore-next data：认通讯录里写的全角括号
 const cleanPhone = (raw: string) => raw.replace(/[\s\-()（）]/g, "");
 
-/** 通讯录里的生日：没有年份的写法（"--03-02"）去掉前面的横线，剩下的照抄（档案认得出"1962-03-02""03-02"） */
-const cleanBirthday = (raw: string) => raw.trim().replace(/^-+/, "");
+/**
+ * 通讯录里的生日照抄（去掉首尾空白）：进档案候选时按档案的规矩规范成存的样子（449："1962-03-02"，没有年份的 "--03-02"），
+ * 认不出的那一项跳过、这个人别的照收
+ */
+const cleanBirthday = (raw: string) => raw.trim();
 
 /** 规范化一个联系人：去掉首尾空白、空的、重复的 */
 function cleanContact(c: PhoneContact): PhoneContact {
@@ -320,7 +324,8 @@ export function createPhoneService(options: PhoneServiceOptions): PhoneService {
     contactsStored(query) {
       const picked = livePayloads<PhoneContactPickedPayload>(store, PHONE_CONTACT_PICKED).toReversed();
       const items = picked.slice(query.offset, query.offset + query.limit).map(({ id, at, contact }) => {
-        const subtitle = [...contact.phones, ...(contact.birthday === undefined ? [] : [contact.birthday]), ...contact.addresses].join(" · ");
+        // 生日认得出的写成好读的（"3 月 2 日"），认不出的照抄
+        const subtitle = [...contact.phones, ...(contact.birthday === undefined ? [] : [personalValueText("birthday", contact.birthday)]), ...contact.addresses].join(" · ");
         return { id, title: contact.name, ...(subtitle === "" ? {} : { subtitle }), time: at };
       });
       return { total: picked.length, items };

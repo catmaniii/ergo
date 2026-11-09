@@ -2,9 +2,10 @@
 // （号码一位一位列在小格子里，按组隔开：身份证号 6 · 8 · 4、手机号 3 · 4 · 4；原来有值的写"原来"）、记下哪件事。
 // "确认写入"由运行时写进档案，"取消"关掉；处理完以后有"去档案里看"。原话里明说了的非号码类不出这张卡（直接写，留快速动作的"已执行"卡）。
 // 生日、纪念日下面一个"每年提前几天提醒"的勾（默认勾着、提前 3 天），确认时一起建。
+// 449：生日、纪念日的值（存的是 "--03-02" 这样）写成好读的样子（"3 月 2 日""农历八月十五"）；卡上的值不能改，改在档案页。
 import { useState } from "react";
 import { toHash } from "../../app/route.ts";
-import { numberGroups, type PersonalFileCardPayload, type PersonalFileExecuteInput, PURGED_TEXT, t } from "../../state/index.ts";
+import { numberGroups, type PersonalFileCardPayload, type PersonalFileExecuteInput, personalValueText, PURGED_TEXT, t } from "../../state/index.ts";
 import { AnnualRemindPick } from "./AnnualRemindPick.tsx";
 import { Btn } from "./cards.tsx";
 import { type CardProps, CardShell } from "./CardShell.tsx";
@@ -70,8 +71,8 @@ export function PersonalFileCard({ state, payload: p, act }: CardProps<PersonalF
       {p.fields.map((f) => (
         <div key={f.field} className="pf-card-field">
           <span className="muted">{t("ui.cards.personalFile.fieldLabel", { label: f.label })}</span>
-          {f.number && f.value !== PURGED_TEXT ? <Digits value={f.value} /> : <span className="pf-card-value">{f.value}</span>}
-          {f.previous !== undefined && <div className="muted pf-card-previous">{t("ui.cards.personalFile.previous", { value: f.previous })}</div>}
+          {f.number && f.value !== PURGED_TEXT ? <Digits value={f.value} /> : <span className="pf-card-value">{personalValueText(f.field, f.value)}</span>}
+          {f.previous !== undefined && <div className="muted pf-card-previous">{t("ui.cards.personalFile.previous", { value: personalValueText(f.field, f.previous) })}</div>}
           {p.remind
             ?.filter((r) => r.field === f.field && pending)
             .map((r) => (

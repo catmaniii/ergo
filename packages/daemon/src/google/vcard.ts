@@ -12,6 +12,8 @@
 // 文字写的（VALUE=text:3月2日）也认。认不出、日历上没有这一天的不要。
 // 解析只管 vCard 本身；哪个是用户自己、谁和用户什么关系、取哪个电话进档案在 contacts.ts。
 
+import { formatAnnualDate } from "@ergo/protocol";
+
 /** 一个日子：没有年份的（--03-02）year 不写 */
 export interface VcardDate {
   readonly year?: number;
@@ -306,10 +308,9 @@ export function parseVcardDate(raw: string, omitYear?: string): VcardDate | unde
   return undefined;
 }
 
-/** 日子写成档案里的样子："1990-03-02"，没有年份的 "03-02"（档案认得出这两种，每年提醒按它算） */
+/** 日子写成档案里存的样子（449，协议包 formatAnnualDate）："1990-03-02"，没有年份的 "--03-02"（每年提醒按它算） */
 export function formatVcardDate(date: VcardDate): string {
-  const md = `${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
-  return date.year === undefined ? md : `${String(date.year).padStart(4, "0")}-${md}`;
+  return formatAnnualDate({ calendar: "solar", ...(date.year === undefined ? {} : { year: date.year }), month: date.month, day: date.day });
 }
 
 /** 电话、住址、关系的类型：TYPE 的几个值（小写）；4.0 的 PREF 参数算 pref */

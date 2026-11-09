@@ -96,7 +96,7 @@ describe("放进一份 vCard", () => {
           aliases: [],
           relation: "母亲",
           fields: [
-            { field: "birthday", value: "03-02" },
+            { field: "birthday", value: "--03-02" },
             { field: "phone", value: "13900000002", also: ["057188000002"] },
           ],
           ...imported,

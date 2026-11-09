@@ -6,6 +6,7 @@
 // - 彻底删除个人档案核对卡（personal_file）上确认过的生日：卡上每年提醒那一勾带着的月日一起抹掉（每个版本）；
 // - 彻底删除档案里的生日（连出处）：由它建过的每年提醒（关掉又开的两条都算）在提醒插件事件记录里的内容、时间，连同提醒卡、
 //   核对卡、回执、原话一起改写，全局事件里查不到"妈妈的生日""3 月 2 日"。
+// - 449：秘书写"下个月"被拒、错误写明怎么写；照抄的"3月2号"存成 "--03-02"，照样算原话里明说了、直接写，回执写好读的样子。
 // 示例数据全是编的。
 import {
   type Card,
@@ -23,13 +24,14 @@ import {
   type QuickActionCardPayload,
   type ReminderEventPayload,
   SELF_PERSON_ID,
+  type ToolCallDetail,
 } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { ManualClock } from "../helpers/clock.ts";
 import { startTestDaemon, type TestDaemonHandle } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
-import { requestJson } from "../helpers/http.ts";
+import { requestJson, toolCallDetail } from "../helpers/http.ts";
 import { waitUntil } from "../helpers/process.ts";
 
 const { secretary: SECRETARY, cards: CARDS, inbox: INBOX, board: BOARD } = CHANNELS;
@@ -57,6 +59,16 @@ async function tell(frontend: TestFrontend, text: string) {
   return sent;
 }
 
+/** 秘书最近一次调这个工具交回的结果 */
+async function lastResultOf(frontend: TestFrontend, url: string, tool: string): Promise<string> {
+  const part = frontend
+    .events({ channel: SECRETARY, type: EVENT_TYPES.message })
+    .flatMap((f) => (f.payload as MessageEventPayload).message.parts)
+    .findLast((p) => p.type === "tool_call" && p.tool === tool);
+  if (part?.type !== "tool_call") throw new Error(`没有 ${tool} 的调用`);
+  return ((await toolCallDetail(url, part.callId)).body as ToolCallDetail).result;
+}
+
 const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => (f.payload as CardEventPayload).card);
 const latestCard = (frontend: TestFrontend, id: string): Card => cardsOf(frontend).filter((c) => c.id === id).at(-1)!;
 const remindersOf = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.reminder }).map((f) => f.payload as ReminderEventPayload);
@@ -66,20 +78,30 @@ const eventsContaining = (daemon: TestDaemonHandle, text: string) =>
   daemon.store.reader.all<{ channel: string; type: string }>("SELECT channel, type FROM events WHERE instr(payload, ?) > 0", text).map((r) => `${r.channel}/${r.type}`);
 
 describe("原话里明说的生日直接建每年提醒", () => {
-  it("说\"我妈生日是3月2日\"：档案写入、每年 2 月 27 日的提醒直接建好、回执写明，没有多出的小卡；档案页能关", { timeout: 90_000 }, async () => {
+  it("说\"我妈生日是3月2号\"：存成 --03-02、档案写入、每年 2 月 27 日的提醒直接建好、回执写明，没有多出的小卡；档案页能关；\"下个月\"被拒", { timeout: 90_000 }, async () => {
     const clock = new ManualClock(at(10, 26, 10));
-    const { url, daemon } = await startTestDaemon({ clock, secretary: [propose({ person: "妈妈", fields: [{ field: "生日", value: "3月2日" }] }), OK] });
+    const { url, daemon } = await startTestDaemon({
+      clock,
+      secretary: [propose({ person: "妈妈", fields: [{ field: "生日", value: "下个月" }] }), OK, propose({ person: "妈妈", fields: [{ field: "生日", value: "3月2号" }] }), OK],
+    });
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe(ALL);
     // 妈妈的档案已经有了（新建一个人总出核对卡，那条路见主切面）
     const mom = (await filesApi.add(url, { name: "妈妈", relation: "母亲" })).body;
 
-    await tell(frontend, "我妈生日是3月2日");
+    // 449：写不出具体哪天的被拒，错误写明怎么写（秘书据此先问用户）；什么都没写
+    await tell(frontend, "我妈生日是下个月");
+    expect(await lastResultOf(frontend, url, "propose_quick_action")).toContain("生日：认不出日子：写成 1990-03-02、3月2日（不记得哪年）、农历八月十五 这样");
+    expect(cardsOf(frontend)).toEqual([]);
+    expect(fieldOf((await filesApi.get(url, mom.id)).body, "birthday")!.current).toBeUndefined();
+
+    await tell(frontend, "我妈生日是3月2号");
     // 聊天里只有一张"已执行"的回执：没有问每年提醒的小卡，也没有核对卡（另一张是提醒插件给新提醒的提醒卡，在看板上）
     const cards = cardsOf(frontend);
     expect([...new Set(cards.map((c) => c.type))].toSorted()).toEqual(["quick_action", "reminder"]);
     const receipt = cards.find((c) => c.type === "quick_action")!;
     expect(receipt).toMatchObject({ status: "handled", payload: { action: { type: "personal_file" }, explicit: true } });
+    expect((receipt.payload as QuickActionCardPayload).content).toBe("生日：3 月 2 日");
     expect((receipt.payload as QuickActionCardPayload).result).toBe("已记进档案：妈妈 · 生日。已建每年提醒（提前 3 天），档案页可改可关");
     expect(receipt.text).toContain("已建每年提醒（提前 3 天），档案页可改可关");
     const inChat = frontend
@@ -95,7 +117,7 @@ describe("原话里明说的生日直接建每年提醒", () => {
     expect(created).toMatchObject({ change: "created", reminder: { schedule: { kind: "yearly", month: 2, day: 27, time: "09:00" }, status: "pending" } });
     expect(created.reminder.text).toBe("3 月 2 日是妈妈的生日（还有 3 天）");
     const birthday = fieldOf((await filesApi.get(url, mom.id)).body, "birthday")!;
-    expect(birthday.current).toMatchObject({ value: "3月2日", source: { via: "secretary", basis: "explicit" } });
+    expect(birthday.current).toMatchObject({ value: "--03-02", source: { via: "secretary", basis: "explicit" } });
     expect(birthday.annual).toEqual({ monthDay: { month: 3, day: 2 }, daysBefore: 3, nextAt: nowIso(at(2, 27, 9, 0, 2027)) });
 
     // 档案页可改可关：关了提醒跟着删
@@ -116,7 +138,8 @@ describe("原话里明说的生日直接建每年提醒", () => {
     // 回执、提议的调用、原话一起；全局事件里查不到"妈妈的生日""3 月 2 日"
     const purged = await filesApi.remove(url, mom.id, { target: { kind: "field", field: "birthday" }, mode: "purge", withSources: true });
     expect(purged).toMatchObject({ status: 200, body: { sources: 1 } });
-    for (const text of ["妈妈的生日", "3 月 2 日", "3月2日", "03-02", "2 月 27 日", "2 月 23 日"]) expect({ text, events: eventsContaining(daemon, text) }).toEqual({ text, events: [] });
+    // （"下个月"被拒的那次调用里的格式说明带着"1990-03-02"，不是用户的值，不算；存的样子是"--03-02"）
+    for (const text of ["妈妈的生日", "3 月 2 日", "3月2号", "--03-02", "2 月 27 日", "2 月 23 日"]) expect({ text, events: eventsContaining(daemon, text) }).toEqual({ text, events: [] });
     // 提醒都删了（看板上没有）：事件记录里每个版本留着编号、状态、建和改的时刻，内容换成删除标记、时间去掉；
     // 开着的页面换到改写后的提醒卡（还开着的那条删掉时追加的也是改写后的样子）
     const stored = daemon.store.read(BOARD, 0, EVENT_TYPES.reminder).map((e) => (e.payload as ReminderEventPayload).reminder);
@@ -171,7 +194,7 @@ describe("内置字段\"纪念日\"", () => {
     const fields = on.body.fields.map((f) => f.field);
     expect(fields.slice(fields.indexOf("birthday") + 1, fields.indexOf("birthday") + 3)).toEqual(["anniversary:结婚纪念日", "anniversary:恋爱纪念日"]);
     expect(fields).not.toContain("anniversary");
-    expect(fieldOf(on.body, "anniversary:结婚纪念日")).toMatchObject({ label: "结婚纪念日", custom: false, number: false, current: { value: "2018年10月1日" }, annual: { daysBefore: 3 } });
+    expect(fieldOf(on.body, "anniversary:结婚纪念日")).toMatchObject({ label: "结婚纪念日", custom: false, number: false, current: { value: "2018-10-01" }, annual: { daysBefore: 3 } });
     expect(fieldOf(on.body, "anniversary:恋爱纪念日")).toMatchObject({ label: "恋爱纪念日", annual: { monthDay: { month: 5, day: 20 }, daysBefore: 7 } });
 
     //规矩照旧：已有的自定义字段"相识纪念日"算每年的日子；秘书再写"相识纪念日"接着写进它（不另起一个内置的）
@@ -180,7 +203,7 @@ describe("内置字段\"纪念日\"", () => {
     await tell(frontend, "我记错了，相识纪念日是2015年9月2日");
     const after = (await filesApi.get(url, SELF_PERSON_ID)).body;
     expect(fieldOf(after, "anniversary:相识纪念日")).toBeUndefined();
-    expect(fieldOf(after, "custom:相识纪念日")).toMatchObject({ current: { value: "2015年9月2日" }, history: [{ value: "2015年9月1日" }], annual: { daysBefore: 3 } });
+    expect(fieldOf(after, "custom:相识纪念日")).toMatchObject({ current: { value: "2015-09-02" }, history: [{ value: "2015-09-01" }], annual: { daysBefore: 3 } });
     await waitUntil(() => remindersOf(frontend).length === 3, { describe: () => "等相识纪念日的每年提醒" });
     expect(remindersOf(frontend).at(-1)!.reminder).toMatchObject({ schedule: { month: 8, day: 30 }, text: "9 月 2 日是你的相识纪念日（还有 3 天）" });
 
