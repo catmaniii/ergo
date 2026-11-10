@@ -124,8 +124,9 @@ const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boo
   // 标题栏上的入口、背后的 agent 的说法（手机上入口只有图标和个数，全称在说明里）
   { hash: "#/tasks/t-newpc", selector: ".bg-entry-text", wideOnly: true },
   { hash: "#/projects/p-ledger/chat", selector: ".chat-line .line-title, .xcard-tag" },
-  // 卡片在对话里收成一行，卡上处理过的结果、立项要求变更的前后对照在详情里：先点开那一行（open）
-  { hash: "#/projects/p-ledger/chat", selector: ".charter-diff-k", open: '.chat-line[data-card-type="charter_change"]' },
+  // 等你确认的立项要求变更在对话里整张画（462），前后对照就在对话里
+  { hash: "#/projects/p-ledger/chat", selector: ".charter-diff-k" },
+  // 处理过的卡在对话里收成一行，卡上处理过的结果在详情里：先点开那一行（open）
   { hash: "#/projects/p-ledger/chat", selector: ".auth-result", open: '.chat-line[data-card-type="mcp_change"]' },
   { hash: "#/inbox", selector: ".notify-permission" },
   // 待办通知的动作按钮：存的是中文原字（按字认），显示时换成当前语言（协议包的 inboxActionText）
@@ -217,8 +218,8 @@ const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boo
   // 个人档案——列表的说明和分节标题、一份档案里的字段名、分节标题、按钮（值、称呼、记下的事是内容，不在这里查）
   { hash: "#/more/files", selector: ".pf-intro, .pf-page .sec-head", except: ".assistant-name" },
   { hash: "#/more/files/p-fake-mom", selector: ".pf-label, .pf-page .sec-head, .pf-actions", except: ".assistant-name" },
-  // 记进档案的卡（对话里收成一行，按钮在详情里）
-  { hash: "#/secretary", selector: ".xcard-personal_file .auth-actions", open: '.chat-line[data-card-type="personal_file"]' },
+  // 记进档案的卡（等你核对：对话里整张画，按钮在卡上，462）
+  { hash: "#/secretary", selector: ".xcard-personal_file .auth-actions" },
 ];
 
 /**
@@ -2289,7 +2290,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
   test.each([
     ["手机", { width: 390, height: 844 }],
     ["电脑", { width: 1280, height: 800 }],
-  ])("%s宽：标题上的等你回答提问看得到、能点，点了定位到提问卡那一行；相册库的等你批准跳到任务里那张卡；点那一行在详情里答，答完不再等你、那一行写已回答", async (_what, viewport) => {
+  ])("%s宽：标题上的等你回答提问看得到、能点，点了定位到那张提问卡（整张画着）；相册库的等你批准跳到任务里那张卡；在对话里直接答，答完不再等你、收成一行写已回答", async (_what, viewport) => {
     const { page, errors } = await open(viewport);
     const go = (hash: string) => page.evaluate(`window.location.hash = ${JSON.stringify(hash)}`);
     const hash = () => page.evaluate("window.location.hash");
@@ -2312,13 +2313,12 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await jump.click();
       expect(await hash()).toBe("#/secretary/at/c-q-1");
       await flashed.waitFor({ timeout: 5000 });
-      // 提问卡在对话里收成一行（"等你回答"），定位到它、就在眼前
-      const row = page.locator('.chat-line[data-card-type="questions"]:has-text("去几天")').first();
-      expect(await row.locator(".tool-sum-tag").textContent()).toContain("等你回答");
+      // 提问卡等你回答：在对话里整张画、按钮在卡上（462），定位到它、卡头就在眼前
+      const asking = page.locator('.conv .xcard-questions:has-text("去几天")').first();
       const composerTop = (await page.locator(".composer").first().boundingBox())!.y;
       await expect.poll(async () => {
-        const rowBox = (await row.boundingBox())!;
-        return rowBox.y >= 0 && rowBox.y + rowBox.height <= composerTop;
+        const cardBox = (await asking.boundingBox())!;
+        return cardBox.y >= 0 && cardBox.y < composerTop;
       }, { timeout: 5000 }).toBe(true);
 
       // 闪完了再点一次：地址没变，照样再闪一下
@@ -2341,17 +2341,51 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       // 项目内部任务没有单独的页面，换到项目的对话框、定位到这个任务和那张卡
       expect(await hash()).toBe("#/projects/p-photos/tasks/t-photos/at/c-appr-1");
 
-      // 点那一行：详情（宽屏右边、手机上滑进来的一页）里是整张卡，按钮在那里；答完：标题不再说等你，不再是链接，那一行写已回答
+      // 在对话里那张卡上直接答；答完：标题不再说等你，不再是链接，那张卡收成一行写已回答
       await go("#/secretary");
       await jump.waitFor();
-      await row.click();
-      const answer = page.locator('.pane-detail button:has-text("全按推荐"), .dp-page.at-detail button:has-text("全按推荐")').first();
-      await answer.waitFor({ timeout: 5000 });
-      await answer.click();
+      await asking.locator('button:has-text("全按推荐")').click();
       await jump.waitFor({ state: "detached", timeout: 5000 });
       expect(await page.locator(".topbar .act").first().getAttribute("class")).toContain("act-sleeping");
+      const row = page.locator('.chat-line[data-card-type="questions"]:has-text("去几天")').first();
       await expect.poll(async () => row.locator(".tool-sum-tag").textContent(), { timeout: 5000 }).toContain("已回答");
       expect(await row.getAttribute("class")).not.toContain("tool-sum-you");
+      expect(await page.locator('.conv .xcard-questions:has-text("去几天")').count()).toBe(0);
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  // 462：立项书让你确认时整张展开、排在这一轮最后（负责人交了立项书又想了想、回了一段话，立项书在那段话下面），
+  // 打开会话停在最下面，"确认并开工"不用点详情就看得到、点得到
+  test.each([
+    ["手机", { width: 390, height: 844 }],
+    ["电脑", { width: 1280, height: 800 }],
+  ])("%s宽：等你确认的立项书在聊天最下面整张展开，在负责人最后那段回复下面，滚到底看得到“确认并开工”", async (_what, viewport) => {
+    const { page, errors } = await open(viewport);
+    try {
+      await page.evaluate(`window.location.hash = "#/projects/p-appliance"`);
+      const charter = page.locator(".conv .xcard-charter");
+      await charter.waitFor();
+      const start = charter.locator('button:has-text("确认并开工")');
+      // 最后一条就是它，上面是负责人那段思考和回复
+      const lastTwo = await page.locator(".conv .zi").evaluateAll((els) => els.slice(-2).map((el) => ({ card: el.querySelector(".xcard-charter") !== null, reply: el.querySelector(".part-text") !== null })));
+      expect(lastTwo).toEqual([
+        { card: false, reply: true },
+        { card: true, reply: false },
+      ]);
+      const reply = page.locator(".conv .zi .part-text").last();
+      expect(await reply.innerText()).toContain("立项书交上来了");
+      expect(await page.locator('.conv .chat-line[data-card-type="charter"]').count()).toBe(0);
+      // 滚到底（打开就在底部）：按钮整个在可视区里、输入框上面，在那段回复下面
+      const composerTop = (await page.locator(".composer").first().boundingBox())!.y;
+      await expect.poll(async () => {
+        const b = await start.boundingBox();
+        return b !== null && b.y >= 0 && b.y + b.height <= composerTop;
+      }, { timeout: 5000 }).toBe(true);
+      expect((await start.boundingBox())!.y).toBeGreaterThan((await reply.boundingBox())!.y);
+      expect(await charter.locator('button:has-text("只确认，稍后开工")').isVisible()).toBe(true);
       expect(errors).toEqual([]);
     } finally {
       await page.close();
