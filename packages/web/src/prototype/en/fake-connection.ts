@@ -33,6 +33,7 @@ export const EN_CONNECTION: Phrases = {
   "这一轮做完了，任务自动完成。要它接着做，在这里接着说。": "This turn is done, so the task finished automatically. To have it continue, keep talking here.",
   "（原型）后台的「{}」做完了。": "(Demo) The background job “{}” is done.",
   "建议立项：{}（{}）": "Suggest a project: {} ({})",
+  "地图卡片：{}": "Map card: {}",
   "（原型）你点了“新建项目”：不判断是不是项目，直接给你一张建议立项卡。": "(Demo) You clicked “New project”: it doesn't judge whether this is a project, just gives you a suggestion card.",
   "（原型）只有原型里新发起、还在规划中的任务能转为项目": "(Demo) Only tasks started in the demo and still in planning can become projects",
   "已经有叫「{}」的项目了：换个名字": "There's already a project called “{}”: pick another name",

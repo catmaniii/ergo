@@ -4,6 +4,8 @@
 //   日期写法不对、手机插件没启用回错；
 // - points / route：点和路线存在卡上，路线的起点终点标出来；
 // - lookup：卡上只存编号、种类、哪家查的和标题（不存点和线）；取不到回错、不出卡；
+// - replace（461）：填了 true 的卡上写 replace（地图页照它替掉二狗之前画的），不填、填 false 不写；工具说明写明什么时候填、
+//   在地图页说的画出来直接出现在他正看着的地图上；
 // - 四样里给了不止一样、参数不对：回错、不出卡；守卫登记：只看、不落任何关注类别；
 // - 卡片：负载合 schema、纯文本降级、彻底删除时标题和点旁边的字换成删除标记；GET /api/map/drawing 的那一份过期了回 404。
 import { type Card, type MapCardPayload, MapCardPayload as MapCardSchema, type MapDayView, type MapDrawing, PURGED_TEXT, schemaChecker } from "@ergo/protocol";
@@ -154,6 +156,27 @@ describe("画在地图上（show_on_map）", () => {
     expect(await setup().run({ lookup: "amap-r1" })).toMatchObject({ isError: true });
   });
 
+  it("replace（461）：填了 true 的卡上写 replace，不填、填 false 不写；四样都认", async () => {
+    const lookups: MapLookups = { get: (id) => (id === "amap-r1" ? ROUTE : undefined) };
+    const { made, run } = setup({ lookups });
+    await run({ points: [{ lat: 30.25, lon: 120.14, label: "公司" }], replace: true });
+    await run({ points: [{ lat: 30.25, lon: 120.14, label: "公司" }], replace: false });
+    await run({ points: [{ lat: 30.25, lon: 120.14, label: "公司" }] });
+    await run({ date: "2026-11-06", replace: true });
+    await run({ route: [{ lat: 30.27, lon: 120.15 }, { lat: 30.26, lon: 120.145 }], replace: true });
+    await run({ lookup: "amap-r1", replace: true });
+    expect(made.map((m) => (m.payload as MapCardPayload).replace)).toEqual([true, undefined, undefined, true, true, true]);
+    expect("replace" in (made[1]!.payload as object)).toBe(false);
+    for (const m of made) expect(payloadOk.check(m.payload)).toBe(true);
+  });
+
+  it("工具说明：在地图页说的画出来直接出现在他正看着的地图上，连着画的叠在一起，换掉之前画的填 replace", () => {
+    const { tool } = setup();
+    expect(tool.spec.description).toContain("画出来会直接出现在他正看着的地图上，不用叫他去点卡片");
+    expect(tool.spec.description).toContain("连着画的几次叠在一起，用户要换掉之前画的时填 replace");
+    expect(JSON.stringify(tool.spec.parameters)).toContain("换成……");
+  });
+
   it("四样里给了不止一样或一样都没给、参数不对：回错、不出卡", async () => {
     const { made, run } = setup();
     expect(await run({ date: "2026-11-06", points: [{ lat: 1, lon: 1 }] })).toMatchObject({ isError: true });
@@ -186,6 +209,8 @@ describe("地图卡片", () => {
     expect(purgedMapCard(route)).toEqual({ title: PURGED_TEXT, show: { ...route.show, marks: [{ id: "r1", lat: 30.27, lon: 120.15, label: PURGED_TEXT }] } });
     const lookup: MapCardPayload = { show: { kind: "lookup", lookup: "amap-r1", what: "route", source: "amap" } };
     expect(purgedMapCard(lookup)).toEqual(lookup);
+    // 替不替掉之前画的照旧（461）
+    expect(purgedMapCard({ ...route, replace: true })).toMatchObject({ title: PURGED_TEXT, replace: true });
     expect(payloadOk.check(purgedMapCard(route))).toBe(true);
   });
 });

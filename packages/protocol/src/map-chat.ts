@@ -14,7 +14,7 @@ export function mapMarkOf(context: MapContext): MapMark {
     zoom: round(context.zoom, 2),
     basemap: context.basemap,
     ...(context.footprints ? { footprints: { date: context.footprints.date, ...(context.footprints.spot ? { spot: context.footprints.spot } : {}) } } : {}),
-    ...(context.card ? { card: { id: context.card.id, ...(context.card.title ? { title: context.card.title } : {}) } } : {}),
+    ...(context.card ? { card: { id: context.card.id, ...(context.card.title ? { title: context.card.title } : {}), ...(context.card.count ? { count: context.card.count } : {}) } } : {}),
     ...(context.via === "button" ? { via: "button" as const, ...(context.spoken ? { spoken: true as const } : {}) } : {}),
   };
 }

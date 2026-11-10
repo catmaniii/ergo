@@ -169,6 +169,12 @@
   color: var(--muted);
   font-size: var(--fs-s);
 }
+/* 二狗画的叠着几样（461）："共 N 样"不缩，后面的概况先省略 */
+.map-card-bar-count {
+  flex: none;
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
 .map-card-bar .icon-btn {
   flex: none;
   padding: 6px;

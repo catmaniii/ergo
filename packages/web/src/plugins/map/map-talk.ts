@@ -7,7 +7,9 @@
 //   语音插件没启用时不录，写一句"语音插件没启用：点一下按钮打字"；
 // - 发出去以后气泡里"二狗在想……"，秘书正忙时"排在后面"；这一轮说完了，它最后说的那句显示在气泡里（state/page-button.ts 的
 //   buttonTurnOf 从秘书会话的权威事件里认）；成了的过一会儿收起；
-// - 收起（×、点"展开到右边"、打开右边的聊天窗、离开地图页）：正在等回话时也能收——这句照样在秘书的会话里办完。
+// - 收起（×、点"展开到右边"、打开右边的聊天窗、离开地图页）：正在等回话时也能收——这句照样在秘书的会话里办完；
+// - 接着显示一轮（461，follow）：手机窄屏上在聊天窗里说的、二狗这一轮在地图上画了东西，聊天窗收起露出地图，气泡里接着显示这一轮
+//   （在想，说完了是它最后说的那句；state/page-button.ts 的 turnAround 按地图卡片那条消息的序号认），和按钮上发的一样过一会儿收起。
 // 地图上没有"选中的框"，按钮只有一个地方（右下角）；录音、时长、气泡里的话和浏览的悬浮按钮共用（app/talk-button.ts）。
 // 不碰 DOM 和浏览器的全局变量（录音、识别、地图上下文、发消息都由参数给），测试在 Node 里跑；画在 MapFab.tsx。
 import { type BusyNote, LEVEL_MS, LEVELS_KEPT, LISTEN_MAX_MS, type PageTake, type PageVoice, PRESS_CAPTURE_MS, REPLY_HIDE_MS } from "../../app/talk-button.ts";
@@ -44,8 +46,9 @@ export class MapTalk {
   private readonly listeners = new Set<() => void>();
   private link: MapTalkLink | undefined;
   private turnOf: ((key: string) => ButtonTurn) | undefined;
-  /** 正在等秘书回的那一句：发消息的幂等键、说了什么、哪一次 */
-  private waiting: { key: string; said: string; run: number } | undefined;
+  /** 正在等秘书回的那一句：按钮上发的认发消息的幂等键，接着显示的一轮认那一轮里一条的序号（461）；说了什么、哪一次 */
+  private waiting: { by: { readonly key: string } | { readonly seq: number }; said: string | undefined; run: number } | undefined;
+  private turnAround: ((seq: number) => ButtonTurn) | undefined;
   /** 每次一个号：收起了、开了新的，旧的结果回来就不管了 */
   private run = 0;
   private starting: Promise<void> | undefined;
@@ -92,9 +95,25 @@ export class MapTalk {
     return !this.voiceOn;
   }
 
-  /** 秘书会话变了（地图页每次状态变了交过来）：看看等着的那一句走到哪了 */
-  secretaryChanged(turnOf: (key: string) => ButtonTurn): void {
+  /**
+   * 秘书会话变了（地图页每次状态变了交过来）：看看等着的那一句走到哪了。turnOf 按发消息的幂等键认，
+   * around 按一轮里一条的序号认（接着显示的一轮，461；不给的不接着显示）
+   */
+  secretaryChanged(turnOf: (key: string) => ButtonTurn, around?: (seq: number) => ButtonTurn): void {
     this.turnOf = turnOf;
+    this.turnAround = around;
+    this.track();
+  }
+
+  /**
+   * 接着显示一轮（461）：二狗这一轮在地图上画了东西、聊天窗收起了，气泡里显示这一轮——在想，说完了是它最后说的那句。
+   * seq 是这一轮里地图卡片那条消息的序号，said 是用户这一轮说的那句（认不出不写）。正在录音时不打断
+   */
+  follow(seq: number, said?: string): void {
+    if (this.panel.kind === "listening") return;
+    const run = ++this.run;
+    this.waiting = { by: { seq }, said, run };
+    this.set({ kind: "busy", ...(said === undefined ? {} : { said }), note: "thinking" });
     this.track();
   }
 
@@ -241,27 +260,30 @@ export class MapTalk {
       return this.fail(t("app.pageCommands.notDelivered", { reason: err instanceof Error ? err.message : String(err) }), said);
     }
     if (run !== this.run) return;
-    this.waiting = { key, said, run };
+    this.waiting = { by: { key }, said, run };
     this.set({ kind: "busy", said, note: "thinking" });
     this.track();
   }
 
   private track(): void {
     const w = this.waiting;
-    if (!w || !this.turnOf) return;
+    if (!w) return;
     if (w.run !== this.run) {
       this.waiting = undefined;
       return;
     }
-    const turn = this.turnOf(w.key);
+    const by = w.by;
+    const turn = "key" in by ? this.turnOf?.(by.key) : this.turnAround?.(by.seq);
+    if (turn === undefined) return;
+    const said = w.said === undefined ? {} : { said: w.said };
     if (turn.phase === "sending" || turn.phase === "thinking" || turn.phase === "queued") {
       const note: BusyNote = turn.phase === "queued" ? "queued" : "thinking";
-      if (this.panel.kind !== "busy" || this.panel.note !== note) this.set({ kind: "busy", said: w.said, note });
+      if (this.panel.kind !== "busy" || this.panel.note !== note) this.set({ kind: "busy", ...said, note });
       return;
     }
     this.waiting = undefined;
-    if (turn.phase === "failed") return this.set({ kind: "reply", text: turn.reason, failed: true, said: w.said });
-    this.set({ kind: "reply", text: turn.text, failed: false, said: w.said });
+    if (turn.phase === "failed") return this.set({ kind: "reply", text: turn.reason, failed: true, ...said });
+    this.set({ kind: "reply", text: turn.text, failed: false, ...said });
     const shown = this.panel;
     this.hideTimer = setTimeout(() => {
       if (this.panel === shown) this.set(MAP_TALK_IDLE);

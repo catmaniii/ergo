@@ -154,6 +154,7 @@ function fake(view: MapDayView | undefined, extra: Partial<Footprints> = {}): Fo
     fit: undefined,
     focus: undefined,
     pick: () => {},
+    showDay: () => {},
     toggle: () => {},
     select: () => {},
     jumpTo: () => {},

@@ -2254,6 +2254,149 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(off.errors).toEqual([]);
   }, 60_000);
 
+  // 二狗在地图上画的直接出现在地图上，不用再点卡片（461）：演示页里在地图页上说带"标"字的话（英文带 mark），原型回一张标了几个点的
+  // 地图卡片（附近的咖啡馆、地铁站、公司轮着来，"只看""换成"的替掉之前画的）。打开前的旧卡不画；叠加、标题栏"共 N 样"、"×"一次清掉；
+  // 手机窄屏聊天窗整屏盖着时二狗画了就收起、气泡里接着显示这一轮；宽屏聊天窗不收；点卡片"看大地图"照旧只看它。一个请求都不往外发
+  const drawnMarks = ".map-page-overlay .map-mark[data-id^='card-']";
+
+  test("461 手机宽：悬浮按钮说一句，二狗画的直接在地图上、气泡里是它的话、顶上不另弹；再说一句叠上去（标题栏共 2 样）；×一次清掉；打开前的旧卡不画", async () => {
+    const { context, page, errors, outside } = await openMap({ width: 390, height: 844 });
+    try {
+      await page.locator('.map-canvas[data-basemap="amap"]').waitFor({ timeout: 5000 });
+      // 演示里聊天中已有的几张地图卡片（打开前的）不自动画
+      await page.waitForTimeout(500);
+      expect(await page.locator(".map-card-bar").count()).toBe(0);
+      expect(await page.locator(drawnMarks).count()).toBe(0);
+      // 悬浮按钮上说一句：卡片不用点，点直接画在地图上；气泡里是二狗这一轮说的
+      await page.locator(".map-fab").click();
+      await page.locator(".map-talk textarea").fill("把附近的咖啡馆标出来");
+      await page.locator(".map-talk-send").click();
+      await page.locator('.map-talk[data-kind="reply"]').waitFor({ timeout: 8000 });
+      expect(await page.locator(".map-talk-text").innerText()).toBe("（原型）标好了：附近 3 家咖啡馆，都在地图上了。");
+      await expect.poll(() => page.locator(drawnMarks).count(), { timeout: 5000 }).toBe(3);
+      expect(await page.locator(".map-card-bar b").innerText()).toBe("附近的咖啡馆");
+      expect(await page.locator(".map-card-bar").getAttribute("data-count")).toBe("1");
+      expect(await page.locator(".map-card-bar-note").innerText()).toBe("湖边咖啡、转角咖啡、书店咖啡");
+      expect(await page.locator(".map-card-bar-count").count()).toBe(0);
+      expect(await page.evaluate("location.hash")).toBe("#/more/map");
+      // 回话就在气泡里：顶上不另弹"二狗：……"盖住标题栏
+      expect(await page.locator(".alert-stack .alert-banner").count()).toBe(0);
+      await titleBarOneLine(page, 390);
+      // 新画的都在地图那一块里（视野挪过去看全了）
+      const stage = (await boxOf(page, ".map-stage"))!;
+      for (const box of await page.locator(drawnMarks).evaluateAll((els) => els.map((e) => e.getBoundingClientRect().toJSON() as { x: number; y: number }))) {
+        expect(box.x).toBeGreaterThanOrEqual(stage.x);
+        expect(box.x).toBeLessThanOrEqual(stage.x + stage.width);
+        expect(box.y).toBeGreaterThanOrEqual(stage.y);
+        expect(box.y).toBeLessThanOrEqual(stage.y + stage.height);
+      }
+      // 再说一句：叠上去，前面的不冲掉；标题栏写最新那张和"共 2 样"
+      await page.locator(".map-talk-close").click();
+      await page.locator(".map-fab").click();
+      await page.locator(".map-talk textarea").fill("再把地铁站标上");
+      await page.locator(".map-talk-send").click();
+      await page.locator('.map-talk[data-kind="reply"]').waitFor({ timeout: 8000 });
+      await expect.poll(() => page.locator(drawnMarks).count(), { timeout: 5000 }).toBe(5);
+      expect(await page.locator(".map-card-bar b").innerText()).toBe("附近的地铁站");
+      expect(await page.locator(".map-card-bar-count").innerText()).toBe("共 2 样");
+      expect(await page.locator(".map-card-bar-note").innerText()).toBe("地铁站 · 东口、地铁站 · 西口");
+      // 手机上标题栏窄："共 2 样"整个露着（不被省略号吃掉）
+      const count = (await boxOf(page, ".map-card-bar-count"))!;
+      const barText = (await boxOf(page, ".map-card-bar-text"))!;
+      expect(count.x + count.width).toBeLessThanOrEqual(barText.x + barText.width + 1);
+      expect(await page.locator(".map-card-bar-count").evaluate((e) => e.scrollWidth <= e.clientWidth + 1)).toBe(true);
+      expect(await page.locator(".map-card-bar").getAttribute("data-count")).toBe("2");
+      await titleBarOneLine(page, 390);
+      // "×"：一次清掉，回到地图
+      await page.locator('.map-card-bar button[aria-label="清掉这 2 样"]').click();
+      await page.locator(".map-day-layer").waitFor({ timeout: 5000 });
+      expect(await page.locator(".map-card-bar").count()).toBe(0);
+      expect(await page.locator(drawnMarks).count()).toBe(0);
+    } finally {
+      await context.close();
+    }
+    expect(outside).toEqual([]);
+    expect(errors).toEqual([]);
+  }, 60_000);
+
+  test("461 手机宽：聊天窗整屏盖着时在聊天窗里说，二狗画了就收起聊天窗、露出地图，气泡里接着显示这一轮；英文", async () => {
+    const { context, page, errors, outside } = await openMap({ width: 390, height: 844 }, { search: "?lang=en" });
+    try {
+      await page.locator(".map-bar-tools .map-chat-toggle").click();
+      const chat = page.locator(".map-chat-cover");
+      await chat.locator(".composer textarea").waitFor({ timeout: 5000 });
+      await chat.locator(".composer textarea").fill("Mark the cafés nearby");
+      await chat.locator(".composer textarea").press("Enter");
+      // 二狗画了：聊天窗收起（记成收着），点在地图上，悬浮按钮的气泡里是你说的那句和二狗这一轮最后说的那句
+      await chat.waitFor({ state: "detached", timeout: 8000 });
+      await page.locator(".map-fab:not([hidden])").waitFor({ timeout: 5000 });
+      expect(await page.evaluate(`localStorage.getItem("ergo-map-chat")`)).toBeNull();
+      await expect.poll(() => page.locator(drawnMarks).count(), { timeout: 5000 }).toBe(3);
+      expect(await page.locator(".map-talk-said").innerText()).toBe("Mark the cafés nearby");
+      await page.locator('.map-talk[data-kind="reply"]').waitFor({ timeout: 8000 });
+      expect(await page.locator(".map-talk-text").innerText()).toBe("(Demo) Done: 3 cafés nearby, all on the map now.");
+      expect(await page.locator(".map-card-bar b").innerText()).toBe("Cafés nearby");
+      expect(await page.locator(drawnMarks).evaluateAll((els) => els.map((e) => e.querySelector(".map-mark-label")?.textContent))).toEqual(["Lakeside Café", "Corner Café", "Bookshop Café"]);
+      expect(await page.locator(".alert-stack .alert-banner").count()).toBe(0);
+      // 再说一句叠上去：英文的"共 N 样"、"×"
+      await page.locator(".map-talk-close").click();
+      await page.locator(".map-fab").click();
+      await page.locator(".map-talk textarea").fill("Now mark the metro");
+      await page.locator(".map-talk-send").click();
+      await expect.poll(() => page.locator(drawnMarks).count(), { timeout: 8000 }).toBe(5);
+      expect(await page.locator(".map-card-bar-count").innerText()).toBe("2 on the map");
+      expect(await page.locator(".map-card-bar button").getAttribute("aria-label")).toBe("Clear all 2");
+    } finally {
+      await context.close();
+    }
+    expect(outside).toEqual([]);
+    expect(errors).toEqual([]);
+  }, 60_000);
+
+  test("461 电脑宽：聊天窗开着说，聊天里一张卡、左边地图上已经画好（聊天窗不收）；换成的替掉之前画的；点卡片看大地图照旧只看它", async () => {
+    const { context, page, errors, outside } = await openMap({ width: 1280, height: 800 });
+    try {
+      await page.locator(".map-bar-tools .map-chat-toggle").click();
+      const chat = page.locator(".map-chat");
+      const say = async (text: string) => {
+        await chat.locator(".composer textarea").fill(text);
+        await chat.locator(".composer textarea").press("Enter");
+      };
+      await chat.locator(".composer textarea").waitFor({ timeout: 5000 });
+      await say("把附近的咖啡馆标出来");
+      await expect.poll(() => page.locator(drawnMarks).count(), { timeout: 8000 }).toBe(3);
+      // 聊天里照常留着那张卡；宽屏聊天窗在旁边，不收
+      const card = chat.locator(".xcard-map").filter({ hasText: "附近的咖啡馆" });
+      await card.waitFor({ timeout: 5000 });
+      expect(await card.locator(".xcard-title").innerText()).toBe("附近的咖啡馆");
+      await expect.poll(() => chat.innerText(), { timeout: 8000 }).toContain("（原型）标好了：附近 3 家咖啡馆，都在地图上了。");
+      expect(await page.locator(".map-chat").count()).toBe(1);
+      expect(await page.locator(".map-fab").isVisible()).toBe(false);
+      expect(await chat.locator(".browse-side-watch").innerText()).toMatch(/现在在看\s*地图 · 附近的咖啡馆/);
+      // 叠一张，再"只看"：替掉之前画的
+      await say("再把地铁站标上");
+      await expect.poll(() => page.locator(drawnMarks).count(), { timeout: 8000 }).toBe(5);
+      await expect.poll(() => chat.innerText(), { timeout: 8000 }).toContain("两个地铁站也标上了");
+      await say("只看公司，标一下");
+      await expect.poll(() => page.locator(".map-card-bar b").innerText(), { timeout: 8000 }).toBe("公司");
+      expect(await page.locator(drawnMarks).count()).toBe(1);
+      expect(await page.locator(".map-card-bar").getAttribute("data-count")).toBe("1");
+      // 点聊天里第一张卡的"看大地图"：照旧只看它（地址是这张卡）
+      await card.scrollIntoViewIfNeeded();
+      await card.locator(".map-card-open").click();
+      await expect.poll(() => page.evaluate("location.hash"), { timeout: 5000 }).toMatch(/^#\/more\/map\/card\/c-proto-map-/);
+      await expect.poll(() => page.locator(".map-card-bar b").innerText(), { timeout: 5000 }).toBe("附近的咖啡馆");
+      expect(await page.locator(drawnMarks).count()).toBe(3);
+      await page.locator('.map-card-bar button[aria-label="不看这张了"]').click();
+      await expect.poll(() => page.evaluate("location.hash"), { timeout: 5000 }).toBe("#/more/map");
+      expect(await page.locator(".map-card-bar").count()).toBe(0);
+    } finally {
+      await context.close();
+    }
+    expect(outside).toEqual([]);
+    expect(errors).toEqual([]);
+  }, 60_000);
+
   test("地图页手机宽的抽屉：点停留出详情卡，点把手拖低（只露标题那一行，记着，二狗按钮跟着往下），往下拖关掉；英文", async () => {
     const { context, page, errors, outside } = await openMap({ width: 390, height: 844 }, { footprintsOn: true, search: "?lang=en" });
     try {

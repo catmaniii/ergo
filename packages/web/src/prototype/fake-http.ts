@@ -190,7 +190,7 @@ import { fakeTakeoverSessions } from "./fake-takeover.ts";
 import { fakeAppFileText } from "./fake-app-files.ts";
 import { fakeMedia, fakeSoundUrl, fakeVideoUrl } from "./fake-media.ts";
 import { FAKE_MATERIAL_IMAGES, fakeMaterialConversations, fakeMaterialDetail, fakeMaterialsIn, fakeSaveWebPage } from "./fake-materials.ts";
-import { demoMapDrawing, demoMapFind, demoMapProviders, demoStaticMap } from "./fake-map.ts";
+import { demoDrawnMapCard, demoMapDrawing, demoMapFind, demoMapProviders, demoStaticMap } from "./fake-map.ts";
 import { demoMapDay, demoMapLatest } from "./fake-footprints.ts";
 import { fakeServiceThumbnail } from "./fake-operations.ts";
 import { fakeProjectStandard } from "./fake-standard.ts";
@@ -793,8 +793,10 @@ export class FakeDaemonHttp implements DaemonHttp {
   private async previewContent(q: MapPreviewQuery): Promise<{ own?: string; bounds: { lat: number; lon: number }[] }> {
     if (q.lookup !== undefined) return previewOfDrawing(q.lookup);
     const card = FAKE_CARDS.find((c) => c.id === q.card && c.type === "map");
-    if (!card) throw new Error(fakeText("这张地图卡片不在了"));
-    const show = (card.payload as MapCardPayload).show;
+    // 原型这次打开以后在地图页上画的（461）也认
+    const payload = card ? (card.payload as MapCardPayload) : q.card === undefined ? undefined : demoDrawnMapCard(q.card);
+    if (!payload) throw new Error(fakeText("这张地图卡片不在了"));
+    const show = payload.show;
     if (show.kind === "lookup") return previewOfDrawing(show.lookup);
     if (show.kind === "day") {
       const day = demoMapDay(show.date);

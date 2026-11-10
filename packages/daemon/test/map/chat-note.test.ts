@@ -5,6 +5,7 @@
 // - 还没画上（loading）、不是编号的写法：不叫秘书写 map（按自动挑）；
 // - 开着足迹（451 起底图也是当前地图）：和没开一样写地图上用的那一家，map 照样写成交来的编号；453 起照实写一句
 //   "足迹只在他这台设备上画，不发给任何地图服务"。
+// - 461：画出来会直接出现在他正看着的地图上、接着画的叠上去、"换成""只看"时填 replace；叠着几张的写"地图上叠着你画的 N 样"。
 import type { MapMark } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { mapChatNote } from "../../src/map/chat-note.ts";
@@ -56,5 +57,14 @@ describe("交给秘书的那段写明地图上用的是哪一家、map 写成它
     expect(mapChatNote(at("amap"))).toContain("地图上用的是amap（地图服务编号 amap）");
     // 手动选了 OpenStreetMap 的：照样写它
     expect(mapChatNote({ ...at("osm"), footprints: { date: "2026-11-06" } })).toContain('把 map 写成"osm"');
+  });
+
+  it("461：画出来直接出现在他正看着的地图上，接着画的叠上去，\"换成\"\"只看\"时填 replace；叠着几张的写上一共几样、最新那张", () => {
+    const note = mapChatNote(at("amap"), nameOf);
+    expect(note).toContain("用 show_on_map 画：画出来会直接出现在他正看着的这张地图上（聊天里也留一张地图卡片），不用叫他去点卡片。");
+    expect(note).toContain('他说"换成……""只看……""别的不要了"时把 replace 填 true');
+    expect(note).not.toContain("他点开就在地图页上看");
+    expect(mapChatNote({ ...at("amap"), card: { id: "c-3", title: "附近的地铁站" } }, nameOf)).toContain("看的是聊天里的一张地图卡片「附近的地铁站」（卡片 c-3）");
+    expect(mapChatNote({ ...at("amap"), card: { id: "c-3", title: "附近的地铁站", count: 3 } }, nameOf)).toContain("地图上叠着你画的 3 样，最新的是聊天里的地图卡片「附近的地铁站」（卡片 c-3）");
   });
 });
