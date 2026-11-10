@@ -5,10 +5,13 @@
 //   （照谷歌地图：二狗按钮在最右下）；
 // - 点一下打字、按住说话（按够 0.35 秒开始录，上滑或划开松手取消；语音插件停用时只能打字），逻辑在 map-talk.ts；
 // - 气泡在按钮上方、右边对齐（宽度照页面桥的 bubbleWidth：手机上屏宽减 32、最宽 360），用二狗网页自己的样式（跟着十一套风格、深浅），
-//   顶上一行"对二狗说"（名字是用户起的，画成名字标签），右边"展开到右边"（收起气泡、打开右边的聊天窗）和收起。
+//   顶上一行"对二狗说"（名字是用户起的，画成名字标签），右边"展开到右边"（收起气泡、打开右边的聊天窗）和收起；
+// - 气泡里正显示着一轮（在想、回话，461 起也有窄屏聊天窗收起后接着显示的那一轮）时算秘书会话正被看着（app/secretary-watching.ts）：
+//   这一轮说完了顶上不再另弹一条"二狗：……"盖住标题栏（回话就在气泡里）。
 import { type CSSProperties, type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createFab, FAB_STYLE, type Fab } from "../../page-bridge/fab.ts";
 import { BUBBLE_EDGE, BUBBLE_GAP, BUBBLE_MAX_HEIGHT, BUTTON_SIZE, bubbleWidth, fabSpot, inVoiceCancelZone, placeCornerButton, recordedText, waveBars } from "../../page-bridge/rules.ts";
+import { setSecretaryWatching } from "../../app/secretary-watching.ts";
 import { BUSY_KEY, LONG_PRESS_MS, type NamedPart, namedText } from "../../app/talk-button.ts";
 import { PAGE_COMMAND_TEXT_MAX, t } from "../../state/index.ts";
 import { NameTag, useAssistantName } from "../../ui/assistant-name.tsx";
@@ -149,6 +152,14 @@ export function MapFab({ talk, chatOpen, stageRef, dock, onExpand }: { talk: Map
   useEffect(() => {
     if (!shown) talk.dismiss();
   }, [shown, talk]);
+
+  // 气泡里正显示着一轮：秘书会话算正被看着（这一轮说完了顶上不另弹提醒，回话就在气泡里）
+  const following = panel.kind === "busy" || panel.kind === "reply";
+  useEffect(() => {
+    if (!following) return;
+    setSecretaryWatching("map-fab", true);
+    return () => setSecretaryWatching("map-fab", false);
+  }, [following]);
 
   const hostStyle: CSSProperties = { left: at.x, top: at.y, width: BUTTON_SIZE, height: BUTTON_SIZE };
   return (

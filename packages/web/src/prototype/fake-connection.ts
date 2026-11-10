@@ -116,6 +116,7 @@ import {
   type CalendarMonthView,
   BLOCKING_URGENCIES,
   type Card,
+  type MapContext,
   type CardAction,
   type CardEventPayload,
   CARD_TYPE_VERSIONS,
@@ -213,6 +214,7 @@ import { appendRollbackDemo, type FakeBranchLog, fakeBranchView, fakeEffectUndo,
 import { FAKE_AT_TASK, FAKE_CARDS, FAKE_EVENT_TASK, FAKE_HISTORY, FAKE_PLAIN_TASK, FAKE_REMOTE_TASK, FAKE_TAKEOVER_TASK, FAKE_TIMED_TASK, FAKE_TIMED_WORKFLOW, FAKE_WORKFLOW_TASK } from "./fake-conversations.ts";
 import { FAKE_CARD_WAITERS, FAKE_DEVICES, FAKE_HOLIDAYS, FAKE_SELF_DEVICE_ID, FAKE_INBOX, FAKE_PROJECT_EVENTS, FAKE_PROJECTS, FAKE_WATCH_CATEGORIES, FAKE_WORKDAY_SETTINGS } from "./fake-data.ts";
 import { FAKE_PROJECT_SERVICES } from "./fake-operations.ts";
+import { DEMO_MAP_ASK, demoMapDraw, rememberDemoMapCard } from "./fake-map.ts";
 import { fakeGoLiveChecklist } from "./fake-standard.ts";
 
 /** 原型里假的语音对象 id 的前缀（分流连接据此把"重新识别"交给假连接） */
@@ -272,6 +274,8 @@ export class FakeConnection implements Connection {
   private projectNo = 0;
   private itemNo = 0;
   private voiceNo = 0;
+  /** 地图页上画了几次（461：轮着画几组点） */
+  private mapDraws = 0;
   private readonly voices = new Map<string, VoiceRecord>();
   /** 已读位置（键是会话 id）：只往后挪 */
   private readonly readMarks = new Map<string, number>();
@@ -656,6 +660,13 @@ export class FakeConnection implements Connection {
         this.recognizeVoice(voice);
       }
     });
+    // 地图页上说"把……标出来"（461）：演一轮画在地图上——出一张标了几个点的地图卡片（地图页开着就直接画上去），再说一句短的
+    const said = parts.flatMap((p) => (p.type === "text" ? [p.text] : [])).join("");
+    if (req.map && req.conversation === CHANNELS.secretary && DEMO_MAP_ASK.test(said)) {
+      const map = req.map;
+      later(600, () => this.startMapTurn(req.conversation, [messageId], map, said));
+      return;
+    }
     // 做完了的普通任务里接着说：演一遍接着做
     const plain = [...this.tasks.values()].find((t) => isPlainTask(t) && t.state === "done" && maintainerChannel(t.maintainerId) === req.conversation);
     if (plain) {
@@ -700,6 +711,32 @@ export class FakeConnection implements Connection {
       this.endTurn(conversation, "error", BUSY_ERROR);
     }, 900);
     this.turns.set(conversation, turn);
+  }
+
+  /**
+   * 原型的一轮"画在地图上"（461）：turn_start，过一会儿出一张地图卡片（show_on_map 出的那样：卡片频道上一张、会话里一条引用它的），
+   * 再过一会儿说一句短的、turn_end（停止时没说的不说）
+   */
+  private startMapTurn(conversation: string, inputs: readonly string[], map: MapContext, said: string): void {
+    const [input, ...more] = inputs;
+    if (input === undefined) return;
+    const draw = demoMapDraw(this.mapDraws++, map, said);
+    this.emit(conversation, EVENT_TYPES.turnStart, { inputMessageId: input, ...(more.length > 0 ? { moreInputMessageIds: more } : {}) });
+    const turn: FakeTurn = { inputs, replyId: `a-${input}`, thought: "", text: draw.reply, thought_said: 0, said: 0, timer: undefined };
+    this.turns.set(conversation, turn);
+    turn.timer = setTimeout(() => {
+      this.itemNo += 1;
+      const card: Card = { id: `c-proto-map-${this.itemNo}`, type: "map", typeVersion: CARD_TYPE_VERSIONS.map, version: 1, status: "handled", payload: draw.payload, text: `地图卡片：${draw.payload.title ?? ""}`, createdAt: nowIso() };
+      this.cards.set(card.id, card);
+      rememberDemoMapCard(card.id, draw.payload);
+      this.emit(CHANNELS.cards, EVENT_TYPES.card, { card } satisfies CardEventPayload);
+      const ref: MessageEnvelope = { id: `a-map-${card.id}`, conversation: conversation as MessageEnvelope["conversation"], speaker: "agent", time: nowIso(), parts: [{ type: "card_ref", cardId: card.id }] };
+      this.emit(conversation, EVENT_TYPES.message, { message: ref } satisfies MessageEventPayload);
+      turn.timer = setTimeout(() => {
+        turn.said = turn.text.length;
+        this.endTurn(conversation, "completed");
+      }, 900);
+    }, 900);
   }
 
   /**

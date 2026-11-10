@@ -82,6 +82,8 @@ export interface Footprints {
   /** 换了一个对象就跳到这里（没给级别的只挪过去、级别不变） */
   readonly focus: { readonly lat: number; readonly lon: number; readonly zoom?: number } | undefined;
   pick(date: string): void;
+  /** 看某一天（461：二狗新画的足迹卡直接换过来）：和地址里带日期一样——换那一天、关着的"足迹"这次打开（不改记着的开关）、挪视野 */
+  showDay(date: string): void;
   toggle(): void;
   /** 选中一处；jump 是挪过去（"pan" 级别不变，"zoom" 放大到看得清那一处） */
   select(spot: string | undefined, jump?: "pan" | "zoom"): void;
@@ -161,6 +163,12 @@ export function useFootprints(http: DaemonHttp, item: string | undefined): Footp
     pick(date) {
       if (!parseMapDayItem(date)) return;
       setSelected(undefined);
+      setRequest({ date, chosen: true, fit: true });
+    },
+    showDay(date) {
+      if (!parseMapDayItem(date)) return;
+      setSelected(undefined);
+      setShown(true);
       setRequest({ date, chosen: true, fit: true });
     },
     toggle() {
