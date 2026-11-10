@@ -32,6 +32,8 @@
 //   要点那一行写"种类：总结"。种类照旧（system、user），底色、要点标注、详情的找法都不变。
 // - 附件一律显示在文字后面：agent 一轮里先发的附件（只有文件、图片的消息）、任务做完时运行时放的附件，
 //   挪到这一轮最后一段说完了的话（定稿的文字回复、语音气泡）后面；只改先后，id、序号不变（attachmentsAfterText）。
+// - 等你拍板的卡（还没处理、要你点按钮的：立项书、计划、各种变更、审批……）排到交出它的那一轮最后：这一轮后面的思考、调用、回复
+//   都排在它上面；处理过的停在你处理时它在的地方，下一轮开始后留在上一轮末尾。同样只改先后（waitingCardsLast）。
 // 每条推出：种类、稳定的 id、要点层那一行字（keyLine）、性质色（授权内、做完告诉我、被拦下或问过）、两侧标注要的要点
 // （timeline.ts 的 TimelineMark）、内容类型（要点层、全局层的底色）、能不能打开详情和详情的种类。
 // keyLine 里守护进程写的话（卡片的纯文本、系统说明、记录）换成现在的说法、保留名字占位，界面照名字标签画。
@@ -65,6 +67,7 @@ import { callKeyLine, type CallSentence, callSentence, toolLabel } from "./call-
 import { readableId } from "./readable-ids.ts";
 import { toolVoiceCalls } from "./agent-voice.ts";
 import { workflowPlanStateLabel } from "./workflow-view.ts";
+import { cardAskOf } from "./cards.ts";
 import { briefCallPart, isRecallCall, recallLine, type RecallSummary, recallSummary } from "./memory-recall.ts";
 import { type ConversationRecord, type RequestStatus, type TimelineItem, timelineItems, type UiState } from "./ui-state.ts";
 
@@ -331,6 +334,11 @@ export type ChatItem = ChatItemBase &
         readonly cardId: string;
         /** 卡片现在的样子（对话里那一行写种类、标题那一句、状态）；还没收到这张卡的没有 */
         readonly card?: Card;
+        /**
+         * agent 交出的（在 agent 的消息里：它的工具产生的卡、它的调用要批准的审批卡、运行时替它问的提问卡）；
+         * 运行时自己放进会话的（验收结论、"首版做完了"、别人提的"转入使用"）没有
+         */
+        readonly fromAgent?: true;
       }
     | {
         readonly kind: "system";
@@ -346,6 +354,8 @@ export type ChatItem = ChatItemBase &
         readonly branch?: { readonly id: string; readonly summary: string; readonly files?: BranchFilesRewind };
         /** 第一版任务书交给负责人的那条（消息上的 taskBrief）：对话层照常显示 */
         readonly taskBrief?: true;
+        /** 运行时交给 agent 的（消息事件上的 agentInput：通知、任务书……）：agent 的一轮从它开始；只给人看的说明没有 */
+        readonly agentInput?: true;
       }
     | { readonly kind: "record"; readonly record: ConversationRecord }
     | { readonly kind: "divider"; readonly divider: DividerPart }
@@ -363,12 +373,14 @@ export type ChatItem = ChatItemBase &
       }
   );
 
-/** 某个会话的条目（按时间线的先后；只有附件的几条挪到这一轮的文字后面） */
+/** 某个会话的条目（按时间线的先后；只有附件的几条挪到这一轮的文字后面，等你拍板的卡挪到这一轮最后） */
 export function chatItems(state: UiState, conversation: ConversationId, branch?: string): ChatItem[] {
   const voiceCalls = toolVoiceCalls(state, conversation);
-  return assemble(
-    attachmentsAfterText(timelineItems(state, conversation, branch).flatMap((it) => piecesOf(state, it, voiceCalls))),
-    (cardId) => state.cards[cardId]?.card.type,
+  return waitingCardsLast(
+    assemble(
+      attachmentsAfterText(timelineItems(state, conversation, branch).flatMap((it) => piecesOf(state, it, voiceCalls))),
+      (cardId) => state.cards[cardId]?.card.type,
+    ),
   );
 }
 
@@ -563,7 +575,8 @@ function piecesOf(state: UiState, it: TimelineItem, voiceCalls: ReadonlyMap<stri
         out.push({ kind: "call", call: { ...toolCall(state, id, briefCallPart(part, id), at, marks, undefined), brief: part } });
       } else if (part.type === "card_ref") {
         const card = state.cards[part.cardId]?.card;
-        out.push(itemPiece({ kind: "card", id, ...at, content: "plan", keyLine: cardLine(state, part.cardId), marks, detail: card ? "card" : undefined, cardId: part.cardId, ...(card ? { card } : {}) }));
+        const fromAgent = message.speaker === "agent" ? { fromAgent: true as const } : {};
+        out.push(itemPiece({ kind: "card", id, ...at, content: "plan", keyLine: cardLine(state, part.cardId), marks, detail: card ? "card" : undefined, cardId: part.cardId, ...(card ? { card } : {}), ...fromAgent }));
       }
       else if (part.type === "work_order_divider" || part.type === "run_divider" || part.type === "conversation_cleared")
         out.push(itemPiece({ kind: "divider", id, ...at, content: "context", keyLine: dividerLine(part, at.time), marks, divider: part }));
@@ -618,7 +631,18 @@ function mainItem(
     // 写给 agent 的来信：要点那一行写"种类：总结"；折起来的长通知只改对话层，要点那一行照旧
     const letter = agentLetterOf(message, agentInput);
     const keyLine = letter && letter.kind !== "notice" ? t("state.chatItems.labeled", { label: letter.label, text: letter.summary }) : t("state.chatItems.system", { text: firstLine(currentWording(text)) || attachmentsLine(parts) });
-    return { kind: "system", ...rest, content: "context", keyLine, detail: "text", text, parts, letter, ...(message.taskBrief ? { taskBrief: true as const } : {}) };
+    return {
+      kind: "system",
+      ...rest,
+      content: "context",
+      keyLine,
+      detail: "text",
+      text,
+      parts,
+      letter,
+      ...(message.taskBrief ? { taskBrief: true as const } : {}),
+      ...(agentInput ? { agentInput: true as const } : {}),
+    };
   }
   const voice = parts.find((p): p is VoiceLikePart => p.type === "voice" || p.type === "tts_audio");
   if (voice) return { kind: "voice", ...rest, content: "reply", keyLine: t("state.chatItems.reply", { text: voiceLine(state, voice) }), detail: "text", speaker: "agent", part: voice, message, pending: undefined, toolCall: undefined };
@@ -709,6 +733,92 @@ function attachmentsAfterText(pieces: readonly Piece[]): Piece[] {
   }
   flush();
   return out;
+}
+
+// ───────────────────────── 等你拍板的卡排到这一轮最后 ─────────────────────────
+
+/**
+ * agent 的一轮从这一条开始：交给 agent 的输入——你说的（打的字、语音、转达的、发送中、排队的），运行时交给它的通知和来信
+ * （消息事件上的 agentInput、认得出的来信）。分隔线（工单段、定时任务的一次运行、清空）、回退后新分支的摘要、
+ * 已删除的（认不出原来是什么）也断开。别的——agent 的思考、调用、回复、语音、附件、卡片，只给人看的系统说明，时间线记录——
+ * 都算在这一轮里。历史分页里没有回合事件，一轮只能按会话里看得见的输入认
+ */
+function startsTurn(item: ChatItem): boolean {
+  switch (item.kind) {
+    case "user":
+    case "divider":
+    case "deleted":
+      return true;
+    case "voice":
+      return item.speaker === "user";
+    case "system":
+      return item.agentInput === true || item.letter !== undefined || item.branch !== undefined;
+    default:
+      return false;
+  }
+}
+
+/**
+ * agent 交出的、等你拍板的那种卡（CARD_ASK 里不是 null 的）在这一轮里越过后面的条目、越到哪个时刻为止（毫秒）：
+ * 还没处理的越过这一轮后面所有的（Infinity，正在出字、还没有时间的也越过）；处理过的（确认了、关掉、过期）只越过你处理它之前
+ * 出现的（handledAt 之前）——点了按钮原地收成一行、不往回跳，批了之后 agent 才接着做的（审批、提问）排在它下面。
+ * 不用你做决定的（提醒、服务入口）、还没收到的、处理过却不知道什么时候处理的不挪（undefined）；
+ * 运行时自己放进会话的（验收结论、"首版做完了"）不是哪一轮交出的，也不挪——它后面接着的往往是下一个阶段的事
+ */
+function movesUntil(item: ChatItem): number | undefined {
+  if (item.kind !== "card" || !item.fromAgent || !item.card || cardAskOf(item.card.type) === null) return undefined;
+  if (item.card.status === "pending") return Infinity;
+  const handled = item.card.handledAt === undefined ? Number.NaN : Date.parse(item.card.handledAt);
+  return Number.isNaN(handled) ? undefined : handled;
+}
+
+/** 这一条在那个时刻之前出现的（还没有时间的、正在出字的算在之后，只有还没处理的卡越得过） */
+function cameBefore(item: ChatItem, until: number): boolean {
+  if (until === Infinity) return true;
+  const at = item.time === undefined ? Number.NaN : Date.parse(item.time);
+  return !Number.isNaN(at) && at < until;
+}
+
+/**
+ * agent 交出的、等你拍板的卡（cards.ts 的 cardWaitsForYou：立项书、计划、各种变更、审批、提问……）排到交出它的那一轮最后（462）：
+ * agent 交出卡以后这一轮往往还接着想、接着说，卡被压在上面，你回来往下一看看到的是回复不是按钮。
+ * 按 startsTurn 切成一轮一轮，每一轮里这种卡越过它后面的条目（movesUntil）：还没处理的排到这一轮最后，同一轮几张照原来的先后；
+ * 处理过的停在你处理时它在的地方。下一轮开始以后它留在上一轮的末尾，不追着跑到最下面；越不过输入，也不往前挪。
+ * 只改显示的先后：事件、序号、id 都不变（和附件挪到文字后面一样），对话层、缩小后、阶段框、看到哪了都照这个先后。
+ * 一条都不挪时原样交回（同一个数组）
+ */
+function waitingCardsLast(items: ChatItem[]): ChatItem[] {
+  const out: ChatItem[] = [];
+  let turn: ChatItem[] = [];
+  let changed = false;
+  const flush = () => {
+    const sorted = cardsToTurnEnd(turn);
+    if (sorted !== turn) changed = true;
+    out.push(...sorted);
+    turn = [];
+  };
+  for (const item of items) {
+    if (startsTurn(item)) flush();
+    turn.push(item);
+  }
+  flush();
+  return changed ? out : items;
+}
+
+/**
+ * 一轮里的条目：每张等你拍板的卡越过它后面连着的、在 movesUntil 之前出现的几条，排在越过的最后一条后面；
+ * 落到同一处的几张卡（含本来就在那里、不挪的卡）照原来的先后。一条都不挪时原样交回
+ */
+function cardsToTurnEnd(turn: ChatItem[]): ChatItem[] {
+  const slots = turn.map((item, i) => {
+    const until = movesUntil(item);
+    let to = i;
+    if (until !== undefined) while (to + 1 < turn.length && cameBefore(turn[to + 1]!, until)) to++;
+    // 卡排在落脚那一条后面；别的条目就在原位
+    return { to, card: until === undefined ? 0 : 1, i };
+  });
+  if (slots.every((s) => s.to === s.i)) return turn;
+  return slots.toSorted((a, b) => a.to - b.to || a.card - b.card || a.i - b.i).map((s) => turn[s.i]!);
 }
 
 // ───────────────────────── 归组 ─────────────────────────
