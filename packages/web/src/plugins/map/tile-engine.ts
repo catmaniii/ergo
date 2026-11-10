@@ -1,27 +1,17 @@
-// 自己写的瓦片地图（429，不加依赖）：画 OpenStreetMap 的瓦片（经守护进程的 /tiles/osm 转发），国外、还没填高德 Key 时用。
+// 自己写的瓦片地图（429，不加依赖）：地图插件自己画的那种底图——瓦片底图（455 起谁家的瓦片由登记的插件给：OpenStreetMap 插件给
+// 经守护进程 /tiles/osm 转发的瓦片），聊天卡片的缩略图也是它；演示页的假高德也借它扮（经插槽的 kit.tileEngine）。
 // 只做看地图要的那几样：
 // - 拖动平移（一个手指、鼠标），双指捏合缩放、滚轮缩放（以手指、鼠标所在的点为中心），双击放大一级；
 // - 瓦片按需取：只取这一屏看得见的（不预取），换级别时上一级的瓦片先垫着，新的都到了再拿掉；
 // - 地图上的点（按钮，能点）、线和圈（SVG），坐标 WGS-84；点旁边的字不互相盖住（451 补，label-place.ts：每帧最多排一次）；
 // - 深色：瓦片那一层加 CSS 滤镜（styles/map.css 的 .map-tiles），点、线、圈不受影响；
 // - 署名角标由地图页画（MapView.tsx），这里不管。
-// 瓦片的地址由外面给（tileUrl）：真的页面是守护进程的 /tiles/osm/<z>/<x>/<y>，演示页是编的占位图。
-import type { MapEngineEvents, SceneEngine } from "./engine.ts";
+// 瓦片的地址由外面给（tileUrl）：登记瓦片底图的插件给的（真的页面是守护进程的 /tiles/<编号>/<z>/<x>/<y>，演示页是编的占位图）。
+import type { SceneEngine, TileEngineOptions } from "./engine.ts";
 import { createLabelPlacer, type LabelPlacer, type PlacedMark } from "./label-place.ts";
 import { clampZoom, EMPTY_SCENE, type MapScene, type MapView } from "./scene.ts";
 import { metersPerPixel, pointAt, pointOnScreen, screenPoint, TILE_SIZE, tilesFor, worldPoint } from "./tiles.ts";
 
-export interface OsmEngineOptions extends MapEngineEvents {
-  view: MapView;
-  /** 一张瓦片的地址 */
-  tileUrl(z: number, x: number, y: number): string;
-  /** 瓦片最大到第几级（再放大就把这一级的放大着画） */
-  maxTileZoom: number;
-  /** 根元素上的 data-engine（演示页的假高德借它画，写 amap） */
-  engineName?: string;
-  /** 点旁边的字互相让开（451 补）；聊天卡片的缩略图不写字，给 false 省掉 */
-  labelLayout?: boolean;
-}
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 /** 手指、鼠标动了多少像素才算拖（不到算点） */
@@ -29,11 +19,11 @@ const DRAG_THRESHOLD = 4;
 /** 滚轮停下多久算缩放完 */
 const WHEEL_SETTLE_MS = 250;
 
-export function createOsmEngine(host: HTMLElement, options: OsmEngineOptions): SceneEngine {
+export function createTileEngine(host: HTMLElement, options: TileEngineOptions): SceneEngine {
   const doc = host.ownerDocument;
   const root = doc.createElement("div");
-  root.className = "map-osm";
-  root.dataset.engine = options.engineName ?? "osm";
+  root.className = "map-tiled";
+  root.dataset.engine = options.engineName ?? "tiles";
   const tilePane = doc.createElement("div");
   tilePane.className = "map-tiles";
   const shapes = doc.createElementNS(SVG_NS, "svg");
@@ -274,7 +264,7 @@ export function createOsmEngine(host: HTMLElement, options: OsmEngineOptions): S
   schedule();
 
   return {
-    kind: "osm",
+    kind: options.engineName ?? "tiles",
     view,
     setView(v) {
       center = { lat: v.lat, lon: v.lon };

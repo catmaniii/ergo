@@ -72,6 +72,7 @@ export const EN_HTTP: Phrases = {
   "本机那份坏了：从另存的文件夹恢复": "Local copy is broken: restore from the saved-elsewhere folder",
   "恢复完再把二狗起来": "Start ergo again after restoring",
   "{}不出静态地图": "{} has no static maps",
+  "地图「{}」现在没接上": "Map “{}” isn't connected right now",
   "谷歌的 Maps Static API 没开（或者服务端 Key 的 API 限制里没勾它）：在 Google Cloud 里开、勾上": "Google's Maps Static API isn't enabled (or the server key's API restrictions don't include it): enable and tick it in Google Cloud",
   "这张地图卡片不在了": "This map card is gone",
 };

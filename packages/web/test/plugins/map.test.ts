@@ -1,22 +1,27 @@
 // 地图插件的网页这一半（429）：Node 里能测的那部分——
 // - 瓦片的算术（Web 墨卡托：世界坐标、一屏要哪些瓦片、横着绕地球一圈、一像素多少米）；
-// - 一屏用哪种底图：大陆里、高德能用才用高德，国外、香港、没填 Key 用 OpenStreetMap；
+// - 一屏用哪种底图：大陆里、高德能用才用高德，国外、香港、没填 Key 用 OpenStreetMap（455 起地图插件不认得哪一家：这里按插槽报的
+//   两家挑，高德只管大陆的样子，和 429 一样）；
 // - 记住的上次看的地方坏了不用；一组点都看得见的视野；
 // - 高德那一种进出都转坐标：交给高德的是 GCJ-02，从高德拿回的转回 WGS-84（大陆外不转）；
 // - 设置 · 数据源里高德地图那一块：三个密码框、不回显、按钮的字、测完说一句；
-// - 插件登记了地图页（导航里排在记忆后面、设置前面）和高德地图那一块；界面文字里没有"秘书""待我处理"。
+// - 插件登记了地图页（导航里排在记忆后面、设置前面）；455 起高德地图那一块是高德地图插件的，三家底图各一个插件；
+//   界面文字里没有"秘书""待我处理"。
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
-import { AmapPanelView, type AmapPanelViewProps, amapResultOf } from "../../src/plugins/map/AmapPanel.tsx";
-import { type AmapNamespace, createAmapEngine } from "../../src/plugins/map/amap-engine.ts";
+import { AmapPanelView, type AmapPanelViewProps, amapResultOf } from "../../src/plugins/amap/AmapPanel.tsx";
+import { type AmapNamespace, createAmapEngine } from "../../src/plugins/amap/amap-engine.ts";
+import { amapWebPlugin } from "../../src/plugins/amap/plugin.tsx";
 import type { MapSurfaceView } from "../../src/plugins/map/engine.ts";
 import { mapWebPlugin } from "../../src/plugins/map/plugin.tsx";
-import { chooseBasemap, FOOTPRINTS_ON_CURRENT_MAP, clampZoom, DEFAULT_VIEW, parseSavedView, viewToFit } from "../../src/plugins/map/scene.ts";
+import { EVERY_BASEMAP, pickBasemap } from "../../src/plugins/map/providers.ts";
+import { FOOTPRINTS_ON_CURRENT_MAP, clampZoom, DEFAULT_VIEW, type MapView, parseSavedView, viewToFit } from "../../src/plugins/map/scene.ts";
+import { openStreetMapWebPlugin } from "../../src/plugins/openstreetmap/plugin.tsx";
 import { metersPerPixel, pointAt, pointOnScreen, screenPoint, tilesFor, worldPoint } from "../../src/plugins/map/tiles.ts";
 import { createWebPluginHost } from "../../src/plugins/host.ts";
 import { WEB_PLUGIN_MANIFEST } from "../../src/plugins/manifest.ts";
-import { type DataSourcesView, type DataSourceView, distanceMeters, navItemsFor, wgsToGcj } from "../../src/state/index.ts";
+import { type DataSourcesView, type DataSourceView, distanceMeters, type MapProviderView, mapRegionOf, navItemsFor, wgsToGcj } from "../../src/state/index.ts";
 
 vi.mock("../../src/app/build-info.ts", () => ({ APP_VERSION: "0.0.0-test", CHANGELOG: "", PAGE_WEB_VERSION: undefined }));
 
@@ -24,6 +29,14 @@ const at = (lat: number, lon: number) => ({ lat, lon });
 const HANGZHOU = at(30.2741, 120.1551);
 const SINGAPORE = at(1.2834, 103.8607);
 const HONG_KONG = at(22.2819, 114.1586);
+
+/** 429 那时的两家（插槽报的样子）：高德只管大陆、要填 Key；OpenStreetMap 哪儿都管 */
+const twoProviders = (amapReady: boolean): MapProviderView[] => [
+  { id: "amap", title: "高德地图", regions: ["mainland"], manualRegions: ["mainland"], priority: 100, ownBasemapOnly: true, basemap: true, ready: amapReady, lookup: false, ...(amapReady ? { key: "k" } : {}) },
+  { id: "osm", title: "OpenStreetMap", regions: ["mainland", "abroad"], manualRegions: ["mainland", "abroad"], priority: 0, ownBasemapOnly: false, basemap: true, ready: true, lookup: false },
+];
+/** 这一屏用哪一家（455 以前是 scene.ts 的 chooseBasemap；地图插件不再认得哪一家，照插槽报的挑） */
+const chooseBasemap = (v: Pick<MapView, "lat" | "lon">, amapUsable: boolean, footprints = false) => pickBasemap({ region: mapRegionOf(v), providers: twoProviders(amapUsable), page: EVERY_BASEMAP, footprints }).wanted;
 
 describe("瓦片的算术", () => {
   test("世界坐标：第 0 级整个世界 256 像素，(0,0) 在正中；来回换算回得来", () => {
@@ -169,7 +182,7 @@ describe("高德那一种：进出都转坐标；453 起只出底图", () => {
   test("只出底图：没有 setScene（足迹、点、线不交给高德）；一建好就报此刻画着哪一片（高德的坐标、datum gcj02、底图的大小）；按住点拖时 panBy 挪中心", () => {
     const { ns, seen } = fakeAmap();
     const surfaces: MapSurfaceView[] = [];
-    const engine = createAmapEngine(host, ns, { view: { ...HANGZHOU, zoom: 14 }, dark: false, ...events, onSurface: (v) => surfaces.push(v) });
+    const engine = createAmapEngine(host, ns, { view: { ...HANGZHOU, zoom: 14 }, dark: false, ...events, onSurface: (v: MapSurfaceView) => surfaces.push(v) });
     expect(engine.setScene).toBeUndefined();
     const gcj = wgsToGcj(HANGZHOU);
     expect(surfaces[0]).toEqual({ lat: gcj.lat, lon: gcj.lon, zoom: 14, width: 400, height: 300, datum: "gcj02" });
@@ -197,7 +210,7 @@ describe("高德那一种：进出都转坐标；453 起只出底图", () => {
     };
     const host2 = { ownerDocument: doc2, append() {} } as unknown as HTMLElement;
     const surfaces: MapSurfaceView[] = [];
-    createAmapEngine(host2, { Map: Rounding } as unknown as AmapNamespace, { view: { ...HANGZHOU, zoom: 14 }, dark: false, ...events, onSurface: (v) => surfaces.push(v) });
+    createAmapEngine(host2, { Map: Rounding } as unknown as AmapNamespace, { view: { ...HANGZHOU, zoom: 14 }, dark: false, ...events, onSurface: (v: MapSurfaceView) => surfaces.push(v) });
     seen.zoom = 14.123456789;
     for (const fn of frames.splice(0)) fn();
     expect(surfaces.at(-1)!.zoom).toBeCloseTo(14.123457, 6);
@@ -261,18 +274,22 @@ describe("插件登记的", () => {
     const host = createWebPluginHost({ plugins: WEB_PLUGIN_MANIFEST, log: noop });
     host.apply(undefined);
     expect(host.ownerOf("pages", "map")?.name).toBe("map");
-    expect(host.ownerOf("dataSources", "amap")?.name).toBe("map");
+    // 455：高德地图那一块是高德地图插件的
+    expect(host.ownerOf("dataSources", "amap")?.name).toBe("amap");
     const page = host.get("pages", "map")!;
     expect({ order: page.order, icon: page.icon, navLabel: page.navLabel, title: page.title, column: typeof page.Column }).toEqual({ order: 85, icon: "map", navLabel: "地图", title: "地图", column: "function" });
     expect(navItemsFor({ browse: false, plugins: host.list("pages") }).slice(-3)).toEqual(["memory", "map", "settings"]);
     expect(host.ownerOf("cards", "map")?.name).toBe("map");
-    // 445：自带的两种底图照"地图服务"插槽登记（mapBasemaps）
-    expect(mapWebPlugin.owns).toEqual({ pages: ["map"], dataSources: ["amap"], cards: ["map"], mapBasemaps: ["amap", "osm"] });
-    // 446 起谷歌地图插件也登记一种（google，接在后面）
-    expect(host.list("mapBasemaps").map((b) => [b.id, b.title])).toEqual([
-      ["amap", "高德地图"],
-      ["osm", "OpenStreetMap"],
-      ["google", "谷歌地图"],
+    // 455：地图插件自己不带哪一家；三家各一个插件，照"地图服务"插槽登记（mapBasemaps）
+    expect(mapWebPlugin.owns).toEqual({ pages: ["map"], cards: ["map"] });
+    expect(openStreetMapWebPlugin.owns).toEqual({ mapBasemaps: ["osm"] });
+    expect(amapWebPlugin.owns).toEqual({ dataSources: ["amap"], mapBasemaps: ["amap"] });
+    expect(host.list("mapBasemaps").map((b) => [b.id, b.title, b.tiles === undefined ? "prepare" : "tiles"])).toEqual([
+      ["osm", "OpenStreetMap", "tiles"],
+      ["amap", "高德地图", "prepare"],
+      ["google", "谷歌地图", "prepare"],
     ]);
+    expect(host.ownerOf("mapBasemaps", "osm")?.name).toBe("openstreetmap");
+    expect(host.ownerOf("mapBasemaps", "amap")?.name).toBe("amap");
   });
 });

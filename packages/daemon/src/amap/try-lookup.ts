@@ -6,7 +6,7 @@ import { t } from "@ergo/protocol";
 import type { DataSourceLiveAnswer } from "../data-sources/api.ts";
 import type { AmapLookup } from "./amap-lookup.ts";
 import type { AmapUsage } from "./amap-usage.ts";
-import { MapLookupError } from "./lookup.ts";
+import { MapLookupError } from "../map/api.ts";
 
 /** 试查搜的词和城市（固定的，不是你的位置） */
 export const TRY_KEYWORD = "天安门"; // @i18n-ignore data：发给高德搜的词
@@ -16,11 +16,11 @@ const TRY_LIMIT = 3;
 
 /** 查不成的原因（给人看的） */
 export function lookupProblemForPerson(err: MapLookupError): string {
-  return t(`map.lookup.problem.${err.failure}`, { detail: err.code === undefined ? err.detail : `${err.detail} ${err.code}` });
+  return t(`amap.lookup.problem.${err.failure}`, { detail: err.code === undefined ? err.detail : `${err.detail} ${err.code}` });
 }
 
 export async function tryLookup(provider: AmapLookup, usage: AmapUsage, signal: AbortSignal): Promise<DataSourceLiveAnswer> {
-  if (!provider.hasKey()) throw new Error(t("map.lookup.problem.no_key", { detail: "" }));
+  if (!provider.hasKey()) throw new Error(t("amap.lookup.problem.no_key", { detail: "" }));
   let hits;
   try {
     hits = await provider.searchText({ keyword: TRY_KEYWORD, city: TRY_CITY, limit: TRY_LIMIT }, signal);
@@ -34,7 +34,7 @@ export async function tryLookup(provider: AmapLookup, usage: AmapUsage, signal: 
       const subtitle = [hit.area, hit.address, hit.type].filter((s) => s !== undefined && s !== "").join(" · ");
       return { id: hit.id ?? `try-${i + 1}`, title: hit.name, ...(subtitle === "" ? {} : { subtitle }) };
     }),
-    scope: t("map.try.scope", { keyword: TRY_KEYWORD, city: TRY_CITY }),
-    notes: [hits.length === 0 ? t("map.try.empty") : t("map.try.ok"), t("map.try.usage", { search: now.search, searchLimit: now.searchLimit, lbs: now.lbs, lbsLimit: now.lbsLimit })],
+    scope: t("amap.try.scope", { keyword: TRY_KEYWORD, city: TRY_CITY }),
+    notes: [hits.length === 0 ? t("amap.try.empty") : t("amap.try.ok"), t("amap.try.usage", { search: now.search, searchLimit: now.searchLimit, lbs: now.lbs, lbsLimit: now.lbsLimit })],
   };
 }

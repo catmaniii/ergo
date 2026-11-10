@@ -10,10 +10,10 @@ import path from "node:path";
 import { gcjToWgs, wgsToGcj } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { createDataSourceSecrets } from "../../src/data-sources/index.ts";
-import { AMAP_SECRET } from "../../src/map/amap.ts";
-import { amapLocation, createAmapLookup, fromAmapLocation, parseAmapPolyline } from "../../src/map/amap-lookup.ts";
+import { AMAP_SECRET } from "../../src/amap/amap.ts";
+import { amapLocation, createAmapLookup, fromAmapLocation, parseAmapPolyline } from "../../src/amap/amap-lookup.ts";
 import { thinLine } from "../../src/map/lookup.ts";
-import { AMAP_PERSONAL_MONTHLY_LIMITS, amapUsageFile, openAmapUsage, usageFinding } from "../../src/map/amap-usage.ts";
+import { AMAP_PERSONAL_MONTHLY_LIMITS, amapUsageFile, openAmapUsage, usageFinding } from "../../src/amap/amap-usage.ts";
 import { MapLookupError } from "../../src/map/lookup.ts";
 import { startFakeAmapLookup } from "../helpers/fake-amap-lookup.ts";
 import { AMAP_TEST_SERVICE_KEY } from "../helpers/fake-map.ts";
@@ -229,16 +229,16 @@ describe("用量和不落盘", () => {
     now = new Date("2026-12-01T08:00:00+08:00").getTime();
     expect(again.view()).toMatchObject({ month: "2026-12", search: 0, lbs: 0 });
     // 插件自己的存储里只有用量文件，里面没有查了什么
-    expect(fs.readdirSync(mapDir)).toEqual(["amap-usage.json"]);
-    const text = fs.readFileSync(path.join(mapDir, "amap-usage.json"), "utf8");
+    expect(fs.readdirSync(mapDir)).toEqual(["usage.json"]);
+    const text = fs.readFileSync(path.join(mapDir, "usage.json"), "utf8");
     expect(text).not.toMatch(/示例|咖啡|120\.|30\./);
   });
 
   it("体检：没填 Key 不适用；到 80% 注意、到 100% 坏了，事实里写两类的次数和免费量", () => {
     const base = { month: "2026-11", search: 10, lbs: 30, searchLimit: AMAP_PERSONAL_MONTHLY_LIMITS.search, lbsLimit: AMAP_PERSONAL_MONTHLY_LIMITS.lbs };
     expect(usageFinding(base, false).level).toBe("na");
-    expect(usageFinding(base, true)).toMatchObject({ level: "ok", fact: { key: "map.doctor.usage.ok", params: { search: 10, searchLimit: 5000, lbs: 30 } } });
-    expect(usageFinding({ ...base, search: 4000 }, true)).toMatchObject({ level: "warn", fix: { key: "map.doctor.usage.fixNear" }, action: { kind: "open", route: "#/more/data-sources/amap" } });
-    expect(usageFinding({ ...base, lbs: 150_000 }, true)).toMatchObject({ level: "error", fact: { key: "map.doctor.usage.over" } });
+    expect(usageFinding(base, true)).toMatchObject({ level: "ok", fact: { key: "amap.doctor.usage.ok", params: { search: 10, searchLimit: 5000, lbs: 30 } } });
+    expect(usageFinding({ ...base, search: 4000 }, true)).toMatchObject({ level: "warn", fix: { key: "amap.doctor.usage.fixNear" }, action: { kind: "open", route: "#/more/data-sources/amap" } });
+    expect(usageFinding({ ...base, lbs: 150_000 }, true)).toMatchObject({ level: "error", fact: { key: "amap.doctor.usage.over" } });
   });
 });

@@ -7,7 +7,7 @@
 //   引擎一个高德的标记、圆、折线都不建；
 // - 演示页的退路数据：12 分钟前、西湖边；手机插件停用了没有。
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { type AmapNamespace, createAmapEngine } from "../../src/plugins/map/amap-engine.ts";
+import { type AmapNamespace, createAmapEngine } from "../../src/plugins/amap/amap-engine.ts";
 import { createMapOverlay, surfacePoint } from "../../src/plugins/map/overlay.ts";
 import {
   type AppPlaceFix,
@@ -25,10 +25,11 @@ import {
   locateView,
   withHere,
 } from "../../src/plugins/map/locate.ts";
-import { chooseBasemap, EMPTY_SCENE } from "../../src/plugins/map/scene.ts";
+import { EVERY_BASEMAP, pickBasemap } from "../../src/plugins/map/providers.ts";
+import { EMPTY_SCENE } from "../../src/plugins/map/scene.ts";
 import { metersPerPixel } from "../../src/plugins/map/tiles.ts";
 import { demoMapLatest } from "../../src/prototype/fake-footprints.ts";
-import { activeLocale, activeLocaleFrom, distanceMeters, type MapLatestView, nowIso, setActiveLocale, wgsToGcj } from "../../src/state/index.ts";
+import { activeLocale, activeLocaleFrom, distanceMeters, type MapLatestView, type MapProviderView, mapRegionOf, nowIso, setActiveLocale, wgsToGcj } from "../../src/state/index.ts";
 import { TEST_LOCALES } from "../setup-locales.ts";
 
 const zh = activeLocale();
@@ -209,9 +210,14 @@ describe("挪到哪、画什么", () => {
     expect(fixIsFresh(undefined, NOW)).toBe(false);
   });
 
-  test("不在大陆：挪过去之后按 429 的规则挑底图，新加坡是 OpenStreetMap、杭州是高德", () => {
-    expect(chooseBasemap(locateView({ ...SINGAPORE, accuracy: 20 }, 390, 700), true)).toBe("osm");
-    expect(chooseBasemap(locateView({ ...HANGZHOU, accuracy: 20 }, 390, 700), true)).toBe("amap");
+  test("不在大陆：挪过去之后按 429 的规则挑底图，新加坡是 OpenStreetMap、杭州是高德（455 起按插槽报的两家挑）", () => {
+    const two: MapProviderView[] = [
+      { id: "amap", title: "高德地图", regions: ["mainland"], manualRegions: ["mainland"], priority: 100, ownBasemapOnly: true, basemap: true, ready: true, key: "k", lookup: false },
+      { id: "osm", title: "OpenStreetMap", regions: ["mainland", "abroad"], manualRegions: ["mainland", "abroad"], priority: 0, ownBasemapOnly: false, basemap: true, ready: true, lookup: false },
+    ];
+    const choose = (v: { lat: number; lon: number }) => pickBasemap({ region: mapRegionOf(v), providers: two, page: EVERY_BASEMAP }).wanted;
+    expect(choose(locateView({ ...SINGAPORE, accuracy: 20 }, 390, 700))).toBe("osm");
+    expect(choose(locateView({ ...HANGZHOU, accuracy: 20 }, 390, 700))).toBe("amap");
   });
 });
 

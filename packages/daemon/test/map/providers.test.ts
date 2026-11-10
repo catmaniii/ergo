@@ -5,6 +5,7 @@
 //   能接进来（页面的 providers 多一家、大陆外的查询走它、体检多一项用量），工具的 map 参数跟着地图走（查不了时退回、说一句），
 //   插件停用退回 OpenStreetMap、启用回来；地图插件停了它跟着停；编号和自带的重了装不上；
 // - "自动"时高德、OpenStreetMap 的行为一点没变由原来的 lookup-plugin、lookup-tools、amap、plugin 几个测试守着（没改断言）。
+// 455 起 OpenStreetMap、高德也是经插槽登记的插件（登记的先后跟着插件装的先后：OpenStreetMap、高德、别的）。
 import { AMAP_SOURCE_ID } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
@@ -12,7 +13,9 @@ import { createDataSourceSecrets } from "../../src/data-sources/index.ts";
 import { MAP, MAP_PLUGIN, MAP_PROVIDERS, type MapProvider } from "../../src/map/api.ts";
 import type { LookupProvider } from "../../src/map/lookup.ts";
 import { MAP_TOOL } from "../../src/map/lookup-tools.ts";
-import { createMapPlugin } from "../../src/map/plugin.ts";
+import { mapPlugins } from "../helpers/map-plugins.ts";
+import { AMAP_PLUGIN } from "../../src/amap/api.ts";
+import { OPENSTREETMAP_PLUGIN } from "../../src/openstreetmap/api.ts";
 import { createMapProviders } from "../../src/map/providers.ts";
 import { PHONE, type PhoneService } from "../../src/phone/api.ts";
 import { KERNEL } from "../../src/plugins/kernel.ts";
@@ -156,7 +159,7 @@ async function setup(fakeOptions: Parameters<typeof fakeWorldMapPlugin>[0] = {})
   const osm = await startFakeOsmLookup();
   const fake = fakeWorldMapPlugin(fakeOptions);
   const k = await startPluginKernel({
-    plugins: [createMapPlugin({ amapHosts: amap.hosts, osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 }), fake.plugin],
+    plugins: [...mapPlugins({ amapHosts: amap.hosts, osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 }), fake.plugin],
     at: AT,
     services: [
       extraService(KERNEL.layout, ({ dir }) => dataDirLayout(dir)),
@@ -181,12 +184,12 @@ describe("地图服务插槽：假\"第三家\"接进来、停用退回", () => 
     expect(k.host.report().running).toContain(FAKE_WORLD_MAP_PLUGIN);
     // 451：高德的底图国外也管（国外的优先级 30，低于假世界地图的 50）
     expect(views(k).map((p) => [p.id, p.regions, p.manualRegions, p.priority, p.ready, p.key])).toEqual([
-      ["amap", ["mainland", "abroad"], ["mainland", "abroad"], 100, false, undefined],
       ["osm", ["mainland", "abroad"], ["mainland", "abroad"], 0, true, undefined],
+      ["amap", ["mainland", "abroad"], ["mainland", "abroad"], 100, false, undefined],
       [FAKE_WORLD_MAP, ["abroad"], ["abroad", "mainland"], 50, true, FAKE_WORLD_MAP_BROWSER_KEY],
     ]);
     expect(usageChecks(k)).toEqual(["amap-usage", "worldmap-usage"]);
-    expect(mapTools(k)[0]!.spec.description).toContain("另外大陆以外优先用假世界地图（测试用）");
+    expect(mapTools(k)[0]!.spec.description).toContain("；大陆以外优先用假世界地图（测试用）");
     // 大陆外：假世界地图（优先级 50 > OpenStreetMap 0），不问 OpenStreetMap
     const abroad = await run(k, MAP_TOOL.search, { near: `${SG_HERE.lat},${SG_HERE.lon}`, keyword: "hawker centre" });
     expect(abroad.text).toContain("假世界地图找到 1 个");
@@ -243,7 +246,7 @@ describe("地图服务插槽：假\"第三家\"接进来、停用退回", () => 
   it("插件停用：页面的 providers、体检项、大陆外的查询都退回 OpenStreetMap；启用回来又接上", async () => {
     const { osm, fake, k } = await setup();
     await k.settings.act(FAKE_WORLD_MAP_PLUGIN, { action: "disable", idempotencyKey: key() });
-    expect(views(k).map((p) => p.id)).toEqual(["amap", "osm"]);
+    expect(views(k).map((p) => p.id)).toEqual(["osm", "amap"]);
     expect(usageChecks(k)).toEqual(["amap-usage"]);
     const abroad = await run(k, MAP_TOOL.search, { near: `${SG_HERE.lat},${SG_HERE.lon}`, keyword: "hawker centre" });
     expect(abroad.text).toContain("OpenStreetMap找到 4 个");
@@ -254,26 +257,29 @@ describe("地图服务插槽：假\"第三家\"接进来、停用退回", () => 
     expect(chosen.text).toContain("（地图上选的「worldmap」现在没接上，按自动挑的：用OpenStreetMap查的。）");
     expect(osm.requests.length).toBeGreaterThan(0);
     await k.settings.act(FAKE_WORLD_MAP_PLUGIN, { action: "enable", idempotencyKey: key() });
-    expect(views(k).map((p) => p.id)).toEqual(["amap", "osm", FAKE_WORLD_MAP]);
+    expect(views(k).map((p) => p.id)).toEqual(["osm", "amap", FAKE_WORLD_MAP]);
     expect(usageChecks(k)).toEqual(["amap-usage", "worldmap-usage"]);
     expect((await run(k, MAP_TOOL.reverse, { where: `${SINGAPORE.lat},${SINGAPORE.lon}` })).text).toContain("假世界地图上的一处地址");
   });
 
-  it("地图插件停用：登记了的插件跟着停（needs，记成停用了）；启用地图插件只回来自带的两家，再启用它才重新登记；直接启用它会连地图插件一起启用", async () => {
+  it("地图插件停用：登记了的插件（455 起 OpenStreetMap、高德也是）跟着停（needs，记成停用了）；启用地图插件时一家都不回来，各自再启用才重新登记；直接启用它会连地图插件一起启用", async () => {
     const { k } = await setup();
     await k.settings.act(MAP_PLUGIN, { action: "disable", idempotencyKey: key() });
     expect(k.host.report().running).not.toContain(FAKE_WORLD_MAP_PLUGIN);
-    expect(k.host.report().disabled).toEqual(expect.arrayContaining([MAP_PLUGIN, FAKE_WORLD_MAP_PLUGIN]));
+    expect(k.host.report().disabled).toEqual(expect.arrayContaining([MAP_PLUGIN, FAKE_WORLD_MAP_PLUGIN, OPENSTREETMAP_PLUGIN, AMAP_PLUGIN]));
     expect(k.host.service(MAP)).toBeUndefined();
     await k.settings.act(MAP_PLUGIN, { action: "enable", idempotencyKey: key() });
-    expect(views(k).map((p) => p.id)).toEqual(["amap", "osm"]);
+    expect(views(k).map((p) => p.id)).toEqual([]);
+    await k.settings.act(OPENSTREETMAP_PLUGIN, { action: "enable", idempotencyKey: key() });
+    await k.settings.act(AMAP_PLUGIN, { action: "enable", idempotencyKey: key() });
+    expect(views(k).map((p) => p.id)).toEqual(["osm", "amap"]);
     await k.settings.act(FAKE_WORLD_MAP_PLUGIN, { action: "enable", idempotencyKey: key() });
-    expect(views(k).map((p) => p.id)).toEqual(["amap", "osm", FAKE_WORLD_MAP]);
-    // 两个都停了以后直接启用它：要的地图插件一起启用
+    expect(views(k).map((p) => p.id)).toEqual(["osm", "amap", FAKE_WORLD_MAP]);
+    // 都停了以后直接启用它：要的地图插件一起启用（别的几家照旧停着，要各自启用）
     await k.settings.act(MAP_PLUGIN, { action: "disable", idempotencyKey: key() });
     await k.settings.act(FAKE_WORLD_MAP_PLUGIN, { action: "enable", idempotencyKey: key() });
     expect(k.host.report().running).toEqual(expect.arrayContaining([MAP_PLUGIN, FAKE_WORLD_MAP_PLUGIN]));
-    expect(views(k).map((p) => p.id)).toEqual(["amap", "osm", FAKE_WORLD_MAP]);
+    expect(views(k).map((p) => p.id)).toEqual([FAKE_WORLD_MAP]);
   });
 
   it("编号和自带的重了（osm）：这个插件装配出错、没装上，地图插件照常", async () => {
@@ -281,7 +287,7 @@ describe("地图服务插槽：假\"第三家\"接进来、停用退回", () => 
     const clash: MapProvider = { ...fakeWorldMapPlugin().provider, id: "osm" };
     const k = await startPluginKernel({
       plugins: [
-        createMapPlugin({ amapHosts: amap.hosts, osmIntervalMs: 0, timeoutMs: 5000 }),
+        ...mapPlugins({ amapHosts: amap.hosts, osmIntervalMs: 0, timeoutMs: 5000 }),
         {
           name: FAKE_WORLD_MAP_PLUGIN,
           title: "撞号的",
@@ -297,6 +303,6 @@ describe("地图服务插槽：假\"第三家\"接进来、停用退回", () => 
     });
     expect(k.host.report().skipped.find((s) => s.plugin === FAKE_WORLD_MAP_PLUGIN)?.reason).toContain("已经登记过了");
     expect(k.host.report().running).toContain(MAP_PLUGIN);
-    expect(views(k).map((p) => p.id)).toEqual(["amap", "osm"]);
+    expect(views(k).map((p) => p.id)).toEqual(["osm", "amap"]);
   });
 });

@@ -14,7 +14,7 @@
 // - /_AMapService/ 下别的 → restapi.amap.com（Web 服务）
 import { t } from "@ergo/protocol";
 import type { DataSourceSecrets, DataSourceStatus } from "../data-sources/api.ts";
-import type { MapReply } from "./api.ts";
+import type { MapReply } from "../map/api.ts";
 
 /** 高德的三个地址 */
 export interface AmapHosts {
@@ -110,19 +110,19 @@ export function createAmap(options: AmapOptions): Amap {
     return out;
   };
 
-  const failureText = (failure: KeyFailure, part: Part) => (failure === "platform" ? t(part === "js" ? "map.error.platformJs" : "map.error.platformService") : t(`map.error.${failure}`));
+  const failureText = (failure: KeyFailure, part: Part) => (failure === "platform" ? t(part === "js" ? "amap.error.platformJs" : "amap.error.platformService") : t(`amap.error.${failure}`));
 
   /** 读高德回的 JSON：status 是 "1" 算过了 */
   const judge = (body: unknown, part: Part, httpStatus: number): ProbeResult => {
-    if (typeof body !== "object" || body === null) return { ok: false, failure: "other", text: t("map.error.notJson", { status: httpStatus }) };
+    if (typeof body !== "object" || body === null) return { ok: false, failure: "other", text: t("amap.error.notJson", { status: httpStatus }) };
     const b = body as { status?: unknown; info?: unknown; infocode?: unknown };
     const info = typeof b.info === "string" ? b.info : "";
     const code = typeof b.infocode === "string" ? b.infocode : "";
     if (String(b.status) === "1") return { ok: true };
     const failure = KEY_ERRORS[code] ?? KEY_ERRORS[info];
     if (failure) return { ok: false, failure, text: failureText(failure, part) };
-    if (LIMIT_CODES.has(code)) return { ok: true, limit: t("map.error.limit", { info }) };
-    return { ok: false, failure: "other", text: t("map.error.other", { info: info || "?", code: code || String(httpStatus) }) };
+    if (LIMIT_CODES.has(code)) return { ok: true, limit: t("amap.error.limit", { info }) };
+    return { ok: false, failure: "other", text: t("amap.error.other", { info: info || "?", code: code || String(httpStatus) }) };
   };
 
   /** 拿一组 Key 调一次逆地理编码 */
@@ -143,8 +143,8 @@ export function createAmap(options: AmapOptions): Amap {
       return judge(body, part, res.status);
     } catch (err) {
       if (signal?.aborted) throw err;
-      const reason = err instanceof Error && err.name === "TimeoutError" ? t("map.error.timeout") : err instanceof Error ? (causeOf(err) ?? err.message) : String(err);
-      return { ok: false, failure: "other", text: t("map.error.network", { reason }) };
+      const reason = err instanceof Error && err.name === "TimeoutError" ? t("amap.error.timeout") : err instanceof Error ? (causeOf(err) ?? err.message) : String(err);
+      return { ok: false, failure: "other", text: t("amap.error.network", { reason }) };
     }
   };
 
@@ -155,16 +155,16 @@ export function createAmap(options: AmapOptions): Amap {
 
   const status = (secrets: DataSourceSecrets): DataSourceStatus => {
     const f = filled(secrets);
-    const said = (p: Part) => t(p === "js" ? "map.problem.js" : "map.problem.service", { reason: problems[p]!.text });
+    const said = (p: Part) => t(p === "js" ? "amap.problem.js" : "amap.problem.service", { reason: problems[p]!.text });
     if (!f.js && !f.service) {
       // 什么都没存上：这次填了没过的写原因（出错），没填过的是没连
       const tried = (["js", "service"] as const).filter((p) => problems[p] !== undefined);
-      return tried.length === 0 ? { connection: "not_connected" } : { connection: "error", problem: tried.map(said).join(t("map.problem.joiner")) };
+      return tried.length === 0 ? { connection: "not_connected" } : { connection: "error", problem: tried.map(said).join(t("amap.problem.joiner")) };
     }
-    const account = t("map.source.account", { map: t(f.js ? "map.source.filled" : "map.source.empty"), query: t(f.service ? "map.source.filled" : "map.source.empty") });
+    const account = t("amap.source.account", { map: t(f.js ? "amap.source.filled" : "amap.source.empty"), query: t(f.service ? "amap.source.filled" : "amap.source.empty") });
     // 存着的那一组的问题，和这次新填了没过的（没存过也写，告诉用户为什么没存上）
     const shown = (["js", "service"] as const).filter((p) => problems[p] !== undefined && (f[p] || problems[p]!.kind === "configure"));
-    const text = shown.map(said).join(t("map.problem.joiner"));
+    const text = shown.map(said).join(t("amap.problem.joiner"));
     if (shown.some((p) => problems[p]!.kind === "key")) return { connection: "error", problem: text, account, needsAuth: true };
     return { connection: "connected", ...(text === "" ? {} : { problem: text }), account };
   };
@@ -190,11 +190,11 @@ export function createAmap(options: AmapOptions): Amap {
       const js = typed(AMAP_SECRET.jsKey);
       const code = typed(AMAP_SECRET.securityCode);
       const service = typed(AMAP_SECRET.serviceKey);
-      if ([js, code, service].some((v) => v !== undefined && /\s/.test(v))) return { ...status(secrets), connection: "error", problem: t("map.configure.badValue") };
+      if ([js, code, service].some((v) => v !== undefined && /\s/.test(v))) return { ...status(secrets), connection: "error", problem: t("amap.configure.badValue") };
       const savedJs = secrets.get(AMAP_SECRET.jsKey);
       const savedCode = secrets.get(AMAP_SECRET.securityCode);
       const savedService = secrets.get(AMAP_SECRET.serviceKey);
-      if (js === undefined && code === undefined && service === undefined && savedJs === undefined && savedService === undefined) return { connection: "error", problem: t("map.configure.nothing") };
+      if (js === undefined && code === undefined && service === undefined && savedJs === undefined && savedService === undefined) return { connection: "error", problem: t("amap.configure.nothing") };
       /** 测完记下：过了存进密钥区；新填的没过时，存过的照用（写一句"还在用原来的"），没存过的写原因；再测存着的没过，照测出来的记 */
       const settle = (part: Part, result: ProbeResult, fresh: boolean, hadSaved: boolean, save: () => void) => {
         const label = part === "js" ? "Web 端" : "Web 服务"; // @i18n-ignore log：日志里的说法
@@ -207,13 +207,13 @@ export function createAmap(options: AmapOptions): Amap {
         options.log(`高德地图：${label} Key 没测过（${result.failure}）`);
         const text = redact(result.text, secrets);
         if (!fresh) note(part, result);
-        else problems[part] = { kind: "configure", text: hadSaved ? t("map.configure.keptOld", { reason: text }) : text };
+        else problems[part] = { kind: "configure", text: hadSaved ? t("amap.configure.keptOld", { reason: text }) : text };
       };
       // 地图那一组：新填了其中一样就两样一起测（另一样沿用存着的）；只填了查询的 Key 时不动它；什么都没填就再测一次存着的
       if (js !== undefined || code !== undefined || (savedJs !== undefined && service === undefined)) {
         const pairJs = js ?? savedJs;
         const pairCode = code ?? savedCode;
-        if (pairJs === undefined || pairCode === undefined) problems.js = { kind: "configure", text: t("map.configure.pairNeeded") };
+        if (pairJs === undefined || pairCode === undefined) problems.js = { kind: "configure", text: t("amap.configure.pairNeeded") };
         else {
           const result = await probe("js", pairJs, pairCode);
           settle("js", result, js !== undefined || code !== undefined, savedJs !== undefined, () => {
@@ -274,8 +274,8 @@ export function createAmap(options: AmapOptions): Amap {
     async proxy(subPath, search, signal, userAgent) {
       const secrets = options.secrets();
       const code = secrets.get(AMAP_SECRET.securityCode);
-      if (code === undefined || !secrets.has(AMAP_SECRET.jsKey)) return plain(503, t("map.proxy.noKey"));
-      if (!/^\/[A-Za-z0-9/_.-]*$/.test(subPath) || subPath.includes("..") || subPath.includes("//")) return plain(404, t("map.proxy.badPath"));
+      if (code === undefined || !secrets.has(AMAP_SECRET.jsKey)) return plain(503, t("amap.proxy.noKey"));
+      if (!/^\/[A-Za-z0-9/_.-]*$/.test(subPath) || subPath.includes("..") || subPath.includes("//")) return plain(404, t("amap.proxy.badPath"));
       const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
       params.delete("jscode");
       params.append("jscode", code);
@@ -287,8 +287,8 @@ export function createAmap(options: AmapOptions): Amap {
           signal: AbortSignal.any([AbortSignal.timeout(timeoutMs), signal]),
         });
         const body = Buffer.from(await res.arrayBuffer());
-        if (body.length > MAX_PROXY_BYTES) return plain(502, t("map.proxy.failed"));
-        if (res.status >= 300 && res.status < 400) return plain(502, t("map.proxy.failed"));
+        if (body.length > MAX_PROXY_BYTES) return plain(502, t("amap.proxy.failed"));
+        if (res.status >= 300 && res.status < 400) return plain(502, t("amap.proxy.failed"));
         const type = res.headers.get("content-type") ?? "application/octet-stream";
         // 高德说 Key、安全密钥不对：记下（地图页下次不拿 Key、国内先用 OpenStreetMap；连接状态报出错）
         if (body.length <= SCAN_BYTES && /json|javascript|text/.test(type)) {
@@ -304,7 +304,7 @@ export function createAmap(options: AmapOptions): Amap {
         if (signal.aborted) throw err;
         const reason = err instanceof Error && err.name === "TimeoutError" ? "timeout" : err instanceof Error ? (causeOf(err) ?? err.message) : String(err);
         options.log(`高德地图：转发 ${subPath} 没成：${redact(reason, secrets)}`);
-        return plain(502, t("map.proxy.failed"));
+        return plain(502, t("amap.proxy.failed"));
       }
     },
   };

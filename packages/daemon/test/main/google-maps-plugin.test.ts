@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { GOOGLE_MAPS_PLUGIN } from "../../src/google-maps/api.ts";
 import { createGoogleMapsPlugin } from "../../src/google-maps/plugin.ts";
 import { MAP_TOOL } from "../../src/map/lookup-tools.ts";
-import { createMapPlugin } from "../../src/map/plugin.ts";
+import { mapPlugins } from "../helpers/map-plugins.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { GOOGLE_TEST_BROWSER_KEY, GOOGLE_TEST_SERVER_KEY, startFakeGoogleMaps } from "../helpers/fake-google-maps.ts";
@@ -30,7 +30,7 @@ describe("谷歌地图插件走真实装配路径", () => {
     const osm = await startFakeOsmLookup();
     const google = await startFakeGoogleMaps();
     const td = await startTestDaemon({
-      extraPlugins: [createMapPlugin({ osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 }), createGoogleMapsPlugin({ hosts: google.hosts, timeoutMs: 5000 })],
+      extraPlugins: [...mapPlugins({ osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 }), createGoogleMapsPlugin({ hosts: google.hosts, timeoutMs: 5000 })],
       secretary: [call(MAP_TOOL.search, near), say("找到几家。"), call(MAP_TOOL.search, near), say("找到四家。")],
     });
     expect(td.daemon.plugins.report().running).toEqual(expect.arrayContaining(["map", GOOGLE_MAPS_PLUGIN]));
@@ -80,7 +80,7 @@ describe("谷歌地图插件走真实装配路径", () => {
     // 设置 · 插件里停用谷歌地图：页面的 providers 没有它，再查走 OpenStreetMap
     const off = await pluginsApi.act(td.url, GOOGLE_MAPS_PLUGIN, { action: "disable", idempotencyKey: key() });
     expect(off.status).toBe(200);
-    expect((await mapApi.config(td.url)).body.providers?.map((p) => p.id)).toEqual(["amap", "osm"]);
+    expect((await mapApi.config(td.url)).body.providers?.map((p) => p.id)).toEqual(["osm", "amap"]);
     const asked = google.requests.length;
     const second = await ask("再找一下");
     expect(second).toContain("OpenStreetMap找到 4 个");

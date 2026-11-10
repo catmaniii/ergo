@@ -15,7 +15,7 @@
 // 是 no_route，TooBig 是 too_far，参数不对的是 params。
 import { activeLanguage, distanceMeters, inMainlandChina, type LatLon } from "@ergo/protocol";
 import { createPoliteClient, type PoliteClient } from "./osm-client.ts";
-import { type LookupProvider, MapLookupError, type MapLookupFailure, type PlaceHit, type RouteAnswer, thinLine } from "./lookup.ts";
+import { type LookupProvider, MapLookupError, type MapLookupFailure, type PlaceHit, type RouteAnswer, thinLine } from "../map/api.ts";
 
 /** 两家的地址（测试换成本机的假服务） */
 export interface OsmHosts {

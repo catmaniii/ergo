@@ -16,7 +16,7 @@
   background: var(--fill);
   overflow: hidden;
 }
-.map-card-thumb .map-osm {
+.map-card-thumb .map-tiled {
   cursor: default;
 }
 /* 缩略图上不写点旁边的字（名字写在地图下面那一行），也就没有引线 */

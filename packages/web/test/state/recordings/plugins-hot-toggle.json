@@ -67,6 +67,16 @@
             "state": "running"
           },
           {
+            "name": "openstreetmap",
+            "title": "OpenStreetMap",
+            "state": "running"
+          },
+          {
+            "name": "amap",
+            "title": "高德地图",
+            "state": "running"
+          },
+          {
             "name": "google-maps",
             "title": "谷歌地图",
             "state": "running"
@@ -91,9 +101,9 @@
           },
           "nextAt": "2099-10-08T09:00:00.000+08:00",
           "status": "pending",
-          "cardId": "c-a01c0be2-d21b-45e8-af64-3037e36f549b",
-          "createdAt": "2026-11-08T12:28:51.465+08:00",
-          "updatedAt": "2026-11-08T12:28:51.465+08:00"
+          "cardId": "c-77bd126b-4f07-4205-8cb8-20610caa375c",
+          "createdAt": "2026-11-09T20:33:53.376+08:00",
+          "updatedAt": "2026-11-09T20:33:53.376+08:00"
         },
         "change": "created",
         "by": "user"
@@ -108,7 +118,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-a01c0be2-d21b-45e8-af64-3037e36f549b",
+          "id": "c-77bd126b-4f07-4205-8cb8-20610caa375c",
           "type": "reminder",
           "typeVersion": 5,
           "version": 1,
@@ -124,7 +134,7 @@
             "nextAt": "2099-10-08T09:00:00.000+08:00"
           },
           "text": "简单提醒：交报告 · 10 月 8 日（周四）09:00",
-          "createdAt": "2026-11-08T12:28:51.466+08:00"
+          "createdAt": "2026-11-09T20:33:53.377+08:00"
         }
       }
     }
@@ -193,6 +203,16 @@
             "state": "running"
           },
           {
+            "name": "openstreetmap",
+            "title": "OpenStreetMap",
+            "state": "running"
+          },
+          {
+            "name": "amap",
+            "title": "高德地图",
+            "state": "running"
+          },
+          {
             "name": "google-maps",
             "title": "谷歌地图",
             "state": "running"
@@ -262,6 +282,16 @@
           {
             "name": "map",
             "title": "地图",
+            "state": "running"
+          },
+          {
+            "name": "openstreetmap",
+            "title": "OpenStreetMap",
+            "state": "running"
+          },
+          {
+            "name": "amap",
+            "title": "高德地图",
             "state": "running"
           },
           {
@@ -337,6 +367,16 @@
             "state": "running"
           },
           {
+            "name": "openstreetmap",
+            "title": "OpenStreetMap",
+            "state": "running"
+          },
+          {
+            "name": "amap",
+            "title": "高德地图",
+            "state": "running"
+          },
+          {
             "name": "google-maps",
             "title": "谷歌地图",
             "state": "running"
@@ -353,7 +393,7 @@
       "type": "plugin_data_purged",
       "payload": {
         "plugin": "reminders",
-        "at": "2026-11-08T12:28:51.545+08:00",
+        "at": "2026-11-09T20:33:53.508+08:00",
         "eventTypes": [
           "reminder"
         ],

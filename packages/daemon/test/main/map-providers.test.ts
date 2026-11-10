@@ -8,7 +8,7 @@
 import { CHANNELS, EVENT_TYPES, type MessageEventPayload, type ToolCallDetail } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { MAP_TOOL } from "../../src/map/lookup-tools.ts";
-import { createMapPlugin } from "../../src/map/plugin.ts";
+import { mapPlugins } from "../helpers/map-plugins.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { FAKE_WORLD_MAP, FAKE_WORLD_MAP_BROWSER_KEY, FAKE_WORLD_MAP_PLUGIN, fakeWorldMapPlugin } from "../helpers/fake-map-provider.ts";
@@ -30,14 +30,14 @@ describe("地图服务插槽：假\"第三家\"走真实装配路径", () => {
     const osm = await startFakeOsmLookup();
     const fake = fakeWorldMapPlugin();
     const td = await startTestDaemon({
-      extraPlugins: [createMapPlugin({ osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 }), fake.plugin],
+      extraPlugins: [...mapPlugins({ osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 }), fake.plugin],
       secretary: [call(MAP_TOOL.search, near), say("找到一家。"), call(MAP_TOOL.search, near), say("找到四家。")],
     });
 
     const config = (await mapApi.config(td.url)).body;
     expect(config.providers?.map((p) => [p.id, p.priority, p.ready, p.key])).toEqual([
-      ["amap", 100, false, undefined],
       ["osm", 0, true, undefined],
+      ["amap", 100, false, undefined],
       // 446 起清单里有谷歌地图插件：没填 Key，底图用不了
       ["google", 50, false, undefined],
       [FAKE_WORLD_MAP, 50, true, FAKE_WORLD_MAP_BROWSER_KEY],
@@ -64,7 +64,7 @@ describe("地图服务插槽：假\"第三家\"走真实装配路径", () => {
     // 设置 · 插件里停用它：页面的 providers 退回两家，再查走 OpenStreetMap
     const off = await pluginsApi.act(td.url, FAKE_WORLD_MAP_PLUGIN, { action: "disable", idempotencyKey: key() });
     expect(off.status).toBe(200);
-    expect((await mapApi.config(td.url)).body.providers?.map((p) => p.id)).toEqual(["amap", "osm", "google"]);
+    expect((await mapApi.config(td.url)).body.providers?.map((p) => p.id)).toEqual(["osm", "amap", "google"]);
     const second = await ask("再找一下");
     expect(second).toContain("OpenStreetMap找到 4 个");
     expect(fake.state.asked).toHaveLength(1);
@@ -78,7 +78,7 @@ describe("地图服务插槽：假\"第三家\"走真实装配路径", () => {
     const fake = fakeWorldMapPlugin();
     const copyMap: FauxStep = { kind: "call_with_matches", toolCall: { name: MAP_TOOL.search, arguments: near as never }, argument: "map", pattern: '(?<=map 写成")[a-z][a-z0-9-]{0,19}', from: "user", first: true };
     const td = await startTestDaemon({
-      extraPlugins: [createMapPlugin({ osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 }), fake.plugin],
+      extraPlugins: [...mapPlugins({ osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 }), fake.plugin],
       secretary: [copyMap, say("附近有四家。"), copyMap, say("附近有一家。")],
     });
     const frontend = await TestFrontend.connect(td.url);

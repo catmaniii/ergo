@@ -1,0 +1,8 @@
+{
+  "openstreetmap.plugin.title": "OpenStreetMap",
+  "openstreetmap.plugin.summary": "免费的开源地图：不用 Key，国外和没填别家 Key 时用它；瓦片经这台电脑转发、带缓存，查地点（Nominatim）、算路线（OSRM，没有公交和实时路况）用它的免费服务。停用后地图页、查询只用别家",
+  "openstreetmap.plugin.keep.chat": "聊天里说到过的地点（那是聊天记录）",
+  "openstreetmap.plugin.purge.tiles": "缓存在这台电脑上的地图瓦片",
+  "openstreetmap.lookup.source": "OpenStreetMap",
+  "openstreetmap.provider": "OpenStreetMap"
+}

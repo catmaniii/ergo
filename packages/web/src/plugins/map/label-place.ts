@@ -1,5 +1,5 @@
 // 把 label-layout.ts 排出来的位置用到地图上点旁边的字上（451 补，用户 2026-11-09：字不互相盖住，挤开了用一条线连到点上）。
-// OpenStreetMap（osm-engine.ts）、地图页盖在高德谷歌上面的那一层（overlay.ts）、点开卡片时那张静态大图（static-overlay.tsx）三处共用：
+// 瓦片底图（tile-engine.ts，OpenStreetMap）、地图页盖在高德谷歌上面的那一层（overlay.ts）、点开卡片时那张静态大图（static-overlay.tsx）三处共用：
 // - 量：每个点（.map-mark，它的底边正中就是点）的大小、针（.map-pin）占的那一块、字（.map-mark-label）照旧的位置和宽高
 //   （CSS 写的针的右边；挪字用 transform，不改 offsetLeft/Top）。量过的按字（没有字按针）的元素记着；字体、风格、深浅换了、
 //   字框变了（ResizeObserver 报）再量。量不到的（display: none 的字）不排；

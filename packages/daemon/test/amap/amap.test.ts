@@ -1,7 +1,11 @@
 // 高德地图（429）：填 Key 先测再存、安全密钥代理拼上 jscode 再转、三个地址各转各的；安全密钥不进给页面的、不进日志；
-// 高德说 Key 不对时地图页不再拿 Key（国内先用 OpenStreetMap），每小时再测好了就回来。全接本机的假高德。
+// 高德说 Key 不对时地图页不再拿 Key（国内先用别家），每小时再测好了就回来。全接本机的假高德。
+// 455 起高德是单独的插件：转发口（/_AMapService）、页面要的设置都经地图插件的插槽——这里把高德这一家登记进一份地图服务，
+// 走和网关同一条路（map.proxy、map.config 的 providers）。
+import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { AMAP_SECRET, createAmap } from "../../src/map/amap.ts";
+import { AMAP_SECRET, createAmap } from "../../src/amap/amap.ts";
+import { createAmapService } from "../../src/amap/service.ts";
 import { createMapService } from "../../src/map/service.ts";
 import { createDataSourceSecrets } from "../../src/data-sources/index.ts";
 import { AMAP_TEST_JS_KEY, AMAP_TEST_SECURITY_CODE, AMAP_TEST_SERVICE_KEY, startFakeAmap } from "../helpers/fake-map.ts";
@@ -14,7 +18,22 @@ async function setup() {
   const store = createDataSourceSecrets({ dir, log: (l) => logs.push(l) });
   const secrets = store.forSource("amap");
   const amap = createAmap({ hosts: fake.hosts, timeoutMs: 5000, secrets: () => secrets, log: (l) => logs.push(l) });
-  const service = createMapService({ tileDir: makeTempDir("ergo-amap-tiles-"), mapDir: makeTempDir("ergo-amap-data-"), amapHosts: fake.hosts, timeoutMs: 5000, now: () => Date.now(), secrets: () => secrets, log: (l) => logs.push(l) });
+  const amapService = createAmapService({ hosts: fake.hosts, timeoutMs: 5000, secrets: () => secrets, usageFile: path.join(makeTempDir("ergo-amap-data-"), "usage.json"), now: () => Date.now(), log: (l) => logs.push(l) });
+  const map = createMapService({ now: () => Date.now(), log: (l) => logs.push(l) });
+  map.providers.register(amapService.provider);
+  /** 页面要的设置里高德那一家：浏览器用的 Key、上次说不对的原因（455 以前叫 amapKey、amapProblem） */
+  const config = () => {
+    const view = map.config().providers?.find((p) => p.id === "amap");
+    return { ...(view?.key === undefined ? {} : { amapKey: view.key }), ...(view?.problem === undefined ? {} : { amapProblem: view.problem }) };
+  };
+  const service = {
+    configureAmap: (values: Record<string, string>, s: typeof secrets) => amapService.configure(values, s),
+    amapService: (sub: string, search: string, signal: AbortSignal, userAgent?: string) => map.proxy(`/_AMapService${sub}`, search, signal, userAgent),
+    amapStatus: (s: typeof secrets) => amapService.status(s),
+    recheckAmap: (s: typeof secrets, signal: AbortSignal) => amapService.recheck(s, signal),
+    config,
+    raw: () => map.config(),
+  };
   return { fake, secrets, amap, service, logs };
 }
 const live = () => new AbortController().signal;
@@ -112,8 +131,8 @@ describe("高德安全密钥代理", () => {
     await service.configureAmap({ jsKey: AMAP_TEST_JS_KEY, securityCode: AMAP_TEST_SECURITY_CODE, serviceKey: AMAP_TEST_SERVICE_KEY }, secrets);
     const config = service.config();
     expect(config).toEqual({ amapKey: AMAP_TEST_JS_KEY });
-    expect(JSON.stringify(config)).not.toContain(AMAP_TEST_SECURITY_CODE);
-    expect(JSON.stringify(config)).not.toContain(AMAP_TEST_SERVICE_KEY);
+    expect(JSON.stringify(service.raw())).not.toContain(AMAP_TEST_SECURITY_CODE);
+    expect(JSON.stringify(service.raw())).not.toContain(AMAP_TEST_SERVICE_KEY);
   });
 
   it("转发时高德说 Key 不对：页面不再拿 Key、写原因，连接状态报出错要重新填；每小时再测好了就回来", async () => {

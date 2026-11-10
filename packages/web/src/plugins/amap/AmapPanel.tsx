@@ -10,7 +10,7 @@ import { useStore } from "../../app/store.tsx";
 import { type DataSourcesView, type DataSourceView, t } from "../../state/index.ts";
 import { AmapTry } from "./AmapTry.tsx";
 
-/** 交给守护进程的三样（名字和守护进程 map/amap.ts 的 AMAP_SECRET 一样） */
+/** 交给守护进程的三样（名字和守护进程 amap/amap.ts 的 AMAP_SECRET 一样） */
 export const AMAP_FIELDS = ["jsKey", "securityCode", "serviceKey"] as const;
 export type AmapField = (typeof AMAP_FIELDS)[number];
 
@@ -27,8 +27,8 @@ export function hasSavedAmapKey(source: DataSourceView): boolean {
 /** 测完以后说一句：这个数据源在回来的整页里连着、没有问题就是过了 */
 export function amapResultOf(view: DataSourcesView, id: string): { ok: boolean; text: string } {
   const source = view.sources.find((s) => s.id === id);
-  if (source && source.connection === "connected" && source.problem === undefined) return { ok: true, text: t("ui.plugins.map.panel.ok", { account: source.account ?? "" }) };
-  return { ok: false, text: t("ui.plugins.map.panel.failed", { problem: source?.problem ?? t("ui.plugins.map.panel.unknown") }) };
+  if (source && source.connection === "connected" && source.problem === undefined) return { ok: true, text: t("ui.plugins.amap.panel.ok", { account: source.account ?? "" }) };
+  return { ok: false, text: t("ui.plugins.amap.panel.failed", { problem: source?.problem ?? t("ui.plugins.amap.panel.unknown") }) };
 }
 
 export interface AmapPanelViewProps {
@@ -49,16 +49,16 @@ export function AmapPanelView({ source, values, busy, result, onValue, onSubmit,
   const canSubmit = !busy && (typed || saved);
   return (
     <div className="looki-panel amap-panel">
-      <div className="looki-title">{t(saved ? "ui.plugins.map.panel.titleSaved" : "ui.plugins.map.panel.title")}</div>
+      <div className="looki-title">{t(saved ? "ui.plugins.amap.panel.titleSaved" : "ui.plugins.amap.panel.title")}</div>
       {AMAP_FIELDS.map((field) => (
         <label key={field} className="field" data-field={field}>
-          <span>{t(`ui.plugins.map.panel.${field}`)}</span>
+          <span>{t(`ui.plugins.amap.panel.${field}`)}</span>
           <input
             type="password"
             autoComplete="off"
             spellCheck={false}
             value={values[field]}
-            placeholder={t(saved ? "ui.plugins.map.panel.keep" : field === "serviceKey" ? "ui.plugins.map.panel.optional" : "ui.plugins.map.panel.required")}
+            placeholder={t(saved ? "ui.plugins.amap.panel.keep" : field === "serviceKey" ? "ui.plugins.amap.panel.optional" : "ui.plugins.amap.panel.required")}
             disabled={busy}
             onChange={(e) => onValue(field, e.currentTarget.value)}
           />
@@ -66,7 +66,7 @@ export function AmapPanelView({ source, values, busy, result, onValue, onSubmit,
       ))}
       <div className="plugin-actions">
         <button type="button" className="btn primary small" disabled={!canSubmit} onClick={onSubmit}>
-          {busy ? t("ui.plugins.map.panel.testing") : t(saved && !typed ? "ui.plugins.map.panel.retest" : "ui.plugins.map.panel.submit")}
+          {busy ? t("ui.plugins.amap.panel.testing") : t(saved && !typed ? "ui.plugins.amap.panel.retest" : "ui.plugins.amap.panel.submit")}
         </button>
       </div>
       {result && (
@@ -76,9 +76,9 @@ export function AmapPanelView({ source, values, busy, result, onValue, onSubmit,
       )}
       {extra}
       <ul className="source-notes">
-        <li>{t("ui.plugins.map.panel.howTo")}</li>
-        <li>{t("ui.plugins.map.panel.keySafe")}</li>
-        <li>{t("ui.plugins.map.panel.privacy")}</li>
+        <li>{t("ui.plugins.amap.panel.howTo")}</li>
+        <li>{t("ui.plugins.amap.panel.keySafe")}</li>
+        <li>{t("ui.plugins.amap.panel.privacy")}</li>
       </ul>
     </div>
   );
@@ -105,7 +105,7 @@ export function AmapPanel({ source, onView }: { source: DataSourceView; onView(v
           setResult(amapResultOf(res.view, source.id));
           setValues(EMPTY);
         },
-        (err: unknown) => setResult({ ok: false, text: t("ui.plugins.map.panel.failed", { problem: err instanceof Error ? err.message : String(err) }) }),
+        (err: unknown) => setResult({ ok: false, text: t("ui.plugins.amap.panel.failed", { problem: err instanceof Error ? err.message : String(err) }) }),
       )
       .finally(() => setBusy(false));
   };

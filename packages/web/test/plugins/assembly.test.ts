@@ -103,6 +103,8 @@ describe("按真守护进程报的状况装网页插件", () => {
       ["looki", "running"],
       ["codex", "running"],
       ["map", "running"],
+      ["openstreetmap", "running"],
+      ["amap", "running"],
       ["google-maps", "running"],
     ]);
     expect([host.running("reminders"), host.running("memory")]).toEqual([true, false]);
@@ -137,6 +139,8 @@ describe("按真守护进程报的状况装网页插件", () => {
       ["looki", "running"],
       ["codex", "running"],
       ["map", "running"],
+      ["openstreetmap", "running"],
+      ["amap", "running"],
       ["google-maps", "running"],
     ]);
     expect([host.running("reminders"), host.running("memory"), host.running("calendar")]).toEqual([true, true, false]);
@@ -169,6 +173,8 @@ describe("按真守护进程报的状况装网页插件", () => {
       ["looki", "running"],
       ["codex", "running"],
       ["map", "running"],
+      ["openstreetmap", "running"],
+      ["amap", "running"],
       ["google-maps", "running"],
     ]);
     expect(host.running("browsing")).toBe(false);
@@ -190,11 +196,13 @@ describe("按真守护进程报的状况装网页插件", () => {
 
   test("配置里停用 Google 插件（录下的事件流）：设置 · 数据源里没有 Google · 日历、Google · 联系人下面那一块，交回\"Google\"；日历照常", () => {
     const { state, host } = assembled("plugins-google-off");
-    expect(state.pluginStatus?.plugins.map((p) => [p.name, p.state]).slice(-5)).toEqual([
+    expect(state.pluginStatus?.plugins.map((p) => [p.name, p.state]).slice(-7)).toEqual([
       ["google", "disabled"],
       ["looki", "running"],
       ["codex", "running"],
       ["map", "running"],
+      ["openstreetmap", "running"],
+      ["amap", "running"],
       ["google-maps", "running"],
     ]);
     expect(host.running("google")).toBe(false);

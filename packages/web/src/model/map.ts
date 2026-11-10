@@ -119,3 +119,17 @@ export interface MapEngineOptions extends MapEngineEvents {
 
 /** 建引擎的函数（地图服务插槽的条目准备好以后交回的）：在 host 里画 */
 export type MapEngineFactory = (host: HTMLElement, options: MapEngineOptions) => MapEngine;
+
+/**
+ * 自己画的瓦片地图（地图插件的瓦片引擎，455：OpenStreetMap 那种"页面自己画"的底图；演示页的假高德也借它扮）的选项：
+ * 一开始看哪里、一张瓦片的地址、瓦片最大到第几级（再放大就把这一级的放大着画）
+ */
+export interface TileEngineOptions extends MapEngineEvents {
+  readonly view: MapView;
+  tileUrl(z: number, x: number, y: number): string;
+  readonly maxTileZoom: number;
+  /** 根元素上的 data-engine（地图页写那一家的编号；演示页的假高德写 amap-demo；卡片的缩略图写 thumb） */
+  readonly engineName?: string;
+  /** 点旁边的字互相让开（451 补）；聊天卡片的缩略图不写字，给 false 省掉 */
+  readonly labelLayout?: boolean;
+}

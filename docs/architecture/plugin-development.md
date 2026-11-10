@@ -390,7 +390,7 @@ export const notesWebPlugin: WebPluginDefinition = {
   | `calendar` | 日历的图例、格子里的小标、一天的一节 | 提醒 |
   | `composerVoice` / `background` | 输入框的语音模式 / 整页挂一份的后台部件 | 语音 |
   | `dataSources` | 设置 · 数据源里一个数据源下面的设置（填 Key、地址，测试连接；或者手机 App 里的按钮），键是数据源 id | 手机（"从手机通讯录挑人""连上手机日历"）、Google（Google · 日历：填私密地址） |
-  | `mapBasemaps` | 地图页的一种底图（地图服务插槽的网页一半，键是地图服务的编号）：`title`、`prepare(key)` 加载脚本、交回建引擎的函数；停用时撤掉，地图页退回下一家 | 地图插件自带的高德、OpenStreetMap（`packages/web/src/plugins/map/basemaps.ts`） |
+  | `mapBasemaps` | 地图页的一种底图（地图服务插槽的网页一半，键是地图服务的编号）：`title`、`credit`（卡片上"数据来自"写的名字）；瓦片底图写 `tiles`（地址、最大级别、署名，地图插件自己画），要加载外站脚本的写 `prepare(key, kit)` 交回建引擎的函数；没填 Key 时要提醒的写 `setup`。停用时撤掉，地图页退回下一家，一家都没有时说"没有能用的地图" | OpenStreetMap 插件的瓦片底图（`packages/web/src/plugins/openstreetmap/plugin.tsx`）、高德地图插件（`packages/web/src/plugins/amap/basemap.ts`）、谷歌地图插件 |
 
 - 给人看的字走 `t()`、写成取值函数（`get title() { return t("ui.plugins.notes.title"); }`）；只 import `plugins/api.ts`、`state/index.ts` 和核心的模块。
 - 核心里去它那一页的链接用 `useRouteAvailable` 判断（插件停用时不出）。
@@ -419,9 +419,66 @@ export const notesWebPlugin: WebPluginDefinition = {
 - **不互相 import 内部**：守护进程里，插件目录之外（内核、别的插件）只 import 它的 `api.ts`，例外只有插件清单列它（还有写明的个别几处）。每个插件一条边界测试照抄日历的 `packages/daemon/test/calendar/boundary.test.ts`：组合根里不出现它、目录之外只 import `api.ts`。网页里：插件只 import `plugins/api.ts`、状态层的 `state/index.ts` 和核心的模块（`app/`、`ui/`、`model/`、`util/`……），不 import 别的插件和清单，核心不 import 插件——`packages/web/test/plugins/boundary.test.ts` 扫 import 检查，加插件时把它的目录加进那条测试的列表。
 - 两个插件要共享的东西放内核或者放提供方的 `api.ts`（纯函数也行：记忆读存进素材的网页只用浏览插件 `api.ts` 里的 `savedPageOf`，不用 `wants`）。
 
-### 插件开的插槽：接一家地图（445）
+### 插件开的插槽：接一家地图（445；455 起三家各一个插件）
 
-一个插件能把自己的一部分做成**插槽**，让别的插件往里登记：它提供一个"登记表"服务（`register` 交回撤销函数），别的插件 `needs` 它、在 `setup` 里登记，撤销函数交给 `ctx.effect`——停用、移除时宿主替它撤掉，提供方自动退回下一家；提供方停了，登记了的插件跟着停（`needs`，记成停用了，要再启用它）。地图插件的"地图服务"插槽（`packages/daemon/src/map/api.ts` 的 `MAP_PROVIDERS`、`MapProvider`）是这样的：
+一个插件能把自己的一部分做成**插槽**，让别的插件往里登记：它提供一个"登记表"服务（`register` 交回撤销函数），别的插件 `needs` 它、在 `setup` 里登记，撤销函数交给 `ctx.effect`——停用、移除时宿主替它撤掉，提供方自动退回下一家；提供方停了，登记了的插件跟着停（`needs`，运行中停的记成停用了，要再启用它；配置里停着的，启用提供方时跟着装上）。
+
+地图插件的"地图服务"插槽（`packages/daemon/src/map/api.ts` 的 `MAP_PROVIDERS`、`MapProvider`）就是这样。455 起（ADR-0061）地图插件**不认识任何一家**：地图页、足迹、聊天卡片、地图切换、`show_on_map` 和查地点、算路线那几个工具、"当前地图"的规矩、本机叠画都在它那里，但它不带底图、不带查询；OpenStreetMap（`openstreetmap`）、高德地图（`amap`）、谷歌地图（`google-maps`）各是一个插件，都 `needs: [MAP_PROVIDERS]`，各自往插槽里登记一家。`packages/daemon/test/map/boundary.test.ts` 和 `packages/web/test/plugins/boundary.test.ts` 查地图插件里没有写死哪一家的编号。
+
+**最小的例子：OpenStreetMap**（不用 Key、没有数据源、页面自己画瓦片）。守护进程那一半登记一家：
+
+<!-- 摘自 packages/daemon/src/openstreetmap/plugin.ts -->
+```ts
+    needs: [MAP_PROVIDERS, KERNEL.clock, KERNEL.layout],
+    // …
+    setup(ctx) {
+      // …
+      // 登记进地图插件的"地图服务"插槽：停用、移除时宿主替它撤掉，地图页和秘书的查询退回别家
+      const slot = ctx.use(MAP_PROVIDERS);
+      ctx.effect(() => slot.register(service.provider));
+```
+
+登记的那一家（`MapProvider`）：
+
+<!-- 摘自 packages/daemon/src/openstreetmap/service.ts -->
+```ts
+  const provider: MapProvider = {
+    id: OSM_PROVIDER,
+    get title() {
+      return t("openstreetmap.provider");
+    },
+    modelName: "OpenStreetMap",
+    regions: ["mainland", "abroad"],
+    priority: OSM_PRIORITY,
+    ownBasemapOnly: false,
+    basemap: () => ({ ready: true }),
+    lookup: () => ({ ready: true, provider: lookup }),
+    toolNote: TOOL_NOTE,
+    tiles: { get: (address, signal) => tiles.get(address, signal) },
+  };
+```
+
+网页那一半在 `mapBasemaps` 插槽登记同一个编号。瓦片底图只给瓦片地址和署名，地图插件自己的瓦片引擎画（点、线、字也是它画）：
+
+<!-- 摘自 packages/web/src/plugins/openstreetmap/plugin.tsx -->
+```ts
+export const osmBasemap: MapBasemapSlot = {
+  id: OSM_BASEMAP,
+  get title() {
+    return t("ui.plugins.openstreetmap.basemap");
+  },
+  tiles: {
+    // 真的页面：瓦片经守护进程的 /tiles/osm 转发
+    tileUrl: DEMO_TILE ?? ((z, x, y) => mapTilePath("osm", z, x, y)),
+    maxZoom: 19,
+    // …
+  },
+};
+```
+
+两份清单各加一行，排在地图插件后面（`packages/daemon/src/plugins/manifest.ts`、`packages/web/src/plugins/manifest.ts`），原型的 `fake-plugins.ts`、`fake-map.ts`（`demoMapProviders`）也加上它。要填 Key 的照高德地图插件（`packages/daemon/src/amap/`：数据源 `amap`、`service.ts` 登记的那一家、`amap-usage.ts` 用量，网页 `packages/web/src/plugins/amap/`：`basemap.ts` 插槽那一条、`AmapPanel.tsx` 填 Key）写。
+
+测试用的假"第三家"也是这样接进来的：
 
 <!-- 摘自 packages/daemon/test/helpers/fake-map-provider.ts -->
 ```ts
@@ -448,13 +505,15 @@ export const notesWebPlugin: WebPluginDefinition = {
 ```
 
 - **管哪儿、谁先**：`regions` 是选"自动"时管的区域（`mainland` 中国大陆、`abroad` 大陆以外，按点在不在大陆分），`priority` 是同一个区域里的先后（数大的先：高德 100、OpenStreetMap 0，谷歌写 50 就是"大陆外、高于高德和 OpenStreetMap"）；某个区域要另一个数时写可选的 `regionPriority: { mainland?, abroad? }`（高德大陆外是 30：大陆外 谷歌 > 高德 > OpenStreetMap，ADR-0059）。`manualRegions` 是用户在地图页的地图切换里手动选它时还能用的区域（谷歌在大陆也能手动选，它自己转 GCJ-02）；切换菜单里"自动"会挑的排前面、只能手动选的排后面。查询管的区域和底图不一样时写可选的 `lookupRegions`（高德写 `["mainland"]`：底图大陆外也能用，查询只管大陆）。
-- **底图**（`basemap()`）：此刻能不能用、页面加载它的脚本要的浏览器用的 Key（会进页面，只放本来就在页面上的那一种）、Key 不对的那一句。网页那一半在网页插槽 `mapBasemaps` 登记同一个编号（`MapBasemapSlot`：`title`、`prepare(key)` 加载脚本、交回建引擎的函数，引擎照 `packages/web/src/model/map.ts` 的 `MapEngine` 写，坐标一律 WGS-84 进出、要转的自己转）。453 起地图公司的引擎**只出底图**：不写 `setScene`，每动一下调 `MapEngineOptions.onSurface(MapSurfaceView)`（此刻画着的中心、级别、宽高，用这家自己的坐标、写明 `datum`），写 `panBy(dx, dy)`；报的是**画面此刻**的样子（级别可以带小数）：那家在捏合、惯性、双击的动画里要是整块拉伸画面、它说的级别和中心不跟，得自己量画面（谷歌那样放探针，458，ADR-0059 的 458 修订），不然这一层一路漂；地图页在上面盖自己的一层画点线（`plugins/map/overlay.ts`），交给你的只有视野。建好时还在加载的（比如在隔离框里加载的）写 `loading: true`，好了调 `onReady()`。外站脚本能关进隔离框的照谷歌那样关（核心 `packages/web/src/ui/map-frame.ts` 的 `openMapFrame`，框里跑的代码要自成一体、整段转成字符串交过去）。
+- **名字**：`title` 给人看（走 `t()`）；`modelName` 是工具说明里给模型看的名字（地图插件拼"map 写 osm（OpenStreetMap）、amap（高德地图）……"），`toolNote` 是工具说明里讲这一家的半句（管哪儿、有没有公交、找不到怎么换说法），按优先级拼在一起。
+- **底图**（`basemap()`）：此刻能不能用、页面加载它的脚本要的浏览器用的 Key（会进页面，只放本来就在页面上的那一种）、Key 不对的那一句。网页那一半在网页插槽 `mapBasemaps` 登记同一个编号（`MapBasemapSlot`）：瓦片底图写 `tiles`（`MapTileSource`：`tileUrl(z, x, y)`、`maxZoom`、署名 `attribution`），地图插件自己的瓦片引擎画，同步就能用；要加载外站脚本的写 `prepare(key, kit)` 加载脚本、交回建引擎的函数（`kit` 是地图插件借出的东西，`MapBasemapKit.tileEngine` 是它的瓦片引擎：演示页的假高德拿它扮），引擎照 `packages/web/src/model/map.ts` 的 `MapEngine` 写，坐标一律 WGS-84 进出、要转的自己转。`credit` 是卡片"数据来自 X"写的名字（谷歌要写"Google 地图"），不写用 `title`；`setup`（`MapBasemapSetup`：哪几个区域、数据源编号、一句话）是没填 Key 时地图页提醒去填（高德：国内照"自动"画着排在它后面的那家时说"填了高德 Key 国内地图更清楚"）。453 起地图公司的引擎**只出底图**：不写 `setScene`，每动一下调 `MapEngineOptions.onSurface(MapSurfaceView)`（此刻画着的中心、级别、宽高，用这家自己的坐标、写明 `datum`），写 `panBy(dx, dy)`；报的是**画面此刻**的样子（级别可以带小数）：那家在捏合、惯性、双击的动画里要是整块拉伸画面、它说的级别和中心不跟，得自己量画面（谷歌那样放探针，458，ADR-0059 的 458 修订），不然这一层一路漂；地图页在上面盖自己的一层画点线（`plugins/map/overlay.ts`），交给你的只有视野。建好时还在加载的（比如在隔离框里加载的）写 `loading: true`，好了调 `onReady()`。外站脚本能关进隔离框的照谷歌那样关（核心 `packages/web/src/ui/map-frame.ts` 的 `openMapFrame`，框里跑的代码要自成一体、整段转成字符串交过去）。
 - **查询**（`lookup()`）：能查交回 `LookupProvider`（查地点、周边、地址 ↔ 位置、路线，结果统一成 432/433 的形状，坐标 WGS-84 进出，出错抛 `MapLookupError`，都从 `map/api.ts` 拿），查不了交回给模型的一句原因。秘书的查地点、算路线工具按"自动"挑；工具的 `map` 参数是用户地图上现在用的那家，先问它，查不了时退回同区域下一家、回答里说一句。
 - **规矩**：`ownBasemapOnly` 的（高德、谷歌）查来的只画在它自己的底图上（地图页点开这种卡片时这一屏临时用它）；451 起用户自己的足迹也画在当前地图上，453 起画在地图页自己那一层（地图页管，插件不用管、也拿不到）。
-- **静态地图**（`staticMap`，可选，451；453 起是 `MapStaticSource`）：聊天卡片的预览图，**只出光底图**。写明这家的上限（`maxSide` 一边最多多少逻辑像素、`minZoom` / `maxZoom`，`scale` 2 时级别上限不同写 `maxZoomHiDpi`）和坐标 `datum`（`gcj02` 或 `wgs84`）；地图插件照它算好视野（`map/static-map.ts` 的 `planStatic`：看全要画的东西、四周留边、下面留出标志和版权那一条，Web 墨卡托、整数级别），调 `get(req, signal)`，`req`（`MapStaticRequest`）只有中心（已转成这家的坐标）、级别、宽高（缩到上限以内）、`scale`（1 或 2）、`dark`——**没有点、没有线**，各家只拼自己的参数。图的视野由地图插件写进回应头 `X-Map-View`，网页照它自己画点线。交回 `{ ok: true, reply }`（图片的 `MapReply`，上游的 `Cache-Control` 放进 headers，地图插件照转、不缓存）或 `{ ok: false, failure, reason }`（`no_key`、`off`、`over`、`key`、`quota`、`network`、`other`，`reason` 是给用户看的一句，网页写成"预览图没出来：…"）。Key 只在守护进程里用，地址里的 Key 不进日志。写了它，`GET /api/map/config` 里这一家报 `preview: true`，网页才去 `GET /api/map/preview` 取；没写的照旧由页面自己画 OpenStreetMap（`ownBasemapOnly` 的查到的只写字）。
+- **瓦片、转发**（守护进程这一半，可选，455）：页面自己画瓦片的写 `tiles`（`MapTileServer.get(address, signal)`），网关 `/tiles/<编号>/z/x/y` 按编号转给它（地图插件不认得是谁；编号要在协议包 `MAP_TILE_SOURCES` 里，那是网关认地址用的）；页面加载的外站脚本要经这台电脑转发的写 `proxy`（`MapProxy`：`prefix` 和 `serve`，高德的 `/_AMapService/` 替页面拼安全密钥），网关把这个前缀开头的请求转给它。这一家停了，那两个口回"没接上"。
+- **静态地图**（`staticMap`，可选，451；453 起是 `MapStaticSource`）：聊天卡片的预览图，**只出光底图**。写明这家的上限（`maxSide` 一边最多多少逻辑像素、`minZoom` / `maxZoom`，`scale` 2 时级别上限不同写 `maxZoomHiDpi`）和坐标 `datum`（`gcj02` 或 `wgs84`），有深色图的写 `dark: true`（谷歌；没有的高德，深色时页面把浅色图压暗）；地图插件照它算好视野（`map/static-map.ts` 的 `planStatic`：看全要画的东西、四周留边、下面留出标志和版权那一条，Web 墨卡托、整数级别），调 `get(req, signal)`，`req`（`MapStaticRequest`）只有中心（已转成这家的坐标）、级别、宽高（缩到上限以内）、`scale`（1 或 2）、`dark`——**没有点、没有线**，各家只拼自己的参数。图的视野由地图插件写进回应头 `X-Map-View`，网页照它自己画点线。交回 `{ ok: true, reply }`（图片的 `MapReply`，上游的 `Cache-Control` 放进 headers，地图插件照转、不缓存）或 `{ ok: false, failure, reason }`（`no_key`、`off`、`over`、`key`、`quota`、`network`、`other`，`reason` 是给用户看的一句，网页写成"预览图没出来：…"）。Key 只在守护进程里用，地址里的 Key 不进日志。写了它，`GET /api/map/config` 里这一家报 `preview: true`（有深色的再报 `previewDark: true`），网页才去 `GET /api/map/preview` 取；没写的由页面照瓦片底图自己画（`ownBasemapOnly` 的查到的只写字；瓦片底图也没开着时只写字）。
 - **用量**（`usage`）：每月离免费量多远（照 432 的高德用量：八成注意、到了坏了），地图插件替它在体检的"地图"那一块登记一项"<编号>-usage"。
-- **测**：`packages/daemon/test/helpers/fake-map-provider.ts` 是一个只给测试的假"第三家"，`packages/daemon/test/map/providers.test.ts`（假内核：接进来、跟着地图走、停用退回）、`packages/daemon/test/main/map-providers.test.ts`（主切面）、`packages/web/test/plugins/map-providers.test.ts`（网页那一半）照着写。
-- **页面报的事**（`basemapEvent`，可选）：地图页建了一次这家的底图（按"一次地图加载"计费的据此数用量）、这家拒了浏览器用的 Key，经 `POST /api/map/basemap` 转给它；要快、不联网。网页那一半的引擎建好以后又不能用了（比如谷歌加载上以后才说 Key 不对）调 `MapEngineOptions.onFailed(原因)`，地图页当成加载失败（退回 OpenStreetMap、切换里标"连不上"）。
+- **测**：`packages/daemon/test/helpers/fake-map-provider.ts` 是一个只给测试的假"第三家"，`packages/daemon/test/map/providers.test.ts`（假内核：接进来、跟着地图走、停用退回）、`packages/daemon/test/main/map-providers.test.ts`（主切面）、`packages/web/test/plugins/map-providers.test.ts`（网页那一半，含只开哪几家时的切换、"自动"、卡片）照着写；在假内核里要真的三家时用 `packages/daemon/test/helpers/map-plugins.ts` 的 `mapPlugins()`（地图 + OpenStreetMap + 高德，地址都接本机的假服务）。每家插件一条边界测试照 `packages/daemon/test/openstreetmap/boundary.test.ts`。
+- **页面报的事**（`basemapEvent`，可选）：地图页建了一次这家的底图（按"一次地图加载"计费的据此数用量）、这家拒了浏览器用的 Key，经 `POST /api/map/basemap` 转给它；要快、不联网。网页那一半的引擎建好以后又不能用了（比如谷歌加载上以后才说 Key 不对）调 `MapEngineOptions.onFailed(原因)`，地图页当成加载失败（退到下一家、切换里标"连不上"）。
 - **真的例子**：谷歌地图插件（446，ADR-0057）——守护进程 `packages/daemon/src/google-maps/`（`service.ts` 登记的那一家、`keys.ts` 两个 Key、`lookup.ts` 查询、`static-map.ts` 静态地图、`usage.ts` 按计费项数用量），网页 `packages/web/src/plugins/google-maps/`（`basemap.ts` 插槽那一条、`google-engine.ts` 引擎、`google-bridge.ts` 关在隔离框里跑的小桥）；测试 `packages/daemon/test/google-maps/`（本机的假谷歌 `test/helpers/fake-google-maps.ts`）、`packages/web/test/plugins/google-maps.test.ts`。
 
 ## 7. 数据契约
@@ -831,14 +890,14 @@ export function createClaudeCodePlugin(
 - **外部协议自己写、不加依赖**：只读的 IMAP 客户端（`imap.ts`：命令口只放行只读的几条，写操作在客户端就拒绝）、邮件解析（`mime.ts`，Node 自带的 `tls` 和 `TextDecoder`）。
 - **测**：本机起假 IMAP 服务（`packages/daemon/test/helpers/fake-imap.ts` 的 `startFakeImapServer`：TLS 测试自签证书、照 Gmail 的样子回应、写操作和会标已读的取信都记下来），`createGooglePlugin({ imap: server.endpoint })` 接上；假内核 `packages/daemon/test/google/gmail.test.ts`，主切面 `packages/daemon/test/main/google-gmail.test.ts`（经 `extraPlugins` 换掉清单里的 Google 插件）。
 
-**按需查、要联网、结果不许存**的数据源照地图插件的"高德地图"（432、433，`packages/daemon/src/map/`）写：
+**按需查、要联网、结果不许存**的数据源照高德地图插件（432、433；455 起从地图插件挪出来，`packages/daemon/src/amap/`）写：
 
 - **工具登记联网**：`defineHostTool` 写 `network: true`（联网开关关着时守卫直接拒绝），只为取回东西的再写 `pullOnly: true`；带出去的查询词登记成 `content` 参数（`args`），守卫照样查里面有没有密钥。
-- **工具只认一个统一外形**（`map/lookup.ts` 的 `LookupProvider`），接哪家服务是另一个文件；以后换一家、按地区挑一家，工具不用改。
-- **查到的不落盘、不写事件**：要给别的功能接着用的（画在地图上）只在内存里留一会儿，编号写进工具结果；用户自己的坐标不写进给模型的结果。用量这种只记次数的放插件自己的存储（`KERNEL.layout` 的数据目录下 `map/`），移除时列进 `files`。
+- **工具只认一个统一外形**（`map/api.ts` 的 `LookupProvider`），接哪家服务是另一个插件；以后换一家、按地区挑一家，工具不用改。
+- **查到的不落盘、不写事件**：要给别的功能接着用的（画在地图上）只在内存里留一会儿，编号写进工具结果；用户自己的坐标不写进给模型的结果。用量这种只记次数的放插件自己的存储（`KERNEL.layout` 的数据目录下 `amap/`；455 以前在 `map/`，高德地图插件装上时挪过去，见 `amap-usage.ts` 的 `migrateAmapUsage`），移除时列进 `files`。
 - **查的时候 Key 失效**：每个回应交给记着连接状态的那一层（`amap.ts` 的 `serviceReply`），下一次 `status` 报出错；"试查一下"做成 `live`。
-- **几家共用一套工具、有的不用 Key**（433：国外的 OpenStreetMap 不用 Key，高德没连也要能查）：工具不放在数据源的 `tools()`，插件在 `setup` 里自己 `ctx.agent.tools.register`；那个数据源写 `usages.query: { default: true, ownTools: true }`，开关照样在页面上，插件 `wants: [KERNEL.dataSourceUsage]`、调用时 `on(id, "query")` 现看。各家的说法（署名、出错怎么说、某处的数据全不全）由各家给，工具不写死哪一家。
-- **免费的公共服务要守它的规矩**（`map/osm-client.ts`）：一家一队、一次一个、两次之间留够间隔，带能认出二狗的 User-Agent，成功的结果在内存里缓存（政策要求缓存，不落盘），不做输入联想；测试接本机假服务（`packages/daemon/test/helpers/fake-osm-lookup.ts`），间隔做成选项（`createMapPlugin({ osmIntervalMs: 0 })`），排队的等待能换成假的。
+- **几家共用一套工具、有的不用 Key**（433：国外的 OpenStreetMap 不用 Key，高德没连也要能查）：工具不放在数据源的 `tools()`，由地图插件在 `setup` 里自己 `ctx.agent.tools.register`；高德那个数据源写 `usages.query: { default: true, ownTools: true }`，开关照样在页面上，高德地图插件 `wants: [KERNEL.dataSourceUsage]`、它那一家的 `lookup()` 现看 `on(id, "query")`，关着就报查不了。各家的说法（署名、出错怎么说、某处的数据全不全）由各家给，工具不写死哪一家。
+- **免费的公共服务要守它的规矩**（`openstreetmap/osm-client.ts`）：一家一队、一次一个、两次之间留够间隔，带能认出二狗的 User-Agent，成功的结果在内存里缓存（政策要求缓存，不落盘），不做输入联想；测试接本机假服务（`packages/daemon/test/helpers/fake-osm-lookup.ts`），间隔做成选项（`createOpenStreetMapPlugin({ intervalMs: 0 })`），排队的等待能换成假的。
 
 **真的例子：Google · 联系人**（同一个插件的第三个数据源）：只靠导入文件夹、导入的东西进个人档案候选（不进素材）的数据源照它写：
 
@@ -982,13 +1041,15 @@ export const remindersPlugin: PluginDefinition = {
 | `DataSourcePush`、`DataSourcePushOutcome`、`DataSourceCalendarEvent` | `packages/daemon/src/data-sources/api.ts` | 设备交来的、交回的、交给日历插件的一条日程 |
 | `KERNEL.externalCalendars` | `packages/daemon/src/plugins/kernel.ts` | 数据源交给日历插件的外部日历（内核服务） |
 | `KERNEL.dataSourceSync`、`DataSourcePreSync` | `packages/daemon/src/plugins/kernel.ts` | 记忆整理之前把能由电脑拉的数据源各同步一次（内核服务，数据源服务起来之前叫的等它起来） |
-| `KERNEL.dataSourceSecrets` | `packages/daemon/src/plugins/kernel.ts` | 插件在数据源的函数之外现取自己那个数据源的密钥区那一格（地图插件转发高德请求时拼安全密钥；内核服务） |
-| `KERNEL.dataSourceUsage`、`DataSourceUsageSwitch` | `packages/daemon/src/plugins/kernel.ts` | 数据源的按需查、导入现在开没开（工具由插件自己给的数据源调用时看开关：地图插件的高德；内核服务） |
+| `KERNEL.dataSourceSecrets` | `packages/daemon/src/plugins/kernel.ts` | 插件在数据源的函数之外现取自己那个数据源的密钥区那一格（高德地图插件转发页面的请求时拼安全密钥；内核服务） |
+| `KERNEL.dataSourceUsage`、`DataSourceUsageSwitch` | `packages/daemon/src/plugins/kernel.ts` | 数据源的按需查、导入现在开没开（工具由插件自己给的数据源调用时看开关：高德地图插件；内核服务） |
 | `PullableSync` | `packages/daemon/src/data-sources/service.ts` | 整理之前同步时一个数据源的那一次：开始了（同步的结果）、刚同步过、连接出错没同步 |
 | `fakeDataSourcePlugin` | `packages/daemon/test/helpers/fake-data-source.ts` | 测试用的假数据源插件 |
-| `MAP_PROVIDERS`、`MapProvider`、`MapProviders`、`LookupProvider`、`MapLookupError`、`MapStaticSource`、`MapStaticRequest`、`MapStaticResult`、`staticView`、`MAP_STATIC_PAD` | `packages/daemon/src/map/api.ts` | 地图服务插槽：登记一家地图（管哪儿、按区域的优先级、底图、查询、静态地图、用量）；查询的统一外形和出错；静态地图（光底图）的上限、视野和留边 |
-| `MapBasemapSlot` | `packages/web/src/plugins/slots.ts` | 地图服务插槽的网页一半：地图页的一种底图 |
-| `MapEngine`、`MapEngineFactory`、`MapScene`、`MapSurfaceView`、`SceneEngine` | `packages/web/src/model/map.ts` | 画地图的那一层、建引擎的函数、地图上画什么；只出底图的引擎报的视野、自己画点线的引擎 |
+| `MAP_PROVIDERS`、`MapProvider`、`MapProviders`、`LookupProvider`、`MapLookupError`、`MapStaticSource`、`MapStaticRequest`、`MapStaticResult`、`staticView`、`MAP_STATIC_PAD`、`MapTileServer`、`MapProxy` | `packages/daemon/src/map/api.ts` | 地图服务插槽：登记一家地图（管哪儿、按区域的优先级、底图、查询、静态地图、用量、瓦片、转发口）；查询的统一外形和出错；静态地图（光底图）的上限、视野和留边 |
+| `MapBasemapSlot`、`MapTileSource`、`MapBasemapSetup`、`MapBasemapKit` | `packages/web/src/plugins/slots.ts` | 地图服务插槽的网页一半：地图页的一种底图、瓦片底图的地址和署名、没填 Key 时的提醒、地图插件借给底图的瓦片引擎 |
+| `createOpenStreetMapPlugin`、`openStreetMapPlugin` | `packages/daemon/src/openstreetmap/plugin.ts` | OpenStreetMap 插件（地图服务插件最小的真例子） |
+| `createAmapPlugin`、`amapPlugin` | `packages/daemon/src/amap/plugin.ts` | 高德地图插件（填 Key 的地图服务插件） |
+| `MapEngine`、`MapEngineFactory`、`MapScene`、`MapSurfaceView`、`SceneEngine`、`TileEngineOptions` | `packages/web/src/model/map.ts` | 画地图的那一层、建引擎的函数、地图上画什么；只出底图的引擎报的视野、自己画点线的引擎 |
 | `fakeWorldMapPlugin` | `packages/daemon/test/helpers/fake-map-provider.ts` | 测试用的假"第三家"地图服务插件 |
 | `DataSourceSchedule`、`DataSourceItem` | `packages/daemon/src/data-sources/api.ts` | 定期导入的时间（提醒那一套或每隔几分钟）、数据源下面的一样 |
 | `IntervalSchedule`、`JobSchedule` | `packages/daemon/src/scheduler/internal-jobs.ts` | 内部作业的"每隔几分钟"、内部作业的时间表 |

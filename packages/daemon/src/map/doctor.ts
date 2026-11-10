@@ -1,14 +1,9 @@
-// 地图插件的体检项（432，接 409 的插件体检项 ctx.doctor）：高德 Web 服务这个月的用量离个人认证档的免费量多远
-// （amap-usage.ts 的 usageFinding：到了 80% 注意、到了 100% 坏了）。只读内存和用量文件，不联网（cost: passive）。
-// 445：地图服务插槽里每一家写了用量（MapProvider.usage）的，都由地图插件替它登记一项"<编号>-usage"（高德就是 amap-usage），
-// 那一家撤掉时这一项跟着撤（registerUsageDoctor 交回撤销函数）。
+// 地图插件的体检项（432，接 409 的插件体检项 ctx.doctor）：地图服务插槽里每一家写了用量（MapProvider.usage）的，都由地图插件
+// 替它登记一项"<编号>-usage"（高德就是 amap-usage，谷歌 google-usage），那一家撤掉时这一项跟着撤（registerUsageDoctor 交回撤销函数）。
+// 只读内存和用量文件，不联网（cost: passive）。455 起高德也是单独的插件，它的用量照样经插槽、照样在体检的"地图"那一块。
 // 432 这一版的插件宿主还没有 ctx.doctor（409 在 main 上、432 从 429 拉的分支）：有就登记，没有什么都不做——
 // 合进有 409 的 main 以后自动登记上，不用再改这里；到时可以把下面的按名字取改成直接 ctx.doctor.register。
 import type { MapUsageCheck, MapUsageFinding } from "./api.ts";
-import type { AmapUsageFinding } from "./amap-usage.ts";
-
-/** 体检项的 id（插件块里唯一） */
-export const AMAP_USAGE_CHECK = "amap-usage";
 
 /** 一家地图服务的用量那一项的 id */
 export const usageCheckId = (provider: string) => `${provider}-usage`;
@@ -23,9 +18,4 @@ export function registerUsageDoctor(ctx: object, provider: string, check: MapUsa
   const doctor = (ctx as { doctor?: DoctorRegistrar }).doctor;
   if (doctor === undefined) return undefined;
   return doctor.register({ id: usageCheckId(provider), title: check.title, cost: "passive", run: () => check.run() });
-}
-
-/** 插件 setup 里叫：插件宿主有 ctx.doctor 就登记"高德的用量"，交回登记了没有 */
-export function registerAmapDoctor(ctx: object, finding: () => AmapUsageFinding): boolean {
-  return registerUsageDoctor(ctx, "amap", { title: "map.doctor.usage.title", run: finding }) !== undefined;
 }
