@@ -6,15 +6,25 @@
 // - 足迹卡（某一天）：照现在"看那一天"的样子——清掉二狗画的点线，地图页换到那一天的足迹（MapPage 交给足迹那一套），
 //   和点开足迹卡一样；同一批里它后面再画的点、路线照样叠上去（这时看的是二狗画的，"×"清掉回到那一天）；
 // - 点开一张（地址里的 #/more/map/card/<编号>、"在地图上看"的 #/more/map/lookup/<编号>）：照旧只看它；之后新画的叠在它上面；
-// - "×"：一次清掉，回到足迹（或者光地图）。
+// - "×"：一次清掉，回到足迹（或者光地图）；
+// - 视野（drawnFit）：新画了一张，挪到看全地图上二狗画的全部；全部看全要比只看最新那张缩小 DRAWN_FIT_ZOOM_GAP 级以上
+//   （前面画的在杭州、新画的在新加坡这种；最新那张最多按街道那一级算），只看全最新那张。
 // 画法和点开卡片完全一样（card-scene.ts 那一份）：哪儿都能画的合成一层；高德、谷歌查来的只能画在它自己的地图上——
 // 叠着几张这种的，用最新那张的那一家（这一屏临时换它），别家查来的这时画不上（换回它那张、或者点开那张卡再看）。
-import { CHANNELS, type MapCardPayload, type MapCardShow, type UiState } from "../../state/index.ts";
+import { CHANNELS, type LatLon, type MapCardPayload, type MapCardShow, type UiState } from "../../state/index.ts";
 import { CARD_PREFIX, type MapCardData } from "./card-scene.ts";
-import { EMPTY_SCENE, type MapScene } from "./scene.ts";
+import { EMPTY_SCENE, type MapScene, type MapView, viewToFit } from "./scene.ts";
 
 /** 地图上一次最多叠几张（再多挤掉最早的） */
 export const DRAWN_MAX = 20;
+
+/** 看全叠着的全部要比只看最新那张缩小这么多级（或更多）时，只看全最新那张 */
+export const DRAWN_FIT_ZOOM_GAP = 3;
+/**
+ * 比的时候最新那张最多按这一级算（viewToFit 只有一个点时看的级别，街道那么大）：最新那张的几个点挨得很近（看全它要放大到 17、18 级）时，
+ * 不因为它放得太大就把旁边几公里的前一组甩出去
+ */
+export const DRAWN_FIT_REF_ZOOM = 15;
 
 /** 查到的一处（447，不经卡片看的） */
 export type LookupShow = Extract<MapCardShow, { kind: "lookup" }>;
@@ -127,6 +137,8 @@ export interface DrawnLayers {
   readonly ownItem?: DrawnItem;
   /** 只能画在别家地图上、这一屏画不上的几张（own 用了另一家） */
   readonly hidden: number;
+  /** 这一屏画得上的那几张要看全的点（挪视野用；画不上的、还在取的不算） */
+  readonly bounds: readonly LatLon[];
 }
 
 /** 一张的东西换个编号（叠着几张时每张前面加序号，免得两张都有 card-p1） */
@@ -141,14 +153,35 @@ function merged(scenes: readonly MapScene[]): MapScene {
   return { marks: scenes.flatMap((s) => s.marks), lines: scenes.flatMap((s) => s.lines), circles: scenes.flatMap((s) => s.circles) };
 }
 
+/** 几张要看全的点合在一起 */
+const boundsOf = (rs: readonly { readonly content: { readonly bounds: readonly LatLon[] } }[]): LatLon[] => rs.flatMap((r) => r.content.bounds);
+
 /** 叠着的几张（先画的在前）画成地图上的东西：只有一张时编号照旧（和点开卡片一样） */
 export function drawnLayers(entries: readonly DrawnEntry[]): DrawnLayers {
   const ready = entries.flatMap((e, i) => (e.data?.state === "ready" ? [{ item: e.item, content: e.data.content, scene: entries.length > 1 ? renamed(e.data.content.scene, i + 1) : e.data.content.scene }] : []));
   const anywhere = ready.filter((r) => r.content.ownBasemap === undefined);
   const ownAll = ready.filter((r) => r.content.ownBasemap !== undefined);
   const latestOwn = ownAll.at(-1);
-  if (latestOwn === undefined) return { scene: merged(anywhere.map((r) => r.scene)), hidden: 0 };
+  if (latestOwn === undefined) return { scene: merged(anywhere.map((r) => r.scene)), hidden: 0, bounds: boundsOf(anywhere) };
   const source = latestOwn.content.ownBasemap!;
   const own = ownAll.filter((r) => r.content.ownBasemap === source);
-  return { scene: merged(anywhere.map((r) => r.scene)), own: { source, scene: merged(own.map((r) => r.scene)) }, ownItem: latestOwn.item, hidden: ownAll.length - own.length };
+  return {
+    scene: merged(anywhere.map((r) => r.scene)),
+    own: { source, scene: merged(own.map((r) => r.scene)) },
+    ownItem: latestOwn.item,
+    hidden: ownAll.length - own.length,
+    bounds: boundsOf(ready.filter((r) => r.content.ownBasemap === undefined || r.content.ownBasemap === source)),
+  };
+}
+
+/**
+ * 新画了一张以后看哪里（宽高是地图那一块能放点的像素）：看全地图上二狗画的全部（all）；全部看全要比只看全最新那张（latest）
+ * 缩小 DRAWN_FIT_ZOOM_GAP 级以上（最新那张最多按 DRAWN_FIT_REF_ZOOM 级算）时只看全最新那张。都没有点给 undefined
+ */
+export function drawnFit(all: readonly LatLon[], latest: readonly LatLon[], width: number, height: number): MapView | undefined {
+  const one = viewToFit(latest, width, height);
+  const every = viewToFit(all.length > 0 ? all : latest, width, height);
+  if (one === undefined) return every;
+  if (every === undefined) return one;
+  return Math.min(one.zoom, DRAWN_FIT_REF_ZOOM) - every.zoom >= DRAWN_FIT_ZOOM_GAP ? one : every;
 }

@@ -1554,7 +1554,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(await bodyText(page)).toContain("附近有 4 个 hawker centre，最近的是");
     await card.locator(".map-card-open").click();
     await page.locator('.map-canvas[data-basemap="google"][data-own-results="shown"]').waitFor({ timeout: 5000 });
-    expect(await page.locator(".map-card-bar").innerText()).toMatch(/附近的 hawker centre[\s\S]*数据来自 Google 地图/);
+    // 461：手机宽标题栏放不下几个字的概况整个不显示（不留半个字），这里看标题栏里写了什么，不看露没露出来
+    expect(await page.locator(".map-card-bar").textContent()).toMatch(/附近的 hawker centre[\s\S]*数据来自 Google 地图/);
     await page.locator('.map-page-overlay .map-mark[data-kind="search"]').first().waitFor({ timeout: 5000 });
     expect(await page.locator('.map-page-overlay .map-mark[data-kind="search"]').count()).toBe(4);
     // Maps Static API 没开：卡片只有字、一句原因、"在谷歌地图上看"
@@ -1792,7 +1793,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await route.locator(".map-card-open").click();
       await page.locator('.map-canvas[data-own-source="amap"][data-own-results="shown"]').waitFor({ timeout: 5000 });
       expect(await page.evaluate("location.hash")).toBe("#/more/map/card/c-map-route");
-      expect(await page.locator(".map-card-bar").innerText()).toMatch(/从公司到西湖边[\s\S]*数据来自高德地图/);
+      // 461：手机宽放不下几个字的概况整个不显示，这里看标题栏里写了什么
+      expect(await page.locator(".map-card-bar").textContent()).toMatch(/从公司到西湖边[\s\S]*数据来自高德地图/);
       expect(await page.locator(".map-canvas").getAttribute("data-basemap")).toBe("amap");
       expect(await page.locator(".map-canvas .map-shapes polyline").count()).toBe(2);
       expect(await page.locator(".map-day-bar").count()).toBe(0);
@@ -2276,7 +2278,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await expect.poll(() => page.locator(drawnMarks).count(), { timeout: 5000 }).toBe(3);
       expect(await page.locator(".map-card-bar b").innerText()).toBe("附近的咖啡馆");
       expect(await page.locator(".map-card-bar").getAttribute("data-count")).toBe("1");
-      expect(await page.locator(".map-card-bar-note").innerText()).toBe("湖边咖啡、转角咖啡、书店咖啡");
+      expect(await page.locator(".map-card-bar-note").textContent()).toBe("湖边咖啡、转角咖啡、书店咖啡");
       expect(await page.locator(".map-card-bar-count").count()).toBe(0);
       expect(await page.evaluate("location.hash")).toBe("#/more/map");
       // 回话就在气泡里：顶上不另弹"二狗：……"盖住标题栏
@@ -2284,12 +2286,19 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await titleBarOneLine(page, 390);
       // 新画的都在地图那一块里（视野挪过去看全了）
       const stage = (await boxOf(page, ".map-stage"))!;
-      for (const box of await page.locator(drawnMarks).evaluateAll((els) => els.map((e) => e.getBoundingClientRect().toJSON() as { x: number; y: number }))) {
-        expect(box.x).toBeGreaterThanOrEqual(stage.x);
-        expect(box.x).toBeLessThanOrEqual(stage.x + stage.width);
-        expect(box.y).toBeGreaterThanOrEqual(stage.y);
-        expect(box.y).toBeLessThanOrEqual(stage.y + stage.height);
-      }
+      const allInStage = async () => {
+        for (const box of await page.locator(drawnMarks).evaluateAll((els) => els.map((e) => e.getBoundingClientRect().toJSON() as { x: number; y: number }))) {
+          expect(box.x).toBeGreaterThanOrEqual(stage.x);
+          expect(box.x).toBeLessThanOrEqual(stage.x + stage.width);
+          expect(box.y).toBeGreaterThanOrEqual(stage.y);
+          expect(box.y).toBeLessThanOrEqual(stage.y + stage.height);
+        }
+      };
+      await allInStage();
+      // 标题栏里的概况：要么至少放得下几个字，要么整个折到第二行藏起来，不留半个字
+      const noteFit = `(() => { const e = document.querySelector(".map-card-bar-note"); const r = e.getBoundingClientRect();
+        return getComputedStyle(e).display === "none" ? "hidden" : r.width >= parseFloat(getComputedStyle(e).fontSize) * 4 - 1 ? "shown" : "sliver"; })()`;
+      expect(await page.evaluate(noteFit)).not.toBe("sliver");
       // 再说一句：叠上去，前面的不冲掉；标题栏写最新那张和"共 2 样"
       await page.locator(".map-talk-close").click();
       await page.locator(".map-fab").click();
@@ -2299,12 +2308,16 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await expect.poll(() => page.locator(drawnMarks).count(), { timeout: 5000 }).toBe(5);
       expect(await page.locator(".map-card-bar b").innerText()).toBe("附近的地铁站");
       expect(await page.locator(".map-card-bar-count").innerText()).toBe("共 2 样");
-      expect(await page.locator(".map-card-bar-note").innerText()).toBe("地铁站 · 东口、地铁站 · 西口");
-      // 手机上标题栏窄："共 2 样"整个露着（不被省略号吃掉）
+      expect(await page.locator(".map-card-bar-note").textContent()).toBe("地铁站 · 东口、地铁站 · 西口");
+      // 手机上标题栏窄："共 2 样"整个露着（不被省略号吃掉）；后面的概况放不下几个字就整个不显示，不留半个字
       const count = (await boxOf(page, ".map-card-bar-count"))!;
       const barText = (await boxOf(page, ".map-card-bar-text"))!;
       expect(count.x + count.width).toBeLessThanOrEqual(barText.x + barText.width + 1);
+      expect(count.y + count.height).toBeLessThanOrEqual(barText.y + barText.height + 1);
       expect(await page.locator(".map-card-bar-count").evaluate((e) => e.scrollWidth <= e.clientWidth + 1)).toBe(true);
+      expect(await page.evaluate(noteFit)).not.toBe("sliver");
+      // 视野看全叠着的两组（咖啡馆、地铁站都在地图那一块里）
+      await allInStage();
       expect(await page.locator(".map-card-bar").getAttribute("data-count")).toBe("2");
       await titleBarOneLine(page, 390);
       // "×"：一次清掉，回到地图
@@ -3570,7 +3583,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await page.waitForFunction(`window.__bubbles.some((b) => b.kind === "busy" && b.text === "在地图上找这个地方……")`);
       await page.locator('.map-canvas[data-own-source="amap"][data-own-results="shown"]').waitFor({ timeout: 5000 });
       expect(await page.evaluate("location.hash")).toMatch(/^#\/more\/map\/lookup\/amap-p\d+$/);
-      expect(await page.locator(".map-card-bar").innerText()).toMatch(/杭州市西湖区示例路 478 号[\s\S]*数据来自高德地图/);
+      // 461：手机宽放不下几个字的概况整个不显示，这里看标题栏里写了什么
+      expect(await page.locator(".map-card-bar").textContent()).toMatch(/杭州市西湖区示例路 478 号[\s\S]*数据来自高德地图/);
       expect(await page.locator(".map-canvas").getAttribute("data-basemap")).toBe("amap");
       expect(await page.evaluate(`window.__bubbles.at(-1).kind`)).toBe("none");
       // 返回回到"浏览"
@@ -3583,7 +3597,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await bridgeSays({ type: "element-map", action: "show", element: abroad, page: where });
       await page.locator('.map-canvas[data-basemap="google"][data-own-results="shown"]').waitFor({ timeout: 5000 });
       expect(await page.evaluate("location.hash")).toMatch(/^#\/more\/map\/lookup\/google-p\d+$/);
-      expect(await page.locator(".map-card-bar").innerText()).toMatch(/10 Bayfront Avenue, Singapore 018956[\s\S]*数据来自 Google 地图/);
+      expect(await page.locator(".map-card-bar").textContent()).toMatch(/10 Bayfront Avenue, Singapore 018956[\s\S]*数据来自 Google 地图/);
       await page.locator('.map-page-overlay .map-mark[data-kind="search"]').first().waitFor({ timeout: 5000 });
       expect(await page.locator('.map-page-overlay .map-mark[data-kind="search"]').count()).toBe(1);
       await page.goBack();

@@ -4,10 +4,12 @@
 // - 叠加：新的加在后面；replace 的替掉之前画的；足迹卡清掉二狗画的、交出要看的那一天（同一批后面的照样叠）；最多叠 DRAWN_MAX 张；
 // - 认过的不认第二次；点开一张只看它（之后新画的叠在它上面）；"×"一次清掉；
 // - 画成地图上的东西：只有一张时编号照旧，几张时每张前面加序号；高德、谷歌查来的用最新那张的那一家，别家查来的这一屏画不上（数出来）；
-//   还在取、取不到的不画。
+//   还在取、取不到的不画；
+// - 视野（drawnFit）：看全叠着的全部；全部看全要比只看最新那张缩小 DRAWN_FIT_ZOOM_GAP 级以上（杭州和新加坡）时只看全最新那张。
 import { describe, expect, test } from "vitest";
 import { type MapCardData, shownContent } from "../../src/plugins/map/card-scene.ts";
-import { arrivedMapCards, clearDrawn, DRAWN_MAX, type DrawnItem, drawnKey, drawnLayers, drawnSince, type MapDrawn, NO_DRAWN, openDrawn, takeArrived } from "../../src/plugins/map/drawn.ts";
+import { arrivedMapCards, clearDrawn, DRAWN_FIT_REF_ZOOM, DRAWN_FIT_ZOOM_GAP, DRAWN_MAX, type DrawnItem, drawnFit, drawnKey, drawnLayers, drawnSince, type MapDrawn, NO_DRAWN, openDrawn, takeArrived } from "../../src/plugins/map/drawn.ts";
+import { viewToFit } from "../../src/plugins/map/scene.ts";
 import { type EventFrame, type MapCardPayload, replay, type UiInput } from "../../src/state/index.ts";
 import { card, frame, textMessage } from "../state/events.ts";
 
@@ -162,5 +164,65 @@ describe("叠着的几张画成地图上的东西", () => {
     expect(layers.own?.scene.marks.map((m) => m.label)).toEqual(["高德一1", "高德二1"]);
     expect(layers.ownItem).toEqual(item("c-a2"));
     expect(layers.hidden).toBe(1);
+    // 挪视野看全的：画得上的那几张（谷歌那张画不上、还在取的不算）
+    expect(layers.bounds).toHaveLength(3);
+  });
+});
+
+/** 一组点（纬度、经度） */
+const at = (...ps: [number, number][]) => ps.map(([lat, lon]) => ({ lat, lon }));
+
+describe("新画了一张以后看哪里", () => {
+  const W = 360;
+  const H = 600;
+  const inside = (v: { lat: number; lon: number; zoom: number }, p: { lat: number; lon: number }) => {
+    // 墨卡托下 p 离中心多少像素，要在地图那一块里
+    const scale = 256 * 2 ** v.zoom;
+    const x = ((p.lon - v.lon) / 360) * scale;
+    const y = (Math.log(Math.tan(Math.PI / 4 + (v.lat * Math.PI) / 360)) - Math.log(Math.tan(Math.PI / 4 + (p.lat * Math.PI) / 360))) * (scale / (2 * Math.PI));
+    return Math.abs(x) <= W / 2 && Math.abs(y) <= H / 2;
+  };
+
+  test("离得不远：看全叠着的全部（前面画的也在屏幕里）", () => {
+    const coffee = at([30.256, 120.14], [30.252, 120.148], [30.249, 120.152]);
+    const metro = at([30.262, 120.155], [30.26, 120.158]);
+    const v = drawnFit([...coffee, ...metro], metro, W, H)!;
+    expect(v).toEqual(viewToFit([...coffee, ...metro], W, H));
+    for (const p of [...coffee, ...metro]) expect(inside(v, p)).toBe(true);
+    // 只看全最新那张会把咖啡馆挤出去（所以要看全全部）；最新那两个点挨得近，看全它要放到 17 级，比的时候按 15 级算
+    const only = viewToFit(metro, W, H)!;
+    expect(coffee.some((p) => !inside(only, p))).toBe(true);
+    expect(only.zoom).toBeGreaterThan(DRAWN_FIT_REF_ZOOM);
+    expect(DRAWN_FIT_REF_ZOOM - v.zoom).toBeLessThan(DRAWN_FIT_ZOOM_GAP);
+  });
+
+  test(`杭州和新加坡：全部看全要缩小 ${DRAWN_FIT_ZOOM_GAP} 级以上，只看全最新那张`, () => {
+    const hangzhou = at([30.256, 120.14], [30.252, 120.148]);
+    const singapore = at([1.2834, 103.8607], [1.2805, 103.845]);
+    const v = drawnFit([...hangzhou, ...singapore], singapore, W, H)!;
+    expect(v).toEqual(viewToFit(singapore, W, H));
+    for (const p of singapore) expect(inside(v, p)).toBe(true);
+    expect(v.zoom - viewToFit([...hangzhou, ...singapore], W, H)!.zoom).toBeGreaterThanOrEqual(DRAWN_FIT_ZOOM_GAP);
+  });
+
+  test("差正好 3 级算太多；差不到 3 级照看全部；只有一张、全部是空的、都没有点", () => {
+    const latest = at([30.25, 120.14], [30.26, 120.15]);
+    const one = viewToFit(latest, W, H)!;
+    expect(one.zoom).toBeLessThanOrEqual(DRAWN_FIT_REF_ZOOM);
+    // 找一个前面画的点：全部看全比只看最新那张小正好 3 级、小 2.5 级
+    const farAt = (gap: number) => {
+      for (let d = 0.001; d < 5; d += 0.001) {
+        const all = viewToFit([...latest, { lat: 30.25, lon: 120.14 + d }], W, H)!;
+        if (one.zoom - all.zoom >= gap) return { lat: 30.25, lon: 120.14 + d };
+      }
+      throw new Error("找不到");
+    };
+    expect(drawnFit([...latest, farAt(3)], latest, W, H)).toEqual(one);
+    const near = farAt(2.5);
+    expect(drawnFit([...latest, near], latest, W, H)).toEqual(viewToFit([...latest, near], W, H));
+    expect(drawnFit(latest, latest, W, H)).toEqual(one);
+    expect(drawnFit([], latest, W, H)).toEqual(one);
+    expect(drawnFit(at([30.25, 120.14]), [], W, H)).toEqual(viewToFit(at([30.25, 120.14]), W, H));
+    expect(drawnFit([], [], W, H)).toBeUndefined();
   });
 });

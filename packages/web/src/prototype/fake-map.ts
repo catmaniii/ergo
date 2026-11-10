@@ -326,7 +326,7 @@ const DEMO_REPLACE = /只看|换成|别的不要|\bonly\b|instead/i;
  */
 export function demoMapDraw(n: number, at: { readonly lat: number; readonly lon: number; readonly zoom: number }, said: string): { payload: MapCardPayload; reply: string } {
   const draw = DEMO_DRAWS[n % DEMO_DRAWS.length]!;
-  // 放大过 14 级的按 14 级算（接着画的一组和前一组差不多大，挪过去看全新的那组时前一组也还在）
+  // 放大过 14 级的按 14 级算（接着画的一组和前一组差不多大，不会越画越小）
   const step = 0.004 * 2 ** (14 - Math.min(14, Math.max(8, at.zoom)));
   const lonStep = step / Math.max(0.2, Math.cos((at.lat * Math.PI) / 180));
   const marks = draw.marks.map((m, i) => ({ id: `p${i + 1}`, lat: clampLat(at.lat + m.dlat * step), lon: clampLon(at.lon + m.dlon * lonStep), label: fakeText(m.label) }));

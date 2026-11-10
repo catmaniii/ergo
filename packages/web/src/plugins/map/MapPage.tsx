@@ -7,7 +7,7 @@
 // - 聊天里的地图卡片点开（431，#/more/map/card/<卡片编号>）：从手里的卡片状态取出这张卡，画它的点、线（和卡片同一份 card-scene.ts），
 //   视野挪到看全它；标题栏下面一条写卡片的标题和概况，"×"回到足迹。看卡片时不画足迹。
 // - 二狗画的直接上地图（461，drawn.ts）：地图页打开以后秘书主会话里新出的地图卡片（不管在哪说的）不用点，直接画到这一页上、视野挪到
-//   看全新画的那张；连着画的叠在一起（卡上写了 replace 的替掉之前画的），标题栏写最新那张的标题和"共 N 样"，"×"一次清掉、回到足迹。
+//   看全二狗画的全部（离得太远——要缩小 3 级以上——时只看全新画的那张，drawnFit）；连着画的叠在一起（卡上写了 replace 的替掉之前画的），标题栏写最新那张的标题和"共 N 样"，"×"一次清掉、回到足迹。
 //   足迹卡照点开它的样子换到那一天（清掉二狗画的）。点开的卡片也算这一叠的第一张，之后新画的叠在它上面。
 //   手机窄屏上聊天窗整屏盖着时，二狗这一轮画了东西就收起聊天窗、露出地图，这一轮它最后说的那句显示在悬浮按钮的气泡里（map-talk.ts 的 follow）。高德（445 起别家）查来的只在底图是那一家时画
 //   （own-results.ts，455 起看那家报的 ownBasemapOnly）；451 起这一屏临时用那一家画（不改记着的选择），那家在这台设备上加载不了时放它的静态大图（ownPreview）。
@@ -58,7 +58,7 @@ import { useDraggedSideWidth } from "../../ui/side-width.ts";
 import { type PageColumnProps, type PageSectionProps, usePlugins } from "../api.ts";
 import { FOOTPRINT_BAR_FULL_MIN, FOOTPRINT_LABEL_ROOM, FOOTPRINT_PANEL_W, FOOTPRINT_WIDE_MIN, FootprintBar, FootprintPanel, FootprintToggle, useFootprints, useWidth } from "./DayFootprints.tsx";
 import { contentSummary } from "./card-scene.ts";
-import { arrivedMapCards, clearDrawn, type DrawnItem, drawnKey, drawnLayers, drawnSince, type MapDrawn, NO_DRAWN, openDrawn, takeArrived } from "./drawn.ts";
+import { arrivedMapCards, clearDrawn, type DrawnItem, drawnFit, drawnKey, drawnLayers, drawnSince, type MapDrawn, NO_DRAWN, openDrawn, takeArrived } from "./drawn.ts";
 import { shiftViewRight, shortDateLabel, spotTitle, withFootprints } from "./footprints.ts";
 import { LocateButton, useDockInset, useHere } from "./LocateControl.tsx";
 import { MapChat, MapChatToggle } from "./MapChat.tsx";
@@ -247,11 +247,11 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
   const cardSources = useMemo(() => ({ providers: config?.providers, credit: basemapEntries.credit }), [config, basemapEntries]);
   const datas = useMapCardsData(http, shows, cardSources);
   const layers = useMemo(() => drawnLayers(drawn.items.map((it) => ({ item: it, data: datas.get(drawnKey(it)) }))), [drawn.items, datas]);
-  // 最新的那张：标题栏写它，视野挪到看全它
+  // 最新的那张：标题栏写它；新画了一张时视野挪到看全叠着的全部（离得太远只看全它）
   const latest = resolved.at(-1);
   const latestData = latest === undefined ? undefined : datas.get(latest.key);
   const latestContent = latestData?.state === "ready" ? latestData.content : undefined;
-  /** 已经挪过视野的那张（新画了一张、点开了另一张才再挪；清掉了重来） */
+  /** 挪视野时最新的是哪张（新画了一张、点开了另一张才再挪；清掉了重来） */
   const fitted = useRef<string | undefined>(undefined);
   const latestKey = latest?.key;
   useEffect(() => {
@@ -259,9 +259,9 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
     if (latestKey === undefined || !latestContent || fitted.current === latestKey) return;
     fitted.current = latestKey;
     const el = stageRef.current;
-    const v = viewToFit(latestContent.bounds, (el?.clientWidth ?? 390) - FOOTPRINT_LABEL_ROOM, el?.clientHeight ?? 600);
+    const v = drawnFit(layers.bounds, latestContent.bounds, (el?.clientWidth ?? 390) - FOOTPRINT_LABEL_ROOM, el?.clientHeight ?? 600);
     if (v) setJump({ view: shiftViewRight(v, -FOOTPRINT_LABEL_ROOM / 2) });
-  }, [latestKey, latestContent]);
+  }, [latestKey, latestContent, layers]);
 
   useEffect(() => {
     // 看卡片、二狗画的时不挪到足迹；清掉了（"×"、回到 #/more/map）再挪回来
@@ -403,7 +403,12 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
             <span className="map-card-bar-text">
               <b>{cardTitle ?? t("ui.plugins.map.card.bar")}</b>
               {cardCount !== undefined && <span className="map-card-bar-count">{cardCount}</span>}
-              {cardNote !== undefined && <span className="map-card-bar-note">{cardNote}</span>}
+              {/* 概况：剩下的地方放得下几个字才显示，放不下整个藏起来（不留半个字） */}
+              {cardNote !== undefined && (
+                <span className="map-card-bar-rest">
+                  <span className="map-card-bar-note">{cardNote}</span>
+                </span>
+              )}
             </span>
             <button
               type="button"
