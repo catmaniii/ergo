@@ -169,14 +169,14 @@ To back out, press Esc or click elsewhere. On a phone, tapping a row selects it;
 | **Thinking**　The bills are in the Ledger project › | What it was thinking: the first sentence. While it's thinking it says **Thinking…** | The details hold the full text |
 | **Tool calls**　Run sum_by_category.py (2 steps) › | What it did | See [Tool call details](#tool-call-details) |
 | **Memory**　Recalled 3: Bank A's September statement › | It checked its memory, with the title of the first memory | See [How ergo uses memory when it replies](memory.en.md#how-ergo-uses-memory-when-it-replies) |
-| **Approval**　Write files “ledger.db” · Needs approval › | A card for you to click, or a finished result | See [Cards in replies](#cards-in-replies) below |
+| **Approval**　Write files “ledger.db” · Approved › | A card you've handled, with the result. Cards still waiting for you to click stay whole | See [Cards in replies](#cards-in-replies) below |
 | **Out of scope**　Wrote a temp file outside the project · 07:42 › | A record on the timeline: deviation, scope change, out of scope, operation record… | The details hold the full text |
 | **Note**　Plan confirmed, starting › | A system note: its first line | The details hold the full text |
 | **Rollback**　The user asked to regroup the categories… › | After you roll back, a summary of the abandoned part | The details hold the full text and which files were restored |
 | 📨 **Relayed by ergo**　one sentence · 07:30 › | A letter from another agent | See [Long notices folded to one line](#long-notices-folded-to-one-line) |
 | Voice bubble | It answers you by voice | See [Voice](voice.en.md#ergo-answering-by-voice) |
 
-**The steps in between take one line each.** Apart from what you said, replies, voice, images and files, everything is one line: a title, one sentence, and › at the end.
+**The steps in between take one line each.** Apart from what you said, replies, voice, images, files and cards waiting for your decision, everything is one line: a title, one sentence, and › at the end.
 
 - Every line is as wide as the widest chat bubble. The › are all at the right edge, lined up.
 - A sentence that doesn't fit is cut off with an ellipsis. Tags and the time stay after it.
@@ -196,19 +196,26 @@ To back out, press Esc or click elsewhere. On a phone, tapping a row selects it;
 
 ## Cards in replies
 
-**What it is:** When something needs your decision, ergo doesn't just say so: it shows a card. In the session it takes one line; the buttons are in the card's details.
+**What it is:** When something needs your decision, ergo doesn't just say so: it shows a card.
 
-![Two cards, a quick action and a suggested task, with Quote and Details › below each (this picture still shows the look before cards became one line)](images/chat/03-cards.png)
+![Two cards, a quick action and a suggested task, with Quote and Details › below each](images/chat/03-cards.png)
 
-**The line in the session:** the kind of card, one sentence, and its status.
+**Not handled yet: the whole card sits in the session.** Charters, plans, plan changes, toolkit changes, approvals, questions… whenever you need to click a button, the button is right on the card, no need to open the details. **Quote** and **Details ›** are below it.
 
-| Status | When |
+- It comes last in its turn. If ergo hands you a card and then thinks some more and writes a reply, the reply sits above the card, so when you come back the card is the first thing you see at the bottom.
+- When one turn brings several cards, they come last in the order they appeared.
+- Once the next turn starts (you say something, or it gets something new), the card stays at the end of its own turn and doesn't follow you down.
+- Only where it's shown moves; the order in the records doesn't change.
+- Cards that come in from elsewhere (acceptance results, “First version done”) stay where they arrived.
+
+**Handled: folded into one line.** The kind of card, one sentence and the result; click the line to see the whole card. The card stays where it was when you handled it and doesn't jump back.
+
+| The line says | When |
 |---|---|
-| **Needs your OK**, **Needs approval**, **Needs an answer**, **Needs a decision**, **Needs checking**, **Needs a pick**, **For your review** | Not handled yet. The line stands out |
 | **Approved**, **Answered**, **Done**… | Handled; shows the result. The line is calm |
 | **Closed**, **Expired** | Closed, or made void |
 
-Reminders and service entries don't need your decision, so they show no status.
+Reminders and service entries don't need your decision: they're always one line, with no status.
 
 Map cards don't fold into a line: the small map is the point, so the whole card stays in the session, with **Quote** and **Details ›** below it. See [Map cards in chats](map.en.md#map-cards-in-chats).
 
@@ -227,9 +234,9 @@ Map cards don't fold into a line: the small map is the point, so the whole card 
 
 **Step by step:**
 
-1. Click the line in the session. On a computer it opens on the right; on a phone it slides in as a full page.
-2. Read the card and click a button. The button first says **Working…**.
-3. When done, the card shows the result, for example **✓ Done**. The buttons can no longer be clicked. The line in the session changes with it.
+1. Go back to the session: the card waiting for you is at the bottom. Read what it says.
+2. Click a button on the card. The button first says **Working…**.
+3. When done, the card folds into one line with the result, for example **Done**. Click the line to see the whole card; its buttons can no longer be clicked.
 
 **Quoting a card:** When you want to say something about this card.
 
@@ -240,7 +247,7 @@ Map cards don't fold into a line: the small map is the point, so the whole card 
 **Good to know:**
 
 - Every card that needs handling also has an item in the Inbox, where it's still a full card. Click on either side; both change together.
-- The "waiting for you" link in the title and the Inbox's link to the conversation go to the line in the session and flash it. Click the line to handle it.
+- The "waiting for you" link in the title and the Inbox's link to the conversation go to the card in the session and flash it. Handle it right on the card.
 - If it didn't work, it says **Didn't go through:** plus the reason.
 - An expired card says **Expired**. If you rolled back the session, unhandled cards say **The session was rolled back, so this card is void**.
 
