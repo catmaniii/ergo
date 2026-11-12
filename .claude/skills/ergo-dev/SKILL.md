@@ -51,7 +51,7 @@ npm run test:fast
 
 - **数据**：`~/.ergo`、`~/.ssh`、`~/.claude`、`%LOCALAPPDATA%\ergo\supervisor`。
 - **端口**：8810、8811（守护进程）、7420（服务管家）、8090（语音合成）是常见的默认值，不是全部，机器上还可能有别的常驻服务。别写死端口，用系统挑的（`ports.ts` 的 `freePort`）。
-- **计划任务** `LocalServiceManager`：名字固定，一台机器一个。`install-autostart`、`uninstall-autostart` 只在测试里跑，设 `ERGO_AUTOSTART_TASK_FILE` 换成一个 JSON 文件。
+- **计划任务** `LocalServiceManager`：名字固定，一台机器一个。`install-autostart`、`uninstall-autostart` 和停、起任务（`runTaskOp`）只在测试里跑，设 `ERGO_AUTOSTART_TASK_FILE` 换成一个 JSON 文件。
 - **真模型、外部网络**：测试不花 token、不连外网。
 
 有几条命令默认就连真的，要换掉：
