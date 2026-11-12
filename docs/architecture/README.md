@@ -361,7 +361,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 | | 在哪 | 谁写 | 换版本时 |
 |---|---|---|---|
-| 计划任务 `LocalServiceManager` | 写死当时的 `node.exe` 和 `lsm.mjs`、`--data-dir` | 安装脚本默认注册（`supervisor/src/autostart.mjs`） | `syncAutostart` 核对后重新注册 |
+| 计划任务 `LocalServiceManager` | 写死当时的 `node.exe` 和 `lsm.mjs`、`--data-dir` | 安装脚本默认注册（`supervisor/src/autostart.mjs`） | `syncAutostart` 核对后重新注册；它起的服务管家经任务重起 |
 | 开机自启名单 `registry/autostart.yaml` | 服务管家数据目录 | 第一次 `ergo start` 写一份只含 `ergo-daemon` 的（`wx`，有文件绝不改）；之后归服务管家（WebUI、`lsm autostart`） | 不动 |
 | 二狗的登记 `registry/services/ergo-daemon.yaml` | 服务管家数据目录 | 每次 `ergo start`、切版本时按当前版本重写；`env` 里用的人多加的项（二狗自己写的那几项照旧覆盖）、用的人写的顶层 `exposure:` 留着，别处的手改不留 | 重写 |
 
@@ -369,7 +369,17 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 开机时服务管家按 `bootPlan` 判断"新的登录会话"，比较账本里上一次的 `sessionEpoch`：第一次起来没有记录，按不是开机处理。所以 `-NoStart` 装完没跑过 `ergo start` 就重启，二狗不会起来（那时也还没有登记和名单）。
 
-已知没解决的：开机自启起来的服务管家不是 `ergo` 起的（`install.json` 的 `managerPid` 对不上），`switchTo` 不重启它，所以升级后这个进程是旧版本的代码，下次登录才换；它占着旧版本目录，`pruneVersions` 删不掉就留到下次。
+切版本时服务管家按谁起的分三种（`switchTo`）：
+
+- `ergo` 起的（`managerStartedByErgo`：`install.json` 的 `managerPid` 和账本里的对得上）：切之前停，切完按新版本起。
+- 开机自启的任务起的（`managerUnderTask`：任务指着这个安装里的某个版本、状态是 `Running`、`--data-dir` 是这一份，没写就是服务管家的默认位置）：切完、任务改指新版本之后经任务重起（`restartManagerViaTask`）——`Stop-ScheduledTask` 只结束任务的 conhost，服务管家的 `--lifeline` 让它跟着退 → 等端口空出来，等不到就结束账本里记的 pid → `Start-ScheduledTask` 照新的命令起 → 等它回话。任务起不来由 `ergo` 直接起（这次算 `ergo` 起的，下次登录照旧归任务）；旧的停不下来就照旧让它 `reload`。任务改指没成（`syncAutostart` 回 `failed`）时不重起，免得白白重起一个旧的。
+- 都不是（用的人自己起的、任务指着安装目录以外、任务没在跑、数据目录是另一份）：不动，只 `reload`。
+
+为什么经任务重起，不让 `ergo` 自己起一个新的：任务的看门狗（每 5 分钟的重复触发加 `IgnoreNew`）照旧认得这个实例，不会每 5 分钟白起一个撞端口退出的；下次登录也是同一条路，不会有两个"主人"。托管的服务是各自的进程，服务管家退了它们照常跑；新起的服务管家和上一个在同一个登录会话里，`bootPlan` 按不是开机处理，把在跑的服务认回来、不按开机名单再拉。旧服务管家的程序和工作目录都在旧版本目录里，它退了以后 `pruneVersions` 删得掉。
+
+是不是任务起的要在改指任务**之前**看：真的计划任务重新注册（`Register-ScheduledTask -Force`）时会不会结束正在跑的实例没核实过，结束了的话之后就看不出来了；两种情况 `restartManagerViaTask` 都接得住（停任务是空操作、等端口照样等得到）。`ensureSvc`（`start`、`restart`）里在跑的服务管家是任务起的、跑的又是别的版本的程序，也照这样重起：任务这次才被改指（`moved`），或者任务本来就指着在用的版本、但服务管家是上一次切版本之前起的（`managerOlderThanCurrent`：账本里的 `manager.startedAt` 早于 `current` 的修改时间；谁切的都算，所以不另记一份）。后一种就是从没有这一条的旧版本升上来的那一次：跑 `update` 的是旧版本的 `ergo`，它只改指任务、不重起服务管家，升完跑一次 `ergo restart` 就换了。
+
+停任务、起任务和注册一样只有一个入口（`cli/autostart.ts` 的 `runTaskOp`），过同一道关：设了假任务（`ERGO_AUTOSTART_TASK_FILE`）动 JSON 文件，测试进程里没设就拒绝。假任务写 `"run": true` 时起任务会照任务的命令用 `conhost --headless` 真起一个服务管家（停任务只结束那个 conhost），端到端测试用它模拟"开机时任务起的服务管家"。
 
 ### 组件和常驻服务（语音合成、语音识别）
 
