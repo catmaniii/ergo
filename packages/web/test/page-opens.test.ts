@@ -2358,7 +2358,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await page.locator(".map-talk-send").click();
       await expect.poll(() => page.locator(drawnMarks).count(), { timeout: 8000 }).toBe(5);
       expect(await page.locator(".map-card-bar-count").innerText()).toBe("2 on the map");
-      expect(await page.locator(".map-card-bar button").getAttribute("aria-label")).toBe("Clear all 2");
+      // 434 起"×"前面还有一个导航的小图标（.map-nav-btn）
+      expect(await page.locator(".map-card-bar button:not(.map-nav-btn)").getAttribute("aria-label")).toBe("Clear all 2");
     } finally {
       await context.close();
     }
