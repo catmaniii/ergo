@@ -446,7 +446,10 @@ export const EN_CONVERSATIONS: Phrases = {
   "立项问答": "Kickoff questions",
   "先问几个问题把范围定下来：\n1. 现在大概有多少件电器？\n2. 保修单是纸质的多还是电子的多？\n3. 到期前多久提醒你？": "A few questions to pin down the scope:\n1. About how many appliances do you have?\n2. Are the warranties mostly paper or digital?\n3. How long before expiry should I remind you?",
   "二十多件吧。纸质的多，我拍照给你。提前一个月提醒。": "About twenty items. Mostly paper, I'll send photos. Remind me a month ahead.",
-  "好，规格、术语表都写进项目档案了。立项书如下，确认就可以开工：": "OK, the spec and glossary are in the project records. Here's the charter. Confirm and work can start:",
+  "范围定成三块：录入、保修到期提醒、维修记录。首版先把现有的 23 件录进去、能按名字查说明书，就够用了。": "Scope in three parts: entering items, warranty-expiry reminders, repair records. For the first version, entering the 23 existing items and finding manuals by name is enough.",
+  "立项书交上去了，跟你说一下首版做什么、确认之后怎么开工。": "The charter is in. I'll tell you what the first version covers and how work starts once you confirm.",
+  "好，规格、术语表都写进项目档案了，立项书交上来了，就在下面。\n\n首版先把现有的 23 件电器录进去，能按名字查到说明书；保修到期前一个月提醒你。点「确认并开工」我就开始建；想先看看再说，点「只确认，稍后开工」。":
+    "OK, the spec and glossary are in the project records, and the charter is in, right below.\n\nThe first version enters the 23 appliances you have now so you can find a manual by name, and reminds you a month before a warranty runs out. Tap “Confirm and start building” and I'll get going; to think it over first, tap “Confirm only, build later”.",
   "周五下午三点那个牙医，帮我改到下周一吧，同一个时间。": "That dentist appointment Friday at 3 p.m., please move it to next Monday, same time.",
   "识别出错：CUDA error: out of memory": "Recognition error: CUDA error: out of memory",
   "下载《晴天》的音频": "Download the audio for “Sunny Day”",

@@ -1549,14 +1549,20 @@ const B = MAINTAINERS.bills;
 
 const BILLS: MessageEnvelope[] = [
   msg(B, "system", at("10-07", "08:10"), text("任务书：每周一把上周三张卡的账单导出、去重、分类，汇总进「记账本」，出一页周报。约束：历史账目不能丢；邮件正文别看。涉及项目：记账本。")),
-  msg(
-    B,
-    "agent",
-    at("10-07", "08:40"),
-    think("只涉及记账本一个项目，按规格应该由记账本的负责人执行；这里演示的是计划卡本身。对话里的两条限制要编译成规则和授权收窄。"),
-    text("计划草稿好了。你在对话里说的两条限制，我编成了一条时序规则和一条授权收窄，写在卡片上。"),
-    cardRef("c-plan-bills"),
-  ),
+  // 交计划和真的一样分三条：先想、调用交计划的工具（内部工具，顺利执行不显示），工具产生的卡是一条只有卡片引用的消息，
+  // 然后回你一句。会话里等你确认的计划卡排在这一轮最后、整张展开（462）。id、调用 id 写死，后面的编号不挪
+  {
+    id: "msg-bills-submit",
+    conversation: B,
+    speaker: "agent",
+    time: at("10-07", "08:39"),
+    parts: [
+      think("只涉及记账本一个项目，按规格应该由记账本的负责人执行；这里演示的是计划卡本身。对话里的两条限制要编译成规则和授权收窄。"),
+      toolAs("call-bills-plan", "submit_plan", "taskId=t-bills revision=1"),
+    ],
+  },
+  { id: "msg-bills-card", conversation: B, speaker: "agent", time: at("10-07", "08:40"), parts: [cardRef("c-plan-bills")] },
+  msg(B, "agent", at("10-07", "08:40"), text("计划草稿好了。你在对话里说的两条限制，我编成了一条时序规则和一条授权收窄，写在卡片上。")),
 ];
 
 // ---------- 项目「记账本」的负责人 ----------
@@ -1646,7 +1652,17 @@ const APPLIANCE: MessageEnvelope[] = [
   msg(A, "system", at("10-06", "22:06"), { type: "work_order_divider", workOrderId: "", title: "立项问答", from: "你" }),
   msg(A, "agent", at("10-06", "22:06"), text("先问几个问题把范围定下来：\n1. 现在大概有多少件电器？\n2. 保修单是纸质的多还是电子的多？\n3. 到期前多久提醒你？")),
   msg(A, "user", at("10-06", "22:15"), text("二十多件吧。纸质的多，我拍照给你。提前一个月提醒。")),
-  msg(A, "agent", at("10-06", "22:28"), text("好，规格、术语表都写进项目档案了。立项书如下，确认就可以开工："), cardRef("c-charter-1")),
+  // 交立项书和真的一样分三条：先想、调用交立项书的工具（内部工具，顺利执行不显示），工具产生的卡是一条只有卡片引用的消息，
+  // 这一轮接着想、接着回你一段话。会话里等你确认的立项书排在这一轮最后、整张展开（462）。id、调用 id 写死，后面的编号不挪
+  { id: "msg-appliance-submit", conversation: A, speaker: "agent", time: at("10-06", "22:27"), parts: [think("范围定成三块：录入、保修到期提醒、维修记录。首版先把现有的 23 件录进去、能按名字查说明书，就够用了。"), toolAs("call-appliance-charter", "submit_charter", "projectId=p-appliance revision=1")] },
+  { id: "msg-appliance-card", conversation: A, speaker: "agent", time: at("10-06", "22:28"), parts: [cardRef("c-charter-1")] },
+  msg(
+    A,
+    "agent",
+    at("10-06", "22:28"),
+    think("立项书交上去了，跟你说一下首版做什么、确认之后怎么开工。"),
+    text("好，规格、术语表都写进项目档案了，立项书交上来了，就在下面。\n\n首版先把现有的 23 件电器录进去，能按名字查到说明书；保修到期前一个月提醒你。点「确认并开工」我就开始建；想先看看再说，点「只确认，稍后开工」。"),
+  ),
 ];
 
 /** 秘书主线里的语音：识别完成的那条；两条（自动重试完了还不行、正在自动重试），见下面 SECRETARY_VOICE_RETRY */

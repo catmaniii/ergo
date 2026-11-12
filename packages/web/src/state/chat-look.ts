@@ -16,15 +16,18 @@
 //   小签照旧：出了状况的醒目（被拦下一类 / 跟你有关的一类），命中关注类别、顺利执行的平和；还有调用在执行时圆点一闪一闪；
 // - 调用记忆：标题"记忆"，"回忆了 N 条记忆"；界面取到第一条记忆的标题时换成"回忆了 N 条：<标题>"（memory-recall.ts 的 recallLineTitled）；
 // - 来信：标题是种类（任务做完、负责人来信、<名字>转达、计划检查；折起来的长通知写"通知"），一句话总结，后面时间；
-// - 卡片：标题是卡片种类，卡片纯文本的第一行（开头和标题重复的"种类："去掉），后面状态——没处理的按种类写"等你确认""等你批准"
-//   "等你回答"……（CARD_ASK，跟你有关的颜色），处理过的写结果（"已批准"）、关掉的"已关闭"、过期的"已过期"（平和）；
-//   简单提醒、服务入口不用你做决定，不写状态。打不开详情的卡（还没收到这张卡）照旧整张画（form card）；
+// - 卡片：标题是卡片种类，卡片纯文本的第一行（开头和标题重复的"种类："去掉），后面状态——处理过的写结果（"已批准"）、
+//   关掉的"已关闭"、过期的"已过期"（平和）；简单提醒、服务入口不用你做决定，不写状态。
+//   等你拍板的卡（还没处理、要你点按钮的，cards.ts 的 cardWaitsForYou：立项书、计划、各种变更、审批、提问……；只让你知道一声的进度卡不算）不收成一行，
+//   整张画、按钮直接看得到（462，"但凡需要我确认、点那个确认按钮的卡片都要默认展开"），处理过了照常收成一行；
+//   一行上的"等你确认""等你批准""等你回答"……（CARD_ASK，跟你有关的颜色）留给收成一行的地方用（cardStatus）。
+//   打不开详情的卡（还没收到这张卡）照旧整张画（form card）；
 //   要在对话里直接看的卡（地图卡片的缩略图，CARD_STAYS_WHOLE）像图片附件一样照旧整张画；
 // - 时间线记录：标题是记录种类（偏离、越界、操作记录、重做……），摘要，后面时间；越界这类警示的、没做成的操作醒目；原来的第二行说明在详情里；
 // - 系统说明：标题"说明"，第一行；
 // - 分支摘要：标题"回退"，摘要的第一句；恢复了哪些文件在详情里。
 import type { AgentLetter } from "./agent-letters.ts";
-import { CARD_ACTION_LABEL, CARD_TYPE_LABEL, cardTypeLabel } from "./cards.ts";
+import { CARD_ACTION_LABEL, type CardAsk, cardAskOf, CARD_TYPE_LABEL, cardTypeLabel, cardWaitsForYou } from "./cards.ts";
 import { type CallIssue, CALL_ISSUE_LABEL, CALL_ISSUES, type ChatItem, type ChatToolCall } from "./chat-items.ts";
 import { firstRecallMaterial } from "./memory-recall.ts";
 import { type Card, type CardType, currentWording, DISPOSITION_LABEL, isCardType, isTimelineRecordKind, t, TIMELINE_RECORD_KIND_INFO, tTable, type WorkflowPlanCardPayload } from "./protocol.ts";
@@ -110,8 +113,8 @@ export type ChatLook =
     }
   | ChatLine
   /**
-   * 照旧整张画的卡片，按钮在卡上：打不开详情的（还没收到这张卡，open 是 undefined）；要直接看的（地图卡片，CARD_STAYS_WHOLE），
-   * 能开详情的卡下面照旧"详情"（open 是 link）
+   * 整张画的卡片，按钮在卡上：打不开详情的（还没收到这张卡，open 是 undefined）；要直接看的（地图卡片，CARD_STAYS_WHOLE）、
+   * 等你拍板的（还没处理、要你点按钮的，cardWaitsForYou），能开详情的卡下面照旧"详情"（open 是 link）
    */
   | { readonly form: "card"; readonly open: "link" | undefined }
   | { readonly form: "divider"; readonly open: undefined }
@@ -232,34 +235,6 @@ function toolLine(item: Extract<ChatItem, { kind: "tool_group" }>): ChatLine {
  */
 export const CARD_STAYS_WHOLE: ReadonlySet<string> = new Set<CardType>(["map"]);
 
-/** 卡片没处理时等你做什么：确认（默认）、批准、回答、决定（几个选一个）、核对、挑、过目；不用你做决定的（提醒、服务入口）是 null */
-export type CardAsk = "confirm" | "approve" | "answer" | "decide" | "check" | "pick" | "review";
-
-/** 各种卡没处理时那一行写什么（没列的、不认识的卡写"等你确认"） */
-export const CARD_ASK: Readonly<Partial<Record<CardType, CardAsk | null>>> = {
-  approval: "approve",
-  pairing: "approve",
-  toolkit_change: "approve",
-  mcp_change: "approve",
-  skill_change: "approve",
-  questions: "answer",
-  runtime_question: "answer",
-  suggest_task: "decide",
-  parallel: "decide",
-  archive_list: "decide",
-  build_done: "decide",
-  standard_backfill: "decide",
-  interview: "decide",
-  memory_delete: "check",
-  personal_file: "check",
-  personal_file_suggest: "check",
-  interview_files: "check",
-  browse_pick: "pick",
-  progress: "review",
-  reminder: null,
-  service_entry: null,
-};
-
 const CARD_ASK_TEXT: Readonly<Record<CardAsk, string>> = tTable({
   confirm: "state.chatLook.cardAsk.confirm",
   approve: "state.chatLook.cardAsk.approve",
@@ -269,12 +244,6 @@ const CARD_ASK_TEXT: Readonly<Record<CardAsk, string>> = tTable({
   pick: "state.chatLook.cardAsk.pick",
   review: "state.chatLook.cardAsk.review",
 });
-
-/** 这种卡没处理时等你做什么；不用你做决定的是 null */
-export function cardAskOf(type: string): CardAsk | null {
-  const ask = isCardType(type) ? CARD_ASK[type] : undefined;
-  return ask === undefined ? "confirm" : ask;
-}
 
 /** 卡片纯文本开头的"<种类>："、"<种类>（…）："（守护进程的写法；种类可能是简称，"计划："之于"计划确认"） */
 const CARD_TEXT_HEAD = /^([^：:（(]{1,24}?)\s*(?:[（(][^）)]*[）)])?\s*[：:]\s*/; // @i18n-ignore data：认守护进程写的卡片纯文本开头（中文的全角冒号、括号）
@@ -402,7 +371,8 @@ export function chatLook(item: ChatItem): ChatLook {
     case "recall":
       return line({ kind: "recall", title: TITLE.recall, text: item.keyLine, dim: item.recall.count === 0, recallFirst: firstRecallMaterial(item.calls.map((c) => c.part)), open: row });
     case "card":
-      if (item.card && CARD_STAYS_WHOLE.has(item.card.type)) return { form: "card", open: detail ? "link" : undefined };
+      // 要直接看的（地图卡片）、等你拍板的（还没处理、要你点按钮的）整张画，按钮在卡上；处理过了照常收成一行
+      if (item.card && (CARD_STAYS_WHOLE.has(item.card.type) || cardWaitsForYou(item.card))) return { form: "card", open: detail ? "link" : undefined };
       return item.card && detail ? cardLine(item, item.card) : { form: "card", open: undefined };
     case "system":
       // 分支摘要：标题"回退"，摘要的第一句
