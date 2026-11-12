@@ -45,6 +45,8 @@ describe("插件的状况给网页", () => {
           { name: "looki", title: "数据源-Looki穿戴式相机", state: "running" },
           { name: "codex", title: "Codex", state: "running" },
           { name: "map", title: "地图", state: "running" },
+          { name: "openstreetmap", title: "OpenStreetMap", state: "running" },
+          { name: "amap", title: "高德地图", state: "running" },
           { name: "google-maps", title: "谷歌地图", state: "running" },
         ],
       },
@@ -54,7 +56,7 @@ describe("插件的状况给网页", () => {
   });
 
   it("配置里停用记忆插件：记忆是 disabled（录下来给网页回放）", async () => {
-    const { url } = await startTestDaemon({ plugins: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"] });
+    const { url } = await startTestDaemon({ plugins: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"] });
     const frontend = await watch(url, { [SECRETARY]: 0 });
     expect(statusEvents(frontend).at(-1)!.plugins).toEqual([
       { name: "reminders", title: "提醒", state: "running" },
@@ -68,13 +70,15 @@ describe("插件的状况给网页", () => {
       { name: "looki", title: "数据源-Looki穿戴式相机", state: "running" },
       { name: "codex", title: "Codex", state: "running" },
       { name: "map", title: "地图", state: "running" },
+      { name: "openstreetmap", title: "OpenStreetMap", state: "running" },
+      { name: "amap", title: "高德地图", state: "running" },
       { name: "google-maps", title: "谷歌地图", state: "running" },
     ]);
     saveOrCheckRecording("plugins-memory-off", frontend.recording);
   });
 
   it("配置里停用提醒插件：提醒是 disabled，日历照常在运行（录下来给网页回放）", async () => {
-    const { url } = await startTestDaemon({ plugins: ["memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"] });
+    const { url } = await startTestDaemon({ plugins: ["memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"] });
     const frontend = await watch(url, { [SECRETARY]: 0 });
     expect(statusEvents(frontend).at(-1)!.plugins).toEqual([
       { name: "reminders", title: "提醒", state: "disabled" },
@@ -88,13 +92,15 @@ describe("插件的状况给网页", () => {
       { name: "looki", title: "数据源-Looki穿戴式相机", state: "running" },
       { name: "codex", title: "Codex", state: "running" },
       { name: "map", title: "地图", state: "running" },
+      { name: "openstreetmap", title: "OpenStreetMap", state: "running" },
+      { name: "amap", title: "高德地图", state: "running" },
       { name: "google-maps", title: "谷歌地图", state: "running" },
     ]);
     saveOrCheckRecording("plugins-reminders-off", frontend.recording);
   });
 
   it("配置里停用日历插件：日历是 disabled，提醒、记忆照常（录下来给网页回放）", async () => {
-    const { url } = await startTestDaemon({ plugins: ["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"] });
+    const { url } = await startTestDaemon({ plugins: ["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"] });
     const frontend = await watch(url, { [SECRETARY]: 0 });
     expect(statusEvents(frontend).at(-1)!.plugins).toEqual([
       { name: "reminders", title: "提醒", state: "running" },
@@ -108,13 +114,15 @@ describe("插件的状况给网页", () => {
       { name: "looki", title: "数据源-Looki穿戴式相机", state: "running" },
       { name: "codex", title: "Codex", state: "running" },
       { name: "map", title: "地图", state: "running" },
+      { name: "openstreetmap", title: "OpenStreetMap", state: "running" },
+      { name: "amap", title: "高德地图", state: "running" },
       { name: "google-maps", title: "谷歌地图", state: "running" },
     ]);
     saveOrCheckRecording("plugins-calendar-off", frontend.recording);
   });
 
   it("配置里停用语音插件：语音是 disabled，别的照常（录下来给网页回放：输入框没有话筒、设置里没有语音）", async () => {
-    const { url } = await startTestDaemon({ plugins: ["reminders", "memory", "calendar", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"] });
+    const { url } = await startTestDaemon({ plugins: ["reminders", "memory", "calendar", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"] });
     const frontend = await watch(url, { [SECRETARY]: 0 });
     expect(statusEvents(frontend).at(-1)!.plugins).toEqual([
       { name: "reminders", title: "提醒", state: "running" },
@@ -128,13 +136,15 @@ describe("插件的状况给网页", () => {
       { name: "looki", title: "数据源-Looki穿戴式相机", state: "running" },
       { name: "codex", title: "Codex", state: "running" },
       { name: "map", title: "地图", state: "running" },
+      { name: "openstreetmap", title: "OpenStreetMap", state: "running" },
+      { name: "amap", title: "高德地图", state: "running" },
       { name: "google-maps", title: "谷歌地图", state: "running" },
     ]);
     saveOrCheckRecording("plugins-voice-off", frontend.recording);
   });
 
   it("配置里停用浏览插件：内置浏览器是 disabled（录下来给网页回放：没有浏览页签、侧边栏、网页候选卡是占位）", async () => {
-    const { url } = await startTestDaemon({ plugins: ["reminders", "memory", "calendar", "voice", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"] });
+    const { url } = await startTestDaemon({ plugins: ["reminders", "memory", "calendar", "voice", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"] });
     const frontend = await watch(url, { [SECRETARY]: 0 });
     expect(statusEvents(frontend).at(-1)!.plugins).toEqual([
       { name: "reminders", title: "提醒", state: "running" },
@@ -148,13 +158,15 @@ describe("插件的状况给网页", () => {
       { name: "looki", title: "数据源-Looki穿戴式相机", state: "running" },
       { name: "codex", title: "Codex", state: "running" },
       { name: "map", title: "地图", state: "running" },
+      { name: "openstreetmap", title: "OpenStreetMap", state: "running" },
+      { name: "amap", title: "高德地图", state: "running" },
       { name: "google-maps", title: "谷歌地图", state: "running" },
     ]);
     saveOrCheckRecording("plugins-browsing-off", frontend.recording);
   });
 
   it("配置里停用 Google 插件：Google 是 disabled，日历照常（录下来给网页回放：设置 · 数据源里没有填日历地址的那一块）", async () => {
-    const { url } = await startTestDaemon({ plugins: ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "looki", "codex", "map", "google-maps"] });
+    const { url } = await startTestDaemon({ plugins: ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"] });
     const frontend = await watch(url, { [SECRETARY]: 0 });
     expect(statusEvents(frontend).at(-1)!.plugins.map((p) => [p.name, p.state])).toEqual([
       ["reminders", "running"],
@@ -168,6 +180,8 @@ describe("插件的状况给网页", () => {
       ["looki", "running"],
       ["codex", "running"],
       ["map", "running"],
+      ["openstreetmap", "running"],
+      ["amap", "running"],
       ["google-maps", "running"],
     ]);
     saveOrCheckRecording("plugins-google-off", frontend.recording);
@@ -197,6 +211,8 @@ describe("插件的状况给网页", () => {
       ["looki", "running"],
       ["codex", "running"],
       ["map", "running"],
+      ["openstreetmap", "running"],
+      ["amap", "running"],
       ["google-maps", "running"],
     ]);
   });
@@ -214,10 +230,10 @@ describe("插件的状况给网页", () => {
     expect((await act("reminders", "remove", true)).body.changed).toEqual(["reminders"]);
     await waitUntil(() => statusEvents(frontend).length === 4 && frontend.events({ channel: PLUGINS, type: EVENT_TYPES.pluginDataPurged }).length === 1);
     expect(statusEvents(frontend).map((e) => e.plugins.map((p) => p.state))).toEqual([
-      ["running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running"],
-      ["running", "disabled", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running"],
-      ["running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running"],
-      ["removed", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running"],
+      ["running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running"],
+      ["running", "disabled", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running"],
+      ["running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running"],
+      ["removed", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running"],
     ]);
     saveOrCheckRecording("plugins-hot-toggle", frontend.recording, { perChannel: true });
   });
@@ -231,9 +247,9 @@ describe("插件的状况给网页", () => {
     expect((await act("enable")).body.changed).toEqual(["calendar"]);
     await waitUntil(() => statusEvents(frontend).length === 3);
     expect(statusEvents(frontend).map((e) => e.plugins.map((p) => p.state))).toEqual([
-      ["running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running"],
-      ["running", "running", "disabled", "running", "running", "running", "running", "running", "running", "running", "running", "running"],
-      ["running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running"],
+      ["running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running"],
+      ["running", "running", "disabled", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running"],
+      ["running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running", "running"],
     ]);
     saveOrCheckRecording("plugins-calendar-hot", frontend.recording);
   });
@@ -243,6 +259,6 @@ describe("插件的状况给网页", () => {
     const frontend = await watch(url);
     expect((await languageApi.change(url, "en")).status).toBe(200);
     await waitUntil(() => statusEvents(frontend).length >= 2);
-    expect(statusEvents(frontend).at(-1)!.plugins.map((p) => p.title)).toEqual(["Reminders", "Memory", "Calendar", "Voice", "Built-in browser", "Claude Code", "Data source - Phone", "Data source - Google", "Data source - Looki wearable camera", "Codex", "Map", "Google Maps"]);
+    expect(statusEvents(frontend).at(-1)!.plugins.map((p) => p.title)).toEqual(["Reminders", "Memory", "Calendar", "Voice", "Built-in browser", "Claude Code", "Data source - Phone", "Data source - Google", "Data source - Looki wearable camera", "Codex", "Map", "OpenStreetMap", "AMap", "Google Maps"]);
   });
 });

@@ -1,6 +1,6 @@
 {
   "googleMaps.plugin.title": "谷歌地图",
-  "googleMaps.plugin.summary": "大陆以外的地图、查地点、算路线用谷歌地图（Google Maps Platform，要在 设置 · 数据源 · 谷歌地图 填两个 Key：浏览器用的、服务端用的）；有公交、开车带实时路况。地图页的地图切换里国内国外都能手动选它（大陆的点自动转坐标）。停用、移除时退回 OpenStreetMap",
+  "googleMaps.plugin.summary": "大陆以外的地图、查地点、算路线用谷歌地图（Google Maps Platform，要在 设置 · 数据源 · 谷歌地图 填两个 Key：浏览器用的、服务端用的）；有公交、开车带实时路况。地图页的地图切换里国内国外都能手动选它（大陆的点自动转坐标）。停用、移除时退回别家地图",
   "googleMaps.plugin.purge.keys": "填过的两个谷歌 Key",
   "googleMaps.plugin.purge.usage": "每月用了谷歌几次的计数、超了免费量放没放开",
   "googleMaps.plugin.keep.chat": "聊天里说到过的地点（那是聊天记录）",

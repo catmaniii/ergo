@@ -10,6 +10,7 @@
 // Codex 插件（设置 · Codex）排在最后，和守护进程的清单一样。
 // 地图插件（地图页、设置 · 数据源里高德地图填 Key 的那一块）排在最后，和守护进程的清单一样。
 // 谷歌地图插件（446：地图服务插槽的谷歌底图、设置 · 数据源里填谷歌地图 Key 的那一块）排在地图后面、最后，和守护进程的清单一样。
+import { amapWebPlugin } from "./amap/plugin.tsx";
 import { browsingWebPlugin } from "./browsing/plugin.tsx";
 import { calendarWebPlugin } from "./calendar/plugin.tsx";
 import { claudeCodeWebPlugin } from "./claude-code/plugin.tsx";
@@ -19,9 +20,10 @@ import { googleMapsWebPlugin } from "./google-maps/plugin.tsx";
 import { lookiWebPlugin } from "./looki/plugin.tsx";
 import { mapWebPlugin } from "./map/plugin.tsx";
 import { memoryWebPlugin } from "./memory/plugin.tsx";
+import { openStreetMapWebPlugin } from "./openstreetmap/plugin.tsx";
 import { phoneWebPlugin } from "./phone/plugin.tsx";
 import { remindersWebPlugin } from "./reminders/plugin.tsx";
 import { voiceWebPlugin } from "./voice/plugin.tsx";
 import type { WebPluginDefinition } from "./api.ts";
 
-export const WEB_PLUGIN_MANIFEST: readonly WebPluginDefinition[] = [remindersWebPlugin, memoryWebPlugin, calendarWebPlugin, voiceWebPlugin, browsingWebPlugin, claudeCodeWebPlugin, phoneWebPlugin, googleWebPlugin, lookiWebPlugin, codexWebPlugin, mapWebPlugin, googleMapsWebPlugin];
+export const WEB_PLUGIN_MANIFEST: readonly WebPluginDefinition[] = [remindersWebPlugin, memoryWebPlugin, calendarWebPlugin, voiceWebPlugin, browsingWebPlugin, claudeCodeWebPlugin, phoneWebPlugin, googleWebPlugin, lookiWebPlugin, codexWebPlugin, mapWebPlugin, openStreetMapWebPlugin, amapWebPlugin, googleMapsWebPlugin];

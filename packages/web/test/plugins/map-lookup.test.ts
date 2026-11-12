@@ -6,8 +6,8 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
-import { AmapPanelView } from "../../src/plugins/map/AmapPanel.tsx";
-import { AmapTryView, type AmapTryViewProps } from "../../src/plugins/map/AmapTry.tsx";
+import { AmapPanelView } from "../../src/plugins/amap/AmapPanel.tsx";
+import { AmapTryView, type AmapTryViewProps } from "../../src/plugins/amap/AmapTry.tsx";
 import { type AmapSourcePanel, type DataSourceView, isAmapSourcePanel } from "../../src/state/index.ts";
 
 vi.mock("../../src/app/build-info.ts", () => ({ APP_VERSION: "0.0.0-test", CHANGELOG: "", PAGE_WEB_VERSION: undefined }));

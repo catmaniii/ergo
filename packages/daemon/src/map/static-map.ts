@@ -107,6 +107,3 @@ export function planStatic(
     view: { lat: view.center.lat, lon: view.center.lon, zoom: view.zoom, width: size.width, height: size.height, scale: q.scale, datum: source.datum },
   };
 }
-
-/** 坐标写几位小数（地址里：6 位约 0.1 米） */
-export const fixed = (n: number, digits: number) => n.toFixed(digits);

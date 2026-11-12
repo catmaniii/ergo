@@ -10,9 +10,7 @@
 // - 地图页的手动切换（MapChoice）：这台设备按区域记的"自动"或某一家，守护进程不存。
 import { inMainlandChina, type LatLon } from "./geo.ts";
 
-/** 地图插件自带的两家地图服务：高德（中国大陆，432）、OpenStreetMap（哪儿都管，433） */
-export const MAP_LOOKUP_SOURCES = ["amap", "osm"] as const;
-/** 查地点、算路线的数据从哪来：地图服务的编号（自带的两家，或者别的插件登记的，445） */
+/** 查地点、算路线的数据从哪来：地图服务的编号（登记进地图服务插槽的那几家，445；455 起高德、OpenStreetMap 也各是一个插件） */
 export type MapLookupSource = string;
 
 /** 地图服务的编号的写法：小写英文开头，小写英文、数字、连字符，最长 20 个字 */

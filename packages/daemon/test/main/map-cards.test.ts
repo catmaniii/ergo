@@ -8,7 +8,7 @@
 import { CHANNELS, type CardEventPayload, type DataSourcePushResult, EVENT_TYPES, type HttpErrorBody, HTTP_PATHS, type MapDrawing, type MessageEventPayload, nowIso, PHONE_LOCATION_SOURCE } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { MAP_PLUGIN } from "../../src/map/api.ts";
-import { createMapPlugin } from "../../src/map/plugin.ts";
+import { mapPlugins } from "../helpers/map-plugins.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { ManualClock } from "../helpers/clock.ts";
 import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
@@ -63,7 +63,7 @@ describe("聊天里的地图卡片（假模型调 show_on_map，假瓦片、假�
     const clock = new ManualClock(new Date(2026, 10, 7, 9));
     const td = await startTestDaemon({
       clock,
-      extraPlugins: [createMapPlugin({ osmUpstream: osm.url, amapHosts: amap.hosts, timeoutMs: 5000, lookups: () => ({ get: (id) => (id === ROUTE.id ? ROUTE : undefined) }) })],
+      extraPlugins: [...mapPlugins({ osmUpstream: osm.url, amapHosts: amap.hosts, timeoutMs: 5000, lookups: () => ({ get: (id) => (id === ROUTE.id ? ROUTE : undefined) }) })],
       secretary: [call("show_on_map", { date: "2026-11-06" }), say("去了 2 个地方：家、西湖边。"), call("show_on_map", { lookup: "amap-r1" }), say("开车约 35 分钟。")],
     });
 

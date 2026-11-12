@@ -190,7 +190,7 @@ import { fakeTakeoverSessions } from "./fake-takeover.ts";
 import { fakeAppFileText } from "./fake-app-files.ts";
 import { fakeMedia, fakeSoundUrl, fakeVideoUrl } from "./fake-media.ts";
 import { FAKE_MATERIAL_IMAGES, fakeMaterialConversations, fakeMaterialDetail, fakeMaterialsIn, fakeSaveWebPage } from "./fake-materials.ts";
-import { DEMO_AMAP_KEY, demoMapDrawing, demoMapFind, demoMapProviders, demoStaticMap } from "./fake-map.ts";
+import { demoDrawnMapCard, demoMapDrawing, demoMapFind, demoMapProviders, demoStaticMap } from "./fake-map.ts";
 import { demoMapDay, demoMapLatest } from "./fake-footprints.ts";
 import { fakeServiceThumbnail } from "./fake-operations.ts";
 import { fakeProjectStandard } from "./fake-standard.ts";
@@ -755,16 +755,21 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   /**
    * 地图页：原型里当作填好了高德的 Key、谷歌地图的 Key（446；演示页的高德、谷歌都是假的，不连它们，见 prototype/fake-map.ts）；
-   * 谷歌地图插件停用了（?demo-plugins-off=google-maps）就没有谷歌那一家
+   * 455 起三家各是一个插件：停用了哪家（?demo-plugins-off=openstreetmap,amap,google-maps）就没有那一家
    */
   mapConfig(): Promise<MapConfigView> {
-    return Promise.resolve({ amapKey: DEMO_AMAP_KEY, providers: demoMapProviders(this.googleMapsOn()) });
+    return Promise.resolve({ providers: demoMapProviders({ osm: this.pluginOn("openstreetmap"), amap: this.pluginOn("amap"), google: this.googleMapsOn() }) });
   }
 
-  /** 演示页里谷歌地图插件开着没有（没停用就当填好了 Key） */
+  /** 演示页里某个插件开着没有（没停用就当开着；地图服务的几家开着就当填好了 Key） */
+  private pluginOn(name: string): boolean {
+    const plugin = this.pluginSettings?.pluginList().plugins.find((p) => p.name === name);
+    return plugin === undefined || plugin.state === "running";
+  }
+
+  /** 演示页里谷歌地图插件开着没有 */
   private googleMapsOn(): boolean {
-    const google = this.pluginSettings?.pluginList().plugins.find((p) => p.name === "google-maps");
-    return google === undefined || google.state === "running";
+    return this.pluginOn("google-maps");
   }
 
   /**
@@ -778,6 +783,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     const drawn = await this.previewContent(q);
     const provider = drawn.own ?? q.provider;
     if (provider !== "amap" && provider !== "google") throw new Error(fakeFormat("{}不出静态地图", provider ?? "-"));
+    if (provider === "amap" && !this.pluginOn("amap")) throw new Error(fakeFormat("地图「{}」现在没接上", provider));
     if (provider === "google" && (!this.googleMapsOn() || demoParam("demo-map-preview") === "google-off")) throw new Error(fakeText("谷歌的 Maps Static API 没开（或者服务端 Key 的 API 限制里没勾它）：在 Google Cloud 里开、勾上"));
     const image = demoStaticMap(provider, drawn.bounds, q);
     return { url: image.url, view: image.view, release: () => {} };
@@ -787,8 +793,10 @@ export class FakeDaemonHttp implements DaemonHttp {
   private async previewContent(q: MapPreviewQuery): Promise<{ own?: string; bounds: { lat: number; lon: number }[] }> {
     if (q.lookup !== undefined) return previewOfDrawing(q.lookup);
     const card = FAKE_CARDS.find((c) => c.id === q.card && c.type === "map");
-    if (!card) throw new Error(fakeText("这张地图卡片不在了"));
-    const show = (card.payload as MapCardPayload).show;
+    // 原型这次打开以后在地图页上画的（461）也认
+    const payload = card ? (card.payload as MapCardPayload) : q.card === undefined ? undefined : demoDrawnMapCard(q.card);
+    if (!payload) throw new Error(fakeText("这张地图卡片不在了"));
+    const show = payload.show;
     if (show.kind === "lookup") return previewOfDrawing(show.lookup);
     if (show.kind === "day") {
       const day = demoMapDay(show.date);

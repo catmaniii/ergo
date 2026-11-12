@@ -125,10 +125,10 @@ const pickPayload = (expiresAt: string): BrowsePickCardPayload => ({
 
 describe("浏览插件", () => {
   it("配置里停用：照常起、不算降级；秘书没有网页工具、提示里没有讲浏览的三段、侧边栏发的消息后面没有网页上下文；联网搜索不算内置浏览器；App 发来的页面指令回没启用，授权的文件夹照常", async () => {
-    const { td, server, frontend } = await withWeb([call("web_search", { query: "二狗 天气", n: 2 }), ECHO], ["reminders", "memory", "calendar", "voice", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"]);
-    expect(td.daemon.plugins.report()).toEqual({ running: ["reminders", "memory", "calendar", "voice", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"], disabled: ["browsing"], skipped: [] });
+    const { td, server, frontend } = await withWeb([call("web_search", { query: "二狗 天气", n: 2 }), ECHO], ["reminders", "memory", "calendar", "voice", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"]);
+    expect(td.daemon.plugins.report()).toEqual({ running: ["reminders", "memory", "calendar", "voice", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"], disabled: ["browsing"], skipped: [] });
     const health = (await (await fetch(new URL("/healthz", td.url))).json()) as Record<string, unknown>;
-    expect(health).toMatchObject({ status: "ok", plugins: { running: ["reminders", "memory", "calendar", "voice", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"], disabled: ["browsing"], skipped: [] } });
+    expect(health).toMatchObject({ status: "ok", plugins: { running: ["reminders", "memory", "calendar", "voice", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"], disabled: ["browsing"], skipped: [] } });
     // 内置浏览器在联网搜索的队列里排第一（设置是内核的，照样能排）
     await webSettingsApi.change(td.url, queue(["app-browser", true], ["deepseek", true], ["browser", true], ["agent-browser", true]));
 
@@ -270,15 +270,15 @@ describe("浏览插件", () => {
     expect(td.daemon.store.read("materials", 0, EVENT_TYPES.webPageSaved).map((e) => isDeletedEventPayload(e.payload))).toEqual([false]);
     const detail = (await materialsApi.detail(td.url, saved.materialId)).body as MaterialDetailView;
     expect(detail.segments[0]).toMatchObject({ form: "web_page", saved: { title: "攻略", text: "灵隐寺" } });
-    expect(td.daemon.plugins.report()).toMatchObject({ running: ["reminders", "memory", "calendar", "voice", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"], removed: ["browsing"] });
+    expect(td.daemon.plugins.report()).toMatchObject({ running: ["reminders", "memory", "calendar", "voice", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"], removed: ["browsing"] });
   });
 
   it("语音插件不在（可选依赖 wants）：浏览插件照常装上、不跟着停；悬浮按钮上说话回\"没认出说了什么：语音插件没启用\"，不崩", async () => {
     const VOICE_OFF = "没认出说了什么：语音插件没启用";
     const speak = (url: string) => requestJson<{ ok: boolean; reason?: string }>(url, HTTP_PATHS.pageVoice, { method: "POST", body: { audio: { base64: "AAAA", mime: "audio/wav" } } });
     // 配置里停用语音：浏览插件照样装上（不算缺依赖）
-    const off = await withWeb([say("好")], ["reminders", "memory", "calendar", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"]);
-    expect(off.td.daemon.plugins.report()).toEqual({ running: ["reminders", "memory", "calendar", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"], disabled: ["voice"], skipped: [] });
+    const off = await withWeb([say("好")], ["reminders", "memory", "calendar", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"]);
+    expect(off.td.daemon.plugins.report()).toEqual({ running: ["reminders", "memory", "calendar", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"], disabled: ["voice"], skipped: [] });
     const first = await speak(off.td.url);
     expect([first.status, first.body]).toEqual([200, { ok: false, reason: VOICE_OFF }]);
 
@@ -286,7 +286,7 @@ describe("浏览插件", () => {
     // 运行中停用语音：浏览插件不跟着停，说话现取到的是没有
     const { td } = await withWeb([say("好")]);
     expect((await pluginsApi.act(td.url, "voice", { action: "disable", idempotencyKey: "voice-off" })).body.changed).toEqual(["voice"]);
-    expect(td.daemon.plugins.report()).toMatchObject({ running: ["reminders", "memory", "calendar", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"], disabled: ["voice"] });
+    expect(td.daemon.plugins.report()).toMatchObject({ running: ["reminders", "memory", "calendar", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"], disabled: ["voice"] });
     const second = await speak(td.url);
     expect([second.status, second.body]).toEqual([200, { ok: false, reason: VOICE_OFF }]);
   });

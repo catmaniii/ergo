@@ -8,7 +8,7 @@ import { AMAP_SOURCE_ID, CHANNELS, type CardEventPayload, EVENT_TYPES, GOOGLE_MA
 import { describe, expect, it } from "vitest";
 import { createGoogleMapsPlugin } from "../../src/google-maps/plugin.ts";
 import { MAP_PLUGIN } from "../../src/map/api.ts";
-import { createMapPlugin } from "../../src/map/plugin.ts";
+import { mapPlugins } from "../helpers/map-plugins.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
 import { startFakeAmapLookup } from "../helpers/fake-amap-lookup.ts";
@@ -40,7 +40,7 @@ describe("聊天卡片的预览图（假高德、假谷歌走真实装配路径�
     const logs: string[] = [];
     const td = await startTestDaemon({
       log: (line) => logs.push(line),
-      extraPlugins: [createMapPlugin({ amapHosts: amap.hosts, osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 }), createGoogleMapsPlugin({ hosts: google.hosts, timeoutMs: 5000 })],
+      extraPlugins: [...mapPlugins({ amapHosts: amap.hosts, osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 }), createGoogleMapsPlugin({ hosts: google.hosts, timeoutMs: 5000 })],
       secretary: [call("show_on_map", { points: POINTS, title: "两处" }), say("标好了。")],
     });
     expect((await dataSourcesApi.act(td.url, AMAP_SOURCE_ID, { action: "configure", values: { serviceKey: AMAP_TEST_SERVICE_KEY }, idempotencyKey: key() })).status).toBe(200);

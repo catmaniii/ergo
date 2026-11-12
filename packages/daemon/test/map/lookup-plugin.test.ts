@@ -16,9 +16,11 @@ import { describe, expect, it } from "vitest";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { createDataSourceSecrets } from "../../src/data-sources/index.ts";
 import { MAP_PLUGIN } from "../../src/map/api.ts";
-import { AMAP_USAGE_CHECK, registerAmapDoctor } from "../../src/map/doctor.ts";
+import { registerUsageDoctor, usageCheckId } from "../../src/map/doctor.ts";
+import { AMAP_PLUGIN } from "../../src/amap/api.ts";
+import { AMAP_DATA_DIR } from "../../src/amap/plugin.ts";
 import { MAP_TOOL } from "../../src/map/lookup-tools.ts";
-import { createMapPlugin, MAP_DATA_DIR } from "../../src/map/plugin.ts";
+import { mapPlugins } from "../helpers/map-plugins.ts";
 import { PHONE, type PhoneService } from "../../src/phone/api.ts";
 import { KERNEL } from "../../src/plugins/kernel.ts";
 import { SECRETARY_TARGET } from "../../src/secretary/secretary.ts";
@@ -44,7 +46,7 @@ async function setup() {
   const fake = await startFakeAmapLookup();
   const osm = await startFakeOsmLookup();
   const k = await startPluginKernel({
-    plugins: [createMapPlugin({ amapHosts: fake.hosts, osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 })],
+    plugins: [...mapPlugins({ amapHosts: fake.hosts, osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 })],
     at: AT,
     services: [
       extraService(KERNEL.layout, ({ dir }) => dataDirLayout(dir)),
@@ -131,8 +133,10 @@ describe("地图插件：查地点、算路线", () => {
     // 填 Key 时测的那一次不算（那是 429 的测 Key）；路线：开车 1 + 公交 3（两头逆地理编码 + 公交），搜地点 1
     expect((panel as AmapSourcePanel).usage).toMatchObject({ month: "2026-11", search: 1, lbs: 4, searchLimit: 5000, lbsLimit: 150000 });
     expect((panel as AmapSourcePanel).lookup).toBe(true);
-    const mapDir = path.join(k.dir, MAP_DATA_DIR);
-    expect(fs.readdirSync(mapDir)).toEqual(["amap-usage.json"]);
+    // 455 起用量在高德插件名下（amap/usage.json）
+    const amapDir = path.join(k.dir, AMAP_DATA_DIR);
+    expect(fs.readdirSync(amapDir)).toEqual(["usage.json"]);
+    expect(fs.existsSync(path.join(k.dir, "map"))).toBe(false);
     for (const text of [out.text, k.logs.join("\n"), JSON.stringify(k.dataSources.view())]) expect(text).not.toContain(AMAP_TEST_SERVICE_KEY);
   });
 
@@ -181,25 +185,29 @@ describe("地图插件：查地点、算路线", () => {
     expect(fake.requests.length).toBe(before);
   });
 
-  it("移除并连数据删：插件自己的存储（用量）一起删", async () => {
+  it("移除高德插件并连数据删：它自己的存储（用量）一起删；地图插件和查询照常（国内退回 OpenStreetMap）", async () => {
     const { k } = await setup();
     await configure(k, { serviceKey: AMAP_TEST_SERVICE_KEY });
     await run(k, MAP_TOOL.search, { keyword: "咖啡" });
-    expect(fs.existsSync(path.join(k.dir, MAP_DATA_DIR))).toBe(true);
-    const info = k.host.info().find((p) => p.name === MAP_PLUGIN)!;
+    expect(fs.existsSync(path.join(k.dir, AMAP_DATA_DIR))).toBe(true);
+    const info = k.host.info().find((p) => p.name === AMAP_PLUGIN)!;
     expect(info.removal?.deletes).toContain("记下的每月查地点、算路线的次数");
-    await k.settings.act(MAP_PLUGIN, { action: "remove", purgeData: true, idempotencyKey: key() });
-    expect(fs.existsSync(path.join(k.dir, MAP_DATA_DIR))).toBe(false);
+    await k.settings.act(AMAP_PLUGIN, { action: "remove", purgeData: true, idempotencyKey: key() });
+    expect(fs.existsSync(path.join(k.dir, AMAP_DATA_DIR))).toBe(false);
+    expect(k.host.running(MAP_PLUGIN)).toBe(true);
+    expect((await run(k, MAP_TOOL.route, { from: "家", to: "公司", modes: ["driving"] })).text).toContain("数据来自 OpenStreetMap");
   });
 });
 
 describe("体检项（接 409 的 ctx.doctor）", () => {
-  it("插件宿主有 ctx.doctor 时登记\"高德的用量\"（只读、不联网），没有时不登记", () => {
+  it("插件宿主有 ctx.doctor 时替一家登记\"<编号>-usage\"（高德是 amap-usage，只读、不联网），没有时不登记", () => {
     const registered: Array<{ id: string; title: string; cost: string; run(signal: AbortSignal): unknown }> = [];
-    const finding = { level: "warn" as const, fact: { key: "map.doctor.usage.near" } };
-    expect(registerAmapDoctor({ doctor: { register: (c: (typeof registered)[number]) => (registered.push(c), () => {}) } }, () => finding)).toBe(true);
-    expect(registered.map((c) => [c.id, c.title, c.cost])).toEqual([[AMAP_USAGE_CHECK, "map.doctor.usage.title", "passive"]]);
+    const finding = { level: "warn" as const, fact: { key: "amap.doctor.usage.near" } };
+    const check = { title: "amap.doctor.usage.title", run: () => finding };
+    expect(registerUsageDoctor({ doctor: { register: (c: (typeof registered)[number]) => (registered.push(c), () => {}) } }, "amap", check)).toBeTypeOf("function");
+    expect(registered.map((c) => [c.id, c.title, c.cost])).toEqual([[usageCheckId("amap"), "amap.doctor.usage.title", "passive"]]);
+    expect(usageCheckId("amap")).toBe("amap-usage");
     expect(registered[0]!.run(new AbortController().signal)).toBe(finding);
-    expect(registerAmapDoctor({}, () => finding)).toBe(false);
+    expect(registerUsageDoctor({}, "amap", check)).toBeUndefined();
   });
 });

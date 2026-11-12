@@ -10,7 +10,7 @@ import { AMAP_SOURCE_ID, GOOGLE_MAPS_SOURCE_ID, HTTP_PATHS } from "@ergo/protoco
 import { describe, expect, it } from "vitest";
 import { createGoogleMapsPlugin } from "../../src/google-maps/plugin.ts";
 import { MAP_PLUGIN } from "../../src/map/api.ts";
-import { createMapPlugin } from "../../src/map/plugin.ts";
+import { mapPlugins } from "../helpers/map-plugins.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { startFakeAmapLookup } from "../helpers/fake-amap-lookup.ts";
 import { fakeGooglePlace, GOOGLE_FAILURES, GOOGLE_TEST_SERVER_KEY, startFakeGoogleMaps } from "../helpers/fake-google-maps.ts";
@@ -25,7 +25,7 @@ describe("在地图上看：POST /api/map/find（假高德、假 OpenStreetMap �
   it("查一处回编号、按编号取得到；填了高德 Key 带汉字的先问高德；没找到 200 带原因；坏请求 400、外网 401、插件停用 400；不进事件", { timeout: 90_000 }, async () => {
     const amap = await startFakeAmapLookup();
     const osm = await startFakeOsmLookup();
-    const td = await startTestDaemon({ extraPlugins: [createMapPlugin({ amapHosts: amap.hosts, osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 })] });
+    const td = await startTestDaemon({ extraPlugins: [...mapPlugins({ amapHosts: amap.hosts, osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 })] });
     const eventsBefore = td.daemon.store.readGlobal(0, 1_000_000).length;
 
     // 没填高德的 Key：问 OpenStreetMap
@@ -75,7 +75,7 @@ describe("在地图上看：POST /api/map/find（假高德、假 OpenStreetMap �
   it("填了谷歌的服务端 Key：不带汉字的先问谷歌、编号 google-p…；谷歌到每日上限退回 OpenStreetMap；带汉字的先问国内能用的（假谷歌）", { timeout: 90_000 }, async () => {
     const osm = await startFakeOsmLookup();
     const google = await startFakeGoogleMaps();
-    const td = await startTestDaemon({ extraPlugins: [createMapPlugin({ osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 }), createGoogleMapsPlugin({ hosts: google.hosts, timeoutMs: 5000 })] });
+    const td = await startTestDaemon({ extraPlugins: [...mapPlugins({ osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 }), createGoogleMapsPlugin({ hosts: google.hosts, timeoutMs: 5000 })] });
 
     // 只填服务端用的那个（先测再存：假谷歌上三个 API 各问一次）
     const filled = await dataSourcesApi.act(td.url, GOOGLE_MAPS_SOURCE_ID, { action: "configure", values: { serverKey: GOOGLE_TEST_SERVER_KEY }, idempotencyKey: key() });

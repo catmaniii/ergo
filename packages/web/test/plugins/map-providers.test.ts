@@ -13,7 +13,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import type { WebPluginDefinition } from "../../src/plugins/api.ts";
 import { createWebPluginHost } from "../../src/plugins/host.ts";
 import { WEB_PLUGIN_MANIFEST } from "../../src/plugins/manifest.ts";
-import { amapOnlyShow, ownBasemapShow, ownMapOnly } from "../../src/plugins/map/amap-results.ts";
+import { ownBasemapShow, ownMapOnly } from "../../src/plugins/map/own-results.ts";
 import { drawingContent } from "../../src/plugins/map/card-scene.ts";
 import { MapSwitch, MapSwitchItems, type BasemapSwitch } from "../../src/plugins/map/MapSwitch.tsx";
 import {
@@ -23,6 +23,7 @@ import {
   choiceBroken,
   EVERY_BASEMAP,
   lookupBasemap,
+  noMapReason,
   ownBasemapOf,
   parseMapChoice,
   pickBasemap,
@@ -33,6 +34,7 @@ import {
   switchEntries,
   withChoice,
 } from "../../src/plugins/map/providers.ts";
+import { demoMapProviders } from "../../src/prototype/fake-map.ts";
 import { activeLocale, activeLocaleFrom, type MapProviderView, setActiveLocale } from "../../src/state/index.ts";
 import { TEST_LOCALES } from "../setup-locales.ts";
 
@@ -73,15 +75,11 @@ const sw = (choice: BasemapSwitch["choice"]): BasemapSwitch => ({
 });
 
 describe("几家从哪来", () => {
-  test("守护进程报了 providers 就用它；旧的守护进程只给 amapKey：当只有高德、OpenStreetMap 两家（没取到是空的）", () => {
+  test("守护进程报了 providers 就用它；没取到、没报是空的（455：去掉了旧守护进程只给 amapKey 时当两家的退路，地图插件不认得哪一家）", () => {
     expect(providersOf({ providers: THREE })).toBe(THREE);
     expect(providersOf(undefined)).toEqual([]);
-    const legacy = providersOf({ amapKey: "k", amapProblem: "Key 不对" });
-    expect(legacy.map((p) => [p.id, p.regions, p.priority, p.ready, p.key, p.problem])).toEqual([
-      ["amap", ["mainland"], 100, true, "k", "Key 不对"],
-      ["osm", ["mainland", "abroad"], 0, true, undefined, undefined],
-    ]);
-    expect(providersOf({})[0]!.ready).toBe(false);
+    expect(providersOf({ amapKey: "k", amapProblem: "Key 不对" })).toEqual([]);
+    expect(providersOf({})).toEqual([]);
   });
 });
 
@@ -93,7 +91,12 @@ describe("用哪一家", () => {
     expect(autoBasemap("mainland", THREE, pageWith({ failed: { amap: "timeout" } }))).toBe("osm");
     expect(autoBasemap("abroad", THREE, pageWith({ missing: ["worldmap"] }))).toBe("osm");
     expect(autoBasemap("abroad", THREE, pageWith({ failed: { worldmap: "script failed" } }))).toBe("osm");
-    expect(autoBasemap("abroad", [], EVERY_BASEMAP)).toBe("osm");
+    // 455：一家都没有（三家都停了）、都用不了：没有（地图页说没有能用的地图，卡片只有字）
+    expect(autoBasemap("abroad", [], EVERY_BASEMAP)).toBeUndefined();
+    expect(autoBasemap("mainland", [{ ...AMAP, ready: false }], EVERY_BASEMAP)).toBeUndefined();
+    // 管这个区域的都用不了：退到在这个区域能手动选的（假第三家在大陆能手动选）
+    expect(autoBasemap("mainland", [{ ...AMAP, ready: false }, WORLD], EVERY_BASEMAP)).toBe("worldmap");
+    expect(pickBasemap({ region: "mainland", choice: "osm", providers: [], page: EVERY_BASEMAP })).toEqual({ wanted: undefined, auto: undefined, manual: false, current: undefined, temporary: false });
   });
 
   test("手动：能选就用（假第三家在大陆也能手动选），选不了照自动；451 起看足迹也用当前地图（手动选的或自动）", () => {
@@ -209,7 +212,10 @@ describe("聊天卡片挑哪家（451 cardBasemap）", () => {
     // 都没填：OpenStreetMap 自己画；旧守护进程没报 preview 的当不出图
     expect(cardBasemap({ center: HZ, providers: [{ ...amap, ready: false }, osm], choice: {}, page: EVERY_BASEMAP })).toEqual({ provider: "osm", own: false, image: false });
     expect(previewable("amap", [{ ...amap, preview: undefined } as MapProviderView])).toBe(false);
-    expect(previewable("osm", [{ ...osm, preview: true }])).toBe(false);
+    // 455 起只看那家报的 preview（OpenStreetMap 不报，页面自己画）
+    expect(previewable("osm", [osm])).toBe(false);
+    // 一家都用不了：卡片只有字
+    expect(cardBasemap({ center: HZ, providers: [{ ...amap, ready: false }], choice: {}, page: EVERY_BASEMAP })).toEqual({ provider: undefined, own: false, image: false });
   });
 
   test("存着的手动切换：坏的、不认得的当自动；换一个区域的不碰另一个", () => {
@@ -224,14 +230,17 @@ describe("聊天卡片挑哪家（451 cardBasemap）", () => {
 });
 
 describe("某一家查来的只画在它自己的底图上", () => {
-  test("OpenStreetMap 的哪儿都能画；高德、别家（假第三家）的只画在它自己的上——卡片不画缩略图，地图页按 ownBasemap 交过去", () => {
-    expect(ownBasemapOf("osm")).toBeUndefined();
-    expect(ownBasemapOf("amap")).toBe("amap");
-    expect(ownBasemapOf("worldmap")).toBe("worldmap");
-    expect([ownMapOnly("osm"), ownMapOnly("amap"), ownMapOnly("worldmap")]).toEqual([false, true, true]);
-    expect([ownBasemapShow(show("worldmap")), amapOnlyShow(show("worldmap")), ownBasemapShow(show("osm"))]).toEqual(["worldmap", true, undefined]);
-    const content = drawingContent({ id: "worldmap-p1", kind: "places", source: "worldmap", title: "附近", at: "2026-11-08T09:00:00+08:00", marks: [{ id: "hit-1", lat: 1.29, lon: 103.85, label: "甲", kind: "search" }], lines: [] });
-    expect([content.ownBasemap, content.amapOnly]).toEqual(["worldmap", true]);
+  test("OpenStreetMap 的哪儿都能画；高德、别家（假第三家）的只画在它自己的上——卡片不画缩略图，地图页按 ownBasemap 交过去（455：看那家报的 ownBasemapOnly）", () => {
+    expect(ownBasemapOf("osm", THREE)).toBeUndefined();
+    expect(ownBasemapOf("amap", THREE)).toBe("amap");
+    expect(ownBasemapOf("worldmap", THREE)).toBe("worldmap");
+    expect([ownMapOnly("osm", THREE), ownMapOnly("amap", THREE), ownMapOnly("worldmap", THREE)]).toEqual([false, true, true]);
+    expect([ownBasemapShow(show("worldmap"), THREE), ownBasemapShow(show("osm"), THREE)]).toEqual(["worldmap", undefined]);
+    // 不认得的（那一家的插件停了）、几家报的还没取到：宁严勿松，一律只画在它自己的上
+    expect(ownBasemapOf("osm", [AMAP, WORLD])).toBe("osm");
+    expect(ownBasemapOf("osm", undefined)).toBe("osm");
+    const content = drawingContent({ id: "worldmap-p1", kind: "places", source: "worldmap", title: "附近", at: "2026-11-08T09:00:00+08:00", marks: [{ id: "hit-1", lat: 1.29, lon: 103.85, label: "甲", kind: "search" }], lines: [] }, { providers: THREE });
+    expect(content.ownBasemap).toBe("worldmap");
   });
 });
 
@@ -252,14 +261,19 @@ describe("网页插件登记一种底图（mapBasemaps）", () => {
     },
   };
 
-  test("地图插件自带高德、OpenStreetMap；别的插件登记的接在后面；它停用了那一条撤掉，地图插件的照旧", () => {
+  test("455 起三家各一个插件登记（OpenStreetMap、高德、谷歌，按清单的先后）；别的插件登记的接在后面；它停用了那一条撤掉，别家的照旧", () => {
     const host = createWebPluginHost({ plugins: [...WEB_PLUGIN_MANIFEST, fakeWorld], log: () => {} });
     host.apply(undefined);
-    // 446 起清单里有谷歌地图插件（google）
-    expect(host.list("mapBasemaps").map((b) => b.id)).toEqual(["amap", "osm", "google", "worldmap"]);
+    expect(host.list("mapBasemaps").map((b) => b.id)).toEqual(["osm", "amap", "google", "worldmap"]);
+    expect(["osm", "amap", "google"].map((id) => host.ownerOf("mapBasemaps", id)?.name)).toEqual(["openstreetmap", "amap", "google-maps"]);
     expect(host.ownerOf("mapBasemaps", "worldmap")?.name).toBe("fake-world-map");
     host.disable("fake-world-map");
-    expect(host.list("mapBasemaps").map((b) => b.id)).toEqual(["amap", "osm", "google"]);
+    expect(host.list("mapBasemaps").map((b) => b.id)).toEqual(["osm", "amap", "google"]);
+    // 停用高德：只撤它那一条
+    host.disable("amap");
+    expect(host.list("mapBasemaps").map((b) => b.id)).toEqual(["osm", "google"]);
+    expect(host.unavailable("mapBasemaps", "amap")).toBe("高德地图");
+    host.enable("amap");
     expect(host.unavailable("mapBasemaps", "worldmap")).toBe("假世界地图");
     host.enable("fake-world-map");
     expect(host.get("mapBasemaps", "worldmap")?.title).toBe("假世界地图");
@@ -285,5 +299,94 @@ describe("地图切换的按钮", () => {
   test("英文", () => {
     setActiveLocale(activeLocaleFrom(TEST_LOCALES, "en"));
     expect(renderToStaticMarkup(createElement(MapSwitch, { sw: sw({}) }))).toContain("Map: Automatic");
+  });
+});
+
+describe("455：OpenStreetMap、高德地图、谷歌地图各是一个插件（开着哪几家就用哪几家）", () => {
+  const HZ = { lat: 30.25, lon: 120.14 };
+  const SG = { lat: 1.28, lon: 103.85 };
+  const PLUGIN_OF: Readonly<Record<string, string>> = { osm: "openstreetmap", amap: "amap", google: "google-maps" };
+
+  /** 只开地图和这几家：守护进程报的（演示页那三家的样子，开着的才报）、网页插件照着装（停用的那几家网页一半也停） */
+  function only(ids: readonly string[]) {
+    const providers = demoMapProviders({ osm: ids.includes("osm"), amap: ids.includes("amap"), google: ids.includes("google") });
+    const host = createWebPluginHost({ plugins: WEB_PLUGIN_MANIFEST, log: () => {} });
+    host.apply(undefined);
+    for (const [id, plugin] of Object.entries(PLUGIN_OF)) if (!ids.includes(id)) host.disable(plugin);
+    const page: BasemapPage = { has: (id) => host.get("mapBasemaps", id) !== undefined, failed: () => undefined };
+    const menu = (region: "mainland" | "abroad") => switchEntries(region, providers, page).map((e) => e.id);
+    return {
+      providers,
+      page,
+      basemaps: host.list("mapBasemaps").map((b) => b.id),
+      mainland: { auto: autoBasemap("mainland", providers, page), menu: menu("mainland") },
+      abroad: { auto: autoBasemap("abroad", providers, page), menu: menu("abroad") },
+      // 聊天里的卡片：杭州的点用哪家、出不出静态图
+      card: cardBasemap({ center: HZ, providers, choice: {}, page }),
+      cardAbroad: cardBasemap({ center: SG, providers, choice: {}, page }),
+    };
+  }
+
+  test("三家都开：国内自动高德，国外谷歌；切换菜单国内 高德 / OpenStreetMap / 谷歌，国外 谷歌 / 高德 / OpenStreetMap；卡片放静态图", () => {
+    const all = only(["osm", "amap", "google"]);
+    expect(all.basemaps).toEqual(["osm", "amap", "google"]);
+    expect(all.mainland).toEqual({ auto: "amap", menu: ["amap", "osm", "google"] });
+    expect(all.abroad).toEqual({ auto: "google", menu: ["google", "amap", "osm"] });
+    expect(all.card).toEqual({ provider: "amap", own: false, image: true });
+    expect(all.cardAbroad).toEqual({ provider: "google", own: false, image: true });
+  });
+
+  test("停用高德：国内自动 OpenStreetMap，切换里没有高德；国外照旧谷歌；国内的卡片自己画 OpenStreetMap", () => {
+    const noAmap = only(["osm", "google"]);
+    expect(noAmap.basemaps).toEqual(["osm", "google"]);
+    expect(noAmap.mainland).toEqual({ auto: "osm", menu: ["osm", "google"] });
+    expect(noAmap.abroad).toEqual({ auto: "google", menu: ["google", "osm"] });
+    expect(noAmap.card).toEqual({ provider: "osm", own: false, image: false });
+  });
+
+  test("任意一家、两家：自动只在开着的里挑；只开谷歌时国内退到能手动选的谷歌", () => {
+    expect(only(["osm"]).mainland).toEqual({ auto: "osm", menu: ["osm"] });
+    expect(only(["osm"]).abroad).toEqual({ auto: "osm", menu: ["osm"] });
+    expect(only(["amap"]).mainland).toEqual({ auto: "amap", menu: ["amap"] });
+    expect(only(["amap"]).abroad).toEqual({ auto: "amap", menu: ["amap"] });
+    expect(only(["google"]).mainland).toEqual({ auto: "google", menu: ["google"] });
+    expect(only(["google"]).abroad).toEqual({ auto: "google", menu: ["google"] });
+    expect(only(["amap", "google"]).mainland).toEqual({ auto: "amap", menu: ["amap", "google"] });
+    expect(only(["amap", "google"]).abroad).toEqual({ auto: "google", menu: ["google", "amap"] });
+    expect(only(["osm", "amap"]).abroad).toEqual({ auto: "amap", menu: ["amap", "osm"] });
+    // 只开 OpenStreetMap：卡片自己画；只开高德：放静态图
+    expect(only(["osm"]).card).toEqual({ provider: "osm", own: false, image: false });
+    expect(only(["amap"]).card).toEqual({ provider: "amap", own: false, image: true });
+  });
+
+  test("三家都停：没有底图，自动、切换都是空的，卡片只有字；地图页说去设置 · 插件启用一家（off）", () => {
+    const none = only([]);
+    expect(none.basemaps).toEqual([]);
+    expect(none.mainland).toEqual({ auto: undefined, menu: [] });
+    expect(none.abroad).toEqual({ auto: undefined, menu: [] });
+    expect(none.card).toEqual({ provider: undefined, own: false, image: false });
+    expect(noMapReason(none.providers, none.page)).toEqual({ kind: "off" });
+  });
+
+  test("停用 OpenStreetMap、开着的都没填 Key（或加载不上）：没有兜底，地图页说它们都用不了（unusable），不是去启用", () => {
+    const unset = demoMapProviders({ osm: false, amap: true, google: true }).map((p) => ({ ...p, ready: false }));
+    expect(autoBasemap("mainland", unset, EVERY_BASEMAP)).toBeUndefined();
+    expect(noMapReason(unset, EVERY_BASEMAP)).toEqual({ kind: "unusable", ids: ["amap", "google"] });
+    const failed: BasemapPage = { has: () => true, failed: (id) => (id === "amap" ? "timeout" : undefined) };
+    expect(autoBasemap("mainland", demoMapProviders({ amap: true }), failed)).toBeUndefined();
+    expect(noMapReason(demoMapProviders({ amap: true }), failed)).toEqual({ kind: "unusable", ids: ["amap"] });
+  });
+
+  test("这台设备记着的手动选择（ergo-map-choice）原样认：编号没变（osm、amap、google），各家插件开着就照它用，停了退回自动", () => {
+    const stored = JSON.stringify({ mainland: "osm", abroad: "amap" });
+    const choice = parseMapChoice(stored);
+    expect(choice).toEqual({ mainland: "osm", abroad: "amap" });
+    const all = only(["osm", "amap", "google"]);
+    expect(pickBasemap({ region: "mainland", choice: choice.mainland, providers: all.providers, page: all.page })).toMatchObject({ wanted: "osm", manual: true });
+    expect(pickBasemap({ region: "abroad", choice: choice.abroad, providers: all.providers, page: all.page })).toMatchObject({ wanted: "amap", manual: true });
+    // 高德停了：记着的用不了（地图页把这个区域退回自动、说一句）
+    const noAmap = only(["osm", "google"]);
+    expect(choiceBroken("abroad", "amap", noAmap.providers, noAmap.page)).toBe(true);
+    expect(pickBasemap({ region: "abroad", choice: choice.abroad, providers: noAmap.providers, page: noAmap.page })).toMatchObject({ wanted: "google", manual: false });
   });
 });

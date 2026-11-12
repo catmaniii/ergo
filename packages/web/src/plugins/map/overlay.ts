@@ -11,7 +11,7 @@
 import { type LatLon, wgsToGcj } from "../../state/index.ts";
 import type { MapSurfaceView } from "./engine.ts";
 import { createLabelPlacer, type PlacedMark } from "./label-place.ts";
-import { fillMark, type MarkParts } from "./osm-engine.ts";
+import { fillMark, type MarkParts } from "./tile-engine.ts";
 import type { MapScene } from "./scene.ts";
 import { metersPerPixel, screenPoint } from "./tiles.ts";
 

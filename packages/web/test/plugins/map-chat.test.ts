@@ -1,5 +1,6 @@
 // 地图页的二狗（444）在 Node 里能测的那一半：
 // - 右下角二狗按钮背后的那一套（map-talk.ts）：点一下打字、发进秘书主会话带地图上下文（via: "button"）；在想、排在后面、回话、过一会儿收起；
+//   接着显示一轮（461：窄屏聊天窗里说的、二狗画了东西，聊天窗收起后气泡里接着显示）；
 //   按住说话：按下备录音器、算开始语音输入，按够了录、取音量，松手送识别、认出来的发（标着是说的）；上滑松手取消；语音插件停用时写一句；
 //   没连上、发不出去写原因；收起时正在录的丢掉；离开地图页放掉录音器；
 // - 记在这台设备上的（map-layout.ts）：聊天窗开合、左边那一栏收起 / 关掉、下面的抽屉拖低、聊天窗的宽度（和浏览侧边栏同一套规矩、各记各的键）；
@@ -184,6 +185,38 @@ describe("右下角的二狗按钮背后那一套", () => {
     expect(talk.snapshot()).toEqual({ kind: "idle" });
     expect(voice.log.at(-1)).toBe("release");
   });
+
+  test("接着显示一轮（461：窄屏聊天窗里说的，二狗画了东西、聊天窗收起）：在想，说完了是它最后说的那句，过一会儿收起；正在录音不打断", () => {
+    let around: ButtonTurn = { phase: "thinking" };
+    const asked: number[] = [];
+    const update = () =>
+      talk.secretaryChanged(
+        () => ({ phase: "sending" }),
+        (seq) => (asked.push(seq), around),
+      );
+    update();
+    talk.follow(12, "把附近的咖啡馆标出来");
+    expect(talk.snapshot()).toEqual({ kind: "busy", said: "把附近的咖啡馆标出来", note: "thinking" });
+    expect(asked.at(-1)).toBe(12);
+    around = { phase: "replied", text: "标好了：附近 3 家咖啡馆" };
+    update();
+    expect(talk.snapshot()).toEqual({ kind: "reply", text: "标好了：附近 3 家咖啡馆", failed: false, said: "把附近的咖啡馆标出来" });
+    vi.advanceTimersByTime(REPLY_HIDE_MS);
+    expect(talk.snapshot()).toEqual({ kind: "idle" });
+    // 认不出用户说了哪句：只写在想、回话
+    around = { phase: "thinking" };
+    talk.follow(20);
+    expect(talk.snapshot()).toEqual({ kind: "busy", note: "thinking" });
+    // 没给按序号认的（旧的接法）：一直在想，收起照常
+    talk.secretaryChanged(() => ({ phase: "sending" }));
+    expect(talk.snapshot()).toEqual({ kind: "busy", note: "thinking" });
+    talk.dismiss();
+    // 正在录音：不打断
+    talk.press();
+    talk.listen();
+    talk.follow(30, "再把公司标上");
+    expect(talk.snapshot()).toMatchObject({ kind: "listening" });
+  });
 });
 
 /** 一个记在内存里的存储；broken 时一取就抛错（隐私模式） */
@@ -270,6 +303,7 @@ const fp = (extra: Partial<Footprints> = {}): Footprints => ({
   fit: undefined,
   focus: undefined,
   pick: () => {},
+  showDay: () => {},
   toggle: () => {},
   select: () => {},
   jumpTo: () => {},

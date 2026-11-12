@@ -17,7 +17,7 @@ import { gcjToWgs, inMainlandChina, type LatLon, t, wgsToGcj } from "@ergo/proto
 import type { DataSourceSecrets } from "../data-sources/api.ts";
 import { AMAP_HOSTS, AMAP_SECRET, AMAP_TIMEOUT_MS, type AmapHosts } from "./amap.ts";
 import type { AmapUsage, AmapUsageKind } from "./amap-usage.ts";
-import { type LookupProvider, MapLookupError, type MapLookupFailure, type PlaceHit, type RouteAnswer, type RouteEnd, thinLine, type TrafficJam, type TransitLeg, type TransitPlan } from "./lookup.ts";
+import { type LookupProvider, MapLookupError, type MapLookupFailure, type PlaceHit, type RouteAnswer, type RouteEnd, thinLine, type TrafficJam, type TransitLeg, type TransitPlan } from "../map/api.ts";
 
 export interface AmapLookupOptions {
   hosts?: Partial<AmapHosts>;
@@ -315,7 +315,7 @@ export function createAmapLookup(options: AmapLookupOptions): AmapLookup {
       text = await res.text();
     } catch (err) {
       if (signal?.aborted) throw err;
-      const reason = timeout.aborted ? t("map.error.timeout") : redact(causeOf(err), key);
+      const reason = timeout.aborted ? t("amap.error.timeout") : redact(causeOf(err), key);
       options.log(`高德：${path} 没连上：${reason}`); // @i18n-ignore log
       throw new MapLookupError("network", reason);
     }
@@ -367,7 +367,7 @@ export function createAmapLookup(options: AmapLookupOptions): AmapLookup {
 
   return {
     id: "amap",
-    name: "高德", // @i18n-ignore model：工具结果里"数据来自高德"（给人看的来源名走 t("map.lookup.source.amap")）
+    name: "高德", // @i18n-ignore model：工具结果里"数据来自高德"（给人看的来源名走 t("amap.lookup.source")）
     credit: "数据来自高德，现查的，没存", // @i18n-ignore model：工具结果末尾的那句
     routeModes: ["driving", "transit", "walking"],
     defaultModes: ["driving", "transit"],

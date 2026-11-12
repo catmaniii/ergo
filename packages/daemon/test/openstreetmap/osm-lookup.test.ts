@@ -8,9 +8,9 @@
 import { describe, expect, it } from "vitest";
 import { problemText } from "../../src/map/lookup-tools.ts";
 import { MapLookupError } from "../../src/map/lookup.ts";
-import { createPoliteClient, OSM_CACHE_TTL_MS, OSM_MIN_INTERVAL_MS } from "../../src/map/osm-client.ts";
-import { createOsmLookup, nominatimHit, viewboxAround } from "../../src/map/osm-lookup.ts";
-import { MAP_USER_AGENT } from "../../src/map/service.ts";
+import { createPoliteClient, OSM_CACHE_TTL_MS, OSM_MIN_INTERVAL_MS } from "../../src/openstreetmap/osm-client.ts";
+import { createOsmLookup, nominatimHit, viewboxAround } from "../../src/openstreetmap/osm-lookup.ts";
+import { MAP_USER_AGENT } from "../../src/openstreetmap/service.ts";
 import { FAKE_HAWKERS, SG_HERE, startFakeOsmLookup } from "../helpers/fake-osm-lookup.ts";
 
 function setup(options: { intervalMs?: number; now?: () => number } = {}) {

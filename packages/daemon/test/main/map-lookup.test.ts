@@ -12,9 +12,9 @@
 //   点和线按编号从地图插件内存里那一份（查的时候放进去的）现取，画卡、取点线都不再问高德。
 import { AMAP_SOURCE_ID, type CardEventPayload, CHANNELS, EVENT_TYPES, type MessageEventPayload, PHONE_LOCATION_SOURCE, type ToolCallDetail } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
-import { amapLocation } from "../../src/map/amap-lookup.ts";
+import { amapLocation } from "../../src/amap/amap-lookup.ts";
 import { MAP_TOOL } from "../../src/map/lookup-tools.ts";
-import { createMapPlugin } from "../../src/map/plugin.ts";
+import { mapPlugins } from "../helpers/map-plugins.ts";
 import { SHOW_ON_MAP_TOOL } from "../../src/map/show-on-map.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
@@ -40,7 +40,7 @@ describe("地图插件：查地点、算路线（假高德走真实装配路径�
     const fake = await startFakeAmapLookup();
     const logs: string[] = [];
     const td = await startTestDaemon({
-      extraPlugins: [createMapPlugin({ amapHosts: fake.hosts, timeoutMs: 5000 })],
+      extraPlugins: [...mapPlugins({ amapHosts: fake.hosts, timeoutMs: 5000 })],
       log: (line) => logs.push(line),
       secretary: [call(MAP_TOOL.route, { from: "家", to: "公司" }), say("开车约 35 分钟，示例北路有一段拥堵；坐地铁约 52 分钟。")],
     });
@@ -102,7 +102,7 @@ describe("地图插件：查地点、算路线（假高德走真实装配路径�
     const fake = await startFakeAmapLookup();
     const osm = await startFakeOsmLookup();
     const td = await startTestDaemon({
-      extraPlugins: [createMapPlugin({ amapHosts: fake.hosts, osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 })],
+      extraPlugins: [...mapPlugins({ amapHosts: fake.hosts, osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 })],
       secretary: [call(MAP_TOOL.search, { near: "酒店", keyword: "hawker centre" }), say("酒店走过去最近的是 Maxwell Food Centre，不到 100 米。")],
     });
     // 新加坡的酒店起名"酒店"（手机 · 位置下面的常去的地方）
@@ -132,7 +132,7 @@ describe("地图插件：查地点、算路线（假高德走真实装配路径�
     const fake = await startFakeAmapLookup();
     const td = await startTestDaemon({
       // 没有 lookups 这一项：卡片取的就是查路线时放进插件内存的那一份
-      extraPlugins: [createMapPlugin({ amapHosts: fake.hosts, timeoutMs: 5000 })],
+      extraPlugins: [...mapPlugins({ amapHosts: fake.hosts, timeoutMs: 5000 })],
       secretary: [
         call(MAP_TOOL.route, { from: "家", to: "公司" }),
         // 假模型从 map_route 的结果里抄编号（"编号 amap-r1"），当 show_on_map 的 lookup

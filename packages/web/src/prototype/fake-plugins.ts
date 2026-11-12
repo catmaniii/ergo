@@ -3,6 +3,8 @@
 // 加了 Claude Code（有了网页的那一半：设置 · Claude Code）。
 // 地址带 ?demo-plugins-off=memory,reminders,calendar,voice,browsing,phone,google,looki 时那几个开头就是停用的，
 // ?demo-plugins-removed=reminders 时开头就是移除了的。给人看的字是守护进程按当前语言写的，原型里按打开时的语言挑中文或英文。
+// 地图（455）：地图插件只管地图本身，OpenStreetMap、高德地图、谷歌地图各是一个插件、都要地图插件（停用地图时三家跟着停）；
+// ?demo-plugins-off=amap 看地图切换里没有高德，openstreetmap,amap,google-maps 看一家都没开的地图页。
 // Codex（454）：?demo-codex=missing 时没装上（要的 Codex 没装：写怎么装、启用不了）；不给时用的是组件装的那份，多一句登录的完整命令（note）。
 import { activeLocale, type PluginAction, type PluginActionResult, type PluginInfo, type PluginState, type PluginStatusEventPayload, type PluginsView } from "../state/index.ts";
 import { codexDemo, FAKE_CODEX_LOGIN } from "./fake-components.ts";
@@ -148,27 +150,56 @@ function about(name: string): Omit<PluginInfo, "state" | "needs" | "neededBy" | 
       },
     };
   }
-  // 地图插件（429）：地图页、设置 · 数据源里高德地图的 Key；拥有的只有密钥区那一格和瓦片缓存。432：查地点、算路线的五个工具，用量。
-  // 433：国外查地点、算路线用 OpenStreetMap 的免费服务（没填高德 Key 时国内也用它）
+  // 地图插件（429；455 起只管地图本身）：地图页、我的足迹、聊天里的地图卡片，查地点、算路线、画在地图上的六个工具；
+  // 它自己不带哪一家地图，拥有的只有聊天里的地图卡片
   if (name === "map") {
     return {
       name,
       title: say("地图", "Map"),
       summary: say(
-        "地图页：国内用高德地图（要在 设置 · 数据源 里填高德的 Key），国外和还没填 Key 时用 OpenStreetMap；OpenStreetMap 的瓦片经这台电脑转发，高德的安全密钥由这台电脑替网页拼上。查地点、算路线：国内用高德，国外用 OpenStreetMap 的免费服务（不用 Key，没有公交和实时路况），没填高德的 Key 时国内也用它",
-        "The map page: AMap inside mainland China (enter an AMap key in Settings · Data sources), OpenStreetMap abroad and until a key is entered; OpenStreetMap tiles go through this computer, and this computer adds AMap's security code for the page. Finding places and routes: AMap inside mainland China, OpenStreetMap's free services abroad (no key; no transit or live traffic), and also inside China until an AMap key is entered",
+        "地图页、我的足迹、聊天里的地图卡片，还有查地点、算路线（只在你问的时候把那一两个点发给地图服务）。它自己不带哪一家地图：OpenStreetMap、高德地图、谷歌地图各是一个插件，开着哪几家就用哪几家，一家都没开时地图页提示去启用",
+        "The map page, your footprints and map cards in chats, plus place and route lookups (only the one or two spots you ask about go to a map service). It brings no map provider of its own: OpenStreetMap, AMap and Google Maps are each a plugin, the map uses whichever are on, and the map page asks you to turn one on when none is",
       ),
       brings: {
-        tools: [say("查地点", "Find places"), say("查路线", "Find a route"), say("查地址在哪", "Locate an address"), say("查某处的地址", "Address of a spot"), say("看常去的地方", "View frequent places")],
-        cards: [],
+        tools: [say("查地点", "Find places"), say("查路线", "Find a route"), say("查地址在哪", "Locate an address"), say("查某处的地址", "Address of a spot"), say("看常去的地方", "View frequent places"), say("画在地图上", "Show on the map")],
+        cards: [say("聊天里的地图卡片", "Map cards in chats")],
         jobs: [],
       },
       removal: {
-        deletes: [
-          say("填过的高德 Key 和安全密钥", "The AMap key and security code you entered"),
-          say("缓存在这台电脑上的地图瓦片", "Map tiles cached on this computer"),
-          say("记下的每月查地点、算路线的次数", "The monthly counts of place and route lookups"),
-        ],
+        deletes: [say("聊天里的地图卡片（卡上的标题、点和路线）", "Map cards in chats (their titles, places and routes)")],
+        keeps: [say("聊天里说到过的地点（那是聊天记录）", "Places mentioned in chats (that's chat history)")],
+      },
+    };
+  }
+  // OpenStreetMap 插件（455）：地图服务插槽里的 OpenStreetMap（瓦片、查地点、算路线），不用 Key；拥有的只有瓦片缓存
+  if (name === "openstreetmap") {
+    return {
+      name,
+      title: "OpenStreetMap",
+      summary: say(
+        "免费的开源地图：不用 Key，国外和没填别家 Key 时用它；瓦片经这台电脑转发、带缓存，查地点（Nominatim）、算路线（OSRM，没有公交和实时路况）用它的免费服务。停用后地图页、查询只用别家",
+        "The free, open map: no key; used abroad and wherever no other provider's key is set. Tiles go through this computer and are cached; place search (Nominatim) and routes (OSRM, no transit or live traffic) use its free services. Turned off, the map page and lookups use the other providers only",
+      ),
+      brings: { tools: [], cards: [], jobs: [] },
+      removal: {
+        deletes: [say("缓存在这台电脑上的地图瓦片", "Map tiles cached on this computer")],
+        keeps: [say("聊天里说到过的地点（那是聊天记录）", "Places mentioned in chats (that's chat history)")],
+      },
+    };
+  }
+  // 高德地图插件（455，以前在地图插件里）：地图服务插槽里的高德（国内的底图、查地点、算路线、预览图），设置 · 数据源里填 Key；
+  // 拥有的只有密钥区那一格和用量
+  if (name === "amap") {
+    return {
+      name,
+      title: say("高德地图", "AMap"),
+      summary: say(
+        "国内的地图、查地点、算路线用高德（要在 设置 · 数据源 · 高德地图 填 Key）；有公交、开车带实时路况，聊天卡片的预览图也能用它。高德的安全密钥由这台电脑替网页拼上。停用、移除时退回别家地图",
+        "Maps, place search and routes inside mainland China use AMap (enter a key in Settings · Data sources · AMap), with transit and live traffic for driving; chat card previews can use it too. This computer adds AMap's security code for the page. Disabled or removed, the map falls back to another provider",
+      ),
+      brings: { tools: [], cards: [], jobs: [] },
+      removal: {
+        deletes: [say("填过的高德 Key 和安全密钥", "The AMap key and security code you entered"), say("记下的每月查地点、算路线的次数", "The monthly counts of place and route lookups")],
         keeps: [say("聊天里说到过的地点（那是聊天记录）", "Places mentioned in chats (that's chat history)")],
       },
     };
@@ -179,8 +210,8 @@ function about(name: string): Omit<PluginInfo, "state" | "needs" | "neededBy" | 
       name,
       title: say("谷歌地图", "Google Maps"),
       summary: say(
-        "大陆以外的地图、查地点、算路线用谷歌地图（Google Maps Platform，要在 设置 · 数据源 · 谷歌地图 填两个 Key：浏览器用的、服务端用的）；有公交、开车带实时路况。地图页的地图切换里国内国外都能手动选它（大陆的点自动转坐标）。停用、移除时退回 OpenStreetMap",
-        "Maps, place search and routes outside mainland China use Google Maps (Google Maps Platform; enter two keys in Settings · Data sources · Google Maps: a browser key and a server key), with transit and live traffic for driving. You can also pick it by hand in the map switch, in China too (coordinates are converted automatically). Disabled or removed, it falls back to OpenStreetMap",
+        "大陆以外的地图、查地点、算路线用谷歌地图（Google Maps Platform，要在 设置 · 数据源 · 谷歌地图 填两个 Key：浏览器用的、服务端用的）；有公交、开车带实时路况。地图页的地图切换里国内国外都能手动选它（大陆的点自动转坐标）。停用、移除时退回别家地图",
+        "Maps, place search and routes outside mainland China use Google Maps (Google Maps Platform; enter two keys in Settings · Data sources · Google Maps: a browser key and a server key), with transit and live traffic for driving. You can also pick it by hand in the map switch, in China too (coordinates are converted automatically). Disabled or removed, the map falls back to another provider",
       ),
       brings: { tools: [], cards: [], jobs: [] },
       removal: {
@@ -278,11 +309,21 @@ function codexMissing(name: string, state: PluginState): Pick<PluginInfo, "state
   return { state: "skipped", problem: how, missing: true, cannotEnable: how };
 }
 
+/** 地图服务的三家（455）：都要地图插件 */
+const MAP_PROVIDER_PLUGINS: readonly string[] = ["openstreetmap", "amap", "google-maps"];
+
+/** 必需的依赖（原型里只有地图那一家子：三家都要地图插件） */
+function needsOf(name: string): string[] {
+  return MAP_PROVIDER_PLUGINS.includes(name) ? ["map"] : [];
+}
+
 export class FakePlugins {
   private readonly states = new Map<string, PluginState>();
 
   constructor(off: ReadonlySet<string>, removed: ReadonlySet<string>) {
-    for (const name of ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"]) this.states.set(name, removed.has(name) ? "removed" : off.has(name) ? "disabled" : "running");
+    for (const name of ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"]) this.states.set(name, removed.has(name) ? "removed" : off.has(name) ? "disabled" : "running");
+    // 地图插件停着时三家开不起来（要它）：照守护进程，开头就跟着停
+    if (this.states.get("map") !== "running") for (const name of MAP_PROVIDER_PLUGINS) if (this.states.get(name) === "running") this.states.set(name, "disabled");
   }
 
   /** 插件频道上的临时事件 plugin_status 的负载 */
@@ -291,15 +332,35 @@ export class FakePlugins {
   }
 
   view(): PluginsView {
-    return { plugins: [...this.states].map(([name, state]) => ({ ...about(name), ...codexMissing(name, state), needs: [], neededBy: [], stopsWith: [], startsWith: [] })) };
+    const names = [...this.states.keys()];
+    return {
+      plugins: [...this.states].map(([name, state]) => {
+        const needs = needsOf(name);
+        const neededBy = names.filter((n) => needsOf(n).includes(name));
+        return {
+          ...about(name),
+          ...codexMissing(name, state),
+          needs,
+          neededBy,
+          stopsWith: neededBy.filter((n) => this.states.get(n) === "running"),
+          startsWith: needs.filter((n) => this.states.get(n) !== "running"),
+        };
+      }),
+    };
   }
 
-  /** 停用、启用、移除（几个插件之间没有必需的依赖：只动它自己；日历要的提醒是可选的）；交回这次变了的和之后的清单 */
+  /**
+   * 停用、启用、移除：别的插件之间没有必需的依赖，只动它自己（日历要的提醒是可选的）；地图那一家子照守护进程——停用、移除地图时
+   * 开着的三家一起停用，启用（装回）一家时地图没开就一起启用。交回这次变了的和之后的清单
+   */
   act(name: string, action: PluginAction, purgeData: boolean): PluginActionResult {
     const state = this.states.get(name);
     if (state === undefined) throw new Error(say(`没有叫 ${name} 的插件`, `There's no plugin called ${name}`));
     const next: PluginState = action === "enable" ? "running" : action === "disable" ? (state === "removed" ? "removed" : "disabled") : "removed";
-    const changed = next === state ? [] : [name];
+    const view = this.view().plugins.find((p) => p.name === name);
+    const along = action === "enable" ? (view?.startsWith ?? []) : (view?.stopsWith ?? []);
+    for (const other of along) this.states.set(other, action === "enable" ? "running" : "disabled");
+    const changed = [...along, ...(next === state ? [] : [name])];
     this.states.set(name, next);
     const purged = !(action === "remove" && purgeData)
       ? undefined
@@ -310,7 +371,11 @@ export class FakePlugins {
         : name === "looki"
           ? { events: 128, cards: 0, inboxItems: 0, files: 1 }
         : name === "map"
-          ? { events: 0, cards: 0, inboxItems: 0, files: 3 }
+          ? { events: 0, cards: 4, inboxItems: 0, files: 0 }
+        : name === "openstreetmap"
+          ? { events: 0, cards: 0, inboxItems: 0, files: 1 }
+        : name === "amap"
+          ? { events: 0, cards: 0, inboxItems: 0, files: 2 }
         : name === "google-maps"
           ? { events: 0, cards: 0, inboxItems: 0, files: 2 }
         : { events: name === "reminders" ? 12 : 3, cards: name === "reminders" ? 4 : 1, inboxItems: 2, files: 0 };

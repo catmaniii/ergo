@@ -1,5 +1,5 @@
 // 原型的地图（429）：演示页不连守护进程、不连高德和 OpenStreetMap，地图页用编的东西——
-// - 当作填好了高德的 Key（DEMO_AMAP_KEY，假的）：国内那一处用"高德"（演示页里的高德是假的，plugins/map/demo-amap.ts 拿占位底图画）；
+// - 当作填好了高德的 Key（DEMO_AMAP_KEY，假的）：国内那一处用"高德"（演示页里的高德是假的，高德地图插件的 plugins/amap/demo-amap.ts 拿占位底图画）；
 // - 当作填好了谷歌地图的 Key（446，DEMO_GOOGLE_KEY，假的）：新加坡那一处"自动"用"谷歌"（演示页里的谷歌是假的，
 //   plugins/google-maps/demo-google.ts 拿占位底图画）；谷歌地图插件停用了（?demo-plugins-off=google-maps）就没有这一家；
 // - 两个地点：国内一处（杭州西湖）、新加坡一处（滨海湾），点了跳过去，底图跟着换；
@@ -11,8 +11,12 @@
 //   左下角写那家的名字（看得出是哪家）；453 起只有光底图，点和线页面自己画（和真的一样）；谷歌深色换深色的占位颜色
 //   （高德的静态图没有深色，页面加滤镜）。
 // - 国外"自动"：谷歌（填了）→ 高德 → OpenStreetMap（451）；停用谷歌地图插件（?demo-plugins-off=google-maps）时国外"自动"是高德。
+// - 地图页上说"把……标出来"（461，demoMapDraw）：原型回一张标了几个点的地图卡片（附近的咖啡馆、地铁站、公司轮着来，点照说话时
+//   地图看的中心编），说了"只看""换成"的写 replace；地图页开着就直接画上去。
+// - 455 起三家各是一个插件：?demo-plugins-off=amap 停用高德（国内"自动"是 OpenStreetMap），openstreetmap 停用 OpenStreetMap，
+//   三个都停了地图页说"没有能用的地图"。
 // 只在演示页里用（地图页 import.meta.env.MODE === "demo" 的分支、FakeDaemonHttp）。英文在 en/fake-map.ts。
-import type { MapDrawing, MapFindResult, MapPreviewView, MapProviderView } from "../state/index.ts";
+import type { MapCardPayload, MapDrawing, MapFindResult, MapPreviewView, MapProviderView } from "../state/index.ts";
 import { fakeFormat, fakeText } from "./fake-content.ts";
 
 /** 演示页里"填好了"的高德 Key（假的，安装版的产物里不该有它：DEMO_SENTINELS） */
@@ -21,32 +25,29 @@ export const DEMO_AMAP_KEY = "demo-amap-key-not-real";
 export const DEMO_GOOGLE_KEY = "demo-google-key-not-real";
 
 /**
- * 登记了的几家地图服务（445 的插槽，GET /api/map/config 的 providers）：守护进程自带的两家——高德（底图国内国外都管，451：国内优先级 100、
- * 国外 30；"填好了"假的 Key）、OpenStreetMap（哪儿都管、0）；google 为真时再加谷歌地图插件（446）登记的那一家（"填好了"假的 Key）。
- * 高德、谷歌能出预览图（preview）
+ * 登记了的几家地图服务（445 的插槽，GET /api/map/config 的 providers）：455 起三家各是一个插件，开着的才登记，先后照插件装的先后——
+ * OpenStreetMap（哪儿都管、0）、高德（底图国内国外都管，451：国内优先级 100、国外 30；"填好了"假的 Key）、谷歌（446，大陆外 50，
+ * "填好了"假的 Key）。高德、谷歌能出预览图（preview），谷歌的预览图有深色的（previewDark）
  */
-export function demoMapProviders(google = false): MapProviderView[] {
-  return [
-    {
-      id: "amap",
-      title: fakeText("高德地图"),
-      regions: ["mainland", "abroad"],
-      manualRegions: ["mainland", "abroad"],
-      priority: 100,
-      regionPriority: { abroad: 30 },
-      ownBasemapOnly: true,
-      basemap: true,
-      ready: true,
-      key: DEMO_AMAP_KEY,
-      lookup: true,
-      preview: true,
-    },
-    { id: "osm", title: "OpenStreetMap", regions: ["mainland", "abroad"], manualRegions: ["mainland", "abroad"], priority: 0, ownBasemapOnly: false, basemap: true, ready: true, lookup: true, preview: false },
-    // 谷歌地图插件（446）登记的：大陆外、优先级 50，手动时大陆也能用
-    ...(google
-      ? [{ id: "google", title: fakeText("谷歌地图"), regions: ["abroad" as const], manualRegions: ["abroad" as const, "mainland" as const], priority: 50, ownBasemapOnly: true, basemap: true, ready: true, key: DEMO_GOOGLE_KEY, lookup: true, preview: true }]
-      : []),
-  ];
+export function demoMapProviders(on: { readonly osm?: boolean; readonly amap?: boolean; readonly google?: boolean } = { osm: true, amap: true, google: true }): MapProviderView[] {
+  const osm: MapProviderView = { id: "osm", title: "OpenStreetMap", regions: ["mainland", "abroad"], manualRegions: ["mainland", "abroad"], priority: 0, ownBasemapOnly: false, basemap: true, ready: true, lookup: true, preview: false };
+  const amap: MapProviderView = {
+    id: "amap",
+    title: fakeText("高德地图"),
+    regions: ["mainland", "abroad"],
+    manualRegions: ["mainland", "abroad"],
+    priority: 100,
+    regionPriority: { abroad: 30 },
+    ownBasemapOnly: true,
+    basemap: true,
+    ready: true,
+    key: DEMO_AMAP_KEY,
+    lookup: true,
+    preview: true,
+  };
+  // 谷歌地图插件（446）登记的：大陆外、优先级 50，手动时大陆也能用
+  const google: MapProviderView = { id: "google", title: fakeText("谷歌地图"), regions: ["abroad"], manualRegions: ["abroad", "mainland"], priority: 50, ownBasemapOnly: true, basemap: true, ready: true, key: DEMO_GOOGLE_KEY, lookup: true, preview: true, previewDark: true };
+  return [...(on.osm === true ? [osm] : []), ...(on.amap === true ? [amap] : []), ...(on.google === true ? [google] : [])];
 }
 
 /** 地图页上的一个地点：点了跳过去 */
@@ -285,4 +286,64 @@ export function demoMapFind(text: string, google = false): MapFindResult {
 export function demoMapDrawing(lookup: string): Promise<MapDrawing> {
   const drawing = DEMO_DRAWINGS[lookup] ?? FOUND.get(lookup);
   return drawing ? Promise.resolve(drawing) : Promise.reject(new Error("这次查到的地点和路线已经过期了（只在这台电脑上留一会儿、不存）：再问一次就有"));
+}
+
+/** 地图页上说的哪句话原型回一张地图卡片（461）：带"标"字的（"把附近的咖啡馆标出来""再把公司标上"），英文带 mark 的 */
+export const DEMO_MAP_ASK = /标|\bmark/i;
+
+/** 原型轮着画的几组（照说话时地图看的中心往旁边挪：纬度、经度各挪几格，一格随级别缩放） */
+const DEMO_DRAWS: readonly { readonly title: string; readonly reply: string; readonly marks: readonly { readonly label: string; readonly dlat: number; readonly dlon: number }[] }[] = [
+  {
+    title: "附近的咖啡馆",
+    reply: "（原型）标好了：附近 3 家咖啡馆，都在地图上了。",
+    marks: [
+      { label: "湖边咖啡", dlat: 0.6, dlon: -0.8 },
+      { label: "转角咖啡", dlat: -0.5, dlon: 0.9 },
+      { label: "书店咖啡", dlat: 0.9, dlon: 0.6 },
+    ],
+  },
+  {
+    title: "附近的地铁站",
+    reply: "（原型）两个地铁站也标上了，和刚才的叠在一起。",
+    marks: [
+      { label: "地铁站 · 东口", dlat: -1.3, dlon: -1.4 },
+      { label: "地铁站 · 西口", dlat: 1.3, dlon: 1.5 },
+    ],
+  },
+  { title: "公司", reply: "（原型）公司标上了。", marks: [{ label: "公司", dlat: -0.3, dlon: -1.3 }] },
+];
+
+/** 编的点别出了能画的范围 */
+const clampLat = (v: number) => Math.min(84, Math.max(-84, v));
+const clampLon = (v: number) => Math.min(179.9, Math.max(-179.9, v));
+
+/** 说了"只看……""换成……""别的不要了"：替掉地图上之前画的（秘书照这个填 replace） */
+const DEMO_REPLACE = /只看|换成|别的不要|\bonly\b|instead/i;
+
+/**
+ * 地图页上说"把……标出来"（461）时原型回的那张卡：第 n 次画第 n 组（轮着来），点照说话时地图看的中心编（一格约 450 米 × 2^(14-级别)，14 级以上按 14 级），
+ * 说了"只看""换成"的写 replace；reply 是二狗这一轮说的那句（短，悬浮按钮的气泡里显示）。名字、标题按界面语言
+ */
+export function demoMapDraw(n: number, at: { readonly lat: number; readonly lon: number; readonly zoom: number }, said: string): { payload: MapCardPayload; reply: string } {
+  const draw = DEMO_DRAWS[n % DEMO_DRAWS.length]!;
+  // 放大过 14 级的按 14 级算（接着画的一组和前一组差不多大，不会越画越小）
+  const step = 0.004 * 2 ** (14 - Math.min(14, Math.max(8, at.zoom)));
+  const lonStep = step / Math.max(0.2, Math.cos((at.lat * Math.PI) / 180));
+  const marks = draw.marks.map((m, i) => ({ id: `p${i + 1}`, lat: clampLat(at.lat + m.dlat * step), lon: clampLon(at.lon + m.dlon * lonStep), label: fakeText(m.label) }));
+  const replace = DEMO_REPLACE.test(said);
+  return {
+    payload: { title: fakeText(draw.title), show: { kind: "points", marks }, ...(replace ? { replace: true as const } : {}) },
+    reply: replace ? fakeText("（原型）换好了：地图上只留这一次标的。") : fakeText(draw.reply),
+  };
+}
+
+/** 原型这次打开以后画的地图卡片（预览图按卡片编号取：FakeDaemonHttp.mapPreview） */
+const DRAWN_CARDS: Map<string, MapCardPayload> = new Map();
+
+export function rememberDemoMapCard(id: string, payload: MapCardPayload): void {
+  DRAWN_CARDS.set(id, payload);
+}
+
+export function demoDrawnMapCard(id: string): MapCardPayload | undefined {
+  return DRAWN_CARDS.get(id);
 }

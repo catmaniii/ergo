@@ -11,7 +11,7 @@
 import { CHANNELS, EVENT_TYPES, type HistoryPage, HTTP_PATHS, type MapContext, type MessageEnvelope, type MessageEventPayload, type PageVoiceResult } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { MAP_PLUGIN } from "../../src/map/api.ts";
-import { createMapPlugin } from "../../src/map/plugin.ts";
+import { mapPlugins } from "../helpers/map-plugins.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { httpRequest } from "../helpers/browser-http.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
@@ -48,7 +48,7 @@ describe("地图页的二狗：聊天窗、悬浮按钮里发的消息带地图�
     const osm = await startFakeOsm();
     const amap = await startFakeAmap();
     const td = await startTestDaemon({
-      extraPlugins: [createMapPlugin({ osmUpstream: osm.url, amapHosts: amap.hosts, timeoutMs: 5000 })],
+      extraPlugins: [...mapPlugins({ osmUpstream: osm.url, amapHosts: amap.hosts, timeoutMs: 5000 })],
       secretary: [ECHO, ECHO, ECHO, ECHO, ECHO],
       // 每轮回显整段上下文（上一轮的回显也在里面，一轮翻一倍），四轮下来贴近 faux 默认的 128000 窗口：调大，免得第四轮自动压缩、
       // 压缩后再注入的上下文块排在这一句后面（lastInput 就取不到这一句了）
@@ -105,7 +105,7 @@ describe("地图页的二狗：聊天窗、悬浮按钮里发的消息带地图�
 });
 
 /** 清单里的全部插件（446 起多了谷歌地图 google-maps，排在最后） */
-const ALL_PLUGINS = ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "google-maps"];
+const ALL_PLUGINS = ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"];
 /** 插件清单里除了这几个的（startTestDaemon 的 plugins：只装这些） */
 const without = (...names: string[]) => ALL_PLUGINS.filter((p) => !names.includes(p));
 const recording = (text: string) => ({ audio: { base64: Buffer.from(fakeWavRecording({ text })).toString("base64"), mime: "audio/wav" } });

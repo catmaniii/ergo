@@ -1,7 +1,8 @@
 // 查地点、算路线的统一外形（432）：给秘书的工具（lookup-tools.ts）只认这一套，不管背后是哪家地图服务。
-// 两家：OpenStreetMap（osm-lookup.ts：Nominatim 查地点、OSRM 算路线，哪儿都管，433）一直在；高德（amap-lookup.ts，只管中国大陆，432）
-// 只在填了 Web 服务 Key、按需查开着、Key 没坏时排在前面（service.ts 定给不给）。工具按点挑第一家管它的（covers），所以有高德时
-// 国内走高德、国外走 OpenStreetMap，没有高德时国内国外都走 OpenStreetMap。
+// 哪几家由"地图服务"插槽定（445；455 起地图插件不认得任何一家）：OpenStreetMap 插件（openstreetmap/osm-lookup.ts：Nominatim 查地点、
+// OSRM 算路线，哪儿都管，433）开着就在；高德地图插件（amap/amap-lookup.ts，只管中国大陆，432）只在填了 Web 服务 Key、按需查开着、
+// Key 没坏时排在前面；谷歌地图插件同理（service.ts 按优先级现给）。工具按点挑第一家管它的（covers），所以有高德时
+// 国内走高德、国外走 OpenStreetMap（或谷歌），没有高德时国内也走 OpenStreetMap。
 // 坐标进出一律 WGS-84（二狗里存的、手机交来的就是它），各家自己转（高德是 GCJ-02）。
 // 各家能做的不一样，写在这里让工具照着说：哪几种走法（OpenStreetMap 没有公交）、有没有实时路况、结果末尾怎么署名、某处的数据全不全、
 // 出错时怎么说（去哪重新填 Key、免费服务暂时不可用）。

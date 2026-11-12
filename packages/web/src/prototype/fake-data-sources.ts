@@ -164,13 +164,13 @@ function initial(): DataSourcesView {
         hasStored: true,
         hasLive: true,
       },
-      // 高德地图：演示页当作两组 Key 都填好了（地图页国内用"高德"，fake-map.ts）；432 的按需查开着、带着这个月的用量，能"试查一下"
+      // 高德地图（455 起是高德地图插件的）：演示页当作两组 Key 都填好了（地图页国内用"高德"，fake-map.ts）；432 的按需查开着、带着这个月的用量，能"试查一下"
       {
         id: "amap",
         title: "高德地图",
-        summary: "填了 Key，地图页在国内用高德地图，查国内的地点、路线也用它（只在你问的时候把起点、终点、\"附近\"的那一处发给高德；没填时国内也用 OpenStreetMap 查，店名和小路可能不全）。Key 只存在这台电脑上；足迹、二狗画的点和线只在这台设备上画在高德地图上面，聊天卡片的预览图只向高德要那一片的底图：高德只知道你在看哪一片",
-        plugin: "map",
-        pluginTitle: "地图",
+        summary: "填了 Key，地图页在国内用高德地图，查国内的地点、路线也用它（只在你问的时候把起点、终点、\"附近\"的那一处发给高德；没填时国内改用别家地图）。Key 只存在这台电脑上；足迹、二狗画的点和线只在这台设备上画在高德地图上面，聊天卡片的预览图只向高德要那一片的底图：高德只知道你在看哪一片",
+        plugin: "amap",
+        pluginTitle: "高德地图",
         available: true,
         connection: "connected",
         account: "地图：已填 · 查地点和路线：已填",
@@ -183,7 +183,7 @@ function initial(): DataSourcesView {
         files: [],
         configurable: true,
         panel: amapPanel(),
-        disconnectNote: "填过的 Key 和安全密钥从这台电脑上删掉，地图页在国内（和没填谷歌时的国外）改用 OpenStreetMap",
+        disconnectNote: "填过的 Key 和安全密钥从这台电脑上删掉，地图页、查地点改用别家地图",
         hasLive: true,
       },
       // 谷歌地图（446）：演示页当作两个 Key 都填好了（地图页在新加坡用"谷歌"，fake-map.ts）；按需查开着、带着这个月每一项的用量（编的）

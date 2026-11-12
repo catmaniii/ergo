@@ -5,7 +5,7 @@
  * - 右下角的二狗按钮（.map-fab，按钮本身在它的 shadow root 里，和浏览里的悬浮按钮同一个样子）、上方的气泡（.map-talk）；
  *   "回到我现在的位置"排到按钮上面（照谷歌地图：二狗按钮在最右下）；
  * - 宽的时候左边那一栏的收起 / 关掉、收起后左上角的小按钮；窄的时候下面卡片的把手（抽屉）和拖低的样子；
- * - 看聊天里的地图卡片时，卡片的标题和概况挪进标题栏（.map-card-bar 在标题栏里一行）。
+ * - 看聊天里的地图卡片时，卡片的标题和概况挪进标题栏（.map-card-bar 在标题栏里一行；461 起放不下几个字的概况整个不显示）。
  * 只用 token，十一套风格都跟着换皮。
  */
 .map-page {
@@ -319,19 +319,33 @@
   border: 0;
   background: none;
 }
+/* 一行：标题先占（长了省略）、"共 N 样"不缩，概况用剩下的地方（461） */
 .map-page > .topbar .map-card-bar-text {
   flex-wrap: nowrap;
+  align-items: center;
   overflow: hidden;
   white-space: nowrap;
 }
 .map-page > .topbar .map-card-bar-text b {
-  flex: none;
-  max-width: 60%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.map-page > .topbar .map-card-bar-note {
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* 概况用剩下的地方：放不下几个字就整个不显示，不留半个字；放得下的长了省略 */
+.map-page > .topbar .map-card-bar-rest {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  container: map-bar-rest / inline-size;
+}
+.map-page > .topbar .map-card-bar-note {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@container map-bar-rest (max-width: 4em) {
+  .map-page > .topbar .map-card-bar-note {
+    display: none;
+  }
 }

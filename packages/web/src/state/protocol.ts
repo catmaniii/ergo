@@ -758,7 +758,7 @@ export type { AmapSourcePanel, AmapUsageView, MapLookupDrawing, MapLookupLine, M
 export { GOOGLE_MAP_PROVIDER, GOOGLE_MAPS_SKUS, GOOGLE_MAPS_SOURCE_ID, isGoogleMapsSourcePanel } from "@ergo/protocol";
 export type { GoogleMapsSku, GoogleMapsSourcePanel, GoogleMapsUsageView } from "@ergo/protocol";
 // 地图服务插槽（445）：区域、登记了的几家、地图页按区域记的手动切换
-export { MAP_LOOKUP_SOURCES, MAP_PROVIDER_ID, MAP_REGIONS, mapRegionOf } from "@ergo/protocol";
+export { MAP_PROVIDER_ID, MAP_REGIONS, mapRegionOf } from "@ergo/protocol";
 export type { MapChoice, MapProviderView, MapRegion } from "@ergo/protocol";
 // 负责人背后的 agent
 export type { BackgroundAgentEntry, BackgroundAgentList, BackgroundAgentRow, BackgroundAgentState, BackgroundAgentStep, BackgroundAgentsEventPayload, BackgroundAgentTranscript } from "@ergo/protocol";
@@ -1020,7 +1020,7 @@ export type {
 } from "@ergo/protocol";
 export { ELEMENT_FILE_MAX_BYTES, PICKED_ELEMENT_KINDS, PICKED_ELEMENT_LABEL_MAX, PICKED_ELEMENT_SOURCES, PICKED_ELEMENT_URL_MAX } from "@ergo/protocol";
 // 地图页的二狗（444）：聊天窗、悬浮按钮发的消息带的地图上下文记成什么、会话里的小字
-export { mapLabel, mapMarkOf } from "@ergo/protocol";
+export { MAP_CONTEXT_DRAWN_MAX, mapLabel, mapMarkOf } from "@ergo/protocol";
 export { BROWSER_PAGE_TEXT_MAX, browsingLabel, browsingMarkOf, CHOOSER_TEXT, PAGE_ELEMENT_OPTION_MAX, PAGE_ELEMENT_OPTIONS_MAX, PAGE_ELEMENT_ROLES, PAGE_ELEMENT_VALUE_MAX, PAGE_ELEMENTS_DEFAULT, PAGE_ELEMENTS_MAX, selectedFieldText } from "@ergo/protocol";
 // "浏览"的搜索引擎的结果页地址（挪到协议包：守护进程也要拼）
 export { BROWSE_SEARCH_ENGINE_IDS, BROWSE_SEARCH_ENGINES, browseSearchEngineOf, browseSearchUrl, DEFAULT_BROWSE_SEARCH_ENGINE } from "@ergo/protocol";

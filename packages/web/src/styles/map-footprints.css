@@ -181,7 +181,7 @@ button.map-day-summary > .icon {
   width: 14px;
   height: 14px;
 }
-:is(.map-osm, .map-overlay) .map-mark[data-kind="photo"] {
+:is(.map-tiled, .map-overlay) .map-mark[data-kind="photo"] {
   margin: -14px 0 0 -7px;
 }
 .map-mark[data-kind="photo"] .map-pin {
@@ -211,7 +211,7 @@ button.map-day-summary > .icon {
   width: 10px;
   height: 10px;
 }
-:is(.map-osm, .map-overlay) .map-mark[data-id^="fp-place-"] {
+:is(.map-tiled, .map-overlay) .map-mark[data-id^="fp-place-"] {
   margin: -10px 0 0 -5px;
 }
 .map-mark[data-id^="fp-place-"] .map-pin {

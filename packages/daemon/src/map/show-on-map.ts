@@ -7,6 +7,8 @@
 //   "编号 amap-r1""编号 osm-p1"）那一次查到的点和线——从地图插件的内存里按编号取（lookups，就是查的时候放进去的 service.lookups），
 //   卡上只存编号、种类、哪家查的和标题（高德的协议不许存它的结果），
 //   网页按编号现取来画；取不到（过期了、二狗重启过、编号不对）回错，让秘书再查一次。
+// 461：用户开着地图页时，新出的卡直接画到他正看着的地图上（不用再点卡片），连着画的叠在一起；replace 填 true 的这张替掉地图上
+// 二狗之前画的（用户说"换成……""只看……""别的不要了"）。卡上带着它（MapCardPayload.replace），地图页照它办。
 // 只读：不改任何东西、不往外发（足迹只在二狗里算，lookup 取的是已经查到的）；每调一次多一张卡，所以不算幂等。
 // 用户自己的坐标不写进工具结果（模型那边也是外面的服务）：只写名字和时间。
 // @i18n-ignore-file model：工具的说明、参数说明和结果给秘书（模型）看；工具的名字走 t()
@@ -49,6 +51,11 @@ const Params = Type.Object(
       Type.String({ minLength: 1, maxLength: 40, description: "画查地点、算路线的结果：那次工具结果末尾写的编号（比如 amap-r1）。查到的点和线由二狗取，你不用抄坐标" }),
     ),
     title: Type.Optional(Type.String({ minLength: 1, maxLength: MAP_CARD_TITLE_MAX, description: "卡片标题（\"今天去过的地方\"）；不写按内容起" })),
+    replace: Type.Optional(
+      Type.Boolean({
+        description: "用户说\"换成……\"\"只看……\"\"别的不要了\"时填 true：地图上你之前画的清掉，只留这一次的。不填是叠加：加在之前画的上面（\"再把公司标上\"）",
+      }),
+    ),
   },
   { additionalProperties: false },
 );
@@ -58,7 +65,10 @@ const DESCRIPTION =
   "date（某一天的足迹：用户说\"把我今天去过的地方画在地图上\"\"昨天去了哪\"）；" +
   "lookup（查地点、算路线之后，把那次的结果画出来：用编号，不用抄坐标）；" +
   "points（一组你确定坐标的点）；route（一条你给出的路线）。" +
-  "卡片会直接出现在聊天里：回复时先用一句话说结论（去了几个地方、是哪几处；路线多久），不要描述地图、不念坐标。";
+  "卡片会直接出现在聊天里：回复时先用一句话说结论（去了几个地方、是哪几处；路线多久），不要描述地图、不念坐标。" +
+  "用户不在地图页上说的（消息后面没带地图上看的是哪里）：画完说一句标好了、点卡片能在大地图上看，不会自己跳过去。" +
+  "用户在地图页上说的（消息后面带着他地图上看的是哪里）：画出来会直接出现在他正看着的地图上，不用叫他去点卡片；" +
+  "连着画的几次叠在一起，用户要换掉之前画的时填 replace。";
 
 /** 一处叫什么：起的名字 > 系统地名 > 几点到的 */
 const spotName = (stay: MapDayView["stays"][number]) => stay.name ?? stay.address ?? `没起名的一处（${clockLabel(stay.from)} 到）`;
@@ -96,11 +106,6 @@ const marksOf = (points: readonly { lat: number; lon: number; label?: string | u
 const titled = (title: string | undefined) => (title === undefined ? {} : { title });
 
 export function showOnMapTool(deps: ShowOnMapDeps): HostTool {
-  const give = (payload: MapCardPayload, text: string): HostToolOutput => {
-    const card = deps.cards.create({ type: "map", status: "handled", payload });
-    return { text, cardIds: [card.id] };
-  };
-
   return defineHostTool({
     name: SHOW_ON_MAP_TOOL,
     title: t("map.tool.show"),
@@ -111,6 +116,11 @@ export function showOnMapTool(deps: ShowOnMapDeps): HostTool {
     // 只看：不改任何东西、不往外送
     nature: "look",
     run(args) {
+      // 替掉地图上二狗之前画的（461）：填了 true 才写进卡片，不填是叠加
+      const give = (payload: MapCardPayload, text: string): HostToolOutput => {
+        const card = deps.cards.create({ type: "map", status: "handled", payload: args.replace === true ? { ...payload, replace: true } : payload });
+        return { text, cardIds: [card.id] };
+      };
       const given = [args.date, args.points, args.route, args.lookup].filter((x) => x !== undefined).length;
       if (given !== 1) return { text: "date、points、route、lookup 四样里给一样（一次画一样；要画几样就调几次）。", isError: true };
 

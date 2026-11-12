@@ -1,6 +1,6 @@
 {
   "googleMaps.plugin.title": "Google Maps",
-  "googleMaps.plugin.summary": "Maps, place search and routes outside mainland China use Google Maps (Google Maps Platform; enter two keys in Settings · Data sources · Google Maps: a browser key and a server key), with transit and live traffic for driving. You can also pick it by hand in the map switch, in China too (coordinates are converted automatically). Disabled or removed, it falls back to OpenStreetMap",
+  "googleMaps.plugin.summary": "Maps, place search and routes outside mainland China use Google Maps (Google Maps Platform; enter two keys in Settings · Data sources · Google Maps: a browser key and a server key), with transit and live traffic for driving. You can also pick it by hand in the map switch, in China too (coordinates are converted automatically). Disabled or removed, the map falls back to another provider",
   "googleMaps.plugin.purge.keys": "The two Google keys you entered",
   "googleMaps.plugin.purge.usage": "The monthly counts of Google requests and whether going over the free usage is allowed",
   "googleMaps.plugin.keep.chat": "Places mentioned in chats (that's chat history)",

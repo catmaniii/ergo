@@ -123,6 +123,7 @@ export function createMapProviders(options: { log?: (line: string) => void } = {
           lookup: lookupOf(p) !== undefined,
           ...(p.regionPriority === undefined ? {} : { regionPriority: { ...p.regionPriority } }),
           preview: p.staticMap !== undefined,
+          ...(p.staticMap?.dark === true ? { previewDark: true } : {}),
         };
       }),
     lookups(map) {

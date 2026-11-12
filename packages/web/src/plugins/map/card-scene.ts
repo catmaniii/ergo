@@ -1,10 +1,11 @@
 // 聊天里的地图卡片（431）画什么：卡片负载（足迹按日期现取来的那一天、查地点和路线按编号现取来的那一份）→ 地图上的东西（MapScene）、
 // 看全要看的点、卡上地图下面写的几行字。纯函数，不碰 DOM、不联网，测试在 Node 里跑。卡片的缩略图（MapThumb.tsx）和点开后的地图页
 // （MapPage.tsx）都照这一份画。坐标一律 WGS-84。
-// **高德查来的结果（地点、路线）只能画在高德的地图上**（高德开放平台服务协议 4.12.4 不许脱离它的服务单独展示、7.7 要标明"高德地图"）：
-// 这种内容 amapOnly（445 起别家查来的同样，ownBasemap 写是哪一家）：451 起卡片放那一家的静态预览图（取不到只写文字和"在地图上看"），
-// 地图页这一屏临时用那一家画它。用户自己的足迹、秘书给的点和路线、OpenStreetMap 查来的（433）哪家地图上都能画（用当前地图）。
-import { type LatLon, type MapCardShow, type MapDayView, type MapDrawing, t } from "../../state/index.ts";
+// **高德、谷歌查来的结果（地点、路线）只能画在它们自己的地图上**（高德开放平台服务协议 4.12.4 不许脱离它的服务单独展示、7.7 要标明来源；
+// 谷歌同样）：这种内容写 ownBasemap（哪一家）。451 起卡片放那一家的静态预览图（取不到只写文字和"在地图上看"），地图页这一屏临时用那一家画它。
+// 用户自己的足迹、秘书给的点和路线、哪儿都能画的那家（OpenStreetMap，433）查来的，哪家地图上都能画（用当前地图）。
+// 455 起地图插件不认得任何一家：哪家只能画在自己地图上看那家报的 ownBasemapOnly，"数据来自 X"写那家网页一半登记的名字（CardSources）。
+import { type LatLon, type MapCardShow, type MapDayView, type MapDrawing, type MapProviderView, t } from "../../state/index.ts";
 import { ownBasemapOf } from "./providers.ts";
 import { daySummary, footprintDay, spotTitle } from "./footprints.ts";
 import type { MapLine, MapMark, MapScene } from "./scene.ts";
@@ -16,14 +17,13 @@ const NAMES_MAX = 4;
 
 /**
  * 画得出来的一张卡：画什么、看全要看的点、卡上写的几行字、是不是用户自己的足迹（挑底图用）、
- * 是不是只能画在它自己家的地图上（高德、445 起别家查来的：amapOnly 名字留着；ownBasemap 写是哪一家）
+ * 只能画在哪一家的地图上（高德、谷歌查来的：ownBasemap 写是哪一家；455 以前另有个 amapOnly，去掉了）
  */
 export interface MapCardContent {
   readonly scene: MapScene;
   readonly bounds: readonly LatLon[];
   readonly lines: readonly string[];
   readonly footprints: boolean;
-  readonly amapOnly: boolean;
   /** 只能画在哪一家的底图上（地图服务的编号）；哪儿都能画的不写 */
   readonly ownBasemap?: string;
   /** 查到的那一份自己的标题（查的时候起的；不经卡片直接看查到的一处时地图页标题栏写它，447）；别的不写 */
@@ -52,7 +52,7 @@ export function dayContent(view: MapDayView): MapCardData {
   const day = footprintDay(view);
   if (day.empty) return { state: "empty", text: t("ui.plugins.map.day.empty") };
   const lines = [daySummary(view, day), namesLine(day.spots.map((s) => spotTitle(s)))].filter((l): l is string => l !== undefined);
-  return { state: "ready", content: { scene: day.scene, bounds: day.bounds, lines, footprints: true, amapOnly: false } };
+  return { state: "ready", content: { scene: day.scene, bounds: day.bounds, lines, footprints: true } };
 }
 
 /** 秘书给的一组点、一条路线（存在卡上的） */
@@ -63,7 +63,7 @@ export function shownContent(show: Extract<MapCardShow, { kind: "points" | "rout
   // 路线写"起点 → 途经 → 终点"，一组点写"西湖、灵隐寺、…"
   const labels = show.marks.flatMap((m) => (m.label === undefined ? [] : [m.label]));
   const text = show.kind === "route" ? (labels.length > 0 ? labels.join(" → ") : undefined) : namesLine(labels);
-  return { scene: { marks, lines, circles: [] }, bounds, lines: text === undefined ? [] : [text], footprints: false, amapOnly: false };
+  return { scene: { marks, lines, circles: [] }, bounds, lines: text === undefined ? [] : [text], footprints: false };
 }
 
 /** 一种走法叫什么（432 的开车、公交、步行；不认得的不写） */
@@ -71,15 +71,27 @@ function modeLabel(mode: string | undefined): string | undefined {
   return mode === "driving" ? t("ui.plugins.map.card.mode.driving") : mode === "transit" ? t("ui.plugins.map.card.mode.transit") : mode === "walking" ? t("ui.plugins.map.card.mode.walking") : undefined;
 }
 
-/** 数据从哪来："数据来自 OpenStreetMap"、"数据来自高德地图"、"数据来自 Google 地图"（几家都要求标明来源；谷歌要写 Google Maps，446） */
-export function sourceLine(source: string): string {
-  if (source === "osm") return t("ui.plugins.map.card.source.osm");
-  if (source === "google") return t("ui.plugins.map.card.source.google");
-  return source === "amap" ? t("ui.plugins.map.card.source.amap") : t("ui.plugins.map.card.source.other", { source });
+/**
+ * 卡片要知道的几家（455）：守护进程报的几家（哪家查来的只能画在自己地图上：ownBasemapOnly；还没取到是 undefined，一律当只能画在自己的上），
+ * 和"数据来自 X"里写的名字（那家网页一半登记的 credit，没写用 title；没登记的不知道）
+ */
+export interface CardSources {
+  readonly providers?: readonly MapProviderView[] | undefined;
+  credit?(id: string): string | undefined;
 }
 
-/** 查地点、算路线查到的那一份（按编号现取来的）：OpenStreetMap 以外查来的只能画在那一家的地图上（ownBasemap） */
-export function drawingContent(drawing: MapDrawing): MapCardContent {
+/**
+ * 数据从哪来："数据来自 OpenStreetMap"、"数据来自高德地图"、"数据来自 Google 地图"（几家都要求标明来源；谷歌要写 Google Maps，446）。
+ * name 是那家登记的名字（谷歌插件写"Google 地图"）；不知道时写编号
+ */
+export function sourceLine(source: string, name?: string | undefined): string {
+  const shown = name ?? source;
+  // 名字以汉字开头的不空格（"数据来自高德地图"），英文名前空一格（"数据来自 OpenStreetMap"）
+  return t(/^\p{Script=Han}/u.test(shown) ? "ui.plugins.map.card.source.named" : "ui.plugins.map.card.source.other", { source: shown });
+}
+
+/** 查地点、算路线查到的那一份（按编号现取来的）：只能画在自己地图上的那几家查来的只画在那一家的地图上（ownBasemap） */
+export function drawingContent(drawing: MapDrawing, sources: CardSources = {}): MapCardContent {
   const marks: MapMark[] = drawing.marks.map((m) => ({ id: `${CARD_PREFIX}${m.id}`, lat: m.lat, lon: m.lon, ...(m.label === undefined ? {} : { label: m.label }), kind: m.kind }));
   const lines: MapLine[] = drawing.lines.map((l) => ({ id: `${CARD_PREFIX}${l.id}`, points: l.points, kind: "route" }));
   const bounds: LatLon[] = [...drawing.marks, ...drawing.lines.flatMap((l) => l.points)];
@@ -87,9 +99,9 @@ export function drawingContent(drawing: MapDrawing): MapCardContent {
   // 地点写搜到的几处的名字、地址写那一处；路线的起终点标题里有了，写走法
   const named = drawing.marks.filter((m) => drawing.kind !== "places" || m.kind === "search").flatMap((m) => (m.label === undefined ? [] : [m.label]));
   const found = drawing.kind === "route" ? undefined : namesLine(named);
-  const text = [found, modes.length > 0 ? modes.join(t("pages.common.listSep")) : undefined, sourceLine(drawing.source)].filter((l): l is string => l !== undefined && l !== "");
-  const own = ownBasemapOf(drawing.source);
-  return { scene: { marks, lines, circles: [] }, bounds, lines: text, footprints: false, amapOnly: own !== undefined, ...(own === undefined ? {} : { ownBasemap: own }), title: drawing.title };
+  const text = [found, modes.length > 0 ? modes.join(t("pages.common.listSep")) : undefined, sourceLine(drawing.source, sources.credit?.(drawing.source))].filter((l): l is string => l !== undefined && l !== "");
+  const own = ownBasemapOf(drawing.source, sources.providers);
+  return { scene: { marks, lines, circles: [] }, bounds, lines: text, footprints: false, ...(own === undefined ? {} : { ownBasemap: own }), title: drawing.title };
 }
 
 /** 内容的中心（外接框的中心）：卡片按它在哪个区域挑当前地图（451）；没有点给 0,0 */

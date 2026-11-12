@@ -81,7 +81,7 @@ export function MapSwitchItems({ status, current, onPick }: { status: BasemapSta
   return (
     <>
       <div className="map-switch-head">{t(status.region === "mainland" ? "ui.plugins.map.switch.region.mainland" : "ui.plugins.map.switch.region.abroad")}</div>
-      {item(undefined, t("ui.plugins.map.switch.auto"), t("ui.plugins.map.switch.autoNow", { name: status.autoTitle }), false)}
+      {item(undefined, t("ui.plugins.map.switch.auto"), status.autoTitle === undefined ? t("ui.plugins.map.switch.autoNone") : t("ui.plugins.map.switch.autoNow", { name: status.autoTitle }), false)}
       {status.options.map((o) => item(o.id, o.title, o.failed === undefined ? undefined : t("ui.plugins.map.switch.unreachable"), o.failed !== undefined))}
       <div className="menu-sep" role="separator" />
       <div className="map-switch-note">{t("ui.plugins.map.switch.lookupNote")}</div>

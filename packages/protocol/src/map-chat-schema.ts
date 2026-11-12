@@ -19,10 +19,17 @@ export const MapContextFootprints = Type.Object({
 });
 export type MapContextFootprints = Static<typeof MapContextFootprints>;
 
-/** 看的是聊天里哪张地图卡片（431，#/more/map/card/<编号>）：编号、标题 */
+/** 地图上叠着的二狗画的最多报几张（461） */
+export const MAP_CONTEXT_DRAWN_MAX = 99;
+
+/**
+ * 看的是聊天里哪张地图卡片（431，#/more/map/card/<编号>）：编号、标题。
+ * 461 起二狗新画的直接上地图、连着画的叠在一起：写最新的那张，count 是地图上一共叠着几张（2 张以上才写）
+ */
 export const MapContextCard = Type.Object({
   id: Type.String({ minLength: 1, maxLength: 64 }),
   title: Type.Optional(Type.String({ minLength: 1, maxLength: MAP_CONTEXT_TEXT_MAX })),
+  count: Type.Optional(Type.Integer({ minimum: 2, maximum: MAP_CONTEXT_DRAWN_MAX })),
 });
 export type MapContextCard = Static<typeof MapContextCard>;
 

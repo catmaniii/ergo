@@ -39,9 +39,14 @@ export const MapCardShow = Type.Union([
 ]);
 export type MapCardShow = Static<typeof MapCardShow>;
 
-/** 地图卡片的负载：标题（秘书写的，或者查的时候起的"从家到公司"；不写的网页按种类起）、画什么 */
+/**
+ * 地图卡片的负载：标题（秘书写的，或者查的时候起的"从家到公司"；不写的网页按种类起）、画什么；
+ * replace（461）：地图页开着时新出的卡直接画上去，连着画的叠在一起——秘书填了 true（用户说"换成……""只看……"）的这张
+ * 替掉地图上二狗之前画的；不写是叠加。只写 true
+ */
 export const MapCardPayload = Type.Object({
   title: Type.Optional(Type.String({ minLength: 1, maxLength: MAP_CARD_TITLE_MAX })),
   show: MapCardShow,
+  replace: Type.Optional(Type.Literal(true)),
 });
 export type MapCardPayload = Static<typeof MapCardPayload>;

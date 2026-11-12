@@ -15,7 +15,7 @@ import { createDataSourceSecrets } from "../../src/data-sources/index.ts";
 import { RequestRejected } from "../../src/errors.ts";
 import { createGoogleMapsPlugin } from "../../src/google-maps/plugin.ts";
 import { MAP, MAP_PREVIEW, MapPreviewUnavailable } from "../../src/map/api.ts";
-import { createMapPlugin } from "../../src/map/plugin.ts";
+import { mapPlugins } from "../helpers/map-plugins.ts";
 import { PHONE, type PhoneService } from "../../src/phone/api.ts";
 import { KERNEL } from "../../src/plugins/kernel.ts";
 import { startFakeAmapLookup } from "../helpers/fake-amap-lookup.ts";
@@ -60,7 +60,7 @@ async function setup() {
   const osm = await startFakeOsmLookup();
   const amap = await startFakeAmapLookup();
   const k = await startPluginKernel({
-    plugins: [createMapPlugin({ amapHosts: amap.hosts, osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 }), createGoogleMapsPlugin({ hosts: google.hosts, timeoutMs: 5000 })],
+    plugins: [...mapPlugins({ amapHosts: amap.hosts, osmHosts: osm.hosts, osmIntervalMs: 0, timeoutMs: 5000 }), createGoogleMapsPlugin({ hosts: google.hosts, timeoutMs: 5000 })],
     at: AT,
     services: [
       extraService(KERNEL.layout, ({ dir }) => dataDirLayout(dir)),

@@ -16,7 +16,7 @@
   background: var(--fill);
   overflow: hidden;
 }
-.map-card-thumb .map-osm {
+.map-card-thumb .map-tiled {
   cursor: default;
 }
 /* 缩略图上不写点旁边的字（名字写在地图下面那一行），也就没有引线 */
@@ -166,6 +166,12 @@
   min-width: 0;
 }
 .map-card-bar-note {
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+/* 二狗画的叠着几样（461）："共 N 样"不缩，后面的概况先省略 */
+.map-card-bar-count {
+  flex: none;
   color: var(--muted);
   font-size: var(--fs-s);
 }
