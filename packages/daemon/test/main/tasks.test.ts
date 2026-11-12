@@ -234,6 +234,8 @@ describe("发起任务的三条路", () => {
       "[tool] lsm_force",
       "[tool] lsm_entries",
       "[tool] lsm_restart_self",
+      // 申请目录授权（464：只发申请卡，用户同意了才登记）
+      "[tool] request_folder_grant",
       // 浏览侧边栏里的网页工具（工具列表固定，只在侧边栏发的那一轮能用）
       "[tool] browse_read_page",
       "[tool] browse_fill",
@@ -411,7 +413,8 @@ describe("任务书交给负责人，负责人提交计划", () => {
     expect(seen).toContain("[toolResult] submit_plan: 计划已提交（第 1 版）");
     // 起草计划时只能读、搜索和提交计划：确认之前不动手不只靠提示词（口语总结是每个会话都有的，没有副作用，
     // grep、find 照给，联网搜索、读网页每个负责人都有；给秘书发消息除了秘书每个 agent 默认都有，
-    // 发附件负责人每一段都有：只发进自己的会话，没有对外效果；读附件也是：只读本会话里用户发来的附件）
+    // 发附件负责人每一段都有：只发进自己的会话，没有对外效果；读附件也是：只读本会话里用户发来的附件；
+    // 申请目录授权每一段都有（464）：只发一张申请卡，用户同意了才登记）
     expect(seen.split("\n").filter((l) => l.startsWith("[tool]"))).toEqual([
       "[tool] read",
       "[tool] ls",
@@ -422,6 +425,7 @@ describe("任务书交给负责人，负责人提交计划", () => {
       "[tool] web_fetch",
       "[tool] spoken_summary",
       "[tool] send_voice",
+      "[tool] request_folder_grant",
       "[tool] tell_secretary",
       "[tool] read_attachment",
       "[tool] send_attachment",

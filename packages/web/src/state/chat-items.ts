@@ -101,6 +101,7 @@ const WHAT = tTable({
   standardChangeCard: "state.chatItems.internal.standardChangeCard",
   toolkitChangeCard: "state.chatItems.internal.toolkitChangeCard",
   mcpChangeCard: "state.chatItems.internal.mcpChangeCard",
+  folderGrantRequestCard: "state.chatItems.internal.folderGrantRequestCard",
   skillChangeCard: "state.chatItems.internal.skillChangeCard",
   toolkitRecord: "state.chatItems.internal.toolkitRecord",
   workOrderRecord: "state.chatItems.internal.workOrderRecord",
@@ -147,6 +148,8 @@ export const INTERNAL_TOOLS: Readonly<Record<string, { readonly what: string; re
   request_toolkit_change: { get what() { return WHAT.toolkitChangeCard; }, shownAs: { kind: "card", cardType: "toolkit_change" } },
   /** mcp/tool-names.ts REQUEST_MCP_CHANGE_TOOL */
   request_mcp_change: { get what() { return WHAT.mcpChangeCard; }, shownAs: { kind: "card", cardType: "mcp_change" } },
+  /** folders/tool-names.ts REQUEST_FOLDER_GRANT_TOOL（464）：有表的 agent 申请目录授权，出一张申请卡 */
+  request_folder_grant: { get what() { return WHAT.folderGrantRequestCard; }, shownAs: { kind: "card", cardType: "folder_grant_request" } },
   /** skills/tool-names.ts REQUEST_SKILL_CHANGE_TOOL */
   request_skill_change: { get what() { return WHAT.skillChangeCard; }, shownAs: { kind: "card", cardType: "skill_change" } },
   /** skills/tool-names.ts PROPOSE_SKILL_TOOL：秘书提交的，同一张卡 */

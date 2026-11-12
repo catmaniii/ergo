@@ -1,7 +1,8 @@
 // 目录授权（ADR-0049）在状态层的那一半：纯函数。设置 · 目录授权的总览、各 agent 的 ⚙ 里那一块、审批卡上的"以后都允许"、
 // 使用记录都用这里的说法：操作怎么写（只读、读、写、删）、到期怎么写（不写到期的醒目地写"长期有效"）、按 agent 分组。
+// agent 自己申请的那张卡（464，folder_grant_request）上的说法也在这里：已经登记了什么、多久能选哪几样、处理之后怎么写。
 import type { FolderMark } from "./folder-picker.ts";
-import { FOLDER_GRANT_MODES, type FolderGrantMode, type FolderGrantsView, type FolderGrantView, t, tTable } from "./protocol.ts";
+import { FOLDER_GRANT_MODES, type FolderGrantMode, type FolderGrantRequestCardPayload, type FolderGrantsView, type FolderGrantView, t, tTable } from "./protocol.ts";
 
 /** 一种操作怎么说 */
 export const FOLDER_GRANT_MODE_LABEL: Readonly<Record<FolderGrantMode, string>> = tTable({
@@ -74,8 +75,8 @@ export function expiredFolderGrants(view: FolderGrantsView | undefined): number 
 export const FOLDER_GRANT_DURATIONS = ["forever", "1", "7", "30", "90"] as const;
 export type FolderGrantDuration = (typeof FOLDER_GRANT_DURATIONS)[number];
 
-/** 到期选项怎么说 */
-export function folderGrantDurationText(d: FolderGrantDuration): string {
+/** 到期选项怎么说（申请卡上还有申请的天数，不在固定的几样里也照写） */
+export function folderGrantDurationText(d: FolderGrantDuration | string): string {
   return d === "forever" ? t("state.folderGrants.forever") : t("state.folderGrants.days", { count: Number(d) });
 }
 
@@ -85,4 +86,71 @@ export function folderGrantExpiresAt(d: FolderGrantDuration, now: number): strin
   const at = new Date(now + Number(d) * 24 * 60 * 60 * 1000);
   at.setHours(23, 59, 0, 0);
   return at.toISOString();
+}
+
+// ───────────────────────── agent 申请的卡（464） ─────────────────────────
+
+/** 几样操作一样一样列出来（"写、删"；不像 folderGrantModesText 那样把只有读的写成"只读"） */
+function modesList(modes: readonly FolderGrantMode[]): string {
+  return FOLDER_GRANT_MODES.filter((m) => modes.includes(m))
+    .map((m) => FOLDER_GRANT_MODE_LABEL[m])
+    .join(t("state.folderGrants.modeSep"));
+}
+
+/** 申请的多久写成选项的值：长期有效是 forever，别的是天数 */
+export function folderGrantRequestDuration(days: number | undefined): string {
+  return days === undefined ? "forever" : String(days);
+}
+
+/** 选项的值换回天数：长期有效是 null（同意时交给守护进程的写法） */
+export function folderGrantRequestDays(value: string): number | null {
+  return value === "forever" ? null : Number(value);
+}
+
+/** 申请卡上"多久"能选的：长期有效和几个常用的天数，申请的天数不在里面的按长短插进去 */
+export function folderGrantRequestDurations(days: number | undefined): string[] {
+  const options: string[] = [...FOLDER_GRANT_DURATIONS];
+  const asked = folderGrantRequestDuration(days);
+  if (options.includes(asked)) return options;
+  const at = options.findIndex((o) => o !== "forever" && Number(o) > Number(asked));
+  return at < 0 ? [...options, asked] : [...options.slice(0, at), asked, ...options.slice(at)];
+}
+
+/** 路径比较用的写法：不分大小写、正反斜杠，去掉末尾的斜杠 */
+const comparablePath = (p: string) => p.replaceAll("/", "\\").replace(/\\+$/, "").toLowerCase();
+
+/** 两个路径是不是同一个目录 */
+const samePath = (a: string, b: string) => comparablePath(a) === comparablePath(b);
+
+/**
+ * 申请卡上"已有"那一行：这个目录已经登记了的写"现在只读（长期有效），这次要加写、删"；登记的是上级目录的写出是哪个；
+ * 以前登记过、已经过期的写明。没登记过的是 undefined
+ */
+export function folderGrantRequestExisting(p: Pick<FolderGrantRequestCardPayload, "path" | "modes" | "existing">): string | undefined {
+  const e = p.existing;
+  if (!e) return undefined;
+  const has = folderGrantModesText(e.modes);
+  if (e.expired) return t("state.folderGrants.request.existingExpired", { path: e.path, has, at: e.expiresAt ? folderGrantTimeText(e.expiresAt) : "" });
+  const expiry = folderGrantExpiry({ ...(e.expiresAt === undefined ? {} : { expiresAt: e.expiresAt }), state: "active" }).text;
+  if (!samePath(e.path, p.path)) return t("state.folderGrants.request.existingParent", { path: e.path, has, expiry });
+  const add = p.modes.filter((m) => !e.modes.includes(m));
+  return add.length > 0 ? t("state.folderGrants.request.existingAdd", { has, expiry, add: modesList(add) }) : t("state.folderGrants.request.existingHas", { has, expiry });
+}
+
+/** 申请卡上"要"那一行：几样操作（一样一样列）和多久 */
+export function folderGrantRequestAsk(p: Pick<FolderGrantRequestCardPayload, "modes" | "days">): { modes: string; duration: string } {
+  return { modes: modesList(p.modes), duration: folderGrantDurationText(folderGrantRequestDuration(p.days)) };
+}
+
+/** 处理之后卡上写的：同意了登记成什么（并进已有的之后）、到什么时候；没同意的写没同意。附的那句话跟在后面 */
+export function folderGrantRequestOutcome(p: Pick<FolderGrantRequestCardPayload, "decided">): string | undefined {
+  const d = p.decided;
+  if (!d) return undefined;
+  const note = d.note;
+  if (d.approved && d.grant) {
+    const expiry = folderGrantExpiry({ ...(d.grant.expiresAt === undefined ? {} : { expiresAt: d.grant.expiresAt }), state: "active" }).text;
+    const text = t("state.folderGrants.request.approved", { modes: folderGrantModesText(d.grant.modes), expiry });
+    return note ? t("state.folderGrants.request.withNote", { text, note }) : text;
+  }
+  return note ? t("state.folderGrants.request.deniedNote", { note }) : t("state.folderGrants.request.denied");
 }

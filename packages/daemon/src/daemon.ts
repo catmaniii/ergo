@@ -23,6 +23,7 @@ import {
   type EventFrame,
   type ExternalCalendarEventPayload,
   MAINTAINER_CHANNEL_PREFIX,
+  maintainerChannel,
   type MessageScope,
   type PluginStatusEventPayload,
   rollbackEnabled,
@@ -33,6 +34,7 @@ import {
   type ProjectEventPayload,
   t,
   type Task,
+  taskInboxOrigin,
   type TaskActionParams,
   type TaskActionResult,
   type TaskEventPayload,
@@ -223,6 +225,7 @@ import { createFolderBrowser } from "./folders/folder-browser.ts";
 import { openLocalFolders } from "./folders/local-folders.ts";
 import { folderGrantsView, openFolderGrants } from "./folders/folder-grants.ts";
 import { createFolderGrantExpiryNotices } from "./folders/folder-grant-expiry.ts";
+import { createFolderGrantRequests, folderGrantRequestCardType, type FolderGrantOwner } from "./folders/folder-grant-requests.ts";
 import { recentFolderGrantUses } from "./guard-runtime/folder-grants.ts";
 import { secretaryToolList } from "./secretary/tool-list.ts";
 import { BROWSING, savedPageOf } from "./browsing/api.ts";
@@ -1377,6 +1380,46 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       forbidden: () => [places.dataDir.root, places.programDir],
       canHold: folderGrantHolders,
       log,
+    });
+    // 表的主人给人看的名字照 ⚙ 上的说法（秘书是名字占位，界面上换成用户起的名字），认不得的（项目、任务删掉了）不写名字。
+    // agent 宿主在下面建，用到时（设置页、到期提示、申请卡）早就有了
+    const folderGrantLabel = (agentId: string): string | undefined =>
+      agentId === SECRETARY_AGENT_ID ? ASSISTANT_NAME_MARK : folderGrantHolders(agentId) ? agentHost.agentHandle(agentId)?.label : undefined;
+    // 464：有表的 agent 自己申请（request_folder_grant）——卡出在它自己的会话里、进待办，用户在卡上同意了才登记（并进它的那一份，
+    // 只会变宽），结果作为通知交回它的会话。它在哪：秘书的主线；项目负责人的会话（归属项目）；任务负责人的会话（归属任务，项目内部的带上项目）
+    const folderGrantOwner = (agentId: string): FolderGrantOwner | undefined => {
+      if (agentId === SECRETARY_AGENT_ID) {
+        return { label: ASSISTANT_NAME_MARK, conversation: CHANNELS.secretary, scope: {}, source: t("quickActions.source.secretary", { assistant: ASSISTANT_NAME_MARK }), origin: { conversation: CHANNELS.secretary } };
+      }
+      if (!folderGrantHolders(agentId)) return undefined;
+      const label = folderGrantLabel(agentId) ?? agentId;
+      const project = projectDirectory.ofMaintainer(agentId)?.project;
+      if (project) return { label, conversation: maintainerChannel(agentId), scope: { projectId: project.id }, source: t("projects.source.project", { name: project.name }), origin: { projectId: project.id } };
+      const task = tasks.ofMaintainer(agentId);
+      if (!task) return undefined;
+      const own = taskInboxOrigin(task);
+      return { label, conversation: maintainerChannel(agentId), scope: { taskId: task.id, ...(task.internal ? { projectId: task.internal.projectId } : {}) }, source: own.source, origin: own.origin, internal: own.internal };
+    };
+    const folderGrantRequests = createFolderGrantRequests({
+      store,
+      cards,
+      inbox,
+      grants: folderGrants,
+      authorizedFolders: () => localFolders.list(),
+      ownerOf: folderGrantOwner,
+      now: () => clock.now(),
+      // 加的时候离到期已经不到三天的，马上提示（到期提示在下面建）
+      onRegistered: () => folderGrantExpiryNotices.check(),
+      log,
+    });
+    registry.register(folderGrantRequestCardType(folderGrantRequests));
+    // 申请的工具：有表的 agent 每种会话都有（秘书的主线，负责人起草、执行、普通任务、一次运行、对话段），子 agent、评审、记忆管理员没有。
+    // 涉及多个项目的任务的负责人（固定工具包）不给：它没有读写文件的工具，登记了也用不上。排在内核自己的工具之后（at: end，
+    // 秘书的在指挥服务管家的那几个后面、浏览插件的网页工具前面；负责人的在插件给的后面），别的工具的先后不挪
+    agentContributions.tools.register({
+      to: { agents: ["secretary", "task", "project", "job"], sessions: ["secretary", "planning", "execution", "plain", "run", "chat"] },
+      at: "end",
+      tools: (target) => (folderGrantHolders(target.agentId) ? [folderGrantRequests.tool(target.agentId)] : []),
     });
     // 向量函数（正式运行是数据目录模型区里的 bge-m3，测试注入假的）：记忆插件、记忆管理员共用一份
     // （打开推理库时 manifest 里记着它的名字；管理员改一条结论时不能把它写成"没有"）
@@ -2812,10 +2855,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       return taskExecution.act(params, idempotencyKey);
     };
 
-    // 目录授权（ADR-0049）的设置接口和到期提示：表的主人给人看的名字照 ⚙ 上的说法（秘书是名字占位，界面上换成用户起的名字），
-    // 认不得的（项目、任务删掉了）不写名字，设置页上照样能删
-    const folderGrantLabel = (agentId: string): string | undefined =>
-      agentId === SECRETARY_AGENT_ID ? ASSISTANT_NAME_MARK : folderGrantHolders(agentId) ? agentHost.agentHandle(agentId)?.label : undefined;
+    // 目录授权（ADR-0049）的设置接口和到期提示：表的主人的名字见上面的 folderGrantLabel，认不得的不写名字，设置页上照样能删
     const folderGrantExpiryNotices = createFolderGrantExpiryNotices({
       grants: folderGrants,
       inbox,

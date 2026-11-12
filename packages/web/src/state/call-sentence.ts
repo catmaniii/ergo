@@ -126,6 +126,8 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = labelTable(
     request_toolkit_change: "state.callSentence.tool.request_toolkit_change",
     // 登记 MCP
     request_mcp_change: "state.callSentence.tool.request_mcp_change",
+    // 申请目录授权（464：只出申请卡）
+    request_folder_grant: "state.callSentence.tool.request_folder_grant",
     // 秘书带参调一个登记过的 MCP 工具
     mcp_call: "state.callSentence.tool.mcp_call",
     // 提交 skill

@@ -548,6 +548,8 @@ const INTERNAL: ReadonlyArray<readonly [string, "card" | "record" | "system" | "
   ["request_skill_change", "card", "skill_change"],
   // 秘书提交 skill（同一张卡）
   ["propose_skill", "card", "skill_change"],
+  // 申请目录授权（464：只出申请卡，用户同意了才登记）
+  ["request_folder_grant", "card", "folder_grant_request"],
   ["adjust_skills", "record", "toolkit"],
   ["dispatch_work_order", "record", "work_order"],
 ];

@@ -4,14 +4,16 @@
 // 守卫按它放开登记了的那种操作（daemon 的 guard/judge.ts），因为它放行的每次调用记一条使用记录。
 // 设置接口：GET / POST /api/folder-grants 看、加；DELETE /api/folder-grants/<id> 删一条；POST /api/folder-grants/clear 一次清掉几条；
 // GET /api/folder-grants/uses 最近的使用记录。
+// 464：有表的 agent 也能自己申请（工具 request_folder_grant）：发一张"目录授权申请"卡（folder_grant_request），用户在卡上
+// 收窄（去掉几样操作、改多久）后点同意才登记，谁加的记"它申请、你同意的"（request）。
 import { type Static, Type } from "typebox";
 
 /** 一条授权能做的操作：读、写、删（删除单独勾，勾了删除不自动带写） */
 export const FOLDER_GRANT_MODES = ["read", "write", "delete"] as const;
 export type FolderGrantMode = (typeof FOLDER_GRANT_MODES)[number];
 
-/** 谁加的：用户在设置、⚙ 里加的，用户在审批卡上点"以后都允许"登记的 */
-export const FOLDER_GRANT_ADDED_BY = ["user", "approval"] as const;
+/** 谁加的：用户在设置、⚙ 里加的，用户在审批卡上点"以后都允许"登记的，agent 申请、用户在申请卡上同意的 */
+export const FOLDER_GRANT_ADDED_BY = ["user", "approval", "request"] as const;
 export type FolderGrantAddedBy = (typeof FOLDER_GRANT_ADDED_BY)[number];
 
 /** 一条授权现在的样子：有效、已过期、目录找不到了 */
@@ -26,6 +28,10 @@ export const FOLDER_GRANT_REMIND_BEFORE_MS = 3 * 24 * 60 * 60 * 1000;
 export const FOLDER_GRANT_USES_MAX = 500;
 /** 使用记录默认取几条 */
 export const FOLDER_GRANT_USES_DEFAULT = 100;
+/** agent 申请时最多能要几天（不写是长期有效）；申请卡上改多久也是这个范围 */
+export const FOLDER_GRANT_REQUEST_DAYS_MAX = 3650;
+/** 申请的理由最多几个字（和设置里"为什么给"一样长） */
+export const FOLDER_GRANT_REASON_MAX = 500;
 
 const Modes = Type.Array(Type.Enum(FOLDER_GRANT_MODES), { minItems: 1, maxItems: 3, uniqueItems: true });
 
@@ -116,6 +122,66 @@ export type FolderGrantUsesView = Static<typeof FolderGrantUsesView>;
  */
 export const ApprovalFolderGrant = Type.Object({ path: Type.String(), modes: Modes });
 export type ApprovalFolderGrant = Static<typeof ApprovalFolderGrant>;
+
+const RequestDays = Type.Integer({ minimum: 1, maximum: FOLDER_GRANT_REQUEST_DAYS_MAX });
+
+/** 一条登记的样子（申请卡上写的已有的、同意之后登记成的）：操作、到期时间（不写是长期有效） */
+const GrantShape = { modes: Modes, expiresAt: Type.Optional(Type.String()) };
+
+/**
+ * "目录授权申请"卡（folder_grant_request）：有目录授权表的 agent（个人助理、项目和任务的负责人）用 request_folder_grant 申请的。
+ * 出在它自己的会话里、进待办；卡上写哪个 agent、目录、要的操作、多久、为什么，这个目录已经登记过的写明已有什么，
+ * 在所有 agent 都能读的文件夹里的写明"读本来就行"。用户能去掉几样操作、改多久再同意；同意了才登记（已有的那条只会变宽），
+ * 结果作为一条通知交回这个 agent
+ */
+export const FolderGrantRequestCardPayload = Type.Object({
+  /** 谁申请的：secretary、项目负责人的 pm-<n>、任务负责人的 tm-<n> */
+  agentId: Type.String(),
+  /** 给人看的：个人助理是名字占位（界面上换成用户起的名字）、项目「…」的负责人、任务「…」的负责人 */
+  agentLabel: Type.String(),
+  /** 目录（发卡时查过的真实路径） */
+  path: Type.String(),
+  /** 要的操作 */
+  modes: Modes,
+  /** 要几天；不写是长期有效 */
+  days: Type.Optional(RequestDays),
+  /** 为什么要 */
+  why: Type.String(),
+  /** 发卡时这个目录（或它的上级）已经登记了的那一条：path 是登记的目录，expired 是已经过期了 */
+  existing: Type.Optional(Type.Object({ path: Type.String(), ...GrantShape, expired: Type.Boolean() })),
+  /** 在所有 agent 都能读的文件夹（授权的文件夹）里：读本来就行 */
+  readable: Type.Optional(Type.Literal(true)),
+  /**
+   * 处理之后：同意了没有、什么时候、用户附的那句话；同意的还有这次给的（勾着的操作、选的多久换成的到期时间）和登记之后那一条的样子
+   * （并进已有的之后：操作取并集、到期取更晚的）
+   */
+  decided: Type.Optional(
+    Type.Object({
+      approved: Type.Boolean(),
+      at: Type.String(),
+      note: Type.Optional(Type.String()),
+      granted: Type.Optional(Type.Object(GrantShape)),
+      grant: Type.Optional(Type.Object(GrantShape)),
+    }),
+  ),
+});
+export type FolderGrantRequestCardPayload = Static<typeof FolderGrantRequestCardPayload>;
+
+/**
+ * 申请卡上"同意"的输入：勾着的操作（只能是申请里要的那几种，去掉几样）、多久（天数；null 是长期有效）。
+ * 不写的照申请的；整个不给就是原样同意
+ */
+export const FolderGrantRequestApproveInput = Type.Union([
+  Type.Undefined(),
+  Type.Object(
+    {
+      modes: Type.Optional(Modes),
+      days: Type.Optional(Type.Union([RequestDays, Type.Null()])),
+    },
+    { additionalProperties: false },
+  ),
+]);
+export type FolderGrantRequestApproveInput = Static<typeof FolderGrantRequestApproveInput>;
 
 /** "目录授权快到期"事项（notice folder_grant_expiring）的 data */
 export interface FolderGrantExpiringData {

@@ -40,7 +40,7 @@ agent 能碰哪里、能用什么，只有用户改得了。agent 最多提出�
 
 - 工具包加能力（开 bash、加 MCP、开联网、打开"给秘书发消息"、打开"发附件"）要用户批准；减能力、增减 skill 不用。依据：`packages/protocol/src/toolkit.ts` 的 `toolkitExpansions`；`toolkit/toolkit.ts` 的 `createToolkitService`。
 - 授权的文件夹：秘书只能提，卡上总要用户点"执行"。依据：`folders/authorize-folders.ts` 的 `authorizeFoldersAction`。
-- 目录授权表只由运行时写，agent 没有改它的工具；用户在设置 · 目录授权、各 agent 的 ⚙、审批卡的"以后都允许"里加。依据：`folders/folder-grants.ts` 的 `openFolderGrants`；[ADR-0049](architecture/adr/0049-per-agent-folder-grants.md)。
+- 目录授权表只由运行时写，agent 没有改它的工具；用户在设置 · 目录授权、各 agent 的 ⚙、审批卡的"以后都允许"里加。有表的 agent 能用 `request_folder_grant` 申请，只是发一张申请卡，用户点同意才登记（子 agent、评审没有这个工具）。依据：`folders/folder-grants.ts` 的 `openFolderGrants`、`folders/folder-grant-requests.ts`；[ADR-0049](architecture/adr/0049-per-agent-folder-grants.md)。
 - 关注类别的内置类别只能往严里调。依据：`guard/watch-categories.ts` 的 `builtinDisposition`、`editWatchCategorySettings`。
 - 运营方案、转入使用、定时任务、skill 进库、MCP 登记，都只出卡（见下面的能力表）。
 - 受保护区域（配置区、密钥区、数据库区、skill 区、二狗程序目录，服务管家的注册表和运行状态）谁都写不了，密钥区（服务管家的 `.secrets` 也算）连读都拒。依据：`guard/judge.ts` 的 `protectedAreasOf`、`pathRule`。
@@ -149,7 +149,7 @@ agent 能碰哪里、能用什么，只有用户改得了。agent 最多提出�
 
 <!-- secretary-tools：和 packages/daemon/test/main/reminders.test.ts 断言的那一份一致 -->
 ```text
-read write edit ls grep find bash read_attachment send_attachment create_reminder update_reminder cancel_reminder archive_reminder search_materials read_material ask_memory ask_curator mark_woven_question remember_memory ingest_material map_search_places map_route map_geocode map_reverse_geocode map_my_places show_on_map mcp_call propose_quick_action read_personal_file start_workflow create_task delegate_task suggest_task ask_questions write_task_brief schedule_task suggest_project view_board check_health check_balance read_project_records open_service switch_project_services project_ops propose_go_live propose_skill list_inbox show_card lsm_status lsm_logs lsm_control lsm_force lsm_entries lsm_restart_self browse_read_page browse_fill find_files view_files browse_attach_files browse_open browse_snapshot browse_click browse_element_content browse_element_download web_search web_fetch spoken_summary send_voice
+read write edit ls grep find bash read_attachment send_attachment create_reminder update_reminder cancel_reminder archive_reminder search_materials read_material ask_memory ask_curator mark_woven_question remember_memory ingest_material map_search_places map_route map_geocode map_reverse_geocode map_my_places show_on_map mcp_call propose_quick_action read_personal_file start_workflow create_task delegate_task suggest_task ask_questions write_task_brief schedule_task suggest_project view_board check_health check_balance read_project_records open_service switch_project_services project_ops propose_go_live propose_skill list_inbox show_card lsm_status lsm_logs lsm_control lsm_force lsm_entries lsm_restart_self request_folder_grant browse_read_page browse_fill find_files view_files browse_attach_files browse_open browse_snapshot browse_click browse_element_content browse_element_download web_search web_fetch spoken_summary send_voice
 ```
 
 - 提醒插件给 `create_reminder` 到 `archive_reminder`，记忆插件给 `search_materials` 到 `ingest_material`，地图插件给 `map_search_places` 到 `show_on_map`（查地点、算路线的五个插件在运行就有，不跟着高德连没连着走；谷歌地图插件不加工具，登记进地图服务插槽，还是这几个工具按区域、按 `map` 参数挑到它），浏览插件给 `browse_read_page` 到 `browse_element_download`，语音插件给 `spoken_summary`、`send_voice`。插件停用时这几段没有。
@@ -170,7 +170,7 @@ read write edit ls grep find bash read_attachment send_attachment create_reminde
 | 项目内部的普通任务 | `read` `write` `edit` `ls` `grep` `find` `write_segment_summary` `web_search` `web_fetch` `spoken_summary` `send_voice` `tell_secretary` `read_attachment` `send_attachment`，工具包里 MCP 的工具 |
 | 定时运行 | 普通任务的：同项目内部的普通任务，加 `fail_job_run`。流程的：同上，再加 `report_step` `propose_plan`（一律被拒），工具包是授权的计划和项目工具包的交集 |
 
-工具包开了 bash 的，每一段都加 `bash` 和带类型的 bash 工具。工具包里关了"给秘书发消息""发附件"的，没有 `tell_secretary`、`send_attachment`。
+工具包开了 bash 的，每一段都加 `bash` 和带类型的 bash 工具。工具包里关了"给秘书发消息""发附件"的，没有 `tell_secretary`、`send_attachment`。每一段都有 `request_folder_grant`（申请目录授权：只发一张申请卡，用户同意了才登记），排在插件给的工具后面。
 
 依据：`projects/maintainers.ts` 的 `assemble`、`segmentToolkit`；`agent-host/assembly.ts` 的 `chatSetup`、`planningSetup`、`executionSetup`、`plainTaskSetup`、`jobRunSetup`；`tasks/workflow-tools.ts` 的 `workflowExecutionTools`；`scheduled-jobs/jobs.ts` 的 `runAssembly`。
 
@@ -185,13 +185,13 @@ read write edit ls grep find bash read_attachment send_attachment create_reminde
 | 定时运行 | 普通任务的：同普通任务，加 `fail_job_run`。流程的：工具包照授权的计划，读写、每段都有的那几个，加 `report_step` `fail_job_run` `propose_plan`（一律被拒） |
 | 涉及多个项目的任务 | `read_project_records` `dispatch_work_order` `summarize_receipts`；起草时加 `submit_plan`，执行时加推进阶段的那几个和 `answer_work_order` `forward_to_user`；`web_search` `web_fetch` `spoken_summary` `send_voice` `tell_secretary` `read_attachment`。没有 pi 的内置工具 |
 
-执行时工具包开了 bash 的加 `bash` 和带类型的 bash 工具。
+执行时工具包开了 bash 的加 `bash` 和带类型的 bash 工具。除了涉及多个项目的任务（没有读写文件的工具），每一段都有 `request_folder_grant`（申请目录授权，只发卡）。
 
 依据：`maintainers/maintainers.ts` 的 `taskToolkit`；`agent-host/assembly.ts` 的 `executionSetup`、`fixedSetup`；`tasks/workflow-tools.ts` 的 `workflowExecutionTools`；`scheduled-jobs/jobs.ts` 的 `runAssembly`；`work-orders/tool-names.ts` 的 `MULTI_PROJECT_TOOL`。
 
 ### 子 agent
 
-负责人此刻的 pi 内置工具；带类型的 bash 工具、`web_search`、`web_fetch`、`tell_secretary` 里负责人也有的。没有 MCP、skill、`spoken_summary`、`send_voice`，也没有推进任务、起草计划、提议并行、`send_attachment`、`request_skill_change`。
+负责人此刻的 pi 内置工具；带类型的 bash 工具、`web_search`、`web_fetch`、`tell_secretary` 里负责人也有的。没有 MCP、skill、`spoken_summary`、`send_voice`，也没有推进任务、起草计划、提议并行、`send_attachment`、`request_skill_change`、`request_folder_grant`。
 
 依据：`sub-agents/sub-agents.ts` 的 `assemble`；`sub-agents/assembly.ts` 的 `subAgentAssembly`、`MAINTAINER_ONLY_TOOLS`。
 

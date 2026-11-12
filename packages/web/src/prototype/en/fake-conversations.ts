@@ -745,4 +745,27 @@ export const EN_CONVERSATIONS: Phrases = {
   '参数：{"personId":"p2"}\n为什么：用户要只看他的照片\n结果：只显示 p2 的 128 张照片': 'Arguments: {"personId":"p2"}\nWhy: The user wants only his photos\nResult: Showing only p2\'s 128 photos',
   "周会纪要做成 PDF 了，还有房东发来的合同（加了密码）和一份扫描件，扫描件好像没传完": "I made the meeting notes into a PDF. Here's also the lease from the landlord (password-protected) and a scan, which doesn't seem to have finished uploading",
   "纪要看过了，三件事都记下了。合同加了密码，我这边打不开；扫描件不完整，有空再传一次。": "Read the notes and noted all three things. The lease is password-protected, so I can't open it; the scan is incomplete, so please send it again when you get a chance.",
+  // 目录授权申请（464）
+  "已登记：读、写 · 到 2026-11-06 23:59": "Registered: read, write · until 2026-11-06 23:59",
+  "{}申请读、写 D:\\下载\\课件（30 天）\n为什么：按科目给课件建文件夹、把文件归进去\n已同意，登记成：读、写 · 到 2026-11-06 23:59":
+    "{} asks to read, write D:\\Downloads\\Courses (30 days)\nWhy: Make a folder per subject and sort the course files into them\nApproved, registered as: read, write · until 2026-11-06 23:59",
+  "把零散的笔记按书归到各自的文件夹里：要新建文件夹、把笔记挪进去（挪要写和删）": "Sort the loose notes into a folder per book: it has to create folders and move the notes in (moving needs write and delete)",
+  "{}申请写、删 D:\\笔记（30 天）\n为什么：把零散的笔记按书归到各自的文件夹里：要新建文件夹、把笔记挪进去（挪要写和删）":
+    "{} asks to write, delete D:\\Notes (30 days)\nWhy: Sort the loose notes into a folder per book: it has to create folders and move the notes in (moving needs write and delete)",
+  "项目「个人博客」的负责人": "The owner of project “Personal blog”",
+  "D:\\照片\\博客配图": "D:\\photos\\Blog images",
+  "迁移后的文章配图从这里取，压缩好的图写回同一个文件夹": "The migrated posts take their images from here, and the compressed images go back into the same folder",
+  "项目「个人博客」的负责人申请读、写 D:\\照片\\博客配图（长期有效）\n为什么：迁移后的文章配图从这里取，压缩好的图写回同一个文件夹":
+    "The owner of project “Personal blog” asks to read, write D:\\photos\\Blog images (no expiry)\nWhy: The migrated posts take their images from here, and the compressed images go back into the same folder",
+  "path=D:\\照片\\博客配图 modes=read,write": "path=D:\\photos\\Blog images modes=read,write",
+  "已发给用户，等确认": "Sent to the user, waiting for approval",
+  "压缩好的配图要写回 D:\\照片\\博客配图，先申请了目录授权，卡在这里，点同意就生效：": "The compressed images need to go back into D:\\photos\\Blog images, so I asked for a folder grant first. Here's the card; it takes effect once you approve:",
+  "把 D:\\下载\\课件 里的课件按科目归一下": "Sort the course files in D:\\Downloads\\Courses by subject",
+  "path=D:\\下载\\课件 modes=read,write days=30": "path=D:\\Downloads\\Courses modes=read,write days=30",
+  "要在 D:\\下载\\课件 里读写，先申请了目录授权（读、写，30 天），点同意就生效：": "I need to read and write in D:\\Downloads\\Courses, so I asked for a folder grant first (read, write, 30 days). It takes effect once you approve:",
+  "归好了：按科目建了 6 个文件夹，38 个课件都放进去了。": "Done: made 6 folders by subject and put all 38 course files into them.",
+  "D:\\笔记 里零散的笔记也按书归到各自的文件夹里": "Also sort the loose notes in D:\\Notes into a folder per book",
+  "path=D:\\笔记 modes=write,delete days=30": "path=D:\\Notes modes=write,delete days=30",
+  "D:\\笔记 现在只登记了读。整理要新建文件夹、把笔记挪进去，申请加上写和删（30 天），卡在这里，点同意就生效：":
+    "D:\\Notes is only registered for reading. Sorting it means creating folders and moving the notes in, so I asked to add write and delete (30 days). Here's the card; it takes effect once you approve:",
 };

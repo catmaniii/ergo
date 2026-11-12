@@ -40,7 +40,7 @@ Only you can change where an agent may reach and what it may use. At most an age
 
 - Adding to a toolkit (turning on bash, adding an MCP, turning on network access, turning on "message the secretary", turning on "send attachments") needs your approval; removing things and adding or removing skills don't. Code: `packages/protocol/src/toolkit.ts` `toolkitExpansions`; `toolkit/toolkit.ts` `createToolkitService`.
 - Authorized folders: the secretary can only propose; the card always waits for you to click **Run**. Code: `folders/authorize-folders.ts` `authorizeFoldersAction`.
-- Folder grants are written only by the runtime; agents have no tool for them. You add them in Settings · Folder grants, in each agent's ⚙, or with **Always allow** on an approval card. Code: `folders/folder-grants.ts` `openFolderGrants`; [ADR-0049](architecture/adr/0049-per-agent-folder-grants.md) (in Chinese).
+- Folder grants are written only by the runtime; agents have no tool for them. You add them in Settings · Folder grants, in each agent's ⚙, or with **Always allow** on an approval card. An agent with a list can ask with `request_folder_grant`, which only sends a request card; nothing is registered until you approve it (sub-agents and reviewers don't have this tool). Code: `folders/folder-grants.ts` `openFolderGrants`, `folders/folder-grant-requests.ts`; [ADR-0049](architecture/adr/0049-per-agent-folder-grants.md) (in Chinese).
 - Built-in watch categories can only be made stricter. Code: `guard/watch-categories.ts` `builtinDisposition`, `editWatchCategorySettings`.
 - Operations plans, going live, scheduled tasks, putting a skill into the library and registering an MCP all only make a card (see the tables below).
 - Protected areas (config, secrets, database, skills, ergo's program folder, the service manager's registry and run state) can't be written by anyone, and the secrets areas (including the service manager's `.secrets`) can't even be read. Code: `guard/judge.ts` `protectedAreasOf`, `pathRule`.
@@ -149,7 +149,7 @@ With all plugins on and no data source connected, in the order the model sees th
 
 <!-- secretary-tools: same as the list asserted in packages/daemon/test/main/reminders.test.ts -->
 ```text
-read write edit ls grep find bash read_attachment send_attachment create_reminder update_reminder cancel_reminder archive_reminder search_materials read_material ask_memory ask_curator mark_woven_question remember_memory ingest_material map_search_places map_route map_geocode map_reverse_geocode map_my_places show_on_map mcp_call propose_quick_action read_personal_file start_workflow create_task delegate_task suggest_task ask_questions write_task_brief schedule_task suggest_project view_board check_health check_balance read_project_records open_service switch_project_services project_ops propose_go_live propose_skill list_inbox show_card lsm_status lsm_logs lsm_control lsm_force lsm_entries lsm_restart_self browse_read_page browse_fill find_files view_files browse_attach_files browse_open browse_snapshot browse_click browse_element_content browse_element_download web_search web_fetch spoken_summary send_voice
+read write edit ls grep find bash read_attachment send_attachment create_reminder update_reminder cancel_reminder archive_reminder search_materials read_material ask_memory ask_curator mark_woven_question remember_memory ingest_material map_search_places map_route map_geocode map_reverse_geocode map_my_places show_on_map mcp_call propose_quick_action read_personal_file start_workflow create_task delegate_task suggest_task ask_questions write_task_brief schedule_task suggest_project view_board check_health check_balance read_project_records open_service switch_project_services project_ops propose_go_live propose_skill list_inbox show_card lsm_status lsm_logs lsm_control lsm_force lsm_entries lsm_restart_self request_folder_grant browse_read_page browse_fill find_files view_files browse_attach_files browse_open browse_snapshot browse_click browse_element_content browse_element_download web_search web_fetch spoken_summary send_voice
 ```
 
 - The reminders plugin gives `create_reminder` through `archive_reminder`, the memory plugin `search_materials` through `ingest_material`, the map plugin `map_search_places` through `show_on_map` (the five lookup tools are there whenever the plugin runs, whether or not AMap is connected; the Google Maps plugin adds no tools — it registers in the map provider slot, and these same tools reach it by region or by their `map` argument), the browsing plugin `browse_read_page` through `browse_element_download`, and the voice plugin `spoken_summary` and `send_voice`. When a plugin is off, its stretch is gone.
@@ -170,7 +170,7 @@ Code: `secretary/secretary.ts` `startSecretary`; `secretary/tool-list.ts` `secre
 | Plain task inside the project | `read` `write` `edit` `ls` `grep` `find` `write_segment_summary` `web_search` `web_fetch` `spoken_summary` `send_voice` `tell_secretary` `read_attachment` `send_attachment`, and the toolkit's MCP tools |
 | Scheduled run | For a plain task: the plain-task set plus `fail_job_run`. For a workflow: the same plus `report_step` and `propose_plan` (always refused), with the toolkit being the overlap of the authorized plan's and the project's |
 
-When the toolkit has bash on, every segment also gets `bash` and the typed bash tools. When the toolkit has "message the secretary" or "send attachments" off, `tell_secretary` or `send_attachment` is left out.
+When the toolkit has bash on, every segment also gets `bash` and the typed bash tools. When the toolkit has "message the secretary" or "send attachments" off, `tell_secretary` or `send_attachment` is left out. Every segment has `request_folder_grant` (asking for a folder grant: it only sends a request card, and nothing is registered until the user approves), after the tools from plugins.
 
 Code: `projects/maintainers.ts` `assemble`, `segmentToolkit`; `agent-host/assembly.ts` `chatSetup`, `planningSetup`, `executionSetup`, `plainTaskSetup`, `jobRunSetup`; `tasks/workflow-tools.ts` `workflowExecutionTools`; `scheduled-jobs/jobs.ts` `runAssembly`.
 
@@ -185,13 +185,13 @@ Code: `projects/maintainers.ts` `assemble`, `segmentToolkit`; `agent-host/assemb
 | Scheduled run | For a plain task: the plain-task set plus `fail_job_run`. For a workflow: the toolkit follows the authorized plan; reading and writing, the ones every segment has, plus `report_step` `fail_job_run` `propose_plan` (always refused) |
 | Task across several projects | `read_project_records` `dispatch_work_order` `summarize_receipts`; plus `submit_plan` while drafting, and while executing the stage tools plus `answer_work_order` `forward_to_user`; `web_search` `web_fetch` `spoken_summary` `send_voice` `tell_secretary` `read_attachment`. No pi built-in tools |
 
-While executing, a toolkit with bash on also gives `bash` and the typed bash tools.
+While executing, a toolkit with bash on also gives `bash` and the typed bash tools. Every segment except a task across several projects (which has no file tools) has `request_folder_grant` (asking for a folder grant; it only sends a card).
 
 Code: `maintainers/maintainers.ts` `taskToolkit`; `agent-host/assembly.ts` `executionSetup`, `fixedSetup`; `tasks/workflow-tools.ts` `workflowExecutionTools`; `scheduled-jobs/jobs.ts` `runAssembly`; `work-orders/tool-names.ts` `MULTI_PROJECT_TOOL`.
 
 ### Sub-agent
 
-Its owner's current pi built-in tools; of the typed bash tools, `web_search`, `web_fetch` and `tell_secretary`, the ones its owner also has. No MCP, no skills, no `spoken_summary` or `send_voice`, and nothing for moving the task forward, drafting a plan, proposing parallel work, `send_attachment` or `request_skill_change`.
+Its owner's current pi built-in tools; of the typed bash tools, `web_search`, `web_fetch` and `tell_secretary`, the ones its owner also has. No MCP, no skills, no `spoken_summary` or `send_voice`, and nothing for moving the task forward, drafting a plan, proposing parallel work, `send_attachment`, `request_skill_change` or `request_folder_grant`.
 
 Code: `sub-agents/sub-agents.ts` `assemble`; `sub-agents/assembly.ts` `subAgentAssembly`, `MAINTAINER_ONLY_TOOLS`.
 

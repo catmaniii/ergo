@@ -174,6 +174,9 @@ import {
   type SuggestProjectCardPayload,
   type SuggestTaskCardPayload,
   type ScheduleTaskCardPayload,
+  type FolderGrantRequestApproveInput,
+  type FolderGrantRequestCardPayload,
+  FOLDER_GRANT_MODES,
   type Task,
   type TaskEventPayload,
   type TaskKind,
@@ -930,7 +933,9 @@ export class FakeConnection implements Connection {
         ? { ...(card.payload as ScheduleTaskCardPayload), taskId: scheduled.id }
         : started && kind
           ? { ...(card.payload as SuggestTaskCardPayload), taskId: started.id, kind }
-          : this.projectCardEffect(card, req.action, req.note);
+          : card.type === "folder_grant_request"
+            ? fakeFolderGrantDecision(card.payload as FolderGrantRequestCardPayload, req)
+            : this.projectCardEffect(card, req.action, req.note);
       const next: Card = {
         ...card,
         ...(payload ? { payload } : {}),
@@ -1927,3 +1932,24 @@ const FAKE_THOUGHT = "（原型）先想一下怎么回：这是假数据，接�
 const FAKE_REPLY =
   "（原型）收到。我先把你说的拆成几步：第一步看看现在的情况，第二步列出要改的地方，第三步一项一项改完再告诉你。" +
   "这里是假数据，接上守护进程后是真实的回复；说着的时候可以点输入框旁的“停止”，也可以接着发话——发的话先排队，这一轮说完再交给我。";
+
+/**
+ * 目录授权申请卡（464）上的同意、不同意：原型里只改卡（登记表在 fake-http 里，不跟着变）。同意的照守护进程算——勾着的操作、
+ * 选的天数换成那一天的 23:59，并进已有的那条（这个目录自己的、没过期的：操作取并集，到期取更晚的）
+ */
+function fakeFolderGrantDecision(p: FolderGrantRequestCardPayload, req: CardActionRequest): FolderGrantRequestCardPayload {
+  const at = nowIso();
+  const note = req.note?.trim() || undefined;
+  if (req.action !== "approve") return { ...p, decided: { approved: false, at, ...(note ? { note } : {}) } };
+  const input = (req.input ?? {}) as Exclude<FolderGrantRequestApproveInput, undefined>;
+  const modes = FOLDER_GRANT_MODES.filter((m) => (input.modes ?? p.modes).includes(m));
+  const days = input.days === undefined ? p.days : (input.days ?? undefined);
+  const end = days === undefined ? undefined : new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  end?.setHours(23, 59, 0, 0);
+  const expiresAt = end ? nowIso(end) : undefined;
+  const kept = p.existing && !p.existing.expired && p.existing.path.toLowerCase() === p.path.toLowerCase() ? p.existing : undefined;
+  const until = kept === undefined ? expiresAt : kept.expiresAt === undefined || expiresAt === undefined ? undefined : kept.expiresAt > expiresAt ? kept.expiresAt : expiresAt;
+  const granted = { modes, ...(expiresAt ? { expiresAt } : {}) };
+  const grant = { modes: FOLDER_GRANT_MODES.filter((m) => modes.includes(m) || (kept?.modes.includes(m) ?? false)), ...(until ? { expiresAt: until } : {}) };
+  return { ...p, decided: { approved: true, at, ...(note ? { note } : {}), granted, grant } };
+}

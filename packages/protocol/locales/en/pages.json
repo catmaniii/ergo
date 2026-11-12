@@ -514,7 +514,7 @@
   "pages.authorizedFolders.add": "Add folder",
   "pages.authorizedFolders.full": "Already {max} folders. Remove one before adding another",
   "pages.folderGrants.intro": "Each agent has its own list: one for your personal assistant, one per project (used by the project owner) and one per task (used by the task owner); sub-agents and reviewers don't inherit them. In a registered folder, the kinds of access you ticked (read, write and delete are separate) no longer ask you; anything else works as before.",
-  "pages.folderGrants.howToAdd": "Register folders in each agent's own ⚙. When a chat shows an approval card because it reached a folder outside its scope, you can also tap “Always allow”.",
+  "pages.folderGrants.howToAdd": "Register folders in each agent's own ⚙. When a chat shows an approval card because it reached a folder outside its scope, you can also tap “Always allow”. An agent can also ask for one itself, and the folder is registered once you approve the card.",
   "pages.folderGrants.never": "Never allowed, registered or not: the config, secrets, database and program folders inside the data folder stay unwritable and the secrets area unreadable; secret files in a registered folder (.env, *.key, *.pem, secrets*, id_rsa*, credentials*) are refused for reading and writing.",
   "pages.folderGrants.clearExpired_one": "Clear expired ({count})",
   "pages.folderGrants.clearExpired_other": "Clear expired ({count})",

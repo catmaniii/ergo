@@ -18,6 +18,8 @@ export const EN_HTTP: Phrases = {
   "D:\\照片": "D:\\photos",
   "D:\\笔记": "D:\\Notes",
   "整理读书笔记": "Sorting reading notes",
+  "D:\\下载\\课件": "D:\\Downloads\\Courses",
+  "按科目给课件建文件夹、把文件归进去": "Make a folder per subject and sort the course files into them",
   "D:\\账单导出": "D:\\Bill exports",
   "每月导入银行账单": "Importing bank statements every month",
   "E:\\旧备份": "E:\\Old backups",

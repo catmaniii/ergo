@@ -37,6 +37,7 @@ import {
   type MemoryDeleteCardPayload,
   type PersonalFileCardPayload,
   type PersonalFileSuggestCardPayload,
+  type FolderGrantRequestCardPayload,
   type MemoryRecall,
   type MessageEnvelope,
   type MessagePart,
@@ -1157,6 +1158,61 @@ export const FAKE_CARDS: Card[] = [
     } satisfies ApprovalPayload,
     { urgency: "blocking", createdAt: at("10-07", "07:55"), text: "审批（项目「记账本」）：写文件「ledger.db」 · 删除或覆盖" },
   ),
+  // 目录授权申请（464）：个人助理申请过 D:\\下载\\课件 的读写（你同意了，会话里收成一行）；这会儿申请给 D:\\笔记 加写和删
+  // （已有只读，等你同意）；个人博客的负责人申请 D:\\照片\\博客配图 的读写（在所有 agent 都能读的文件夹里：读本来就行）。
+  // 纯文本照守护进程的写法（谁申请什么、为什么、处理结果），会话里收成一行时取第一行
+  card(
+    "c-fgr-courses",
+    "folder_grant_request",
+    {
+      agentId: "secretary",
+      agentLabel: ASSISTANT_NAME_MARK,
+      path: "D:\\下载\\课件",
+      modes: ["read", "write"],
+      days: 30,
+      why: "按科目给课件建文件夹、把文件归进去",
+      decided: {
+        approved: true,
+        at: at("10-07", "21:59"),
+        granted: { modes: ["read", "write"], expiresAt: "2026-11-06T23:59:00.000+08:00" },
+        grant: { modes: ["read", "write"], expiresAt: "2026-11-06T23:59:00.000+08:00" },
+      },
+    } satisfies FolderGrantRequestCardPayload,
+    {
+      status: "handled",
+      outcome: { action: "approve", note: "已登记：读、写 · 到 2026-11-06 23:59" },
+      handledAt: at("10-07", "21:59"),
+      createdAt: at("10-07", "21:58"),
+      text: `${ASSISTANT_NAME_MARK}申请读、写 D:\\下载\\课件（30 天）\n为什么：按科目给课件建文件夹、把文件归进去\n已同意，登记成：读、写 · 到 2026-11-06 23:59`,
+    },
+  ),
+  card(
+    "c-fgr-notes",
+    "folder_grant_request",
+    {
+      agentId: "secretary",
+      agentLabel: ASSISTANT_NAME_MARK,
+      path: "D:\\笔记",
+      modes: ["write", "delete"],
+      days: 30,
+      why: "把零散的笔记按书归到各自的文件夹里：要新建文件夹、把笔记挪进去（挪要写和删）",
+      existing: { path: "D:\\笔记", modes: ["read"], expired: false },
+    } satisfies FolderGrantRequestCardPayload,
+    { urgency: "non_blocking", createdAt: at("10-07", "22:06"), text: `${ASSISTANT_NAME_MARK}申请写、删 D:\\笔记（30 天）\n为什么：把零散的笔记按书归到各自的文件夹里：要新建文件夹、把笔记挪进去（挪要写和删）` },
+  ),
+  card(
+    "c-fgr-blog",
+    "folder_grant_request",
+    {
+      agentId: "project-blog",
+      agentLabel: "项目「个人博客」的负责人",
+      path: "D:\\照片\\博客配图",
+      modes: ["read", "write"],
+      why: "迁移后的文章配图从这里取，压缩好的图写回同一个文件夹",
+      readable: true,
+    } satisfies FolderGrantRequestCardPayload,
+    { urgency: "non_blocking", createdAt: at("10-07", "08:55"), text: "项目「个人博客」的负责人申请读、写 D:\\照片\\博客配图（长期有效）\n为什么：迁移后的文章配图从这里取，压缩好的图写回同一个文件夹" },
+  ),
 ];
 
 // ---------- 秘书主线 ----------
@@ -1641,6 +1697,18 @@ const BLOG: MessageEnvelope[] = [
   ),
   msg(G, "user", at("10-06", "22:58"), text("测完直接切过去吧")),
   msg(G, "agent", at("10-06", "23:10"), text("切 DNS 不在原计划里，提交了一张计划变更："), cardRef("c-pc-2")),
+  // 目录授权申请（464）：id、调用 id 写死，不经 msg()、tool() 编号，后面消息和调用的编号不变
+  {
+    id: "msg-fgr-blog",
+    conversation: G,
+    speaker: "agent",
+    time: at("10-07", "08:55"),
+    parts: [
+      toolAs("call-fgr-blog", "request_folder_grant", "path=D:\\照片\\博客配图 modes=read,write", { nature: "look", result: "已发给用户，等确认" }),
+      text("压缩好的配图要写回 D:\\照片\\博客配图，先申请了目录授权，卡在这里，点同意就生效："),
+    ],
+  },
+  { id: "msg-fgr-blog-card", conversation: G, speaker: "agent", time: at("10-07", "08:55"), parts: [cardRef("c-fgr-blog")] },
   msg(G, "agent", at("10-07", "09:10"), tool("run_tests", 'args=["e2e"]', { outcome: "running" })),
 ];
 
@@ -2228,6 +2296,38 @@ const SECRETARY_MCP: MessageEnvelope[] = [
     ],
   },
 ];
+/**
+ * 目录授权申请（464）：个人助理先申请了 D:\\下载\\课件 的读写（你同意了，卡收成一行，它接着整理），这会儿又申请给 D:\\笔记 加写和删
+ * （已有只读，等你同意：整张展开、排在这一轮最后）。工具产生的卡是单独一条只有卡片引用的消息（和真的一样）。
+ * id、调用 id 写死，不经 msg()、tool() 编号，后面消息和调用的编号不变
+ */
+const SECRETARY_FOLDER_GRANT: MessageEnvelope[] = [
+  { id: "msg-fgr-courses-ask", conversation: S, speaker: "user", time: at("10-07", "21:58"), parts: [text("把 D:\\下载\\课件 里的课件按科目归一下")] },
+  {
+    id: "msg-fgr-courses-call",
+    conversation: S,
+    speaker: "agent",
+    time: at("10-07", "21:58"),
+    parts: [
+      toolAs("call-fgr-courses", "request_folder_grant", "path=D:\\下载\\课件 modes=read,write days=30", { nature: "look", result: "已发给用户，等确认" }),
+      text("要在 D:\\下载\\课件 里读写，先申请了目录授权（读、写，30 天），点同意就生效："),
+    ],
+  },
+  { id: "msg-fgr-courses-card", conversation: S, speaker: "agent", time: at("10-07", "21:58"), parts: [cardRef("c-fgr-courses")] },
+  { id: "msg-fgr-courses-done", conversation: S, speaker: "agent", time: at("10-07", "22:01"), parts: [text("归好了：按科目建了 6 个文件夹，38 个课件都放进去了。")] },
+  { id: "msg-fgr-notes-ask", conversation: S, speaker: "user", time: at("10-07", "22:05"), parts: [text("D:\\笔记 里零散的笔记也按书归到各自的文件夹里")] },
+  {
+    id: "msg-fgr-notes-call",
+    conversation: S,
+    speaker: "agent",
+    time: at("10-07", "22:06"),
+    parts: [
+      toolAs("call-fgr-notes", "request_folder_grant", "path=D:\\笔记 modes=write,delete days=30", { nature: "look", result: "已发给用户，等确认" }),
+      text("D:\\笔记 现在只登记了读。整理要新建文件夹、把笔记挪进去，申请加上写和删（30 天），卡在这里，点同意就生效："),
+    ],
+  },
+  { id: "msg-fgr-notes-card", conversation: S, speaker: "agent", time: at("10-07", "22:06"), parts: [cardRef("c-fgr-notes")] },
+];
 RECORDS_BEFORE.set("msg-mcp-reply", [
   {
     record: {
@@ -2805,7 +2905,7 @@ const SECRETARY_HAWKER: MessageEnvelope[] = [
 
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
-  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_COMMUTE, ...SECRETARY_MAP, ...SECRETARY_HAWKER, ...SECRETARY_VOICE, ...SECRETARY_VOICE_RETRY, ...SECRETARY_RELAY, ...SECRETARY_ATTACHMENTS, ...SECRETARY_ATTACHMENT_FIRST, ...SECRETARY_MCP, ...PHOTOS, ...BILLS, ...LEDGER_EARLIER, ...LEDGER, ...LEDGER_LATEST, ...LEDGER_LINES, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX, ...CURATOR_MESSAGES, ...TAX_QUESTION, ...TAKEOVER, ...REMOTE].flatMap((m) => [
+  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_COMMUTE, ...SECRETARY_MAP, ...SECRETARY_HAWKER, ...SECRETARY_VOICE, ...SECRETARY_VOICE_RETRY, ...SECRETARY_RELAY, ...SECRETARY_ATTACHMENTS, ...SECRETARY_ATTACHMENT_FIRST, ...SECRETARY_MCP, ...SECRETARY_FOLDER_GRANT, ...PHOTOS, ...BILLS, ...LEDGER_EARLIER, ...LEDGER, ...LEDGER_LATEST, ...LEDGER_LINES, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX, ...CURATOR_MESSAGES, ...TAX_QUESTION, ...TAKEOVER, ...REMOTE].flatMap((m) => [
     ...(RECORDS_BEFORE.get(m.id) ?? []).map((payload) => ({ channel: m.conversation, type: EVENT_TYPES.timelineRecord, payload })),
     { channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id), ...(AGENT_INPUTS.has(m.id) ? { agentInput: true } : {}) } },
   ]),

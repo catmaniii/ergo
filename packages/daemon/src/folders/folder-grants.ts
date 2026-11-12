@@ -1,10 +1,12 @@
 // 目录授权（ADR-0049）：每个 agent 一份目录授权表——秘书一份（agent id secretary）、每个项目一份（项目负责人的 pm-<n>，
 // 项目的负责人在各段都用）、每个任务一份（任务负责人的 tm-<n>）；子 agent、评审、记忆管理员没有（canHold 说了算）。
 // 存在数据目录配置区的 folder-grants.json（{ "format": 1, "grants": [...] }），只由运行时写：设置 · 目录授权和各 agent 的 ⚙ 里加、删、清，
-// 审批卡上的"以后都允许"登记（allow）；agent 没有改它的工具，配置区本来就是受保护区域。
+// 审批卡上的"以后都允许"登记（allow），agent 申请、用户在申请卡上同意的并进去（merge，464：folder-grant-requests.ts）；
+// agent 自己改不了它（申请只是发一张卡），配置区本来就是受保护区域。
 // - 每条：哪个 agent、哪个目录（登记时的真实路径：fs.realpathSync.native 展开符号链接、目录联接、8.3 短名）、哪几种操作
 //   （读、写、删可组合，删不带写）、到期时间（不写是长期有效）、为什么给、谁什么时候加的、到期前提示过没有；
 // - 同一个 agent 同一个目录只有一条：再加是换掉（操作、到期时间、说明换成新的）；"以后都允许"是并进去（操作取并集、变成长期有效）；
+//   申请卡上同意的也是并进去（操作取并集、到期取更晚的，长期有效最晚）：已有的那条不会被收窄；
 // - 登记的目录要在、要是目录，不能在数据目录、二狗程序目录里（守卫本来也不算它们）；
 // - 守卫每次判定现读这个 agent 的那一份（forAgent，过期的也给，判定时按 now 算），改了下一次调用就生效。
 // 文件坏了当没有（记一条日志），下次存的时候整份重写。
@@ -68,6 +70,13 @@ export interface FolderGrants {
   add(input: NewFolderGrant): FolderGrantRecord;
   /** 审批卡上的"以后都允许"：并进已有的（操作取并集、变成长期有效），没有就加一条长期有效的 */
   allow(agentId: string, dir: string, modes: readonly FolderGrantMode[]): FolderGrantRecord;
+  /**
+   * 并进已有的（申请卡上同意的）：操作取并集、到期取更晚的（长期有效最晚），已有的说明留着（没有才用这次的），谁加的、什么时候换成这次的；
+   * 已有的过期了按重新登记算（只留这次的）。没有就加一条。校验和 add 同一套，不对抛 bad_params
+   */
+  merge(input: NewFolderGrant): FolderGrantRecord;
+  /** 要登记的目录查一遍（完整路径、在、是目录、不在数据目录和程序目录里），回它的真实路径；不对抛 bad_params（原因写给人看） */
+  resolve(dir: string): string;
   /** 删几条，回删掉了几条 */
   remove(ids: readonly string[]): number;
   /** 一次清掉几条，回清掉了几条 */
@@ -263,6 +272,30 @@ export function openFolderGrants(options: FolderGrantsOptions): FolderGrants {
       };
       return put(grants, record);
     },
+    merge(input) {
+      checkAgent(input.agentId);
+      const dir = realDir(input.path);
+      const expiresAt = checkExpiry(input.expiresAt);
+      const grants = read();
+      const found = grants.find((g) => g.agentId === input.agentId && comparable(g.path) === comparable(dir));
+      // 过期了的并进来也是重新登记：只留这次的
+      const existing = found && !folderGrantExpired(found, options.now()) ? found : undefined;
+      const later = existing === undefined ? expiresAt : existing.expiresAt === undefined || expiresAt === undefined ? undefined : Date.parse(existing.expiresAt) >= Date.parse(expiresAt) ? existing.expiresAt : expiresAt;
+      const record: FolderGrantRecord = {
+        id: `fg-${randomUUID()}`,
+        agentId: input.agentId,
+        path: dir,
+        modes: checkModes([...(existing?.modes ?? []), ...input.modes]),
+        ...(later === undefined ? {} : { expiresAt: later }),
+        note: existing?.note || (input.note ?? "").trim(),
+        addedBy: input.addedBy,
+        addedAt: nowIso(new Date(options.now())),
+        // 到期时间没变的：提示过就不再提示
+        ...(existing?.remindedAt !== undefined && later !== undefined && later === existing.expiresAt ? { remindedAt: existing.remindedAt } : {}),
+      };
+      return put(grants, record);
+    },
+    resolve: realDir,
     remove(ids) {
       const grants = read();
       const kept = grants.filter((g) => !ids.includes(g.id));

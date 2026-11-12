@@ -28,6 +28,7 @@ import {
 } from "./cards.tsx";
 import { ArchiveListCard } from "./ArchiveListCard.tsx";
 import { CharterChangeCard } from "./CharterChangeCard.tsx";
+import { FolderGrantRequestCard } from "./FolderGrantRequestCard.tsx";
 import { StandardBackfillCard } from "./StandardBackfillCard.tsx";
 import { StandardChangeCard } from "./StandardChangeCard.tsx";
 import { OperationsChangeCard, ServiceEntryCard } from "./OperationsCards.tsx";
@@ -78,6 +79,8 @@ const BY_TYPE: Partial<Record<CardType, ComponentType<CardProps<never>>>> = {
   runtime_question: RuntimeQuestionCard,
   // 定时任务卡：助理提议的定时触发的普通任务，你点确认才建
   schedule_task: ScheduleTaskCard,
+  // 目录授权申请：助理、负责人自己申请登记一个目录，你可以去掉几样、改多久再同意（464）
+  folder_grant_request: FolderGrantRequestCard,
   // 网页候选卡（browse_pick）是浏览插件登记的
 };
 

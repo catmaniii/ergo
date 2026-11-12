@@ -1507,9 +1507,23 @@ export class FakeDaemonHttp implements DaemonHttp {
     });
   }
 
-  /** 原型里的目录授权（只在内存里）：个人助理一份，第一个项目的负责人两条（一条快到期、一条已过期） */
+  /**
+   * 原型里的目录授权（只在内存里）：个人助理两条（一条你加的，一条它申请、你在卡上同意的，464），第一个项目的负责人两条
+   * （一条快到期、一条已过期）
+   */
   private folderGrantList: Omit<FolderGrantView, "agentLabel">[] = [
     { id: "fg-demo-1", agentId: "secretary", path: "D:\\笔记", modes: ["read"], note: "整理读书笔记", addedBy: "user", addedAt: "2026-10-20T09:00:00.000+08:00", state: "active" },
+    {
+      id: "fg-demo-4",
+      agentId: "secretary",
+      path: "D:\\下载\\课件",
+      modes: ["read", "write"],
+      expiresAt: "2026-11-06T23:59:00.000+08:00",
+      note: "按科目给课件建文件夹、把文件归进去",
+      addedBy: "request",
+      addedAt: "2026-10-07T21:59:00.000+08:00",
+      state: "active",
+    },
     {
       id: "fg-demo-2",
       agentId: FAKE_PROJECTS[0]!.maintainerId,

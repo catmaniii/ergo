@@ -10,6 +10,7 @@
 import type { ExecutingAgent, GuardTask } from "../guard/index.ts";
 import type { MaintainerAssembly } from "../agent-host/assembly.ts";
 import { workTempDir, workTempVars } from "../agent-manager/work-temp.ts";
+import { REQUEST_FOLDER_GRANT_TOOL } from "../folders/tool-names.ts";
 import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
 import { SEND_ATTACHMENT_TOOL } from "../media/tool-names.ts";
 import { REQUEST_SKILL_CHANGE_TOOL } from "../skills/tool-names.ts";
@@ -18,9 +19,18 @@ import type { ShellToolkit } from "../typed-shell/index.ts";
 
 /**
  * 负责人推进任务、起草计划、提议并行的工具，发附件（子 agent 的结果交回负责人，负责人决定发不发），
- * 把 skill 提交进 skill 库（要不要沉淀进库由负责人定）：子 agent 一律没有（给秘书发消息有：负责人有的它才有）
+ * 把 skill 提交进 skill 库（要不要沉淀进库由负责人定）、申请目录授权（子 agent 没有目录授权表，ADR-0049）：子 agent 一律没有
+ * （给秘书发消息有：负责人有的它才有）
  */
-export const MAINTAINER_ONLY_TOOLS: readonly string[] = [...Object.values(EXECUTION_TOOL), PROPOSE_PARALLEL_TOOL, SUBMIT_PLAN_TOOL, ...Object.values(WORKFLOW_TOOL), SEND_ATTACHMENT_TOOL, REQUEST_SKILL_CHANGE_TOOL];
+export const MAINTAINER_ONLY_TOOLS: readonly string[] = [
+  ...Object.values(EXECUTION_TOOL),
+  PROPOSE_PARALLEL_TOOL,
+  SUBMIT_PLAN_TOOL,
+  ...Object.values(WORKFLOW_TOOL),
+  SEND_ATTACHMENT_TOOL,
+  REQUEST_SKILL_CHANGE_TOOL,
+  REQUEST_FOLDER_GRANT_TOOL,
+];
 
 export interface SubAgentAssembly {
   piTools: string[];
