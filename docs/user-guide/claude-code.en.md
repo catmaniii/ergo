@@ -39,7 +39,7 @@ After that, the new task and new project dialogs get a **Runtime** row. pi comes
 5. Under **Runtime**, click **Claude Code**. **Take over a Claude Code session…** and **Working folder** appear below.
 6. For **Working folder**, pick one of two:
    - **New in default folder**: creates a new subfolder named after the title, with a number added if the name is taken. You can change **Subfolder name**, and the line below says where it will be created. If no default folder is set, this option says **ergo's working folder**.
-   - **Existing folder**: enter the path, starting from the drive letter, such as `D:\code\ledger`. Click one under **Recently used:** to fill it in.
+   - **Existing folder**: enter the path, starting from the drive letter, such as `D:\code\ledger`, or click **Choose folder…** next to it and click your way to the folder. Click one under **Recently used:** to fill it in.
 7. Leave **Projects involved (pick any)** at **No project**.
 8. Click the button at the bottom. For a plain task it says **Start plain task**, for a workflow **Start workflow**, and for a long-running task **Start long-running task**.
 

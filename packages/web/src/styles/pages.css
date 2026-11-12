@@ -4092,6 +4092,56 @@ a.att-icon:hover {
   min-width: 0;
 }
 /*
+ * 选文件夹的框几处共用（ui/folder-picker.tsx，463）：框最上面一句说明；当前路径后面的小标签跟在路径后头；
+ * 表单里"输入框 + 选文件夹…"一行（照贴路径那一行），按钮不折字，输入框占满剩下的
+ */
+.fp-intro {
+  line-height: 1.5;
+}
+.fp-here-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.fp-path-row {
+  display: flex;
+  gap: 8px;
+}
+.fp-path-row > .input {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.fp-path-row > .fp-open {
+  flex: none;
+  white-space: nowrap;
+}
+/*
+ * 授权的文件夹和各 agent 的目录授权互相提一句（463）：一小块浅底的说明，句末一个链接（字号跟着这一块、带下划线，
+ * 认得出是能点的）
+ */
+.fg-cross {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  color: var(--text);
+  font-size: var(--fs-s);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.fg-cross .fg-cross-link {
+  font: inherit;
+  padding: 0;
+  margin-left: 2px;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+/*
  * 目录授权（ui/folder-grants.tsx、pages/more/FolderGrantsPage.tsx；行的底子用授权的文件夹那一套 af-*）：一行一条，左边目录、
  * 下面一排小标签（操作、到期；没写到期的"长期有效"用醒目的那种）、为什么给、谁什么时候加的，右边一个叉。加一条的框：
  * 每项一行（字在上、框在下），读写删三个勾挨着排、能换行。使用记录一行一条，路径下面一行灰字。只用 token
@@ -7764,6 +7814,10 @@ button.ds-item {
 .cc-folder-input {
   width: 100%;
   font-family: var(--font-mono);
+  margin-bottom: 6px;
+}
+/* 路径输入框和"选文件夹…"一行（.fp-path-row）：下边距挪到这一行上 */
+.work-folder-pick {
   margin-bottom: 6px;
 }
 .work-folder-recent {

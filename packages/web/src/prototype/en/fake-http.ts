@@ -14,6 +14,7 @@ export const EN_HTTP: Phrases = {
   "发票": "Invoices",
   "合同": "Contracts",
   "备份": "Backups",
+  "笔记": "Notes",
   "D:\\照片": "D:\\photos",
   "D:\\笔记": "D:\\Notes",
   "整理读书笔记": "Sorting reading notes",

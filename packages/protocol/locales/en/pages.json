@@ -509,6 +509,8 @@
   "pages.authorizedFolders.intro": "Once authorized, every agent can read files in these folders without asking you. This also works in the phone app's built-in browser: {name} looks here first when finding photos and files, and when handing files to a web page's upload box. Only reading is opened up: writing, deleting and overwriting keep the usual rules. When you authorize a folder in a chat and confirm it on the card, it's added here too. These are folders on the computer {name} runs on, up to {max}.",
   "pages.authorizedFolders.warning": "What gets read is sent to your model provider. Don't authorize folders that hold keys or passwords.",
   "pages.authorizedFolders.exceptions": "{name}'s own data directory and program directory, and secret files such as .env and private keys, stay off limits even inside an authorized folder.",
+  "pages.authorizedFolders.perAgentHint": "This only opens up reading, and it's the same for every agent. To let a project's or task's owner write or delete in other folders, grant it separately in that project's or task's ⚙ (or your personal assistant's): read, write and delete are ticked separately, and you can set an expiry. {link}",
+  "pages.authorizedFolders.perAgentLink": "See per-agent folder grants",
   "pages.authorizedFolders.add": "Add folder",
   "pages.authorizedFolders.full": "Already {max} folders. Remove one before adding another",
   "pages.folderGrants.intro": "Each agent has its own list: one for your personal assistant, one per project (used by the project owner) and one per task (used by the task owner); sub-agents and reviewers don't inherit them. In a registered folder, the kinds of access you ticked (read, write and delete are separate) no longer ask you; anything else works as before.",

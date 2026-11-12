@@ -384,6 +384,7 @@ The secretary shows a card, and it's added only after you click **Run**. Agents 
 - This only opens up reading. Writing, deleting and overwriting follow the usual rules.
 - What gets read is sent to your model provider. Don't authorize folders that hold keys or passwords.
 - The folder you pick is on ergo's computer, even when you do this from a phone.
+- To let a project's or task's owner write or delete in other folders, grant it separately in that agent's own ⚙; see [Per-agent folder grants](#per-agent-folder-grants) below. A note under this section's description says so, and **See per-agent folder grants** scrolls straight there.
 
 See [Built-in browser](browser.en.md) for more.
 
@@ -396,14 +397,16 @@ See [Built-in browser](browser.en.md) for more.
 **How to add one:**
 
 1. In that agent's ⚙, click **Register a folder**.
-2. Write the full path, tick read, write and/or delete (ticking delete doesn't include write), pick how long it's valid (the default is "No expiry"), and write a line about why.
-3. Click **Register**.
+2. Write the full path, or click **Choose folder…** next to it and click your way to the folder on ergo's computer (the same picker as for adding an authorized folder). In the picker, folders this agent already registered are marked "Registered", and authorized folders are marked "All agents can read". Your choice only fills in the form; nothing is saved yet.
+3. Tick read, write and/or delete (ticking delete doesn't include write), pick how long it's valid (the default is "No expiry"), and write a line about why.
+4. Click **Register**.
 
 When a chat raises an approval card because the agent reached a folder outside its scope, the card also has **Always allow (register this folder)**: it registers the folder as a lasting grant for the kinds of access needed this time, and approves this once.
 
 **Good to know:**
 
 - Kinds of access you didn't tick work as before: in chat it asks you, in tasks it has to be in the plan.
+- Every agent can already read the authorized folders, so there's no need to register them here just for reading; register them only to write or delete. A note under this block's description in ⚙ says so, with a link to **Settings · Folder grants**.
 - Never allowed, registered or not: ergo's own config, secrets, database and program folders; secret files in a registered folder such as .env, *.key, *.pem, secrets*, id_rsa* and credentials* are refused for reading and writing.
 - Grants stop working when they expire and are marked "Expired"; you get one reminder in Inbox three days before. You can clear all expired grants at once, or all of one agent's.
 - The usage log only records the paths written in a bash command, not every file the program actually touched.

@@ -1,10 +1,11 @@
 // 设置 · 目录授权（app/authorized-folders.ts）：守护进程换成假的。查：
 // - 取列表；每行的叉点了马上拿掉并存好（PATCH remove），失败的在这一节里写原因；页面重新显示时再取一次（聊天里刚授权的能看到）；
-// - "添加文件夹"的框：先列常用位置和各个盘，点进去列子文件夹、"上一级"回去（盘的根回到常用位置），读不了的写原因；
-//   "授权这个文件夹"、贴完整路径按"授权"都是马上加进来、存好、框关掉；失败的框不关、写原因；已授权的认得出来（不分大小写、尾斜杠）。
+// - "添加文件夹"：框里选中的马上加进来、存好、框关掉；失败的框不关、写原因（框是几处共用的那一个，app/folder-picker.ts，
+//   它自己的列、点进、上一级见 test/app/folder-picker.test.ts）；已授权的认得出来（不分大小写、尾斜杠）。
 import { describe, expect, test } from "vitest";
 import { AuthorizedFolders } from "../../src/app/authorized-folders.ts";
-import { type FolderBrowseView, isAuthorizedFolder, type LocalFoldersChangeBody, type LocalFoldersView } from "../../src/state/index.ts";
+import { FolderPicker } from "../../src/app/folder-picker.ts";
+import { type FolderBrowseView, folderMarksAt, type LocalFoldersChangeBody, type LocalFoldersView } from "../../src/state/index.ts";
 
 const PICTURES = "C:\\Users\\me\\Pictures";
 const DOWNLOADS = "C:\\Users\\me\\Downloads";
@@ -38,9 +39,12 @@ class FakeDaemon {
 function setup() {
   const daemon = new FakeDaemon();
   const folders = new AuthorizedFolders(daemon);
+  const picker = new FolderPicker(daemon);
+  // 页面上的接法：框里选中的交给 add
+  const add = (path: string) => folders.add(path);
   let updates = 0;
   folders.subscribe(() => updates++);
-  return { daemon, folders, updates: () => updates };
+  return { daemon, folders, picker, add, updates: () => updates };
 }
 
 describe("列表、叉、重新取", () => {
@@ -81,72 +85,47 @@ describe("列表、叉、重新取", () => {
   });
 });
 
-describe("添加文件夹的框", () => {
-  test("先列常用位置和各个盘；点进去列子文件夹，上一级回去，盘的根再上一级回到常用位置；读不了的写原因", async () => {
-    const { daemon, folders } = setup();
-    await folders.openPicker();
-    expect(daemon.browsed).toEqual([undefined]);
-    expect(folders.state().picker).toMatchObject({ roots: { places: [{ name: "图片", path: PICTURES }], drives: [{ name: "C:", path: "C:\\" }] }, loading: false });
-    expect(folders.state().picker?.current).toBeUndefined();
-
-    await folders.browse(PICTURES);
-    expect(folders.state().picker?.current).toMatchObject({ kind: "folder", path: PICTURES, folders: [{ name: "2026 杭州" }] });
-    await folders.browse("C:\\");
-    await folders.up();
-    expect(folders.state().picker?.current).toBeUndefined();
-
-    await folders.browse("C:\\System");
-    expect(folders.state().picker?.current).toEqual({ kind: "unreadable", path: "C:\\System", parent: "C:\\", reason: "没有权限读这个文件夹" });
-    await folders.up();
-    expect(folders.state().picker?.current).toMatchObject({ kind: "folder", path: "C:\\" });
-  });
-
-  test("授权这个文件夹：马上加进来、存好、框关掉", async () => {
-    const { daemon, folders } = setup();
+describe("添加文件夹", () => {
+  test("框里点进去、授权这个文件夹：马上加进来、存好、框关掉", async () => {
+    const { daemon, folders, picker, add } = setup();
     await folders.refresh();
-    await folders.openPicker();
-    await folders.browse(PICTURES);
-    await folders.authorize(PICTURES);
+    await picker.open();
+    await picker.browse(PICTURES);
+    await picker.choose(PICTURES, add);
     expect(daemon.changes).toEqual([{ add: [PICTURES] }]);
     expect(folders.state().folders).toEqual([{ path: PICTURES, exists: true }]);
-    expect(folders.state().picker).toBeUndefined();
+    expect(picker.state()).toBeUndefined();
   });
 
-  test("贴完整路径按授权；空的不发；失败的框不关、写原因", async () => {
-    const { daemon, folders } = setup();
+  test("贴完整路径按授权；空的不发；失败的框不关、写原因，列表不变", async () => {
+    const { daemon, folders, picker, add } = setup();
     await folders.refresh();
-    await folders.openPicker();
-    folders.setDraft("   ");
-    await folders.authorizeDraft();
+    await picker.open();
+    picker.setDraft("   ");
+    await picker.chooseDraft(add);
     expect(daemon.changes).toEqual([]);
 
     daemon.fail = "这台电脑上没有这个文件夹：D:\\没有";
-    folders.setDraft(" D:\\没有 ");
-    await folders.authorizeDraft();
+    picker.setDraft(" D:\\没有 ");
+    await picker.chooseDraft(add);
     expect(daemon.changes).toEqual([{ add: ["D:\\没有"] }]);
-    expect(folders.state().picker).toMatchObject({ draft: " D:\\没有 ", busy: false, error: "这台电脑上没有这个文件夹：D:\\没有" });
+    expect(picker.state()).toMatchObject({ draft: " D:\\没有 ", busy: false, error: "这台电脑上没有这个文件夹：D:\\没有" });
+    expect(folders.state()).toMatchObject({ folders: [], saving: false });
+    expect(folders.state().error).toBeUndefined();
 
     daemon.fail = undefined;
-    folders.setDraft(TRIP);
-    expect(folders.state().picker?.error).toBeUndefined();
-    await folders.authorizeDraft();
+    picker.setDraft(TRIP);
+    expect(picker.state()?.error).toBeUndefined();
+    await picker.chooseDraft(add);
     expect(folders.state().folders).toEqual([{ path: TRIP, exists: true }]);
-    expect(folders.state().picker).toBeUndefined();
-  });
-
-  test("关掉框之后才回来的结果不再打开它", async () => {
-    const { folders } = setup();
-    const opening = folders.openPicker();
-    folders.closePicker();
-    await opening;
-    expect(folders.state().picker).toBeUndefined();
+    expect(picker.state()).toBeUndefined();
   });
 
   test("已授权的认得出来：不分大小写、不管末尾的斜杠", () => {
-    const list = [{ path: PICTURES, exists: true }];
-    expect(isAuthorizedFolder(list, "c:\\users\\me\\pictures\\")).toBe(true);
-    expect(isAuthorizedFolder(list, "C:/Users/me/Pictures")).toBe(true);
-    expect(isAuthorizedFolder(list, TRIP)).toBe(false);
-    expect(isAuthorizedFolder(undefined, PICTURES)).toBe(false);
+    const marks = [{ paths: [PICTURES], label: "已授权", done: true }];
+    expect(folderMarksAt(marks, "c:\\users\\me\\pictures\\")).toEqual(marks);
+    expect(folderMarksAt(marks, "C:/Users/me/Pictures")).toEqual(marks);
+    expect(folderMarksAt(marks, TRIP)).toEqual([]);
+    expect(folderMarksAt(undefined, PICTURES)).toEqual([]);
   });
 });

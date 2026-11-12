@@ -1,5 +1,6 @@
 // 目录授权（ADR-0049）在状态层的那一半：纯函数。设置 · 目录授权的总览、各 agent 的 ⚙ 里那一块、审批卡上的"以后都允许"、
 // 使用记录都用这里的说法：操作怎么写（只读、读、写、删）、到期怎么写（不写到期的醒目地写"长期有效"）、按 agent 分组。
+import type { FolderMark } from "./folder-picker.ts";
 import { FOLDER_GRANT_MODES, type FolderGrantMode, type FolderGrantsView, type FolderGrantView, t, tTable } from "./protocol.ts";
 
 /** 一种操作怎么说 */
@@ -51,6 +52,17 @@ export function folderGrantGroups(view: FolderGrantsView): FolderGrantGroup[] {
 /** 这个 agent 的那几条 */
 export function folderGrantsOf(view: FolderGrantsView | undefined, agentId: string): FolderGrantView[] {
   return view?.grants.filter((g) => g.agentId === agentId) ?? [];
+}
+
+/**
+ * ⚙ 里登记目录时，选文件夹的框要标出来的：这个 agent 已经登记了的标"已登记"（再选一次是换成新填的那一条），
+ * 授权的文件夹标"所有 agent 可读"（那里已经能读，要写、删才需要单独登记）。两种都还能选
+ */
+export function folderGrantPickerMarks(view: FolderGrantsView | undefined, agentId: string): FolderMark[] {
+  return [
+    { paths: folderGrantsOf(view, agentId).map((g) => g.path), label: t("state.folderGrants.markRegistered") },
+    { paths: view?.authorizedFolders ?? [], label: t("state.folderGrants.markReadable") },
+  ];
 }
 
 /** 有几条已过期 */

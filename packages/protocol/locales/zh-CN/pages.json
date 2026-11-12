@@ -504,6 +504,8 @@
   "pages.authorizedFolders.intro": "授权以后，所有 agent 读这些文件夹里的文件都不用再问你。手机 App 的内置浏览器里也能用：{name}找照片、找文件，往网页的上传框里交文件时，都先在这里找。只放开了读：写、删、覆盖还是原来的规矩。在聊天里说授权哪个文件夹，你在卡上点了“执行”，这里会跟着加上。是{name}所在电脑上的文件夹，最多 {max} 个。",
   "pages.authorizedFolders.warning": "读到的内容会发给你配的模型服务。不要授权放密钥、密码的文件夹。",
   "pages.authorizedFolders.exceptions": "{name}自己的数据目录、程序目录和 .env、私钥这类密钥文件，就算在授权的文件夹下面也不算授权。",
+  "pages.authorizedFolders.perAgentHint": "这里只放开读，对所有 agent 都一样。要让某个项目或任务的负责人在别的目录里写、删，到那个项目、任务（或个人助理）的 ⚙ 里单独授权：读、写、删分开勾，还能设到期。{link}",
+  "pages.authorizedFolders.perAgentLink": "看各个 agent 的目录授权",
   "pages.authorizedFolders.add": "添加文件夹",
   "pages.authorizedFolders.full": "已经 {max} 个了，先拿掉一个再加",
   "pages.folderGrants.intro": "每个 agent 一份：个人助理一份、每个项目一份（项目的负责人用）、每个任务一份（任务的负责人用）；子 agent 和评审不继承。登记了的目录里，做登记了的那几种操作（读、写、删分开）不用再问你，没登记的照旧。",

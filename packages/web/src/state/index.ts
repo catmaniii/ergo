@@ -117,7 +117,7 @@ export * from "./managed-services.ts";
 export * from "./changelog.ts";
 export * from "./browse.ts";
 export * from "./browse-tools.ts";
-export * from "./authorized-folders.ts";
+export * from "./folder-picker.ts";
 export * from "./folder-grants.ts";
 export * from "./queue-drag.ts";
 export * from "./takeover.ts";
