@@ -72,6 +72,7 @@ import { detectLayout, type InstallLayout, readInstallState } from "./release/la
 import { releasePublicKey } from "./release/public-key.ts";
 import { createDoctorChecks, type DoctorCheckRegistry } from "./doctor/checks.ts";
 import { registerCoreDoctorChecks } from "./doctor/core.ts";
+import { readMemoryUse } from "./doctor/memory-use.ts";
 import { createDeepDoctor, type DeepDoctorService } from "./doctor/deep.ts";
 import { registerDeepDoctorChecks } from "./doctor/deep-checks.ts";
 import { type DoctorService, createDoctor, diskProbe, externalProbe, missingDefaultFeatures, nodeProbe, piVersionProbe, portsProbe, supervisorProbe, supervisorStatus } from "./doctor/doctor.ts";
@@ -3191,6 +3192,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         plugins: () => plugins.info(),
         webIndex: path.join(options.webRoot ?? DEFAULT_WEB_ROOT, "index.html"),
         now: () => clock.now(),
+        // 二狗占的内存（439）：查的时候现读本进程和子孙进程的计数；向量模型加载着没有看内核那一份向量函数
+        memory: () => readMemoryUse(() => memoryEmbedder.loaded?.()),
       }),
     );
     // 体检"二狗本身"的新检查（二）（411，doctor/housekeeping.ts；登记在 410 那几项后面，页面上排在它们之后）：备份、定时触发的任务、内部作业、卡住的 agent 和名额、日志大小、

@@ -207,7 +207,7 @@ describe("原型编的一份", () => {
     const levels = new Set(view.groups.flatMap((g) => g.items.map((i) => i.level)));
     expect([...levels].toSorted()).toEqual(["error", "na", "ok", "unknown", "warn"]);
     const core = view.groups[0]!.items;
-    expect(core.map((i) => i.id)).toEqual([...DOCTOR_CHECKS, "assistant", "model-calls", "context", "services", "plugins", "web", "backup", "triggers", "internal-jobs", "stuck-agents", "log-size", "config-files", "missing-skills", "pending", "app-version", "db-wal"]);
+    expect(core.map((i) => i.id)).toEqual([...DOCTOR_CHECKS, "assistant", "model-calls", "context", "services", "plugins", "web", "memory-use", "backup", "triggers", "internal-jobs", "stuck-agents", "log-size", "config-files", "missing-skills", "pending", "app-version", "db-wal"]);
     expect(core.filter((i) => i.level === "warn").map((i) => i.id)).toEqual(["components", "context", "backup", "log-size", "missing-skills"]);
     expect(core.filter((i) => i.level === "error").map((i) => i.id)).toEqual(["external", "model-calls", "services"]);
     expect(core.find((i) => i.id === "context")!.action).toEqual({ kind: "compact", agentId: "secretary" });

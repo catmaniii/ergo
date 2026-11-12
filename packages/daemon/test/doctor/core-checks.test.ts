@@ -424,6 +424,23 @@ describe("内核这几项进\"二狗本身\"", () => {
     expect(registry.list()).toEqual([]);
   });
 
+  it("二狗占的内存（439）：给了 memory 才有这一项，排在网页文件后面；占到 8.7 GB 是注意", async () => {
+    const GB = 1024 ** 3;
+    const registry = createDoctorChecks();
+    registerCoreDoctorChecks(registry, sources({ memory: () => ({ used: 8.7 * GB, peak: 8.7 * GB, heapUsed: 0.1 * GB, children: [] }) }));
+    const src = sources();
+    expect(registry.list().find((c) => c.id === "memory-use")!.cost).toBe("passive");
+    const core = (await createDoctor({ probes: probes(), checks: registry, now: () => NOW }).view()).groups.find((g) => g.id === DOCTOR_CORE_GROUP)!;
+    expect(core.items.map((i) => i.id)).toEqual([...DOCTOR_CHECKS, "assistant", "model-calls", "context", "services", "plugins", "web", "memory-use"]);
+    const item = core.items.find((i) => i.id === "memory-use")!;
+    expect(item.level).toBe("warn");
+    expect(item.text.title).toBe("二狗占的内存");
+    // 不给 memory 就没有这一项
+    const without = createDoctorChecks();
+    registerCoreDoctorChecks(without, src);
+    expect(without.list().map((c) => c.id)).not.toContain("memory-use");
+  });
+
   it("托管的服务等服务管家的命令行：超时比默认的 1.5 秒长；快照没回应算没查出来", async () => {
     const registry = createDoctorChecks();
     registerCoreDoctorChecks(registry, sources({ supervisor: { read: async () => ({ responded: false }) } }));

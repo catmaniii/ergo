@@ -6,7 +6,8 @@
 // - context 对话长度：秘书和活着的负责人、任务 agent 的上下文用量（context.ts，带"现在压缩"）；
 // - services 托管的服务：服务管家那一项拿到的快照里和二狗有关的服务（services.ts，cost local：等服务管家的命令行）；
 // - plugins 插件：启用着却没装上的插件汇一句（详情在各插件自己那一块）→ 注意；
-// - web 网页文件：网页的构建产物（index.html）在不在（网关的健康检查也看它）→ 不在算坏了。
+// - web 网页文件：网页的构建产物（index.html）在不在（网关的健康检查也看它）→ 不在算坏了；
+// - memory-use 二狗占的内存（439，memory-use.ts）：守护进程自己占的超过 3 GB 算注意，带上向量模型、它拉起的程序各占多少。
 // 句子里提到秘书用用户给它起的名字（参数 name），不写"秘书"。
 import fs from "node:fs";
 import { formatList, type PluginInfo, type ProviderBalanceView, t } from "@ergo/protocol";
@@ -17,6 +18,7 @@ import type { DoctorCheckRegistry, DoctorFinding } from "./checks.ts";
 import { type ContextAgentView, judgeContext } from "./context.ts";
 import { SUPERVISOR_PROBE_TIMEOUT_MS, type SupervisorStatus } from "./doctor.ts";
 import { judgeModelCalls } from "./model-calls.ts";
+import { judgeMemoryUse, type MemoryUse } from "./memory-use.ts";
 import { judgeServices, type ServicesInUse } from "./services.ts";
 
 /** 设置 · 插件 */
@@ -46,6 +48,8 @@ export interface CoreDoctorSources {
   webIndex: string;
   /** 此刻（毫秒时间戳） */
   now(): number;
+  /** 二狗占的内存（memory-use.ts 的 readMemoryUse，查的时候现读）；不给就没有这一项 */
+  memory?(): MemoryUse;
 }
 
 /** 时长写成"40 秒""3 分钟"（分钟那句和 411 的体检项共用一个键，参数叫 count，英文分单复数） */
@@ -101,6 +105,7 @@ export function registerCoreDoctorChecks(registry: Pick<DoctorCheckRegistry, "re
     }),
     registry.register({ id: "plugins", title: "doctor.check.plugins.title", cost: "passive", run: () => judgePlugins(sources.plugins()) }),
     registry.register({ id: "web", title: "doctor.check.web.title", cost: "passive", run: () => judgeWeb(sources.webIndex) }),
+    ...(sources.memory ? [registry.register({ id: "memory-use", title: "doctor.check.memoryUse.title", cost: "passive", run: () => judgeMemoryUse(sources.memory!()) })] : []),
   ];
   return () => {
     for (const off of offs) off();
