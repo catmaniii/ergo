@@ -10,7 +10,7 @@
 import type { ComponentType, ReactNode } from "react";
 import type { MorePage, Navigate, Route } from "../app/route.ts";
 import type { RecordedVoice } from "../app/voice-session.ts";
-import type { MapEngineFactory, SceneEngine, TileEngineOptions } from "../model/map.ts";
+import type { MapEngineFactory, MapNavTarget, SceneEngine, TileEngineOptions } from "../model/map.ts";
 import type { BoardEntry } from "../model/types.ts";
 import type { CalendarCell, CalendarDayDetail, ChatItem, ChatItemKind, DataSourceItemView, DataSourcesView, DataSourceView, DetailContent, DetailKind, MapRegion } from "../state/index.ts";
 import type { CardProps } from "../ui/cards/CardShell.tsx";
@@ -207,6 +207,12 @@ export interface MapBasemapSlot {
    * kit 是地图插件借给它的东西（演示页的假高德拿瓦片引擎扮）。瓦片底图不写
    */
   prepare?(key: string | undefined, kit: MapBasemapKit): MapEngineFactory | Promise<MapEngineFactory>;
+  /**
+   * 这一家的导航网址（434，卡片上"用手机地图导航"在浏览器里、旧版鸿蒙 App 里用）：手机浏览器里装了这一家 App 的会被拉起，
+   * 电脑上打开它的网页版导航。不用 Key。target 是 WGS-84，这一家要什么坐标自己转；导航不了这个点（高德：大陆以外）回 undefined。
+   * 地图插件按点所在的区域、各家的优先级挑第一家给得出网址的（plugins/map/navigate.ts）；不写就是这一家不给导航
+   */
+  navigation?(target: MapNavTarget): string | undefined;
 }
 
 /** 瓦片底图（455）：瓦片的地址（z/x/y）、最大到第几级、右下角的署名 */

@@ -5,9 +5,10 @@
 //   守护进程数用量、记下 Key 被拒）；报不上不要紧（旧守护进程、断线），不耽误画地图。
 // - GOOGLE_FRAME_ISOLATED：谷歌关进隔离框（453，默认）。万一真的谷歌在框里跑不通（比如网站限制认不出框里发的请求），
 //   改成 false 就退回"同一个页面里跑、地图页那一层画"：足迹、点、线照样不交给谷歌的接口，只是它的脚本读得到页面（ADR-0059）。
+// - navigation（434）：卡片上"用手机地图导航"在浏览器里（和旧版鸿蒙 App 里）打开谷歌地图的导航网址（googleNavigationUrl）。
 // 演示页（MODE === "demo"）里框里装的是假谷歌（demo-google.ts，占位瓦片），不连谷歌；安装版这个分支摇掉（字面的 MODE 比较）。
-import { GOOGLE_MAP_PROVIDER, type MapBasemapEventBody, t } from "../../state/index.ts";
-import type { MapBasemapSlot } from "../api.ts";
+import { GOOGLE_MAP_PROVIDER, type MapBasemapEventBody, t, wgsToGcj } from "../../state/index.ts";
+import type { MapBasemapSlot, MapNavTarget } from "../api.ts";
 import { installFakeGoogle } from "./demo-google.ts";
 import { createGoogleEngine, type GoogleFake } from "./google-engine.ts";
 import { demoTileSource, demoTileUrl } from "../../prototype/fake-map.ts";
@@ -35,6 +36,16 @@ const DEMO =
         };
       }
     : undefined;
+
+/**
+ * 谷歌地图的导航网址（434，Maps URLs：https://developers.google.com/maps/documentation/urls/get-started#directions-action）：
+ * 各平台通用，手机上装了谷歌地图的打开 App、没装和电脑上打开网页版；终点写坐标（谷歌在大陆的街道图是 GCJ-02，大陆外原样），
+ * 走法 driving / transit / walking 和二狗的写法一样。名字带不进去（终点只能是坐标或者一段地址，二选一）
+ */
+export function googleNavigationUrl(target: MapNavTarget): string {
+  const p = wgsToGcj(target);
+  return `https://www.google.com/maps/dir/?api=1&destination=${p.lat.toFixed(6)},${p.lon.toFixed(6)}&travelmode=${target.mode ?? "driving"}`;
+}
 
 /** 报一件事给守护进程（报不上不要紧） */
 export type BasemapReporter = (event: MapBasemapEventBody["event"]) => void;
@@ -65,5 +76,6 @@ export function googleBasemap(report?: BasemapReporter, testing?: { fake?: Googl
           texts: { unreachable: t("ui.plugins.googleMaps.unreachable"), authFailed: t("ui.plugins.googleMaps.authFailed") },
         });
     },
+    navigation: googleNavigationUrl,
   };
 }

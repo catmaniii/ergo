@@ -69,6 +69,21 @@ Tell ergo "show where I went today on a map" or "where did I go yesterday?" and 
 
 A card only stores the date (footprints are fetched fresh each time you open it, so if they're deleted on the phone side they disappear from the card too), the lookup's ID, or the few points ergo gave.
 
+## Navigate in your maps app
+
+Route cards (routes ergo draws or looks up) and place cards (points it marks, places it finds, addresses it looks up) have a **Navigate in a maps app** button underneath (**Get directions on the web** on a computer). **Nothing happens until you tap it**: when you say "navigate to Xixi Wetland", ergo looks the place up and puts a route card in the chat, but never starts navigation by itself — tapping the button does. A route goes to its end point; a place card with several places first pops up a small menu so you pick one. While the map page shows what ergo drew, the title bar has the same navigation icon in front of **×**, so on a phone you don't need to go back to the chat for the card after ergo folds the chat away. Footprint cards don't have the button.
+
+What happens when you tap it depends on where you opened ergo:
+
+- **HarmonyOS app** (new version): the system's "choose a navigation app" panel pops up, listing the maps on your phone that can navigate (Petal Maps, AMap, Baidu…); pick one and navigation starts. Driving goes straight into navigation; walking and transit show the route first, and you start it in the maps app. If no maps app that can navigate is installed, the system says there's no navigation app available and offers the app store. Older HarmonyOS apps don't have the panel and open the directions web page like a browser (below); update the app to get it.
+- **Android app**: hands a place link (`geo:`) to the system, which asks which maps app should open it (or opens your default one); you land on that place in the maps app and tap **Directions** or **Navigate** to start.
+- **Phone browser**: places inside mainland China open AMap's directions page, which jumps into the AMap app with the route planned if it's installed, or shows the route on the web if not. Places outside China open Google Maps directions, which opens the Google Maps app if installed.
+- **Computer browser**: opens web directions in a new window — AMap inside China, Google Maps abroad — starting from your location or wherever you type.
+
+Which directions page is used follows the plugins: the AMap plugin inside mainland China, the Google Maps plugin abroad; if that plugin is turned off the next one is used, and with both off the **Directions** page on the OpenStreetMap website (just a web page; you type the start yourself, and there's no transit). No key is needed.
+
+For places inside mainland China, the coordinates handed to the HarmonyOS panel, Android and AMap are converted to the kind Chinese maps use (GCJ-02), so they're not off by hundreds of meters. The Android place link is meant to carry GPS coordinates by convention; ergo gives the converted ones, as Chinese maps apps expect — **this hasn't been checked on a real phone yet**, so if the pin lands in the wrong spot, let ergo's developers know.
+
 ## A clearer map inside China: enter an AMap key
 
 Without a key, inside China the map uses OpenStreetMap too and says "Enter an AMap key for a clearer map inside China"; tap **Set up** to go where you enter it.
@@ -200,6 +215,7 @@ ergo says where the data came from in its answers ("data from AMap" or "data fro
   - **Cards in chats**: the preview is a plain map the computer asks for, and the request only has the center, zoom level, size and light or dark — not a single point or line; the page draws the points and lines on top of it.
   - The computer fetches OpenStreetMap's map images for the page and the page draws footprints itself, so they aren't sent to OpenStreetMap.
   - The map itself still has to be fetched: when you look at a day's footprints the map moves to that area, so the map service knows you're looking at it (just like when you drag the map yourself).
+- **When you tap Navigate in a maps app**: only when you tap it, the destination (coordinates and name) goes to the maps app you pick, or the directions page of that provider opens (AMap, Google, OpenStreetMap), so that provider knows where you're heading; the start is worked out by the maps app or the page itself.
 - **When you tap Show my location**: your location isn't sent to any map service or stored; the dot and accuracy circle are drawn on ergo's own layer too. But the map moves to your area and fetches the map for it, so the map service knows which area you're looking at. To keep that from a map service, pick OpenStreetMap under **Map: …** before locating (the computer fetches OpenStreetMap's images for you).
 
 ## Choose map providers, turn the map off

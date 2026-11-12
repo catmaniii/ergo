@@ -8,6 +8,7 @@
 import { type LatLon, type MapCardShow, type MapDayView, type MapDrawing, type MapProviderView, t } from "../../state/index.ts";
 import { ownBasemapOf } from "./providers.ts";
 import { daySummary, footprintDay, spotTitle } from "./footprints.ts";
+import { drawingTargets, type MapNavTarget, pointsTargets, routeTargets } from "./navigate.ts";
 import type { MapLine, MapMark, MapScene } from "./scene.ts";
 
 /** 卡片画的东西的编号前缀（和地图页别的东西分开） */
@@ -28,6 +29,8 @@ export interface MapCardContent {
   readonly ownBasemap?: string;
   /** 查到的那一份自己的标题（查的时候起的；不经卡片直接看查到的一处时地图页标题栏写它，447）；别的不写 */
   readonly title?: string;
+  /** "用手机地图导航"能去的几处（434，navigate.ts）：点、搜到的、地址各一处，路线是终点；足迹没有 */
+  readonly targets: readonly MapNavTarget[];
 }
 
 /**
@@ -52,7 +55,7 @@ export function dayContent(view: MapDayView): MapCardData {
   const day = footprintDay(view);
   if (day.empty) return { state: "empty", text: t("ui.plugins.map.day.empty") };
   const lines = [daySummary(view, day), namesLine(day.spots.map((s) => spotTitle(s)))].filter((l): l is string => l !== undefined);
-  return { state: "ready", content: { scene: day.scene, bounds: day.bounds, lines, footprints: true } };
+  return { state: "ready", content: { scene: day.scene, bounds: day.bounds, lines, footprints: true, targets: [] } };
 }
 
 /** 秘书给的一组点、一条路线（存在卡上的） */
@@ -63,7 +66,8 @@ export function shownContent(show: Extract<MapCardShow, { kind: "points" | "rout
   // 路线写"起点 → 途经 → 终点"，一组点写"西湖、灵隐寺、…"
   const labels = show.marks.flatMap((m) => (m.label === undefined ? [] : [m.label]));
   const text = show.kind === "route" ? (labels.length > 0 ? labels.join(" → ") : undefined) : namesLine(labels);
-  return { scene: { marks, lines, circles: [] }, bounds, lines: text === undefined ? [] : [text], footprints: false };
+  const targets = show.kind === "route" ? routeTargets(show.points, show.marks) : pointsTargets(show.marks);
+  return { scene: { marks, lines, circles: [] }, bounds, lines: text === undefined ? [] : [text], footprints: false, targets };
 }
 
 /** 一种走法叫什么（432 的开车、公交、步行；不认得的不写） */
@@ -101,7 +105,7 @@ export function drawingContent(drawing: MapDrawing, sources: CardSources = {}): 
   const found = drawing.kind === "route" ? undefined : namesLine(named);
   const text = [found, modes.length > 0 ? modes.join(t("pages.common.listSep")) : undefined, sourceLine(drawing.source, sources.credit?.(drawing.source))].filter((l): l is string => l !== undefined && l !== "");
   const own = ownBasemapOf(drawing.source, sources.providers);
-  return { scene: { marks, lines, circles: [] }, bounds, lines: text, footprints: false, ...(own === undefined ? {} : { ownBasemap: own }), title: drawing.title };
+  return { scene: { marks, lines, circles: [] }, bounds, lines: text, footprints: false, ...(own === undefined ? {} : { ownBasemap: own }), title: drawing.title, targets: drawingTargets(drawing) };
 }
 
 /** 内容的中心（外接框的中心）：卡片按它在哪个区域挑当前地图（451）；没有点给 0,0 */

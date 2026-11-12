@@ -28,5 +28,5 @@ export type {
   TabSlot,
 } from "./slots.ts";
 export { usePlugins, useRouteAvailable } from "./react.tsx";
-// 地图服务的底图（445）要照着写的引擎外形
-export type { MapCircle, MapEngine, MapEngineEvents, MapEngineFactory, MapEngineOptions, MapLine, MapMark, MapScene, MapSurfaceView, MapView, SceneEngine, TileEngineOptions } from "../model/map.ts";
+// 地图服务的底图（445）要照着写的引擎外形；导航网址的目的地（434）
+export type { MapCircle, MapEngine, MapEngineEvents, MapEngineFactory, MapEngineOptions, MapLine, MapMark, MapNavTarget, MapScene, MapSurfaceView, MapView, SceneEngine, TileEngineOptions } from "../model/map.ts";

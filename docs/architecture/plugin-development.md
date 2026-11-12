@@ -390,7 +390,7 @@ export const notesWebPlugin: WebPluginDefinition = {
   | `calendar` | 日历的图例、格子里的小标、一天的一节 | 提醒 |
   | `composerVoice` / `background` | 输入框的语音模式 / 整页挂一份的后台部件 | 语音 |
   | `dataSources` | 设置 · 数据源里一个数据源下面的设置（填 Key、地址，测试连接；或者手机 App 里的按钮），键是数据源 id | 手机（"从手机通讯录挑人""连上手机日历"）、Google（Google · 日历：填私密地址） |
-  | `mapBasemaps` | 地图页的一种底图（地图服务插槽的网页一半，键是地图服务的编号）：`title`、`credit`（卡片上"数据来自"写的名字）；瓦片底图写 `tiles`（地址、最大级别、署名，地图插件自己画），要加载外站脚本的写 `prepare(key, kit)` 交回建引擎的函数；没填 Key 时要提醒的写 `setup`。停用时撤掉，地图页退回下一家，一家都没有时说"没有能用的地图" | OpenStreetMap 插件的瓦片底图（`packages/web/src/plugins/openstreetmap/plugin.tsx`）、高德地图插件（`packages/web/src/plugins/amap/basemap.ts`）、谷歌地图插件 |
+  | `mapBasemaps` | 地图页的一种底图（地图服务插槽的网页一半，键是地图服务的编号）：`title`、`credit`（卡片上"数据来自"写的名字）；瓦片底图写 `tiles`（地址、最大级别、署名，地图插件自己画），要加载外站脚本的写 `prepare(key, kit)` 交回建引擎的函数；没填 Key 时要提醒的写 `setup`；给得出导航网址的写 `navigation(target)`（434：卡片上"用手机地图导航"在浏览器里打开它，`target` 是 WGS-84，自己转坐标，导航不了的点回 `undefined`）。停用时撤掉，地图页退回下一家，一家都没有时说"没有能用的地图" | OpenStreetMap 插件的瓦片底图（`packages/web/src/plugins/openstreetmap/plugin.tsx`）、高德地图插件（`packages/web/src/plugins/amap/basemap.ts`）、谷歌地图插件 |
 
 - 给人看的字走 `t()`、写成取值函数（`get title() { return t("ui.plugins.notes.title"); }`）；只 import `plugins/api.ts`、`state/index.ts` 和核心的模块。
 - 核心里去它那一页的链接用 `useRouteAvailable` 判断（插件停用时不出）。

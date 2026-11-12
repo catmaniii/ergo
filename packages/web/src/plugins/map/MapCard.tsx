@@ -11,7 +11,9 @@
 //   一家都用不了（455：三家都停了）、瓦片底图也没有：只有字；
 // - 深色：静态图有深色的（那家报的 previewDark：谷歌）取深色的；没有的（高德）压暗一点（map-card.css）；图里有那家的标志，不另写署名；
 // - 查到的结果按编号现取，只在守护进程的内存里留一会儿，过期了写"过期了，再问一次"；
-// - 点开去哪：足迹卡去 #/more/map/<日期>（地图页看那一天），别的去 #/more/map/card/<卡片编号>（地图页画这张卡）。
+// - 点开去哪：足迹卡去 #/more/map/<日期>（地图页看那一天），别的去 #/more/map/card/<卡片编号>（地图页画这张卡）；
+// - 434 起点、路线、查到的地点和地址下面多一个"用手机地图导航"（MapNavigate.tsx），点了才交给手机上的地图 App（或那家的导航网页），
+//   几处的先挑去哪一处；足迹卡没有。
 // 数据怎么来：足迹按日期现取（GET /api/map/day），查到的按编号现取（GET /api/map/drawing），点和路线就在卡上（card-scene.ts 整理）。
 import { type Ref, useEffect, useMemo, useRef, useState } from "react";
 import type { DaemonHttp } from "../../app/daemon-http.ts";
@@ -29,6 +31,7 @@ import { MapThumb } from "./MapThumb.tsx";
 import { useDark } from "./MapView.tsx";
 import { ownBasemapShow } from "./own-results.ts";
 import { CARD_PREVIEW_MAX_WIDTH, type PreviewState, previewSize, useBoxSize, useMapPreview, useMapProviders, useVisible } from "./preview.ts";
+import { MapNavigate, type NavChoices, useNavChoices } from "./MapNavigate.tsx";
 import { autoBasemap, type BasemapPage, cardBasemap } from "./providers.ts";
 import { StaticPreview } from "./static-overlay.tsx";
 import { MAP_PAGE } from "./route.ts";
@@ -198,6 +201,8 @@ export function MapCard({ state, payload }: CardProps<MapCardPayload>) {
   const query =
     pick?.image && pick.provider !== undefined && visible && size ? { card: state.card.id, provider: pick.provider, width: size.width, height: size.height, dark: dark && darkImage(pick.provider), scale: size.scale } : undefined;
   const preview = useMapPreview(http, query);
+  // "用手机地图导航"（434）：能去的几处各怎么交出去
+  const nav = useNavChoices(content?.targets, providers);
   const providerName = (id: string) => entries.title(id) ?? providers?.find((p) => p.id === id)?.title ?? id;
   /** 自己画：挑出来的那家是瓦片底图就用它，不然这个区域能用的瓦片底图（都没有只写字） */
   const selfDrawn = (preferred: string | undefined): MapCardThumb => {
@@ -217,7 +222,7 @@ export function MapCard({ state, payload }: CardProps<MapCardPayload>) {
             ? { kind: "none", reason: preview.reason }
             : selfDrawn(undefined)
           : { kind: "image", provider: pick.provider ?? "", preview: preview ?? { state: "loading" }, name: providerName(pick.provider ?? ""), dim: dark && !darkImage(pick.provider ?? "") };
-  return <MapCardView cardId={state.card.id} payload={payload} data={data} own={own} ownName={ownName} thumb={thumb} thumbRef={setBox} dark={dark} />;
+  return <MapCardView cardId={state.card.id} payload={payload} data={data} own={own} ownName={ownName} thumb={thumb} thumbRef={setBox} dark={dark} nav={nav} />;
 }
 
 export function MapCardView({
@@ -228,6 +233,7 @@ export function MapCardView({
   ownName,
   thumb,
   thumbRef,
+  nav,
 }: {
   cardId: string;
   payload: MapCardPayload;
@@ -239,6 +245,8 @@ export function MapCardView({
   thumb?: MapCardThumb | undefined;
   thumbRef?: Ref<HTMLDivElement> | undefined;
   dark?: boolean | undefined;
+  /** "用手机地图导航"能去的几处（434，MapCard 按这一页开在哪算好交来）；没有就不画 */
+  nav?: NavChoices | undefined;
 }) {
   const title = mapCardTitle(payload);
   const href = mapCardHref(cardId, payload.show);
@@ -297,11 +305,16 @@ export function MapCardView({
           </div>
         ))}
         {shown.kind === "none" && shown.reason !== undefined && content && <div className="map-card-line map-card-preview-failed">{t("ui.plugins.map.card.previewFailed", { reason: shown.reason })}</div>}
-        {!boxed && own !== undefined && content && (
-          <a className="map-card-go" href={href}>
-            <Icon name="map" />
-            {t("ui.plugins.map.card.openOwn", { name: ownName ?? own })}
-          </a>
+        {content && ((!boxed && own !== undefined) || (nav !== undefined && nav.items.length > 0)) && (
+          <div className="map-card-acts">
+            {!boxed && own !== undefined && (
+              <a className="map-card-go" href={href}>
+                <Icon name="map" />
+                {t("ui.plugins.map.card.openOwn", { name: ownName ?? own })}
+              </a>
+            )}
+            {nav !== undefined && <MapNavigate choices={nav} />}
+          </div>
         )}
       </div>
     </div>
