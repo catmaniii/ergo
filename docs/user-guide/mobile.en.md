@@ -479,7 +479,7 @@ If the address is recognizably a tailnet one, the Tailscale item comes first.
 **When it's too old you'll see:**
 
 - A bar at the very top of the app: **The ergo app needs updating to x.y**, with a button to go and update.
-- The same reminder in your inbox, which also goes to the notification bar while the app is in the background. Each phone is only reminded once.
+- The same reminder in your inbox, which also goes to the notification bar while the app is in the background. Each phone is only reminded once. Tap its **Update the app** in that phone's Android app: when ergo on your computer carries the package, it takes you straight to Settings → Data & devices → Device pairing, at this phone's **Update**; otherwise it goes to the download (see below).
 
 **Android: tap Update in the app.** ergo on your computer carries the Android app of the same version, so the phone downloads it from ergo instead of GitHub, which is also fast in mainland China.
 

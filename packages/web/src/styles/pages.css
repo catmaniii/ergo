@@ -5493,6 +5493,10 @@ a.att-icon:hover {
   background: var(--surface);
   font-size: var(--fs-l);
 }
+/* 待办"去升级"点过来、定位到"更新"的那一行：等页面稳一下再闪（和"在对话中定位"同一个颜色和节奏，detail.css 的 dp-flash） */
+.device-row.device-flash {
+  animation: dp-flash 1.6s 0.3s;
+}
 .skill-row > div,
 .device-row > div {
   min-width: 0;

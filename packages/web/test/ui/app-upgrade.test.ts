@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test } from "vitest";
 import { activeLocale, activeLocaleFrom, MIN_APP_VERSION, type ReportAppVersionParams, setActiveLocale } from "../../src/state/index.ts";
-import { AppUpgradeBar, openUpgradeOutside } from "../../src/ui/app-upgrade.tsx";
+import { AppUpgradeBar, openUpgradeOutside, upgradeInApp } from "../../src/ui/app-upgrade.tsx";
 import { TEST_LOCALES } from "../setup-locales.ts";
 
 const before = activeLocale();
@@ -88,5 +88,31 @@ describe("去升级的链接交给系统浏览器（新版安卓 App，票 386�
     expect(openUpgradeOutside({ openSystemBrowser: () => Promise.resolve(false) }, URL, (url) => fallback.push(url))).toBe(true);
     await flush();
     expect(fallback).toEqual([URL]);
+  });
+});
+
+describe("待办里的「去升级」能不能在 App 里一键更新（去设置 · 设备配对的「更新」，票 386）", () => {
+  const data = { deviceId: "d-phone", deviceName: "二狗 App · Android", version: "0.4.0", minVersion: "0.4.1", platform: "android" as const };
+  const view = { android: { version: "0.4.5", code: 1005, sha256: "a".repeat(64), size: 3_000_000 } };
+  const base = { inAppUpdate: true, selfDeviceId: "d-phone", data, appVersion: "0.4.0", view };
+
+  test("这台手机自己的新版安卓 App、二狗带着更新的包：去设备配对", () => {
+    expect(upgradeInApp(base)).toBe(true);
+    // App 报的版本读不到时看这一条写的
+    expect(upgradeInApp({ ...base, appVersion: undefined })).toBe(true);
+  });
+
+  test("二狗没带包、带的不比手机上的新：照旧去下载", () => {
+    expect(upgradeInApp({ ...base, view: undefined })).toBe(false);
+    expect(upgradeInApp({ ...base, view: {} })).toBe(false);
+    expect(upgradeInApp({ ...base, appVersion: "0.4.5" })).toBe(false);
+  });
+
+  test("旧 App（不能一键更新）、鸿蒙、说的是别的设备、电脑上（没有设备）：照旧", () => {
+    expect(upgradeInApp({ ...base, inAppUpdate: false })).toBe(false);
+    expect(upgradeInApp({ ...base, data: { ...data, platform: "harmony" } })).toBe(false);
+    expect(upgradeInApp({ ...base, selfDeviceId: "d-other" })).toBe(false);
+    expect(upgradeInApp({ ...base, selfDeviceId: undefined })).toBe(false);
+    expect(upgradeInApp({ ...base, data: undefined })).toBe(false);
   });
 });

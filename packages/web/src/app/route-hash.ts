@@ -78,6 +78,9 @@ function valid(parse: (s: string) => unknown, s: string | undefined): string | u
  * #/secretary/at/<id>、#/tasks/<任务>/at/<id>、#/projects/<项目>/chat/at/<id>
  * #/projects/<项目>/tasks/<任务>[/at/<id>]：项目的对话框定位到这个任务（项目负责人做的任务没有单独的详情页，#/tasks/<任务> 换成它）
  */
+/** #/more/devices/update：设备配对这一页，定位到这台手机那一行的"更新"（票 386） */
+export const DEVICES_UPDATE_ITEM = "update";
+
 export type Route =
   | { tab: "secretary"; at?: string }
   /** 看板；jobId：定位到看板上这个定时作业的卡（日历里点作业过来）；at：任务的会话里定位到的那一条 */
@@ -174,8 +177,9 @@ export function parseHash(hash: string): Route {
       if (a && page === undefined) return { tab: "more", page: a, ...(b ? { item: b } : {}), ...(b && c ? { sub: c } : {}) };
       // 有下一级的页（系统提示；删除素材里点开的一条素材；个人档案里点开的一个人；数据源详情；设备配对的二维码界面）：
       // #/more/prompts/<编号>、#/more/materials-delete/<素材 id>、#/more/files/<档案编号>、#/more/data-sources/<数据源 id>、#/more/devices/qr；
-      // 设置 · 服务定位到一个服务（体检里点过来）：#/more/services/<服务 id>
-      if (page === "devices") return b === "qr" ? { tab: "more", page, item: b } : { tab: "more", page };
+      // 设置 · 服务定位到一个服务（体检里点过来）：#/more/services/<服务 id>；
+      // 设置 · 设备配对定位到这台手机的"更新"（待办"App 太旧了"那条的"去升级"点过来，票 386）：#/more/devices/update
+      if (page === "devices") return b === "qr" || b === DEVICES_UPDATE_ITEM ? { tab: "more", page, item: b } : { tab: "more", page };
       return (page === "prompts" || page === "materials-delete" || page === "files" || page === "data-sources" || page === "services") && b ? { tab: "more", page, item: b } : { tab: "more", page };
     }
     case "card":

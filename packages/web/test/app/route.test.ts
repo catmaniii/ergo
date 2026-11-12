@@ -55,9 +55,12 @@ test("外观与风格是设置下面的一页：地址拆得开、拼得回，�
 
 test("系统提示是设置下面的一页，点进某一份是下一级：地址拆得开、拼得回，属于主导航的设置", () => {
   // 数据源详情、共用的导入文件夹
-  // 设备配对的二维码界面：只认 qr 这一个下一级，别的回到设备配对
+  // 设备配对的二维码界面、定位到这台手机的"更新"（票 386）：只认 qr、update 这两个下一级，别的回到设备配对
   expect(parseHash("#/more/devices/qr")).toEqual({ tab: "more", page: "devices", item: "qr" });
   expect(toHash({ tab: "more", page: "devices", item: "qr" })).toBe("#/more/devices/qr");
+  expect(parseHash("#/more/devices/update")).toEqual({ tab: "more", page: "devices", item: "update" });
+  expect(toHash({ tab: "more", page: "devices", item: "update" })).toBe("#/more/devices/update");
+  expect(navItemOf({ tab: "more", page: "devices", item: "update" })).toBe("settings");
   expect(parseHash("#/more/devices/other")).toEqual({ tab: "more", page: "devices" });
   expect(parseHash("#/more/data-sources")).toEqual({ tab: "more", page: "data-sources" });
   expect(parseHash("#/more/data-sources/google-gmail")).toEqual({ tab: "more", page: "data-sources", item: "google-gmail" });

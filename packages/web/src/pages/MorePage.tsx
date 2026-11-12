@@ -49,7 +49,7 @@ import { Fragment, useEffect } from "react";
 import { useDebugUnlock } from "../app/page-debug.ts";
 import { pageSettingsFold, useSettingsFolded } from "../app/page-settings-fold.ts";
 import { backToHash, cameFrom } from "../app/history-nav.ts";
-import { goBackFromMaterial, goBackTo, IMPORT_FOLDER_ITEM, isMorePage, type MorePage as Sub, type Navigate, navItemOf, type Route, toHash } from "../app/route.ts";
+import { DEVICES_UPDATE_ITEM, goBackFromMaterial, goBackTo, IMPORT_FOLDER_ITEM, isMorePage, type MorePage as Sub, type Navigate, navItemOf, type Route, toHash } from "../app/route.ts";
 import { usePlugins, type WebPluginHost } from "../plugins/api.ts";
 import { activeLocale, LANGUAGE_SETTING_TITLE, type NavItem, type SettingsGroupId, t, tTable } from "../state/index.ts";
 import { ListDetail, TopBar } from "../ui/common.tsx";
@@ -308,7 +308,9 @@ function SettingsSection({ wide, page, item, go, navigate }: { wide: boolean; pa
     </div>
   );
   const backFromItem = sub === "materials-delete" ? () => goBackFromMaterial({ tab: "more", page: sub }) : () => sub && go(sub);
-  const detail = sub && <SubPageCol page={sub} item={item} onBack={item && sub !== "services" ? backFromItem : wide ? undefined : () => go("settings")} go={go} navigate={navigate} />;
+  // 定位到某一处的（服务、设备配对的"更新"）还是那一页本身，返回照没定位时那样
+  const located = sub === "services" || (sub === "devices" && item === DEVICES_UPDATE_ITEM);
+  const detail = sub && <SubPageCol page={sub} item={item} onBack={item && !located ? backFromItem : wide ? undefined : () => go("settings")} go={go} navigate={navigate} />;
   return <ListDetail wide={wide} list={list} detail={detail} listWidth={280} />;
 }
 
@@ -316,7 +318,17 @@ function SettingsSection({ wide, page, item, go, navigate }: { wide: boolean; pa
 function SubPageCol({ page, item, onBack, go, navigate }: { page: Sub; item?: string | undefined; onBack: (() => void) | undefined; go(p: Sub): void; navigate: Navigate }) {
   // 配对二维码是设备配对的下一级：返回回到设备配对
   if (page === "devices" && item === "qr") return <PairingQrPage title={t("pages.devices.qr.title")} onBack={onBack} />;
-  if (page === "devices") return <DevicesPage title={pageTitle("devices")} onBack={onBack} onPreviewPairing={import.meta.env.MODE === "demo" ? () => navigate({ tab: "pair-wait" }) : undefined} onShowQr={() => navigate({ tab: "more", page: "devices", item: "qr" })} />;
+  if (page === "devices") {
+    return (
+      <DevicesPage
+        title={pageTitle("devices")}
+        onBack={onBack}
+        onPreviewPairing={import.meta.env.MODE === "demo" ? () => navigate({ tab: "pair-wait" }) : undefined}
+        onShowQr={() => navigate({ tab: "more", page: "devices", item: "qr" })}
+        focusUpdate={item === DEVICES_UPDATE_ITEM}
+      />
+    );
+  }
   // 设置向导：标题栏上除了返回还有它自己的"先不弄了"（任何时候都能出去接着用），内容和步骤在 pages/SetupWizard.tsx
   if (page === "setup") return <SetupPage title={pageTitle("setup")} onBack={onBack} navigate={navigate} />;
   // 体检：标题栏右上"再查一遍"，二狗本身和每个插件各一块（pages/more/DoctorPage.tsx）；动作按钮"去看看"要跳页

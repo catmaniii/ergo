@@ -86,8 +86,9 @@ const PAGES = [
   "#/more/map/1.2834%2C103.8607%2C14",
   "#/more/data-sources/phone-location",
   "#/more/data-sources/没有这个",
-  // 设备配对的二维码界面
+  // 设备配对的二维码界面；定位到这台手机的"更新"（原型里这台不是安卓 App，照常是设备配对）
   "#/more/devices/qr",
+  "#/more/devices/update",
   // 设置 · 服务定位到一个服务（体检里点过来的样子，原型编的服务管家）
   "#/more/services/ergo-daemon--p-ledger-web",
   "#/more/data-sources/import_folder",
