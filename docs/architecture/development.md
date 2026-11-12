@@ -238,7 +238,7 @@ adb -s <设备号> logcat -s ErgoApp                  # App 和网页的日志
 
 - 测试一律用临时目录，不碰 `~/.ergo`、不碰在跑的守护进程。
 - 所有 vitest project 都挂了根目录的 `vitest.setup-no-network.mjs`：**经全局 `fetch` 发往本机回环以外的请求直接抛错**。它只拦 `fetch`，`net`、`tls` 直连拦不住，这种要自己守住。要测网络就用本机假服务（假 TTS、假 MCP、假的模型目录……）。测试一条都不花 token。
-- **计划任务 `LocalServiceManager` 名字是固定的，开发机上有一个真的**：测试用 `ERGO_AUTOSTART_TASK_FILE` 换成一个 JSON 文件（`cli/autostart.ts`，安装脚本也认）。`ergo` 起 lsm 只有 `runLsm` 一个入口，在 vitest 里没设这个变量时，`install-autostart`、`uninstall-autostart` 到那儿就被拒绝，lsm 不起。`cli.test.ts`、`install-script.test.ts` 跑完比一次真任务的完整定义（只读）。安装脚本的测试用假的 `ergo.cmd`。
+- **计划任务 `LocalServiceManager` 名字是固定的，开发机上有一个真的**：测试用 `ERGO_AUTOSTART_TASK_FILE` 换成一个 JSON 文件（`cli/autostart.ts`，安装脚本也认）。`ergo` 起 lsm 只有 `runLsm` 一个入口，在 vitest 里没设这个变量时，`install-autostart`、`uninstall-autostart` 到那儿就被拒绝，lsm 不起；停任务、起任务（`runTaskOp`，切版本时重起任务起的服务管家用）过同一道关。假任务的 `state` 是任务状态（`Running` 是有实例在跑），写 `"run": true` 时起任务真的照任务的命令用 conhost 起一个服务管家，端到端测试拿它模拟开机。`cli.test.ts`、`install-script.test.ts` 跑完比一次真任务的完整定义（只读）。安装脚本的测试用假的 `ergo.cmd`。
 
 ### Windows 上要注意
 

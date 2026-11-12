@@ -94,15 +94,16 @@ const idsAfter = (inputs: Array<EventFrame | UiInput>) => chatItems(replay(input
 
 describe("回放：任务的负责人会话（timeline-zoom）", () => {
   // 录制在 packages/daemon/test/main/timeline.test.ts：两阶段任务，第一阶段里写文件、通用 bash（ls）、授权内的建目录（bash）、
-  // 做完告诉我的提交、问过的读主目录（审批卡、批准）、脚本验收；第二阶段写报告、写围栏外被硬拒绝、脚本验收
+  // 做完告诉我的提交、问过的读主目录（审批卡、批准）、脚本验收；第二阶段写报告、写围栏外被硬拒绝、脚本验收。
+  // 负责人交计划之后回的那句"计划交上去了"在你确认之前：计划卡排在这一轮最后，在那句回复下面（462）
   const state = replay(load("timeline-zoom"));
   const items = chatItems(state, "maintainer:tm-1");
 
   test("切法：两段话之间的调用按先后成一组，出了状况的（问过、被拦下）也在组里；审批卡隔开组；换了阶段另起一组；内部工具不显示", () => {
     expect(items.map(shape)).toEqual([
       "system",
-      "card",
       "reply",
+      "card",
       "system",
       "tool_group[write,bash,bash,git_commit]",
       "card",
@@ -120,15 +121,15 @@ describe("回放：任务的负责人会话（timeline-zoom）", () => {
 
   test("内部工具（提交计划、宣布阶段完成）不显示：挂在代表它的卡片上（计划卡、那个阶段的验收卡），按调用的 id 找得到", () => {
     const attached = items.map((it) => it.internalCalls.map((c) => `${c.part.tool}${c.scope.stageId ? `@${c.scope.stageId}` : ""}`));
-    expect(attached).toEqual([[], ["submit_plan"], [], [], [], [], [], [], ["complete_stage@s1"], [], [], ["complete_stage@s2"], [], []]);
-    const plan = items[1]!;
+    expect(attached).toEqual([[], [], ["submit_plan"], [], [], [], [], [], ["complete_stage@s1"], [], [], ["complete_stage@s2"], [], []]);
+    const plan = items[2]!;
     const call = plan.internalCalls[0]!;
     expect([call.internal, call.counted]).toEqual([true, false]);
     expect(locateChatItem(items, call.id)).toEqual({ item: plan, call });
   });
 
   test("从待办跳过来：按卡片 id 定位到那张卡那一条，按调用 id 定位到那次调用；会话里还没有的不定位", () => {
-    const plan = items[1]!;
+    const plan = items[2]!;
     expect(plan.kind === "card" && revealTargetId(items, plan.cardId)).toBe(plan.id);
     const group = items.find((it) => it.kind === "tool_group")!;
     const callId = group.kind === "tool_group" ? group.calls[0]!.id : "";
@@ -152,8 +153,8 @@ describe("回放：任务的负责人会话（timeline-zoom）", () => {
     const tmp = /^<临时目录>\\ergo-home-[^\\]+\\/;
     expect(items.map((it) => [it.keyLine, it.tone ?? null])).toEqual([
       ["系统：任务书：任务 t-1「整理笔记和报告」", null],
-      ["计划：整理笔记和报告（第 1 版，2 个阶段，约 320000 token） · 已处理", null],
       ["回复：计划交上去了", null],
+      ["计划：整理笔记和报告（第 1 版，2 个阶段，约 320000 token） · 已处理", null],
       ["系统：计划已确认，开始执行任务 t-1「整理笔记和报告」。", null],
       ["调用了 4 个工具：写文件、通用 bash ×2、git 提交", "notify"],
       [expect.stringMatching(/^审批（任务「整理笔记和报告」）：读文件「.+readme\.txt」 · 越出项目目录 · 已处理$/), null],
@@ -196,8 +197,8 @@ describe("回放：任务的负责人会话（timeline-zoom）", () => {
   test("内容类型和详情：用户、思考、回复、说明能看文本详情，组、卡片各有各的详情", () => {
     expect(items.map((it) => `${it.content}/${it.detail ?? "-"}`)).toEqual([
       "context/text",
-      "plan/card",
       "reply/text",
+      "plan/card",
       "context/text",
       "tool/tool_group",
       "plan/card",
@@ -222,8 +223,9 @@ describe("回放：任务里你拒绝了（task-rejections）", () => {
 
   test("授权内的那次成组；每次审批卡一条、被你拒绝的那次调用一组（1 次你拒绝了）；暂停的偏离记录一条；提交计划挂在计划卡上", () => {
     const denied = ["card", "tool_group[bash]"];
-    expect(items.map(shape)).toEqual(["system", "card", "reply", "system", "tool_group[bash]", ...denied, ...denied, ...denied, ...denied, "card", "record", "tool_group[bash]", "system"]);
-    expect(items[1]!.internalCalls.map((c) => c.part.tool)).toEqual(["submit_plan"]);
+    // 计划卡排在交计划那一轮最后（回复下面，462）；审批卡批了（拒绝了）之后才接着的那一组排在它下面，不挪
+    expect(items.map(shape)).toEqual(["system", "reply", "card", "system", "tool_group[bash]", ...denied, ...denied, ...denied, ...denied, "card", "record", "tool_group[bash]", "system"]);
+    expect(items[2]!.internalCalls.map((c) => c.part.tool)).toEqual(["submit_plan"]);
     const deniedGroups = items.filter((it) => it.kind === "tool_group").slice(1);
     expect(deniedGroups.map((it) => [it.keyLine, it.tone, issues(it)])).toEqual([1, 2, 3, 4, 5].map(() => ["调用了 1 个工具：通用 bash（1 次你拒绝了）", "stopped", ["denied×1"]]));
     expect(items[4]).toMatchObject({ kind: "tool_group", tone: "granted", issues: [], marks: [{ reason: "granted", genericBash: true, categories: ["越出项目目录"] }] });
@@ -285,9 +287,10 @@ describe("回放：秘书会话", () => {
     ]);
   });
 
-  test("彻底删除（memory-purge）：被删的消息只剩一条已删除；改写过的检索素材照样单独一行调用记忆；卡片隔开；操作记录一条", () => {
+  test("彻底删除（memory-purge）：被删的消息只剩一条已删除；改写过的检索素材照样单独一行调用记忆；删除卡排在这一轮最后；操作记录一条", () => {
     const items = chatItems(replay(load("memory-purge")), "secretary");
-    expect(items.map(shape)).toEqual(["user", "reply", "deleted", "reply", "user", "recall", "card", "tool_group[propose_quick_action]", "reply", "record", "user", "reply"]);
+    // 记忆删除卡（等你核对）在你点之前秘书又调了一次、回了一句：卡排在这一轮最后（462），操作记录是你点了以后的
+    expect(items.map(shape)).toEqual(["user", "reply", "deleted", "reply", "user", "recall", "tool_group[propose_quick_action]", "reply", "card", "record", "user", "reply"]);
     // 录像是以前录的（没有结构化的部分），结果摘要又被彻底删除改写了：认不出找到几条，写查了几次
     expect(items[5]).toMatchObject({ kind: "recall", keyLine: "查了 1 次记忆", detail: "recall" });
     expect(items[2]).toMatchObject({ kind: "deleted", keyLine: "已删除", content: "context", detail: undefined });
@@ -301,8 +304,9 @@ describe("回放：项目的负责人会话（work-orders-queue）", () => {
   const items = chatItems(replay(load("work-orders-queue")), "maintainer:pm-1");
 
   test("工单分隔线各成一条；一张工单里两段话之间的调用成一组，验收的说明和卡片把它隔开；内部工具不显示", () => {
-    // 起草：分隔线、开始工单的说明、计划卡、回复；执行：分隔线、开始执行的说明、写文件、宣布完成的说明和验收卡、收尾的一组、回复
-    const drafting = ["divider", "system", "card", "reply"];
+    // 起草：分隔线、开始工单的说明、回复、计划卡（你确认之前回的那句排在它上面，462）；
+    // 执行：分隔线、开始执行的说明、写文件、宣布完成的说明和验收卡、收尾的一组、回复
+    const drafting = ["divider", "system", "reply", "card"];
     const executing = ["divider", "system", "tool_group[write]", "system", "card", "system", "tool_group[edit]", "reply"];
     expect(items.map(shape)).toEqual([...drafting, ...drafting, ...executing, ...executing]);
     // 起草计划的那几次调用都是内部工具：提交计划挂在计划卡上，写回进展、写摘要只是记账，挂在紧挨着的前一条（也是计划卡）上
@@ -372,9 +376,11 @@ describe("录像覆盖不到的：出了状况的调用也在组里、按先后�
   });
 
   test("审批卡照旧单独一张，把组隔成前后两段，先后顺序不乱", () => {
+    // 批了之后才接着做的（b 是批准后执行的）排在审批卡下面：卡不往这一轮最后挪（waitingCardsLast 只越过你处理之前出现的）
+    const approved = { status: "handled" as const, outcome: { action: "approve" as const }, handledAt: "2026-10-09T10:00:02.500+08:00" };
     const items = chatItems(
       replay([
-        frame("cards", 1, "card", { card: card("c-ap", 1, { type: "approval", text: "审批：删除 a.md" }) }),
+        frame("cards", 1, "card", { card: card("c-ap", 2, { type: "approval", text: "审批：删除 a.md", ...approved }) }),
         callFrame(1, "a"),
         messageFrame(2, "k2", "agent", [{ type: "card_ref", cardId: "c-ap" }]),
         callFrame(3, "b", { disposition: "ask_first", outcome: "done", categoryTitles: ["删除或覆盖"] }),
@@ -846,8 +852,9 @@ describe("附件一律显示在文字后面", () => {
     // 后面隔着用户的下一句、系统说明、卡片：不越过去（下一轮的话不是这个附件的）
     expect(ids([sm(1, "att1", "agent", [md("a.md")]), sm(2, "u2", "user", [text("再查一个")]), sm(3, "r2", "agent", [text("好")])])).toEqual(["att1", "u2", "r2"]);
     expect(ids([sm(1, "att1", "agent", [md("a.md")]), sm(2, "s2", "system", [text("计划已确认，开始执行")]), sm(3, "r2", "agent", [text("开始了")])])).toEqual(["att1", "s2", "r2"]);
+    // 附件不越过卡片；那张卡还没处理，自己排到这一轮最后（462）
     const withCard = replay([frame("cards", 1, "card", { card: card("c-1", 1) }), sm(1, "att1", "agent", [md("a.md")]), sm(2, "k2", "agent", [{ type: "card_ref", cardId: "c-1" }]), sm(3, "r3", "agent", [text("确认一下卡片")])]);
-    expect(chatItems(withCard, S).map((it) => it.id)).toEqual(["att1", "k2#0", "r3"]);
+    expect(chatItems(withCard, S).map((it) => it.id)).toEqual(["att1", "r3", "k2#0"]);
   });
 
   test("这一轮没有文字的：附件照原位置", () => {
@@ -886,5 +893,91 @@ describe("附件一律显示在文字后面", () => {
     ]);
     expect(locateChatItem(items, "att1")?.item.kind).toBe("reply");
     expect(revealTargetId(items, "att1")).toBe("att1");
+  });
+});
+
+/** 项目负责人的会话（462 那几条用） */
+const PM = "maintainer:pm-9";
+const say = (seq: number, id: string, speaker: MessageEnvelope["speaker"], parts: MessagePart[], extra: Omit<MessageEventPayload, "message"> = {}) => messageFrame(seq, id, speaker, parts, extra, PM);
+const refTo = (cardId: string): MessagePart => ({ type: "card_ref", cardId });
+/** 卡片频道上的一张卡（同一个回放里几张的，seq 各不一样） */
+const cardOf = (id: string, type: string, o: Partial<Parameters<typeof card>[2]> = {}, seq = 1) => frame("cards", seq, "card", { card: card(id, 1, { type, text: `${type}：一张卡`, ...o }) });
+/** 每条写成"种类@序号"，卡写种类 */
+const orderView = (items: readonly ChatItem[]) => items.map((it) => (it.kind === "card" ? `card[${it.card?.type ?? "?"}]@${it.seq}` : `${it.kind}${it.seq === undefined ? "" : `@${it.seq}`}`));
+/** 10:00:0N.500 */
+const half = (n: number) => `2026-10-09T10:00:0${n}.500+08:00`;
+/** 负责人会话里每条的种类，卡带着种类和状态 */
+const lifecycleShapes = (state: ReturnType<typeof replay>) => chatItems(state, "maintainer:pm-1").map((it) => (it.kind === "card" ? `card[${it.card?.type}/${it.card?.status}]` : it.kind));
+
+describe("等你拍板的卡排在交出它的那一轮最后（462）", () => {
+  // 用户 2026-11-10：立项书后面还跟着负责人的思考和回复，立项书被压在上面；要放到最下面，回来就能看见。
+  // 但凡要你点按钮拍板的卡都这样（cards.ts 的 cardWaitsForYou）；只挪显示的先后，事件、序号、id 都不变
+  /** 交立项书的那一轮：你说的话；负责人想、调用交立项书的工具；工具产生的立项书卡（只有卡片引用的一条）；接着想、回你一段话 */
+  const turn = [
+    say(1, "u1", "user", [text("二十多件吧，提前一个月提醒")]),
+    say(2, "a2", "agent", [reasoning("范围定好了，交立项书"), tool("call-ch", { tool: "submit_charter", argsSummary: "projectId=p-9" })]),
+    say(3, "a3", "agent", [refTo("c-ch")]),
+    say(4, "a4", "agent", [reasoning("跟你说一下首版做什么、怎么开工"), text("立项书交上来了，就在下面，确认了就开工")]),
+  ];
+
+  test("一轮里“立项书 → 思考 → 回复”显示成“思考 → 回复 → 立项书”：id、序号不变，交立项书的调用照旧找得到", () => {
+    const items = chatItems(replay([cardOf("c-ch", "charter"), ...turn]), PM);
+    expect(orderView(items)).toEqual(["user@1", "thinking@2", "thinking@4", "reply@4", "card[charter]@3"]);
+    expect(items.at(-1)).toMatchObject({ kind: "card", id: "a3#0", seq: 3, cardId: "c-ch" });
+    expect(locateChatItem(items, "a2#1")?.call?.part.tool).toBe("submit_charter");
+    expect(revealTargetId(items, "c-ch")).toBe("a3#0");
+  });
+
+  test("还在出字的回复也排在它上面：卡一直在最下面，不跟着跳", () => {
+    const streaming = frame(PM, 3, "stream", { messageId: "a4", deltas: [{ part: 0, type: "text", offset: 0, text: "立项书交上来了" }] });
+    const items = chatItems(replay([cardOf("c-ch", "charter"), ...turn.slice(0, 3), streaming]), PM);
+    expect(items.map((it) => `${it.kind}${it.kind === "reply" && it.streaming ? "（正在出字）" : ""}`)).toEqual(["user", "thinking", "reply（正在出字）", "card"]);
+  });
+
+  test("下一轮开始以后（你又说了话、运行时交给它一条通知）它留在上一轮的末尾，不追着跑到最下面", () => {
+    const youSaid = [...turn, say(5, "u5", "user", [text("范围再加一条维修记录")]), say(6, "a6", "agent", [text("好，我改一版")])];
+    expect(orderView(chatItems(replay([cardOf("c-ch", "charter"), ...youSaid]), PM))).toEqual(["user@1", "thinking@2", "thinking@4", "reply@4", "card[charter]@3", "user@5", "reply@6"]);
+    const notice = [...turn, say(5, "n5", "system", [text("项目档案更新了")], { agentInput: true }), say(6, "a6", "agent", [text("看到了")])];
+    expect(orderView(chatItems(replay([cardOf("c-ch", "charter"), ...notice]), PM))).toEqual(["user@1", "thinking@2", "thinking@4", "reply@4", "card[charter]@3", "system@5", "reply@6"]);
+    // 只给人看的说明（没交给负责人）、时间线记录算在这一轮里：卡越过它们
+    const note = [...turn, say(5, "s5", "system", [text("范围审视：没有越界")])];
+    expect(orderView(chatItems(replay([cardOf("c-ch", "charter"), ...note]), PM))).toEqual(["user@1", "thinking@2", "thinking@4", "reply@4", "system@5", "card[charter]@3"]);
+  });
+
+  test("同一轮里几张等你拍板的卡照原来的先后排在末尾（计划、工具包变更、审批……都算）", () => {
+    const two = [...turn, say(5, "a5", "agent", [refTo("c-tk")]), say(6, "a6", "agent", [text("还要开联网，提了一张工具包变更")])];
+    const items = chatItems(replay([cardOf("c-ch", "charter"), cardOf("c-tk", "toolkit_change", {}, 2), ...two]), PM);
+    expect(orderView(items)).toEqual(["user@1", "thinking@2", "thinking@4", "reply@4", "reply@6", "card[charter]@3", "card[toolkit_change]@5"]);
+  });
+
+  test("处理过的停在你处理时它在的地方：越过你处理之前出现的，处理之后才来的排在它下面；点了按钮不往回跳", () => {
+    const later = [...turn, say(5, "a5", "agent", [text("收到，开始建")])];
+    const handled = { status: "handled" as const, outcome: { action: "confirm_start" as const }, handledAt: half(4) };
+    expect(orderView(chatItems(replay([cardOf("c-ch", "charter", handled), ...later]), PM))).toEqual(["user@1", "thinking@2", "thinking@4", "reply@4", "card[charter]@3", "reply@5"]);
+    // 关掉的、过期的一样按处理的时刻
+    for (const status of ["dismissed", "expired"] as const)
+      expect(orderView(chatItems(replay([cardOf("c-ch", "charter", { status, handledAt: half(4) }), ...later]), PM))).toEqual(["user@1", "thinking@2", "thinking@4", "reply@4", "card[charter]@3", "reply@5"]);
+    // 批了之后 agent 才接着做的（审批、提问）：处理在后面那些之前，卡不挪
+    const approved = { status: "handled" as const, outcome: { action: "approve" as const }, handledAt: half(3) };
+    expect(orderView(chatItems(replay([cardOf("c-ch", "approval", approved), ...turn]), PM))).toEqual(["user@1", "thinking@2", "card[approval]@3", "thinking@4", "reply@4"]);
+    // 不知道什么时候处理的：不挪
+    expect(orderView(chatItems(replay([cardOf("c-ch", "charter", { status: "handled" }), ...turn]), PM))).toEqual(["user@1", "thinking@2", "card[charter]@3", "thinking@4", "reply@4"]);
+  });
+
+  test("不挪的：运行时自己放进会话的（验收结论、首版做完了）、不用你做决定的（提醒、服务入口）、还没收到的卡", () => {
+    const system = [say(1, "u1", "user", [text("做完了吗")]), say(2, "s2", "system", [refTo("c-x")]), say(3, "a3", "agent", [text("首版做完了，等你选")])];
+    expect(orderView(chatItems(replay([cardOf("c-x", "build_done"), ...system]), PM))).toEqual(["user@1", "card[build_done]@2", "reply@3"]);
+    const fromAgent = (type: string) => [cardOf("c-x", type), say(1, "u1", "user", [text("提醒我")]), say(2, "a2", "agent", [refTo("c-x")]), say(3, "a3", "agent", [text("好")])];
+    expect(orderView(chatItems(replay(fromAgent("reminder")), PM))).toEqual(["user@1", "card[reminder]@2", "reply@3"]);
+    expect(orderView(chatItems(replay(fromAgent("service_entry")), PM))).toEqual(["user@1", "card[service_entry]@2", "reply@3"]);
+    expect(orderView(chatItems(replay([say(1, "u1", "user", [text("提醒我")]), say(2, "a2", "agent", [refTo("c-还没到")]), say(3, "a3", "agent", [text("好")])]), PM))).toEqual(["user@1", "card[?]@2", "reply@3"]);
+  });
+
+  test("回放（project-lifecycle）：立项书交上来、负责人回完那句，立项书在回复下面；点了确认并开工，收成一行留在那里，下一轮在它下面", () => {
+    // 录制在 packages/daemon/test/main/projects.test.ts 的"演示流程"
+    const inputs = load("project-lifecycle");
+    const clicked = inputs.findIndex((i) => i.kind === "card_action" && i.action === "confirm_start");
+    expect(lifecycleShapes(replay(inputs.slice(0, clicked)))).toEqual(["system", "divider", "user", "tool_group", "reply", "card[charter/pending]"]);
+    expect(lifecycleShapes(replay(inputs)).slice(0, 8)).toEqual(["system", "divider", "user", "tool_group", "reply", "card[charter/handled]", "system", "system"]);
   });
 });

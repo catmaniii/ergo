@@ -472,7 +472,8 @@ describe("工具调用组的详情：按先后列出每一步，出了状况的�
 describe("挂在别的条目上的内部工具调用（timeline-zoom）", () => {
   const state = replay(load("timeline-zoom"));
   const items = chatItems(state, "maintainer:tm-1");
-  const planCard = items[1]!;
+  // 计划卡排在交计划那一轮最后（回复下面，462）
+  const planCard = items.find((it) => it.kind === "card")!;
 
   test("卡片的详情列出挂在它上面的内部调用（提交计划），点进去是单次调用：写明由什么代表，不编号", () => {
     const d = open(state, items, planCard.id);

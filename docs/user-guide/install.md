@@ -185,7 +185,7 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 - **是"登录时"，不是"开机时"。** 电脑开着但停在登录界面，二狗不会起来。家里的电脑要无人值守，得让 Windows 自动登录，这个由你自己决定和设置。
 - **别的服务也一样。** 装了语音服务之后想让它也开机起来，用 `ergo svc autostart <服务> on`，或者点它卡片上的开关。服务名看 `ergo svc status`。
 - **关了就一直关着。** 把二狗从名单里关掉后，`ergo start` 不会替你打开。第 1 层撤掉后，`ergo start`、`ergo update` 也不会加回来；重新跑安装脚本会（不想要就加 `-NoAutostart`）。
-- **升级、回滚不用管。** `ergo update`、`ergo rollback`、`ergo start` 都会核对，任务指着这个安装里的别的版本就改指在用的版本。
+- **升级、回滚不用管。** `ergo update`、`ergo rollback`、`ergo start` 都会核对，任务指着这个安装里的别的版本就改指在用的版本；正在跑的服务管家是这个任务起的，就经任务把它重起成在用的版本（托管的服务不停）。
 - **这台电脑已有指向别处的同名任务**（比如你自己从源码装的服务管家）：安装脚本、`ergo start`、`ergo uninstall` 都不动它。要换成这一份就跑一次 `ergo svc install-autostart`。
 - **用 `-NoStart` 装的：** 跑过一次 `ergo start` 之后，重启才会拉起二狗。
 - **从源码装的：** 把上面的 `ergo svc` 换成在 `packages\supervisor` 里跑 `node bin\lsm.mjs`，步骤见[从源码安装](#从源码安装)的第 3、5 步。
@@ -328,7 +328,7 @@ ergo version          # 看现在跑的是哪一版
 
 参数：`--version <版本>` 指定版本，`--mirror cn` 先走 npmmirror（npm 包发布之后才有用，现在会退回 GitHub），`--from <地址>` 用别的发布地址。
 
-开机自启起来的服务管家，升级后这个进程还是旧版本的程序（二狗已经是新版本，不影响用），下次登录才换；它占着的旧版本目录这时删不掉，`ergo update` 会说下次再删。
+服务管家是开机自启起来的（重启过电脑一般就是）也一样换成新版本：切过去之后开机自启的任务把它停一下、再按新版本起来，前后几秒。它托管的服务（语音、项目服务）照常跑着，也不当成开机（不会照开机名单再拉一遍）；旧版本目录不再被它占着，之后清理时删得掉。任务起不来时 `ergo` 直接起新版本的服务管家，下次登录照旧由任务起。`ergo rollback` 一样。从 0.4.4 及更早的版本升上来的那一次，跑升级的还是旧版本的 `ergo`，服务管家不会跟着换；升完跑一次 `ergo restart` 就换了（或者等下次登录）。
 
 ### 其他方式装的
 

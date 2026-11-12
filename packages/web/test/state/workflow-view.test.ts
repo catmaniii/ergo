@@ -554,6 +554,8 @@ describe("阶段详情：出过的状况、尝试记录、第几轮、从这里�
     } satisfies ProgressCardPayload,
   });
   const message = (id: string, time: string, stageId: string, ...parts: MessagePart[]) => ({ message: { id, conversation, speaker: "agent", time, parts } satisfies MessageEnvelope, taskId: "t-l", stageId });
+  /** 验收结论的卡：运行时放进负责人会话的（系统消息，守护进程 tasks/execution.ts 的 cardRef） */
+  const verdict = (id: string, time: string, cardId: string) => ({ message: { id, conversation, speaker: "system", time, parts: [{ type: "card_ref", cardId }] } satisfies MessageEnvelope, taskId: "t-l", stageId: "s1" });
   const pulledBack: MessagePart = {
     type: "tool_call",
     callId: "call-pb",
@@ -584,9 +586,9 @@ describe("阶段详情：出过的状况、尝试记录、第几轮、从这里�
     }),
     frame(conversation, 1, "message", message("m1", at("09:10"), "s1", pulledBack)),
     frame(conversation, 2, "message", message("m2", at("09:15"), "s1", completed("清单出来了"))),
-    frame(conversation, 3, "message", message("m3", at("09:20"), "s1", { type: "card_ref", cardId: "c-a1" })),
+    frame(conversation, 3, "message", verdict("m3", at("09:20"), "c-a1")),
     frame(conversation, 4, "message", message("m4", at("09:35"), "s1", completed("补上了网盘那一边"))),
-    frame(conversation, 5, "message", message("m5", at("09:40"), "s1", { type: "card_ref", cardId: "c-a2" })),
+    frame(conversation, 5, "message", verdict("m5", at("09:40"), "c-a2")),
     frame(conversation, 6, "message", { message: { id: "m6", conversation, speaker: "system", time: at("09:50"), parts: [{ type: "text", text: "负责人这次没能回复：模型调用超时" }] } satisfies MessageEnvelope, taskId: "t-l", stageId: "s2" }),
     frame(conversation, 7, "message", message("m7", at("10:00"), "s2", { type: "text", text: "开始第 2 阶段" })),
     // 做完之后返工第 1 阶段（连同下游）

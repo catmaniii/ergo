@@ -10,12 +10,18 @@
 // -窗口自己的字（"都不要""交"、读屏的说明）按二狗的网页交来的语言（texts.ts），没交来是中文；标题、提示本来就由网页给。
 // -标题里的名字（网页另给的 titleParts）画成名字标签，颜色和气泡里的一样（同一个 shadow root 里的样式表）；读屏说明是纯名字。
 import { appendNamed, el, ICON_CLOSE, makeButton, namedTextOf, stopBubbling } from "./bubble.ts";
+import { drawIcon, type Icon } from "./icon.ts";
 import type { PageBubbleFile, PagePickAction, PagePickPhase, PagePickView } from "./protocol.ts";
 import { PICK_MAX_HEIGHT, placePickWindow, type Rect } from "./rules.ts";
 import type { BridgeTexts } from "./texts.ts";
 
-const ICON_DOC =
-  '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
+/** 文件（折了一角的纸，端点是平的） */
+const ICON_DOC: Icon = {
+  size: 22,
+  line: 1.7,
+  shapes: [["path", { d: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" }], ["path", { d: "M14 3v5h5" }]],
+  svg: { "stroke-linecap": "butt" },
+};
 
 /** 挑图片窗口的样式（接在气泡的样式后面，同一个 shadow root）：只用像素和写死的颜色 */
 export const PICK_STYLE = `
@@ -138,7 +144,7 @@ export function createPickWindow(doc: Document, tools: PickTools, onAction: (act
   const close = el(doc, "button", "x");
   close.type = "button";
   close.setAttribute("aria-label", tx.get("bridge.pick.close"));
-  close.innerHTML = ICON_CLOSE;
+  close.append(drawIcon(doc, ICON_CLOSE));
   head.append(title, close);
   const body = el(doc, "div", "pick-body");
   const strip = el(doc, "div", "pick-strip");
@@ -208,8 +214,7 @@ export function createPickWindow(doc: Document, tools: PickTools, onAction: (act
       });
     } else if (!tile.querySelector(".pick-doc")) {
       const docBox = el(doc, "span", "pick-doc");
-      docBox.innerHTML = ICON_DOC;
-      docBox.append(el(doc, "span", "pick-name", file.name));
+      docBox.append(drawIcon(doc, ICON_DOC), el(doc, "span", "pick-name", file.name));
       tile.prepend(docBox);
     }
   };

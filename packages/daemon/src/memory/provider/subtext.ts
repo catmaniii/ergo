@@ -258,7 +258,7 @@ export function createSubtextProvider(deps: SubtextProviderDeps): SubtextProvide
     async start(context) {
       // 只记上下文：引擎、素材库都是宿主（组合根）建好交进来的，这里不另建一套
       ctx = context;
-      log(`会意起来了（插件数据目录 ${context.dataDir}；推理库和素材库还是现有的那两份，没搬）`);
+      log(`会意起来了（推理库在它的数据目录 ${context.dataDir}；素材库归二狗本身、不在这里；都是组合根开好交进来的，没另开一份）`);
     },
 
     async stop() {
