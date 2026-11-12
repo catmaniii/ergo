@@ -43,7 +43,7 @@ import { buildAgentNotice } from "../../src/conversation/messages.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { type ReworkNoticeHeldPayload, TASK_EVENTS, TASKS_CHANNEL } from "../../src/tasks/events.ts";
 import { ManualClock } from "../helpers/clock.ts";
-import { startTestDaemon, type StartTestDaemonOptions, type TestDaemon } from "../helpers/daemon.ts";
+import { agentSpawns, startTestDaemon, type StartTestDaemonOptions, type TestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { samplePlan, submitPlanStep } from "../helpers/plans.ts";
 import { waitUntil } from "../helpers/process.ts";
@@ -167,7 +167,10 @@ const findStage = (task: Task, stageId: string) => task.stages?.list?.find((s) =
 
 describe("演示流程（录给前端回放）", () => {
   it("两阶段任务：第一阶段脚本验收通过，第二阶段评审判定通过，任务自动完成；再要求返工第二阶段，只有它被重开，同一个负责人接着做完", async () => {
+    // 守护进程的日志：负责人的子进程中途没了时，下面的断言带上它（意外退出的原因、子进程的报错）
+    const logs: string[] = [];
     const td = await startTestDaemon({
+      log: (line) => logs.push(line),
       maintainer: maintainerScript(twoStagePlan(), [
         // 开始执行：第一阶段
         write("sources.md", "- 来源一\n- 来源二\n"),
@@ -183,6 +186,7 @@ describe("演示流程（录给前端回放）", () => {
       ]),
       reviewer: () => review("report.md"),
     });
+    const launched = agentSpawns(td.daemon);
     const frontend = await connect(td.url);
     // 负责人交完计划、这一轮结束后再确认（录下的事件流每次一样）
     const draft = await draftTask(td, frontend, "X 的调研");
@@ -217,9 +221,13 @@ describe("演示流程（录给前端回放）", () => {
     expect(again.task.stages?.list?.[0]).toMatchObject({ stageId: "s1", state: "accepted", attempts: 1 });
     await turnsOf(frontend, M1, 3);
     expect(textOf(messagesOf(frontend, M1).find((m) => m.agentInput && textOf(m).startsWith("用户从阶段 s2"))!)).toContain("缺一段方案对比");
-    // 返工这一轮负责人实际调了什么：照剧本是先局部改 report.md、再宣布完成。全量（2 个 worker）里偶发过一次返工后的 report.md 还是
-    // 第一版，单跑、压着 CPU 跑、十几份同时跑都没再出现，没查清是改没成、没改到，还是负责人被重新拉起、剧本从头又跑了一遍——
-    // 先比这一轮的调用（再红时 diff 里就是实际的那一串），再看文件
+    // 负责人只拉起过两次：起草一次，确认后按计划重新装配一次，执行和返工都在这一个子进程里。全量里偶发过（11-02、11-08、11-09 各一次）
+    // 返工后的 report.md 还是第一版，和"两轮之间负责人的子进程没了、返工时重新拉起"一模一样（387 用探针在两轮之间结束它复现过：剧本按
+    // 每次拉起从头给，新的子进程把写 sources.md、宣布 s1、写 report.md、宣布 s2 又走一遍，返工这一轮的调用是
+    // write 被拦、complete_stage 出错、write 被拦、complete_stage 做完，任务照样"返工后再次完成"）。它为什么没了还没查清，
+    // 单跑、几份同时跑、和会杀进程的主切面同时跑共约六十次都没再出现：先断言这一条，再红时直接是守护进程关于它的日志
+    expect(launched().filter((id) => id === "tm-1"), `负责人 tm-1 被重新拉起过，守护进程关于它的日志：\n${logs.filter((line) => line.includes("tm-1")).join("\n")}`).toHaveLength(2);
+    // 返工这一轮负责人实际调了什么：照剧本是先局部改 report.md、再宣布完成——先比这一轮的调用（再红时 diff 里就是实际的那一串），再看文件
     const reworkInput = messagesOf(frontend, M1).findIndex((m) => m.agentInput && textOf(m).startsWith("用户从阶段 s2"));
     const reworkCalls = messagesOf(frontend, M1)
       .slice(reworkInput + 1)

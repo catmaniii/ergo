@@ -999,6 +999,9 @@ describe("演示流程（录给前端回放）", () => {
     finishTask(test, "t-1", "done", builtStages(test, "t-1"));
     const done = await buildDoneCard(frontend, "t-1");
     await eventually(() => inboxOf(frontend), (i) => i.kind === "card" && i.cardId === done.id, "待我处理里的“首版做完了”卡");
+    // 起草计划的那张工单在任务做完时开始收尾，先在负责人的子进程里做范围审视（异步），审视完才和这一段一起结束。
+    // 用户什么时候点"转入使用"和它没有先后，录下的事件流里却有：等工单结束了再点（机器忙时审视慢，点在了前面）
+    await eventually(() => workOrdersOf(frontend), (e) => e.workOrder.id === "wo-1" && e.change === "ended", "起草计划的工单结束");
     ok(await frontend.cardAction({ cardId: done.id, action: "put_in_use", expectedVersion: 1 }));
     await projectWhere(frontend, (e) => e.change === "in_use");
     ok(await act(frontend, "p-1", "retire"));

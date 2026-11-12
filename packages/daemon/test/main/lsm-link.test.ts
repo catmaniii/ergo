@@ -86,7 +86,8 @@ describe("接入 LSM：握手和心跳", () => {
     ok(await frontend.taskAction({ taskId: RUNNING_TASK_ID, action: "cancel" }));
     expect(await lsm.waitFor(busyBeat(false), "不忙的心跳", { from: busySeen })).toMatchObject({ busy: false, busyReason: null });
     expect(lsm.messages.slice(busySeen).filter((m) => heartbeat(m.message)).map((m) => m.message.busy)).toEqual([false]);
-  }, 60_000);
+    // 用例时限同下面用到 startRunningTask 的几条：等计划卡要接连两次拉起子进程（见 running-task.ts）
+  }, 90_000);
 
   it("按管理器给的间隔报心跳；秘书在运行时报健康", async () => {
     const { lsm } = await linkedDaemon(100);

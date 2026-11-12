@@ -19,7 +19,7 @@ import { ManualClock } from "../helpers/clock.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { submitPlanStep } from "../helpers/plans.ts";
-import { waitUntil } from "../helpers/process.ts";
+import { SECRETARY_START_TIMEOUT_MS, waitUntil } from "../helpers/process.ts";
 
 const { secretary: SECRETARY } = CHANNELS;
 const CURATOR = MEMORY_CURATOR_CONVERSATION;
@@ -32,6 +32,15 @@ const writeBrief = (taskId: string): FauxStep => call("write_task_brief", { task
 const at = (m: number, d: number, hh: number, mm = 0) => new Date(2026, m - 1, d, hh, mm);
 
 type TestDaemon = Awaited<ReturnType<typeof startTestDaemon>>;
+
+/**
+ * 等秘书起来再跟它说话：它常驻、守护进程一起来就在拉起，整套测试并行跑、机器忙的时候光是拉起子进程就要十几秒。
+ * 拉起这一段按 SECRETARY_START_TIMEOUT_MS 单独等，之后再照常等它说完这一轮——不把两段挤在同一个 20 秒里
+ * （全量里红过：20 秒到了秘书还没开始处理那句话，连 turn_start 都没有）
+ */
+async function secretaryUp(td: TestDaemon): Promise<void> {
+  await waitUntil(() => td.daemon.secretary.status === "idle", { timeoutMs: SECRETARY_START_TIMEOUT_MS, describe: () => `秘书现在是 ${td.daemon.secretary.status}` });
+}
 
 /** 假模型的回复：抽事实那一步给这一批每条证据一条事实，别的步骤回空 */
 function fakeMemoryModel(request: ChatRequest): unknown {
@@ -141,6 +150,7 @@ describe("记忆管理员", () => {
       const frontend = await TestFrontend.connect(td.url);
       await frontend.subscribe({ [SECRETARY]: 0 });
       // 用户说一句话，采成素材
+      await secretaryUp(td);
       await frontend.sendText("这周六的聚会我就不去了，最近周末想好好休息。");
       await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
       expect(nightlyRecords(td)).toEqual([]);
@@ -197,6 +207,7 @@ describe("记忆管理员", () => {
       });
       const frontend = await TestFrontend.connect(td.url);
       await frontend.subscribe({ [SECRETARY]: 0, [CURATOR]: 0 });
+      await secretaryUp(td);
       await frontend.sendText("这周六的聚会我就不去了，最近周末想好好休息。");
       await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
 
@@ -270,6 +281,7 @@ describe("记忆管理员", () => {
       });
       const frontend = await TestFrontend.connect(td.url);
       await frontend.subscribe({ [SECRETARY]: 0 });
+      await secretaryUp(td);
       await frontend.sendText("这周六的聚会我就不去了，最近周末想好好休息。");
       await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
 
@@ -313,6 +325,7 @@ describe("记忆管理员", () => {
     });
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [SECRETARY]: 0, [CURATOR]: 0 });
+    await secretaryUp(td);
     await frontend.sendText("这周六的聚会我就不去了，最近周末想好好休息。");
     await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
 
