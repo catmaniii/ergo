@@ -56,7 +56,7 @@ The **Capabilities** step of the setup wizard lets you tick them as well; see [G
 | Component | Size shown on the page | Good to know |
 |---|---|---|
 | Fun-ASR Nano | 996.9 MB | About 2 GB of video memory. It also works without a graphics card; on a CPU a sentence takes a second or two. Free to use, modify and share, as long as you credit the source and authors and keep the model name. The original text says it's for reference and learning only, with no warranty, and has no separate terms for commercial use; please judge for yourself |
-| audio.cpp | 813.3 MB with an NVIDIA graphics card, 29.1 MB without | Installed first automatically when you install a model. The graphics card build needs driver 580 or newer; older cards like the GTX 10 series can't use it |
+| audio.cpp | 813.3 MB with an NVIDIA graphics card (1023.5 MB for the CUDA 12.4 build used with older drivers and cards), 29.1 MB without | Installed first automatically when you install a model. Picked by your card and driver: driver 580 or newer on an RTX 20 / GTX 16 series or newer card gets the CUDA 13.3 build; driver 551.78 or newer on a GTX 10 series or newer card gets the CUDA 12.4 build; older drivers and cards get the CPU build (slow). The **Build** line says why |
 | Fish S2 Pro | 5.88 GB | About 7.3 GB of video memory. It also works without a graphics card, but very slowly. Free for personal, non-commercial use; commercial use needs separate authorization from Fish Audio. Built with Fish Audio |
 
 With both models installed, the graphics card needs room for over 9 GB. Whichever doesn't fit gives an error when loading, and the Components and Voice pages state the reason.
@@ -74,7 +74,8 @@ With both models installed, the graphics card needs room for over 9 GB. Whicheve
 - **Removing:** remove the models first, then the program. While a model is still using the program, it can't be removed; the page says which one.
 - **Updates:** click **Check for updates** at the top of the page; ergo also checks once a night by itself. When there's a new version the block says **Update available**, and it only switches when you click **Update**. For details, see [Components](settings.en.md#components).
 - **ergo must be started by the service manager:** otherwise the page says **Speech synthesis runs under the service manager, which is not reachable now**. Starting with `ergo start` is the right way.
-- **The data folder's path can't contain Chinese characters:** otherwise the page says **audio.cpp cannot read this path**. Move the data folder to an all-English path, then install.
+- **A Chinese Windows user name works too:** when the data folder's path has Chinese characters (like `C:\Users\张三\.ergo`), audio.cpp can't read the models there, so the speech program and models are installed under `C:\ProgramData\ergo\<an ID>\` instead, and the **Location** line says why. No administrator rights needed; the generated config and your reference voices stay in the data folder. Other Windows users on this computer can see that folder; it only holds the publicly downloaded program and models.
+- **After updating the GPU driver:** if the CPU build (or the CUDA 12.4 build) was installed because the driver was too old, the speech program's block says **Update available** after you update the driver, the **Build** line names the build installed now, and **Update** switches to the better one.
 - **If you've already set it up yourself:** the block says **Available** and **You already have your own speech recognition; using it**. You can't install from here, and ergo won't change your setup. For how to configure it by hand, see [Configuring voice by hand](../architecture/README.en.md#setting-up-voice-by-hand-fallback).
 
 ## Hold to talk
@@ -212,7 +213,7 @@ When the switch is off, the owner's updates come as text, and the secretary asks
 - Importing needs ffmpeg on this computer, and speech recognition must be working. If either is missing, it says so.
 - Once you delete **Xiaoman**, it doesn't come back by itself. With no voices at all, voice replies fall back to text, and Inbox reminds you to import one.
 - The voice library that comes with audio.cpp isn't listed. To use one of those, import its recording.
-- The recording's path can't contain Chinese characters, or it says **audio.cpp can't read**. Put the data folder on an all-English path.
+- When the data folder's path has Chinese characters (a Chinese Windows user name), the speech synthesis installed from the Components page still reads the recording. A hand-configured audio.cpp service can't, and it says **your own audio.cpp service can't read**: switch to the one from the Components page, or move the data folder to an all-English path.
 
 ## Roles & voices
 

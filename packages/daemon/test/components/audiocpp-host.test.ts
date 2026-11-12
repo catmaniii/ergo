@@ -9,6 +9,7 @@ import { describe, expect, onTestFinished, test } from "vitest";
 import { type AudioCppHost, type AudioCppHostOptions, createAudioCppHost } from "../../src/components/audiocpp-host.ts";
 import { createHttpTransport, createComponents, loadManifest, parseManifest, type RecognizerLink } from "../../src/components/index.ts";
 import type { LoadedManifest } from "../../src/components/manifest.ts";
+import type { NvidiaInfo } from "../../src/components/nvidia.ts";
 import { DISABLED_LSM_SERVICES, linkToLsm, type LsmServiceDefinition, type LsmServices } from "../../src/lsm/link.ts";
 import { createAudioCppSynthesizer } from "../../src/voice/speech.ts";
 import { blob, type FakeDownloads, makeZip, sha256, startFakeDownloads } from "../helpers/fake-downloads.ts";
@@ -38,6 +39,8 @@ const OTHER_MODEL = blob(80_000, 7);
 const GGUF = "Fish-Audio-S2-Pro-GGUF/fish-audio-s2-pro-q8_0.gguf";
 
 const zipFile = (name: string, body: Buffer, to = "bin") => ({ path: name, size: body.length, sha256: sha256(body), extract: { format: "zip" as const, to } });
+/** 有 N 卡时 nvidia-smi 查到的（新驱动、新卡：CUDA 13.3 版用得了） */
+const NEW_GPU: NvidiaInfo = { name: "NVIDIA GeForce RTX 4070 Ti", driver: "610.88", computeCapability: "8.9" };
 
 /** 随程序发布的那两条（许可、推荐、service、serve 都是真的），只把文件换成假下载站上的小文件、端口换成系统挑的 */
 function testManifest(fake: FakeDownloads, port: number, over: { version?: string; revision?: string; extra?: boolean; nestedProgram?: boolean } = {}): LoadedManifest {
@@ -160,7 +163,7 @@ interface Setup {
   program: { healthy: boolean };
   components: ReturnType<typeof createComponents>;
   logs: string[];
-  restart(over?: { version?: string; revision?: string; extra?: boolean; gpu?: "nvidia" | "none"; nestedProgram?: boolean }): Promise<void>;
+  restart(over?: { version?: string; revision?: string; extra?: boolean; gpu?: "nvidia" | "none"; nvidia?: NvidiaInfo; nestedProgram?: boolean }): Promise<void>;
   view(): ComponentsView;
   installAll(): Promise<void>;
   settled(): Promise<void>;
@@ -170,6 +173,8 @@ interface Setup {
 
 interface SetupOptions {
   gpu?: "nvidia" | "none";
+  /** 有 N 卡时 nvidia-smi 查到的；不给是 NEW_GPU */
+  nvidia?: NvidiaInfo;
   url?: string;
   /** 不接服务管家 */
   noLsm?: boolean;
@@ -208,7 +213,12 @@ async function setup(options: SetupOptions = {}): Promise<Setup> {
       root,
       componentsDir,
       manifest: options.manifest ? options.manifest({ fake, port }) : testManifest(fake, port, { extra: options.extra === true, nestedProgram: options.nestedProgram === true, ...over }),
-      probes: { gpu: () => over.gpu ?? options.gpu ?? "none", detect: () => undefined, provided: (id) => (id === "voice-speech" ? host.provided() : undefined) },
+      probes: {
+        gpu: () => over.gpu ?? options.gpu ?? "none",
+        nvidia: () => ((over.gpu ?? options.gpu) === "nvidia" ? (over.nvidia ?? options.nvidia ?? NEW_GPU) : undefined),
+        detect: () => undefined,
+        provided: (id) => (id === "voice-speech" ? host.provided() : undefined),
+      },
       transport: createHttpTransport({ headersTimeoutMs: 5000 }),
       host,
       diskMargin: 0,
@@ -530,7 +540,7 @@ describe("下载失败（国内访问 GitHub 可能慢或不通）", () => {
       root: s.root,
       componentsDir: s.componentsDir,
       manifest,
-      probes: { gpu: () => "nvidia", detect: () => undefined, provided: () => undefined },
+      probes: { gpu: () => "nvidia", nvidia: () => NEW_GPU, detect: () => undefined, provided: () => undefined },
       transport: createHttpTransport({ headersTimeoutMs: 5000 }),
       diskMargin: 0,
       freeBytes: () => Number.MAX_SAFE_INTEGER,
@@ -784,12 +794,203 @@ describe("装不了的", () => {
     expect(s.fake.requests).toEqual([]);
   });
 
-  test("数据目录带中文：audio.cpp 读不了，写明，不让装", async () => {
+  test("数据目录带中文、又没有能改放的地方（不是 Windows、没有 ProgramData）：audio.cpp 读不了，写明，不让装", async () => {
     const s = await setup({ componentsDir: path.join(makeTempDir(), "数据", "components") });
     const c = one(s.view(), "tts");
     expect(c.cannotInstall).toContain("读不了这个路径");
     expect(one(s.view(), "audiocpp").cannotInstall).toContain("读不了这个路径");
     await expect(s.components.act("tts", "install", { licenseAccepted: true })).rejects.toThrow("读不了这个路径");
+  });
+
+  test("改放的地方自己也带中文：一样不让装", async () => {
+    const base = makeTempDir();
+    const s = await setup({ componentsDir: path.join(base, "数据", "components"), host: { fallbackRoot: path.join(base, "公用", "ergo") } });
+    expect(one(s.view(), "audiocpp").cannotInstall).toContain("读不了这个路径");
+    expect(one(s.view(), "audiocpp").locationNote).toBeUndefined();
+  });
+});
+
+describe("数据目录带中文（Windows 用户名是中文，351）", () => {
+  /** C:\Users\张三\.ergo 的样子；改放的地方是英文的（正式是 %ProgramData%\ergo\<指纹>） */
+  async function chinese() {
+    const base = makeTempDir();
+    const dataDir = path.join(base, "张三", ".ergo");
+    const fallback = path.join(base, "ProgramData", "ergo", "1a2b3c4d");
+    const s = await setup({ componentsDir: path.join(dataDir, "components"), host: { fallbackRoot: fallback } });
+    return { s, dataDir, fallback, serviceDir: path.join(dataDir, "components", "audiocpp-service") };
+  }
+
+  test("程序和模型装到不带中文的地方，组件页写明装在哪、为什么；生成的配置留在数据目录（工作目录）", async () => {
+    const { s, fallback, serviceDir } = await chinese();
+    for (const id of ["audiocpp", "tts"]) {
+      const c = one(s.view(), id);
+      expect(c.cannotInstall).toBeUndefined();
+      expect(c.location).toBe(path.join(fallback, "components", id));
+      expect(c.locationNote).toContain("audio.cpp 读不了的字");
+    }
+    await s.installAll();
+    expect(one(s.view(), "audiocpp").service).toMatchObject({ state: "running", autostart: true });
+    // audio.cpp 读的模型路径没有中文；程序也在英文的地方（服务管家的命令行里不经中文）
+    const modelPath = s.configs[0]!.models[0]!.path;
+    expect(modelPath).toBe(path.join(fallback, "components", "tts", ...GGUF.split("/")));
+    expect(/[^\x20-\x7e]/.test(modelPath)).toBe(false);
+    expect(fs.readFileSync(modelPath).equals(MODEL)).toBe(true);
+    expect(s.lsm.owned.services.get("audiocpp")?.definition).toMatchObject({ argv: [path.join(fallback, "components", "audiocpp", "bin", "audiocpp_server.exe"), "--config", "server.json"], cwd: serviceDir });
+    expect(fs.existsSync(path.join(serviceDir, "server.json"))).toBe(true);
+    // 下了一半的放在改放的地方（同一个盘，换上是改名），装完清掉；数据目录里没有程序和模型
+    expect(fs.existsSync(path.join(fallback, ".staging", "tts"))).toBe(false);
+    expect(fs.existsSync(path.join(s.componentsDir, "tts"))).toBe(false);
+    expect(fs.existsSync(path.join(s.componentsDir, "audiocpp"))).toBe(false);
+    // 装着的记录还在数据目录
+    expect(JSON.parse(fs.readFileSync(path.join(s.componentsDir, "installed.json"), "utf8")).components).toMatchObject({ audiocpp: { variant: "cpu" }, tts: { variant: "q8" } });
+  });
+
+  test("参考音色在中文路径下：调我们接上的服务时发相对工作目录的路径；用户自己配的服务（不知道工作目录）照旧报清楚、不发请求", async () => {
+    const { s, dataDir, serviceDir } = await chinese();
+    const url = `http://127.0.0.1:${s.port}`;
+    expect(s.host.workingDir(url)).toBeUndefined();
+    await s.installAll();
+    expect(s.host.workingDir(url)).toBe(serviceDir);
+    expect(s.host.workingDir(`http://localhost:${s.port}`)).toBe(serviceDir);
+    expect(s.host.workingDir("http://127.0.0.1:1")).toBeUndefined();
+
+    const voice = path.join(dataDir, "voices", "v-1", "reference.wav");
+    fs.mkdirSync(path.dirname(voice), { recursive: true });
+    fs.writeFileSync(voice, makeWav(1));
+    const timeout = { baseMs: 5000, coldStartMs: 0, perSpeechSecond: 1 };
+    const synth = createAudioCppSynthesizer({ url, model: "tts", timeout, workingDir: () => s.host.workingDir(url), log: () => {} });
+    await synth.synthesize({ text: "你好呀", voiceId: "v-1", voiceRef: voice, referenceText: "参考" }, { estimatedSeconds: 1 });
+    const sent = s.tts.requests.at(-1)!.voiceRef;
+    expect(sent).toBe(path.relative(serviceDir, voice));
+    expect(sent).toBe(path.join("..", "..", "voices", "v-1", "reference.wav"));
+    // audio.cpp 按工作目录解：解出来就是那个文件
+    expect(fs.readFileSync(path.resolve(serviceDir, sent)).equals(fs.readFileSync(voice))).toBe(true);
+
+    const count = s.tts.requests.length;
+    const own = createAudioCppSynthesizer({ url, model: "tts", timeout, log: () => {} });
+    await expect(own.synthesize({ text: "你好呀", voiceId: "v-1", voiceRef: voice, referenceText: "参考" }, { estimatedSeconds: 1 })).rejects.toThrow("自己配的 audio.cpp 服务读不了");
+    expect(s.tts.requests.length).toBe(count);
+  });
+
+  test("删模型、删程序：改放的地方的文件跟着删，登记和名单撤掉", async () => {
+    const { s, fallback } = await chinese();
+    await s.installAll();
+    await s.components.act("tts", "remove");
+    await s.settled();
+    expect(fs.existsSync(path.join(fallback, "components", "tts"))).toBe(false);
+    expect(s.lsm.owned.services.has("audiocpp")).toBe(false);
+    await s.components.act("audiocpp", "remove");
+    expect(fs.existsSync(path.join(fallback, "components", "audiocpp"))).toBe(false);
+    expect(one(s.view(), "audiocpp").state).toBe("missing");
+  });
+
+  test("下不下来、离线导入：认出来的文件放进改放的地方，照常装上、接上", async () => {
+    const { s, fallback } = await chinese();
+    s.fake.behave("a", { kind: "broken" });
+    await s.components.act("tts", "install", { licenseAccepted: true });
+    await s.settled();
+    expect(one(s.view(), "audiocpp").state).toBe("failed");
+    const dir = makeTempDir();
+    fs.writeFileSync(path.join(dir, "bin-cpu.zip"), CPU_ZIP);
+    fs.writeFileSync(path.join(dir, "fish.gguf"), MODEL);
+    const result = await s.components.importFrom(dir);
+    await s.settled();
+    expect(result.installed.toSorted()).toEqual(["audiocpp", "tts"]);
+    expect(one(s.view(), "audiocpp").service?.state).toBe("running");
+    expect(fs.existsSync(path.join(fallback, "components", "tts", ...GGUF.split("/")))).toBe(true);
+    expect(fs.existsSync(path.join(fallback, "components", "audiocpp", "bin", "audiocpp_server.exe"))).toBe(true);
+  });
+});
+
+describe("老显卡：按驱动版本、显卡挑 CUDA 13.3、12.4 还是 CPU 版（351）", () => {
+  const PROGRAM12_ZIP = makeZip([
+    { name: "audiocpp_server.exe", body: blob(4500, 8) },
+    { name: "ggml-cuda.dll", body: blob(3500, 9) },
+  ]);
+  const RUNTIME12_ZIP = makeZip([
+    { name: "cudart64_12.dll", body: blob(2000, 10) },
+    { name: "cublas64_12.dll", body: blob(2000, 11) },
+  ]);
+  /** 照随程序的清单：CUDA 13.3（cuda）、CUDA 12.4（cuda12）、CPU 三版 */
+  function threeBuilds(s: Pick<Setup, "fake" | "port">): LoadedManifest {
+    const manifest = testManifest(s.fake, s.port);
+    s.fake.put("bin-cuda12.zip", PROGRAM12_ZIP);
+    s.fake.put("rt-cuda12.zip", RUNTIME12_ZIP);
+    const audiocpp = manifest.manifest.components.find((c) => c.id === "audiocpp")!;
+    audiocpp.variants.splice(1, 0, {
+      id: "cuda12",
+      when: { gpu: "nvidia" },
+      expects: ["cudart64_*.dll", "cublas64_*.dll"],
+      parts: [{ files: [zipFile("bin-cuda12.zip", PROGRAM12_ZIP), { ...zipFile("rt-cuda12.zip", RUNTIME12_ZIP), extract: { format: "zip", to: "bin", beside: "audiocpp_server.exe" } }] }],
+    });
+    return manifest;
+  }
+  const bin = (s: Setup) => fs.readdirSync(path.join(s.root, "components", "audiocpp", "bin")).toSorted();
+
+  test("新卡、新驱动：CUDA 13.3 版，写驱动版本", async () => {
+    const s = await setup({ gpu: "nvidia", manifest: threeBuilds });
+    expect(one(s.view(), "audiocpp").variant).toEqual({ id: "cuda", title: "CUDA 13.3 版", reason: "这台电脑有 N 卡，驱动 610.88" });
+  });
+
+  test("新卡、驱动 566（低于 580）：CUDA 12.4 版，配置写 cuda，写明为什么；模型这一行不说慢", async () => {
+    const s = await setup({ gpu: "nvidia", nvidia: { name: "NVIDIA GeForce RTX 3060", driver: "566.36", computeCapability: "8.6" }, manifest: threeBuilds });
+    expect(one(s.view(), "audiocpp").variant).toEqual({ id: "cuda12", title: "CUDA 12.4 版", reason: "显卡驱动是 566.36，CUDA 13.3 版要 580 或更新的驱动" });
+    await s.installAll();
+    expect(bin(s)).toEqual(["audiocpp_server.exe", "cublas64_12.dll", "cudart64_12.dll", "ggml-cuda.dll"]);
+    expect(s.configs[0]).toMatchObject({ backend: "cuda", threads: 1 });
+    expect(one(s.view(), "audiocpp").service?.warning).toBeUndefined();
+    expect(one(s.view(), "tts").note).toBeUndefined();
+  });
+
+  test("GTX 1080（算力 6.1）、新驱动：CUDA 13.3 不支持这块卡，用 12.4 版", async () => {
+    const s = await setup({ gpu: "nvidia", nvidia: { name: "NVIDIA GeForce GTX 1080", driver: "580.97", computeCapability: "6.1" }, manifest: threeBuilds });
+    expect(one(s.view(), "audiocpp").variant).toEqual({ id: "cuda12", title: "CUDA 12.4 版", reason: "NVIDIA GeForce GTX 1080比较老，CUDA 13.3 版不支持它" });
+  });
+
+  test("驱动太旧（531）：CPU 版，写明太旧、至少要多少、更新驱动后能换；模型这一行写显卡用不上、会很慢", async () => {
+    const s = await setup({ gpu: "nvidia", nvidia: { name: "NVIDIA GeForce RTX 2060", driver: "531.79", computeCapability: "7.5" }, manifest: threeBuilds });
+    const variant = one(s.view(), "audiocpp").variant!;
+    expect(variant.id).toBe("cpu");
+    expect(variant.reason).toContain("显卡驱动 531.79 太旧，用显卡至少要 551.78");
+    expect(variant.reason).toContain("更新显卡驱动后");
+    expect(one(s.view(), "tts").note).toBe("这台电脑的显卡用不上（原因看「语音程序 audio.cpp」那一行）：也能用，但会很慢");
+    await s.installAll();
+    expect(s.configs[0]).toMatchObject({ backend: "cpu" });
+  });
+
+  test("显卡太老（算力 5.2）：显卡版都不支持，CPU 版", async () => {
+    const s = await setup({ gpu: "nvidia", nvidia: { name: "NVIDIA GeForce GTX 970", driver: "582.28", computeCapability: "5.2" }, manifest: threeBuilds });
+    expect(one(s.view(), "audiocpp").variant).toMatchObject({ id: "cpu", reason: "NVIDIA GeForce GTX 970太老，显卡版都不支持：只能用 CPU 版，会很慢" });
+  });
+
+  test("有 N 卡但查不到驱动版本：CPU 版，说查不到", async () => {
+    const s = await setup({ gpu: "nvidia", nvidia: {}, manifest: threeBuilds });
+    expect(one(s.view(), "audiocpp").variant).toMatchObject({ id: "cpu", reason: "有 N 卡，但 nvidia-smi 查不到驱动版本或显卡型号：先用 CPU 版，会很慢" });
+  });
+
+  test("更新了显卡驱动：装着的 CPU 版显示有新版本，点更新换成显卡版，服务重启后用 cuda", async () => {
+    const s = await setup({ gpu: "nvidia", nvidia: { driver: "531.79", computeCapability: "8.6" }, manifest: threeBuilds });
+    await s.installAll();
+    expect(one(s.view(), "audiocpp")).toMatchObject({ state: "installed", variant: { id: "cpu" } });
+    await s.restart({ gpu: "nvidia", nvidia: NEW_GPU });
+    await s.components.refresh();
+    const offer = one(s.view(), "audiocpp");
+    expect(offer).toMatchObject({ state: "update", installedVersion: "0.9.3", version: "0.9.3", variant: { id: "cuda", reason: "现在装的是CPU 版，这台电脑能用这一版了：点「更新」换上" } });
+    // 装着的照用：功能不灰
+    expect(s.view().features.find((f) => f.feature === "voice.reply")?.ready).toBe(true);
+    await s.components.act("audiocpp", "update");
+    await s.settled();
+    expect(one(s.view(), "audiocpp")).toMatchObject({ state: "installed", variant: { id: "cuda" }, service: { state: "running" } });
+    expect(bin(s)).toEqual(["audiocpp_server.exe", "cublas64_13.dll", "cudart64_13.dll", "ggml-cuda.dll", "model_specs"]);
+    expect(s.configs.at(-1)).toMatchObject({ backend: "cuda", threads: 1 });
+  });
+
+  test("这次没查到 N 卡（nvidia-smi 一时没回话）：装着的显卡版照用，写装着的那版，不提示换成 CPU 版", async () => {
+    const s = await setup({ gpu: "nvidia", manifest: threeBuilds });
+    await s.installAll();
+    await s.restart({ gpu: "none" });
+    expect(one(s.view(), "audiocpp")).toMatchObject({ state: "installed", variant: { id: "cuda", title: "CUDA 13.3 版" } });
+    expect(one(s.view(), "audiocpp").variant?.reason).toBeUndefined();
   });
 });
 

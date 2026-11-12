@@ -15,8 +15,16 @@ export const EN_COMPONENTS: Phrases = {
   "已有自己配的语音识别，在用它（服务管家托管的识别服务 http://127.0.0.1:8091）": "You already set up your own speech recognition, so it's in use (recognition service run by the service manager, http://127.0.0.1:8091)",
   "语音程序 audio.cpp": "Speech program audio.cpp",
   "语音回复、语音识别要用的本机服务（开源的 audio.cpp）。模型是单独的组件，装模型时会先装它。": "The local service behind voice replies and speech recognition (open-source audio.cpp). Models are separate components, and installing one installs this first.",
-  "CUDA 版": "CUDA build",
-  "这台电脑有 N 卡": "This PC has an NVIDIA card",
+  "CUDA 13.3 版": "CUDA 13.3 build",
+  "张三": "Zhāng Sān",
+  "CUDA 12.4 版": "CUDA 12.4 build",
+  "这台电脑有 N 卡，驱动 610.88": "this computer has an NVIDIA GPU, driver 610.88",
+  "显卡驱动是 566.36，CUDA 13.3 版要 580 或更新的驱动": "the GPU driver is 566.36; the CUDA 13.3 build needs driver 580 or newer",
+  "显卡驱动 531.79 太旧，用显卡至少要 551.78：先用 CPU 版，会很慢。更新显卡驱动后这里会出现「更新」，点了换成显卡版":
+    "GPU driver 531.79 is too old; using the GPU needs at least 551.78. The CPU build is used for now and is very slow. After you update the GPU driver, an Update button appears here to switch to a GPU build",
+  "这台电脑的显卡用不上（原因看「语音程序 audio.cpp」那一行）：也能用，但会很慢": 'This computer\'s GPU can\'t be used (see the "Speech program audio.cpp" row for why). It still works, but it is very slow.',
+  "数据目录 C:\\Users\\{}\\.ergo\\components 的路径里有 audio.cpp 读不了的字（比如中文），语音程序和模型装在这里":
+    "the data folder C:\\Users\\{}\\.ergo\\components has characters audio.cpp can't read in its path (such as Chinese), so the speech program and models are installed here",
   "CPU 版": "CPU build",
   "这台电脑没找到 N 卡": "No NVIDIA card found on this PC",
   "开源，可以免费使用": "Open source, free to use",

@@ -14,6 +14,11 @@ export interface ComponentHostContext {
 
 export interface ComponentHost {
   attach(context: ComponentHostContext): void;
+  /**
+   * 这个组件不装在数据目录下时：装到哪个根目录下（清单的 target 相对它，下了一半的放它的 .staging/）、给人看的一句为什么。
+   * 装在数据目录下是 undefined（351：数据目录的路径带中文时，audio.cpp 的程序和模型装到不带中文的地方）
+   */
+  relocated?(component: ManifestComponent): { root: string; note: string } | undefined;
   /** 这个组件现在不能装的原因 */
   blocked(component: ManifestComponent): string | undefined;
   /** 点安装时（下载之前）：已有用户自己配的、服务管家没接上的抛 RequestRejected */

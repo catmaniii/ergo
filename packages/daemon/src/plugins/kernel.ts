@@ -75,6 +75,11 @@ export interface VoiceSetup {
   managerUrl(): string | undefined;
   /** 这台电脑有没有 N 卡（组件那边问 nvidia-smi 一次记住的） */
   gpu(): "nvidia" | "none";
+  /**
+   * 这个语音合成地址上是组件页装的服务时，它的工作目录（351：参考音色的路径带中文时发相对它的路径）；
+   * 用户自己配的、还没装是 undefined。不给（测试的假的）当 undefined
+   */
+  speechWorkingDir?(url: string): string | undefined;
 }
 
 /** 插件的一次性子进程（见 KERNEL.oneShot）：入口、请求、出错时写的名字、最多等多久（毫秒） */

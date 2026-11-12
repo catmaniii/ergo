@@ -89,6 +89,7 @@ import { createEphemeralBus } from "./events/ephemeral.ts";
 import { type EventStore, openEventStore } from "./events/event-store.ts";
 import { DeletionParticipants } from "./deletion/participants.ts";
 import {
+  audioCppWorkingDir,
   type AudioCppHostOptions,
   type ComponentProbes,
   type Components,
@@ -105,6 +106,7 @@ import {
   loadManifest,
   shippedManifestVerifier,
   type Transport,
+  voiceFallbackRoot,
 } from "./components/index.ts";
 import { createDataSourceRegistry, createDataSources, createDataSourceSecrets, createDataSourceSettings, dataSourceQuietView, type DataSources, openFolderOnDesktop, registerDataSourceDeletion } from "./data-sources/index.ts";
 import { startGateway } from "./gateway/gateway.ts";
@@ -1493,6 +1495,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
             return `http://${bind === "0.0.0.0" || bind === "::" ? "127.0.0.1" : bind}:${port}/`;
           },
           gpu: () => componentProbes.gpu(),
+          // 351：参考音色的路径带中文时，调组件页装的服务发相对它工作目录的路径。只看组件区的文件：
+          // 插件起来就会接着合成上次没做完的，那时组件服务还没建
+          speechWorkingDir: (url) => audioCppWorkingDir(layout.components, url),
         }),
         // 浏览插件要的：媒体库、数据目录（同上）、授权的文件夹；后面两样建在插件之后（agent 管家、联网设置），用到时现转
         bindService(KERNEL.localFolders, localFolders),
@@ -1620,7 +1625,15 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     });
     // 这个程序是怎么装的（向导的开机自启开关、查更新查哪里都要看）
     const installLayout = options.installLayout ?? detectLayout({ cliFile: path.join(programDir, "packages", "daemon", "src", "cli", "main.js"), env: options.env, execPath: process.execPath });
-    const audioCppHost = createAudioCppHost({ componentsDir: layout.components, speech: { url: options.speechUrl ?? config.voice.speech.url, model: config.voice.speech.model }, recognizer: recognizerLink, ...options.components?.audiocpp, log });
+    // 数据目录的路径带中文时（Windows 用户名是中文），语音的程序和模型装到 ProgramData 下一个英文的目录（351）
+    const audioCppHost = createAudioCppHost({
+      componentsDir: layout.components,
+      speech: { url: options.speechUrl ?? config.voice.speech.url, model: config.voice.speech.model },
+      recognizer: recognizerLink,
+      fallbackRoot: voiceFallbackRoot(options.env, layout.root),
+      ...options.components?.audiocpp,
+      log,
+    });
     const componentsTransport = options.components?.transport ?? componentTransport(options.env, "ergo-components");
     // 查更新：取发布页上的版本清单，查的地址和 ergo update 一样（自己给的发布地址优先）；有新版本告诉用户，点了才换
     const releaseBase = options.env.ERGO_RELEASE_URL?.trim() || (installLayout.root ? readInstallState(installLayout.root).source?.url : undefined);

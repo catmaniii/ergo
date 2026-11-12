@@ -7,6 +7,7 @@ import type { AddressInfo } from "node:net";
 import zlib from "node:zlib";
 import { onTestFinished } from "vitest";
 import type { ComponentProbes } from "../../src/components/index.ts";
+import type { NvidiaInfo } from "../../src/components/nvidia.ts";
 import type { Transport } from "../../src/components/transport.ts";
 
 export const sha256 = (data: Buffer | string) => createHash("sha256").update(data).digest("hex");
@@ -217,10 +218,11 @@ export async function startFakeProxy(): Promise<FakeProxy> {
   return { url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, seen };
 }
 
-/** 检测：固定的（没有 N 卡、什么都没检测到、别处都没有），可以覆盖几项 */
-export function fakeProbes(over: { gpu?: "nvidia" | "none"; detect?: Record<string, string>; provided?: Record<string, string> } = {}): ComponentProbes {
+/** 检测：固定的（没有 N 卡、什么都没检测到、别处都没有），可以覆盖几项；有 N 卡时默认是新卡、新驱动（CUDA 13.3 版用得了） */
+export function fakeProbes(over: { gpu?: "nvidia" | "none"; nvidia?: NvidiaInfo; detect?: Record<string, string>; provided?: Record<string, string> } = {}): ComponentProbes {
   return {
     gpu: () => over.gpu ?? "none",
+    nvidia: () => (over.gpu === "nvidia" ? (over.nvidia ?? { name: "NVIDIA GeForce RTX 4070 Ti", driver: "610.88", computeCapability: "8.9" }) : undefined),
     detect: (id) => over.detect?.[id],
     provided: (id) => over.provided?.[id],
   };

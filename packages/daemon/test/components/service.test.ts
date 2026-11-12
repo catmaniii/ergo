@@ -169,7 +169,7 @@ describe("看清单", () => {
     const s = await setup();
     const components = s.start({ probes: fakeProbes({ gpu: "nvidia" }) });
     const voice = one(components.view(), "voice");
-    expect(voice.variant).toMatchObject({ id: "cuda", title: "CUDA 版", reason: "这台电脑有 N 卡" });
+    expect(voice.variant).toMatchObject({ id: "cuda", title: "CUDA 13.3 版", reason: "这台电脑有 N 卡，驱动 610.88" });
     expect(voice.cannotInstall).toBe("这一版还不能从这里装：Python 和 faster-whisper 那部分（用 uv 装）还没接上");
     await expect(components.act("voice", "install")).rejects.toThrow("现在不能从这里装");
     await expect(components.act("nope", "install")).rejects.toMatchObject({ code: "not_found" });

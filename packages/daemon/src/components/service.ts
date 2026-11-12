@@ -46,12 +46,15 @@ import {
   type ManifestComponent,
   type ManifestFile,
   type ManifestPart,
+  type MachineProfile,
   type ManifestVariant,
   pendingParts,
   pickVariant,
+  platformFits,
   validManifestComponent,
   variantFiles,
 } from "./manifest.ts";
+import { variantReason } from "./nvidia.ts";
 import type { ComponentProbes } from "./probes.ts";
 import { extractTar, walkTar } from "./tar.ts";
 import type { Transport } from "./transport.ts";
@@ -173,6 +176,19 @@ const archiveName = (file: ManifestFile) => encodeURIComponent(file.path);
 /** 组件给人看的名字（语言文件里没有的写 id） */
 const title = (c: ManifestComponent) => tOr(`components.item.${keyOf(c.id)}.title`, c.id);
 
+/** 一版给人看的名字（CUDA 13.3 版） */
+const variantTitle = (id: string) => tOr(`components.variant.${keyOf(id)}`, id);
+
+/**
+ * 装着的是清单里排在后面的一版，这台电脑现在能用排在前面、更好的那版（比如更新了显卡驱动，CPU 版能换成显卡版）：
+ * 回装着的那一版，状态是"有新版本"，点"更新"就换。反过来（这次没查到显卡）不算，装着的照用
+ */
+function upgradeFrom(c: ManifestComponent, record: InstallRecord | undefined, variant: ManifestVariant | undefined): ManifestVariant | undefined {
+  if (!record || !variant || record.version !== c.version || record.variant === variant.id) return undefined;
+  const at = c.variants.findIndex((v) => v.id === record.variant);
+  return at > c.variants.indexOf(variant) ? c.variants[at] : undefined;
+}
+
 /** 打好的包（离线导入时一项项认） */
 const isPack = (file: string) => /\.(tar|tgz|tar\.gz)$/i.test(file);
 
@@ -187,6 +203,17 @@ function dirSize(dir: string): number {
     // 读不了的不算
   }
   return total;
+}
+
+/** 挪一个文件：改名，跨盘改不了名（EXDEV：离线导入解包的临时目录在数据目录，装到别处的组件的临时目录在另一个盘）就复制再删 */
+async function moveFile(from: string, to: string): Promise<void> {
+  try {
+    await renameRetryingAsync(from, to);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EXDEV") throw err;
+    await fs.promises.copyFile(from, to);
+    await fs.promises.rm(from, { force: true });
+  }
 }
 
 /** 出错的原因写给人看 */
@@ -298,11 +325,36 @@ export function createComponents(options: ComponentsOptions): Components {
     log(`${c.id}：用户确认了许可 ${c.license.name}`);
   };
 
-  const targetOf = (c: ManifestComponent) => path.join(options.root, ...c.target.split("/"));
-  const stagingOf = (id: string) => path.join(options.componentsDir, STAGING, id);
+  /** 装到别处的（接口后面说的：数据目录带中文时 audio.cpp 的程序和模型）：根目录和为什么 */
+  const relocation = (c: ManifestComponent) => options.host?.relocated?.(c);
+  const targetOf = (c: ManifestComponent) => path.join(relocation(c)?.root ?? options.root, ...c.target.split("/"));
+  /** 下了一半的放这里：和正式目录在同一个根下（换上是改名，跨盘改不了名） */
+  const stagingOf = (id: string) => {
+    const c = byId.get(id);
+    const moved = c === undefined ? undefined : relocation(c);
+    return path.join(moved?.root ?? options.componentsDir, STAGING, id);
+  };
   const stagingRoot = (id: string) => path.join(stagingOf(id), "root");
   const stagingArchives = (id: string) => path.join(stagingOf(id), "archives");
-  const variantOf = (c: ManifestComponent) => pickVariant(c, { ...machine, gpu: c.variants.some((v) => v.when?.gpu !== undefined) ? options.probes.gpu() : "none" });
+  /** 挑版本要看的显卡：清单里分显卡版的才问（N 卡的驱动版本、算力决定 CUDA 13.3、12.4 还是 CPU，见 nvidia.ts） */
+  const gpuOf = (c: ManifestComponent): Pick<MachineProfile, "gpu" | "nvidia"> =>
+    c.variants.some((v) => v.when?.gpu !== undefined) ? { gpu: options.probes.gpu(), nvidia: options.probes.nvidia?.() } : { gpu: "none" };
+  const variantOf = (c: ManifestComponent) => pickVariant(c, { ...machine, ...gpuOf(c) });
+  /** 挑中这一版的原因（有没有 N 卡、驱动够不够、显卡老不老；nvidia.ts） */
+  const reasonOf = (c: ManifestComponent, variant: ManifestVariant): string | undefined =>
+    variantReason({ variants: c.variants.filter((v) => platformFits(v, machine)), picked: variant, ...gpuOf(c), titleOf: variantTitle });
+  /**
+   * 没有显卡会很慢的（语音合成模型）：加载它的那个程序挑的不是显卡版就写明。没有 N 卡、有 N 卡却用不上（驱动太旧、显卡太老）
+   * 是两句话；不由别的程序加载的看这台电脑有没有 N 卡
+   */
+  const slowNote = (c: ManifestComponent): { note?: string } => {
+    const host = c.serve ? byId.get(c.serve.host) : undefined;
+    const gpu = options.probes.gpu();
+    if (gpu === "none") return { note: t("components.note.noGpuSlow") };
+    if (!host) return {};
+    const hostVariant = variantOf(goalOf(host));
+    return hostVariant && hostVariant.when?.gpu !== "nvidia" ? { note: t("components.note.gpuUnusableSlow", { program: title(host) }) } : {};
+  };
   const component = (id: string): ManifestComponent => {
     const c = byId.get(id);
     if (!c) throw new RequestRejected("not_found", t("components.reject.unknown", { id }));
@@ -346,6 +398,8 @@ export function createComponents(options: ComponentsOptions): Components {
     const variant = variantOf(c);
     const record = records[c.id];
     if (record && record.version !== c.version && fs.existsSync(targetOf(c))) return "update";
+    const recorded = upgradeFrom(c, record, variant);
+    if (recorded && filesPresent(c, recorded)) return "update";
     if (variant && filesPresent(c, variant)) return offered.has(c.id) ? "update" : "installed";
     if (c.provided !== undefined && options.probes.provided(c.provided) !== undefined) return "provided";
     return "missing";
@@ -394,11 +448,14 @@ export function createComponents(options: ComponentsOptions): Components {
     const provided = c.provided === undefined ? undefined : options.probes.provided(c.provided);
     const detected = c.detect === undefined ? undefined : options.probes.detect(c.detect);
     const sources = [...new Map((variant?.parts ?? []).flatMap((p) => p.sources ?? goal.sources ?? []).map((s) => [s.id, s.title])).values()];
-    const gpuReason = variant?.when?.gpu === undefined ? undefined : variant.when.gpu === "nvidia" ? t("components.variant.reason.nvidia") : t("components.variant.reason.noNvidia");
-    const noGpuVariant = variant && variant.when?.gpu === undefined && goal.variants.some((v) => v.when?.gpu === "nvidia") ? t("components.variant.reason.noNvidia") : undefined;
-    const reason = gpuReason ?? noGpuVariant;
-    const progress = job ? progressOf(job) : undefined;
     const installed = state === "installed" || state === "update";
+    // 用哪一版：装着的是哪版就写哪版（这次没查到显卡也不改口，原因不写）；能换成更好的那版时写要换上的那版、现在装的是哪版
+    const upgrade = state === "update" ? upgradeFrom(goal, record, variant) : undefined;
+    const recordedVariant = installed && record?.version === goal.version ? goal.variants.find((v) => v.id === record.variant) : undefined;
+    const shownVariant = upgrade || !recordedVariant ? variant : recordedVariant;
+    const reason = !variant || shownVariant !== variant ? undefined : upgrade ? t("components.variant.reason.upgrade", { installed: variantTitle(upgrade.id) }) : reasonOf(goal, variant);
+    const moved = relocation(c);
+    const progress = job ? progressOf(job) : undefined;
     const blocked = cannotInstall(goal, variant);
     const service = options.host?.service(c);
     const manual = manualFiles(goal, variant, state, job);
@@ -413,13 +470,14 @@ export function createComponents(options: ComponentsOptions): Components {
       defaultText: c.default === "detected" ? tOr(`components.default.detected.${keyOf(c.id)}`, t("components.default.detectedOther")) : t(`components.default.${c.default}`),
       wanted: wanted(c),
       ...(c.default === "detected" ? { detectedText: detected ?? t("components.detect.none") } : {}),
-      ...(variant ? { variant: { id: variant.id, title: tOr(`components.variant.${keyOf(variant.id)}`, variant.id), ...(reason ? { reason } : {}) } } : {}),
+      ...(shownVariant ? { variant: { id: shownVariant.id, title: variantTitle(shownVariant.id), ...(reason ? { reason } : {}) } } : {}),
       size: files.reduce((sum, f) => sum + f.file.size, 0),
       ...(installed ? { diskSize: dirSize(targetOf(c)) } : {}),
       enables: c.enables.map((id) => ({ id, title: tOr(`components.feature.${keyOf(id.replace(/\./g, "-"))}`, id) })),
       dependsOn: c.dependsOn ?? [],
       sources,
       location: targetOf(c),
+      ...(moved ? { locationNote: moved.note } : {}),
       ...(state === "provided" && provided ? { providedBy: provided } : {}),
       ...(blocked !== undefined ? { cannotInstall: blocked } : {}),
       ...(progress ? { progress } : {}),
@@ -438,7 +496,7 @@ export function createComponents(options: ComponentsOptions): Components {
           }
         : {}),
       ...(c.recommended ? { recommended: true } : {}),
-      ...(c.slowWithoutGpu && options.probes.gpu() === "none" ? { note: t("components.note.noGpuSlow") } : {}),
+      ...(c.slowWithoutGpu ? slowNote(c) : {}),
       ...(service ? { service } : {}),
       ...(manual.length > 0 ? { manualDownload: manual } : {}),
     };
@@ -670,8 +728,9 @@ export function createComponents(options: ComponentsOptions): Components {
       const pending = files.filter((f) => !(sizeOf(f.staged) === f.file.size && fs.existsSync(f.staged)));
       // 磁盘空间：还要下的 + 压缩包解开的 + 留一点
       const need = pending.reduce((sum, f) => sum + f.file.size - Math.min(sizeOf(`${f.staged}.part`), f.file.size), 0) + files.reduce((sum, f) => sum + (f.file.extract?.unpackedSize ?? 0), 0) + diskMargin;
-      const free = freeBytes(options.componentsDir);
-      if (free < need) throw new DownloadError("disk", t("components.error.disk", { need: sizeLabel(need), free: sizeLabel(free), dir: options.componentsDir }));
+      // 看临时目录所在的盘：装到别处的组件（数据目录带中文时的语音组件）下在那边
+      const free = freeBytes(stagingOf(c.id));
+      if (free < need) throw new DownloadError("disk", t("components.error.disk", { need: sizeLabel(need), free: sizeLabel(free), dir: relocation(c)?.root ?? options.componentsDir }));
       job.done = doneBytes();
       // 探速：几个地址各取还要下的最大那个文件的开头一小段，快的排前面
       const rank = new Map<string, number>();
@@ -932,7 +991,7 @@ export function createComponents(options: ComponentsOptions): Components {
             async end() {
               await new Promise<void>((resolve, reject) => out.end((err?: Error | null) => (err ? reject(err) : resolve())));
               const digests = { sha256: hashes.sha256.digest("hex"), sha512: hashes.sha512.digest("hex") };
-              const ok = await place(entry.path, entry.size, (algorithm) => Promise.resolve(digests[algorithm]), (dest) => renameRetryingAsync(scratch, dest));
+              const ok = await place(entry.path, entry.size, (algorithm) => Promise.resolve(digests[algorithm]), (dest) => moveFile(scratch, dest));
               if (!ok) unknown.push(entry.path);
               fs.rmSync(scratch, { force: true });
             },

@@ -93,6 +93,29 @@
           ]
         },
         {
+          "id": "cuda12",
+          "when": { "gpu": "nvidia", "platform": ["win32"], "arch": ["x64"] },
+          "expects": ["cudart64_*.dll", "cublas64_*.dll", "cublasLt64_*.dll", "cufft64_*.dll"],
+          "parts": [
+            {
+              "files": [
+                {
+                  "path": "audio-v0.9.3-bin-windows-x64-cuda12.4.zip",
+                  "size": 465913709,
+                  "sha256": "976b1fe4329407be45b272fc656d91006f081d22706f453f8879bc69dbb4a9b3",
+                  "extract": { "format": "zip", "to": "bin", "unpackedSize": 1300000000 }
+                },
+                {
+                  "path": "audio-v0.9.3-cudart-windows-x64-cuda12.4.zip",
+                  "size": 607273675,
+                  "sha256": "866a2bc12c4d887eb3b1b62f82f7a8fdd93391cb77ea02b63b0f360cfb3bb4d8",
+                  "extract": { "format": "zip", "to": "bin", "beside": "audiocpp_server.exe", "unpackedSize": 1100000000 }
+                }
+              ]
+            }
+          ]
+        },
+        {
           "id": "cpu",
           "when": { "platform": ["win32"], "arch": ["x64"] },
           "parts": [
