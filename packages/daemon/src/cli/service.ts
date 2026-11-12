@@ -4,16 +4,17 @@
 //     env 里用的人多加的项留着（手动登记的 MCP 把 fromEnv 的变量写在这里），我们自己的项照旧覆盖；
 //   - 服务管家没在跑就把它起来（单独的小进程，不跟着这个命令退出）；
 //   - start / stop / restart / status / logs 交给服务管家；svc <命令…> 原样转给 lsm。
-// 开机自启（服务管家的计划任务）由安装脚本默认装（经 ergo svc install-autostart）；这里在每次按 current 重写登记时核对一下它还指着在用的版本。
+// 开机自启（服务管家的计划任务）由安装脚本默认装（经 ergo svc install-autostart）；这里在每次按 current 重写登记时核对一下它还指着在用的版本，
+// 改指了、而在跑的服务管家正是这个任务起的，就经任务把它重起成新版本（restartManagerViaTask）。
 // 开机拉起哪些服务看服务管家的名单 registry/autostart.yaml：还没有时写一份只含二狗的，有了就再也不碰（用的人关掉后不会被下一次 start 打开）。
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { t } from "@ergo/protocol";
-import { readInstallState, writeInstallState } from "../release/layout.ts";
-import { interceptTaskCommand, readAutostartTask, taskInsideRoot, taskRunsScript } from "./autostart.ts";
-import { type CliContext, daemonPort, daemonUrl } from "./context.ts";
+import { installPaths, readInstallState, writeInstallState } from "../release/layout.ts";
+import { type AutostartTaskInfo, interceptTaskCommand, readAutostartTaskInfo, runTaskOp, sameDir, taskDataDir, taskInsideRoot, taskRunsScript } from "./autostart.ts";
+import { type CliContext, daemonPort, daemonUrl, defaultSvcDataDir } from "./context.ts";
 
 /** 二狗在服务管家里登记的 id */
 export const DAEMON_SERVICE_ID = "ergo-daemon";
@@ -374,6 +375,90 @@ export function managerPidFromState(ctx: CliContext): number | undefined {
   }
 }
 
+/**
+ * 在跑的服务管家是在最近一次切版本之前起的（账本里记的起来的时间早于 current 那一行最后一次写的时间）：它跑的还是切之前那个版本的程序。
+ * 谁切的都算（ergo update / rollback、重新跑安装脚本、没有这一条的旧版本的 ergo update），所以用 current 的修改时间，不另记一份
+ */
+export function managerOlderThanCurrent(ctx: CliContext): boolean {
+  const { root } = ctx.layout;
+  if (ctx.layout.kind !== "installed" || !root) return false;
+  let startedAt: unknown;
+  try {
+    startedAt = (JSON.parse(fs.readFileSync(svcPaths(ctx).state, "utf8")) as { manager?: { startedAt?: unknown } }).manager?.startedAt;
+  } catch {
+    return false;
+  }
+  if (typeof startedAt !== "number") return false;
+  try {
+    // lstat：老安装的 current 是目录联接，看联接自己的时间
+    return startedAt < fs.lstatSync(installPaths(root).current).mtimeMs;
+  } catch {
+    return false;
+  }
+}
+
+/** 在跑的服务管家是 ergo 起的（install.json 记的 managerPid 和账本里的对得上）；只有装好的才记 */
+export function managerStartedByErgo(ctx: CliContext): boolean {
+  const { root } = ctx.layout;
+  if (ctx.layout.kind !== "installed" || !root) return false;
+  const pid = readInstallState(root).managerPid;
+  return pid !== undefined && pid === managerPidFromState(ctx);
+}
+
+/**
+ * 开机自启的任务正在跑一个服务管家，而且就是 ctx 用的这一个：任务归这个安装（指着安装目录里的某个版本）、状态是 Running、
+ * 数据目录是这一份（--data-dir，没写是服务管家的默认位置）。调的人先确认服务管家在跑、不是 ergo 起的。
+ * 任务指着安装目录以外（用的人自己的服务管家，比如开发机上那个）一律不算，不会被重起
+ */
+export function managerUnderTask(ctx: CliContext, task: AutostartTaskInfo | null | undefined): boolean {
+  const { root } = ctx.layout;
+  if (ctx.layout.kind !== "installed" || !root || !task || task.state !== "Running") return false;
+  if (!taskInsideRoot(task.action, root)) return false;
+  return sameDir(taskDataDir(task.action) ?? defaultSvcDataDir(ctx.env), ctx.svcDataDir);
+}
+
+async function waitManager(ctx: CliContext, up: boolean, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if ((await managerUp(ctx, 800, 1)) === up) return true;
+    if (Date.now() >= deadline) return false;
+    await sleep(300);
+  }
+}
+
+export type TaskRestart = "task" | "direct" | "failed";
+
+/**
+ * 开机自启的任务起的服务管家换成 ctx 这个版本（任务已经改指它了）：
+ *   停任务（结束任务的 conhost，服务管家的 --lifeline 让它跟着退）→ 等端口空出来（等不到就结束账本里记的那个进程）→ 起任务 → 等它回话。
+ * 托管的服务是各自的进程，不跟着停；新起的服务管家和上一个在同一个登录会话里，bootPlan 按"不是开机"处理，把在跑的服务认回来，不按开机名单重拉。
+ * 旧版本目录因此不再被占着（程序、工作目录都在里面），下一次清理删得掉。
+ * 任务起不来（不让起、起了没回话）就由 ergo 直接起（回 direct：这次是 ergo 起的那个，下次登录照旧归任务）；旧的停不下来回 failed，照旧跑着
+ */
+export async function restartManagerViaTask(ctx: CliContext, waits: { stopMs?: number; startMs?: number } = {}): Promise<TaskRestart> {
+  const version = ctx.layout.info?.version ?? path.basename(ctx.layout.home);
+  ctx.io.out(t("cli.autostart.restartingManager", { version }));
+  const stop = runTaskOp(ctx.env, "stop");
+  // 停任务没成也往下走：结束账本里记的那个服务管家，任务的 conhost 跟着它退
+  if (!(await waitManager(ctx, false, waits.stopMs ?? 10_000)) && !(await stopManager(ctx))) {
+    ctx.io.err(t("cli.autostart.managerStuck", { detail: stop.code === 0 ? "-" : stop.stderr.trim() || String(stop.code) }));
+    return "failed";
+  }
+  const start = runTaskOp(ctx.env, "start");
+  if (start.code === 0 && (await waitManager(ctx, true, waits.startMs ?? 45_000))) {
+    ctx.io.out(t("cli.autostart.managerRestarted", { version }));
+    return "task";
+  }
+  ctx.io.err(t("cli.autostart.managerTaskFailed", { detail: start.code === 0 ? t("cli.autostart.noAnswer") : start.stderr.trim() || String(start.code) }));
+  try {
+    await startManager(ctx);
+    return "direct";
+  } catch (err) {
+    ctx.io.err(err instanceof Error ? err.message : String(err));
+    return "failed";
+  }
+}
+
 /** Windows 命令行里一个参数的写法（CommandLineToArgvW 的规矩） */
 export function quoteArg(arg: string): string {
   if (arg !== "" && !/[\s"]/.test(arg)) return arg;
@@ -472,12 +557,12 @@ export type AutostartSync = "not-installed" | "no-task" | "elsewhere" | "current
  *   - 源码跑的、npm 装的：任务不归这个安装管；
  *   - 没有任务：用的人撤掉了（或者查不了），不新建；
  *   - 指着安装目录以外：用的人自己装的服务管家，和卸载时一样不碰。
- * 重新注册失败只说一句，不耽误这次启动。
+ * 重新注册失败只说一句，不耽误这次启动。known 是调的人刚读过的任务（省一次 PowerShell），没给就自己读。
  */
-export function syncAutostart(ctx: CliContext): AutostartSync {
+export function syncAutostart(ctx: CliContext, known?: { task: AutostartTaskInfo | null | undefined }): AutostartSync {
   const { layout } = ctx;
   if (layout.kind !== "installed" || !layout.root) return "not-installed";
-  const action = readAutostartTask(ctx.env);
+  const action = (known ? known.task : readAutostartTaskInfo(ctx.env))?.action;
   if (!action) return "no-task";
   if (!taskInsideRoot(action, layout.root)) return "elsewhere";
   if (taskRunsScript(action, lsmScript(ctx))) return "current";
@@ -495,13 +580,24 @@ export function tellBootListCreated(ctx: CliContext): void {
   ctx.io.out(t("cli.svc.bootListCreated", { file: svcPaths(ctx).bootList, id: DAEMON_SERVICE_ID }));
 }
 
-/** 服务管家在跑、二狗的登记是最新的：管理器不在就起来，在就让它重读登记（注册表） */
+/**
+ * 服务管家在跑、二狗的登记是最新的：管理器不在就起来，在就让它重读登记（注册表）。
+ * 在跑的服务管家是开机自启的任务起的、跑的又是别的版本的程序——任务这次才被改指在用的版本，或者它是上一次切版本之前起的
+ * （从没有这一条的旧版本升上来时，跑 update 的是旧的 ergo，不会重起它）——就经任务把它重起成在用的版本，和切版本时一样
+ */
 export async function ensureSvc(ctx: CliContext): Promise<{ startedManager: boolean }> {
   const { managerCreated, bootListCreated } = writeSvcConfig(ctx);
   if (managerCreated) ctx.io.out(t("cli.svc.managerConfigCreated", { file: svcPaths(ctx).managerYaml, port: managerAddress(ctx).port }));
   if (bootListCreated) tellBootListCreated(ctx);
-  syncAutostart(ctx);
-  if (await managerUp(ctx)) {
+  const installed = ctx.layout.kind === "installed" && !!ctx.layout.root;
+  const task = installed ? readAutostartTaskInfo(ctx.env) : undefined;
+  const up = await managerUp(ctx);
+  // 在改指任务之前看：真的计划任务重新注册时会不会结束正在跑的实例没核实过，结束了的话之后就看不出它是任务起的了
+  const underTask = up && !managerStartedByErgo(ctx) && managerUnderTask(ctx, task);
+  const sync = syncAutostart(ctx, { task });
+  const stale = sync === "moved" || (sync === "current" && managerOlderThanCurrent(ctx));
+  if (up && underTask && stale && (await restartManagerViaTask(ctx)) !== "failed") return { startedManager: false };
+  if (up) {
     // 每次都让它重读，不看这次写没写：用的人手加的 env 项和我们写出来的一字不差时文件不算变了，管理器不重读就拿不到。重读不动在跑的服务
     runLsm(ctx, ["reload"], { capture: true });
     return { startedManager: false };

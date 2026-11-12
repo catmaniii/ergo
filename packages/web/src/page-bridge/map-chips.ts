@@ -4,16 +4,32 @@
 // 只认真的用户操作，按下时不让网页收到（选区不丢）。鸿蒙长按后很快松手时 pointer 可能还落在原来的元素上，所以和圆钮一样
 // pointer、touch 两条路都听，同一下只算一次。点了什么交给 element.ts（报 element-map）。
 // 二狗的网页能接这两个动作（地图插件开着、网页够新）才给：随页面桥自己的那几句交来（texts 的 map，见 texts.ts），没交来不给。
+import { drawIcon, type Icon } from "./icon.ts";
 import type { BridgeTexts } from "./texts.ts";
 
 /** 两个动作：在地图上看、怎么去 */
 export type MapChipAction = "show" | "route";
 
 /** 地图上的定位针、两点间的路线（SVG，跟着字的颜色） */
-const ICON_PIN =
-  '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg>';
-const ICON_ROUTE =
-  '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><path d="M8.2 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.8"/></svg>';
+const ICON_PIN: Icon = {
+  size: 15,
+  line: 2,
+  shapes: [
+    ["path", { d: "M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" }],
+    ["circle", { cx: 12, cy: 10, r: 2.4 }],
+  ],
+  svg: { "aria-hidden": "true" },
+};
+const ICON_ROUTE: Icon = {
+  size: 15,
+  line: 2,
+  shapes: [
+    ["circle", { cx: 6, cy: 18, r: 2.2 }],
+    ["circle", { cx: 18, cy: 6, r: 2.2 }],
+    ["path", { d: "M8.2 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.8" }],
+  ],
+  svg: { "aria-hidden": "true" },
+};
 
 export const MAP_CHIPS_STYLE = `
 .map-chips { position: fixed; left: 0; top: 0; display: none; gap: 6px; z-index: 1; }
@@ -67,9 +83,8 @@ export function createMapChips(doc: Document, texts: BridgeTexts, onAction: (act
     el.className = "map-chip";
     el.dataset.act = action;
     el.setAttribute("role", "button");
-    el.innerHTML = icon;
     const label = doc.createElement("span");
-    el.append(label);
+    el.append(drawIcon(doc, icon), label);
     const press = (e: Event) => {
       stop(e);
       if (e.isTrusted) pressed = action;

@@ -185,7 +185,7 @@ There are two layers, and **both must be on for ergo to come back after a restar
 - **It's at login, not at power-on.** If the computer is on but sitting at the login screen, ergo won't be up. For an unattended home machine you'd need Windows to log in automatically, which is your call to make and set up.
 - **Other services work the same way.** To have a voice service start too, run `ergo svc autostart <service> on` or use the switch on its card. `ergo svc status` shows the service names.
 - **Off stays off.** Once ergo is off the list, `ergo start` won't put it back. Once layer 1 is removed, `ergo start` and `ergo update` won't add it back; rerunning the install script will (add `-NoAutostart` if you don't want that).
-- **Updates and rollbacks take care of themselves.** `ergo update`, `ergo rollback` and `ergo start` check the task, and if it points at another version of this install they repoint it at the one in use.
+- **Updates and rollbacks take care of themselves.** `ergo update`, `ergo rollback` and `ergo start` check the task, and if it points at another version of this install they repoint it at the one in use; if the running supervisor was started by that task, they restart it through the task on the version in use (the services it runs keep running).
 - **If this computer already has a task with that name pointing elsewhere** (say, a service manager you installed from source), the install script, `ergo start` and `ergo uninstall` leave it alone. Run `ergo svc install-autostart` once to switch it to this install.
 - **Installed with `-NoStart`:** ergo only comes back after a restart once you've run `ergo start`.
 - **Installed from source:** replace `ergo svc` above with `node bin\lsm.mjs` run in `packages\supervisor`; see steps 3 and 5 of [Install from source](#install-from-source).
@@ -328,7 +328,7 @@ ergo version          # see which version is running
 
 Options: `--version <version>` picks a version, `--mirror cn` tries npmmirror first (useful only once the npm package is published; for now it falls back to GitHub), `--from <url>` uses another release address.
 
-A supervisor started by the autostart task keeps running the old version's program after an update (ergo itself is on the new version, so nothing breaks) and changes at the next login; the old version's folder it occupies can't be deleted until then, and `ergo update` says it will remove it next time.
+A supervisor started by the autostart task (which is the usual case after a restart) moves to the new version too: after the switch the autostart task stops it and starts the new version, a gap of a few seconds. The services it runs (voice, project services) keep running, and it is not treated as a fresh boot (the autostart list is not started again); the old version's folder is no longer held, so a later cleanup can remove it. If the task can't start it, `ergo` starts the new supervisor itself and the task takes over again at the next sign-in. `ergo rollback` works the same way. The one update from 0.4.4 or earlier still runs on the old version's `ergo`, which doesn't move the supervisor; run `ergo restart` once afterwards (or wait for the next sign-in).
 
 ### Other kinds of install
 

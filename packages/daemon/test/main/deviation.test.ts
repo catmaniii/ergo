@@ -145,6 +145,10 @@ describe("验收第 3 次还不过", () => {
     expect(verdicts).toHaveLength(3);
     const help = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "stuck_help");
     expect(help.kind === "notice" && help.body).toContain("验收退回 2 次后");
+    // 等负责人把"这一支停下"的通知也处理完（起草一轮、执行一轮、这条通知一轮）再点：卡住求助在第 3 次宣布完成的那一刻就出来了，
+    // 负责人这时可能还在说"三次都没过"；这时点"继续执行"，排着的停下通知就过时作废、不再交给它（产品本来就这样），
+    // 剧本里给它的"等你"会被继续的通知用掉，改好再交的那几步就永远轮不到（机器忙时偶发过）
+    await turnsOf(frontend, M1, 3);
 
     // 在待我处理里点"继续执行"：这一支接着走，退回次数清零；负责人改好再宣布完成，通过
     ok(await frontend.inboxAction({ itemIds: [help.id], action: "handle", choice: "继续执行" }));
