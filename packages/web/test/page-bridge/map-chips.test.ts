@@ -3,7 +3,8 @@
 // - 选中的字像地址、地名（中文门牌、英文街名、短短的地名）圆钮旁边多一行"在地图上看""怎么去"，摆在圆钮右边、看得见的范围里；
 //   一大段话、网址不给；没选中只是长按一段字不给；
 // - 点"在地图上看"：报 element-map（show，带元素和这一刻选中的字），这一行收起，先自己出"在办"的气泡，选区不丢；
-// - 手指点"怎么去"只报一遍（route）；按圆钮（打字）这一行收起；换了语言字跟着换；靠右边时摆到圆钮左边。
+// - 手指点"怎么去"只报一遍（route）；按圆钮（打字）这一行收起；换了语言字跟着换；靠右边时摆到圆钮左边；
+// - 开了 Trusted Types 的网页（不许给 innerHTML 塞字符串）上照样出来、图标是 SVG、点了照样报。
 // 本机没有 Chrome（或 Edge）时跳过。
 import { type Browser, chromium, type Page } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -44,10 +45,14 @@ afterAll(async () => {
 
 type Posted = Record<string, unknown>;
 
-async function open(options: { hasTouch?: boolean; map?: boolean } = {}): Promise<Page> {
+/** csp：网页响应带的 Content-Security-Policy（被拦的记在 window.cspViolations） */
+async function open(options: { hasTouch?: boolean; map?: boolean; csp?: string } = {}): Promise<Page> {
   const context = await browser!.newContext({ viewport: { width: 800, height: 600 }, ...(options.hasTouch ? { hasTouch: true } : {}) });
   const page = await context.newPage();
   await page.addInitScript(() => {
+    const seen: string[] = [];
+    (window as unknown as { cspViolations: string[] }).cspViolations = seen;
+    document.addEventListener("securitypolicyviolation", (e) => void seen.push(`${e.violatedDirective} ${e.sample}`));
     const attach = Element.prototype.attachShadow;
     Element.prototype.attachShadow = function (this: Element, init: ShadowRootInit) {
       const root = attach.call(this, init);
@@ -59,7 +64,7 @@ async function open(options: { hasTouch?: boolean; map?: boolean } = {}): Promis
     (window as unknown as { ergoPageHost: { post(json: string): void } }).ergoPageHost = { post: (json: string) => void posted.push(json) };
   });
   await page.addInitScript({ content: bridge });
-  await page.route(`${ORIGIN}/**`, (route) => (route.request().url() === PAGE_URL ? route.fulfill({ contentType: "text/html", body: HTML }) : route.fulfill({ status: 404, body: "" })));
+  await page.route(`${ORIGIN}/**`, (route) => (route.request().url() === PAGE_URL ? route.fulfill({ contentType: "text/html", ...(options.csp ? { headers: { "Content-Security-Policy": options.csp } } : {}), body: HTML }) : route.fulfill({ status: 404, body: "" })));
   await page.goto(PAGE_URL);
   if (options.map !== false) await callJson(page, "texts", JSON.stringify({ map: true }));
   return page;
@@ -191,6 +196,30 @@ describe.skipIf(!CHROME)("选中的地址旁边地图的两个按钮（在真的
     expect(edge.chips.labels).toEqual(["Show on map", "Directions"]);
     expect(edge.chips.right).toBeLessThanOrEqual(edge.fab.left);
     expect(edge.chips.left).toBeGreaterThanOrEqual(0);
+    await page.context().close();
+  });
+
+  test("开了 Trusted Types 的网页（require-trusted-types-for 'script'）：圆钮、这一行照样出来，两个按钮上是 SVG 图标，点了照样报；页面桥没有一处被拦", async () => {
+    const page = await open({ csp: "require-trusted-types-for 'script'" });
+    await selectAndPress(page, "#addr");
+    const now = await look(page);
+    expect(now.fab.on).toBe(true);
+    expect(now.chips).toMatchObject({ on: true, labels: ["在地图上看", "怎么去"] });
+    const icons = await page.evaluate(() =>
+      Array.from((window as unknown as { peekRoot: ShadowRoot }).peekRoot.querySelectorAll(".map-chip svg")).map((svg) => {
+        const r = svg.getBoundingClientRect();
+        return { svg: svg.namespaceURI === "http://www.w3.org/2000/svg", size: [r.width, r.height], hidden: svg.getAttribute("aria-hidden") };
+      }),
+    );
+    expect(icons).toEqual([
+      { svg: true, size: [15, 15], hidden: "true" },
+      { svg: true, size: [15, 15], hidden: "true" },
+    ]);
+    const at = await chipCenter(page, "show");
+    await page.mouse.click(at.x, at.y);
+    await page.waitForTimeout(40);
+    expect((await postedOf(page)).filter((m) => m.type === "element-map").map((m) => m.action)).toEqual(["show"]);
+    expect(await page.evaluate(() => (window as unknown as { cspViolations: string[] }).cspViolations)).toEqual([]);
     await page.context().close();
   });
 });

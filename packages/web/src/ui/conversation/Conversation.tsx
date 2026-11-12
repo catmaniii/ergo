@@ -316,11 +316,12 @@ function ConversationView({
     const timer = setTimeout(() => setHistory(new Set(itemsRef.current.map((it) => it.id))), 600);
     return () => clearTimeout(timer);
   }, []);
-  // 打开之后才到的、排在历史最后一条之后的条目才播到达动效；往上翻插进来的更早的不播；
-  // 切换分支带进来的（序号在这次切换之前）也不播——切换有自己的双向动画
-  const lastHistoryIndex = history === null ? -1 : items.findLastIndex((it) => history.has(it.id));
+  // 打开之后才到的条目才播到达动效；往上翻插进来的更早的（排在历史第一条前面）不播；
+  // 切换分支带进来的（序号在这次切换之前）也不播——切换有自己的双向动画。
+  // 按历史第一条算、不按最后一条：等你拍板的卡排在这一轮最后（waitingCardsLast），这一轮接着来的思考、回复插在它上面，照样播
+  const firstHistoryIndex = history === null ? -1 : items.findIndex((it) => history.has(it.id));
   const epochStart = branchEpochStart(ui, conversation);
-  const isFresh = (it: ChatItem, i: number) => history !== null && i > lastHistoryIndex && !history.has(it.id) && (it.seq === undefined || it.seq >= epochStart);
+  const isFresh = (it: ChatItem, i: number) => history !== null && i > firstHistoryIndex && !history.has(it.id) && (it.seq === undefined || it.seq >= epochStart);
 
   // 废弃分支：⑂ 展开、点分支打开详情；只读的会话不能切
   const branches = useMemo<BranchActions>(

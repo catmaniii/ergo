@@ -65,7 +65,7 @@ If a task turns out to be a long-term job: open the task, go to ⋯ · Plan · *
 
 1. When you enter the project, the owner asks first: one or two questions at a time, skipping anything you've already made clear.
 2. Reply by typing or holding to talk. It writes the spec, glossary and decisions into the records.
-3. Once things are clear, it hands you a charter card. The card also goes into Inbox: **Charter to confirm: …**.
+3. Once things are clear, it hands you a charter card. The whole card sits at the bottom of the session, below whatever the owner says after handing it in, so you can click its buttons right there. The card also goes into Inbox: **Charter to confirm: …**.
 
    ![The charter card](images/projects/03-charter.png)
 

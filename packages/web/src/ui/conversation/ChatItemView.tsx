@@ -6,9 +6,10 @@
 // 每一行放在个人助理那一列的一格里（.msg.assistant > .msg-part.part-line），这一格和对话气泡最宽的那个宽度一样（pages.css），
 // 行尾的 › 在这一格的最右端：几种的 › 在同一条竖线上，窄窗口也不出屏幕。系统说明、记录、分支摘要也放进这一列（和别的行对齐）。
 // 工具调用组里的每一步不在对话层画，点整行在详情页里看。
-// 卡片收成一行之后按钮不在对话里：点进卡片详情处理（卡片详情画整张卡，"引用"也在那里，ui/detail/DetailPane.tsx）；
-// 还没收到这张卡、打不开详情的照旧整张画（卡片下面"引用"）；地图卡片这种要直接看的（chat-look.ts 的 CARD_STAYS_WHOLE）
-// 也照旧整张画，下面"引用 · 详情 ›"。
+// 等你拍板的卡（还没处理、要你点按钮的：立项书、计划、各种变更、审批……，state/cards.ts 的 cardWaitsForYou）整张画，按钮直接在对话里，
+// 下面"引用 · 详情 ›"；它排在交出它的那一轮最后（state/chat-items.ts 的 waitingCardsLast）。处理过的收成一行，点进卡片详情看
+// （卡片详情画整张卡，"引用"也在那里，ui/detail/DetailPane.tsx）；还没收到这张卡、打不开详情的照旧整张画（卡片下面"引用"）；
+// 地图卡片这种要直接看的（chat-look.ts 的 CARD_STAYS_WHOLE）也照旧整张画，下面"引用 · 详情 ›"。
 // 插件拥有的条目在插件停用时已经换成占位（state/chat-items.ts 的 maskUnavailable，kind 是 unavailable），
 // 画成一行"（X插件没启用，这条内容暂时看不到）"，样子同"已删除"。
 // 顺利执行的二狗内部工具不显示（会话里有卡片、记录代表它）；发出了语音气泡的"发语音"调用也不显示（气泡代表它，
@@ -203,7 +204,7 @@ export function ChatItemView({ item, actions }: { item: ChatItem; actions: ChatI
       return plugin === undefined ? null : <UnavailableLine text={t("state.chatItems.unavailable", { plugin })} />;
     }
     case "card":
-      // 收到了这张卡的收成一行，点进详情处理；还没收到、打不开详情的照旧整张画；地图卡片这种要直接看的照旧整张画，下面照旧"引用 · 详情"
+      // 等你拍板的、地图卡片这种要直接看的整张画，下面"引用 · 详情"；处理过的收成一行，点进详情看；还没收到、打不开详情的照旧整张画
       if (look.form === "line") return <LineItem look={look} onOpen={openLine} mark={item.id} />;
       return (
         <div className="msg assistant">
