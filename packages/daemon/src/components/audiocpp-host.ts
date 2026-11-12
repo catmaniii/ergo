@@ -8,6 +8,12 @@
 // 点安装时空跑一次 put，登记得上就马上撤掉；查出来以后每分钟再看一次它撤了没有。
 // 组件服务不等这里：装好后的接上、点"启动"都在后台排队（一次一件），页面看 service 的 state；失败不抛错，写进 state 和 error。
 // 语音识别模型（serve.task 是 asr）还要多一件：用户自己配了别的语音识别（recognizer-link.ts）就不让装；服务接上了才把识别指过来，删了指回去。
+// 数据目录的路径带中文（Windows 用户名是中文）时（351，2026-11-12 实测）：audio.cpp 读不了 server.json 里写的带中文的模型路径，
+// 也读不了请求里带中文的参考音色路径；程序放在中文目录、工作目录和 --config 是中文目录都没事。所以程序和模型装到一个不带中文的地方
+// （voiceFallbackRoot，在 ProgramData 下，不要管理员权限），生成的配置还放在数据目录（工作目录），
+// 参考音色发相对工作目录的路径（workingDir，voice/speech.ts）——audio.cpp 按工作目录解相对路径，读得到。短路径（8.3）帮不上：
+// 中文名在中文系统上的短名照样是中文，D 盘这类还常常关了短名。
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
@@ -39,6 +45,8 @@ export interface AudioCppHostOptions {
   cpuThreads?: number;
   /** 查出来"手写的服务占着这个端口"以后，多久再看一次它撤了没有（毫秒）；不给是一分钟 */
   registeredRecheckMs?: number;
+  /** 组件区的路径 audio.cpp 读不了（带中文）时，程序和模型装到这个根目录下（voiceFallbackRoot）；不给就不让装 */
+  fallbackRoot?: string | undefined;
   log: (line: string) => void;
 }
 
@@ -47,6 +55,11 @@ export interface AudioCppHost extends ComponentHost {
   attachLsm(services: LsmServices): void;
   /** 已有用户自己配的语音合成：给人看的那句话（清单 provided 写的 voice-speech 查它）；没有是 undefined */
   provided(): string | undefined;
+  /**
+   * 这个地址上是我们接上的服务时，它的工作目录（参考音色的路径带中文时发相对它的路径，audio.cpp 读得到）；
+   * 不是我们接上的（用户自己配的、还没装）是 undefined
+   */
+  workingDir(url: string): string | undefined;
 }
 
 /** 生成的配置放这里 */
@@ -56,8 +69,47 @@ const CONFIG = "server.json";
 const READY_TIMEOUT_MS = 120_000;
 /** 查出来"手写的服务占着这个端口"以后，默认多久再看一次它撤了没有 */
 const REGISTERED_RECHECK_MS = 60_000;
-/** audio.cpp 读不了带中文的路径（voice/speech.ts 也因此不发请求）；" 和 % 过不了服务管家的 argv（要经 cmd 一层） */
+/** audio.cpp 读不了带中文的模型路径（见文件头）；" 和 % 过不了服务管家的 argv（要经 cmd 一层） */
 const UNUSABLE_PATH = /[^\x20-\x7e]|["%]/;
+
+/**
+ * 组件区的路径 audio.cpp 读不了时，语音的程序和模型装到哪（351）：Windows 上 %ProgramData%\ergo\<数据目录的指纹>。
+ * - 不要管理员权限：普通用户能在 ProgramData 下建目录，建的人对它有完全控制；这个路径本身是英文的。
+ * - 指纹按数据目录算（8 位十六进制）：同一台电脑上几个用户、几个数据目录各用各的，不打架。
+ * - 只放程序和公开的模型；参考音色（用户的录音）和生成的配置还在数据目录里。
+ * 别的平台 audio.cpp 按 UTF-8 读路径，清单里也没有那些平台的包：不给
+ */
+export function voiceFallbackRoot(env: NodeJS.ProcessEnv, dataRoot: string, platform: NodeJS.Platform = process.platform): string | undefined {
+  if (platform !== "win32") return undefined;
+  const base = env.ProgramData ?? env.PROGRAMDATA ?? env.ALLUSERSPROFILE;
+  if (!base) return undefined;
+  const tag = createHash("sha256").update(path.win32.resolve(dataRoot).toLowerCase()).digest("hex").slice(0, 8);
+  return path.win32.join(base, "ergo", tag);
+}
+
+/**
+ * 我们接上的语音服务（组件区里有我们生成的 server.json、它写的端口和这个地址对得上）的工作目录；不是我们接上的是 undefined。
+ * 只看文件，不用等组件服务建好：守护进程刚起来、接着合成上次没做完的语音时也问得到
+ */
+export function audioCppWorkingDir(componentsDir: string, url: string): string | undefined {
+  const dir = path.join(componentsDir, SERVICE_DIR);
+  try {
+    const config = JSON.parse(fs.readFileSync(path.join(dir, CONFIG), "utf8")) as { port?: unknown } | null;
+    return typeof config?.port === "number" && isLocalPort(url, config.port) ? dir : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** 这个地址指的是本机的这个端口 */
+function isLocalPort(url: string, port: number): boolean {
+  try {
+    const parsed = new URL(url);
+    return (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost") && Number(parsed.port) === port;
+  } catch {
+    return false;
+  }
+}
 
 type Step = "config" | "register" | "start" | "health" | "autostart";
 type ProgramComponent = ManifestComponent & { service: ManifestService };
@@ -131,6 +183,9 @@ export function createAudioCppHost(options: AudioCppHostOptions): AudioCppHost {
   const probeTimeoutMs = options.probeTimeoutMs ?? 1500;
   const serviceDir = path.join(options.componentsDir, SERVICE_DIR);
   const configPath = path.join(serviceDir, CONFIG);
+  /** 组件区的路径 audio.cpp 读不了：有能用的别处就装到别处，没有就不让装 */
+  const unusable = UNUSABLE_PATH.test(options.componentsDir);
+  const fallbackRoot = unusable && options.fallbackRoot !== undefined && !UNUSABLE_PATH.test(options.fallbackRoot) ? options.fallbackRoot : undefined;
 
   let context: ComponentHostContext | undefined;
   let lsm: LsmServices = DISABLED_LSM_SERVICES;
@@ -175,7 +230,8 @@ export function createAudioCppHost(options: AudioCppHostOptions): AudioCppHost {
 
   /** 生成的配置：models[] 是清单里写了 serve、装好了的全部；路径原样写，audio.cpp 按写的读 */
   const configText = (program: ProgramComponent, variant: ManifestVariant): string => {
-    const cuda = variant.id === "cuda";
+    // 显卡版（CUDA 13.3、12.4）都是 cuda 后端
+    const cuda = variant.when?.gpu === "nvidia";
     const config = {
       host: "127.0.0.1",
       port: program.service.port,
@@ -229,14 +285,7 @@ export function createAudioCppHost(options: AudioCppHostOptions): AudioCppHost {
     });
 
   /** 配置里的地址就是我们要接管的这个端口（默认的 127.0.0.1:8090） */
-  const pointsAtManaged = (service: ManifestService): boolean => {
-    try {
-      const url = new URL(options.speech.url);
-      return (url.hostname === "127.0.0.1" || url.hostname === "localhost") && Number(url.port) === service.port;
-    } catch {
-      return false;
-    }
-  };
+  const pointsAtManaged = (service: ManifestService): boolean => isLocalPort(options.speech.url, service.port);
 
   /** 现看一眼有没有用户自己配的（不含手写登记：那个要空跑 put，只在点安装时跑） */
   const detectExternal = async (service: ManifestService): Promise<External | undefined> => {
@@ -252,7 +301,7 @@ export function createAudioCppHost(options: AudioCppHostOptions): AudioCppHost {
     fs.mkdirSync(serviceDir, { recursive: true });
     dryRunning = true;
     try {
-      const put = await lsm.put(definition(service, path.join(serviceDir, service.program)));
+      const put = await lsm.put(definition(service, path.join(fallbackRoot ?? serviceDir, service.program)));
       if (put.ok) {
         const removed = await lsm.remove(service.name);
         if (!removed.ok) log(`安装前试登记完没撤掉 ${service.name}：${replyError(removed)}`);
@@ -455,9 +504,14 @@ export function createAudioCppHost(options: AudioCppHostOptions): AudioCppHost {
     provided() {
       return external && !ours() ? externalText(external) : undefined;
     },
+    workingDir: (url) => audioCppWorkingDir(options.componentsDir, url),
+    relocated(component) {
+      if (!concerns(component) || fallbackRoot === undefined) return undefined;
+      return { root: fallbackRoot, note: t("components.location.fallback", { dir: options.componentsDir }) };
+    },
     blocked(component) {
       if (!concerns(component)) return undefined;
-      if (UNUSABLE_PATH.test(options.componentsDir)) return t("components.cannot.pathUnusable", { dir: options.componentsDir });
+      if (unusable && fallbackRoot === undefined) return t("components.cannot.pathUnusable", { dir: options.componentsDir });
       const recognizer = isRecognizerModel(component);
       // 用户自己配了别的语音识别：不改（已经从这里装好了的要能更新，不算）
       if (recognizer && !context?.installed(component.id) && options.recognizer?.configured() !== undefined) return t("components.cannot.recognizerConfigured");

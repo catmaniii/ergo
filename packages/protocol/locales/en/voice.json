@@ -56,7 +56,7 @@
   "voice.recognizer.audiocppNoFfmpeg": "This recording isn't a WAV and the speech service only takes WAV, but there is no ffmpeg on this computer to convert it. New recordings are converted by the page first; to recognize this one, put ffmpeg on the PATH and tap retry",
   "voice.speech.modelHint": "Replace it with the Fish-Audio S2 Pro model id on the audio.cpp server (usually \"tts\")",
   "voice.speech.placeholderModel": "voice.speech.model in the data folder's config is still the example placeholder. {hint}",
-  "voice.speech.nonAsciiPath": "The recording path of reference voice {id} has non-ASCII characters, which audio.cpp can't read. Move the data folder to an ASCII-only path.",
+  "voice.speech.nonAsciiPath": "The recording path of reference voice {id} has non-English characters, which your own audio.cpp service can't read. Use the speech synthesis installed from Settings · Components (it can), or move the data folder to an English-only path.",
   "voice.speech.httpDetail": "HTTP {status}: {detail}",
   "voice.speech.busy": "The speech service is busy ({reason})",
   "voice.speech.failed": "The speech service returned an error ({reason})",

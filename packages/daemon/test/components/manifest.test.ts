@@ -8,6 +8,8 @@ import { AUDIOCPP_RECOGNIZER_MODEL } from "../../src/voice/recognizer-audiocpp.t
 import { codexSchema } from "../helpers/codex-schema.ts";
 
 const { manifest, signed } = loadManifest();
+/** 新卡、新驱动（CUDA 13.3 版用得了） */
+const NEW_GPU = { name: "NVIDIA GeForce RTX 4070 Ti", driver: "610.88", computeCapability: "8.9" };
 const byId = (id: string) => manifest.components.find((c) => c.id === id)!;
 
 describe("随程序发布的清单", () => {
@@ -36,7 +38,7 @@ describe("随程序发布的清单", () => {
     expect(files).toEqual(BGE_M3.files.map((f) => ({ path: f.path, size: f.size, ...(f.sha256 ? { sha256: f.sha256 } : {}) })));
   });
 
-  test("语音合成：程序和模型分开，模型依赖程序；按 N 卡挑包；CUDA 版带运行库包；固定版本、大小、校验值", () => {
+  test("语音合成：程序和模型分开，模型依赖程序；按 N 卡、驱动挑包；CUDA 版带运行库包；固定版本、大小、校验值", () => {
     const program = byId("audiocpp");
     const model = byId("tts");
     expect(model.dependsOn).toEqual(["audiocpp"]);
@@ -46,11 +48,21 @@ describe("随程序发布的清单", () => {
     expect(model.provided).toBe("voice-speech");
     expect(program.service).toEqual({ name: "audiocpp", program: "audiocpp_server.exe", port: 8090, health: "/health" });
 
-    const cuda = pickVariant(program, { platform: "win32", arch: "x64", gpu: "nvidia" })!;
+    const cuda = pickVariant(program, { platform: "win32", arch: "x64", gpu: "nvidia", nvidia: NEW_GPU })!;
     const cpu = pickVariant(program, { platform: "win32", arch: "x64", gpu: "none" })!;
     expect(cuda.id).toBe("cuda");
     expect(cpu.id).toBe("cpu");
-    expect(pickVariant(program, { platform: "linux", arch: "x64", gpu: "nvidia" })).toBeUndefined();
+    expect(program.variants.map((v) => v.id)).toEqual(["cuda", "cuda12", "cpu"]);
+    expect(pickVariant(program, { platform: "linux", arch: "x64", gpu: "nvidia", nvidia: NEW_GPU })).toBeUndefined();
+    // 老显卡、老驱动用的 CUDA 12.4 版（351）：大小、校验值是 GitHub API 的 assets[].size、digest（没下载）
+    const cuda12 = program.variants.find((v) => v.id === "cuda12")!;
+    expect(cuda12.when).toEqual({ gpu: "nvidia", platform: ["win32"], arch: ["x64"] });
+    expect(variantFiles(cuda12).map(({ file }) => [file.path, file.size, file.sha256])).toEqual([
+      ["audio-v0.9.3-bin-windows-x64-cuda12.4.zip", 465_913_709, "976b1fe4329407be45b272fc656d91006f081d22706f453f8879bc69dbb4a9b3"],
+      ["audio-v0.9.3-cudart-windows-x64-cuda12.4.zip", 607_273_675, "866a2bc12c4d887eb3b1b62f82f7a8fdd93391cb77ea02b63b0f360cfb3bb4d8"],
+    ]);
+    expect(variantFiles(cuda12).map(({ file }) => file.extract)).toMatchObject([{ format: "zip", to: "bin" }, { format: "zip", to: "bin", beside: "audiocpp_server.exe" }]);
+    expect(cuda12.expects).toEqual(cuda.expects);
     expect(variantFiles(cuda).map(({ file }) => [file.path, file.size, file.sha256])).toEqual([
       ["audio-v0.9.3-bin-windows-x64-cuda13.3.zip", 277_336_614, "0bd3988be10c31ec078c40df2bd0d4266e660804f6d5083aeb05d1309d091e43"],
       ["audio-v0.9.3-cudart-windows-x64-cuda13.3.zip", 575_457_454, "839eb20f684a8aab64895b1e466b32ce9b29dfc19dc1ce15b2ef35218512ac0a"],
@@ -136,10 +148,19 @@ describe("随程序发布的清单", () => {
     expect(asr.license).toMatchObject({ name: "FunASR Model License v1.1", url: "https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE", confirm: true, revision: "1.1", attribution: "Fun-ASR-Nano-2512 · FunAudioLLM / Alibaba Group" });
   });
 
-  test("语音程序按有没有 N 卡挑 CUDA 版 / CPU 版；Claude Code 接入只有 Windows x64 的", () => {
+  test("语音程序按 N 卡、驱动挑 CUDA 13.3 / 12.4 / CPU 版；Claude Code 接入只有 Windows x64 的", () => {
     const program = byId("audiocpp");
-    expect(pickVariant(program, { platform: "win32", arch: "x64", gpu: "nvidia" })?.id).toBe("cuda");
-    expect(pickVariant(program, { platform: "win32", arch: "x64", gpu: "none" })?.id).toBe("cpu");
+    const pick = (nvidia: { name?: string; driver?: string; computeCapability?: string } | undefined) => pickVariant(program, { platform: "win32", arch: "x64", gpu: nvidia ? "nvidia" : "none", nvidia })?.id;
+    expect(pick(NEW_GPU)).toBe("cuda");
+    expect(pick({ driver: "580", computeCapability: "7.5" })).toBe("cuda");
+    expect(pick({ driver: "579.99", computeCapability: "12.0" })).toBe("cuda12");
+    expect(pick({ driver: "610.88", computeCapability: "7.0" })).toBe("cuda12");
+    expect(pick({ driver: "551.78", computeCapability: "6.1" })).toBe("cuda12");
+    expect(pick({ driver: "551.61", computeCapability: "8.6" })).toBe("cpu");
+    expect(pick({ driver: "610.88", computeCapability: "6.0" })).toBe("cpu");
+    expect(pick({ driver: "610.88" })).toBe("cpu");
+    expect(pick({})).toBe("cpu");
+    expect(pick(undefined)).toBe("cpu");
     expect(pickVariant(byId("claude-code"), { platform: "win32", arch: "x64", gpu: "none" })?.id).toBe("win32-x64");
     expect(pickVariant(byId("claude-code"), { platform: "linux", arch: "x64", gpu: "none" })).toBeUndefined();
   });

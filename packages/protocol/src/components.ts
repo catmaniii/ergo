@@ -135,6 +135,8 @@ export interface ComponentView {
   sources: string[];
   /** 装在哪（这台电脑上的完整路径） */
   location: string;
+  /** 不装在数据目录下时为什么（数据目录的路径带中文，语音的程序和模型装到别处）；装在数据目录下的没有 */
+  locationNote?: string;
   /** provided 时：谁提供的（"用的是配置里的识别程序：python"） */
   providedBy?: string;
   /** 不能从这里装的原因（这一版清单还没有下载地址、这台电脑的平台没有……）；能装是 undefined */

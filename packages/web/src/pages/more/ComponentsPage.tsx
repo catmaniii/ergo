@@ -97,7 +97,7 @@ export function componentLines(c: ComponentView, all: readonly ComponentView[]):
   if (c.enables.length > 0) lines.push({ key: "enables", label: t("pages.components.label.enables"), value: formatList(c.enables.map((f) => f.title)) });
   if (c.dependsOn.length > 0) lines.push({ key: "depends", label: t("pages.components.label.depends"), value: formatList(c.dependsOn.map((id) => all.find((o) => o.id === id)?.title ?? id)) });
   if (c.sources.length > 0) lines.push({ key: "sources", label: t("pages.components.label.sources"), value: formatList(c.sources) });
-  lines.push({ key: "location", label: t("pages.components.label.location"), value: c.location });
+  lines.push({ key: "location", label: t("pages.components.label.location"), value: withNote(c.location, c.locationNote) });
   return lines;
 }
 

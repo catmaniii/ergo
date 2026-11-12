@@ -3,7 +3,8 @@
 // 接口契约见 audio.cpp 仓库 app/server/README.md：POST /v1/audio/speech，{ model, input, voice_ref, reference_text }，回 audio/wav。
 // Fish 克隆时 voice_ref（参考 WAV 的路径，服务读本机文件）和 reference_text（逐字稿）必须同时给。
 // audio.cpp 读不了带中文的路径：参考音色的目录和文件名都是英文（reference-voices.ts），数据目录本身的路径里有非英文字符时
-// 这里直接报清楚，不发请求。
+// （Windows 用户名是中文），调的是组件页装的那个服务就发相对它工作目录的路径（audio.cpp 按工作目录解，读得到；351 实测），
+// 调的是用户自己配的服务（不知道它的工作目录）就直接报清楚，不发请求。
 // 服务第一次用到时才加载模型（冷启动几十秒），已加载时一句 4 秒的话约 3.3 秒：一次最多等多久按配置算（冷启动总算上）。
 // 显卡可能同时在给别的程序用：服务说忙（HTTP 503，server_busy）时不等、不重试，直接报"忙"（SpeechServiceBusy），这次退回只发文字。
 // 实际用的模型：合成成功后问服务一次 GET /v1/models（OpenAI 风格，每项带 family），记成"<family>（audio.cpp/<模型 id>）"；
@@ -63,12 +64,28 @@ export interface AudioCppOptions {
   /** 服务上的 TTS 模型 id（常见的是 tts） */
   model: string;
   timeout: SpeechTimeoutConfig;
+  /** 调的是组件页装的那个服务时，它的工作目录（参考音色的路径带中文时发相对它的路径）；用户自己配的、没给是 undefined */
+  workingDir?: () => string | undefined;
   log: (line: string) => void;
 }
 
 /** 这次合成最多等多久（毫秒） */
 export function speechTimeoutMs(timeout: SpeechTimeoutConfig, estimatedSeconds: number): number {
   return Math.round(timeout.baseMs + timeout.coldStartMs + Math.max(1, estimatedSeconds) * timeout.perSpeechSecond * 1000);
+}
+
+/** 路径里只有 audio.cpp 读得了的字（英文、数字、常见符号） */
+const readable = (file: string) => !/[^\x20-\x7e]/.test(file);
+
+/**
+ * 参考音色发给 audio.cpp 的路径：读得了的原样发；带中文的、知道服务的工作目录的，换成相对它的路径（同一个盘、
+ * 相对的那段读得了才行——参考音色的目录、文件名都是英文，中文只在数据目录上面那几层）；都不行是 undefined
+ */
+export function speechVoiceRef(file: string, workingDir: string | undefined): string | undefined {
+  if (readable(file)) return file;
+  if (workingDir === undefined) return undefined;
+  const relative = path.relative(workingDir, file);
+  return relative !== "" && !path.isAbsolute(relative) && readable(relative) ? relative : undefined;
 }
 
 /** 模型 id 还是占位符时说怎么填 */
@@ -99,12 +116,12 @@ export function createAudioCppSynthesizer(options: AudioCppOptions): SpeechSynth
     model: configured,
     async synthesize(request, { estimatedSeconds, signal }) {
       if (isPlaceholder(model)) throw new Error(t("voice.speech.placeholderModel", { hint: speechModelHint() }));
-      if (/[^\x20-\x7e]/.test(request.voiceRef)) {
-        throw new Error(t("voice.speech.nonAsciiPath", { id: request.voiceId }));
-      }
+      // 工作目录只在路径带中文时才问
+      const voiceRef = readable(request.voiceRef) ? request.voiceRef : speechVoiceRef(request.voiceRef, options.workingDir?.());
+      if (voiceRef === undefined) throw new Error(t("voice.speech.nonAsciiPath", { id: request.voiceId }));
       const timeoutMs = speechTimeoutMs(options.timeout, estimatedSeconds);
       const timer = AbortSignal.timeout(timeoutMs);
-      const body = { model, input: request.text, voice_ref: request.voiceRef, reference_text: request.referenceText };
+      const body = { model, input: request.text, voice_ref: voiceRef, reference_text: request.referenceText };
       log(`语音合成 → ${url}：${[...request.text].length} 字，参考音色 ${request.voiceId}（${path.basename(request.voiceRef)}），最多等 ${Math.round(timeoutMs / 1000)} 秒`);
       let res: Response;
       try {

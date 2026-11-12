@@ -3,7 +3,8 @@
 // 语音合成的程序和模型默认是"已有自己配的、在用它"；Claude Code 接入检测到了、装好了；Codex 接入（454）从这里装好了（本机 PATH 上没有 codex）。
 // 动作只改内存里的样子（装、暂停、继续、取消、删、启动、停止），从文件导入回"原型里不导入"那样的结果。
 // 地址里带 ?demo-components-missing 时语音识别、语音合成都没有（别处也没有）：看功能灰掉的样子（输入框的话筒、设置 · 语音）。
-// 地址里带 ?demo-tts=missing|installing|running|stopped|failed|manual|download-failed|runtime-missing 看语音合成的几种状态；带 ?demo-gpu=none 看没有 N 卡的样子。
+// 地址里带 ?demo-tts=missing|installing|running|stopped|failed|manual|download-failed|runtime-missing 看语音合成的几种状态；带 ?demo-gpu=none 看没有 N 卡的样子，
+// ?demo-gpu=old 是驱动低于 580（用 CUDA 12.4 版），?demo-gpu=too-old 是驱动太旧只能用 CPU 版（351）；?demo-user=chinese 是 Windows 用户名是中文、语音组件装到 ProgramData 下的样子。
 // 地址里带 ?demo-asr=missing|installing|running|configured|external 看语音识别的几种状态（configured 是配了自己的语音识别，external 是 8090 上已有自己配的 audio.cpp）。
 // 向导的"能力"那一步、检查更新：?demo-bge=missing|failed 看向量模型没装、下载失败的样子；?demo-fail=tts 点了装就失败（看失败能跳过）；
 // ?demo-updates=available|failed|not-published 看查更新的几种结果（available 时点"检查更新"向量模型有新版本，failed 时写没查成，not-published 是发布页上还没有清单）；?demo-autostart=off|elsewhere|dev 看开机自启的样子。
@@ -18,8 +19,9 @@ const SDK_SIZE = 1_599_938 + 117_726_124;
 const CODEX_SIZE = 4_992 + 180_706_795;
 /** 解开后多大（registry 元数据的 unpackedSize 加起来） */
 const CODEX_DISK = 13_570 + 502_654_591;
-/** audio.cpp v0.9.3 的 Windows 包：CUDA 版是程序包 + 运行库包，CPU 版一个包 */
+/** audio.cpp v0.9.3 的 Windows 包：CUDA 版是程序包 + 运行库包（13.3、12.4 两份），CPU 版一个包 */
 const AUDIOCPP_CUDA_SIZE = 277_336_614 + 575_457_454;
+const AUDIOCPP_CUDA12_SIZE = 465_913_709 + 607_273_675;
 const AUDIOCPP_CPU_SIZE = 30_547_092;
 const FISH_SIZE = 6_317_915_552;
 const FUN_ASR_SIZE = 1_045_334_432;
@@ -37,8 +39,55 @@ interface Sim {
   service?: ComponentServiceState;
 }
 
-/** 这台电脑有没有 N 卡（?demo-gpu=none 是没有） */
-const noGpu = (): boolean => demoParam("demo-gpu") === "none";
+/** 这台电脑的显卡（?demo-gpu=none 没有 N 卡；old 驱动低于 580；too-old 驱动太旧；不给是新卡新驱动） */
+function gpuScene(): "new" | "none" | "old" | "too-old" {
+  const scene = demoParam("demo-gpu");
+  return scene === "none" || scene === "old" || scene === "too-old" ? scene : "new";
+}
+
+/** 语音程序挑的那一版：版本和为什么、多大、要下的包、模型那一行写不写慢 */
+function audiocppBuild(): { variant: NonNullable<ComponentView["variant"]>; size: number; files: string[]; slow?: string } {
+  switch (gpuScene()) {
+    case "none":
+      return { variant: { id: "cpu", title: "CPU 版", reason: "这台电脑没找到 N 卡" }, size: AUDIOCPP_CPU_SIZE, files: ["audio-v0.9.3-bin-windows-x64-cpu.zip"], slow: "这台电脑没有 NVIDIA 显卡：也能用，但没有显卡会很慢" };
+    case "too-old":
+      return {
+        variant: { id: "cpu", title: "CPU 版", reason: "显卡驱动 531.79 太旧，用显卡至少要 551.78：先用 CPU 版，会很慢。更新显卡驱动后这里会出现「更新」，点了换成显卡版" },
+        size: AUDIOCPP_CPU_SIZE,
+        files: ["audio-v0.9.3-bin-windows-x64-cpu.zip"],
+        slow: "这台电脑的显卡用不上（原因看「语音程序 audio.cpp」那一行）：也能用，但会很慢",
+      };
+    case "old":
+      return {
+        variant: { id: "cuda12", title: "CUDA 12.4 版", reason: "显卡驱动是 566.36，CUDA 13.3 版要 580 或更新的驱动" },
+        size: AUDIOCPP_CUDA12_SIZE,
+        files: ["audio-v0.9.3-bin-windows-x64-cuda12.4.zip", "audio-v0.9.3-cudart-windows-x64-cuda12.4.zip"],
+      };
+    default:
+      return { variant: { id: "cuda", title: "CUDA 13.3 版", reason: "这台电脑有 N 卡，驱动 610.88" }, size: AUDIOCPP_CUDA_SIZE, files: ["audio-v0.9.3-bin-windows-x64-cuda13.3.zip", "audio-v0.9.3-cudart-windows-x64-cuda13.3.zip"] };
+  }
+}
+
+/** 包多大（下不下来时列的地址用） */
+const PACKAGE_SIZES: Readonly<Record<string, number>> = {
+  "audio-v0.9.3-bin-windows-x64-cpu.zip": AUDIOCPP_CPU_SIZE,
+  "audio-v0.9.3-bin-windows-x64-cuda13.3.zip": 277_336_614,
+  "audio-v0.9.3-cudart-windows-x64-cuda13.3.zip": 575_457_454,
+  "audio-v0.9.3-bin-windows-x64-cuda12.4.zip": 465_913_709,
+  "audio-v0.9.3-cudart-windows-x64-cuda12.4.zip": 607_273_675,
+};
+
+/** 编的中文用户名：英文的演示里换成带声调的拼音（也不是纯英文，audio.cpp 一样读不了） */
+const DEMO_CHINESE_USER = "张三";
+
+/** 语音组件装在哪：用户名是中文时（?demo-user=chinese）装到 ProgramData 下，写为什么 */
+function voiceLocation(id: string): Pick<ComponentView, "location" | "locationNote"> {
+  if (demoParam("demo-user") !== "chinese") return { location: `C:\\Users\\me\\.ergo\\components\\${id}` };
+  return {
+    location: `C:\\ProgramData\\ergo\\1a2b3c4d\\components\\${id}`,
+    locationNote: `数据目录 C:\\Users\\${DEMO_CHINESE_USER}\\.ergo\\components 的路径里有 audio.cpp 读不了的字（比如中文），语音程序和模型装在这里`,
+  };
+}
 
 /** Codex 是哪种样子（?demo-codex=missing|path；不给是从组件页装好了）：组件页、插件页、运行时、体检都照它 */
 export function codexDemo(): "component" | "missing" | "path" {
@@ -51,7 +100,7 @@ export const FAKE_CODEX_LOGIN = "& 'C:\\Users\\me\\AppData\\Local\\Programs\\erg
 
 /** 编的组件（字是守护进程按语言写好交来的那种，原型里只编中文的） */
 function base(): Omit<ComponentView, "state">[] {
-  const cuda = !noGpu();
+  const build = audiocppBuild();
   return [
     {
       id: "bge-m3",
@@ -81,7 +130,7 @@ function base(): Omit<ComponentView, "state">[] {
       enables: [{ id: "voice.input", title: "按住说话" }],
       dependsOn: ["audiocpp"],
       sources: ["Hugging Face", "hf-mirror"],
-      location: "C:\\Users\\me\\.ergo\\components\\asr",
+      ...voiceLocation("asr"),
       recommended: true,
       license: {
         name: "FunASR Model License v1.1",
@@ -101,12 +150,12 @@ function base(): Omit<ComponentView, "state">[] {
       default: "ask",
       defaultText: "问了再装",
       wanted: false,
-      variant: cuda ? { id: "cuda", title: "CUDA 版", reason: "这台电脑有 N 卡" } : { id: "cpu", title: "CPU 版", reason: "这台电脑没找到 N 卡" },
-      size: cuda ? AUDIOCPP_CUDA_SIZE : AUDIOCPP_CPU_SIZE,
+      variant: build.variant,
+      size: build.size,
       enables: [],
       dependsOn: [],
       sources: ["GitHub"],
-      location: "C:\\Users\\me\\.ergo\\components\\audiocpp",
+      ...voiceLocation("audiocpp"),
       license: { name: "Apache-2.0", summary: "开源，可以免费使用", url: "https://github.com/0xShug0/audio.cpp/blob/v0.9.3/LICENSE", confirm: false, accepted: true },
       providedBy: `已有自己配的语音合成，在用它（http://127.0.0.1:${SPEECH_PORT}）`,
     },
@@ -123,9 +172,9 @@ function base(): Omit<ComponentView, "state">[] {
       enables: [{ id: "voice.reply", title: "用语音回复" }],
       dependsOn: ["audiocpp"],
       sources: ["Hugging Face", "hf-mirror"],
-      location: "C:\\Users\\me\\.ergo\\components\\tts",
+      ...voiceLocation("tts"),
       recommended: true,
-      ...(cuda ? {} : { note: "这台电脑没有 NVIDIA 显卡：也能用，但没有显卡会很慢" }),
+      ...(build.slow ? { note: build.slow } : {}),
       license: {
         name: "Fish Audio Research License",
         summary: "个人非商业免费；商业使用要另外向 Fish Audio 取得授权",
@@ -316,9 +365,9 @@ export class FakeComponents {
         ...(sim.state === "failed" && c.id === "audiocpp"
           ? {
               error: "下不下来（GitHub：连不上）。下好的部分留着，点重试接着下",
-              manualDownload: (noGpu() ? ["audio-v0.9.3-bin-windows-x64-cpu.zip"] : ["audio-v0.9.3-bin-windows-x64-cuda13.3.zip", "audio-v0.9.3-cudart-windows-x64-cuda13.3.zip"]).map((name) => ({
+              manualDownload: audiocppBuild().files.map((name) => ({
                 name,
-                size: name.includes("cudart") ? 575_457_454 : name.includes("cpu") ? AUDIOCPP_CPU_SIZE : 277_336_614,
+                size: PACKAGE_SIZES[name] ?? 0,
                 links: [{ title: "GitHub", url: `https://github.com/0xShug0/audio.cpp/releases/download/v0.9.3/${name}` }],
               })),
             }

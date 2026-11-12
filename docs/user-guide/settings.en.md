@@ -199,7 +199,7 @@ The **Available** tag means you've already set it up elsewhere; it's left alone 
 **Good to know:**
 
 - Interrupted downloads resume, the fastest of several sources is picked automatically, and it goes through the system proxy.
-- The speech service only connects if ergo was started by the service manager. The data folder path can't contain Chinese characters. See [Voice](voice.en.md) for details.
+- The speech service only connects if ergo was started by the service manager. When the data folder path has Chinese characters (a Chinese Windows user name), the speech program and models go into an English-only folder under ProgramData, shown on the **Location** line. The speech program picks the CUDA 13.3, CUDA 12.4 or CPU build by your GPU driver. See [Voice](voice.en.md) for details.
 - Components aren't in backups, since they can be downloaded again.
 - Checking for updates only fetches one version list, and doesn't send your account, device or usage. The page shows which address it checks.
 - If the release page doesn't have that list yet, it says **No component update information for this version yet**, and nothing is affected. If the check fails, it just shows one line with the reason and doesn't bother you; in that case components update along with ergo itself.

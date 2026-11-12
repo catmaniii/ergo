@@ -133,6 +133,7 @@ export const voicePlugin: PluginDefinition = {
     const layout = ctx.use(KERNEL.layout);
     const notifications = ctx.use(KERNEL.notifications);
     const engines = ctx.use(KERNEL.voiceEngines);
+    const voiceSetup = ctx.use(KERNEL.voiceSetup);
     const log = (line: string) => ctx.log(line);
     const voiceConfig = config.voice;
     const recognition = { language: voiceConfig.recognizer.language, initialPrompt: voiceConfig.recognizer.initialPrompt };
@@ -196,7 +197,8 @@ export const voicePlugin: PluginDefinition = {
     // 两个模型的状态变了推一条临时事件（活动状态频道），本机接口 GET /api/voice-models 取得到同样的
     const warmup = createVoiceWarmup({
       recognizer,
-      speech: createAudioCppSynthesizer({ ...voiceConfig.speech, url: speechUrl, log }),
+      // 数据目录的路径带中文时，调组件页装的服务发相对它工作目录的参考音色路径（351）
+      speech: createAudioCppSynthesizer({ ...voiceConfig.speech, url: speechUrl, workingDir: () => voiceSetup.speechWorkingDir?.(speechUrl), log }),
       references: referenceVoices,
       probeMs: voiceConfig.speech.probeMs,
       ...(engines.recognizerRetryMs === undefined ? {} : { retryMs: engines.recognizerRetryMs }),
@@ -236,7 +238,7 @@ export const voicePlugin: PluginDefinition = {
     // 插件起来的头一分钟探不通算没查出来（437，按守护进程的时钟）
     for (const check of voiceDoctorChecks({
       upMs: () => clock.now() - setUpAt,
-      setup: ctx.use(KERNEL.voiceSetup),
+      setup: voiceSetup,
       speech: { url: speechUrl, state: () => warmup.view().speech, checkedAt: () => warmup.speechCheckedAt(), freshMs: 2 * voiceConfig.speech.probeMs },
       recognizer: { mode: () => recognizerMode, state: () => recognizer.state, lsmUrl: recognizerConfig.url },
       references: () => {

@@ -241,6 +241,20 @@ describe("一个组件一块", () => {
     expect(html).toContain('component-row component-state-missing component-focus" data-component="claude-code"');
     expect(html).toContain("处理中…");
   });
+
+  test("装到别处的（数据目录带中文时的语音组件，351）：装在哪后面带为什么；用哪一版带原因", () => {
+    const tts = component({
+      id: "audiocpp",
+      title: "语音程序 audio.cpp",
+      variant: { id: "cuda12", title: "CUDA 12.4 版", reason: "显卡驱动是 566.36，CUDA 13.3 版要 580 或更新的驱动" },
+      location: "C:\\ProgramData\\ergo\\1a2b3c4d\\components\\audiocpp",
+      locationNote: "数据目录 C:\\Users\\张三\\.ergo\\components 的路径里有 audio.cpp 读不了的字（比如中文），语音程序和模型装在这里",
+    });
+    const lines = componentLines(tts, [tts]);
+    expect(lines.find((l) => l.key === "location")?.value).toBe("C:\\ProgramData\\ergo\\1a2b3c4d\\components\\audiocpp（数据目录 C:\\Users\\张三\\.ergo\\components 的路径里有 audio.cpp 读不了的字（比如中文），语音程序和模型装在这里）");
+    expect(lines.find((l) => l.key === "variant")?.value).toBe("CUDA 12.4 版（显卡驱动是 566.36，CUDA 13.3 版要 580 或更新的驱动）");
+    expect(componentLines(component(), [component()]).find((l) => l.key === "location")?.value).toBe("C:\\data\\models\\Xenova\\bge-m3");
+  });
 });
 
 describe("Codex 接入（454）", () => {

@@ -16,6 +16,7 @@ import fs from "node:fs";
 import { COMPONENT_DEFAULTS, schemaChecker, type Static, Type } from "@ergo/protocol";
 import { type MinisignPublicKey, verify } from "../release/minisign.ts";
 import { releasePublicKey } from "../release/public-key.ts";
+import { cudaMiss, type NvidiaInfo } from "./nvidia.ts";
 
 const Sha256 = Type.String({ pattern: "^[0-9a-f]{64}$" });
 /** npm 的包：registry 元数据里 dist.integrity 的 sha512（base64 换成十六进制） */
@@ -332,17 +333,29 @@ export interface MachineProfile {
   platform: string;
   arch: string;
   gpu: "nvidia" | "none";
+  /** N 卡的驱动版本、算力（nvidia.ts）：audio.cpp 的显卡版按它挑 CUDA 13.3、12.4 还是不用显卡 */
+  nvidia?: NvidiaInfo | undefined;
 }
 
-/** 挑第一个对得上的版本；都对不上是 undefined（这台电脑的平台没有这个组件） */
+/** 平台、CPU 架构对得上（不看显卡） */
+export function platformFits(variant: ManifestVariant, machine: Pick<MachineProfile, "platform" | "arch">): boolean {
+  const when = variant.when;
+  if (when?.platform !== undefined && !when.platform.includes(machine.platform)) return false;
+  if (when?.arch !== undefined && !when.arch.includes(machine.arch)) return false;
+  return true;
+}
+
+/**
+ * 挑第一个对得上的版本；都对不上是 undefined（这台电脑的平台没有这个组件）。
+ * 要 N 卡的显卡版还要驱动和显卡够得上（nvidia.ts 的 CUDA_BUILDS，按版本 id 认；不在表里的只看有没有 N 卡）
+ */
 export function pickVariant(component: ManifestComponent, machine: MachineProfile): ManifestVariant | undefined {
   return component.variants.find((v) => {
     const when = v.when;
     if (!when) return true;
     if (when.gpu !== undefined && when.gpu !== machine.gpu) return false;
-    if (when.platform !== undefined && !when.platform.includes(machine.platform)) return false;
-    if (when.arch !== undefined && !when.arch.includes(machine.arch)) return false;
-    return true;
+    if (when.gpu === "nvidia" && cudaMiss(v.id, machine.nvidia) !== undefined) return false;
+    return platformFits(v, machine);
   });
 }
 

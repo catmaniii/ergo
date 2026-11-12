@@ -56,7 +56,7 @@
   "voice.recognizer.audiocppNoFfmpeg": "这段录音不是 WAV，语音服务只收 WAV，要转码但这台电脑上没有 ffmpeg。新录的语音网页会先转好；这一段要识别的话，装上 ffmpeg（放到 PATH 上）再点重新识别",
   "voice.speech.modelHint": "换成 audio.cpp 服务上 Fish-Audio S2 Pro 的模型 id（常见的是 tts）",
   "voice.speech.placeholderModel": "数据目录配置里的 voice.speech.model 还是示例里的占位符：{hint}",
-  "voice.speech.nonAsciiPath": "参考音色 {id} 的录音路径里有非英文字符，audio.cpp 读不了：把数据目录放到纯英文的路径下",
+  "voice.speech.nonAsciiPath": "参考音色 {id} 的录音路径里有中文，自己配的 audio.cpp 服务读不了：改用设置 · 组件里装的语音合成（它读得了），或者把数据目录放到全英文的路径下",
   "voice.speech.httpDetail": "HTTP {status}：{detail}",
   "voice.speech.busy": "语音合成服务正忙（{reason}）",
   "voice.speech.failed": "语音合成服务出错（{reason}）",
