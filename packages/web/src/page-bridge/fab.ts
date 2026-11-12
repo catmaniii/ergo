@@ -6,15 +6,28 @@
 // 在忙：图标不换，外面一圈白底上转蓝色的弧（深色细线描边，白底上也看得出那圈）。
 // 显示、位置由用的人管：加 class on 显示，left、top 写在 style 上（position: fixed）。
 import { paintFabIcon } from "./fab-icon.ts";
+import { drawIcon, type Icon } from "./icon.ts";
 import type { PickTools } from "./pick.ts";
 import type { PageBridgeMark } from "./protocol.ts";
 import { BUTTON_SIZE } from "./rules.ts";
 
-/** 图标解不出来时退回这两个 */
-export const ICON_IDLE =
-  '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12a8 8 0 0 1-8 8H8l-4 3v-5.2A8 8 0 0 1 11.5 4h1a8 8 0 0 1 8 8z"/><path d="M12 8.2l1 2.3 2.3 1-2.3 1-1 2.3-1-2.3-2.3-1 2.3-1z" fill="currentColor" stroke-width="1.2"/></svg>';
-export const ICON_MIC =
-  '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
+/** 图标解不出来时退回这两个：对话气泡里一颗星；话筒 */
+export const ICON_IDLE: Icon = {
+  size: 20,
+  line: 1.9,
+  shapes: [
+    ["path", { d: "M20.5 12a8 8 0 0 1-8 8H8l-4 3v-5.2A8 8 0 0 1 11.5 4h1a8 8 0 0 1 8 8z" }],
+    ["path", { d: "M12 8.2l1 2.3 2.3 1-2.3 1-1 2.3-1-2.3-2.3-1 2.3-1z", fill: "currentColor", "stroke-width": 1.2 }],
+  ],
+};
+export const ICON_MIC: Icon = {
+  size: 20,
+  line: 1.9,
+  shapes: [
+    ["rect", { x: 9, y: 3, width: 6, height: 11, rx: 3 }],
+    ["path", { d: "M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" }],
+  ],
+};
 
 export const FAB_STYLE = `
 .fab {
@@ -51,7 +64,7 @@ export function createFab(doc: Document, tools: Pick<PickTools, "decode" | "make
   el.className = "fab";
   el.setAttribute("role", "button");
   el.setAttribute("aria-label", label);
-  el.innerHTML = ICON_IDLE;
+  el.append(drawIcon(doc, ICON_IDLE));
   let hasIcon = false;
   let mark: PageBridgeMark = "idle";
   void paintFabIcon(doc, tools).then((canvas) => {
@@ -66,7 +79,7 @@ export function createFab(doc: Document, tools: Pick<PickTools, "decode" | "make
       mark = next;
       el.classList.toggle("listening", next === "listening");
       el.classList.toggle("busy", next === "busy");
-      if (!hasIcon) el.innerHTML = mark === "listening" ? ICON_MIC : ICON_IDLE;
+      if (!hasIcon) el.replaceChildren(drawIcon(doc, mark === "listening" ? ICON_MIC : ICON_IDLE));
     },
     setLabel: (text) => el.setAttribute("aria-label", text),
   };

@@ -3,7 +3,8 @@
 //      发布包的 sha256 对上清单 → 解到 versions\<版本>\（先解到 .partial，完整了才改名）→ 切过去。
 // 切过去：二狗在跑就请服务管家"等空闲再停"（有任务在执行、有有副作用的调用在跑时不停）→ 停了以后把 current 改指新版本 →
 //        服务管家是 ergo 起的就重起它（它也换成新版本的代码；托管的服务是单独的进程，不受影响）→ 重写登记、把二狗起来。
-//        开机自启的计划任务指着这个安装的，也改指新版本。这条命令自己还跑在旧版本上，所以这几步都按新版本的目录做。
+//        开机自启的计划任务指着这个安装的，也改指新版本；服务管家是这个任务起的，就停一下、再起一下任务，让它也换成新版本
+//        （同一个登录会话，不按开机处理；旧版本目录不再被它占着）。这条命令自己还跑在旧版本上，所以这几步都按新版本的目录做。
 //        最后只留在用的和上一个版本，别的删掉（正被占用删不掉的留着，下次再删）。
 // 源码装的（install.ps1 -FromSource）：交给安装脚本拉新代码、构建进新的版本目录，再照上面切过去。开发模式（--link）、npm 装的给一句怎么更新。
 import { spawnSync } from "node:child_process";
@@ -27,13 +28,16 @@ import {
 import { releasePublicKey } from "../release/public-key.ts";
 import { extractZip } from "../release/zip.ts";
 import { renameRetrying } from "../util/atomic-file.ts";
+import { readAutostartTaskInfo } from "./autostart.ts";
 import type { CliContext } from "./context.ts";
 import {
   DAEMON_SERVICE_ID,
   daemonSnapshot,
   isRunning,
-  managerPidFromState,
+  managerStartedByErgo,
+  managerUnderTask,
   managerUp,
+  restartManagerViaTask,
   runLsm,
   startManager,
   stopManager,
@@ -109,9 +113,12 @@ export async function switchTo(ctx: CliContext, root: string, target: string, id
       return false;
     }
   }
-  // 服务管家：ergo 起的那个才重起（开机自启的计划任务起的，交给它自己的看门狗，见 dev.md）
-  const state = readInstallState(root);
-  const ours = managerWasUp && state.managerPid !== undefined && state.managerPid === managerPidFromState(ctx);
+  // 服务管家：ergo 起的那个这里停、切完按新版本起；开机自启的任务起的那个切完经任务重起（restartManagerViaTask），
+  // 两样都不是（用的人自己起的、任务指着别处的）不动，只让它重读登记
+  const ours = managerWasUp && managerStartedByErgo(ctx);
+  // 在改指任务之前看：真的计划任务重新注册时会不会结束正在跑的实例没核实过，结束了的话之后就看不出它是任务起的了
+  const known = managerWasUp && !ours ? { task: readAutostartTaskInfo(ctx.env) } : undefined;
+  const underTask = known !== undefined && managerUnderTask(ctx, known.task);
   if (ours) await stopManager(ctx);
   // 切不过去（目录联接建不了这类）：在用的版本不变，下面照原样把服务管家和二狗起来
   let switched = false;
@@ -126,9 +133,15 @@ export async function switchTo(ctx: CliContext, root: string, target: string, id
   // 切过去了：登记、服务管家、开机自启都按新版本（ctx 是这条命令启动时认的旧版本）；没切过去：照原样
   const now = switched ? contextOfVersion(ctx, root, target) : ctx;
   if (writeSvcConfig(now).bootListCreated) tellBootListCreated(now);
-  if (switched) syncAutostart(now);
+  // 读过任务了（服务管家在跑、不是 ergo 起的）就不再读一遍：切版本不动任务，读到的还是它
+  const autostart = switched ? syncAutostart(now, known) : undefined;
+  // 任务起的：任务改指了新版本（或本来就指着）才重起，起来的就是新版本；改指没成就不动它，免得白白重起一个旧的
+  const viaTask = underTask && (autostart === "moved" || autostart === "current");
   if (ours) await startManager(now);
-  else if (managerWasUp) runLsm(now, ["reload"], { capture: true });
+  else if (viaTask) {
+    // 新起的服务管家起来时读的就是刚写好的登记；旧的停不下来就照旧让它重读
+    if ((await restartManagerViaTask(now)) === "failed") runLsm(now, ["reload"], { capture: true });
+  } else if (managerWasUp) runLsm(now, ["reload"], { capture: true });
   if (daemonWasRunning) {
     const r = runLsm(now, ["start", DAEMON_SERVICE_ID], { capture: true });
     if (r.code !== 0 || !isRunning(daemonSnapshot(now))) ctx.io.err(t("cli.start.failed", { detail: `${r.stdout}${r.stderr}`.trim() || "?" }));
