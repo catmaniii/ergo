@@ -552,7 +552,7 @@ Gmail 可以连几个账号（`google/gmail-accounts.ts`）。密钥区 `secrets
 | `src/plugins/` | 网页插件宿主、插件清单、各插件 |
 | `src/visual-styles/` | 视觉风格清单和 token（[视觉风格](#视觉风格)） |
 | `src/prototype/` | 只属于原型的假连接和假数据 |
-| `src/page-bridge/` | 注入"浏览"里外部网页的独立脚本（悬浮按钮、填框；长按元素的圆钮在 `element.ts`：只听 `contextmenu`、不阻止系统菜单，操作不分类，用户的话原样进秘书的主会话）。按钮这一刻在哪照 `rules.ts` 的 `fabSpot`：选中元素贴过去，没选中时浏览侧边栏关着常驻右下角（`placeCornerButton`，让开网页自己固定在屏幕上的底部栏），开着不显示；开合由二狗的网页随 `texts` 的 `fab` 交来，不另加页面桥操作，App 原生代码不用改。按钮的样子在 `fab.ts`，地图的二狗按钮也照它。选中的字像地址时圆钮旁边多"在地图上看""怎么去"（`map-chips.ts`，447），给不给随 `texts` 的 `map` 交来。网站的 CSP 会拦 `<style>`、`style` 属性和 `data:` 图片：样式走 `adoptedStyleSheets` 和 `style.cssText`，图片解成位图画进 canvas |
+| `src/page-bridge/` | 注入"浏览"里外部网页的独立脚本（悬浮按钮、填框；长按元素的圆钮在 `element.ts`：只听 `contextmenu`、不阻止系统菜单，操作不分类，用户的话原样进秘书的主会话）。按钮这一刻在哪照 `rules.ts` 的 `fabSpot`：选中元素贴过去，没选中时浏览侧边栏关着常驻右下角（`placeCornerButton`，让开网页自己固定在屏幕上的底部栏），开着不显示；开合由二狗的网页随 `texts` 的 `fab` 交来，不另加页面桥操作，App 原生代码不用改。按钮的样子在 `fab.ts`，地图的二狗按钮也照它。选中的字像地址时圆钮旁边多"在地图上看""怎么去"（`map-chips.ts`，447），给不给随 `texts` 的 `map` 交来。网站的 CSP 会拦 `<style>`、`style` 属性和 `data:` 图片：样式走 `adoptedStyleSheets` 和 `style.cssText`，图片解成位图画进 canvas；开了 Trusted Types（`require-trusted-types-for 'script'`）的网页不许给 `innerHTML` 塞字符串，页面桥里一处 `innerHTML` 都不用，图标照 `icon.ts` 的数据用 DOM 建（352） |
 | `src/styles/` | 经典风格的规则，只用 `var(--token)` |
 | `build/` | 构建插件（风格、版本号、关于页的构建信息）、`smoke-page.ts` |
 

@@ -17,6 +17,8 @@
 //   各一对；没交来是「二狗」、经典的颜色）；名字里有 <b> 也只是字；读屏说明是纯名字；开着的气泡、窗口跟着改名字、换颜色。
 // -按钮上是二狗的图标（canvas 里真画上了、圆形占满、大小不变、不接事件），img-src、default-src 这样严格的 CSP（真的响应头）下
 //   照样是图标、样式还在；解不出来退回 SVG；听、忙图标不换，外面有红色脉动的圈、转圈，截图和平时不一样。
+// -开了 Trusted Types 的网页（真的响应头 require-trusted-types-for 'script'，网页自己塞 innerHTML 真的抛错）：页面桥装得上，
+//   按钮、气泡（×、发送的图标）、挑图片窗口（缩略图、文件图标、×）都画得出来、点得了，退回的 SVG 按钮听的时候照样换话筒，没有一处被拦。
 // -右下角常驻（宿主随 texts 交来 fab.corner，浏览侧边栏关着为真）：四种情况——关着没选中在右下角（离右边、底边 16，一样大），
 //   选中框时挂到框旁边、焦点离开回到右下角；开着没选中不显示、选中照样在框旁边；开合切换按钮跟着出现、消失；长按元素出圆钮时让给它。
 //   点一下报 corner-open（带这一页、不带框），气泡在按钮上方、写着"对二狗说"，发送不带框；长按报 corner-voice，样子记在 corner 上；
@@ -91,10 +93,18 @@ afterAll(async () => {
 
 /**
  * 开一页测试页：先挂假的宿主（记下 post 来的），再注入页面桥（都在网页的脚本之前）；peek：记下页面桥的 shadow root（测试看气泡用）；
- * csp：网页响应带的 Content-Security-Policy（测试页的脚本是内联的，要放开 script-src）；noBitmap：浏览器解不出位图（图标画不上）
+ * csp：网页响应带的 Content-Security-Policy（测试页的脚本是内联的，要放开 script-src；被拦的记在 window.cspViolations）；
+ * noBitmap：浏览器解不出位图（图标画不上）
  */
 async function open(options: { width?: number; height?: number; peek?: boolean; csp?: string; noBitmap?: boolean } = {}): Promise<Page> {
   const page = await browser!.newPage({ viewport: { width: options.width ?? 800, height: options.height ?? 900 } });
+  if (options.csp) {
+    await page.addInitScript(() => {
+      const seen: string[] = [];
+      (window as unknown as { cspViolations: string[] }).cspViolations = seen;
+      document.addEventListener("securitypolicyviolation", (e) => void seen.push(`${e.violatedDirective} ${e.sample}`));
+    });
+  }
   if (options.noBitmap) {
     await page.addInitScript(() => {
       window.createImageBitmap = () => Promise.reject(new Error("解不出来"));
@@ -1569,6 +1579,111 @@ describe.skipIf(!CHROME)("悬浮按钮上是二狗的图标", () => {
     await callJson(page, "mark", fieldId, "idle");
     expect(await fabFace(page)).toMatchObject({ canvas: true, pulse: "none", spin: "none" });
     expect(await sameCanvas()).toBe("1");
+    await page.close();
+  });
+});
+
+// ---------- 开了 Trusted Types 的网页 ----------
+
+/** 网页要求给 innerHTML 这类地方塞的必须是 Trusted Types 的对象，塞字符串就抛错 */
+const TRUSTED_TYPES = "require-trusted-types-for 'script'";
+/** 网页自己给 innerHTML 塞字符串：被拦了回 TypeError */
+const pageInnerHtml = (page: Page) =>
+  page.evaluate(() => {
+    try {
+      document.createElement("div").innerHTML = "<b>x</b>";
+      return "ok";
+    } catch (e) {
+      return (e as Error).name;
+    }
+  });
+/** 被 CSP 拦下的（open 带 csp 时记的） */
+const cspViolations = (page: Page) => page.evaluate(() => (window as unknown as { cspViolations: string[] }).cspViolations);
+/** shadow root 里这些地方的图标：真的是 SVG（命名空间对）、画出来多大 */
+const iconsIn = (page: Page, selector: string) =>
+  page.evaluate(
+    (sel) =>
+      Array.from((window as unknown as { peekRoot: ShadowRoot }).peekRoot.querySelectorAll(`${sel} svg`)).map((svg) => {
+        const r = svg.getBoundingClientRect();
+        return { svg: svg.namespaceURI === "http://www.w3.org/2000/svg", size: [r.width, r.height], shapes: svg.childElementCount };
+      }),
+    selector,
+  );
+
+describe.skipIf(!CHROME)("开了 Trusted Types 的网页（响应头 require-trusted-types-for 'script'）", () => {
+  test("打包出来的页面桥里没有往页面写 HTML 字符串的地方（innerHTML、outerHTML、insertAdjacentHTML、document.write……）", () => {
+    expect(bridge.match(/innerHTML|outerHTML|insertAdjacentHTML|document\.write|createContextualFragment|parseFromString|srcdoc/g)).toBeNull();
+  });
+
+  test("页面桥装得上、没有一处被拦：按钮画着图标，点了出气泡（×、发送是图标），打字发送报 bubble send；回话、让二狗选画得出来；网页自己塞 innerHTML 真的被拦", async () => {
+    const page = await open({ width: 390, height: 844, peek: true, csp: TRUSTED_TYPES });
+    expect(await page.evaluate(() => typeof (window as unknown as { __ergoPage?: unknown }).__ergoPage)).toBe("object");
+    await fabPainted(page);
+    expect(await fabFace(page)).toMatchObject({ canvas: true, painted: true, svg: false, size: [36, 36] });
+    await tapIn(page, ".fab");
+    await page.waitForTimeout(80);
+    expect(await bubbleOn(page)).toBe(true);
+    expect(await focusedInShadow(page)).toBe("TEXTAREA");
+    expect(await iconsIn(page, ".bubble .x")).toEqual([{ svg: true, size: [16, 16], shapes: 1 }]);
+    expect(await iconsIn(page, ".bubble .send")).toEqual([{ svg: true, size: [18, 18], shapes: 1 }]);
+    await page.keyboard.insertText("标题写成周末杭州游记");
+    await tapIn(page, ".send");
+    expect(await bubbleMessages(page)).toEqual([{ nonce: NONCE, type: "bubble", action: "send", text: "标题写成周末杭州游记", field: expect.objectContaining({ label: "标题" }) }]);
+    const fieldId = await idOf(page, "标题");
+    await showBubble(page, { kind: "reply", fieldId, said: "标题写成周末杭州游记", text: "写好了", failed: false, system: false });
+    expect(await peekAll(page, ".text", "text")).toEqual(["写好了"]);
+    await showBubble(page, { kind: "chooser", fieldId: "", text: "网页要你选图片" });
+    expect(await peekAll(page, ".bubble .btn", "text")).toEqual(["让二狗选", "自己选"]);
+    await tapIn(page, ".bubble .btn.primary");
+    expect((await bubbleMessages(page)).at(-1)).toEqual({ nonce: NONCE, type: "bubble", action: "ergo" });
+    expect(await cspViolations(page)).toEqual([]);
+    // Trusted Types 真的开着：网页自己塞字符串被拦、记一次
+    expect(await pageInnerHtml(page)).toBe("TypeError");
+    // 违规的事件是另排一个任务派的
+    await expect.poll(() => cspViolations(page)).toEqual([expect.stringContaining("require-trusted-types-for")]);
+    await page.close();
+  });
+
+  test("挑图片窗口：缩略图、文件图标（SVG）、× 都在，能挑、能交、能收起；页面桥没有一处被拦", async () => {
+    const page = await open({ width: 390, height: 844, peek: true, csp: TRUSTED_TYPES });
+    const thumb = await redThumb(page);
+    expect(await showPick(page, { kind: "pick", id: "c-1", title: "二狗给「上传照片」找了 3 个", note: "点一张选中它", files: pickFiles(thumb, ["t2"]), multiple: false, phase: "choosing" })).toEqual({ ok: true });
+    await page.waitForTimeout(250);
+    expect(await pickOn(page)).toBe(true);
+    expect(await peekAll(page, ".pick-tile .pick-name", "text")).toEqual(["简历.pdf"]);
+    expect(await iconsIn(page, ".pick-doc")).toEqual([{ svg: true, size: [22, 22], shapes: 2 }]);
+    expect(await iconsIn(page, ".pick .x")).toEqual([{ svg: true, size: [16, 16], shapes: 1 }]);
+    const red = await page.evaluate(() => {
+      const canvas = (window as unknown as { peekRoot: ShadowRoot }).peekRoot.querySelector<HTMLCanvasElement>(".pick-tile canvas")!;
+      return canvas.getContext("2d")!.getImageData(canvas.width / 2, canvas.height / 2, 1, 1).data[0];
+    });
+    expect(red).toBeGreaterThan(200);
+    await tapIn(page, ".pick-tile", 0);
+    await tapIn(page, ".pick .btn.primary");
+    await tapIn(page, ".pick .x");
+    expect(await pickMessages(page)).toEqual([
+      { nonce: NONCE, type: "pick", id: "c-1", action: "choose", token: "t1" },
+      { nonce: NONCE, type: "pick", id: "c-1", action: "deliver" },
+      { nonce: NONCE, type: "pick", id: "c-1", action: "hide" },
+    ]);
+    expect(await pickOn(page)).toBe(false);
+    expect(await cspViolations(page)).toEqual([]);
+    await page.close();
+  });
+
+  test("图标解不出来：退回的 SVG 按钮照样画得出来，听的时候换成话筒、回到平时换回来；没有一处被拦", async () => {
+    const page = await open({ peek: true, noBitmap: true, csp: TRUSTED_TYPES });
+    const fieldId = await idOf(page, "标题");
+    await page.click("#title");
+    await page.waitForTimeout(150);
+    expect(await fabFace(page)).toMatchObject({ canvas: false, svg: true, size: [36, 36] });
+    expect(await iconsIn(page, ".fab.on")).toEqual([{ svg: true, size: [20, 20], shapes: 2 }]);
+    await callJson(page, "mark", fieldId, "listening");
+    expect(await iconsIn(page, ".fab.on")).toEqual([{ svg: true, size: [20, 20], shapes: 2 }]);
+    expect(await page.evaluate(() => (window as unknown as { peekRoot: ShadowRoot }).peekRoot.querySelector(".fab.on svg rect") !== null)).toBe(true);
+    await callJson(page, "mark", fieldId, "idle");
+    expect(await page.evaluate(() => (window as unknown as { peekRoot: ShadowRoot }).peekRoot.querySelector(".fab.on svg rect") !== null)).toBe(false);
+    expect(await cspViolations(page)).toEqual([]);
     await page.close();
   });
 });
