@@ -1,6 +1,7 @@
 // 设置 · 目录授权（#/more/folder-grants，数据与设备组，排在数据源后面；ADR-0049）：读写哪些目录不用问，一页看全、改全。
 // 448 号票起原来单独一页的"授权的文件夹"并进来，旧地址 #/more/authorized-folders 认作这一页（app/route-hash.ts）。
 // - 最上面一节是授权的文件夹（所有 agent 共用、只读，ADR-0041）：能加能拿掉，选文件夹的框，见 AuthorizedFolders.tsx；
+//   那一节里一句提醒带链接，点了滚到下面"各个 agent 的"（463）；
 // - 下面"各个 agent 的"：说明、怎么加、登记了也不放的，整页能一次清掉全部已过期的；接着每个 agent 一组（个人助理在前，
 //   再是各个项目、任务的负责人；项目、任务删掉了的写明"已经没有这个 agent 了"，照样能删）：一行一条（ui/folder-grants.tsx），
 //   能逐条删，每组能整组清掉（先确认）；加在各 agent 的 ⚙ 里（个人助理、项目、任务各自的），或者对话里审批卡上点"以后都允许"；
@@ -27,6 +28,9 @@ import { FolderGrantRows } from "../../ui/folder-grants.tsx";
 import { AuthorizedFoldersSection } from "./AuthorizedFolders.tsx";
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+/** "各个 agent 的目录授权"那一节（授权的文件夹那一节里的提醒点了滚到这里） */
+const PER_AGENT_SECTION = "folder-grants-per-agent";
 
 /** 一组的标题：认得的写它的名字，删掉了的写明 */
 function GroupTitle({ group }: { group: FolderGrantGroup }) {
@@ -90,8 +94,8 @@ export function FolderGrantsPage() {
 
   return (
     <>
-      <AuthorizedFoldersSection />
-      <Section title={t("pages.folderGrants.perAgent")}>
+      <AuthorizedFoldersSection onPerAgent={() => document.getElementById(PER_AGENT_SECTION)?.scrollIntoView({ behavior: "smooth", block: "start" })} />
+      <Section id={PER_AGENT_SECTION} title={t("pages.folderGrants.perAgent")}>
         <span className="muted">{t("pages.folderGrants.intro")}</span>
         <span className="muted">{t("pages.folderGrants.howToAdd")}</span>
         <div className="sys-note">{t("pages.folderGrants.never")}</div>

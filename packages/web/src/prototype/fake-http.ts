@@ -313,8 +313,9 @@ const FAKE_FOLDER_TREE: ReadonlyArray<{ path: string; parent?: string; children:
   { path: "C:\\Users\\me\\Downloads", parent: "C:\\Users\\me", children: [] },
   { path: "C:\\Users\\me\\Desktop", parent: "C:\\Users\\me", children: ["待整理"] },
   { path: "C:\\Users\\me\\Documents", parent: "C:\\Users\\me", children: ["发票", "合同"] },
-  { path: "D:\\", children: ["照片", "文档", "备份"] },
+  { path: "D:\\", children: ["照片", "文档", "笔记", "备份"] },
   { path: "D:\\照片", parent: "D:\\", children: ["2024", "2025", "2026"] },
+  { path: "D:\\笔记", parent: "D:\\", children: ["2025", "2026"] },
 ];
 
 /** 查到的那一份的预览图要看全的点（点和线上的点）；别家查的只画在自己地图上（own） */

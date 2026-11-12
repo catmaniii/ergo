@@ -4,16 +4,17 @@
 // - 什么时候备份：每晚几点、谁来定时，选外部定时器时写清要调哪条命令（按这台电脑的装法，守护进程现算）；
 // - 留几份（只读）、已有的快照（本机和另存文件夹各列日期和大小，取不到写原因）；
 // - 动手：立即备份、校验最新快照、怎么恢复（展开说明和能复制的命令）。这一页不做一键恢复：恢复要先停二狗。
-// 改配置马上写进配置文件、马上生效，不用重启。选文件夹的框复用授权文件夹那个（ui/authorized-folders.tsx），选定之后的流程在 app/backup-folder.ts；说法在 state/backup.ts。
+// 改配置马上写进配置文件、马上生效，不用重启。选文件夹的框是几处共用的那一个（ui/folder-picker.tsx），选定之后的流程在 app/backup-folder.ts；
+// 问要不要新建的框挂到 body 上，压在选文件夹的框上面。说法在 state/backup.ts。
 // 有一份在做（守护进程排着、锁的主人还活着、在校验）时每 2 秒再取一遍。
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { AuthorizedFolders } from "../../app/authorized-folders.ts";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { chooseBackupFolder } from "../../app/backup-folder.ts";
 import { copyText } from "../../app/debug-page.ts";
 import { useStore } from "../../app/store.tsx";
 import { type BackupConfigBody, type BackupPlace, type BackupRestoreStep, type BackupSnapshotPlace, type BackupSnapshotsView, type BackupStatusView, backupDoneText, backupSnapshotRows, backupText, backupVerifyText, t } from "../../state/index.ts";
-import { FolderPickerBody } from "../../ui/authorized-folders.tsx";
 import { Section, Segmented, Sheet } from "../../ui/common.tsx";
+import { FolderPickerSheet } from "../../ui/folder-picker.tsx";
 import { useToast } from "../../ui/toast.tsx";
 
 /** 有一份在做时多久再取一遍 */
@@ -107,25 +108,15 @@ export function BackupPage() {
     );
   }, [http]);
 
-  // 选文件夹的框：列文件夹、上一级、贴路径都用授权文件夹那一套，"授权"换成校验、问要不要新建、写配置
-  const picker = useMemo(
-    () =>
-      new AuthorizedFolders({
-        localFolders: () => Promise.resolve({ folders: [] }),
-        browseFolders: (folder) => http.browseFolders(folder),
-        changeLocalFolders: async (change) => {
-          const dir = change.add?.[0] ?? "";
-          const next = await chooseBackupFolder(http, dir, (missing) => new Promise((resolve) => setAsking({ dir: missing, answer: resolve })));
-          show(next);
-          loadSnapshots();
-          const chosen = next.syncDir.kind === "none" ? dir : next.syncDir.dir;
-          toast(next.queued || next.running ? t("pages.backup.changedBusy", { dir: chosen }) : t("pages.backup.changed", { dir: chosen }));
-          return { folders: [] };
-        },
-      }),
-    [http, show, loadSnapshots, toast],
-  );
-  const pickerState = useSyncExternalStore(picker.subscribe, picker.state);
+  // 选文件夹的框（几处共用的那一个）：选定了校验、问要不要新建、写配置；不能用的抛出原因，框不关、写出来
+  const [picking, setPicking] = useState(false);
+  const chooseFolder = async (dir: string) => {
+    const next = await chooseBackupFolder(http, dir, (missing) => new Promise((resolve) => setAsking({ dir: missing, answer: resolve })));
+    show(next);
+    loadSnapshots();
+    const chosen = next.syncDir.kind === "none" ? dir : next.syncDir.dir;
+    toast(next.queued || next.running ? t("pages.backup.changedBusy", { dir: chosen }) : t("pages.backup.changed", { dir: chosen }));
+  };
 
   useEffect(() => {
     let live = true;
@@ -249,7 +240,7 @@ export function BackupPage() {
           {syncPath !== undefined && <div className="backup-path">{syncPath}</div>}
           <div className={syncDir.kind === "unusable" ? "danger-text" : "muted"}>{text.syncDir}</div>
           <div className="backup-actions">
-            <button type="button" className="btn" disabled={saving} onClick={() => void picker.openPicker()}>
+            <button type="button" className="btn" disabled={saving} onClick={() => setPicking(true)}>
               {syncPath === undefined ? t("pages.backup.sync.choose") : t("pages.backup.sync.change")}
             </button>
             {syncPath !== undefined && (
@@ -344,54 +335,51 @@ export function BackupPage() {
         {restoreOpen && <RestoreGuide steps={commands.restore} />}
       </Section>
 
-      {pickerState.picker && (
-        <Sheet title={t("pages.backup.picker.title")} onClose={() => picker.closePicker()} center>
-          <FolderPickerBody
-            picker={pickerState.picker}
-            folders={undefined}
-            labels={{ here: t("pages.backup.picker.here"), busy: t("pages.backup.picker.checking"), paste: t("pages.backup.picker.paste") }}
-            onBrowse={(path) => void picker.browse(path)}
-            onUp={() => void picker.up()}
-            onAuthorize={(path) => void picker.authorize(path)}
-            onDraft={(draft) => picker.setDraft(draft)}
-            onAuthorizeDraft={() => void picker.authorizeDraft()}
-          />
-        </Sheet>
+      {picking && (
+        <FolderPickerSheet
+          title={t("pages.backup.picker.title")}
+          labels={{ here: t("pages.backup.picker.here"), busy: t("pages.backup.picker.checking"), paste: t("pages.backup.picker.paste") }}
+          onChoose={chooseFolder}
+          onClose={() => setPicking(false)}
+        />
       )}
-      {asking && (
-        <Sheet
-          title={t("pages.backup.create.title")}
-          onClose={() => {
-            asking.answer(false);
-            setAsking(undefined);
-          }}
-          center
-        >
-          <p className="backup-confirm-text">{t("pages.backup.create.body", { dir: asking.dir })}</p>
-          <div className="backup-actions">
-            <button
-              type="button"
-              className="btn primary"
-              onClick={() => {
-                asking.answer(true);
-                setAsking(undefined);
-              }}
-            >
-              {t("pages.backup.create.yes")}
-            </button>
-            <button
-              type="button"
-              className="btn ghost"
-              onClick={() => {
-                asking.answer(false);
-                setAsking(undefined);
-              }}
-            >
-              {t("pages.backup.create.no")}
-            </button>
-          </div>
-        </Sheet>
-      )}
+      {/* 挂到 body 上：选文件夹的框也挂在 body 上，后挂的压在上面 */}
+      {asking &&
+        createPortal(
+          <Sheet
+            title={t("pages.backup.create.title")}
+            onClose={() => {
+              asking.answer(false);
+              setAsking(undefined);
+            }}
+            center
+          >
+            <p className="backup-confirm-text">{t("pages.backup.create.body", { dir: asking.dir })}</p>
+            <div className="backup-actions">
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() => {
+                  asking.answer(true);
+                  setAsking(undefined);
+                }}
+              >
+                {t("pages.backup.create.yes")}
+              </button>
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() => {
+                  asking.answer(false);
+                  setAsking(undefined);
+                }}
+              >
+                {t("pages.backup.create.no")}
+              </button>
+            </div>
+          </Sheet>,
+          document.body,
+        )}
       {clearing && (
         <Sheet title={t("pages.backup.clear.title")} onClose={() => setClearing(false)} center>
           <p className="backup-confirm-text">{t("pages.backup.clear.body", { dir: syncPath ?? "" })}</p>
