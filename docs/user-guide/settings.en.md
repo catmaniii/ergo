@@ -621,7 +621,7 @@ ergo's own eight checks:
 | Disk space | The drive holding the data folder has over 1 GB free; so must the drive holding the service manager's data and logs, if that's a different one | Clear old backups and logs, or move the data folder to a bigger drive |
 | Outside access | Any one of: an entry registered in the service manager, an entry it reports, an address entered by hand, or a paired device; and every entry the service manager tested from outside must be reachable | Ignore it if you only use this computer. If an entry can't be reached, check under **Managed services** whether the tunnel and the tailnet gateway are running, and whether Tailscale is signed in. If your phone can't connect, see [On your phone](mobile.en.md) |
 
-ergo itself has six more checks (they only read state that's already there; no extra requests):
+ergo itself has eight more checks (they only read state that's already there; no extra requests):
 
 | Check | What it checks and how it's judged | If it's wrong |
 |---|---|---|
@@ -632,6 +632,7 @@ ergo itself has six more checks (they only read state that's already there; no e
 | Managed services | Services the service manager runs that ergo cares about, the same ones Settings · Services lists (ergo itself isn't listed): speech synthesis and recognition (when the voice plugin is on and the address is on this computer), the tunnel that gives ergo outside access, the tailnet gateway, services ergo's registration says it depends on, plus the project services registered by ergo and anything marked `ergo: true`. Something ergo needs being stopped or failed is broken; a project service or marked one failing is broken, and one set to start at boot but stopped is a heads-up. Shows the service name, its state and the last error the service manager recorded | Press **Start it** (for one that isn't quite healthy or whose port is taken, **Take a look** opens it in Settings · Services); if it won't start, read the error and logs it recorded |
 | Plugins | Whether any enabled plugin failed to load (details are in that plugin's own block); one that failed is a heads-up | See the reason in Settings · Plugins |
 | Web page files | Whether ergo's web page files are there; missing is broken (if ergo's pages won't open, telling ergo "run a checkup on yourself" still shows this check) | Running from source: run `npm run build:web` in the repository root. Installed program: reinstall (`ergo uninstall --keep-data`, then run the install command again; your data stays) |
+| Memory used by ergo | How much memory ergo uses now (and how much of it is JS heap), whether the embedding model is loaded, the most it has used since it started, plus how much the programs it started (speech recognition, the built-in browser, agents) use and which use the most. Normally ergo itself uses a few hundred MB, about 1 GB more while the embedding model is loaded (it unloads after 10 idle minutes); over 3 GB for ergo itself needs attention. The programs it started are only reported, not judged (the speech recognition model needs several GB on its own) | Check again in 10 minutes (it stays high for a while right after processing a big batch); if it doesn't come down, restart ergo in the service manager and send the numbers in this item to the developers |
 
 ergo itself has ten more checks, all based on what this computer has on record:
 

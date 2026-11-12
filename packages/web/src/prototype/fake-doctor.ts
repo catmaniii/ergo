@@ -219,8 +219,30 @@ function kernelItems(): DoctorItemView[] {
     ),
     keyed("plugins", "ok", { key: "doctor.check.plugins.title" }, { key: "doctor.plugins.fine", params: { running: 9 } }),
     keyed("web", "ok", { key: "doctor.check.web.title" }, { key: "doctor.web.fine" }),
+    // 二狗占的内存（439）：向量模型加载着，语音识别的 Python 占得最多
+    keyed(
+      "memory-use",
+      "ok",
+      { key: "doctor.check.memoryUse.title" },
+      {
+        key: "doctor.memoryUse.fine",
+        params: {
+          used: gb(1.6),
+          heap: t("doctor.size.mb", { n: formatNumber(118) }),
+          model: t("doctor.memoryUse.modelLoaded"),
+          peak: gb(2.1),
+          children: t("doctor.memoryUse.children", {
+            total: gb(3.2),
+            list: formatList([t("doctor.memoryUse.child", { exe: "python.exe", size: gb(3) }), t("doctor.memoryUse.child", { exe: "node.exe", size: t("doctor.size.mb", { n: formatNumber(152) }) })]),
+          }),
+        },
+      },
+    ),
   ];
 }
+
+/** 大小写成"1.6 GB" */
+const gb = (n: number) => t("doctor.size.gb", { n: formatNumber(n, { maximumFractionDigits: 1 }) });
 
 /** 大小写成"265 MB"（和守护进程一样按当前语言） */
 const mb = (n: number) => t("doctor.size.mb", { n: formatNumber(n) });
