@@ -2,7 +2,7 @@
 // 使用记录都用这里的说法：操作怎么写（只读、读、写、删）、到期怎么写（不写到期的醒目地写"长期有效"）、按 agent 分组。
 // agent 自己申请的那张卡（464，folder_grant_request）上的说法也在这里：已经登记了什么、多久能选哪几样、处理之后怎么写。
 import type { FolderMark } from "./folder-picker.ts";
-import { FOLDER_GRANT_MODES, type FolderGrantMode, type FolderGrantRequestCardPayload, type FolderGrantsView, type FolderGrantView, t, tTable } from "./protocol.ts";
+import { FOLDER_GRANT_MODES, type FolderGrantMode, type FolderGrantRequestCardPayload, type FolderGrantsView, type FolderGrantView, nowIso, t, tTable } from "./protocol.ts";
 
 /** 一种操作怎么说 */
 export const FOLDER_GRANT_MODE_LABEL: Readonly<Record<FolderGrantMode, string>> = tTable({
@@ -122,19 +122,35 @@ const comparablePath = (p: string) => p.replaceAll("/", "\\").replace(/\\+$/, ""
 /** 两个路径是不是同一个目录 */
 const samePath = (a: string, b: string) => comparablePath(a) === comparablePath(b);
 
+/** 申请的天数现在同意的话到什么时候：从 now 起第几天的 23:59（和守护进程、⚙ 里加的一样算，写成带偏移的本地时间） */
+export function folderGrantRequestUntil(days: number, now: number): string {
+  const at = new Date(now + days * 24 * 60 * 60 * 1000);
+  at.setHours(23, 59, 0, 0);
+  return nowIso(at);
+}
+
 /**
- * 申请卡上"已有"那一行：这个目录已经登记了的写"现在只读（长期有效），这次要加写、删"；登记的是上级目录的写出是哪个；
- * 以前登记过、已经过期的写明。没登记过的是 undefined
+ * 申请卡上"已有"那一行：这个目录已经登记了的写"现在只读（长期有效），这次要加写、删"；期限不够、这次要延长的写
+ * "现在读、写，到 11-14 23:59；这次要延到 02-10 23:59"（要长期有效的写"改成长期有效"；延到哪天按现在同意算，now 是现在的毫秒）；
+ * 登记的是上级目录的写出是哪个；以前登记过、已经过期的写明。没登记过的是 undefined
  */
-export function folderGrantRequestExisting(p: Pick<FolderGrantRequestCardPayload, "path" | "modes" | "existing">): string | undefined {
+export function folderGrantRequestExisting(p: Pick<FolderGrantRequestCardPayload, "path" | "modes" | "days" | "existing">, now: number): string | undefined {
   const e = p.existing;
   if (!e) return undefined;
   const has = folderGrantModesText(e.modes);
   if (e.expired) return t("state.folderGrants.request.existingExpired", { path: e.path, has, at: e.expiresAt ? folderGrantTimeText(e.expiresAt) : "" });
   const expiry = folderGrantExpiry({ ...(e.expiresAt === undefined ? {} : { expiresAt: e.expiresAt }), state: "active" }).text;
   if (!samePath(e.path, p.path)) return t("state.folderGrants.request.existingParent", { path: e.path, has, expiry });
-  const add = p.modes.filter((m) => !e.modes.includes(m));
-  return add.length > 0 ? t("state.folderGrants.request.existingAdd", { has, expiry, add: modesList(add) }) : t("state.folderGrants.request.existingHas", { has, expiry });
+  const add = modesList(p.modes.filter((m) => !e.modes.includes(m)));
+  const until = p.days === undefined ? undefined : folderGrantRequestUntil(p.days, now);
+  // 要延长：已有的有期限，这次要长期有效，或者要到的比它晚
+  if (e.expiresAt !== undefined && (until === undefined || Date.parse(until) > Date.parse(e.expiresAt))) {
+    const at = folderGrantTimeText(e.expiresAt);
+    if (until === undefined) return add ? t("state.folderGrants.request.existingAddForever", { has, at, add }) : t("state.folderGrants.request.existingForever", { has, at });
+    const to = folderGrantTimeText(until);
+    return add ? t("state.folderGrants.request.existingAddExtend", { has, at, add, until: to }) : t("state.folderGrants.request.existingExtend", { has, at, until: to });
+  }
+  return add ? t("state.folderGrants.request.existingAdd", { has, expiry, add }) : t("state.folderGrants.request.existingHas", { has, expiry });
 }
 
 /** 申请卡上"要"那一行：几样操作（一样一样列）和多久 */

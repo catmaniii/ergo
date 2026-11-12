@@ -1213,6 +1213,25 @@ export const FAKE_CARDS: Card[] = [
     } satisfies FolderGrantRequestCardPayload,
     { urgency: "non_blocking", createdAt: at("10-07", "08:55"), text: "项目「个人博客」的负责人申请读、写 D:\\照片\\博客配图（长期有效）\n为什么：迁移后的文章配图从这里取，压缩好的图写回同一个文件夹" },
   ),
+  // 任务「每周汇总银行账单」的负责人要延长：D:\账单导出\周报 已登记读写、快到期了，这次要 90 天（卡上写"现在到某时，这次要延到某时"）
+  card(
+    "c-fgr-bills",
+    "folder_grant_request",
+    {
+      agentId: "task-bills",
+      agentLabel: "长程任务 t-bills「每周汇总银行账单」的负责人",
+      path: "D:\\账单导出\\周报",
+      modes: ["read", "write"],
+      days: 90,
+      why: "每周一都要往这里写周报，先按三个月申请",
+      existing: { path: "D:\\账单导出\\周报", modes: ["read", "write"], expiresAt: "2026-11-14T23:59:00.000+08:00", expired: false },
+    } satisfies FolderGrantRequestCardPayload,
+    {
+      urgency: "non_blocking",
+      createdAt: at("10-07", "08:42"),
+      text: "长程任务 t-bills「每周汇总银行账单」的负责人申请读、写 D:\\账单导出\\周报（90 天）\n为什么：每周一都要往这里写周报，先按三个月申请",
+    },
+  ),
 ];
 
 // ---------- 秘书主线 ----------
@@ -1619,6 +1638,18 @@ const BILLS: MessageEnvelope[] = [
   },
   { id: "msg-bills-card", conversation: B, speaker: "agent", time: at("10-07", "08:40"), parts: [cardRef("c-plan-bills")] },
   msg(B, "agent", at("10-07", "08:40"), text("计划草稿好了。你在对话里说的两条限制，我编成了一条时序规则和一条授权收窄，写在卡片上。")),
+  // 目录授权申请（464）：已登记的快到期了，要延长。id、调用 id 写死，不经 msg()、tool() 编号，后面消息和调用的编号不变
+  {
+    id: "msg-fgr-bills",
+    conversation: B,
+    speaker: "agent",
+    time: at("10-07", "08:42"),
+    parts: [
+      toolAs("call-fgr-bills", "request_folder_grant", "path=D:\\账单导出\\周报 modes=read,write days=90", { nature: "look", result: "已发给用户，等确认" }),
+      text("周报要每周写进 D:\\账单导出\\周报，那里登记的读写快到期了，申请延到三个月，卡在这里："),
+    ],
+  },
+  { id: "msg-fgr-bills-card", conversation: B, speaker: "agent", time: at("10-07", "08:42"), parts: [cardRef("c-fgr-bills")] },
 ];
 
 // ---------- 项目「记账本」的负责人 ----------

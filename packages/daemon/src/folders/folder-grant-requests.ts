@@ -4,8 +4,9 @@
 //   发了就回"已发给用户，等确认"，不阻塞这一轮。守卫里它不改东西（只读或幂等、只看：再调一次只会回"已经在等"），也不登记路径参数，
 //   所以不会因为目录在范围之外先弹审批；
 // - 发卡前先查，查不过的直接回原因、不发卡：目录不对（和 ⚙ 里加的同一套：folder-grants.ts 的 resolve）；这个 agent 已经登记了、
-//   要的操作都有了、没过期（所有 agent 都能读的文件夹里只要读的也算）→ "已经有了"；同一个 agent 同一个目录已经有一张没处理的申请卡 →
-//   "已经在等用户确认"；
+//   要的操作都有了、没过期、期限也够（到期不早于这次要的，长期有效的最长；所有 agent 都能读的文件夹里只要读的也算）→ "已经有了"；
+//   期限不够的（要延长：已有的有期限、这次要得更久或者要长期有效）照常发卡，卡上写"现在到某时，这次要延到某时"；
+//   同一个 agent 同一个目录已经有一张没处理的申请卡 → "已经在等用户确认"；
 // - 卡上写哪个 agent、目录、要的操作、多久、为什么；这个目录（或上级）已经登记了的写明已有什么，在授权的文件夹里的写明"读本来就行"；
 // - 用户在卡上能去掉几样操作（不能加没要的）、改多久，再"同意"/"不同意"（都可附一句话）。同意：先按 ADR-0049 的校验并进它的表
 //   （folder-grants.ts 的 merge：操作取并集、到期取更晚的，已有的那条不会被收窄；谁加的记"它申请、你同意的"），登记不成抛错、
@@ -132,7 +133,8 @@ const TOOL_DESCRIPTION =
   "（比如用户让你整理 D:\\笔记、往某个文件夹里导出东西），先申请一次，免得每次都弹审批；被拦下、说明里写着\"没登记\"的，也可以用它申请。" +
   "只要真需要的操作（只看就只要 read），能定期限就写 days（这件事三天做完写 3），why 写清要在里面做什么、为什么要这几种操作。" +
   "它只发一张申请卡给用户，不等结果、不阻塞这一轮：用户在卡上同意（可能去掉几样、改期限）之后才登记，结果会作为一条通知交给你，那时再接着做；" +
-  "等的时候别反复申请，也别绕路去碰那个目录。已经登记了的、已经在等用户确认的不会重复发卡。你自己改不了目录授权表，别用别的办法去改。" +
+  "等的时候别反复申请，也别绕路去碰那个目录。已经登记了的（操作都有、期限也够）、已经在等用户确认的不会重复发卡；登记了但期限不够、要延长的，照样申请，写上要多久。" +
+  "你自己改不了目录授权表，别用别的办法去改。" +
   "登记了也不放的：数据目录、程序目录，登记目录里的 .env、私钥这类密钥文件。";
 
 const toolParams = Type.Object(
@@ -226,8 +228,11 @@ export function createFolderGrantRequests(options: FolderGrantRequestsOptions): 
         const mine = grants.list().filter((g) => g.agentId === agentId && isWithin(dir, g.path));
         const active = mine.filter((g) => !folderGrantExpired(g, now));
         const readable = readableIn(dir);
-        // 要的操作都有了（登记了的没过期；所有 agent 都能读的文件夹里的读也算）
-        if (modes.every((m) => active.some((g) => g.modes.includes(m)) || (m === "read" && readable))) {
+        // 期限够不够：长期有效的总够；有期限的要不早于这次要的（这次要长期有效的，有期限的都不够）
+        const wantUntil = args.days === undefined ? undefined : Date.parse(folderGrantExpiryAfter(args.days, now));
+        const lastsLongEnough = (g: FolderGrantRecord) => g.expiresAt === undefined || (wantUntil !== undefined && Date.parse(g.expiresAt) >= wantUntil);
+        // 要的操作都有了、期限也够（登记了的没过期；所有 agent 都能读的文件夹里的读也算，那里一直能读）；期限不够的照常发卡（要延长）
+        if (modes.every((m) => active.some((g) => g.modes.includes(m) && lastsLongEnough(g)) || (m === "read" && readable))) {
           return { text: alreadyText(dir, active.filter((g) => g.modes.some((m) => modes.includes(m))), readable) };
         }
         const waiting = waitingFor(agentId, dir);

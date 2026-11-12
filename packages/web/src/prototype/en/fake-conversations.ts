@@ -766,6 +766,13 @@ export const EN_CONVERSATIONS: Phrases = {
   "归好了：按科目建了 6 个文件夹，38 个课件都放进去了。": "Done: made 6 folders by subject and put all 38 course files into them.",
   "D:\\笔记 里零散的笔记也按书归到各自的文件夹里": "Also sort the loose notes in D:\\Notes into a folder per book",
   "path=D:\\笔记 modes=write,delete days=30": "path=D:\\Notes modes=write,delete days=30",
+  "长程任务 t-bills「每周汇总银行账单」的负责人": "The owner of long-running task t-bills “Weekly bank statement summary”",
+  "每周一都要往这里写周报，先按三个月申请": "The weekly report goes here every Monday, so asking for three months to start with",
+  "长程任务 t-bills「每周汇总银行账单」的负责人申请读、写 D:\\账单导出\\周报（90 天）\n为什么：每周一都要往这里写周报，先按三个月申请":
+    "The owner of long-running task t-bills “Weekly bank statement summary” asks to read, write D:\\Bill exports\\Weekly reports (90 days)\nWhy: The weekly report goes here every Monday, so asking for three months to start with",
+  "path=D:\\账单导出\\周报 modes=read,write days=90": "path=D:\\Bill exports\\Weekly reports modes=read,write days=90",
+  "周报要每周写进 D:\\账单导出\\周报，那里登记的读写快到期了，申请延到三个月，卡在这里：":
+    "The weekly report goes into D:\\Bill exports\\Weekly reports every week, and the read/write grant there is about to expire, so I asked to extend it to three months. Here's the card:",
   "D:\\笔记 现在只登记了读。整理要新建文件夹、把笔记挪进去，申请加上写和删（30 天），卡在这里，点同意就生效：":
     "D:\\Notes is only registered for reading. Sorting it means creating folders and moving the notes in, so I asked to add write and delete (30 days). Here's the card; it takes effect once you approve:",
 };

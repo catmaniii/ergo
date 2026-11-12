@@ -405,7 +405,7 @@ When a chat raises an approval card because the agent reached a folder outside i
 
 **When the agent asks:** when the personal assistant or a project or task owner is about to work in a folder outside its scope again and again, it first sends a **Folder grant request** card. The card shows up in its own chat and in your inbox.
 
-- The card says who, which folder, which of read/write/delete it wants, for how long, and why; if the folder is already registered it says what's there ("Currently read only (no expiry); this adds write, delete"), and for a folder all agents can read it says reading already works.
+- The card says who, which folder, which of read/write/delete it wants, for how long, and why; if the folder is already registered it says what's there ("Currently read only (no expiry); this adds write, delete"); an agent whose grant is too short also asks, and the card says "Currently … until …; this extends it to …"; and for a folder all agents can read it says reading already works.
 - Before approving you can narrow it: untick the kinds of access you don't want to give (you can't add any it didn't ask for) and change how long. Click **Approve** or **Decline**; either way you can add a note for it.
 - Nothing is registered until you approve. An existing grant only ever gets wider: the kinds of access are combined and the later expiry wins (no expiry is the latest). Its row here says "Requested by it, approved by you on …" and can be removed like any other. If registering fails (say the folder is gone), the card says why and stays open.
 - The result goes back to the agent: once approved it carries on; if you decline, it asks you first as before or finds another way.

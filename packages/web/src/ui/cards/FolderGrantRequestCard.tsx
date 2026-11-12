@@ -2,7 +2,8 @@
  * "目录授权申请"卡（464）：个人助理、项目或任务的负责人自己申请把一个目录登记进它的目录授权，负载是 FolderGrantRequestCardPayload。
  * 出在它自己的会话里、进待办；要你拍板，没处理时在会话里整张展开、排在这一轮最后，处理后收成一行（state/chat-look.ts）。
  * - 卡上写：谁（标题）、为什么（它自己说的，灰字）、目录、要的操作和多久；这个目录已经登记过的写明已有什么
- *   （"现在只读（长期有效），这次要加写、删"），在所有 agent 都能读的文件夹里的写明"读本来就行"；
+ *   （"现在只读（长期有效），这次要加写、删"；期限不够、要延长的写"现在到某时，这次要延到某时"），
+ *   在所有 agent 都能读的文件夹里的写明"读本来就行"；
  * - 没处理时下面能收窄：只列它要的那几样操作（去掉几样，不能加），多久能改；附一句话（可不写），「不同意」/「同意」；
  *   一样都不勾时「同意」点不了；
  * - 处理之后写登记成了什么（并进已有的之后：操作取并集、到期取更晚的）、附的那句话；没同意的写没同意。
@@ -34,7 +35,9 @@ export function FolderGrantRequestCard({ state, payload: p, done, act }: CardPro
   const [note, setNote] = useState("");
   const said = note.trim() || undefined;
   const ask = folderGrantRequestAsk(p);
-  const existing = folderGrantRequestExisting(p);
+  // 要延长的"延到哪天"按现在同意算；处理过的按处理的那一刻
+  const [shownAt] = useState(() => Date.now());
+  const existing = folderGrantRequestExisting(p, p.decided ? Date.parse(p.decided.at) : shownAt);
   const toggle = (m: FolderGrantMode) => setModes((now) => (now.includes(m) ? now.filter((x) => x !== m) : [...now, m]));
   const approve = () => {
     const input: FolderGrantRequestApproveInput = { modes: FOLDER_GRANT_MODES.filter((m) => modes.includes(m)), days: folderGrantRequestDays(duration) };

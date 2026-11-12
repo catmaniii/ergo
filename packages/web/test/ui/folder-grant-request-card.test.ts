@@ -3,7 +3,7 @@
 //   下面能收窄：只列它要的那几样（不能加没要的），多久的选项里有申请的天数；「不同意」「同意」；
 // - 处理之后：写登记成了什么、附的那句话；没同意的写没同意；按钮和收窄的框都没了；
 // - 设置里的一行：它申请、你同意的写明；
-// - 状态层的说法：多久的选项（申请的天数插进去）、选项换回天数、已有的几种写法、处理结果。
+// - 状态层的说法：多久的选项（申请的天数插进去）、选项换回天数、已有的几种写法（含期限不够、要延长的）、处理结果。
 import { type ComponentProps, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
@@ -19,11 +19,15 @@ import {
   folderGrantRequestDurations,
   folderGrantRequestExisting,
   folderGrantRequestOutcome,
+  folderGrantRequestUntil,
 } from "../../src/state/index.ts";
 import { FolderGrantRequestCard } from "../../src/ui/cards/FolderGrantRequestCard.tsx";
 import { FolderGrantRows } from "../../src/ui/folder-grants.tsx";
 
 vi.mock("../../src/app/build-info.ts", () => ({ APP_VERSION: "0.0.0-test", CHANGELOG: "", PAGE_WEB_VERSION: undefined }));
+
+/** 状态层的说法按这一刻算（东八区 2026-11-12 10:00） */
+const NOW = Date.parse("2026-11-12T10:00:00+08:00");
 
 const offline = { connection: {} as Connection, http: {} as DaemonHttp } as ComponentProps<typeof StoreProvider>;
 
@@ -109,10 +113,23 @@ describe("状态层的说法", () => {
   });
 
   test("已有的几种写法：同一个目录、上级目录、已过期；没有的是 undefined", () => {
-    expect(folderGrantRequestExisting(request())).toBeUndefined();
-    expect(folderGrantRequestExisting(request({ existing: { path: "d:/笔记/", modes: ["read", "write", "delete"], expiresAt: "2026-12-01T23:59:00.000+08:00", expired: false } }))).toBe("现在已有读、写、删（到 2026-12-01 23:59）");
-    expect(folderGrantRequestExisting(request({ path: "D:\\笔记\\书", existing: { path: "D:\\笔记", modes: ["read"], expired: false } }))).toBe("上级目录 D:\\笔记 已登记只读（长期有效）");
-    expect(folderGrantRequestExisting(request({ existing: { path: "D:\\笔记", modes: ["read"], expiresAt: "2026-10-31T00:00:00.000+08:00", expired: true } }))).toBe("以前登记过只读，2026-10-31 00:00 已过期");
+    expect(folderGrantRequestExisting(request(), NOW)).toBeUndefined();
+    // 期限够（要 3 天，已有的到 12-01）：只写现在有什么
+    expect(folderGrantRequestExisting(request({ existing: { path: "d:/笔记/", modes: ["read", "write", "delete"], expiresAt: "2026-12-01T23:59:00.000+08:00", expired: false } }), NOW)).toBe("现在已有读、写、删（到 2026-12-01 23:59）");
+    expect(folderGrantRequestExisting(request({ existing: { path: "D:\\笔记", modes: ["read"], expired: false } }), NOW)).toBe("现在只读（长期有效），这次要加写、删");
+    expect(folderGrantRequestExisting(request({ path: "D:\\笔记\\书", existing: { path: "D:\\笔记", modes: ["read"], expired: false } }), NOW)).toBe("上级目录 D:\\笔记 已登记只读（长期有效）");
+    expect(folderGrantRequestExisting(request({ existing: { path: "D:\\笔记", modes: ["read"], expiresAt: "2026-10-31T00:00:00.000+08:00", expired: true } }), NOW)).toBe("以前登记过只读，2026-10-31 00:00 已过期");
+  });
+
+  test("期限不够、要延长的：写现在到哪天、这次要延到哪天（按现在同意算），要长期有效的写改成长期有效", () => {
+    const until1114 = { path: "D:\\笔记", expiresAt: "2026-11-14T23:59:00.000+08:00", expired: false };
+    expect(folderGrantRequestUntil(30, NOW)).toBe("2026-12-12T23:59:00.000+08:00");
+    expect(folderGrantRequestExisting(request({ modes: ["write"], days: 30, existing: { ...until1114, modes: ["read", "write"] } }), NOW)).toBe("现在读、写，到 2026-11-14 23:59；这次要延到 2026-12-12 23:59");
+    expect(folderGrantRequestExisting(request({ modes: ["read"], days: undefined, existing: { ...until1114, modes: ["read", "write"] } }), NOW)).toBe("现在读、写，到 2026-11-14 23:59；这次要改成长期有效");
+    expect(folderGrantRequestExisting(request({ modes: ["write"], days: 30, existing: { ...until1114, modes: ["read"] } }), NOW)).toBe("现在只读，到 2026-11-14 23:59；这次要加写，并延到 2026-12-12 23:59");
+    expect(folderGrantRequestExisting(request({ modes: ["write"], days: undefined, existing: { ...until1114, modes: ["read"] } }), NOW)).toBe("现在只读，到 2026-11-14 23:59；这次要加写，并改成长期有效");
+    // 卡上：没处理时按现在算
+    expect(render(request({ modes: ["write"], days: 3650, existing: { ...until1114, modes: ["read", "write"] } }))).toContain("现在读、写，到 2026-11-14 23:59；这次要延到 ");
   });
 
   test("处理结果：没处理的没有", () => {

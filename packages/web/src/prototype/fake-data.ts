@@ -659,6 +659,7 @@ const FAKE_INBOX_ITEMS: InboxItem[] = [
   cardItem({ id: "i-cc", cardId: "c-cc-ledger", title: "立项要求变更：记账本的报表改成每周一份", source: "项目「记账本」", urgency: "non_blocking", createdAt: at("10-06", "21:38"), read: false }),
   // 目录授权申请（464）：个人助理要给 D:\笔记 加写和删、个人博客的负责人要读写 D:\照片\博客配图（不卡事）
   cardItem({ id: "i-fgr-notes", cardId: "c-fgr-notes", title: `${ASSISTANT_NAME_MARK}申请目录授权：D:\\笔记`, source: ASSISTANT_NAME_MARK, urgency: "non_blocking", createdAt: at("10-07", "22:06"), read: false }),
+  cardItem({ id: "i-fgr-bills", cardId: "c-fgr-bills", title: "长程任务 t-bills「每周汇总银行账单」的负责人申请目录授权：D:\\账单导出\\周报", source: "任务「每周汇总银行账单」", urgency: "non_blocking", createdAt: at("10-07", "08:42"), read: false }),
   cardItem({ id: "i-fgr-blog", cardId: "c-fgr-blog", title: "项目「个人博客」的负责人申请目录授权：D:\\照片\\博客配图", source: "项目「个人博客」", urgency: "non_blocking", createdAt: at("10-07", "08:55"), read: true }),
   // 秘书提交的 skill，库里已经有同名的
   cardItem({ id: "i-skill", cardId: "c-skill-proposed", title: `skill 变更：${ASSISTANT_NAME_MARK}要加 skill weekly-notes`, source: ASSISTANT_NAME_MARK, urgency: "non_blocking", createdAt: at("10-07", "10:30"), read: false }),
@@ -823,6 +824,7 @@ const FAKE_INBOX_ORIGINS: Readonly<Record<string, InboxOrigin>> = {
   "i-interview": { conversation: "maintainer:memory-curator" },
   "i-fgr-notes": { conversation: "secretary" },
   "i-fgr-blog": { projectId: "p-blog" },
+  "i-fgr-bills": { taskId: "t-bills" },
 };
 
 export const FAKE_INBOX: InboxItem[] = FAKE_INBOX_ITEMS.map((item) => {

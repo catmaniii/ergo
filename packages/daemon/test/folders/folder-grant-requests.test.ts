@@ -142,6 +142,31 @@ describe("发卡前先查", () => {
     expect(s.latest()).toEqual([]);
   });
 
+  it("期限不够就是要延长：照常发卡（已有的有期限、这次要得更久或要长期有效）；期限也够的才回已经有了", async () => {
+    const s = setup();
+    const tenDays = folderGrantExpiryAfter(10, NOW);
+    s.grants.add({ agentId: "pm-1", path: s.notes, modes: ["read", "write"], expiresAt: tenDays, addedBy: "user" });
+    // 要 7 天：已有的到第 10 天，够了
+    const enough = await s.ask("pm-1", { path: s.notes, modes: ["write"], days: 7, why: "写一周" });
+    expect(enough.text).toContain("已经有了");
+    expect(enough.cardIds).toBeUndefined();
+    // 正好 10 天也够
+    expect((await s.ask("pm-1", { path: s.notes, modes: ["write"], days: 10, why: "写十天" })).text).toContain("已经有了");
+    // 要 30 天：不够，发卡，卡上带着已有的到期时间
+    const longer = await s.ask("pm-1", { path: s.notes, modes: ["write"], days: 30, why: "写一个月" });
+    expect(longer.cardIds).toHaveLength(1);
+    expect(s.latest()[0]!.payload).toMatchObject({ modes: ["write"], days: 30, existing: { path: s.notes, modes: ["read", "write"], expiresAt: tenDays, expired: false } });
+    // 要长期有效：有期限的都不够
+    s.grants.add({ agentId: "tm-1", path: s.notes, modes: ["read"], expiresAt: nowIso(new Date(NOW + 365 * DAY)), addedBy: "user" });
+    expect((await s.ask("tm-1", { path: s.notes, modes: ["read"], why: "一直要读" })).cardIds).toHaveLength(1);
+    // 同意之后延长了：到期取更晚的
+    await s.act(longer.cardIds![0]!, "approve");
+    expect(s.grants.list().find((g) => g.agentId === "pm-1")).toMatchObject({ modes: ["read", "write"], expiresAt: folderGrantExpiryAfter(30, NOW) });
+    // 上级登记了长期有效的：里面的目录要多久都够
+    s.grants.add({ agentId: "secretary", path: s.notes, modes: ["read"], addedBy: "user" });
+    expect((await s.ask("secretary", { path: s.inner, modes: ["read"], days: 3650, why: "一直读" })).text).toContain("已经有了");
+  });
+
   it("过期了的不算有了：照样发卡，卡上写明以前登记过、已过期", async () => {
     const s = setup();
     s.grants.add({ agentId: "secretary", path: s.notes, modes: ["read"], expiresAt: nowIso(new Date(NOW + DAY)), addedBy: "user" });

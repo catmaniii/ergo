@@ -1509,7 +1509,7 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   /**
    * 原型里的目录授权（只在内存里）：个人助理两条（一条你加的，一条它申请、你在卡上同意的，464），第一个项目的负责人两条
-   * （一条快到期、一条已过期）
+   * （一条快到期、一条已过期），任务「每周汇总银行账单」的负责人一条（快到期，会话里它申请延长）
    */
   private folderGrantList: Omit<FolderGrantView, "agentLabel">[] = [
     { id: "fg-demo-1", agentId: "secretary", path: "D:\\笔记", modes: ["read"], note: "整理读书笔记", addedBy: "user", addedAt: "2026-10-20T09:00:00.000+08:00", state: "active" },
@@ -1522,6 +1522,17 @@ export class FakeDaemonHttp implements DaemonHttp {
       note: "按科目给课件建文件夹、把文件归进去",
       addedBy: "request",
       addedAt: "2026-10-07T21:59:00.000+08:00",
+      state: "active",
+    },
+    {
+      id: "fg-demo-5",
+      agentId: "task-bills",
+      path: "D:\\账单导出\\周报",
+      modes: ["read", "write"],
+      expiresAt: "2026-11-14T23:59:00.000+08:00",
+      note: "写每周的账单周报",
+      addedBy: "user",
+      addedAt: "2026-10-07T08:30:00.000+08:00",
       state: "active",
     },
     {

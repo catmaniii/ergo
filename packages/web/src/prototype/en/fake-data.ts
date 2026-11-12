@@ -134,6 +134,7 @@ export const EN_DATA: Phrases = {
   "{}申请目录授权：D:\\笔记": "{} asks for a folder grant: D:\\Notes",
   "项目「个人博客」的负责人申请目录授权：D:\\照片\\博客配图": "The owner of project “Personal blog” asks for a folder grant: D:\\photos\\Blog images",
   "项目「个人博客」": "Project “Personal blog”",
+  "长程任务 t-bills「每周汇总银行账单」的负责人申请目录授权：D:\\账单导出\\周报": "The owner of long-running task t-bills “Weekly bank statement summary” asks for a folder grant: D:\\Bill exports\\Weekly reports",
   "项目「记账本」": "Project “Ledger”",
   "有空聊 10 分钟吗？这次聊：工作和一天怎么过": "Got 10 minutes to talk? Today's topic: work and how your day goes",
   "记忆管理员": "Memory curator",
