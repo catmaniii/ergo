@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test } from "vitest";
 import { activeLocale, activeLocaleFrom, MIN_APP_VERSION, type ReportAppVersionParams, setActiveLocale } from "../../src/state/index.ts";
-import { AppUpgradeBar } from "../../src/ui/app-upgrade.tsx";
+import { AppUpgradeBar, openUpgradeOutside } from "../../src/ui/app-upgrade.tsx";
 import { TEST_LOCALES } from "../setup-locales.ts";
 
 const before = activeLocale();
@@ -30,6 +30,10 @@ describe("App 太旧的提示条", () => {
     expect(html).toContain('target="_blank"');
   });
 
+  test("不在 App 里画出来的下载链接没有交给系统浏览器的记号（照旧是外链）", () => {
+    expect(bar({ version: "0.0.1", platform: "android" })).not.toContain("data-system-browser");
+  });
+
   test("鸿蒙太旧：按钮是手机安装教程", () => {
     const html = bar({ version: "0.0.1", platform: "harmony" });
     expect(html).toContain("mobile.md#鸿蒙-app");
@@ -48,5 +52,41 @@ describe("App 太旧的提示条", () => {
     const harmony = bar({ version: "0.0.1", platform: "harmony" });
     expect(harmony).toContain("mobile.en.md#harmonyos-app");
     expect(harmony).toContain("Installation guide");
+  });
+});
+
+/** 等 App 回话（Promise）之后的那一步 */
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+describe("去升级的链接交给系统浏览器（新版安卓 App，票 386）", () => {
+  const URL = "https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk";
+
+  test("App 没有 openSystemBrowser（旧版 App、鸿蒙、不在 App 里）：不管，链接照常", () => {
+    const fallback: string[] = [];
+    expect(openUpgradeOutside(undefined, URL, (url) => fallback.push(url))).toBe(false);
+    expect(openUpgradeOutside({}, URL, (url) => fallback.push(url))).toBe(false);
+    expect(fallback).toEqual([]);
+  });
+
+  test("有：交给系统浏览器，打开了就完了", async () => {
+    const opened: string[] = [];
+    const fallback: string[] = [];
+    const app = {
+      openSystemBrowser: (url: string) => {
+        opened.push(url);
+        return Promise.resolve(true);
+      },
+    };
+    expect(openUpgradeOutside(app, URL, (url) => fallback.push(url))).toBe(true);
+    await flush();
+    expect(opened).toEqual([URL]);
+    expect(fallback).toEqual([]);
+  });
+
+  test("系统浏览器打不开（手机上没有浏览器、App 出错）：退回成照旧打开", async () => {
+    const fallback: string[] = [];
+    expect(openUpgradeOutside({ openSystemBrowser: () => Promise.resolve(false) }, URL, (url) => fallback.push(url))).toBe(true);
+    await flush();
+    expect(fallback).toEqual([URL]);
   });
 });

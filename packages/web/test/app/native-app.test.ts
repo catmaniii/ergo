@@ -15,6 +15,7 @@ import {
   type InsetsScope,
   type NativeInsets,
   parseNativeInsets,
+  systemBrowserUrl,
   videoFullscreenAllowed,
 } from "../../src/app/native-app.ts";
 import {
@@ -199,6 +200,70 @@ describe("视频全屏（App 接住网页的全屏，票 407）", () => {
     expect(videoFullscreenAllowed(true, detectNativeApp({ ergoNative: fakeBridge("0.4.3") }))).toBe(false);
     // 有原生桥但认不出 App（版本号回空串）：还是在 App 的 WebView 里，不给
     expect(videoFullscreenAllowed(true, detectNativeApp({ ergoNative: fakeBridge("") }))).toBe(false);
+  });
+});
+
+describe("用系统浏览器打开（新版安卓 App，票 386）", () => {
+  test("原生桥上有 openSystemBrowser：认出来；旧版 App、鸿蒙没有", () => {
+    expect(detectNativeApp({ ergoNative: { ...fakeBridge("0.4.5"), openSystemBrowser: () => Promise.resolve("ok") } })?.openSystemBrowser).toBeDefined();
+    expect(detectNativeApp({ ergoNative: fakeBridge("0.4.4") })?.openSystemBrowser).toBeUndefined();
+    expect(detectNativeApp({ ergoNative: { ...fakeBridge("0.4.5"), openSystemBrowser: "ok" } })?.openSystemBrowser).toBeUndefined();
+  });
+
+  test("https 地址交给 App，App 回 ok 才算打开了", async () => {
+    const sent: string[] = [];
+    const replies = ["ok", "failed", "refused"];
+    const app = detectNativeApp({
+      ergoNative: {
+        ...fakeBridge("0.4.5"),
+        openSystemBrowser: (url: string) => {
+          sent.push(url);
+          return Promise.resolve(replies.shift());
+        },
+      },
+    })!;
+    const url = "https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk";
+    expect(await app.openSystemBrowser!(url)).toBe(true);
+    expect(await app.openSystemBrowser!(url)).toBe(false);
+    expect(await app.openSystemBrowser!(url)).toBe(false);
+    expect(sent).toEqual([url, url, url]);
+  });
+
+  test("不是 https 的不交给 App：直接回 false", async () => {
+    const sent: string[] = [];
+    const app = detectNativeApp({
+      ergoNative: {
+        ...fakeBridge("0.4.5"),
+        openSystemBrowser: (url: string) => {
+          sent.push(url);
+          return Promise.resolve("ok");
+        },
+      },
+    })!;
+    for (const url of ["http://example.com/a.apk", "/api/app-update/android.apk", "javascript:alert(1)", "https://user:pw@example.com/", "intent://x#Intent;end"]) {
+      expect(await app.openSystemBrowser!(url)).toBe(false);
+    }
+    expect(sent).toEqual([]);
+  });
+
+  test("App 抛错、回的不是 ok：当没打开，不抛错", async () => {
+    const app = detectNativeApp({
+      ergoNative: {
+        ...fakeBridge("0.4.5"),
+        openSystemBrowser: () => {
+          throw new Error("boom");
+        },
+      },
+    })!;
+    expect(await app.openSystemBrowser!("https://example.com/")).toBe(false);
+    const rejecting = detectNativeApp({ ergoNative: { ...fakeBridge("0.4.5"), openSystemBrowser: () => Promise.reject(new Error("no")) } })!;
+    expect(await rejecting.openSystemBrowser!("https://example.com/")).toBe(false);
+  });
+
+  test("能交给系统浏览器的地址只有 https", () => {
+    expect(systemBrowserUrl("https://example.com/a?b=1")).toBe("https://example.com/a?b=1");
+    expect(systemBrowserUrl("HTTPS://Example.com")).toBe("https://example.com/");
+    for (const url of ["http://example.com/", "ftp://example.com/", "not a url", "", "https://u@example.com/"]) expect(systemBrowserUrl(url)).toBeUndefined();
   });
 });
 

@@ -1,10 +1,51 @@
 // 手机 App 太旧的提示：页面开在 App 里、App 低于最低版本时，内容区最上面一条"二狗 App 需要升级到 x.y"。
-// 安卓：二狗带着安装包时按钮是"更新"（新版 App 在 App 里装，旧版 App 从二狗直接下载，ui/app-update.tsx，票 399）；没带时照旧给发布页的 APK 链接。
+// 安卓：二狗带着安装包时按钮是"更新"（新版 App 在 App 里装，旧版 App 从二狗直接下载，ui/app-update.tsx，票 399）；没带时照旧给发布页的 APK 链接，
+// 新版安卓 App 里这个链接交给手机的系统浏览器（AppUpgradeLink，票 386）。
 // 鸿蒙给手机安装教程（没法替用户签名），认不出哪种 App 给"装 App"那一节。
 // 直接看本机版本和最低版本（页面是服务端给的，里面的最低版本就是服务端的要求），所以系统通知发不出去也看得到；升级后版本够了，这一条自然没有。
 // 够新、不在 App 里（手机浏览器、电脑）时什么都不画。系统通知和待办由守护进程判断后发（ADR-0047）。
+import type { MouseEvent, ReactNode } from "react";
+import { SYSTEM_BROWSER_LINK_ATTR } from "../app/browser-shell.ts";
+import type { NativeApp } from "../app/native-app.ts";
+import { openInPageNativeBrowser } from "../app/native-open.ts";
+import { pageNativeApp } from "../app/page-native.ts";
 import { activeLocale, appUpgradeLink, appVersionOutdated, MIN_APP_VERSION, type ReportAppVersionParams, t } from "../state/index.ts";
 import { AppUpdateAction, useAppUpdateView } from "./app-update.tsx";
+
+/**
+ * 点了去升级的链接怎么开：交给手机的系统浏览器（新版安卓 App 才有 openSystemBrowser）；系统浏览器打不开（手机上没有浏览器、App 出错）时退回成
+ * fallback（照没有这个方法时的样子开）。返回 true 是这次由这里管了（调用方拦下链接本来的跳转）；App 没有这个方法返回 false，链接照常
+ */
+export function openUpgradeOutside(app: Pick<NativeApp, "openSystemBrowser"> | undefined, url: string, fallback: (url: string) => void): boolean {
+  const open = app?.openSystemBrowser;
+  if (!open) return false;
+  void open(url).then((ok) => {
+    if (!ok) fallback(url);
+  });
+  return true;
+}
+
+/** 系统浏览器打不开时：在"浏览"里打开（浏览插件开着时），不然让 App 自己接这次跳转（它交给系统或"浏览"） */
+function openInsideApp(url: string): void {
+  if (!openInPageNativeBrowser(url)) window.location.assign(url);
+}
+
+/**
+ * 去升级的链接（这条提示、待办里"App 太旧了"那一条的"去升级"）：安卓的 APK 下载链接在新版安卓 App 里交给手机的系统浏览器（票 386），
+ * 下载、装都是系统的样子，用户熟悉，不用在"浏览"里存文件再去"文件"里找。旧版 App（没有这个方法）、鸿蒙的安装教程、不在 App 里时照旧是外链
+ */
+export function AppUpgradeLink({ link, className, children }: { link: { kind: "download" | "guide"; url: string }; className: string; children: ReactNode }) {
+  const app = link.kind === "download" ? pageNativeApp() : undefined;
+  const outside = app?.openSystemBrowser !== undefined;
+  const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (openUpgradeOutside(app, link.url, openInsideApp)) e.preventDefault();
+  };
+  return (
+    <a className={className} href={link.url} target="_blank" rel="noopener noreferrer" {...(outside ? { [SYSTEM_BROWSER_LINK_ATTR]: "", onClick } : {})}>
+      {children}
+    </a>
+  );
+}
 
 export function AppUpgradeBar({ report }: { report: ReportAppVersionParams | undefined }) {
   const outdated = report !== undefined && appVersionOutdated(report.version);
@@ -20,9 +61,9 @@ export function AppUpgradeBar({ report }: { report: ReportAppVersionParams | und
         {pkg ? (
           <AppUpdateAction pkg={pkg} />
         ) : (
-          <a className="btn primary small" href={link.url} target="_blank" rel="noopener noreferrer">
+          <AppUpgradeLink link={link} className="btn primary small">
             {link.kind === "download" ? t("ui.appUpgrade.download") : t("ui.appUpgrade.guide")}
-          </a>
+          </AppUpgradeLink>
         )}
       </span>
     </div>

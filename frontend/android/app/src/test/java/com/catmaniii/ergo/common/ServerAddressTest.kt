@@ -79,6 +79,20 @@ class ServerAddressTest {
     }
 
     @Test
+    fun systemBrowserTakesHttpsOnly() {
+        assertTrue(isHttpsUrl("https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk"))
+        assertTrue(isHttpsUrl("HTTPS://Example.com:8443/a?b=1#c"))
+        assertFalse(isHttpsUrl("http://example.com/"))
+        assertFalse(isHttpsUrl("http://127.0.0.1:8810/"))
+        assertFalse(isHttpsUrl("https://user:pass@example.com/"))
+        assertFalse(isHttpsUrl("https:///nohost"))
+        assertFalse(isHttpsUrl("intent://scan/#Intent;scheme=zxing;end"))
+        assertFalse(isHttpsUrl("javascript:alert(1)"))
+        assertFalse(isHttpsUrl("file:///sdcard/a.apk"))
+        assertFalse(isHttpsUrl("https://exa mple.com/"))
+    }
+
+    @Test
     fun withoutHashDropsTheFragmentOnly() {
         assertEquals("https://a.example/x?y=1", withoutHash("https://a.example/x?y=1#/z"))
         assertEquals("https://a.example/", withoutHash("https://a.example/"))

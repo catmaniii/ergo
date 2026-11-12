@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.net.Uri
 import android.net.http.SslError
 import android.os.Build
@@ -71,6 +72,7 @@ import com.catmaniii.ergo.common.ConnectProbe
 import com.catmaniii.ergo.common.ConnectResult
 import com.catmaniii.ergo.common.checkServerAddress
 import com.catmaniii.ergo.common.connectChecklist
+import com.catmaniii.ergo.common.isHttpsUrl
 import com.catmaniii.ergo.common.isWebUrl
 import com.catmaniii.ergo.common.originOf
 import com.catmaniii.ergo.common.t
@@ -201,6 +203,7 @@ class MainActivity : Activity() {
         override fun browserTool(op: String, json: String, reply: (String) -> Unit) =
             if (op.startsWith("element")) elementFiles.run(op, json, reply) else browserTools.run(op, json, reply)
         override fun installAppUpdate(json: String, reply: (String) -> Unit) = appUpdater.install(json, reply)
+        override fun openSystemBrowser(url: String, reply: (String) -> Unit) = reply(openInSystemBrowser(url))
     }
 
     /** 在 App 里更新 App（票 399）：下载二狗带的安装包、核对、交给系统装；进度推给网页的 window.__ergoAppUpdate */
@@ -588,7 +591,7 @@ class MainActivity : Activity() {
             isAppearanceLightNavigationBars = !dark
         }
         mainWeb?.setBackgroundColor(palette.background)
-        browser.web?.setBackgroundColor(palette.background)
+        // 内置浏览器不跟着变：外部网页没写背景色时照浏览器的样子是白底（见 createBrowserWeb）
         sideWeb?.setBackgroundColor(palette.background)
         sideShadow?.setFill(palette.background)
         addressPage.refresh(palette)
@@ -1059,7 +1062,9 @@ class MainActivity : Activity() {
             builtInZoomControls = true
             displayZoomControls = false
         }
-        web.setBackgroundColor(ErgoTheme.palette(isDark()).background)
+        // 外部网页没写背景色时按白底画，深色外观下也是（和手机上的 Chrome、鸿蒙 ArkWeb 一样，票 386）：跟着 App 用深色底时，
+        // 这种网页和 WebView 自己的"打不开"页都是黑底黑字。网页声明了深色配色（color-scheme）的，WebView 自己画深色底
+        web.setBackgroundColor(Color.WHITE)
         web.visibility = View.INVISIBLE
         web.webViewClient = BrowserClient()
         web.webChromeClient = BrowserChrome()
@@ -1157,6 +1162,24 @@ class MainActivity : Activity() {
         /** 网页弹出的选文件对话框由页面桥那边接管（问"让二狗选 / 自己选"） */
         override fun onShowFileChooser(webView: WebView, filePathCallback: ValueCallback<Array<Uri>>, fileChooserParams: FileChooserParams): Boolean =
             pageControl.intercept(filePathCallback, fileChooserParams)
+    }
+
+    /**
+     * 用手机的系统浏览器打开（原生桥的 openSystemBrowser，票 386）：只收 https，交给系统按链接找浏览器（和"浏览"⋮ 菜单的"用系统浏览器打开"一样），
+     * 下载、安装都是那个浏览器和系统的事，用户熟悉。回 ok、refused（不是 https）、failed（手机上没有能打开它的应用）
+     */
+    private fun openInSystemBrowser(url: String): String {
+        if (!isHttpsUrl(url)) {
+            Log.w(TAG, "system browser refused a non-https url")
+            return "refused"
+        }
+        return try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE))
+            "ok"
+        } catch (e: Exception) {
+            Log.w(TAG, "open in system browser failed", e)
+            "failed"
+        }
     }
 
     /** 交给系统：tel: 拉起拨号界面，别的（mailto:、sms:、别的 App 的链接）按链接找能打开它的应用 */

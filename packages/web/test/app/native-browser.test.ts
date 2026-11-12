@@ -4,7 +4,7 @@
 // 看的结果里多文本框、上传框、下拉框（现在的值、多行、accept、multiple、选项、藏起来的）；按编号找框经 browserPage 的 refField；
 // 交文件能按编号交（先找框、再交进它的框编号）。
 import { describe, expect, test } from "vitest";
-import { followExternalLinks, type LinkClick, type LinkLike, openInNativeBrowser, watchNativeBrowser } from "../../src/app/browser-shell.ts";
+import { followExternalLinks, type LinkClick, type LinkLike, openInNativeBrowser, SYSTEM_BROWSER_LINK_ATTR, watchNativeBrowser } from "../../src/app/browser-shell.ts";
 import { detectNativeApp } from "../../src/app/native-app.ts";
 import { BLANK_BROWSER, isExternalWebUrl, type NativeBrowserScope, parseBrowserState, parsePageEvent, wrapNativeBrowser } from "../../src/app/native-browser.ts";
 
@@ -170,12 +170,14 @@ describe("页面里点外链改到'浏览'里打开", () => {
     expect(opened).toEqual(["https://example.com/news"]);
   });
 
-  test("二狗自己的链接、带下载的、mailto、按着修饰键、被别人处理过的：不管", () => {
+  test("二狗自己的链接、带下载的、要交给系统浏览器的、mailto、按着修饰键、被别人处理过的：不管", () => {
     const doc = fakeDoc();
     const opened: string[] = [];
     followExternalLinks(doc, ORIGIN, (t) => t as LinkLike | undefined, (url) => opened.push(url));
     expect(doc.click(link(`${ORIGIN}/#/tasks`))).toBe(false);
     expect(doc.click(link("https://example.com/a.pdf", ["download"]))).toBe(false);
+    // 要交给手机系统浏览器的（"下载新版"，票 386）：链接自己处理
+    expect(doc.click(link("https://github.com/x/releases/latest/download/a.apk", [SYSTEM_BROWSER_LINK_ATTR]))).toBe(false);
     expect(doc.click(link("mailto:a@b.c"))).toBe(false);
     expect(doc.click(link("https://example.com/"), { ctrlKey: true })).toBe(false);
     expect(doc.click(link("https://example.com/"), { defaultPrevented: true })).toBe(false);

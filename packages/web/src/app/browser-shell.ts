@@ -5,6 +5,7 @@
 //   /apps/… 拼成完整地址，带着 App 里的设备凭证 cookie）；
 // - followExternalLinks：页面里点外部网站的链接（聊天里 agent 给的、附件预览里的、target=_blank 的）在壳里改到"浏览"里打开，
 //   不再跳系统浏览器（App 的 interceptLoad 也会兜住主页面的外链跳转，这里先在网页里拦下，不用绕一圈）。
+//   标了 SYSTEM_BROWSER_LINK_ATTR 的不拦：那是要交给手机系统浏览器的（"下载新版"，票 386），由链接自己处理。
 // 不在壳里（电脑、手机浏览器）这几处都不调：openInAppBrowser 照旧嵌入框叠层，外链照旧新开标签页。
 // 不碰浏览器的全局变量：页面、文档换成接口，测试在 Node 里跑（test/app/browser-shell.test.ts）；接到页面上的在 page-browse.ts、page-in-app-browser.ts。
 import { BLANK_BROWSER, type BrowserState, isExternalWebUrl, type NativeBrowser } from "./native-browser.ts";
@@ -60,6 +61,9 @@ export function openInNativeBrowser(browser: NativeBrowser, url: string, origin:
   return true;
 }
 
+/** 链接上标了它的（值不看）：要交给手机的系统浏览器，followExternalLinks 不拦，由链接自己的点击处理（ui/app-upgrade.tsx） */
+export const SYSTEM_BROWSER_LINK_ATTR = "data-system-browser";
+
 /** 点击事件里用到的 */
 export interface LinkClick {
   readonly defaultPrevented: boolean;
@@ -87,13 +91,13 @@ export interface ClickTarget {
 
 /**
  * 页面里点外部网站的链接改到"浏览"里打开：捕获阶段看点的是不是 <a href>（closestLink 从点到的元素往上找），是外部的 http(s) 链接、
- * 没被别人处理过、不是带下载的、是普通的左键单击，就拦下来交给 open。返回停下
+ * 没被别人处理过、不是带下载的、不是要交给系统浏览器的、是普通的左键单击，就拦下来交给 open。返回停下
  */
 export function followExternalLinks(doc: ClickTarget, origin: string, closestLink: (target: unknown) => LinkLike | undefined, open: (url: string) => void): () => void {
   const onClick = (e: LinkClick) => {
     if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
     const link = closestLink(e.target);
-    if (!link || link.hasAttribute("download") || !isExternalWebUrl(link.href, origin)) return;
+    if (!link || link.hasAttribute("download") || link.hasAttribute(SYSTEM_BROWSER_LINK_ATTR) || !isExternalWebUrl(link.href, origin)) return;
     e.preventDefault();
     open(link.href);
   };

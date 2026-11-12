@@ -33,8 +33,8 @@ function bridgeList(name: string): string[] {
   return (match[1] ?? "").match(/"[A-Za-z.]+"/g)?.map((n) => n.slice(1, -1)) ?? [];
 }
 
-/** 只有安卓有、鸿蒙没有的方法：在 App 里更新 App（鸿蒙要用户自己签名，装不了） */
-const ANDROID_ONLY = ["installAppUpdate"];
+/** 只有安卓有、鸿蒙没有的方法：在 App 里更新 App（鸿蒙要用户自己签名，装不了）、用系统浏览器打开（票 386，鸿蒙升级照旧看教程） */
+const ANDROID_ONLY = ["installAppUpdate", "openSystemBrowser"];
 
 const mainMethods = () => [...bridgeList("NATIVE_BRIDGE_MIRROR_METHODS"), ...bridgeList("NATIVE_BRIDGE_FIRE_METHODS"), ...bridgeList("NATIVE_BRIDGE_PROMISE_METHODS")];
 
@@ -101,7 +101,7 @@ describe("原生桥的方法名和网页一侧一样", () => {
     for (const name of ["notifyPrepare", "notifyShow"]) expect(bridgeList("NATIVE_BRIDGE_PROMISE_METHODS")).toContain(name);
   });
 
-  test("和鸿蒙的方法表比：除了第一版不做的手机数据源，一个不少；多的只有安卓才有的 App 内更新", () => {
+  test("和鸿蒙的方法表比：除了第一版不做的手机数据源，一个不少；多的只有安卓才有的 App 内更新、用系统浏览器打开", () => {
     const harmony = read(path.join(REPO, "frontend/harmony/entry/src/main/ets/bridge/NativeBridge.ets"));
     const all = /NATIVE_BRIDGE_METHODS: string\[\] = \[([^\]]*)\]/.exec(harmony)![1]!.match(/'[A-Za-z]+'/g)!.map((n) => n.slice(1, -1));
     expect(all.filter((name) => !name.startsWith("phone")).toSorted()).toEqual(mainMethods().filter((name) => !ANDROID_ONLY.includes(name)).toSorted());
@@ -110,7 +110,7 @@ describe("原生桥的方法名和网页一侧一样", () => {
   test("App 内更新（票 399）：installAppUpdate 回 Promise，只开给主界面、侧边栏那份没有；进度推给网页的 __ergoAppUpdate", () => {
     const web = read(path.join(REPO, "packages/web/src/app/native-app-update.ts"));
     const name = /NATIVE_APP_UPDATE_METHOD = "([A-Za-z]+)"/.exec(web)![1]!;
-    expect(ANDROID_ONLY).toEqual([name]);
+    expect(ANDROID_ONLY).toContain(name);
     expect(bridgeList("NATIVE_BRIDGE_PROMISE_METHODS")).toContain(name);
     const side = [...bridgeList("NATIVE_SIDE_MIRROR_METHODS"), ...bridgeList("NATIVE_SIDE_FIRE_METHODS"), ...bridgeList("NATIVE_SIDE_PROMISE_METHODS")];
     expect(side).not.toContain(name);
@@ -120,6 +120,25 @@ describe("原生桥的方法名和网页一侧一样", () => {
     const failures = /APP_UPDATE_FAILURES = \[([^\]]*)\]/.exec(web)![1]!.match(/"[a-z]+"/g)!.map((n) => n.slice(1, -1));
     const kotlinFailures = [...kotlin("update/UpdateChecks.kt").matchAll(/const val [A-Z]+ = "([a-z]+)"/g)].map((m) => m[1]!);
     expect(kotlinFailures.toSorted()).toEqual(failures.toSorted());
+  });
+
+  test("用系统浏览器打开（票 386）：openSystemBrowser 回 Promise，只开给主界面、侧边栏那份没有；App 只收 https", () => {
+    const name = /NATIVE_SYSTEM_BROWSER_METHOD = "([A-Za-z]+)"/.exec(read(path.join(REPO, "packages/web/src/app/native-app.ts")))![1]!;
+    expect(ANDROID_ONLY).toContain(name);
+    expect(bridgeList("NATIVE_BRIDGE_PROMISE_METHODS")).toContain(name);
+    const side = [...bridgeList("NATIVE_SIDE_MIRROR_METHODS"), ...bridgeList("NATIVE_SIDE_FIRE_METHODS"), ...bridgeList("NATIVE_SIDE_PROMISE_METHODS")];
+    expect(side).not.toContain(name);
+    const main = kotlin("MainActivity.kt");
+    const open = main.slice(main.indexOf("private fun openInSystemBrowser"), main.indexOf("private fun openOutside"));
+    expect(open).toMatch(/if \(!isHttpsUrl\(url\)\) \{[\s\S]{0,120}return "refused"/);
+    expect(kotlin("bridge/NativeBridge.kt")).toContain('"openSystemBrowser" -> host.openSystemBrowser(call.string(0)) { call.reply(it) }');
+  });
+
+  test("内置浏览器按白底画网页（票 386）：深色外观下也不跟着 App 换底色，不然没写背景色的网页是黑底黑字", () => {
+    const main = kotlin("MainActivity.kt");
+    const create = main.slice(main.indexOf("private fun createBrowserWeb"), main.indexOf("private fun downloadListener"));
+    expect(create).toContain("web.setBackgroundColor(Color.WHITE)");
+    expect(main).not.toMatch(/browser\.web\?\.setBackgroundColor/);
   });
 
   test("App 内更新要的权限和接收器都在：安装未知应用、更新自己不弹确认；两个接收器都不导出", () => {

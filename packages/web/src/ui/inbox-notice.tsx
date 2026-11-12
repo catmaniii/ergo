@@ -27,6 +27,7 @@ import {
   VOICE_REFERENCE_IMPORT_ACTION,
   WATCH_CATEGORIES_REPAIR_ACTION,
 } from "../state/index.ts";
+import { AppUpgradeLink } from "./app-upgrade.tsx";
 import { ReopenDialog } from "./detail/StageDetail.tsx";
 import { realStageSource } from "./detail/stage-source.ts";
 
@@ -110,12 +111,12 @@ export function NoticeActions({ item, small = false, className = "auth-actions" 
       {item.actions.map((a, i) => {
         const look = `btn${size} ${i === 0 ? "primary" : "ghost"}`;
         const page = settingsLink(item.notice, a);
-        // 去下载或看教程：按那台手机是哪种 App，不看现在是在哪台设备上点的
+        // 去下载或看教程：按那台手机是哪种 App，不看现在是在哪台设备上点的；在新版安卓 App 里点下载交给系统浏览器（票 386）
         if (item.notice === "app_outdated" && a === APP_UPGRADE_ACTION) {
           return (
-            <a key={a} className={look} href={appUpgradeLink((item.data as AppOutdatedNoticeData | undefined)?.platform, activeLocale().meta.id).url} target="_blank" rel="noopener noreferrer">
+            <AppUpgradeLink key={a} className={look} link={appUpgradeLink((item.data as AppOutdatedNoticeData | undefined)?.platform, activeLocale().meta.id)}>
               {inboxActionText(a)}
-            </a>
+            </AppUpgradeLink>
           );
         }
         return page ? (
