@@ -342,6 +342,7 @@
   "protocol.pairing.duration.hours": "{n} 小时",
   "protocol.pairing.duration.minutes": "{n} 分钟",
   "protocol.pairing.requestTitle": "新设备请求配对：{name}",
+  "protocol.pairing.device.app": "二狗 App",
   "protocol.pairing.device.harmonyBrowser": "鸿蒙浏览器",
   "protocol.pairing.device.browser": "浏览器",
   "protocol.pairing.device.unknownOs": "未知系统",

@@ -70,6 +70,12 @@ fun originOf(href: String): String {
 /** 只开 http、https（别的协议交给系统） */
 fun isWebUrl(url: String): Boolean = originOf(url).isNotEmpty()
 
+/** 能交给系统浏览器的地址（原生桥的 openSystemBrowser，票 386）：只收 https，要有主机名，不带用户名密码 */
+fun isHttpsUrl(url: String): Boolean {
+    val parsed = parseWeb(url) ?: return false
+    return parsed.scheme == "https" && parsed.host.isNotEmpty() && parsed.userInfo.isEmpty()
+}
+
 /**
  * 用户填的地址：必须是 https；本机调试时 http://127.0.0.1、http://localhost 例外（端口随意）。
  * 没写 scheme 的按 https 补上。地址里不能带用户名密码。规矩和鸿蒙的 checkServerAddress 一字不差

@@ -16,6 +16,8 @@
 // 网页开场、换了语言时把当前语言的这几句交过去（appTexts、followLocaleInApp）；旧版 App 没有，照旧中文。
 // 有手机这一组方法（新版 App）时 NativeApp.phone 是它的包装（native-phone.ts）：从通讯录挑人、读手机日历；没有时这两样做不了。
 // 有 installAppUpdate（新版安卓 App）时 NativeApp.appUpdate 是它的包装（native-app-update.ts）：在 App 里更新 App；没有时退回成从二狗下载 APK。
+// 有 openSystemBrowser（新版安卓 App，票 386）时 NativeApp.openSystemBrowser 是它的包装：用手机的系统浏览器打开一个 https 地址，
+// 下载、安装交给系统（"下载新版"走它，ui/app-upgrade.tsx）；没有时照旧（主页面的外链进"浏览"，或者 App 交给系统）。
 // 有 videoFullscreen（新版 App，票 407）时 NativeApp.videoFullscreen 是 true：App 接住了网页的全屏（标准 Fullscreen API，
 // 安卓 onShowCustomView、鸿蒙 onFullScreenEnter），视频播放器的全屏按钮点了是真全屏；旧版 App 没有，播放器藏掉全屏按钮（videoFullscreenAllowed）。
 // 有 openNavigation（新版鸿蒙 App，票 434）时 NativeApp.navigation 是它的包装（native-navigation.ts）：地图卡片上"用手机地图导航"
@@ -64,6 +66,11 @@ export interface NativeApp {
   readonly videoFullscreen?: true;
   /** 拉起系统的"选导航应用"面板（新版鸿蒙 App，票 434）；旧版鸿蒙 App、安卓 App 没有 */
   readonly navigation?: NativeNavigation;
+  /**
+   * 用手机的系统浏览器打开（安卓，票 386）：只收 https 地址，下载、安装交给系统。回打开了没有：
+   * 不是 https、手机上没有浏览器、App 出错都回 false，调用方照旧打开。旧版 App 和鸿蒙没有
+   */
+  readonly openSystemBrowser?: (url: string) => Promise<boolean>;
 }
 
 /** 交给 App 的原生的字：二狗现在用的语言、harmony.* 的 key → 当前语言的句子（缺的已经用中文补上） */
@@ -135,6 +142,34 @@ export function nativeAppReport(scope: { ergoNative?: unknown } & UserAgentScope
 /** 原生桥上说明"App 能真全屏"的方法名（无参数、回 true；两个 App 的原生桥上也叫它，票 407） */
 export const NATIVE_VIDEO_FULLSCREEN_METHOD = "videoFullscreen";
 
+/** 原生桥上"用系统浏览器打开"的方法名（frontend/android 的 NativeBridge.kt 里也是它；鸿蒙没有，票 386） */
+export const NATIVE_SYSTEM_BROWSER_METHOD = "openSystemBrowser";
+
+/** 能交给系统浏览器的地址：只有 https（App 那边也只收 https），带用户名密码的、写法不对的不算 */
+export function systemBrowserUrl(url: string): string | undefined {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" && parsed.hostname !== "" && parsed.username === "" && parsed.password === "" ? parsed.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** 原生桥上有 openSystemBrowser（新版安卓 App）时的包装：App 回 "ok" 才算打开了；没有这个方法是 undefined */
+function wrapSystemBrowser(bridge: BridgeObject): ((url: string) => Promise<boolean>) | undefined {
+  const fn = bridge[NATIVE_SYSTEM_BROWSER_METHOD];
+  if (typeof fn !== "function") return undefined;
+  return async (url) => {
+    const href = systemBrowserUrl(url);
+    if (href === undefined) return false;
+    try {
+      return (await (fn as (url: string) => unknown).call(bridge, href)) === "ok";
+    } catch {
+      return false;
+    }
+  };
+}
+
 /**
  * 页面的全局对象里有没有 App 注入的原生桥；没有、形状不对、App 拒绝了这个页面都返回 undefined。
  * 有原生录音时在 scope 上登记 App 推送用的 __ergoVoice，有原生浏览器时登记 __ergoBrowser。
@@ -156,6 +191,7 @@ export function detectNativeApp(scope: { ergoNative?: unknown } & UserAgentScope
   // 有这个方法就说明 App 能真全屏（方法本身无参数、回 true，网页不用调它）
   const videoFullscreen = typeof raw[NATIVE_VIDEO_FULLSCREEN_METHOD] === "function";
   const navigation = wrapNativeNavigation(raw);
+  const openSystemBrowser = wrapSystemBrowser(raw);
   return {
     platform: appPlatformOf(scope.navigator?.userAgent ?? ""),
     version,
@@ -172,6 +208,7 @@ export function detectNativeApp(scope: { ergoNative?: unknown } & UserAgentScope
     ...(appUpdate ? { appUpdate } : {}),
     ...(videoFullscreen ? { videoFullscreen: true as const } : {}),
     ...(navigation ? { navigation } : {}),
+    ...(openSystemBrowser ? { openSystemBrowser } : {}),
   };
 }
 

@@ -402,7 +402,7 @@ If the address is recognizably a tailnet one, the Tailscale item comes first.
 
 **Step by step:**
 
-1. On the phone you see **This device isn't paired yet**. You can change the device name; it's what the approver sees.
+1. On the phone you see **This device isn't paired yet**. You can change the device name; it's what the approver sees. By default it's the browser and system (for example "Chrome · Android"); in the app it's "ergo app · Android" or "ergo app · HarmonyOS".
 2. Tap **Request pairing**.
 
    ![The pairing page on the phone: the device name and "Request pairing", with "Change address" below it in the app](images/mobile/07-pairing.png)
@@ -479,7 +479,7 @@ If the address is recognizably a tailnet one, the Tailscale item comes first.
 **When it's too old you'll see:**
 
 - A bar at the very top of the app: **The ergo app needs updating to x.y**, with a button to go and update.
-- The same reminder in your inbox, which also goes to the notification bar while the app is in the background. Each phone is only reminded once.
+- The same reminder in your inbox, which also goes to the notification bar while the app is in the background. Each phone is only reminded once. Tap its **Update the app** in that phone's Android app: when ergo on your computer carries the package, it takes you straight to Settings → Data & devices → Device pairing, at this phone's **Update**; otherwise it goes to the download (see below).
 
 **Android: tap Update in the app.** ergo on your computer carries the Android app of the same version, so the phone downloads it from ergo instead of GitHub, which is also fast in mainland China.
 
@@ -493,7 +493,7 @@ When it doesn't install, the reason shows under **Update**: the download failed 
 
 **What we tested and what we didn't:** steps 1 to 5, plus the three refusals (different signature, not newer than the installed app, checksum mismatch), on an Android 16 emulator in English: the first time it went to **Install unknown apps**, carried on after allowing it, and Android showed no confirmation dialog; once installed, the app didn't open by itself (since Android 10 apps can't open their own screens from the background), and tapping the notification opened it. **Not tested:** real phones, Android versions before 12, and how each brand words the prompts or whether it asks to confirm.
 
-**Older apps (0.4.2 and earlier)** don't have this, so the first update to a version that does goes like this: tap **Update** the same way, and the app downloads the package. Choose where to save it (the file is called `ergo-android-x.y.z.apk`), then open it in the phone's Files app to install over the old version. The first time, Android asks whether to allow installs from this source; allow it, go back to Files and tap the file again. After that, every update is one tap in the app. When ergo on your computer doesn't carry the package (for example a source install whose `downloads/` version doesn't match), the button is **Download** and takes you to the releases page; see [Android app](#android-app).
+**Older apps (0.4.2 and earlier)** don't have this, so the first update to a version that does goes like this: tap **Update** the same way, and the app downloads the package. Choose where to save it (the file is called `ergo-android-x.y.z.apk`), then open it in the phone's Files app to install over the old version. The first time, Android asks whether to allow installs from this source; allow it, go back to Files and tap the file again. After that, every update is one tap in the app. When ergo on your computer doesn't carry the package (for example a source install whose `downloads/` version doesn't match), the button is **Download** and takes you to the releases page; see [Android app](#android-app). In apps newer than 0.4.4, **Download** (and **Update the app** on the to-do item) opens the download link in the phone's own browser, so downloading and installing look the way Android always does. Apps up to 0.4.4 open it in **Browse**: choose where to save it, then open it in the phone's Files app, or tap it under **Downloads** in the Browse ⋮ menu (from 0.4.3 this installs directly; the first time, Android asks whether to allow ergo to install apps).
 
 **HarmonyOS:** tap **Installation guide** and sign and install again as in [HarmonyOS app](#harmonyos-app). HarmonyOS never shows **new version**: both apps share one version number, so the HarmonyOS package gets a new number even when nothing in it changed, and ergo can't install it for you (you sign it yourself). It only reminds you when the app is below the minimum version. You don't need to pair again.
 

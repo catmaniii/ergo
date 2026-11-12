@@ -1,15 +1,13 @@
 // 待我处理事项的种类名和通知的动作按钮（从 pages/InboxPage.tsx 抽出来）：待办详情（NoticeView）和会话里的"等你处理"栏
 // （ui/conversation/InboxBar.tsx）用同一份——点了哪个动作都是同一个请求（inbox_action handle，choice 是这个动作），两边一起变；
-// 去设置里某一页修的动作是去那一页的链接，不算处理；"App 太旧了"的"去升级"是去下载或看教程的外部链接，也不算处理。
+// 去设置里某一页修的动作是去那一页的链接，不算处理；"App 太旧了"的"去升级"是去下载或看教程的外部链接（能一键更新时是去设置 · 设备配对的"更新"），也不算处理。
 import { useState } from "react";
 import { type MorePage, toHash } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
 import { CARD_TYPE_LABEL } from "../model/cards.ts";
 import {
-  activeLocale,
   APP_UPGRADE_ACTION,
   type AppOutdatedNoticeData,
-  appUpgradeLink,
   COMPONENTS_INSTALL_ACTION,
   COMPONENTS_UPDATE_ACTION,
   DOCTOR_OPEN_ACTION,
@@ -27,6 +25,7 @@ import {
   VOICE_REFERENCE_IMPORT_ACTION,
   WATCH_CATEGORIES_REPAIR_ACTION,
 } from "../state/index.ts";
+import { AppUpgradeNoticeLink } from "./app-upgrade.tsx";
 import { ReopenDialog } from "./detail/StageDetail.tsx";
 import { realStageSource } from "./detail/stage-source.ts";
 
@@ -110,12 +109,13 @@ export function NoticeActions({ item, small = false, className = "auth-actions" 
       {item.actions.map((a, i) => {
         const look = `btn${size} ${i === 0 ? "primary" : "ghost"}`;
         const page = settingsLink(item.notice, a);
-        // 去下载或看教程：按那台手机是哪种 App，不看现在是在哪台设备上点的
+        // 去下载或看教程：按那台手机是哪种 App，不看现在是在哪台设备上点的；在新版安卓 App 里点下载交给系统浏览器。
+        // 在这台手机自己的新版安卓 App 里、二狗带着新的安装包时，去设置 · 设备配对的"更新"（票 386）
         if (item.notice === "app_outdated" && a === APP_UPGRADE_ACTION) {
           return (
-            <a key={a} className={look} href={appUpgradeLink((item.data as AppOutdatedNoticeData | undefined)?.platform, activeLocale().meta.id).url} target="_blank" rel="noopener noreferrer">
+            <AppUpgradeNoticeLink key={a} className={look} data={item.data as AppOutdatedNoticeData | undefined}>
               {inboxActionText(a)}
-            </a>
+            </AppUpgradeNoticeLink>
           );
         }
         return page ? (

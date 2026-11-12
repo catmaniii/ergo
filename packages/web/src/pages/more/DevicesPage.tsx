@@ -4,6 +4,7 @@
 // 领到凭证、还没带着它来过的设备标"等待首次使用"（领取的响应可能丢了），到期还没用过就自动作废。
 // 开过手机 App 的设备写 App 的版本，太旧的标要升到哪一版（ADR-0047）。安卓手机的 App 比二狗带的安装包旧时写"有新版 x.y.z"，
 // 就是这台手机的那一行（在 App 里开着设置）多一个"更新"按钮（ui/app-update.tsx，票 399）；鸿蒙不出（装不了，版本号还是两边共用的）。
+// 待办"App 太旧了"那条的"去升级"点过来的（#/more/devices/update，focusUpdate）：滚到这个"更新"、那一行闪一下（票 386）。
 // 时长、位数都取共享协议包里的常量。
 // 多选管理，照待办的多选——
 // - 标题栏"多选"、行的长按 / 右键菜单和行尾"⋯"是同一个菜单（延期…、吊销、删除、多选），贴着按的地方弹出；
@@ -13,7 +14,7 @@
 //   "本设备已被吊销"那一页。个数、跳过、确认的话都在 state/device-select.ts；跳过了几台、为什么在页面底部说一声。
 // 多选模式和看板、待办同一套（ui/select-mode.tsx）——标题栏的"多选"换成"退出多选"，操作栏右边"完成"换成"✕ 退出多选"，Esc 也能退出。
 // 这一页自己排一栏（MorePage 不再替它包滚动区）：标题栏、滚动区、多选时的底部操作栏（和待办一样贴在一栏的底边）。
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAccess } from "../../app/access.tsx";
 import { pageAppReport } from "../../app/page-native.ts";
 import { useStore } from "../../app/store.tsx";
@@ -98,7 +99,20 @@ interface DeviceEntry {
   soon?: number | undefined;
 }
 
-export function DevicesPage({ title, onBack, onPreviewPairing, onShowQr }: { title: string; onBack?: (() => void) | undefined; onPreviewPairing?: (() => void) | undefined; onShowQr(): void }) {
+export function DevicesPage({
+  title,
+  onBack,
+  onPreviewPairing,
+  onShowQr,
+  focusUpdate = false,
+}: {
+  title: string;
+  onBack?: (() => void) | undefined;
+  onPreviewPairing?: (() => void) | undefined;
+  onShowQr(): void;
+  /** 定位到这台手机那一行的"更新"（待办"App 太旧了"那条的"去升级"点过来的） */
+  focusUpdate?: boolean;
+}) {
   const { ui, deviceBatchAction } = useStore();
   const access = useAccess();
   const toast = useToast();
@@ -153,6 +167,7 @@ export function DevicesPage({ title, onBack, onPreviewPairing, onShowQr }: { tit
         key={e.device.id}
         entry={e}
         self={e.device.id === self}
+        focusUpdate={focusUpdate && e.device.id === self}
         appUpdate={appUpdate}
         selecting={selecting}
         checked={picked.has(e.device.id)}
@@ -243,6 +258,7 @@ export function DevicesPage({ title, onBack, onPreviewPairing, onShowQr }: { tit
 function DeviceRow({
   entry,
   self,
+  focusUpdate,
   appUpdate,
   selecting,
   checked,
@@ -252,6 +268,8 @@ function DeviceRow({
 }: {
   entry: DeviceEntry;
   self: boolean;
+  /** 这一行要定位到"更新"（就是这台、从待办点过来的） */
+  focusUpdate: boolean;
   appUpdate: AppUpdateView | undefined;
   selecting: boolean;
   checked: boolean;
@@ -266,6 +284,14 @@ function DeviceRow({
   const canUpdateHere = update !== undefined && self && !selecting && pageAppReport()?.platform === "android";
   const rowRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
+  // 从待办点过来的：二狗带的安装包问到了、"更新"画出来了，滚到它（只滚一次），这一行闪一下
+  const focusing = focusUpdate && canUpdateHere;
+  const located = useRef(false);
+  useEffect(() => {
+    if (!focusing || located.current) return;
+    located.current = true;
+    rowRef.current?.querySelector("[data-action^=app-update]")?.scrollIntoView({ block: "center" });
+  }, [focusing]);
   const [menu, setMenu] = useState<"row" | "more">();
   const press = useLongPress(() => setMenu("row"), { disabled: selecting });
   const act = (action: DeviceBatchAction) => {
@@ -296,7 +322,7 @@ function DeviceRow({
     </>
   );
   return (
-    <div ref={rowRef} className={`device-row${inactive ? " device-revoked" : ""}${checked ? " picked" : ""}`} {...press}>
+    <div ref={rowRef} className={`device-row${inactive ? " device-revoked" : ""}${checked ? " picked" : ""}${focusing ? " device-flash" : ""}`} {...press}>
       {selecting ? (
         <button type="button" className="device-main" aria-pressed={checked} onClick={onToggle}>
           {body}

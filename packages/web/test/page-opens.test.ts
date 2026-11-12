@@ -86,8 +86,9 @@ const PAGES = [
   "#/more/map/1.2834%2C103.8607%2C14",
   "#/more/data-sources/phone-location",
   "#/more/data-sources/没有这个",
-  // 设备配对的二维码界面
+  // 设备配对的二维码界面；定位到这台手机的"更新"（原型里这台不是安卓 App，照常是设备配对）
   "#/more/devices/qr",
+  "#/more/devices/update",
   // 设置 · 服务定位到一个服务（体检里点过来的样子，原型编的服务管家）
   "#/more/services/ergo-daemon--p-ledger-web",
   "#/more/data-sources/import_folder",
@@ -3006,10 +3007,39 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
         await upgrade.waitFor();
         expect(await upgrade.getAttribute("href")).toMatch(/ergo-android-debug\.apk$/);
         expect(await upgrade.getAttribute("target")).toBe("_blank");
+        expect(await upgrade.getAttribute("data-system-browser")).toBeNull();
         expect(await page.locator(".auth-actions button", { hasText: "知道了" }).count()).toBe(1);
         expect(errors).toEqual([]);
       } finally {
         await page.close();
+      }
+    }, 60_000);
+
+    test("新版安卓 App（原生桥上有 openSystemBrowser）：待办里的'去升级'交给手机的系统浏览器，页面不跳走（票 386）", async () => {
+      const context = await browser!.newContext({ viewport: PHONE, userAgent: ANDROID_UA });
+      await context.addInitScript(
+        `window.__opened = []; window.ergoNative = { appVersion: () => "99.0.0", log() {}, openSystemBrowser(url) { window.__opened.push(url); return Promise.resolve("ok"); } };`,
+      );
+      const page = await context.newPage();
+      const errors: string[] = [];
+      page.on("pageerror", (e) => errors.push(String(e)));
+      const popups: string[] = [];
+      context.on("page", (p) => popups.push(p.url()));
+      try {
+        await page.goto(pageUrl);
+        await page.locator("nav").first().waitFor();
+        await page.evaluate("location.hash = '#/inbox/i-app-outdated'");
+        const upgrade = page.locator(".auth-actions a", { hasText: "去升级" });
+        await upgrade.waitFor();
+        expect(await upgrade.getAttribute("data-system-browser")).not.toBeNull();
+        const before = page.url();
+        await upgrade.click();
+        await expect.poll(() => page.evaluate("window.__opened"), { timeout: 5000 }).toEqual(["https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk"]);
+        expect(page.url()).toBe(before);
+        expect(popups).toEqual([]);
+        expect(errors).toEqual([]);
+      } finally {
+        await context.close();
       }
     }, 60_000);
   });

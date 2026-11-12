@@ -14,6 +14,8 @@ import com.catmaniii.ergo.voice.NativeVoice
  * - promise：回 Promise<string>。
  * videoFullscreen（票 407）：无参数、回 true，说明这个 App 接了网页视频的真全屏（MainActivity 的 onShowCustomView），网页认它在不在才给全屏按钮。
  * 只开给主界面：侧边栏那份和鸿蒙一样没有（鸿蒙侧边栏那个 Web 组件没接全屏）。
+ * openSystemBrowser（票 386）：用手机的系统浏览器打开一个 https 地址（"下载新版"走它，下载、安装交给系统）；回 ok / refused（不是 https）/ failed（没有能打开的应用）。
+ * 只有安卓有、只开给主界面。
  */
 val NATIVE_BRIDGE_MIRROR_METHODS = listOf("appVersion", "safeArea", "setTexts", "browserAttach", "notifyState", "notifyTakeOpen", "notifyResetAsked", "videoFullscreen")
 val NATIVE_BRIDGE_FIRE_METHODS = listOf("log", "editServer", "setColorMode", "setCanGoBack", "voiceDiscard", "voiceRelease", "browserLayout", "browserLoad", "browserNav", "browserSide")
@@ -23,6 +25,8 @@ val NATIVE_BRIDGE_PROMISE_METHODS = listOf(
     "browserPage", "browserFileChunk", "browserFiles", "browserChooser", "browserDiscard", "browserDoc", "browserTool",
     // 在 App 里更新 App（票 399）：只有安卓有、只开给主界面（侧边栏那份没有）
     "installAppUpdate",
+    // 用系统浏览器打开（票 386）：只有安卓有、只开给主界面
+    "openSystemBrowser",
 )
 
 val MAIN_METHODS = BridgeMethods(NATIVE_BRIDGE_MIRROR_METHODS, NATIVE_BRIDGE_FIRE_METHODS, NATIVE_BRIDGE_PROMISE_METHODS)
@@ -79,6 +83,8 @@ interface BridgeHost {
     fun browserTool(op: String, json: String, reply: (String) -> Unit)
     /** 在 App 里更新 App：json 是要装的安装包（{ url, sha256, version, code, size }），回最后一步 */
     fun installAppUpdate(json: String, reply: (String) -> Unit)
+    /** 用手机的系统浏览器打开（只收 https）：回 ok / refused / failed */
+    fun openSystemBrowser(url: String, reply: (String) -> Unit)
 }
 
 /**
@@ -125,6 +131,7 @@ class NativeBridge(private val host: BridgeHost, private val voice: NativeVoice)
             "browserDoc" -> host.browserDoc(call.string(0), call.string(1)) { call.reply(it) }
             "browserTool" -> host.browserTool(call.string(0), call.string(1).ifEmpty { "{}" }) { call.reply(it) }
             "installAppUpdate" -> host.installAppUpdate(call.string(0)) { call.reply(it) }
+            "openSystemBrowser" -> host.openSystemBrowser(call.string(0)) { call.reply(it) }
             else -> Log.w(TAG, "bridge method not handled: ${call.method}")
         }
     }

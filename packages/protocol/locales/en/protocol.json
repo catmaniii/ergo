@@ -350,6 +350,7 @@
   "protocol.pairing.duration.minutes_one": "{n} minute",
   "protocol.pairing.duration.minutes_other": "{n} minutes",
   "protocol.pairing.requestTitle": "New device wants to pair: {name}",
+  "protocol.pairing.device.app": "ergo app",
   "protocol.pairing.device.harmonyBrowser": "HarmonyOS Browser",
   "protocol.pairing.device.browser": "Browser",
   "protocol.pairing.device.unknownOs": "Unknown OS",

@@ -34,6 +34,17 @@ fun frameOf(value: JSONObject, dpr: Double): BrowserFrame? {
 }
 
 /**
+ * 一页"加载完了"（onPageFinished）之后浏览器开着哪一页：只认 WebView 历史里当前那一条（committed）。
+ * 一次跳转变成下载时没有新的一页，WebView 还是会报一次加载完、带着下载地址：不认它，回还开着的那一页，一页都没有是空串
+ * （不然下载地址进了"最近访问"、地址栏也写着它，票 386）。报的不是网址（about:blank 这些）照旧不动，回 current
+ */
+fun pageAfterLoad(reported: String?, committed: String?, current: String): String = when {
+    reported == null || !isWebUrl(reported) -> current
+    committed != null && isWebUrl(committed) -> committed
+    else -> ""
+}
+
+/**
  * 原生的内置浏览器（对应鸿蒙 browser/InAppBrowser.ets，"浏览"页签）：另一个 WebView，叠在二狗的网页上面、盖住"浏览"页签的内容区
  * （位置大小由网页经原生桥 browserLayout 报来，MainActivity 摆）。这里是它的状态和动作。
  * - 不挂二狗的原生桥：外部网页拿不到二狗的任何原生能力；
@@ -143,11 +154,17 @@ class InAppBrowser(
     }
 
     fun pageEnd(address: String?) {
-        if (address != null && isWebUrl(address)) url = address
+        url = pageAfterLoad(address, web?.copyBackForwardList()?.currentItem?.url, url)
         loading = false
-        progress = 100
-        val now = web?.title ?: ""
-        if (now.isNotEmpty() && !isWebUrl(now)) title = now
+        if (url.isEmpty()) {
+            // 打开的第一个地址就是下载：回到空的"浏览"页（同 downloadStarted）
+            title = ""
+            progress = 0
+        } else {
+            progress = 100
+            val now = web?.title ?: ""
+            if (now.isNotEmpty() && !isWebUrl(now)) title = now
+        }
         pushState()
     }
 

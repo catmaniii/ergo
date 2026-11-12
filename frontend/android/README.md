@@ -4,7 +4,7 @@ Kotlin 原生壳加系统 WebView，加载用户配好的二狗地址，不把�
 
 - 包名 `com.catmaniii.ergo`，最低 API 26（安卓 8），目标 API 36。
 - 只侧载，不上应用商店。发布页上的 `ergo-android-debug.apk` 是调试版，用发布用的调试钥匙签（见下面）；正式签名材料只放本机，不进仓库。
-- 电脑上的二狗带着同一版的这个包（`downloads/`，发布包里在 `app\downloads\`）：设置 · 设备配对里点"更新"，App 自己从二狗下载、核对、调起系统安装（`update/`，要 `REQUEST_INSTALL_PACKAGES`）。旧 App 没有这个方法，页面退回成从二狗直接下载 APK。
+- 电脑上的二狗带着同一版的这个包（`downloads/`，发布包里在 `app\downloads\`）：设置 · 设备配对里点"更新"，App 自己从二狗下载、核对、调起系统安装（`update/`，要 `REQUEST_INSTALL_PACKAGES`）。旧 App 没有这个方法，页面退回成从二狗直接下载 APK。二狗没带安装包时页面给发布页的 APK 链接，App 经原生桥 `openSystemBrowser` 把它交给手机的系统浏览器（只收 https，票 386），下载、安装是系统的；没有这个方法的旧 App 在"浏览"里打开。
 - 通知是本地通知，不接 FCM，没有前台服务。App 被系统杀掉后收不到，手册写明。
 - 第一版不做手机数据源（通讯录、日历、相册、位置）。网页发现 App 没有这组方法，只显示说明，不报错。
 

@@ -1,8 +1,20 @@
 // 共享协议包：已配对设备多选管理的纯函数——延期后的到期日、哪台要跳过、跳过的原因怎么说。
 // 守护进程判断、Web 上算按钮个数用的是同一份。
 // 配对请求像不像网络上的自动访问（按浏览器标识判断，给出原因）。
-import { describe, expect, test } from "vitest";
-import { automatedAccess, automatedAccessHint, DEVICE_BATCH_ACTIONS, deviceBatchSkip, deviceSkipPhrase, extendedExpiry } from "../src/index.ts";
+import { afterEach, describe, expect, test } from "vitest";
+import {
+  activeLocaleFrom,
+  automatedAccess,
+  automatedAccessHint,
+  DEFAULT_LANGUAGE,
+  defaultDeviceName,
+  DEVICE_BATCH_ACTIONS,
+  deviceBatchSkip,
+  deviceSkipPhrase,
+  extendedExpiry,
+  setActiveLocale,
+} from "../src/index.ts";
+import { TEST_LOCALES } from "./setup-locales.ts";
 
 const DAY = 24 * 3600_000;
 const NOW = Date.parse("2026-10-14T09:00:00.000+08:00");
@@ -115,5 +127,23 @@ describe("像不像网络上的自动访问", () => {
 
   test("配对卡和待我处理上的那句提示", () => {
     expect(automatedAccessHint("浏览器标识带「HeadlessChrome」，是无界面浏览器")).toBe("看起来像网络上的自动访问（浏览器标识带「HeadlessChrome」，是无界面浏览器），不是你的设备就拒绝");
+  });
+});
+
+describe("设备名的默认值", () => {
+  afterEach(() => setActiveLocale(activeLocaleFrom(TEST_LOCALES, DEFAULT_LANGUAGE)));
+  const ANDROID_WEBVIEW = "Mozilla/5.0 (Linux; Android 16; sdk_gphone64_x86_64 Build/BP22.250325.006; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/133.0.6943.137 Mobile Safari/537.36";
+  const HARMONY_APP = "Mozilla/5.0 (Phone; OpenHarmony 5.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 ArkWeb/4.1.6.1 Mobile";
+
+  test("浏览器：浏览器 · 系统", () => {
+    expect(defaultDeviceName(ANDROID_WEBVIEW)).toBe("Chrome · Android");
+    expect(defaultDeviceName(HARMONY_APP)).toBe("鸿蒙浏览器 · HarmonyOS");
+  });
+
+  test("开在二狗的手机 App 里（票 386）：写二狗 App，不写 Chrome", () => {
+    expect(defaultDeviceName(ANDROID_WEBVIEW, true)).toBe("二狗 App · Android");
+    expect(defaultDeviceName(HARMONY_APP, true)).toBe("二狗 App · HarmonyOS");
+    setActiveLocale(activeLocaleFrom(TEST_LOCALES, "en"));
+    expect(defaultDeviceName(ANDROID_WEBVIEW, true)).toBe("ergo app · Android");
   });
 });

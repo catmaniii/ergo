@@ -99,20 +99,25 @@ export const DEVICE_NAME_MAX_LENGTH = 64;
 /** 被吊销（或凭证失效）的设备，服务端关掉它的 WebSocket 时用的关闭码 */
 export const WS_CLOSE_UNPAIRED = 4401;
 
-/** 设备名默认值：浏览器 · 系统（由 User-Agent 推出来；新设备上可以改） */
-export function defaultDeviceName(userAgent: string): string {
+/**
+ * 设备名默认值：浏览器 · 系统（由 User-Agent 推出来；新设备上可以改）。
+ * inApp：页面开在二狗的手机 App 里（有原生桥，网页才知道；App 里的 WebView 标识和别的 App 的一样，守护进程认不出），前半写"二狗 App"，不写 Chrome
+ */
+export function defaultDeviceName(userAgent: string, inApp = false): string {
   const ua = userAgent;
-  const browser = /Edg\//.test(ua)
-    ? "Edge"
-    : /HarmonyOS|ArkWeb/.test(ua)
-      ? t("protocol.pairing.device.harmonyBrowser")
-      : /Firefox\//.test(ua)
-        ? "Firefox"
-        : /Chrome\//.test(ua)
-          ? "Chrome"
-          : /Safari\//.test(ua)
-            ? "Safari"
-            : t("protocol.pairing.device.browser");
+  const browser = inApp
+    ? t("protocol.pairing.device.app")
+    : /Edg\//.test(ua)
+      ? "Edge"
+      : /HarmonyOS|ArkWeb/.test(ua)
+        ? t("protocol.pairing.device.harmonyBrowser")
+        : /Firefox\//.test(ua)
+          ? "Firefox"
+          : /Chrome\//.test(ua)
+            ? "Chrome"
+            : /Safari\//.test(ua)
+              ? "Safari"
+              : t("protocol.pairing.device.browser");
   const os = /HarmonyOS|OpenHarmony/.test(ua)
     ? "HarmonyOS"
     : /iPhone/.test(ua)
