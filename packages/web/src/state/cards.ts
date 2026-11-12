@@ -127,11 +127,20 @@ export function cardAskOf(type: string): CardAsk | null {
 }
 
 /**
- * 等你拍板的卡：还没处理、要你点按钮做决定的（CARD_ASK 里不是 null 的种类，没列的、不认识的也算；简单提醒、服务入口不算）。
+ * 这种卡要你拍板（点按钮做决定）：CARD_ASK 里不是 null、也不是"过目"的种类，没列的、不认识的也算。
+ * 简单提醒、服务入口不算；只是让你知道一声的（进度、验收结论，只有"知道了"）也不算——用户 2026-11-12 定的
+ */
+export function cardTypeNeedsDecision(type: string): boolean {
+  const ask = cardAskOf(type);
+  return ask !== null && ask !== "review";
+}
+
+/**
+ * 等你拍板的卡：还没处理、要你点按钮做决定的（cardTypeNeedsDecision）。
  * 对话里整张画、按钮直接看得到（chat-look.ts），排在交出它的那一轮最后（chat-items.ts 的 waitingCardsLast）
  */
 export function cardWaitsForYou(card: Card): boolean {
-  return card.status === "pending" && cardAskOf(card.type) !== null;
+  return card.status === "pending" && cardTypeNeedsDecision(card.type);
 }
 
 export type CardDisplay =

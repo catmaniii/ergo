@@ -67,7 +67,7 @@ import { callKeyLine, type CallSentence, callSentence, toolLabel } from "./call-
 import { readableId } from "./readable-ids.ts";
 import { toolVoiceCalls } from "./agent-voice.ts";
 import { workflowPlanStateLabel } from "./workflow-view.ts";
-import { cardAskOf } from "./cards.ts";
+import { cardTypeNeedsDecision } from "./cards.ts";
 import { briefCallPart, isRecallCall, recallLine, type RecallSummary, recallSummary } from "./memory-recall.ts";
 import { type ConversationRecord, type RequestStatus, type TimelineItem, timelineItems, type UiState } from "./ui-state.ts";
 
@@ -759,14 +759,14 @@ function startsTurn(item: ChatItem): boolean {
 }
 
 /**
- * agent 交出的、等你拍板的那种卡（CARD_ASK 里不是 null 的）在这一轮里越过后面的条目、越到哪个时刻为止（毫秒）：
+ * agent 交出的、等你拍板的那种卡（cards.ts 的 cardTypeNeedsDecision）在这一轮里越过后面的条目、越到哪个时刻为止（毫秒）：
  * 还没处理的越过这一轮后面所有的（Infinity，正在出字、还没有时间的也越过）；处理过的（确认了、关掉、过期）只越过你处理它之前
  * 出现的（handledAt 之前）——点了按钮原地收成一行、不往回跳，批了之后 agent 才接着做的（审批、提问）排在它下面。
- * 不用你做决定的（提醒、服务入口）、还没收到的、处理过却不知道什么时候处理的不挪（undefined）；
+ * 不用你做决定的（提醒、服务入口、只让你知道一声的进度）、还没收到的、处理过却不知道什么时候处理的不挪（undefined）；
  * 运行时自己放进会话的（验收结论、"首版做完了"）不是哪一轮交出的，也不挪——它后面接着的往往是下一个阶段的事
  */
 function movesUntil(item: ChatItem): number | undefined {
-  if (item.kind !== "card" || !item.fromAgent || !item.card || cardAskOf(item.card.type) === null) return undefined;
+  if (item.kind !== "card" || !item.fromAgent || !item.card || !cardTypeNeedsDecision(item.card.type)) return undefined;
   if (item.card.status === "pending") return Infinity;
   const handled = item.card.handledAt === undefined ? Number.NaN : Date.parse(item.card.handledAt);
   return Number.isNaN(handled) ? undefined : handled;

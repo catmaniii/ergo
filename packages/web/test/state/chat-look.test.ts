@@ -14,6 +14,7 @@ import {
   cardAskOf,
   cardSentence,
   cardStatus,
+  cardTypeNeedsDecision,
   cardWaitsForYou,
   type ChatItem,
   type ChatLine,
@@ -87,12 +88,12 @@ describe("回放：任务的负责人会话", () => {
       "card｜审批｜读文件「…\\readme.txt」 · 越出项目目录 · 已批准",
       "tool｜工具调用｜读 …\\readme.txt · 1 次问过你 !you",
       "note｜说明｜负责人宣布阶段 s1「整理笔记」完成（第 1 次）：笔记在 notes.md",
-      // 进度卡没点"知道了"：等你过目，整张画、按钮在卡上（462）；运行时放进来的，不挪
-      "card",
+      // 进度卡没点"知道了"：只让你知道一声，不算要你拍板，照旧一行、等你过目，跟你有关的颜色（用户 2026-11-12）
+      "card｜进度｜验收通过（脚本检查）：任务「整理笔记和报告」第 1 阶段「整理笔记」。验收通过。 · 等你过目 !you",
       // 有出状况的：写出状况的那一步（被拦下的写文件），不写最后一步
       "tool｜工具调用｜写 …\\outside.md｜2步 · 1 次被拦下 !stopped",
       "note｜说明｜负责人宣布阶段 s2「写报告」完成（第 1 次）：报告在 report.md",
-      "card",
+      "card｜进度｜验收通过（脚本检查）：任务「整理笔记和报告」第 2 阶段「写报告」。验收通过。 · 等你过目 !you",
       "note｜说明｜全部阶段验收通过，任务完成。",
       "reply",
     ]);
@@ -161,9 +162,9 @@ describe("回放：秘书会话", () => {
 });
 
 describe("回放：项目的负责人会话（work-orders-queue）", () => {
-  test("工单分隔线没有详情；别的过程条目一行、整行点开；等你过目的验收卡整张画、下面“详情 ›”；交给负责人的长通知标题写通知", () => {
+  test("工单分隔线没有详情；别的过程条目一行、整行点开（等你过目的验收卡也是一行）；交给负责人的长通知标题写通知", () => {
     const items = chatItems(replay(load("work-orders-queue")), "maintainer:pm-1");
-    expect(openWays(items)).toEqual({ divider: "-", "line:letter": "row", "line:card": "row", card: "link", "reply（只有一段）": "-", "line:tool": "row", "line:note": "row" });
+    expect(openWays(items)).toEqual({ divider: "-", "line:letter": "row", "line:card": "row", "reply（只有一段）": "-", "line:tool": "row", "line:note": "row" });
     expect(looks(items).flatMap((l) => (l.form === "line" && l.kind === "letter" ? [l.title] : []))).toEqual(["通知", "通知", "通知", "通知"]);
   });
 });
@@ -181,8 +182,6 @@ describe("有详情的条目怎么打开（用户气泡整条可点；多段回�
     expect(openWays(all)).toEqual({
       "line:letter": "row",
       "line:card": "row",
-      // 等你拍板的（这几段录像里是没点"知道了"的验收卡）
-      card: "link",
       "reply（只有一段）": "-",
       "reply（有后文）": "link",
       "line:tool": "row",
@@ -490,12 +489,19 @@ describe("录像覆盖不到的：卡片", () => {
     expect(brief(lineOf({ ...second, status: "handled", outcome: { action: "confirm_start" } }))).toBe("card｜立项书｜家电档案（第 2 版，其他类，工作目录在项目档案里，工具包不带 bash） · 已确认并开工");
   });
 
-  test.each(CARD_TYPES.filter((type) => cardAskOf(type) !== null && !CARD_STAYS_WHOLE.has(type)))("没处理的 %s 卡等你拍板：整张画；处理过的收成一行", (type) => {
+  test.each(CARD_TYPES.filter((type) => cardTypeNeedsDecision(type) && !CARD_STAYS_WHOLE.has(type)))("没处理的 %s 卡等你拍板：整张画；处理过的收成一行", (type) => {
     // 流程计划卡那一行按负载写"计划 v1 · 0 步"
     const c = card(type, { text: `${type} 卡`, ...(type === "workflow_plan" ? { payload: { revision: 1, plan: { steps: [] } } } : {}) });
     expect(cardWaitsForYou(c)).toBe(true);
     expect(lineOf(c)).toEqual({ form: "card", open: "link" });
     expect(lineOf({ ...c, status: "handled" }).form).toBe("line");
+  });
+
+  test("只让你知道一声的（进度、验收结论，只有“知道了”）没处理也照旧一行：等你过目、跟你有关的颜色，不算等你拍板", () => {
+    const progress = card("progress", { text: "验收通过（脚本检查）：任务「整理笔记」第 1 阶段「整理」。验收通过。" });
+    expect(cardTypeNeedsDecision("progress")).toBe(false);
+    expect(cardWaitsForYou(progress)).toBe(false);
+    expect(brief(lineOf(progress))).toBe("card｜进度｜验收通过（脚本检查）：任务「整理笔记」第 1 阶段「整理」。验收通过。 · 等你过目 !you");
   });
 
   test("不用你做决定的（简单提醒、服务入口）没处理也照旧一行，不算等你拍板", () => {

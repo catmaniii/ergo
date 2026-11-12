@@ -215,7 +215,7 @@ To back out, press Esc or click elsewhere. On a phone, tapping a row selects it;
 | **Approved**, **Answered**, **Done**… | Handled; shows the result. The line is calm |
 | **Closed**, **Expired** | Closed, or made void |
 
-Reminders and service entries don't need your decision: they're always one line, with no status.
+Reminders and service entries don't need your decision: they're always one line, with no status. Progress cards (acceptance results with only **Got it**) just let you know: they stay one line too, saying **For your review**, and the to-do list still reminds you.
 
 Map cards don't fold into a line: the small map is the point, so the whole card stays in the session, with **Quote** and **Details ›** below it. See [Map cards in chats](map.en.md#map-cards-in-chats).
 
