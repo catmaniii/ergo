@@ -13,7 +13,7 @@ import type { FauxStep } from "../../src/runtime/index.ts";
 import type { TestDaemon } from "./daemon.ts";
 import type { TestFrontend } from "./frontend.ts";
 import { samplePlan, submitPlanStep } from "./plans.ts";
-import { waitUntil } from "./process.ts";
+import { SECRETARY_START_TIMEOUT_MS, waitUntil } from "./process.ts";
 
 /** 只有一个开放阶段、评审验收（长程任务不能写由你验收）、不涉及授权的计划 */
 export function onePlan(): Plan {
@@ -113,10 +113,17 @@ export function maintainerScripts(run: FauxStep[]): FauxStep[][] {
   return [[submitPlanStep(bashPlan()), { kind: "reply", text: "计划交上去了" }], run];
 }
 
+/**
+ * 点了"发起任务"之后等计划卡：秘书（常驻，守护进程一起来就在拉起）起来写任务书，负责人这才第一次拉起、交计划——接连两次拉起子进程。
+ * 整套测试并行跑、机器忙的时候每次都要十几秒（见 SECRETARY_START_TIMEOUT_MS），只给一次的时间（eventually 默认的 30 秒，
+ * 也就是 runningTask 那样只等负责人的）不够：全量里红过"等计划卡"超时。秘书那次按它的时限算，负责人那次照默认的 30 秒
+ */
+const PLAN_CARD_AFTER_START_MS = SECRETARY_START_TIMEOUT_MS + 30_000;
+
 /** 点"发起任务"、秘书写任务书、负责人交计划、在计划卡上确认：任务 t-1 开始执行（前端要订阅了看板和卡片） */
 export async function startRunningTask(frontend: TestFrontend): Promise<void> {
   ok(await frontend.startTask(RUNNING_TASK_TITLE));
-  const plan = await eventually(() => cardsOf(frontend), (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === RUNNING_TASK_ID, "计划卡");
+  const plan = await eventually(() => cardsOf(frontend), (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === RUNNING_TASK_ID, "计划卡", PLAN_CARD_AFTER_START_MS);
   ok(await frontend.cardAction({ cardId: plan.id, action: "confirm", expectedVersion: plan.version, input: {} }));
   await eventually(() => tasksOf(frontend), (e) => e.task.id === RUNNING_TASK_ID && e.change === "started", "任务开始执行");
 }

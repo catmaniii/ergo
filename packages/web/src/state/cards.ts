@@ -89,6 +89,60 @@ export function cardTypeLabel(type: string): string {
   return isCardType(type) ? CARD_TYPE_LABEL[type] : t("state.chatItems.card");
 }
 
+/** 卡片没处理时等你做什么：确认（默认）、批准、回答、决定（几个选一个）、核对、挑、过目；不用你做决定的（提醒、服务入口）是 null */
+export type CardAsk = "confirm" | "approve" | "answer" | "decide" | "check" | "pick" | "review";
+
+/**
+ * 各种卡没处理时等你做什么（没列的、不认识的卡是"确认"）：对话里那一行的状态（chat-look.ts 的 cardStatus），
+ * 哪些卡等你拍板（cardWaitsForYou）
+ */
+export const CARD_ASK: Readonly<Partial<Record<CardType, CardAsk | null>>> = {
+  approval: "approve",
+  pairing: "approve",
+  toolkit_change: "approve",
+  mcp_change: "approve",
+  skill_change: "approve",
+  questions: "answer",
+  runtime_question: "answer",
+  suggest_task: "decide",
+  parallel: "decide",
+  archive_list: "decide",
+  build_done: "decide",
+  standard_backfill: "decide",
+  interview: "decide",
+  memory_delete: "check",
+  personal_file: "check",
+  personal_file_suggest: "check",
+  interview_files: "check",
+  browse_pick: "pick",
+  progress: "review",
+  reminder: null,
+  service_entry: null,
+};
+
+/** 这种卡没处理时等你做什么；不用你做决定的是 null */
+export function cardAskOf(type: string): CardAsk | null {
+  const ask = isCardType(type) ? CARD_ASK[type] : undefined;
+  return ask === undefined ? "confirm" : ask;
+}
+
+/**
+ * 这种卡要你拍板（点按钮做决定）：CARD_ASK 里不是 null、也不是"过目"的种类，没列的、不认识的也算。
+ * 简单提醒、服务入口不算；只是让你知道一声的（进度、验收结论，只有"知道了"）也不算——用户 2026-11-12 定的
+ */
+export function cardTypeNeedsDecision(type: string): boolean {
+  const ask = cardAskOf(type);
+  return ask !== null && ask !== "review";
+}
+
+/**
+ * 等你拍板的卡：还没处理、要你点按钮做决定的（cardTypeNeedsDecision）。
+ * 对话里整张画、按钮直接看得到（chat-look.ts），排在交出它的那一轮最后（chat-items.ts 的 waitingCardsLast）
+ */
+export function cardWaitsForYou(card: Card): boolean {
+  return card.status === "pending" && cardTypeNeedsDecision(card.type);
+}
+
 export type CardDisplay =
   | { kind: "typed"; type: CardType; state: CardState }
   | {

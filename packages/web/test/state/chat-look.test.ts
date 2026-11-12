@@ -9,9 +9,13 @@ import { MessageEventPayload as MessageEventPayloadSchema, schemaChecker } from 
 import { describe, expect, test } from "vitest";
 import {
   type Card,
+  CARD_STAYS_WHOLE,
+  CARD_TYPES,
   cardAskOf,
   cardSentence,
   cardStatus,
+  cardTypeNeedsDecision,
+  cardWaitsForYou,
   type ChatItem,
   type ChatLine,
   type ChatLook,
@@ -73,9 +77,10 @@ describe("回放：任务的负责人会话", () => {
     const items = chatItems(replay(load("timeline-zoom")), "maintainer:tm-1");
     expect(looks(items).map(brief).map((b) => b.replace(/<临时目录>\\ergo-home-\w+\\/, "…\\"))).toEqual([
       "letter｜通知｜任务书：任务 t-1「整理笔记和报告」",
+      // 交计划之后回的那句在你确认之前：计划卡排在它下面（这一轮最后，462）
+      "reply",
       // 计划卡的纯文本开头"计划："是种类的简称，去掉；处理过的写结果，平和
       "card｜计划确认｜整理笔记和报告（第 1 版，2 个阶段，约 320000 token） · 已确认",
-      "reply",
       "letter｜通知｜接着做第 1 阶段：整理笔记",
       // 都做完了：写最后一步，不止一步加"等 N 步"
       "tool｜工具调用｜把改动提交：整理笔记｜4步 · 1 次做完告诉你 · 1 次授权内",
@@ -83,7 +88,7 @@ describe("回放：任务的负责人会话", () => {
       "card｜审批｜读文件「…\\readme.txt」 · 越出项目目录 · 已批准",
       "tool｜工具调用｜读 …\\readme.txt · 1 次问过你 !you",
       "note｜说明｜负责人宣布阶段 s1「整理笔记」完成（第 1 次）：笔记在 notes.md",
-      // 进度卡没点"知道了"：等你过目，跟你有关的颜色
+      // 进度卡没点"知道了"：只让你知道一声，不算要你拍板，照旧一行、等你过目，跟你有关的颜色（用户 2026-11-12）
       "card｜进度｜验收通过（脚本检查）：任务「整理笔记和报告」第 1 阶段「整理笔记」。验收通过。 · 等你过目 !you",
       // 有出状况的：写出状况的那一步（被拦下的写文件），不写最后一步
       "tool｜工具调用｜写 …\\outside.md｜2步 · 1 次被拦下 !stopped",
@@ -148,22 +153,23 @@ describe("回放：秘书会话", () => {
     expect(shown.filter((l) => l.form === "line").map(brief)).toEqual([
       // 检索素材是调用记忆，单独一行，不算进调用了几个工具
       "recall｜记忆｜查了 1 次记忆",
-      "card｜记忆删除｜已彻底删除 1 条素材 · 已删除",
+      // 删除卡在你点之前秘书又调了一次：卡排在这一轮最后（462）
       "tool｜工具调用｜彻底删除 1 条素材",
+      "card｜记忆删除｜已彻底删除 1 条素材 · 已删除",
       "record｜操作记录｜彻底删除 1 条素材：已彻底删除 1 条素材",
     ]);
   });
 });
 
 describe("回放：项目的负责人会话（work-orders-queue）", () => {
-  test("工单分隔线没有详情；别的过程条目一行、整行点开；交给负责人的长通知标题写通知", () => {
+  test("工单分隔线没有详情；别的过程条目一行、整行点开（等你过目的验收卡也是一行）；交给负责人的长通知标题写通知", () => {
     const items = chatItems(replay(load("work-orders-queue")), "maintainer:pm-1");
     expect(openWays(items)).toEqual({ divider: "-", "line:letter": "row", "line:card": "row", "reply（只有一段）": "-", "line:tool": "row", "line:note": "row" });
     expect(looks(items).flatMap((l) => (l.form === "line" && l.kind === "letter" ? [l.title] : []))).toEqual(["通知", "通知", "通知", "通知"]);
   });
 });
 
-describe("有详情的条目怎么打开（用户气泡整条可点；多段回复“详情 ›”；收成一行的都是整行加 ›；语音在长按菜单里）", () => {
+describe("有详情的条目怎么打开（用户气泡整条可点；多段回复“详情 ›”；收成一行的都是整行加 ›；整张画的卡下面“详情 ›”；语音在长按菜单里）", () => {
   test("几段录像合起来，每种条目的打开方式都是一样的", () => {
     const all = [
       ...chatItems(replay(load("timeline-zoom")), "maintainer:tm-1"),
@@ -401,19 +407,20 @@ const lineOf = (c: Card) => {
 };
 
 describe("录像覆盖不到的：卡片", () => {
-  test("收到了的卡收成一行：种类、标题那一句、没处理的等你做什么（跟你有关的颜色），整行点开；还没收到的照旧整张画、打不开", () => {
+  test("等你拍板的卡整张画（按钮在卡上），下面能点开详情；处理过的收成一行：种类、标题那一句、结果，整行点开；还没收到的照旧整张画、打不开", () => {
     const skill = card("skill_change", { text: "秘书要把「写周报」加进 skill 库（下次照做）\n说明……" });
     const items = chatItems(replay([frame("cards", 1, "card", { card: skill }), messageFrame(2, "m1", "agent", [text("交给你批准："), { type: "card_ref", cardId: skill.id }, { type: "card_ref", cardId: "c-missing" }])]), S);
-    const cards = looks(items.filter((it) => it.kind === "card"));
-    expect(cards.map(brief)).toEqual(["card｜skill 变更｜秘书要把「写周报」加进 skill 库（下次照做） · 等你批准 !you", "card"]);
-    expect(cards.map((l) => l.open)).toEqual(["row", undefined]);
-    expect(asLine(cards[0]!).cardType).toBe("skill_change");
+    const byCard = Object.fromEntries(items.flatMap((it) => (it.kind === "card" ? [[it.cardId, chatLook(it)]] : [])));
+    expect(byCard).toEqual({ [skill.id]: { form: "card", open: "link" }, "c-missing": { form: "card", open: undefined } });
+    const done = lineOf({ ...skill, status: "handled", outcome: { action: "approve" } });
+    expect(brief(done)).toBe("card｜skill 变更｜秘书要把「写周报」加进 skill 库（下次照做） · 已批准");
+    expect([asLine(done).open, asLine(done).cardType]).toEqual(["row", "skill_change"]);
   });
 
-  test("卡片状态变了那一行跟着变：处理了写结果（平和），关掉的、过期的照写", () => {
+  test("卡片状态变了跟着变：没处理的整张画；处理了收成一行写结果（平和），关掉的、过期的照写", () => {
     const approval = card("approval", { text: "审批（秘书）：读文件「~/a.txt」 · 越出项目目录" });
     const said = "card｜审批｜读文件「~/a.txt」 · 越出项目目录";
-    expect(brief(lineOf(approval))).toBe(`${said} · 等你批准 !you`);
+    expect(lineOf(approval)).toEqual({ form: "card", open: "link" });
     expect(brief(lineOf({ ...approval, status: "handled", outcome: { action: "approve" } }))).toBe(`${said} · 已批准`);
     expect(brief(lineOf({ ...approval, status: "handled", outcome: { action: "deny", note: "别读" } }))).toBe(`${said} · 已拒绝`);
     expect(brief(lineOf({ ...approval, status: "dismissed" }))).toBe(`${said} · 已关闭`);
@@ -461,8 +468,48 @@ describe("录像覆盖不到的：卡片", () => {
     expect(cardSentence(card("approval", { text: "审批：" }))).toBe("审批：");
   });
 
-  test("不认识的卡（插件登记的、新版本的）照样一行：标题写“卡片”，没处理的等你确认", () => {
-    expect(brief(lineOf(card("a_plugin_card", { text: "插件的卡：一句话" })))).toBe("card｜卡片｜插件的卡：一句话 · 等你确认 !you");
+  test("不认识的卡（插件登记的、新版本的）：没处理的算等你确认、整张画（降级的纯文本）；处理过的照样一行，标题写“卡片”", () => {
+    const plugin = card("a_plugin_card", { text: "插件的卡：一句话" });
+    expect(cardStatus(plugin)).toEqual({ key: "pending", text: "等你确认", level: "you" });
+    expect(lineOf(plugin)).toEqual({ form: "card", open: "link" });
+    expect(brief(lineOf({ ...plugin, status: "handled" }))).toBe("card｜卡片｜插件的卡：一句话 · 已处理");
+  });
+
+  // 462：立项书让你确认时在聊天里没展开，要点详情才看得到"确认并开工"；但凡要你点按钮拍板的卡都默认展开
+  test("等你确认的立项书整张画、下面“详情 ›”；确认并开工、只确认、关掉、过期的收成一行；改了版（第 2 版）一样", () => {
+    const charter = card("charter", { text: "立项书：家电档案（第 1 版，其他类，工作目录在项目档案里，工具包不带 bash）", payload: { revision: 1 } });
+    const said = "card｜立项书｜家电档案（第 1 版，其他类，工作目录在项目档案里，工具包不带 bash）";
+    expect(lineOf(charter)).toEqual({ form: "card", open: "link" });
+    expect(brief(lineOf({ ...charter, status: "handled", outcome: { action: "confirm_start" } }))).toBe(`${said} · 已确认并开工`);
+    expect(brief(lineOf({ ...charter, status: "handled", outcome: { action: "confirm_later" } }))).toBe(`${said} · 已确认，稍后开工`);
+    expect(brief(lineOf({ ...charter, status: "dismissed" }))).toBe(`${said} · 已关闭`);
+    expect(brief(lineOf({ ...charter, status: "expired" }))).toBe(`${said} · 已过期`);
+    const second = { ...charter, text: "立项书：家电档案（第 2 版，其他类，工作目录在项目档案里，工具包不带 bash）", payload: { revision: 2 } };
+    expect(lineOf(second)).toEqual({ form: "card", open: "link" });
+    expect(brief(lineOf({ ...second, status: "handled", outcome: { action: "confirm_start" } }))).toBe("card｜立项书｜家电档案（第 2 版，其他类，工作目录在项目档案里，工具包不带 bash） · 已确认并开工");
+  });
+
+  test.each(CARD_TYPES.filter((type) => cardTypeNeedsDecision(type) && !CARD_STAYS_WHOLE.has(type)))("没处理的 %s 卡等你拍板：整张画；处理过的收成一行", (type) => {
+    // 流程计划卡那一行按负载写"计划 v1 · 0 步"
+    const c = card(type, { text: `${type} 卡`, ...(type === "workflow_plan" ? { payload: { revision: 1, plan: { steps: [] } } } : {}) });
+    expect(cardWaitsForYou(c)).toBe(true);
+    expect(lineOf(c)).toEqual({ form: "card", open: "link" });
+    expect(lineOf({ ...c, status: "handled" }).form).toBe("line");
+  });
+
+  test("只让你知道一声的（进度、验收结论，只有“知道了”）没处理也照旧一行：等你过目、跟你有关的颜色，不算等你拍板", () => {
+    const progress = card("progress", { text: "验收通过（脚本检查）：任务「整理笔记」第 1 阶段「整理」。验收通过。" });
+    expect(cardTypeNeedsDecision("progress")).toBe(false);
+    expect(cardWaitsForYou(progress)).toBe(false);
+    expect(brief(lineOf(progress))).toBe("card｜进度｜验收通过（脚本检查）：任务「整理笔记」第 1 阶段「整理」。验收通过。 · 等你过目 !you");
+  });
+
+  test("不用你做决定的（简单提醒、服务入口）没处理也照旧一行，不算等你拍板", () => {
+    for (const type of ["reminder", "service_entry"]) {
+      const c = card(type, { text: `${type} 卡` });
+      expect(cardWaitsForYou(c)).toBe(false);
+      expect(lineOf(c).form).toBe("line");
+    }
   });
 });
 
