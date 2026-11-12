@@ -13,6 +13,7 @@
 // -页面桥自己的字（标题、×、发送、在听的提示、"让二狗选"……）按二狗的网页交来的语言（texts.ts），没交来是中文。
 // -标题、"二狗在想……"、"让二狗选"里的名字是用户起的那个，画成名字标签（照二狗网页里的 .assistant-name：左右留一点、
 //   圆角、底色、字色、不换行；颜色是二狗的网页照现在的风格交来的，没交来是经典的）；读屏说明只写名字本身。
+import { drawIcon, type Icon } from "./icon.ts";
 import type { PageBubbleAction, PageBubbleView, PageNamedPart, PageNamedText } from "./protocol.ts";
 import { BUBBLE_MAX_HEIGHT, bubbleWidth, placeBubble, placeListening, type Rect, recordedText, WAVE_BARS, waveBars } from "./rules.ts";
 import { type BridgeTexts, NAME_TAG_CLASSIC, type NameTagColors, plainOf } from "./texts.ts";
@@ -22,10 +23,9 @@ const INPUT_MAX_HEIGHT = 5 * 20 + 16;
 /** 打的字最多多少 */
 const TEXT_MAX = 2000;
 
-const ICON_SEND =
-  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/></svg>';
-export const ICON_CLOSE =
-  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+/** 发送（向上的箭头）、×（挑图片窗口也用） */
+const ICON_SEND: Icon = { size: 18, line: 2.2, shapes: [["path", { d: "M12 19V5M5.5 11.5L12 5l6.5 6.5" }]] };
+export const ICON_CLOSE: Icon = { size: 16, line: 2, shapes: [["path", { d: "M6 6l12 12M18 6L6 18" }]] };
 
 /**
  * 名字标签的颜色交来了：另一段样式表（接在 BUBBLE_STYLE 后面，盖过经典的），跟着网页的深浅色挑一对；没交来是空的。
@@ -231,7 +231,7 @@ export function createBubble(doc: Document, tools: BubbleTools, onAction: (actio
   const close = el(doc, "button", "x");
   close.type = "button";
   close.setAttribute("aria-label", tx.get("bridge.bubble.close"));
-  close.innerHTML = ICON_CLOSE;
+  close.append(drawIcon(doc, ICON_CLOSE));
   head.append(label, close);
   const body = el(doc, "div", "body");
   const foot = el(doc, "div", "foot");
@@ -326,7 +326,7 @@ export function createBubble(doc: Document, tools: BubbleTools, onAction: (actio
       }
     });
     const send = button("send", "", sendText);
-    send.innerHTML = ICON_SEND;
+    send.append(drawIcon(doc, ICON_SEND));
     send.setAttribute("aria-label", tx.get("bridge.bubble.send"));
     send.disabled = true;
     row.append(t, send);
