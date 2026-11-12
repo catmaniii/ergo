@@ -18,12 +18,15 @@
 // 有 installAppUpdate（新版安卓 App）时 NativeApp.appUpdate 是它的包装（native-app-update.ts）：在 App 里更新 App；没有时退回成从二狗下载 APK。
 // 有 videoFullscreen（新版 App，票 407）时 NativeApp.videoFullscreen 是 true：App 接住了网页的全屏（标准 Fullscreen API，
 // 安卓 onShowCustomView、鸿蒙 onFullScreenEnter），视频播放器的全屏按钮点了是真全屏；旧版 App 没有，播放器藏掉全屏按钮（videoFullscreenAllowed）。
+// 有 openNavigation（新版鸿蒙 App，票 434）时 NativeApp.navigation 是它的包装（native-navigation.ts）：地图卡片上"用手机地图导航"
+// 拉起系统的"选导航应用"面板；没有时（旧版鸿蒙 App、安卓 App）地图插件另想办法（安卓 geo: 交给系统，别的打开导航网址）。
 // App 的版本（nativeAppReport）：连上守护进程后报上去，够不够新由守护进程判断（ADR-0047）；页面上的提示条看本机版本和协议包的最低版本。
 import { activeLocale, APP_VERSION_MAX_LENGTH, appPlatformOf, type AppPlatform, onLocaleChange, type ReportAppVersionParams, t, type ThemeChoice } from "../state/index.ts";
 import { appObject, exposeToApp } from "./app-names.ts";
 import { type AppUpdateScope, type NativeAppUpdate, wrapNativeAppUpdate } from "./native-app-update.ts";
 import type { BackRegistry } from "./back-registry.ts";
 import { type NativeBrowser, type NativeBrowserScope, wrapNativeBrowser } from "./native-browser.ts";
+import { type NativeNavigation, wrapNativeNavigation } from "./native-navigation.ts";
 import { type NativeNotify, wrapNativeNotify } from "./native-notify.ts";
 import { type NativePhone, wrapNativePhone } from "./native-phone.ts";
 import { type NativeVoice, type NativeVoiceScope, wrapNativeVoice } from "./native-voice.ts";
@@ -59,6 +62,8 @@ export interface NativeApp {
   readonly appUpdate?: NativeAppUpdate;
   /** App 接住了网页的全屏（视频播放器自带的全屏按钮点了是真全屏，票 407）；旧版 App 没有这一项 */
   readonly videoFullscreen?: true;
+  /** 拉起系统的"选导航应用"面板（新版鸿蒙 App，票 434）；旧版鸿蒙 App、安卓 App 没有 */
+  readonly navigation?: NativeNavigation;
 }
 
 /** 交给 App 的原生的字：二狗现在用的语言、harmony.* 的 key → 当前语言的句子（缺的已经用中文补上） */
@@ -150,6 +155,7 @@ export function detectNativeApp(scope: { ergoNative?: unknown } & UserAgentScope
   const appUpdate = wrapNativeAppUpdate(raw, scope);
   // 有这个方法就说明 App 能真全屏（方法本身无参数、回 true，网页不用调它）
   const videoFullscreen = typeof raw[NATIVE_VIDEO_FULLSCREEN_METHOD] === "function";
+  const navigation = wrapNativeNavigation(raw);
   return {
     platform: appPlatformOf(scope.navigator?.userAgent ?? ""),
     version,
@@ -165,6 +171,7 @@ export function detectNativeApp(scope: { ergoNative?: unknown } & UserAgentScope
     ...(phone ? { phone } : {}),
     ...(appUpdate ? { appUpdate } : {}),
     ...(videoFullscreen ? { videoFullscreen: true as const } : {}),
+    ...(navigation ? { navigation } : {}),
   };
 }
 

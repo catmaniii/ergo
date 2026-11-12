@@ -3,6 +3,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { AppSettings, colorModeOf, DOMAIN, TAG } from '../common/AppSettings';
 import { originOf, ServerAddress } from '../common/ServerAddress';
 import { appTexts } from '../common/AppTexts';
+import { NavigationPanel } from '../navigation/NavigationPanel';
 import { NativeNotify, notifyTaps } from '../notify/NativeNotify';
 import { PhoneData } from '../phone/PhoneData';
 import { NativeVoice } from '../voice/NativeVoice';
@@ -43,6 +44,9 @@ export const NATIVE_BRIDGE_NAME = 'ergoNative';
  * NATIVE_PHONE_PLACE_METHODS 一致；照片、位置点读出来时带系统地名（phone/PhoneGeocode.ets）。同样只开给主界面。
  * videoFullscreen（票 407）：无参数、回 true，说明这个 App 接了网页视频的真全屏（Index.ets 的 onFullScreenEnter，藏系统栏、横视频转横屏），
  * 网页认它在不在才给全屏按钮。只开给主界面（侧边栏那个 Web 没接全屏）。
+ * openNavigation（票 434）：地图卡片上"用手机地图导航"，拉起系统的"选导航应用"面板（navigation/NavigationPanel.ets），
+ * 回 Promise<string>（"ok" / "bad" / "failed:<错误码>"）；名字和网页一侧 packages/web/src/app/native-navigation.ts 的
+ * NATIVE_NAVIGATION_METHOD 一致（网页认它在不在来分新旧 App，旧 App 退回导航网址）。只开给主界面。
  * 侧边栏是 App 另开的一个 Web 组件（browser/SidePanel.ets），加载的也是二狗自己的网页：它另挂一个原生桥，只开 NATIVE_SIDE_BRIDGE_METHODS
  */
 export const NATIVE_BRIDGE_METHODS: string[] = ['appVersion', 'log', 'editServer', 'setColorMode', 'setCanGoBack',
@@ -55,7 +59,8 @@ export const NATIVE_BRIDGE_METHODS: string[] = ['appVersion', 'log', 'editServer
   'phonePhotosState', 'phonePhotosPrepare', 'phonePhotosRead',
   'phoneLocationState', 'phoneLocationPrepare', 'phoneLocationRecord', 'phoneLocationRead', 'phoneLocationAck',
   'phonePlaceHere', 'phonePlaceFind',
-  'videoFullscreen'];
+  'videoFullscreen',
+  'openNavigation'];
 
 /**
  * 浏览侧边栏那个 Web 组件上的原生桥（侧边栏挂二狗原生桥走原生录音）：同一个 NativeBridge 类、自己一份原生录音器，
@@ -240,8 +245,10 @@ export class NativeBridge {
   private browser: BrowserHost;
   /** 读本机，整个页面一份；侧边栏那份原生桥没有（不开那几个方法） */
   private phone: PhoneData | undefined;
+  /** 系统的"选导航应用"面板（侧边栏那份不开 openNavigation） */
+  private navigation: NavigationPanel;
 
-  constructor(context: common.Context, settings: AppSettings, server: ServerAddress, voice: NativeVoice,
+  constructor(context: common.UIAbilityContext, settings: AppSettings, server: ServerAddress, voice: NativeVoice,
     notify: NativeNotify, currentUrl: () => string, callingFrameUrl: () => string, onEditServer: () => void,
     onContact: () => void, bottomInset: () => number, browser: BrowserHost, phone?: PhoneData) {
     this.app = context.getApplicationContext();
@@ -257,6 +264,7 @@ export class NativeBridge {
     this.bottomInset = bottomInset;
     this.browser = browser;
     this.phone = phone;
+    this.navigation = new NavigationPanel(context);
   }
 
   /** App 的版本号；网页据此在设置里显示"在鸿蒙 App 里运行" */
@@ -647,6 +655,17 @@ export class NativeBridge {
       return false;
     }
     return true;
+  }
+
+  /**
+   * 用手机地图导航：拉起系统的"选导航应用"面板。lat、lon 是网页转好的（大陆里 GCJ-02），name 是终点的名字（没有给空串），
+   * mode 是 driving / transit / walking；回 "ok" / "bad" / "failed:<错误码>"，App 拒绝了这次调用回空串
+   */
+  openNavigation(lat: number, lon: number, name: string, mode: string): Promise<string> {
+    if (!this.allowed('openNavigation')) {
+      return refused();
+    }
+    return this.navigation.open(lat, lon, typeof name === 'string' ? name : '', typeof mode === 'string' ? mode : '');
   }
 
   /** App 自己放掉录音器（切到后台、页面重新加载、换地址），并告诉网页；不经网页调用，不过 allowed() */

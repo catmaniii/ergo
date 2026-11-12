@@ -3,10 +3,11 @@
 //   Key 是守护进程给的 Web 端 Key；安全密钥不在页面上（守护进程的 /_AMapService 拼上）。453 起只出底图，足迹、点、线由地图页
 //   盖在上面的自己那一层画；
 // - setup：国内没填 Key、Key 坏了时地图页照"自动"画着别家，提醒一句"填了高德 Key 国内地图更清楚"，按钮去 设置 · 数据源 · 高德地图。
+// - navigation（434）：卡片上"用手机地图导航"在浏览器里（和旧版鸿蒙 App 里）打开高德的导航网址（amapNavigationUrl），只给大陆里的点。
 // 演示页（MODE === "demo"）里高德是假的（demo-amap.ts：拿地图插件借来的瓦片引擎扮，底图是编的占位图），不连高德；安装版这个分支摇掉
 // （字面的 MODE 比较）。
-import { AMAP_SOURCE_ID, t } from "../../state/index.ts";
-import type { MapBasemapSlot } from "../api.ts";
+import { AMAP_SOURCE_ID, inMainlandChina, type MapRouteMode, t, wgsToGcj } from "../../state/index.ts";
+import type { MapBasemapSlot, MapNavTarget } from "../api.ts";
 import { createAmapEngine, loadAmap, setAmapLoader } from "./amap-engine.ts";
 import { fakeAmapLoader } from "./demo-amap.ts";
 import { demoTileUrl } from "../../prototype/fake-map.ts";
@@ -18,6 +19,23 @@ export const AMAP_BASEMAP = "amap";
 const DEMO = import.meta.env.MODE === "demo" ? { tileUrl: (z: number, x: number, y: number) => demoTileUrl("amap", z, x, y) } : undefined;
 /** 演示页的假高德装过没有（装一次） */
 let demoInstalled = false;
+
+/** 高德导航网址的 mode：开车 car、公交 bus、步行 walk（还有骑行 ride，二狗现在不出骑行路线） */
+const AMAP_NAV_MODE: Readonly<Record<MapRouteMode, string>> = { driving: "car", transit: "bus", walking: "walk" };
+
+/**
+ * 高德的导航网址（434，高德 URI API 的"路线规划"：https://lbs.amap.com/api/uri-api/guide/travel/route）：
+ * 起点不写（手机上是"我的位置"），终点写"经度,纬度,名字"（GCJ-02，自己转好：这个接口不认 WGS-84）；callnative=1 在手机上
+ * 拉起装了的高德 App（没装、电脑上就是高德的网页版导航）；src 写来源。大陆以外的点不给（undefined，交给管国外的那家）
+ */
+export function amapNavigationUrl(target: MapNavTarget): string | undefined {
+  if (!inMainlandChina(target)) return undefined;
+  const p = wgsToGcj(target);
+  // 名字里的逗号会和"经度,纬度,名字"混：换成中文逗号
+  const name = target.name?.trim().replaceAll(",", "，"); // @i18n-ignore fixed：换进网址里的一个标点，不是给人看的句子
+  const to = `${p.lon.toFixed(6)},${p.lat.toFixed(6)}${name ? `,${encodeURIComponent(name)}` : ""}`;
+  return `https://uri.amap.com/navigation?to=${to}&mode=${AMAP_NAV_MODE[target.mode ?? "driving"]}&src=ergo&callnative=1`;
+}
 
 export const amapBasemap: MapBasemapSlot = {
   id: AMAP_BASEMAP,
@@ -41,4 +59,5 @@ export const amapBasemap: MapBasemapSlot = {
     if (typeof ns.Map !== "function") throw new Error("AMap.Map missing");
     return (host, o) => createAmapEngine(host, ns, o);
   },
+  navigation: amapNavigationUrl,
 };

@@ -405,3 +405,36 @@ test("包名只认 com.catmaniii.ergo：仓库里（除了调研笔记）不许�
   expect(bad).toEqual([]);
   expect(readFileSync(path.join(HARMONY_DIR, "AppScope", "app.json5"), "utf8")).toContain('"bundleName": "com.catmaniii.ergo"');
 });
+
+describe("用手机地图导航（票 434）", () => {
+  test("原生桥开着 openNavigation（只给主界面），名字和网页一侧 NATIVE_NAVIGATION_METHOD 一样；回 Promise，先过 allowed()", () => {
+    const bridge = readFileSync(path.join(HARMONY_DIR, "entry/src/main/ets/bridge/NativeBridge.ets"), "utf8");
+    const main = /NATIVE_BRIDGE_METHODS: string\[\] = \[([^\]]*)\]/.exec(bridge)![1]!;
+    const side = /NATIVE_SIDE_BRIDGE_METHODS: string\[\] = \[([^\]]*)\]/.exec(bridge)![1]!;
+    const web = readFileSync(path.join(REPO, "packages/web/src/app/native-navigation.ts"), "utf8");
+    const name = /NATIVE_NAVIGATION_METHOD = "([A-Za-z]+)"/.exec(web)![1]!;
+    expect(name).toBe("openNavigation");
+    expect(main).toContain(`'${name}'`);
+    expect(side).not.toContain(`'${name}'`);
+    expect(bridge).toMatch(/ {2}openNavigation\(lat: number, lon: number, name: string, mode: string\): Promise<string> \{\s*if \(!this\.allowed\('openNavigation'\)\) \{\s*return refused\(\);/);
+    const panel = readFileSync(path.join(HARMONY_DIR, "entry/src/main/ets/navigation/NavigationPanel.ets"), "utf8");
+    expect(panel).toContain("this.context.startAbilityByType('navigation', want, callback)");
+  });
+
+  test("系统面板的参数：开车（和不认得的走法）是导航 sceneType 2、不带走法；步行、公交是路线规划 sceneType 1 带 vehicleType；名字空的不写、太长截掉；坐标不对不拉", async () => {
+    const source = readFileSync(path.join(HARMONY_DIR, "entry/src/main/ets/navigation/NavigationPanel.ets"), "utf8");
+    const text = /\nfunction navigationWant\([\s\S]*?\n\}\r?\n/.exec(source)?.[0];
+    if (!text) throw new Error("NavigationPanel.ets 里没有 function navigationWant");
+    const nameMax = /const NAME_MAX = \d+;/.exec(source)![0];
+    const { code } = await transformWithOxc(`${nameMax}\n${text}`, "navigationWant.ts");
+    const want = new Function(`${code}\nreturn navigationWant;`)() as (lat: number, lon: number, name: string, mode: string) => Record<string, unknown> | undefined;
+    expect(want(30.2529, 120.2101, "西湖边", "driving")).toEqual({ sceneType: 2, destinationLatitude: 30.2529, destinationLongitude: 120.2101, destinationName: "西湖边" });
+    expect(want(30.2529, 120.2101, "", "")).toEqual({ sceneType: 2, destinationLatitude: 30.2529, destinationLongitude: 120.2101 });
+    expect(want(1.3, 103.85, " Maxwell ", "walking")).toEqual({ sceneType: 1, vehicleType: 1, destinationLatitude: 1.3, destinationLongitude: 103.85, destinationName: "Maxwell" });
+    expect(want(30.25, 120.21, "公司", "transit")).toMatchObject({ sceneType: 1, vehicleType: 3 });
+    expect((want(30.25, 120.21, "名".repeat(80), "driving")!.destinationName as string).length).toBe(60);
+    expect(want(Number.NaN, 120, "x", "driving")).toBeUndefined();
+    expect(want(91, 120, "x", "driving")).toBeUndefined();
+    expect(want("30" as unknown as number, 120, "x", "driving")).toBeUndefined();
+  });
+});

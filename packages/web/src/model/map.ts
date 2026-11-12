@@ -2,7 +2,19 @@
 // 别的插件登记一种底图时照它写引擎，插件之间不互相 import）。只有类型，不碰 DOM 以外的东西。
 // - 坐标一律 WGS-84（二狗里存的、手机交来的就是它），要转的底图（高德、谷歌在大陆是 GCJ-02）由它自己的引擎转；
 // - 地图插件里 plugins/map/scene.ts、engine.ts 原样转出这些类型，插件里别的文件照旧从那两处 import。
-import type { LatLon, MapDatum } from "../state/index.ts";
+import type { LatLon, MapDatum, MapRouteMode } from "../state/index.ts";
+
+/**
+ * 交给手机上的地图导航的目的地（434，卡片上"用手机地图导航"）：坐标 WGS-84（二狗里存的就是它；交出去之前按对方要的转——
+ * 高德的导航网址、鸿蒙的"选导航应用"面板、安卓的 geo: 在大陆里一律给 GCJ-02），名字（地图 App 里终点写的；没有不写），
+ * 走法（不写当开车）
+ */
+export interface MapNavTarget {
+  readonly lat: number;
+  readonly lon: number;
+  readonly name?: string;
+  readonly mode?: MapRouteMode;
+}
 
 /** 看的是哪里：中心（WGS-84）和级别（Web 墨卡托的级别，可以带小数） */
 export interface MapView {

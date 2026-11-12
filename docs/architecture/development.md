@@ -157,6 +157,8 @@ adb -s <设备号> logcat -s ErgoApp                  # App 和网页的日志
 
 **网页视频全屏**（鸿蒙和安卓一样）：网页里的视频进全屏（Fullscreen API、`<video>` 控件上的按钮）时，App 藏掉状态栏和导航条、手势条（从边缘滑一下临时出来）、屏幕常亮，横视频（宽 > 高）转横屏（两个方向都行），竖视频不转；返回键 / 返回手势先退全屏，切到后台、换地址也先退出，退出时都恢复成进去之前的样子。安卓接 `WebChromeClient.onShowCustomView`（进全屏后在页面里读视频宽高），鸿蒙接 Web 组件的 `onFullScreenEnter`（事件里带宽高），实现在两边的 `video/VideoFullscreen.*`。原生桥上的 `videoFullscreen()` 回 `true`，网页认它在不在才给全屏按钮（旧 App 没有）；只开给主界面，浏览侧边栏没有。联调：`frontend/android/e2e/video-fullscreen.ts`、`frontend/harmony/e2e/video-fullscreen.ts`。
 
+**用手机地图导航**（票 434，只有鸿蒙）：原生桥上的 `openNavigation(lat, lon, name, mode)` 拉起系统的「选导航应用」面板（`UIAbilityContext.startAbilityByType('navigation')`，`navigation/NavigationPanel.ets`）：坐标网页转好（大陆里 GCJ-02），开车用「导航」（`sceneType` 2），步行、公交用「路线规划」（`sceneType` 1 带 `vehicleType`）；回 `"ok"`、`"bad"`、`"failed:<错误码>"`，网页不是 `ok` 就退回导航网址。面板是系统的 UIExtension，挂在 App 的窗口里画。只开给主界面；网页认它在不在来分新旧 App（`packages/web/src/app/native-navigation.ts`）。安卓不加原生方法：网页把 `geo:` 链接交给原有的"别的链接交给系统"（`MainActivity.kt` 的 `openOutside`），所以两边的方法表比对时它算"只有鸿蒙有"（`frontend/test/android.test.ts` 的 `HARMONY_ONLY`）。联调：`frontend/harmony/e2e/map-navigation.ts`（模拟器上没装地图 App，面板写「暂无可用导航方式」）。
+
 ### 发布手机安装包
 
 `npm run release` 顺带把两个手机安装包放进发布目录、写进 `SHA256SUMS`，和 Windows 包一起被签：`ergo-android-debug.apk`、`ergo-harmony-unsigned.hap`。文件名不带版本号，这样 `releases/latest/download/<文件名>` 一直有效。`latest.json` 不提它们，`ergo update` 和安装脚本只认 Windows 包。

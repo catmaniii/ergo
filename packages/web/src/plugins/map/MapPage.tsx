@@ -11,6 +11,8 @@
 //   足迹卡照点开它的样子换到那一天（清掉二狗画的）。点开的卡片也算这一叠的第一张，之后新画的叠在它上面。
 //   手机窄屏上聊天窗整屏盖着时，二狗这一轮画了东西就收起聊天窗、露出地图，这一轮它最后说的那句显示在悬浮按钮的气泡里（map-talk.ts 的 follow）。高德（445 起别家）查来的只在底图是那一家时画
 //   （own-results.ts，455 起看那家报的 ownBasemapOnly）；451 起这一屏临时用那一家画（不改记着的选择），那家在这台设备上加载不了时放它的静态大图（ownPreview）。
+// - 用手机地图导航（434，MapNavigate.tsx）：看着二狗画的时，标题栏那一条的"×"前面一个导航图标，去最新那张的终点、地点
+//   （几处的先挑），和聊天卡片上的同一个按钮——手机上画完收起了聊天窗，不用回聊天里找卡片。
 // - 不经卡片直接看查到的一处（447，#/more/map/lookup/<查到的编号>）："浏览"里网页上选中地址点了"在地图上看"，守护进程查到一处、
 //   网页跳过来：和看查到的卡片一样画（按编号现取，高德查的只画在高德底图上），标题栏写查的那段字，"×"回到地图。
 // - 地图切换（445，MapSwitch.tsx）：标题栏右边那一格（.map-bar-tools）的最前面，"地图：自动 / 高德 / OpenStreetMap……"，宽的时候一个下拉、窄的时候收进 ⋮；
@@ -63,6 +65,7 @@ import { shiftViewRight, shortDateLabel, spotTitle, withFootprints } from "./foo
 import { LocateButton, useDockInset, useHere } from "./LocateControl.tsx";
 import { MapChat, MapChatToggle } from "./MapChat.tsx";
 import { MapFab } from "./MapFab.tsx";
+import { MapNavigate, useNavChoices } from "./MapNavigate.tsx";
 import { pageMapChatWidth, pageMapLayout } from "./map-layout.ts";
 import { MapTalk } from "./map-talk.ts";
 import { withHere } from "./locate.ts";
@@ -251,6 +254,8 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
   const latest = resolved.at(-1);
   const latestData = latest === undefined ? undefined : datas.get(latest.key);
   const latestContent = latestData?.state === "ready" ? latestData.content : undefined;
+  // 标题栏上"用手机地图导航"（434）：最新那张能去的几处
+  const latestNav = useNavChoices(latestContent?.targets, config?.providers);
   /** 挪视野时最新的是哪张（新画了一张、点开了另一张才再挪；清掉了重来） */
   const fitted = useRef<string | undefined>(undefined);
   const latestKey = latest?.key;
@@ -410,6 +415,7 @@ function MapScreen({ item, sub, navigate, onBack }: { item: string | undefined; 
                 </span>
               )}
             </span>
+            <MapNavigate choices={latestNav} compact align="end" />
             <button
               type="button"
               className="icon-btn"

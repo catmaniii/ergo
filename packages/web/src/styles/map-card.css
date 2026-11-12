@@ -2,7 +2,9 @@
  * 聊天里的地图卡片（地图插件，plugins/map/MapCard.tsx、MapThumb.tsx）和点开后地图页上的那一条：
  * - 卡片：标题下面一块缩略地图（不能拖，点"看大地图"进地图页），地图下面一两行概况；451 起挑出来是高德、谷歌时那一块是一张
  *   静态预览图（.map-card-img，铺满、裁边），查到的取不到图时只有文字、一句原因和"在高德地图上看"；
- * - 地图页看一张卡片时：标题栏下面一条写卡片的标题和概况，"×"回到足迹。
+ * - 地图页看一张卡片时：标题栏下面一条写卡片的标题和概况，"×"回到足迹；
+ * - 434："用手机地图导航"（plugins/map/MapNavigate.tsx）：卡片下面一个和"在高德地图上看"一样的胶囊按钮，标题栏那一条上一个小图标；
+ *   几处的弹一个菜单（.popup.row-menu.map-nav-menu）挑去哪一处。
  * 缩略图里的瓦片、点、线照地图页（map.css、map-footprints.css）画；只用 token，十一套风格都跟着换皮。
  */
 .map-card-thumb {
@@ -127,19 +129,82 @@
   color: var(--muted);
   font-size: var(--fs-xs);
 }
-/* 高德查来的：没有缩略图，下面一个"在高德地图上看"（和缩略图上的"看大地图"一个样子） */
-.map-card-go {
+/* 卡片下面的一排按钮："在高德地图上看"、"用手机地图导航"（434），放不下折行 */
+.map-card-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+/* 高德查来的：没有缩略图，下面一个"在高德地图上看"（和缩略图上的"看大地图"一个样子）；"用手机地图导航"同一个样子 */
+.map-card-go,
+.map-nav-btn:not(.icon-btn) {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-top: 10px;
   padding: 4px 12px;
-  border: 1px solid var(--card-border);
+  /* --card-border 是整条边框（经典是 "1px solid #e5e6eb"），不是颜色：原来写成 1px solid var(...) 整条无效、没有框 */
+  border: var(--card-border);
   border-radius: var(--radius-pill);
   background: var(--surface);
   color: var(--primary);
+  font: inherit;
   font-size: var(--fs-s);
   text-decoration: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-btn);
+}
+.map-nav-btn.on:not(.icon-btn) {
+  background: var(--fill);
+}
+.map-card-bar .map-nav-btn {
+  color: var(--primary);
+}
+/* 几处时挑去哪一处的菜单：上面一行小字，下面每处一行（链接、按钮都长成一样的一行） */
+.map-nav-menu {
+  min-width: 200px;
+  max-width: 300px;
+}
+.map-nav-head {
+  padding: 6px 10px 4px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.map-nav-menu .map-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-s);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-s);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.map-nav-menu .map-nav-item:hover {
+  background: var(--fill);
+}
+.map-nav-menu .map-nav-item > .icon {
+  flex: none;
+  color: var(--primary);
+}
+.map-nav-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (pointer: coarse) {
+  .map-nav-menu .map-nav-item {
+    padding: 12px 10px;
+  }
 }
 
 /* ---- 地图页上看一张卡片时，标题栏下面那一条 ---- */

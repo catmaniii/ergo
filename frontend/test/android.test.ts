@@ -36,6 +36,12 @@ function bridgeList(name: string): string[] {
 /** 只有安卓有、鸿蒙没有的方法：在 App 里更新 App（鸿蒙要用户自己签名，装不了） */
 const ANDROID_ONLY = ["installAppUpdate"];
 
+/**
+ * 只有鸿蒙有、安卓没有的方法：用手机地图导航（票 434）——鸿蒙拉系统的"选导航应用"面板，网页调不到 startAbilityByType，要原生桥；
+ * 安卓不用：网页把 geo: 链接交给 App 原有的"别的链接交给系统"（MainActivity.kt 的 openOutside），系统自己弹出地图 App 让用户挑
+ */
+const HARMONY_ONLY = ["openNavigation"];
+
 const mainMethods = () => [...bridgeList("NATIVE_BRIDGE_MIRROR_METHODS"), ...bridgeList("NATIVE_BRIDGE_FIRE_METHODS"), ...bridgeList("NATIVE_BRIDGE_PROMISE_METHODS")];
 
 /** 能渲染文件的扩展名表 */
@@ -101,10 +107,18 @@ describe("原生桥的方法名和网页一侧一样", () => {
     for (const name of ["notifyPrepare", "notifyShow"]) expect(bridgeList("NATIVE_BRIDGE_PROMISE_METHODS")).toContain(name);
   });
 
-  test("和鸿蒙的方法表比：除了第一版不做的手机数据源，一个不少；多的只有安卓才有的 App 内更新", () => {
+  test("和鸿蒙的方法表比：除了第一版不做的手机数据源和安卓用不着的导航面板，一个不少；多的只有安卓才有的 App 内更新", () => {
     const harmony = read(path.join(REPO, "frontend/harmony/entry/src/main/ets/bridge/NativeBridge.ets"));
     const all = /NATIVE_BRIDGE_METHODS: string\[\] = \[([^\]]*)\]/.exec(harmony)![1]!.match(/'[A-Za-z]+'/g)!.map((n) => n.slice(1, -1));
-    expect(all.filter((name) => !name.startsWith("phone")).toSorted()).toEqual(mainMethods().filter((name) => !ANDROID_ONLY.includes(name)).toSorted());
+    for (const name of HARMONY_ONLY) expect(all).toContain(name);
+    expect(all.filter((name) => !name.startsWith("phone") && !HARMONY_ONLY.includes(name)).toSorted()).toEqual(mainMethods().filter((name) => !ANDROID_ONLY.includes(name)).toSorted());
+  });
+
+  test("用手机地图导航（票 434）：安卓不加原生方法，非 http(s) 的链接（geo:）主页面上照旧交给系统、不落到出错页", () => {
+    for (const name of HARMONY_ONLY) expect(mainMethods()).not.toContain(name);
+    const main = kotlin("MainActivity.kt");
+    expect(main).toMatch(/if \(scheme != "http" && scheme != "https"\) \{\s*openOutside\(target\)\s*return true\s*\}/);
+    expect(main).toContain("Intent(Intent.ACTION_VIEW, Uri.parse(target))");
   });
 
   test("App 内更新（票 399）：installAppUpdate 回 Promise，只开给主界面、侧边栏那份没有；进度推给网页的 __ergoAppUpdate", () => {
