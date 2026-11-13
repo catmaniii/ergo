@@ -160,6 +160,8 @@ describe("秘书建提醒", () => {
       "[tool] lsm_force",
       "[tool] lsm_entries",
       "[tool] lsm_restart_self",
+      // 申请目录授权（464：只发申请卡，用户同意了才登记）
+      "[tool] request_folder_grant",
       // 浏览侧边栏里的网页工具（工具列表固定，只在侧边栏发的那一轮能用）
       "[tool] browse_read_page",
       "[tool] browse_fill",

@@ -173,7 +173,7 @@
   "guard.judge.writeOutsideScratch": "{what}要写草稿区之外的 {target}",
   "guard.judge.fence": "{what}要写 {target}，{fence}",
   "guard.judge.readOutside": "{what}要读{scope}之外的 {target}",
-  "guard.judge.grant.none": "没登记：这个 agent 的目录授权里没有包含 {target} 的目录（用户可以在设置 · 目录授权里给它登记）",
+  "guard.judge.grant.none": "没登记：这个 agent 的目录授权里没有包含 {target} 的目录（用户可以在设置 · 目录授权里给它登记，也可以让它自己申请、在卡上点同意）",
   "guard.judge.grant.missingMode": "{dir} 登记了{has}，没登记{mode}",
   "guard.judge.grant.expired": "{dir} 的目录授权已过期",
   "guard.judge.grant.notCounted": "{dir} 登记了，但这种调用不按目录授权算（只认文件工具和 bash 里看得清的读、写、删）",

@@ -141,8 +141,8 @@ describe("浏览插件", () => {
     const context = lastEcho(frontend);
     const tools = toolsIn(context);
     expect(tools.filter((name) => BROWSE_TOOLS.includes(name))).toEqual([]);
-    // 别的工具照旧（内核的在前，指挥服务管家的接着，再是联网工具）
-    expect(tools.slice(tools.indexOf("show_card"), tools.indexOf("show_card") + 9)).toEqual([
+    // 别的工具照旧（内核的在前，指挥服务管家的接着，申请目录授权，再是联网工具）
+    expect(tools.slice(tools.indexOf("show_card"), tools.indexOf("show_card") + 10)).toEqual([
       "show_card",
       "lsm_status",
       "lsm_logs",
@@ -150,6 +150,7 @@ describe("浏览插件", () => {
       "lsm_force",
       "lsm_entries",
       "lsm_restart_self",
+      "request_folder_grant",
       "web_search",
       "web_fetch",
     ]);

@@ -112,5 +112,6 @@
   "model.cards.type.runtimeQuestion": "运行时的提问",
   "model.cards.type.scheduleTask": "定时任务",
   "model.cards.type.skillChange": "skill 变更",
-  "model.cards.type.map": "地图"
+  "model.cards.type.map": "地图",
+  "model.cards.type.folderGrantRequest": "目录授权申请"
 }

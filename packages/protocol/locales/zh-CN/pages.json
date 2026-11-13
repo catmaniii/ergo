@@ -509,7 +509,7 @@
   "pages.authorizedFolders.add": "添加文件夹",
   "pages.authorizedFolders.full": "已经 {max} 个了，先拿掉一个再加",
   "pages.folderGrants.intro": "每个 agent 一份：个人助理一份、每个项目一份（项目的负责人用）、每个任务一份（任务的负责人用）；子 agent 和评审不继承。登记了的目录里，做登记了的那几种操作（读、写、删分开）不用再问你，没登记的照旧。",
-  "pages.folderGrants.howToAdd": "在每个 agent 自己的 ⚙ 里登记；对话里因为碰到范围之外的目录弹出审批卡时，也可以点“以后都允许”。",
+  "pages.folderGrants.howToAdd": "在每个 agent 自己的 ⚙ 里登记；对话里因为碰到范围之外的目录弹出审批卡时，也可以点“以后都允许”。agent 也可以自己申请，你在卡上点同意才登记。",
   "pages.folderGrants.never": "登记了也不放的：数据目录里的配置、密钥、数据库和程序目录照旧不能写，密钥区照旧不能读；登记目录里的 .env、*.key、*.pem、secrets*、id_rsa*、credentials* 这类密钥文件读写都拒。",
   "pages.folderGrants.clearExpired": "清掉已过期的（{count}）",
   "pages.folderGrants.loading": "正在取……",

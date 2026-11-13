@@ -1,6 +1,6 @@
 // 目录授权（ADR-0049）的界面部件：设置 · 目录授权的总览（pages/more/FolderGrantsPage.tsx）、各 agent 的 ⚙ 里那一块共用。
 // - FolderGrantRows：一行一条：目录（长了断行）、登记了的操作、到期（没写到期的醒目地标"长期有效"；已过期、找不到了标出来）、
-//   为什么给、谁什么时候加的，右边一个叉（点了马上删，没有确认框）；
+//   为什么给、谁什么时候加的（你加的、审批卡上"以后都允许"的、它申请你同意的），右边一个叉（点了马上删，没有确认框）；
 // - FolderGrantForm：加一条：目录（完整路径，能手填，也能点旁边的"选文件夹…"开几处共用的那个选文件夹的框，ui/folder-picker.tsx；
 //   框里这个 agent 已经登记了的标"已登记"、授权的文件夹标"所有 agent 可读"；选中了只填进表单，不马上存）、
 //   读写删三个勾（删除单独勾，勾了不带写）、到期（长期有效、几天）、为什么给；
@@ -33,6 +33,9 @@ import { T } from "./i18n.tsx";
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
+/** 谁什么时候加的：你在设置、⚙ 里加的，审批卡上点了"以后都允许"的，它申请、你在卡上同意的（464） */
+const ADDED_BY_KEY = { user: "ui.folderGrants.addedByYou", approval: "ui.folderGrants.addedOnCard", request: "ui.folderGrants.addedOnRequest" } as const;
+
 /** 一条授权的几行：目录、操作、到期、为什么给、谁什么时候加的；onRemove 不给就没有叉（只读） */
 export function FolderGrantRows({ grants, busy, onRemove }: { grants: readonly FolderGrantView[]; busy: boolean; onRemove?: ((grant: FolderGrantView) => void) | undefined }) {
   if (grants.length === 0) return <div className="muted af-empty">{t("ui.folderGrants.empty")}</div>;
@@ -50,7 +53,7 @@ export function FolderGrantRows({ grants, busy, onRemove }: { grants: readonly F
                 {g.state === "missing" && <span className="af-tag af-tag-warn">{t("ui.folderGrants.missing")}</span>}
               </div>
               {g.note !== "" && <div className="fg-note">{g.note}</div>}
-              <div className="muted fg-meta">{t(g.addedBy === "approval" ? "ui.folderGrants.addedOnCard" : "ui.folderGrants.addedByYou", { at: folderGrantTimeText(g.addedAt) })}</div>
+              <div className="muted fg-meta">{t(ADDED_BY_KEY[g.addedBy], { at: folderGrantTimeText(g.addedAt) })}</div>
             </div>
             {onRemove && (
               <button type="button" className="icon-btn af-remove" aria-label={t("ui.folderGrants.removePath", { path: g.path })} title={t("ui.folderGrants.remove")} disabled={busy} onClick={() => onRemove(g)}>

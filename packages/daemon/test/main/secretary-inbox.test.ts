@@ -83,6 +83,8 @@ const SECRETARY_TOOLS = [
   "lsm_force",
   "lsm_entries",
   "lsm_restart_self",
+  // 申请目录授权（464：只出"目录授权申请"卡，不对已有的卡做动作；用户同意了才登记）
+  "request_folder_grant",
   // 画在地图上（地图插件，431：只建一张已处理的地图卡，不对已有的卡做动作）
   "show_on_map",
   "start_workflow",

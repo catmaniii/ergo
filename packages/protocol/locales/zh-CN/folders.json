@@ -41,6 +41,18 @@
   "folders.grants.mode.write": "写",
   "folders.grants.mode.delete": "删",
   "folders.grants.modeSep": "、",
+  "folders.request.tool": "申请目录授权",
+  "folders.request.forever": "长期有效",
+  "folders.request.days": "{count} 天",
+  "folders.request.until": "到 {at}",
+  "folders.request.cardText": "{agent}申请{modes} {path}（{duration}）",
+  "folders.request.cardWhy": "为什么：{why}",
+  "folders.request.cardApproved": "已同意，登记成：{modes} · {expiry}",
+  "folders.request.cardDenied": "没同意，没有登记",
+  "folders.request.inboxTitle": "{agent}申请目录授权：{path}",
+  "folders.request.notRequested": "只能在它要的操作里去掉几样，不能加它没要的：{modes}",
+  "folders.request.decided": "这张申请卡已经处理过了",
+  "folders.request.approvedNote": "已登记：{modes} · {expiry}",
   "folders.folders.doneAdd": "已授权 {n} 个文件夹：{folders}{already}",
   "folders.folders.doneRemove": "已取消授权 {n} 个文件夹：{folders}{already}"
 }

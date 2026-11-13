@@ -38,6 +38,9 @@ describe("没登记：照旧，说明里说没登记、在哪登记", () => {
     expect(j.categories).toEqual(["outside_project"]);
     expect(j.explanation).toContain("没登记");
     expect(j.explanation).toContain("设置 · 目录授权");
+    // 464：有表的 agent 也可以自己申请。这句也写在给用户看的审批卡、调用记录上：说人话，不带工具名
+    expect(j.explanation).toContain("也可以让它自己申请");
+    expect(j.explanation).not.toContain("request_folder_grant");
   });
 
   it("对话里写项目之外没登记：文件工具照旧硬拒绝（围栏），说明写没登记", () => {
@@ -52,6 +55,7 @@ describe("没登记：照旧，说明里说没登记、在哪登记", () => {
       expect(j.categories).toEqual(["outside_project"]);
       expect(j.explanation).not.toContain("目录授权");
       expect(j.explanation).not.toContain("没登记");
+      expect(j.explanation).not.toContain("自己申请");
     }
   });
 

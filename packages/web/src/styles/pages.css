@@ -2239,6 +2239,42 @@ a.att-icon:hover {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/*
+ * 目录授权申请卡（ui/cards/FolderGrantRequestCard.tsx，464）：目录、要的、已有（左边一列小标签，目录长了断行）；
+ * 没处理时下面一块收窄：同意哪些（只列它要的几样，勾挨着排）、多久（下拉）、附一句话，上面一道细线隔开。只用 token
+ */
+.xcard-folder_grant_request .xcard-body {
+  min-width: 0;
+}
+.fgr-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 10px;
+  margin: 0;
+  font-size: var(--fs-m);
+}
+.fgr-facts dt {
+  color: var(--muted);
+}
+.fgr-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.fgr-path {
+  font-weight: 600;
+}
+.fgr-narrow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+/* 多久的下拉不用占满宽屏的一整行 */
+.fgr-narrow select {
+  max-width: 280px;
+}
 /* 和库里同名时的改名：新名字输入框和两个按钮占满一行 */
 .skill-change-rename {
   display: flex;

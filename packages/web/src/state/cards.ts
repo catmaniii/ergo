@@ -40,6 +40,7 @@ export const CARD_TYPE_LABEL: Readonly<Record<CardType, string>> = tTable({
   runtime_question: "model.cards.type.runtimeQuestion",
   schedule_task: "model.cards.type.scheduleTask",
   map: "model.cards.type.map",
+  folder_grant_request: "model.cards.type.folderGrantRequest",
 });
 
 /** 卡片动作处理完以后显示的结果文字 */
@@ -102,6 +103,8 @@ export const CARD_ASK: Readonly<Partial<Record<CardType, CardAsk | null>>> = {
   toolkit_change: "approve",
   mcp_change: "approve",
   skill_change: "approve",
+  // agent 自己申请的目录授权（464）：同意了才登记
+  folder_grant_request: "approve",
   questions: "answer",
   runtime_question: "answer",
   suggest_task: "decide",

@@ -644,6 +644,11 @@ export const CARD_TYPES = [
    * 查地点和路线的结果；出来就是已处理（没有要你选的），点开进地图页看大的
    */
   "map",
+  /**
+   * "目录授权申请"卡：个人助理、项目或任务的负责人自己申请把一个目录登记进它的目录授权——目录、要的操作（读、写、删）、多久、为什么，
+   * 已经登记了什么；你可以去掉几样操作、改多久再同意，同意了才登记（464）
+   */
+  "folder_grant_request",
 ] as const;
 
 export type CardType = (typeof CARD_TYPES)[number];
@@ -732,6 +737,8 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   schedule_task: 1,
   /** 地图卡片（431） */
   map: 1,
+  /** agent 自己申请的目录授权（464） */
+  folder_grant_request: 1,
 };
 
 /** 卡片上的按钮动作（"对卡片做动作"请求里的动作名） */
