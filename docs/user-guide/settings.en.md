@@ -235,14 +235,22 @@ Four methods in a list; the higher ones go first. If one fails (error, timeout, 
 |---|---|
 | DeepSeek paid search | Charged per call, fastest, search and read only. Can't be turned on without a DeepSeek key |
 | Ergo's built-in browser search | Free, medium speed, search and read only |
-| agent-browser | Free, slowest, uses the most tokens, can download files and operate web pages |
+| ego browser | Free, uses the sites you're signed in to in ego lite, can download files and operate web pages; hands a page to you when it needs a sign-in or a CAPTCHA |
 | Built-in browser in the phone app | Free, runs on your phone where you can see it, can click, fill boxes and hand over files. Only available in a turn from the browse sidebar or floating button |
 
 - **Reordering:** Click up or down on each one. On a computer you can also drag by the handle on the left.
 - **Turning off:** Click the switch on the right. At least one must stay on, and the last one's switch can't be clicked.
-- Effect: Shared across all devices; the next search follows the new setting. Turning off agent-browser only stops it being used to search; downloading files and operating web pages work as before.
+- Effect: Shared across all devices; the next search follows the new setting. Turning off the ego browser only stops it being used to search; downloading files and operating web pages work as before.
+- If you had agent-browser in the list, after upgrading it is replaced by the ego browser in the same place, with the same on/off setting.
 
 Ergo's built-in browser search uses Chrome or Edge on this computer, found automatically. If it can't find one or you want to name one, see `web.browserPath` in [Config files](../architecture/README.en.md#data-directory-and-config).
+
+The ego browser is ego lite on your computer; agents operate it with the `ego-browser` command in bash:
+
+- **Installing:** Download it from https://lite.ego.app/, open it and finish the first-run setup. Ergo looks for the command again every time it starts an agent, so there's no need to restart ergo. Until it's installed, it stays in the list and web access skips it.
+- **Keep it open:** If ego lite isn't open, agents ask you to open it first and never start it themselves.
+- **Sign-ins and CAPTCHAs:** When a page needs a sign-in, a CAPTCHA or two-step verification, the agent hands that page to you and asks you in the conversation to deal with it in ego on your computer and reply when done. It never guesses passwords, never touches payments and never clears cookies.
+- If it can't be found or is installed elsewhere, see `web.egoBrowserPath` in [Config files](../architecture/README.en.md#data-directory-and-config). The **ego browser** item under **ergo itself** in Health check shows where it was found, its version and whether it's open.
 
 The bottom line of the page, **Folder grants**, links to that page in the Data & devices group below (its top section is the authorized folders). For how to use the built-in browser, see [Built-in browser](browser.en.md).
 
@@ -561,7 +569,7 @@ See [On your phone](mobile.en.md) for more.
 
 **How to use it:** It checks as soon as you open it and has results within a few seconds. The top line is the overall status: how many items are broken and how many need attention, or **All good** if none; items that couldn't be checked this time get a separate grey line. Below that come the blocks:
 
-- **ergo itself**: the eight checks, the six checks and the ten checks in the three tables below.
+- **ergo itself**: the eight checks, the nine checks and the ten checks in the three tables below.
 - **One block per plugin**, titled with the plugin's name; blocks with problems come first. The first line of each block is **The plugin itself**: running, or not loaded (with the reason). ergo also checks each data source and each agent runtime (Claude Code, Codex) that a plugin brings. Plugins can bring their own checks too: install a plugin and you get its block; disable it and the block goes away (disabled plugins are listed on the last line).
 
 Each item has a small dot in front, and there are five results:
@@ -632,7 +640,7 @@ ergo's own eight checks:
 | Disk space | The drive holding the data folder has over 1 GB free; so must the drive holding the service manager's data and logs, if that's a different one | Clear old backups and logs, or move the data folder to a bigger drive |
 | Outside access | Any one of: an entry registered in the service manager, an entry it reports, an address entered by hand, or a paired device; and every entry the service manager tested from outside must be reachable | Ignore it if you only use this computer. If an entry can't be reached, check under **Managed services** whether the tunnel and the tailnet gateway are running, and whether Tailscale is signed in. If your phone can't connect, see [On your phone](mobile.en.md) |
 
-ergo itself has eight more checks (they only read state that's already there; no extra requests):
+ergo itself has nine more checks (they only read state that's already there; no extra requests, except that **ego browser** runs `ego-browser --version` once):
 
 | Check | What it checks and how it's judged | If it's wrong |
 |---|---|---|
@@ -644,6 +652,7 @@ ergo itself has eight more checks (they only read state that's already there; no
 | Plugins | Whether any enabled plugin failed to load (details are in that plugin's own block); one that failed is a heads-up | See the reason in Settings · Plugins |
 | Web page files | Whether ergo's web page files are there; missing is broken (if ergo's pages won't open, telling ergo "run a checkup on yourself" still shows this check) | Running from source: run `npm run build:web` in the repository root. Installed program: reinstall (`ergo uninstall --keep-data`, then run the install command again; your data stays) |
 | Memory used by ergo | How much memory ergo uses now (and how much of it is JS heap), whether the embedding model is loaded, the most it has used since it started, plus how much the programs it started (speech recognition, the built-in browser, agents) use and which use the most. Normally ergo itself uses a few hundred MB, about 1 GB more while the embedding model is loaded (it unloads after 10 idle minutes); over 3 GB for ergo itself needs attention. The programs it started are only reported, not judged (the speech recognition model needs several GB on its own) | Check again in 10 minutes (it stays high for a while right after processing a big batch); if it doesn't come down, restart ergo in the service manager and send the numbers in this item to the developers |
+| ego browser | Whether ego lite's `ego-browser` command can be found (with its location and the version from `ego-browser --version`) and whether ego lite is open. Not found is a heads-up (agents can't use it, and web access skips it); found but not open is also a heads-up | Not installed: install ego lite from https://lite.ego.app/, open it and finish the first-run setup, no need to restart ergo; if it's installed somewhere else, set `web.egoBrowserPath` in the config. Not open: just open ego lite; agents also ask you to open it before using it |
 
 ergo itself has ten more checks, all based on what this computer has on record:
 

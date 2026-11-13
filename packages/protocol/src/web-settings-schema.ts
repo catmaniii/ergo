@@ -1,10 +1,10 @@
 // 设置里 agent 的联网搜索、读网页（改成队列，四种方式）：设置文件和设置接口的 schema。名字和纯函数在
 // web-settings.ts（不引用 TypeBox）。
-// 数据目录配置区的 web-settings.json 是真相，只由运行时写（设置接口）；没有这个文件时按默认（DeepSeek → 浏览器 → agent-browser →
+// 数据目录配置区的 web-settings.json 是真相，只由运行时写（设置接口）；没有这个文件时按默认（DeepSeek → 浏览器 → ego 浏览器 →
 // 鸿蒙 App 的内置浏览器，都启用）。文件是 format 2（队列）；format 1（默认的搜索方式、读网页用不用 DeepSeek）
 // 照样认，读成队列（migrateWebSettingsV1），存一次就写成 format 2。设置接口是整份替换（幂等），不带幂等键；多出来的字段一律拒绝。
 // 四种各一项、至少留一个启用的另外查（webSettingsProblem）。
-// 文件里的队列读得宽一些——方式不限于认得的、项数不限于四项（存的是三项），读完由 normalizeWebQueue 整理（认不得的跳过、
+// 文件里的队列读得宽一些——方式不限于认得的、项数不限于四项（存的是三项），读完由 normalizeWebQueue 整理（466 之前的 agent-browser 原位换成 ego-browser、认不得的跳过、
 // 缺的加在最后）；请求体照旧严格（四种各一项）。
 import { type Static, Type } from "typebox";
 import { WEB_METHODS } from "./web-settings.ts";

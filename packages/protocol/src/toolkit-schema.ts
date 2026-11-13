@@ -199,7 +199,7 @@ export const ImportSkillResult = Type.Object({
 export type ImportSkillResult = Static<typeof ImportSkillResult>;
 
 /** 秘书默认装的 skill：库里还没有的不装，导入后自动装上 */
-export const DEFAULT_SECRETARY_SKILLS: readonly string[] = ["agent-browser", "yt-dlp"];
+export const DEFAULT_SECRETARY_SKILLS: readonly string[] = ["ego-browser", "yt-dlp"];
 
 /** 秘书的系统提示里 skill 说明超过这么多字节，设置页上提醒一句（整套选 pstack 这类集合时很长） */
 export const SECRETARY_SKILL_PROMPT_WARN_BYTES = 8 * 1024;

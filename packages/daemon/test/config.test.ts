@@ -82,7 +82,7 @@ describe("配置", () => {
     expect(() => loadConfig({ env: { ERGO_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/approvals\.waitMinutes/);
   });
 
-  it("agent 子进程的资源限制：默认上限 8、闲置 10 分钟、模型调用 5 分钟、90 秒没回应提前重试、工具调用 10 分钟、每分钟回收孤儿、agent-browser 闲 30 分钟回收；可以改；写错了报错", () => {
+  it("agent 子进程的资源限制：默认上限 8、闲置 10 分钟、模型调用 5 分钟、90 秒没回应提前重试、工具调用 10 分钟、每分钟回收孤儿；可以改；写错了报错；466 之前的 browserIdleMinutes 还写着的照常读、不再用", () => {
     const dataDir = makeTempDir();
     expect(loadConfig({ env: { ERGO_DATA_DIR: dataDir }, homeDir: makeTempDir() }).agentLimits).toEqual({
       maxLive: 8,
@@ -91,7 +91,6 @@ describe("配置", () => {
       modelSilenceMs: 90_000,
       toolCallMs: 10 * 60_000,
       orphanSweepMs: 60_000,
-      browserIdleMs: 30 * 60_000,
     });
     writeConfigFile(dataDir, { agents: { maxLive: 3, idleMinutes: 0.5, orphanSweepSeconds: 5, browserIdleMinutes: 5, modelSilenceSeconds: 45 } });
     expect(loadConfig({ env: { ERGO_DATA_DIR: dataDir }, homeDir: makeTempDir() }).agentLimits).toMatchObject({
@@ -100,8 +99,8 @@ describe("配置", () => {
       orphanSweepMs: 5000,
       modelCallMs: 5 * 60_000,
       modelSilenceMs: 45_000,
-      browserIdleMs: 5 * 60_000,
     });
+    expect(loadConfig({ env: { ERGO_DATA_DIR: dataDir }, homeDir: makeTempDir() }).agentLimits).not.toHaveProperty("browserIdleMs");
     writeConfigFile(dataDir, { agents: { modelSilenceSeconds: 0 } });
     expect(() => loadConfig({ env: { ERGO_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/agents\.modelSilenceSeconds/);
     writeConfigFile(dataDir, { agents: { browserIdleMinutes: 0 } });
@@ -260,6 +259,23 @@ describe("配置", () => {
     expect(load).toThrow(/web\.browserPath 必须是绝对路径/);
     writeConfigFile(dataDir, { web: { browserPath: 1 } });
     expect(load).toThrow(/web\.browserPath 必须是 Chrome 或 Edge/);
+  });
+
+  it("466：ego-browser 命令的路径（web.egoBrowserPath）：和 browserPath 一样，不写、写空、写占位符当没写；写了要是绝对路径", () => {
+    const dataDir = makeTempDir();
+    const load = () => loadConfig({ env: { ERGO_DATA_DIR: dataDir }, homeDir: makeTempDir() }).web;
+    for (const egoBrowserPath of ["", null, "<ego lite 的 ego-browser 命令的绝对路径（不写就自动找）>"]) {
+      writeConfigFile(dataDir, { web: { egoBrowserPath } });
+      expect(load()).toEqual({});
+    }
+    const exe = path.join(makeTempDir(), "ego-browser.exe");
+    const chrome = path.join(makeTempDir(), "chrome.exe");
+    writeConfigFile(dataDir, { web: { browserPath: chrome, egoBrowserPath: exe } });
+    expect(load()).toEqual({ browserPath: chrome, egoBrowserPath: exe });
+    writeConfigFile(dataDir, { web: { egoBrowserPath: "ego-browser.exe" } });
+    expect(load).toThrow(/web\.egoBrowserPath 必须是绝对路径/);
+    writeConfigFile(dataDir, { web: { egoBrowserPath: 1 } });
+    expect(load).toThrow(/web\.egoBrowserPath 必须是 ego lite 的 ego-browser 命令的绝对路径/);
   });
 
   it("带类型的 bash 工具：跑测试、启动构建、装依赖的单次调用超时默认 30 分钟；可以改；写错了报错", () => {

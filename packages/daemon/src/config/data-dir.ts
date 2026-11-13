@@ -50,14 +50,19 @@ export interface DataDirLayout {
   dataSourcesFile: string;
   /** 设置里的"模型"：默认模型、各个 agent 的覆盖、思考档位、设置页改的看图能力；只由运行时写（设置接口） */
   modelSettingsFile: string;
-  /** 设置里 agent 的联网搜索、读网页（是 DeepSeek、浏览器、agent-browser 三种方式的队列）；只由运行时写（设置接口） */
+  /** 设置里 agent 的联网搜索、读网页（是 DeepSeek、浏览器、ego 浏览器三种方式的队列）；只由运行时写（设置接口） */
   webSettingsFile: string;
   /** MCP 登记：登记了才能写进工具包；二狗只读（用户确认之后由运行时写，见 mcp/writer.ts） */
   mcpFile: string;
   /** MCP 登记的历史区：每次改之前把旧的复制一份进来（mcp-<时间>.json），只留最近几份 */
   mcpHistoryDir: string;
-  /** 秘书用的 skill：设置里的 skill 库页勾选的名单；没有这个文件按默认的（agent-browser、yt-dlp） */
+  /** 秘书用的 skill：设置里的 skill 库页勾选的名单；没有这个文件按默认的（ego-browser、yt-dlp） */
   secretarySkillsFile: string;
+  /**
+   * 只做一次的数据迁移做过哪几步（config/migrations.json：{ format: 1, done: { <步骤>: <什么时候> } }）。只由运行时写；
+   * 466 的"agent-browser 换成 ego-browser"（秘书用的 skill、各工具包）记在这里，用户之后自己再勾回 agent-browser 不会又被换掉
+   */
+  migrationsFile: string;
   /** 授权的文件夹（叫这个名字）：所有 agent 读里面的文件都不用问，秘书和"浏览"里的二狗找文件时搜它们，设置 · 目录授权里能看能改 */
   localFoldersFile: string;
   /**
@@ -230,6 +235,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     mcpFile: path.join(config, "mcp.json"),
     mcpHistoryDir: path.join(config, ".history"),
     secretarySkillsFile: path.join(config, "secretary-skills.json"),
+    migrationsFile: path.join(config, "migrations.json"),
     localFoldersFile: path.join(config, "local-folders.json"),
     folderGrantsFile: path.join(config, "folder-grants.json"),
     doctorWatchFile: path.join(config, "doctor-watch.json"),

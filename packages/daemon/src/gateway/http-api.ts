@@ -1201,7 +1201,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "web_settings":
         return {
-          // 设置里 agent 的联网搜索、读网页（是 DeepSeek、浏览器、agent-browser 三种方式的队列）：存着的队列、
+          // 设置里 agent 的联网搜索、读网页（是 DeepSeek、浏览器、ego 浏览器三种方式的队列）：存着的队列、
           // 实际用的顺序、DeepSeek 的 key 配没配（只说配没配）、最近一次余额不足
           GET(_req, res) {
             if (!options.webSettings) throw new HttpError("not_found", t("gateway.http.noWebSettings"));

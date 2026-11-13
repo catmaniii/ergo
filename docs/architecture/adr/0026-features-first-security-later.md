@@ -102,3 +102,18 @@
 - **代码里的默认值**也是 `off`、`false`：数据目录里没写这两项的就是关着。
 - **设置 · 关注类别最上面两个开关**（"有风险的事先问我""任务超预算就停下"），每个下面一句写开着、关掉各会怎样；改了写回配置文件、马上生效（守卫、预算核对、系统提示都现取）。设置向导复用同一对接口（`GET / PUT /api/safety-settings`）。
 - 秘书联网、起草计划时联网、浏览侧边栏点"提交 / 运行"这几项不设开关（收了核心功能就断，风险靠上面的开关和以后的污染标记 / 审查 agent）。
+
+## 补充：agent 用的浏览器换成 ego 浏览器（466，2026-11-14）
+
+需求："ego-browser我试过了，可以。可以用来替换二狗的agent-browser。"ego lite 是 Citro Labs 出的 Chromium 浏览器，人和 agent 共用：agent 在 bash 里用 `ego-browser nodejs` 跑脚本，用的是用户已登录的网站，要登录、过验证码时把那一页交给用户（`task.handOff()`）。
+
+- **队列里的第三种换成 `ego-browser`**（显示名"ego 浏览器"）：存着的 `agent-browser` 读的时候原位换成它、启用状态照旧，记一条日志、当场改写设置文件。能不能用：这个 agent 有 bash，而且这台电脑找得到 `ego-browser`；有 bash 却找不到时工具说明写"ego 浏览器没装"、去哪装，`web_search` 当它不在队列里。
+- **找 `ego-browser` 只有一处**（`web/ego-browser.ts`）：配置的 `web.egoBrowserPath` → 守护进程的 PATH → 用户 PATH（注册表 HKCU\Environment，ego lite 首次引导加在这里，只对之后启动的进程生效）→ 默认位置。每次拉起 agent 现找：找到的记住、只看文件还在不在，没找到的只记 30 秒——用户后来装上的，下次拉起 agent 就有。
+- **交给 agent 的是 PATH，不是环境变量**：拉起 agent 子进程时把 `ego-browser` 所在的目录放到 PATH 最前面；pi 的 bash、Claude Code、Codex 都继承子进程的环境，三种运行时一样。agent-browser 的三个环境变量（`AGENT_BROWSER_EXECUTABLE_PATH`、`_SOCKET_DIR`、`_IDLE_TIMEOUT_MS`）、每个 agent 的 socket 目录、闲置回收（`agents.browserIdleMinutes`，还写着的照常读、不再用）、孤儿回收里认 agent-browser 守护进程的那段都拆了。无头搜索选浏览器（`web/browser-path.ts`）不动，agent-browser 自带的签名 Chrome 照旧当候选。
+- **skill**：框架自带一份薄的 `ego-browser`（先跑 `ego-browser skill` 照它的用法做；二狗这边的规矩：一个目标一个 TaskSpace、要登录过验证码 handOff、ego lite 没开着先请用户打开、不碰付款、不清 cookie；实测的坑）。秘书的默认 skill、存着的秘书名单和各工具包里的 `agent-browser` 换成它，只换一次（记在配置区的 `migrations.json`）。用户自己导入的 agent-browser 留在库里。
+- **保护用户的 ego**：孤儿回收不杀可执行文件在 ego lite 程序目录（安装目录、active_version_dir）下的进程，连同它们下面的进程；取不到路径的按名字（`ego.exe`、`ego-browser.exe`）留。
+
+### Consequences
+
+- ego lite 没开着时 `ego-browser nodejs` 多半会自己去拉起它（程序里有"Failed to start ego lite: cannot find the app…"的提示，没实测）。拉起来的进程是 agent 的 bash 起的，在二狗的 Job 里（Job 不允许脱离）：孤儿回收不碰它，可二狗一停，Job 关掉时会把用户的浏览器一起关掉。现在靠 skill 的规矩挡（先看 `ego.exe` 在不在跑，不在就请用户打开），没有硬拦；怎么硬拦等用户定（466 的 Comments）。
+- 常驻的秘书 PATH 是拉起时定的：秘书起来之后才装的 ego lite，要等秘书下次重新拉起（重启二狗、秘书的子进程重来）才在它的 bash 里找得到；工具说明里"没装"那句跟着每次装配现写。

@@ -296,9 +296,15 @@ import {
   appBrowserTurnNote,
   createBrowserLocator,
   createDeepSeekTools,
+  createEgoBrowserLocator,
+  createEgoVersionReader,
   createWebAccess,
   createWebSettings,
+  type EgoBrowserFound,
+  egoLiteRunning,
+  egoProgramDirs,
   playwrightDriver,
+  realEgoProbe,
   type WebAccess,
   type WebBilledCall,
   type WebSettingsService,
@@ -320,6 +326,7 @@ import { createSkillChangeService, skillChangeCardType } from "./skills/change.t
 import * as skillChangeTexts from "./skills/change-texts.ts";
 import { skillDecisionPurge, skillDecisionSource } from "./skills/material-source.ts";
 import { createSecretarySkills, type SecretarySkills } from "./skills/secretary-skills.ts";
+import { createOneTimeMigrations, migrateSecretarySkillsToEgo, migrateToolkitsToEgo } from "./skills/ego-browser-migration.ts";
 import { skillDirProblems } from "./skills/skill-command.ts";
 import { conversationSlashCommands } from "./slash-commands/list.ts";
 import { createSlashTranslations, SLASH_TRANSLATION_SESSION } from "./slash-commands/translations.ts";
@@ -542,9 +549,14 @@ export interface StartDaemonOptions {
   serviceThumbnail?: (url: string, signal: AbortSignal) => Promise<Buffer>;
   /**
    * 测试用：浏览器路径的探测换成假的（返回 undefined 是没找到）；不填按 web/browser-path.ts 找（配置的 web.browserPath、
-   * 环境变量 AGENT_BROWSER_EXECUTABLE_PATH、agent-browser 自带的签名 Chrome、系统 Chrome、系统 Edge；一个进程只探一次）。联网工具用它，拉起 agent 时注入 bash 环境的 AGENT_BROWSER_EXECUTABLE_PATH 也是它
+   * 环境变量 AGENT_BROWSER_EXECUTABLE_PATH、agent-browser 自带的签名 Chrome、系统 Chrome、系统 Edge；一个进程只探一次）。联网搜索、读网页用它
    */
   browserPath?: () => string | undefined;
+  /**
+   * 测试用：ego 浏览器（ego-browser 命令）的探测换成假的（返回 undefined 是没装）；不填按 web/ego-browser.ts 找（配置的 web.egoBrowserPath、
+   * PATH、用户 PATH、默认位置；每次拉起 agent 现找）。拉起 agent 时它的目录放到 PATH 最前面，联网工具的说明、体检也看它（466）
+   */
+  egoBrowser?: () => EgoBrowserFound | undefined;
   /**
    * 测试用：按设置里的"模型"拉起的目录模型（DeepSeek）和连通测试，请求都发到这个地址（本机的假 DeepSeek 服务），
    * 不连真的 DeepSeek；正式的不给
@@ -1219,6 +1231,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const skills = createSkillLibrary({ builtinDir: options.builtinSkillsDir ?? BUILTIN_SKILLS_DIR, userDir: realLayout.skills, dataDir: realLayout.root, now, log });
     // 秘书用的 skill：名单在配置区（设置里的 skill 库页改），每次装配秘书时现取
     const secretarySkills = createSecretarySkills({ file: layout.secretarySkillsFile, library: skills, log });
+    // 466：只做一次的迁移记在配置区的 migrations.json。秘书用的 skill 里的 agent-browser 换成 ego-browser（秘书装配之前做完）
+    const migrations = createOneTimeMigrations(layout.migrationsFile, now);
+    migrateSecretarySkillsToEgo({ migrations, secretarySkills, log });
     const mcp = createMcpService({
       file: layout.mcpFile,
       // 项目转入使用时自动转的 MCP：算出来的登记，每次现读时合进去，不写进 mcp.json（ADR-0045）
@@ -1754,10 +1769,15 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       log,
     });
     wiring.ledger = ledger;
-    // 浏览器：联网搜索、读网页和 agent-browser 共用一处探测（配置的 web.browserPath → 守护进程环境里的 AGENT_BROWSER_EXECUTABLE_PATH
-    // → agent-browser 自带的签名 Chrome → 系统 Chrome → 系统 Edge），找到了就记住；拉起 agent 时注入 bash 的环境
+    // 浏览器：联网搜索、读网页用的一处探测（配置的 web.browserPath → 守护进程环境里的 AGENT_BROWSER_EXECUTABLE_PATH
+    // → agent-browser 自带的签名 Chrome → 系统 Chrome → 系统 Edge），找到了就记住
     const browserLocator = createBrowserLocator({ configured: config.web.browserPath, homeDir: options.homeDir, env: options.env, log });
     const browserPath = options.browserPath ?? (() => browserLocator.path());
+    // ego 浏览器（466）：agent 在 bash 里用的 ego-browser 命令。每次拉起 agent 现找（配置的 web.egoBrowserPath → PATH → 用户 PATH → 默认位置，
+    // 没找到的只记一会儿），找到了把目录放到 agent 子进程 PATH 的最前面；孤儿回收不碰 ego lite 的程序目录下的进程
+    const egoLocator = createEgoBrowserLocator(realEgoProbe({ env: options.env, homeDir: options.homeDir, configured: config.web.egoBrowserPath }), { log });
+    const egoBrowser = options.egoBrowser ?? (() => egoLocator.find());
+    const egoDirs = () => egoProgramDirs({ found: egoBrowser(), env: options.env, homeDir: options.homeDir });
     /**
      * 设置里选的自定义（OpenAI 兼容）服务商（自定义服务商这一步）：设置服务在下面才建（它要用这里建好的 agent 管家做模型探查），
      * 所以两边在这里交汇——先留个口子，设置服务建好之后填进来；拉起 agent、模型探查、另起的生成都现取它
@@ -1766,7 +1786,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const agents = createAgentManager({
       layout,
       parentEnv: options.env,
-      browserPath,
+      egoBrowserDir: () => egoBrowser()?.dir,
+      keepProcessDirs: egoDirs,
       job,
       limits: config.agentLimits,
       onActivity: activity.record,
@@ -2111,7 +2132,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const configuredVision = () => modelSettings.configuredVision();
     // 联网搜索、读网页：秘书、任务负责人（起草和执行）、项目负责人、定时作业的负责人、子 agent 都配上（评审子 agent 不配）；
     // 联网开关关着的会话里守卫拒绝。几种方式并列：浏览器（DDG → Bing → Google）、DeepSeek 的搜索接口（key 和模型共用，
-    // 每次现取）、Tavily（key 只从环境里取，只在指定时用）。按设置里的队列（DeepSeek、浏览器、agent-browser，能排序、能停用）：
+    // 每次现取）、Tavily（key 只从环境里取，只在指定时用）。按设置里的队列（DeepSeek、浏览器、ego 浏览器，能排序、能停用）：
     // 不指定时依次试启用的，没成换下一个；读网页先直接请求，被拦了按队列交给 DeepSeek 读网页、浏览器。工具说明跟着队列写，每次装配现做，
     // 设置改了秘书重新装配。DeepSeek 只有一个客户端，账号级的限速所有 agent 共用。
     // key 从 credentials 现取（网页上填了就地换），所以联网设置里"DeepSeek 的 key 配没配"也跟着变
@@ -2147,7 +2168,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         webTools(webAccess, {
           onBilled,
           setup: { queue: webSettings.view().effective, tavily: tavilyKey(options.env) !== undefined },
-          agentBrowser: agent.bash,
+          // ego 浏览器：有 bash、找得到 ego-browser 才用得了；有 bash 找不到时说明里写"没装"
+          egoBrowser: agent.bash ? (egoBrowser() ? true : "missing") : false,
           ...(agent.browse && plugins.service(BROWSING) ? { appBrowser: appBrowserTurn } : {}),
         }),
       onWebChange: (listener) => webSettings.onChange(listener),
@@ -2661,6 +2683,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 接着（和原来同一个位置）：项目的建设任务做完了出"首版做完了"卡（任务完成回调）、运营方案跟着项目停用启用（订阅项目事件）、派单器开始
     // （派单器写回最多催几次和执行中的催促同一个阈值，14；工单结束时的范围审视由项目的负责人做）
     projectSystem.connect({ execution: taskExecution, agentHost, slots, taskMaintainers: maintainers, subAgents, toolkits, mcpChanges, skillChanges, mcp }, teardown);
+    // 466：各工具包里的 agent-browser 换成 ego-browser（只做一次；负责人都还没拉起，换完下次拉起就是新的工具包）
+    migrateToolkitsToEgo({
+      migrations,
+      projects: { list: () => projectDirectory.list(), changeToolkit: (projectId, toolkit, change) => projectSystem.toolkitProjects.changeToolkit(projectId, toolkit, change) },
+      tasks: { list: () => tasks.list(), confirmedPlan: (taskId) => tasks.confirmedPlan(taskId), changeToolkit: (input) => taskExecution.changeToolkit(input) },
+      log,
+    });
     // 任务的负责人在派单器接上之后再起：重启时马上要拉起的涉及多个项目的任务的负责人，一起来就可能派工单
     maintainers.start();
     teardown.push(() => maintainers.stop());
@@ -3247,6 +3276,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         now: () => clock.now(),
         // 二狗占的内存（439）：查的时候现读本进程和子孙进程的计数；向量模型加载着没有看内核那一份向量函数
         memory: () => readMemoryUse(() => memoryEmbedder.loaded?.()),
+        // ego 浏览器（466）：和拉起 agent 同一份探测；版本按文件 + 修改时间记住
+        egoBrowser: { find: egoBrowser, version: createEgoVersionReader(), running: () => egoLiteRunning(egoDirs()) },
       }),
     );
     // 体检"二狗本身"的新检查（二）（411，doctor/housekeeping.ts；登记在 410 那几项后面，页面上排在它们之后）：备份、定时触发的任务、内部作业、卡住的 agent 和名额、日志大小、

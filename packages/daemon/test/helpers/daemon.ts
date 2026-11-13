@@ -244,8 +244,13 @@ export interface StartTestDaemonOptions {
   deepseekBalanceBaseUrl?: string;
   /** 项目的服务首页怎么截：不填是一律截不成（"测试里不截图"），永远不起浏览器 */
   serviceThumbnail?: (url: string, signal: AbortSignal) => Promise<Buffer>;
-  /** 浏览器的路径（注入 agent 的 bash 环境的 AGENT_BROWSER_EXECUTABLE_PATH）：给假的路径；不填是没找到（不注入），不探测本机 */
+  /** 联网搜索、读网页用的浏览器的路径：给假的路径；不填是没找到，不探测本机 */
   browserPath?: string;
+  /**
+   * ego 浏览器的 ego-browser 命令（466）：给假的路径（它的目录放到 agent 子进程 PATH 的最前面）；不填是没装，不探测本机。
+   * 给函数时每次拉起 agent 现取（测"后来装上"）
+   */
+  egoBrowser?: string | (() => string | undefined);
   /**
    * 按设置里的"模型"拉起的几类 agent：列出的不给 faux 剧本，守护进程按设置取目录模型（DeepSeek），请求都发到
    * catalogBaseUrl（本机的假 DeepSeek，fake-deepseek.ts）；maintainer 是任务、项目、定时作业的负责人。不列的照旧是 faux
@@ -421,6 +426,10 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     deepseekBalanceBaseUrl: options.deepseekBalanceBaseUrl ?? NO_DEEPSEEK_BALANCE_URL,
     serviceThumbnail: options.serviceThumbnail ?? (() => Promise.reject(new Error("测试里不截图"))),
     browserPath: () => options.browserPath,
+    egoBrowser: () => {
+      const file = typeof options.egoBrowser === "function" ? options.egoBrowser() : options.egoBrowser;
+      return file === undefined ? undefined : { path: file, dir: path.dirname(file), source: "config" as const };
+    },
     log: options.log ?? (() => {}),
   });
   started = daemon;

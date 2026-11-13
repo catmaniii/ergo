@@ -1,6 +1,7 @@
 // 测试用的"把装配参数交回来"的子进程（自定义服务商这一步）：不跑任何模型。收到"启动"就把这次收到的装配参数
 // （HostCommand.start.session）原样写进环境变量 ERGO_TEST_ASSEMBLY_FILE 指的那个文件，报一条最小的 ready，然后退出。
 // 主切面不用它；模块层的测试借它看"agent 管家拉起的装配里到底带了什么"（模板照 fixtures/fake-runtime-child.ts）。
+// 给了 ERGO_TEST_ENV_FILE 时把自己的环境变量也写进那个文件（466：看 PATH 最前面是不是 ego 浏览器的目录）。
 import fs from "node:fs";
 import { type AgentReport, errorReport, HOST_PROTOCOL_VERSION, type HostCommand } from "../../src/runtime/host-protocol.ts";
 import { encodeLine, readJsonLines } from "../../src/runtime/line-channel.ts";
@@ -20,6 +21,9 @@ function handle(command: HostCommand): void {
   }
   const file = process.env.ERGO_TEST_ASSEMBLY_FILE;
   if (file !== undefined) fs.writeFileSync(file, JSON.stringify(command.session), "utf8");
+  // 466：子进程自己的环境（agent 管家给的；PATH 前面有没有 ego 浏览器的目录）另写一份
+  const envFile = process.env.ERGO_TEST_ENV_FILE;
+  if (envFile !== undefined) fs.writeFileSync(envFile, JSON.stringify(process.env), "utf8");
   emit({
     type: "ready",
     pid: process.pid,

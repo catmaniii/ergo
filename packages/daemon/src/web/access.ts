@@ -2,10 +2,10 @@
 // 正式的由 createWebAccess 拼成。几种方式并列（"deepseek 的这两个工具作为一种选择，不作为唯一方式"），
 // 按设置里的队列用（排最上面的最优先，第一个失效了按顺序换下一个；选哪几种的纯函数在 queue.ts）：
 // - 搜索：不指定 engine 时按队列里启用的方式依次试（DeepSeek 的搜索接口 deepseek.ts、浏览器 search.ts 的 ddg → bing → google；
-//   DeepSeek 没 key 时跳过），没成的换下一个，结果里写明前面的为什么没成、这次用的是哪种；agent-browser 是模型自己在 bash 里
-//   操作的：排中间时试到它前面为止、停下让模型用它，只启用了它时不试别的（OnlyAgentBrowser）。engine 指定了启用着的方式就只用那一种，
+//   DeepSeek 没 key 时跳过），没成的换下一个，结果里写明前面的为什么没成、这次用的是哪种；ego 浏览器是模型自己在 bash 里
+//   操作的：排中间时试到它前面为止、停下让模型用它，只启用了它时不试别的（OnlyEgoBrowser）。engine 指定了启用着的方式就只用那一种，
 //   没成就报；停用了的、没 key 的拒绝（WebMethodUnavailable）。Tavily 不在队列里，照旧只在指定时用。
-// - 读网页（fetch.ts）：直接请求 → 队列里的 DeepSeek 读网页、浏览器（按队列的顺序，停用了的不用）；都没读到时 agent-browser
+// - 读网页（fetch.ts）：直接请求 → 队列里的 DeepSeek 读网页、浏览器（按队列的顺序，停用了的不用）；都没读到时 ego 浏览器
 //   启用着的标出来（工具提示用它）。
 // -鸿蒙 App 的内置浏览器也是模型自己操作的（秘书的 browse_* 工具），只在这一轮能用时（SearchRequest.appBrowser：秘书、
 //   从浏览侧边栏或悬浮按钮来的那一轮）算数：搜索试到它为止、停下让模型用它（排第一时一种都不试，AllSearchesFailed 的 message 是空的）；
@@ -28,24 +28,24 @@ export type WebSearchEngine = (typeof WEB_SEARCH_ENGINES)[number];
 
 /**
  * 一次搜索：查询、条数、时间、地区（search.ts 的 SearchQuery），engine 指定哪种方式；tavily 为真等于 engine 写 tavily（照 skill 的 --tavily）；
- * agentBrowser：发起调用的 agent 能用 agent-browser（有 bash），队列里的 agent-browser 才算数；appBrowser：这一轮能用
+ * egoBrowser：发起调用的 agent 能用 ego 浏览器（有 bash、找得到 ego-browser），队列里的 ego 浏览器才算数；appBrowser：这一轮能用
  * 鸿蒙 App 的内置浏览器（秘书、从浏览侧边栏或悬浮按钮来的那一轮），队列里的它才算数
  */
 export interface SearchRequest extends Omit<SearchQuery, "engine"> {
   engine?: WebSearchEngine | undefined;
   tavily?: boolean | undefined;
-  agentBrowser?: boolean | undefined;
+  egoBrowser?: boolean | undefined;
   appBrowser?: boolean | undefined;
 }
 
-/** 一次读网页：网址、最多多少字；agentBrowser、appBrowser 同 SearchRequest（都没读到时提示用它们） */
+/** 一次读网页：网址、最多多少字；egoBrowser、appBrowser 同 SearchRequest（都没读到时提示用它们） */
 export interface WebFetchRequest extends FetchRequest {
-  agentBrowser?: boolean | undefined;
+  egoBrowser?: boolean | undefined;
   appBrowser?: boolean | undefined;
 }
 
 /**
- * 按队列试的几种都没搜成：每种的原因（说法直接给模型看）。next：队列里接下来是模型自己操作的方式（agent-browser，还有
+ * 按队列试的几种都没搜成：每种的原因（说法直接给模型看）。next：队列里接下来是模型自己操作的方式（ego 浏览器，还有
  * 鸿蒙 App 的内置浏览器；rest 是排在它后面的、它也不成时再用的）。内置浏览器排在最前面时一种都没试，message 是空的
  */
 export class AllSearchesFailed extends Error {
@@ -58,8 +58,8 @@ export class AllSearchesFailed extends Error {
 }
 
 /**
- * 设置里启用的只有模型自己操作的方式，这一次都用不了：methods 是启用着的那几种（agent-browser 要 bash，鸿蒙 App 的
- * 内置浏览器要秘书从浏览侧边栏、悬浮按钮来的那一轮）。只启用了 agent-browser 的照旧是 OnlyAgentBrowser
+ * 设置里启用的只有模型自己操作的方式，这一次都用不了：methods 是启用着的那几种（ego 浏览器要 bash 和装了 ego lite，鸿蒙 App 的
+ * 内置浏览器要秘书从浏览侧边栏、悬浮按钮来的那一轮）。只启用了 ego 浏览器的照旧是 OnlyEgoBrowser
  */
 export class SearchMethodsUnusable extends Error {
   override readonly name = "SearchMethodsUnusable";
@@ -70,12 +70,12 @@ export class SearchMethodsUnusable extends Error {
   }
 }
 
-/** 设置里联网搜索只启用了 agent-browser：web_search 不试别的；usable 是发起调用的 agent 用不用得了它（有没有 bash） */
-export class OnlyAgentBrowser extends Error {
-  override readonly name = "OnlyAgentBrowser";
+/** 设置里联网搜索只启用了 ego 浏览器：web_search 不试别的；usable 是发起调用的 agent 用不用得了它（有 bash、装了 ego lite） */
+export class OnlyEgoBrowser extends Error {
+  override readonly name = "OnlyEgoBrowser";
   readonly usable: boolean;
   constructor(usable: boolean) {
-    super("设置里联网搜索只启用了 agent-browser");
+    super("设置里联网搜索只启用了 ego 浏览器");
     this.usable = usable;
   }
 }
@@ -95,14 +95,14 @@ export class WebMethodUnavailable extends Error {
 
 export interface WebAccess {
   /**
-   * 搜索：搜到了交回引擎和结果（换了路的带 note）。按队列只试了一种、后面也没有 agent-browser 时照那一种抛（浏览器用不了
-   * BrowserUnavailable、都没搜到 SearchFailed、DeepSeek 没成 DeepSeekFailed）；试了几种都没成、或者接下来是 agent-browser 时抛
-   * AllSearchesFailed（接下来是内置浏览器、又一种都没试时 message 是空的）；只启用了 agent-browser 抛 OnlyAgentBrowser，启用的都是
+   * 搜索：搜到了交回引擎和结果（换了路的带 note）。按队列只试了一种、后面也没有 ego 浏览器时照那一种抛（浏览器用不了
+   * BrowserUnavailable、都没搜到 SearchFailed、DeepSeek 没成 DeepSeekFailed）；试了几种都没成、或者接下来是 ego 浏览器时抛
+   * AllSearchesFailed（接下来是内置浏览器、又一种都没试时 message 是空的）；只启用了 ego 浏览器抛 OnlyEgoBrowser，启用的都是
    * 这一次用不了的模型方式抛 SearchMethodsUnusable；指定的方式停用了、没 key 抛 WebMethodUnavailable；
    * 指定 DeepSeek 没成抛 DeepSeekFailed；走 Tavily 时没配 key 抛 TavilyKeyMissing，没搜成抛 TavilyFailed
    */
   search(request: SearchRequest, signal?: AbortSignal): Promise<SearchFound>;
-  /** 读网页：交回给模型的文字（已截断）；都没读到抛 FetchFailed（agentBrowser、appBrowser：提示用它们） */
+  /** 读网页：交回给模型的文字（已截断）；都没读到抛 FetchFailed（egoBrowser、appBrowser：提示用它们） */
   fetch(request: WebFetchRequest, signal?: AbortSignal): Promise<FetchedPage>;
 }
 
@@ -163,7 +163,7 @@ export function createWebAccess(deps: {
   };
 
   return {
-    search: async ({ tavily, engine, agentBrowser, appBrowser, ...query }, signal) => {
+    search: async ({ tavily, engine, egoBrowser, appBrowser, ...query }, signal) => {
       if (tavily || engine === "tavily") return searchTavily(post, deps.tavilyKey?.(), query, signal);
       if (engine) {
         const blocked = engineBlocked(engine, queue(), hasKey());
@@ -171,14 +171,14 @@ export function createWebAccess(deps: {
         if (engine === "deepseek") return deepseek!.search(query, signal);
         return viaBrowser(engine === "browser" ? query : { ...query, engine }, signal);
       }
-      const plan = searchPlan(queue(), agentBrowser === true, appBrowser === true);
-      if (plan.kind === "only_agent_browser") throw new OnlyAgentBrowser(plan.usable);
+      const plan = searchPlan(queue(), egoBrowser === true, appBrowser === true);
+      if (plan.kind === "only_ego_browser") throw new OnlyEgoBrowser(plan.usable);
       if (plan.kind === "unusable") throw new SearchMethodsUnusable(plan.methods);
       return inOrder(plan.methods, plan.next, query, signal);
     },
-    fetch: ({ agentBrowser, appBrowser, ...request }, signal) => {
-      const plan = fetchPlan(queue(), agentBrowser === true, appBrowser === true);
-      return webFetch({ fetch: fetchFn, browser: deps.browser, ...(deepseek ? { deepseek } : {}), after: plan.methods, agentBrowser: plan.agentBrowser, appBrowser: plan.appBrowser }, request, { signal, log });
+    fetch: ({ egoBrowser, appBrowser, ...request }, signal) => {
+      const plan = fetchPlan(queue(), egoBrowser === true, appBrowser === true);
+      return webFetch({ fetch: fetchFn, browser: deps.browser, ...(deepseek ? { deepseek } : {}), after: plan.methods, egoBrowser: plan.egoBrowser, appBrowser: plan.appBrowser }, request, { signal, log });
     },
   };
 }

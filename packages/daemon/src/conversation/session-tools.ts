@@ -1,8 +1,8 @@
 // 每个会话都配的代为执行的工具：装配用的一个对象（daemon.ts 建一次，交给秘书、任务的负责人、项目的负责人、定时作业的负责人、
 // 子 agent 的装配；不再把联网工具一样样穿过各模块的选项）。
 // - 联网搜索、读网页：每个会话都配（评审子 agent 除外），联网开关关着时守卫拒绝；子 agent 从负责人收窄后也有。
-//   工具说明跟着设置里的队列写（停用了的方式不写，agent-browser 的位置写进去），所以每次装配现做（web(agent)：这个 agent
-//   有没有 bash 决定提不提 agent-browser）；设置改了 onWebChange 通知，常驻的秘书手头这一条处理完按新的重新装配，别的 agent 下次唤起时就是新的；
+//   工具说明跟着设置里的队列写（停用了的方式不写，ego 浏览器的位置写进去），所以每次装配现做（web(agent)：这个 agent
+//   有没有 bash 决定提不提 ego 浏览器，有 bash 时再看这台电脑找不找得到 ego-browser）；设置改了 onWebChange 通知，常驻的秘书手头这一条处理完按新的重新装配，别的 agent 下次唤起时就是新的；
 //   有 browse_* 工具的 agent（秘书）说明里另写"鸿蒙 App 的内置浏览器"的位置，web_search 按这一轮是不是侧边栏、悬浮按钮来的
 //   判它用不用得了（只在浏览插件运行时，组合根按插件的服务现判）；侧边栏、悬浮按钮那一轮交给秘书的输入后面加的那一句
 //   在浏览插件的输入附注里（它经内核的 KERNEL.webSearch 取这一句）；
@@ -19,7 +19,7 @@ import type { InputGate } from "./input-gate.ts";
 
 /** 装配联网工具时要知道的这个 agent 的样子 */
 export interface WebToolsAgent {
-  /** 有 bash（才用得了 agent-browser） */
+  /** 有 bash（才用得了 ego 浏览器） */
   bash: boolean;
   /** 有 browse_* 工具（秘书：才用得了鸿蒙 App 的内置浏览器，也只在侧边栏、悬浮按钮那一轮；还要浏览插件在运行） */
   browse?: boolean;

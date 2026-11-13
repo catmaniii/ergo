@@ -1,6 +1,7 @@
 // @i18n-ignore-file log：底层出错的说明只进日志（给开发者看）
 // 本机进程的父子关系和创建时间（只在 Windows 上有，孤儿回收用）：CreateToolhelp32Snapshot 拍一张进程快照，
-// 读出每个进程的父进程 id 和可执行文件名；创建时间按需用 GetProcessTimes 取，占的内存按需用 K32GetProcessMemoryInfo 取（439 体检"二狗占的内存"）。
+// 读出每个进程的父进程 id 和可执行文件名；创建时间按需用 GetProcessTimes 取，占的内存按需用 K32GetProcessMemoryInfo 取（439 体检"二狗占的内存"），
+// 可执行文件的完整路径按需用 QueryFullProcessImageNameW 取（466：孤儿回收认出 ego lite 的进程、体检看 ego lite 在不在跑）。
 // 用 koffi 直接调 kernel32（和 job-object.ts 一样）。
 import koffi from "koffi";
 
@@ -37,6 +38,8 @@ interface Toolhelp {
   GetProcessTimes(process: number, creation: Buffer, exit: Buffer, kernel: Buffer, user: Buffer): boolean;
   /** 进程占的内存（PROCESS_MEMORY_COUNTERS_EX，cb 是结构的大小） */
   K32GetProcessMemoryInfo(process: number, counters: Buffer, cb: number): boolean;
+  /** 可执行文件的完整路径（flags 0 是 Win32 写法），size 进是缓冲区的字数、出是写了的字数 */
+  QueryFullProcessImageNameW(process: number, flags: number, name: Buffer, size: [number]): boolean;
   CloseHandle(handle: number): boolean;
   GetLastError(): number;
 }
@@ -55,6 +58,7 @@ function load(): Toolhelp {
     OpenProcess: lib.func("__stdcall", "OpenProcess", "intptr_t", ["uint32", "bool", "uint32"]),
     GetProcessTimes: lib.func("__stdcall", "GetProcessTimes", "bool", ["intptr_t", "void *", "void *", "void *", "void *"]),
     K32GetProcessMemoryInfo: lib.func("__stdcall", "K32GetProcessMemoryInfo", "bool", ["intptr_t", "void *", "uint32"]),
+    QueryFullProcessImageNameW: lib.func("__stdcall", "QueryFullProcessImageNameW", "bool", ["intptr_t", "uint32", "void *", "_Inout_ uint32 *"]),
     CloseHandle: lib.func("__stdcall", "CloseHandle", "bool", ["intptr_t"]),
     GetLastError: lib.func("__stdcall", "GetLastError", "uint32", []),
   } as unknown as Toolhelp;
@@ -144,6 +148,27 @@ export function processMemory(pids: readonly number[]): Map<number, ProcessMemor
           peakPrivate: Number(counters.readBigUInt64LE(PEAK_PAGEFILE_OFFSET)),
         });
       }
+    } finally {
+      api.CloseHandle(handle);
+    }
+  }
+  return result;
+}
+
+/** 可执行文件的完整路径最长多少个字（UTF-16） */
+const IMAGE_PATH_CHARS = 32_768;
+
+/** 这些进程的可执行文件的完整路径（C:\…\ego.exe）。打不开的（已经退出、没权限）不在结果里 */
+export function processImagePaths(pids: readonly number[]): Map<number, string> {
+  const api = load();
+  const result = new Map<number, string>();
+  const buffer = Buffer.alloc(IMAGE_PATH_CHARS * 2);
+  for (const pid of pids) {
+    const handle = Number(api.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid));
+    if (!handle) continue;
+    try {
+      const size: [number] = [IMAGE_PATH_CHARS];
+      if (api.QueryFullProcessImageNameW(handle, 0, buffer, size)) result.set(pid, buffer.subarray(0, size[0] * 2).toString("utf16le"));
     } finally {
       api.CloseHandle(handle);
     }

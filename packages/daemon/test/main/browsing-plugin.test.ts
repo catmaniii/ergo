@@ -10,6 +10,7 @@
 //   再启用：网页工具、提示里的段落、消息后面的网页上下文都回来，设备再报一次浏览器就能用；
 // - 移除并连数据删：网页候选卡的每个版本、候选缩略图的缓存删掉；存进素材的网页不动（素材属于内核）。
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import {
   type BrowserRequest,
@@ -42,6 +43,9 @@ import { materialsApi, pluginsApi, request, requestJson, webSettingsApi } from "
 import { waitUntil } from "../helpers/process.ts";
 import { FakeBrowser } from "../helpers/web.ts";
 import { fakeSecret } from "../helpers/fake-secrets.ts";
+
+/** 466：假的 ego-browser（不存在也没关系：守护进程只把它的目录放进 agent 的 PATH，说明里写"能用"） */
+const FAKE_EGO = path.join(os.tmpdir(), "ergo-fake-ego", "ego-browser.exe");
 
 const { secretary: SECRETARY, cards: CARDS, plugins: PLUGINS } = CHANNELS;
 const FAKE_KEY = fakeSecret("sk-", "fake-browsing-plugin-0000");
@@ -105,7 +109,7 @@ async function withWeb(secretary: FauxStep[], plugins?: string[]) {
     settings: () => td!.daemon.webSettings.current(),
     log: () => undefined,
   });
-  td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: FAKE_KEY }, webAccess, secretary, ...(plugins ? { plugins } : {}) });
+  td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: FAKE_KEY }, webAccess, egoBrowser: FAKE_EGO, secretary, ...(plugins ? { plugins } : {}) });
   const frontend = await TestFrontend.connect(td.url);
   await frontend.subscribe({ [SECRETARY]: 0, [CARDS]: 0, [PLUGINS]: 0 });
   return { td, server, frontend };
@@ -130,7 +134,7 @@ describe("浏览插件", () => {
     const health = (await (await fetch(new URL("/healthz", td.url))).json()) as Record<string, unknown>;
     expect(health).toMatchObject({ status: "ok", plugins: { running: ["reminders", "memory", "calendar", "voice", "claude-code", "phone", "google", "looki", "codex", "map", "openstreetmap", "amap", "google-maps"], disabled: ["browsing"], skipped: [] } });
     // 内置浏览器在联网搜索的队列里排第一（设置是内核的，照样能排）
-    await webSettingsApi.change(td.url, queue(["app-browser", true], ["deepseek", true], ["browser", true], ["agent-browser", true]));
+    await webSettingsApi.change(td.url, queue(["app-browser", true], ["deepseek", true], ["browser", true], ["ego-browser", true]));
 
     // App 发来的页面指令：设备报浏览器回没启用（不崩）
     expect(refusalOf(await report(frontend))).toBe(`not_allowed: ${OFF}`);

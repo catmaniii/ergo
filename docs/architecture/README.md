@@ -290,6 +290,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 | `voice.recognizer.python` | 装了 faster-whisper 的 `python.exe`（只有 `spawn` 用） | PATH 上的 `python` |
 | `voice.speech.url` / `voice.speech.model` | 语音合成服务的地址和模型 | `http://127.0.0.1:8090` |
 | `web.browserPath` | 联网用的 Chrome / Edge，不写就自动找 | — |
+| `web.egoBrowserPath` | agent 用的 ego 浏览器（ego lite 的 `ego-browser` 命令），不写就按 PATH、用户 PATH、默认位置找；每次拉起 agent 现找 | — |
 | `backup.time` / `backup.syncDir` / `backup.schedule` | 每晚备份的时刻、另存一份的同步目录、谁来定时（**设置 · 备份**里能改，马上生效） | 03:30 / 不另存 / `"internal"` |
 | `memory.maxModelCalls` / `memory.enabled` | 每晚整理最多调几次模型、这台机器跑不跑整理 | 200 / `true` |
 | `media.maxUploadBytes` | 单个上传文件的上限 | 200 MB |

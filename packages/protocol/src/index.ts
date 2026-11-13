@@ -66,7 +66,7 @@
 //   设置里"系统提示"页的接口的 schema。
 // - model-settings.ts / model-settings-schema.ts：设置里的"模型"（服务商登记、各个 agent 选模型和思考档位、API key 的状态、看图能力、
 //   连通测试，以及自定义 OpenAI 兼容服务商的地址、模型 id 和接口风格）的名字、纯函数（不引用 TypeBox）和设置文件、设置接口的 schema。
-// - web-settings.ts / web-settings-schema.ts：设置里 agent 的联网搜索、读网页（是 DeepSeek、浏览器、agent-browser
+// - web-settings.ts / web-settings-schema.ts：设置里 agent 的联网搜索、读网页（是 DeepSeek、浏览器、ego 浏览器
 //   三种方式的队列：能排序、能停用、至少留一个）的名字、实际用哪几种的判定、旧设置的迁移（不引用 TypeBox）和设置文件、设置接口的 schema。
 // - event-sources.ts / event-source-schema.ts：事件来源登记表（来源、事件、字段、过滤条件）、文件名模式、在等什么事件的说法、
 //   流程步骤参数里 {{事件.字段名}} 占位的认法和代入（不引用 TypeBox），和事件触发方式的 schema。

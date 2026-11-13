@@ -1,21 +1,25 @@
 // skill 库按集合显示、按集合选：集合显示成一项、点开才列成员；选择时能整套选、整套去掉，点开能单选其中几个。
 // 守护进程的回答按协议的 schema 构造；用的是自己造的假集合（三五个成员），不是真的第三方 skill。
-import { schemaChecker, ToolkitCatalog as CatalogSchema } from "@ergo/protocol";
+import { DEFAULT_SECRETARY_SKILLS, schemaChecker, ToolkitCatalog as CatalogSchema } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";
 import {
+  activeLocaleFrom,
   addOptions,
   applyAddOption,
   collectionMeta,
   collectionPick,
+  DEFAULT_LANGUAGE,
   groupSkills,
   secretaryPromptSizeText,
   secretarySkillsNote,
   selectCollection,
   selectionChips,
+  setActiveLocale,
   toggleSkill,
   type ToolkitCatalog,
   unselectCollection,
 } from "../../src/state/index.ts";
+import { TEST_LOCALES } from "../setup-locales.ts";
 
 const checkCatalog = schemaChecker(CatalogSchema);
 
@@ -111,6 +115,21 @@ describe("秘书用的 skill 那一栏", () => {
     const library = catalog().skills.filter((s) => s.name !== "agent-browser");
     expect(secretarySkillsNote({ skills: ["agent-browser", "yt-dlp"], isDefault: true }, library)).toBe("现在用的是默认的名单；agent-browser 还没导入进 skill 库，导入之后自动装上");
     expect(secretarySkillsNote({ skills: ["yt-dlp"], isDefault: false }, library)).toBe("");
+  });
+});
+
+describe("466：秘书默认用的 skill 是 ego-browser、yt-dlp", () => {
+  test("默认名单里是框架自带的 ego-browser（库里总有），不再是 agent-browser；没导入的只剩 yt-dlp；中英文都写明", () => {
+    expect(DEFAULT_SECRETARY_SKILLS).toEqual(["ego-browser", "yt-dlp"]);
+    const library = [...catalog().skills.filter((s) => s.name !== "yt-dlp"), { name: "ego-browser", description: "ego 浏览器", origin: "framework" as const }];
+    const view = { skills: [...DEFAULT_SECRETARY_SKILLS], isDefault: true };
+    expect(secretarySkillsNote(view, library)).toBe("现在用的是默认的名单；yt-dlp 还没导入进 skill 库，导入之后自动装上");
+    setActiveLocale(activeLocaleFrom(TEST_LOCALES, "en"));
+    try {
+      expect(secretarySkillsNote(view, library)).toBe("Using the default list; yt-dlp isn't in the skill library yet; it'll be added once imported");
+    } finally {
+      setActiveLocale(activeLocaleFrom(TEST_LOCALES, DEFAULT_LANGUAGE));
+    }
   });
 });
 

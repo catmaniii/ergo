@@ -906,6 +906,7 @@ export const FAKE_DEVICES: PairedDevice[] = [
 
 export const FAKE_SKILLS: SkillEntry[] = [
   { id: "sk-sample", name: "demo-weekly-report", description: "框架自带的示例 skill，演示 skill 的写法（假数据）。", origin: "framework", usedBy: [] },
+  { id: "sk-ego", name: "ego-browser", description: "用你电脑上的 ego 浏览器操作网页：用你登录好的网站，要登录、过验证码时把那一页交给你（假数据）。", origin: "framework", usedBy: ["项目「家电档案」"] },
   { id: "sk-pdf", name: "demo-pdf-reader", description: "读 PDF、抽取文字和表格（假数据）。", origin: "imported", usedBy: ["项目「记账本」", "项目「家电档案」", "任务「每周汇总银行账单」"] },
   { id: "sk-receipt", name: "demo-receipt-ocr", description: "识别小票和发票上的金额（假数据）。", origin: "imported", usedBy: [] },
   { id: "sk-photo", name: "demo-photo-sorter", description: "按拍摄时间和地点给照片分组（假数据）。", origin: "imported", usedBy: ["项目「相册库」"] },

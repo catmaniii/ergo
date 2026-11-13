@@ -3,6 +3,7 @@
 // 其余一律不带；模型 key 不走环境变量，经 stdin 的"启动"命令送进子进程的内存凭据。
 //
 // 守护进程被 LSM 注入的密钥、开发者 shell 里的各种变量，都不会漏给 agent 和它起的工具进程。
+import path from "node:path";
 
 /** 允许从守护进程环境带过去的系统变量（Windows 上大小写不敏感） */
 const SYSTEM_VARIABLES = [
@@ -102,6 +103,19 @@ export const OFFLINE_SHELL_ENV: Readonly<Record<string, string>> = Object.freeze
   NPM_CONFIG_HTTPS_PROXY: OFFLINE_PROXY,
   PIP_PROXY: OFFLINE_PROXY,
 });
+
+/**
+ * 把一个目录放到环境的 PATH 最前面（变量名按原样的大小写找，Windows 上不分大小写；没有 PATH 就新建一个）。
+ * 已经排在第一个的不重复加；排在后面的挪到前面。返回新的一份，不改原来的
+ */
+export function prependPath(env: Readonly<Record<string, string>>, dir: string, delimiter: string = path.delimiter): Record<string, string> {
+  const out = { ...env };
+  const key = Object.keys(out).find((name) => name.toUpperCase() === "PATH") ?? "PATH";
+  const same = (a: string) => (process.platform === "win32" ? a.toLowerCase() === dir.toLowerCase() : a === dir);
+  const rest = (out[key] ?? "").split(delimiter).filter((entry) => entry !== "" && !same(entry));
+  out[key] = [dir, ...rest].join(delimiter);
+  return out;
+}
 
 /**
  * @param parentEnv 守护进程自己的环境（只从中挑系统变量）

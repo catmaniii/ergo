@@ -118,6 +118,7 @@ describe("版本目录里有什么", () => {
       "packages/daemon/prompts/secretary.md",
       "packages/daemon/holidays/cn-2026.json",
       "packages/daemon/skills/example-checklist/SKILL.md",
+      "packages/daemon/skills/ego-browser/SKILL.md",
       "packages/protocol/src/index.js",
       "packages/protocol/locales/zh-CN/cli.json",
       "packages/protocol/locales/en/cli.json",

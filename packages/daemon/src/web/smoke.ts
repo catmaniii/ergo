@@ -54,7 +54,7 @@ const access = createWebAccess({
     queue: [
       { method: "browser", enabled: true },
       { method: "deepseek", enabled: useDeepseek },
-      { method: "agent-browser", enabled: false },
+      { method: "ego-browser", enabled: false },
       { method: "app-browser", enabled: false },
     ],
   }),

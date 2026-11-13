@@ -8,6 +8,7 @@
   "toolkit.taskNotFound": "No task {taskId}",
   "toolkit.editedInProjectPage": "You changed the toolkit in the project records",
   "toolkit.editedInTaskDetail": "You changed the toolkit in the task details",
+  "toolkit.egoBrowserMigrated": "Ergo replaced agent-browser with the ego browser (ego-browser)",
   "toolkit.tool.adjustSkills": "Add or remove skills",
   "toolkit.skillsAdjustedWhy": "The owner adjusted skills ({reason})",
   "toolkit.tool.requestChange": "Request toolkit change",

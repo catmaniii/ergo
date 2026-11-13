@@ -175,6 +175,8 @@ describe("服务管家的端口：不是查询的请求硬拒绝，查询照旧"
 
   it("用浏览器打开服务管家的页面：接近底线先问", () => {
     expect(verdict(judge(MAINTAINER, bash(`agent-browser open http://127.0.0.1:${port}/`)))).toBe("keeps_asking");
+    // 466：ego-browser 的脚本写在命令行里（-e）的，里面的网址照样认
+    expect(verdict(judge(MAINTAINER, bash(`ego-browser nodejs -e 'const t = await taskSpace("x"); await t.page("p1").goto("http://127.0.0.1:${port}/")'`)))).toBe("keeps_asking");
   });
 
   it("别的本机端口、没给服务管家时照原来的规矩", () => {

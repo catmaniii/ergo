@@ -116,7 +116,7 @@ agent 能碰哪里、能用什么，只有用户改得了。agent 最多提出�
 |---|---|---|---|---|---|---|---|
 | MCP | 调登记过的 MCP，不出卡，守卫照常判 | 工具包里列了的 MCP 的工具；登记、改、删出卡 | 执行长程任务时同左；定时运行有工具包里 MCP 的工具；起草计划、普通任务没有 | 没有 | 没有 | 没有 | `mcp/call.ts` 的 `createMcpCallService`；`agent-host/assembly.ts` 的 `toolkitParts`、`planningSetup`；`tasks/plain.ts` 的 `plainToolkit`；`sub-agents/sub-agents.ts` 的 `assemble` |
 | 写 skill | 只能加，出卡 | 加、改、删，出卡；增减工具包里的 skill | 执行长程任务时同左 | 没有 | 没有 | 没有 | `skills/change.ts` 的 `createSkillChangeService`；`toolkit/toolkit.ts` 的 `createToolkitService`；`sub-agents/assembly.ts` 的 `MAINTAINER_ONLY_TOOLS` |
-| 用 skill | 设置里勾的（默认 agent-browser、yt-dlp） | 工具包里的；起草计划时没有 | 工具包里的，起草计划时没有；普通任务用秘书那份 | 没有 | 没有 | 没有 | `skills/secretary-skills.ts` 的 `DEFAULT_SECRETARY_SKILLS`；`agent-host/assembly.ts` 的 `toolkitParts`；`maintainers/maintainers.ts` 的 `taskToolkit`；`sub-agents/sub-agents.ts` 的 `launch` |
+| 用 skill | 设置里勾的（默认 ego-browser、yt-dlp） | 工具包里的；起草计划时没有 | 工具包里的，起草计划时没有；普通任务用秘书那份 | 没有 | 没有 | 没有 | `skills/secretary-skills.ts` 的 `DEFAULT_SECRETARY_SKILLS`；`agent-host/assembly.ts` 的 `toolkitParts`；`maintainers/maintainers.ts` 的 `taskToolkit`；`sub-agents/sub-agents.ts` 的 `launch` |
 | 工具包加能力 | 没有工具包 | 对话段里出"工具包变更"卡；任务里走计划变更 | 走计划变更 | 不能 | 不能 | 不能 | `toolkit/toolkit.ts` 的 `createToolkitService`；`tasks/execution-tools.ts` 的 `executionTools` |
 | 改配置 | 写不了；能经快速动作提几样，授权的文件夹、工作日历总要用户点卡 | 写不了 | 写不了 | 写不了 | 写不了 | 写不了 | `guard/judge.ts` 的 `protectedAreasOf`；`folders/authorize-folders.ts` 的 `authorizeFoldersAction`；`workday/quick-action.ts` 的 `workdayCalendarAction` |
 

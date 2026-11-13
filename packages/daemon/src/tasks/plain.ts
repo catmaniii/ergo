@@ -15,7 +15,7 @@ import { oneLine } from "../util/text.ts";
 
 /**
  * 不属于项目的普通任务的 agent 的工具包：和负责人同一套装配——读写文件、bash、联网（联网搜索、读网页）都开着，
- * skill 用助理那一份（设置里的 skill 库页勾的，默认 agent-browser、yt-dlp：交出去的事多是"搜一下、下下来"这类），没有 MCP。
+ * skill 用助理那一份（设置里的 skill 库页勾的，默认 ego-browser、yt-dlp：交出去的事多是"搜一下、下下来"这类），没有 MCP。
  * 项目内部的普通任务用项目的工具包（项目的负责人在这个项目里能用什么就是什么）
  */
 export function plainToolkit(skills: readonly string[]): PlanToolkit {

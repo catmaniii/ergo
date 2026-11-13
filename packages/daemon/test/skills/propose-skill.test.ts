@@ -171,7 +171,7 @@ describe("批准、拒绝", () => {
     expect(s.skills.list().find((e) => e.name === "notes-style")).toMatchObject({ description: NOTES.description, origin: "imported", submittedBy: { kind: "secretary" } });
     expect(JSON.parse(fs.readFileSync(path.join(dir, SUBMISSION_FILE), "utf8"))).toMatchObject({ kind: "secretary" });
     // 秘书用的 skill：默认的两个照旧，加上它；名单变了叫一次重新装配
-    expect(s.secretarySkills.view()).toMatchObject({ skills: ["agent-browser", "yt-dlp", "notes-style"], isDefault: false });
+    expect(s.secretarySkills.view()).toMatchObject({ skills: ["ego-browser", "yt-dlp", "notes-style"], isDefault: false });
     expect(s.secretaryChanges()).toBe(1);
     expect(s.toolkitAdds).toEqual([]);
     expect(s.changed).toEqual([{ maintainerIds: [], assistant: false, name: "notes-style" }]);

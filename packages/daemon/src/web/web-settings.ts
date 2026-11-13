@@ -1,7 +1,9 @@
 // 设置里 agent 的联网搜索、读网页（改成三种方式的队列，加第四种"鸿蒙 App 的内置浏览器"，
 // 存的三项读的时候把它加在最后、认不得的方式跳过）：DeepSeek 付费搜索、二狗自带的浏览器搜索、
-// agent-browser 排成一个队列，排前面的先用，能停用（至少留一个）。数据目录配置区的 web-settings.json 是真相，只由设置接口写，所有设备一样；
-// 没有文件按默认（protocol 的 DEFAULT_WEB_SETTINGS：DeepSeek → 浏览器 → agent-browser → 鸿蒙 App 的内置浏览器，都启用——DeepSeek 配了 key 时才实际用上）。
+// ego 浏览器（466 之前是 agent-browser）排成一个队列，排前面的先用，能停用（至少留一个）。数据目录配置区的 web-settings.json 是真相，只由设置接口写，所有设备一样；
+// 没有文件按默认（protocol 的 DEFAULT_WEB_SETTINGS：DeepSeek → 浏览器 → ego 浏览器 → 鸿蒙 App 的内置浏览器，都启用——DeepSeek 配了 key 时才实际用上）。
+// 466：文件里的 agent-browser 读的时候原位换成 ego 浏览器、启用状态照旧（normalizeWebQueue），记一条日志、当场改写文件——
+// 只换这一次（改写之后文件里没有 agent-browser 了，新的设置也存不进它）。
 // 旧文件（format 1：默认的搜索方式、读网页用不用 DeepSeek）读成队列（migrateWebSettingsV1），记一条日志，存一次写成 format 2。
 // 启动时读一次，之后只经设置接口改（手改要重启）；文件读不出来按默认用、记一条日志、设置页上写明原因，存一次就覆盖（照模型设置的做法）。
 // 存之前查合规（webSettingsProblem：四种各一项、至少留一个启用而且用得上的）。联网工具每次现取（access.ts 的 settings），改了下一次
@@ -63,8 +65,11 @@ function describeQueue(settings: WebSettings): string {
   return `${on.join(" → ")}${off.length > 0 ? `（停用：${off.join("、")}）` : ""}`; // @i18n-ignore log
 }
 
-/** 读设置文件：没有是默认；旧格式读成队列；读不了、不合规时 error 是原因，按默认用、记一条日志（先不覆盖：设置页上提示，存一次才覆盖） */
-function readSettings(file: string, log: (line: string) => void): { settings: WebSettings; error?: string } {
+/**
+ * 读设置文件：没有是默认；旧格式读成队列；读不了、不合规时 error 是原因，按默认用、记一条日志（先不覆盖：设置页上提示，存一次才覆盖）。
+ * agent-browser 换成了 ego 浏览器时 rewrite 为真（调用方当场改写文件）
+ */
+function readSettings(file: string, log: (line: string) => void): { settings: WebSettings; error?: string; rewrite?: true } {
   const broken = (error: string) => {
     log(`联网设置的文件读不出来：${file}：${error}；正在用默认，设置页保存会覆盖它`);
     return { settings: copyWebSettings(DEFAULT_WEB_SETTINGS), error };
@@ -83,16 +88,29 @@ function readSettings(file: string, log: (line: string) => void): { settings: We
   }
   if (!fileChecker.check(parsed)) return broken(t("web.settings.badFormat", { detail: fileChecker.firstError(parsed) ?? t("web.settings.invalid") }));
   // 认不得的方式跳过，缺的（存的三项里没有鸿蒙 App 的内置浏览器）加在最后、启用；不立刻改写，设置页存一次才写进去
-  const { settings, skipped, added } = normalizeWebQueue(parsed.queue);
+  const { settings, skipped, added, renamed } = normalizeWebQueue(parsed.queue);
   const shape = webQueueShapeProblem(settings);
   if (shape) return broken(shape);
   if (skipped.length > 0) log(`联网设置的文件里认不得的方式跳过：${skipped.join("、")}`);
   if (added.length > 0) log(`联网设置的文件里没有${added.map((m) => WEB_METHOD_LABEL[m]).join("、")}（新加的），加在最后、启用；设置页保存后写进文件`);
+  if (renamed) {
+    const ego = settings.queue.find((e) => e.method === "ego-browser");
+    log(`联网设置里的 agent-browser 换成了 ego 浏览器（原位，${ego?.enabled === false ? "照旧停用" : "照旧启用"}），现在的顺序：${describeQueue(settings)}；文件当场改写`);
+    return { settings, rewrite: true };
+  }
   return { settings };
 }
 
 export function createWebSettings(options: WebSettingsOptions): WebSettingsService {
-  let { settings, error } = readSettings(options.file, options.log);
+  const read = readSettings(options.file, options.log);
+  let { settings, error } = read;
+  if (read.rewrite) {
+    try {
+      writeJsonAtomic(options.file, { format: 2, ...copyWebSettings(settings) } satisfies WebSettingsFile);
+    } catch (err) {
+      options.log(`联网设置的文件改写不了：${err instanceof Error ? err.message : String(err)}；这次按换好的用，下次启动再换一次`);
+    }
+  }
   const listeners = new Set<() => void>();
   const view = (): WebSettingsView => {
     const configured = options.deepseekKey();

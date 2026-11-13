@@ -1,5 +1,7 @@
-// 用哪个浏览器：联网搜索、读网页（playwright-core 驱动，不下载浏览器）和 agent 的 bash 里的 agent-browser
-// （环境变量 AGENT_BROWSER_EXECUTABLE_PATH）用同一个，选择和探测只在这里有一份。
+// 用哪个浏览器：联网搜索、读网页（playwright-core 驱动，不下载浏览器）用的那一个，选择和探测只在这里有一份。
+// 466 之前 agent 的 bash 里的 agent-browser 也用它（拉起时注入 AGENT_BROWSER_EXECUTABLE_PATH）；agent 换成用 ego 浏览器
+// （web/ego-browser.ts）之后不再注入，这里选浏览器的逻辑不动：agent-browser 自带的那份签名 Chrome、守护进程环境里的
+// AGENT_BROWSER_EXECUTABLE_PATH 照旧当候选，免得这台机器的无头搜索悄悄换了浏览器。
 //
 // 选法：候选的顺序（用户在二狗的配置里显式写的 web.browserPath → 外部显式指定的 AGENT_BROWSER_EXECUTABLE_PATH
 // → agent-browser 自带 → 系统 Chrome → 系统 Edge）、读 PE 签名表的探测、"先跳过没签名的，一个不剩才按存在兜底"、
@@ -88,7 +90,7 @@ export function browserCandidates(input: { configured?: string | undefined; home
   ];
 }
 
-/** agent-browser 认的环境变量：浏览器的可执行文件（二狗拉起 agent 时注入 bash 的环境） */
+/** agent-browser 认的环境变量：浏览器的可执行文件（466 起二狗不再往 agent 的环境里注入它；守护进程环境里有的照旧当候选） */
 export const AGENT_BROWSER_ENV = "AGENT_BROWSER_EXECUTABLE_PATH";
 
 export type SignatureProbe = "signed" | "unsigned" | "unknown";
@@ -179,7 +181,7 @@ export function pickBrowser(candidates: readonly BrowserCandidate[], probe: (p: 
 
 /**
  * 守护进程里的浏览器探测：第一次要用时探一次，结果记住，一个进程只探一次——
- * 没找到也记住（不设环境变量，让 agent-browser 走它自己的默认逻辑）；改了配置、装了浏览器要重启二狗才认
+ * 没找到也记住；改了配置、装了浏览器要重启二狗才认
  */
 export interface BrowserLocator {
   /** 浏览器的可执行文件；没找到是 undefined */
@@ -200,7 +202,7 @@ export function createBrowserLocator(input: {
   const pick = (): BrowserPick => {
     if (picked !== undefined) return picked;
     picked = pickBrowser(browserCandidates(input), input.probe);
-    input.log(picked.path ? `浏览器用 ${picked.path}：${picked.why}` : "没找到能用的浏览器：联网搜索、读网页要浏览器的那几步和 agent-browser 都用不了（不设环境变量）");
+    input.log(picked.path ? `浏览器用 ${picked.path}：${picked.why}` : "没找到能用的浏览器：联网搜索、读网页要浏览器的那几步用不了");
     // 被跳过的候选要留痕：这是"浏览器为什么突然不好用了"的唯一线索（不留痕时查了一轮才查到）
     if (picked.rejected.length > 0) input.log(`跳过的浏览器候选：${picked.rejected.join(" | ")}`);
     return picked;

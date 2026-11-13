@@ -93,7 +93,8 @@ describe("skill 库", () => {
     plantHomeSkills(td.homeDir);
     const before = await toolkitApi.catalog(td.url);
     expect(before.status).toBe(200);
-    expect(before.body.skills).toEqual([expect.objectContaining({ name: "example-checklist", origin: "framework" })]);
+    // 框架自带的：ego-browser（466）、example-checklist
+    expect(before.body.skills).toEqual([expect.objectContaining({ name: "ego-browser", origin: "framework" }), expect.objectContaining({ name: "example-checklist", origin: "framework" })]);
     expect(fs.existsSync(path.join(BUILTIN_SKILLS_DIR, "example-checklist", "SKILL.md"))).toBe(true);
 
     // 导入用户目录里的一个现成 skill（显式导入才有）
@@ -106,12 +107,13 @@ describe("skill 库", () => {
     fs.rmSync(source, { recursive: true });
     const after = await toolkitApi.catalog(td.url);
     expect(after.body.skills.map((s) => [s.name, s.origin])).toEqual([
+      ["ego-browser", "framework"],
       ["example-checklist", "framework"],
       ["habit-tracker", "imported"],
     ]);
     // 数据目录 skill 区里直接放的也算
     writeSkill(path.join(td.dataDir, "skills", "notes-style"), "notes-style", "笔记的写法");
-    expect((await toolkitApi.catalog(td.url)).body.skills.map((s) => s.name)).toEqual(["example-checklist", "habit-tracker", "notes-style"]);
+    expect((await toolkitApi.catalog(td.url)).body.skills.map((s) => s.name)).toEqual(["ego-browser", "example-checklist", "habit-tracker", "notes-style"]);
 
     // 同名的（说清和谁重名）、没有 SKILL.md 的导入被拒
     expect(await toolkitApi.importSkill(td.url, path.join(td.dataDir, "skills", "notes-style"))).toMatchObject({ status: 400 });
@@ -461,7 +463,7 @@ describe("按工具包装配负责人的会话", () => {
     const frontend = await connect(td);
     await frontend.sendText("用推理图谱", { conversation: PM1 });
     const seen = await nthReply(frontend, PM1, 1);
-    expect(seen).toContain("[toolResult] adjust_skills: skill 库里没有 chart-maker。库里有：example-checklist");
+    expect(seen).toContain("[toolResult] adjust_skills: skill 库里没有 chart-maker。库里有：ego-browser、example-checklist");
     expect(td.daemon.projects.get("p-1")?.toolkit).toEqual(toolkit());
   });
 });

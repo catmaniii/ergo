@@ -27,8 +27,7 @@ import { RequestRejected } from "../errors.ts";
 import type { DataDirLayout } from "../config/data-dir.ts";
 import { modelConfigKey } from "../config/model-key.ts";
 import { BUILTIN_TOOL_REGISTRY } from "../guard/index.ts";
-import { buildChildEnv, COMPONENTS_DIR_ENV, OFFLINE_SHELL_ENV, SCRIPT_UTF8_ENV } from "../process/child-env.ts";
-import { AGENT_BROWSER_ENV } from "../web/index.ts";
+import { buildChildEnv, COMPONENTS_DIR_ENV, OFFLINE_SHELL_ENV, prependPath, SCRIPT_UTF8_ENV } from "../process/child-env.ts";
 import type { AgentUsage, UsageAttribution } from "../ledger/index.ts";
 import type { JobObject } from "../process/job-object.ts";
 import { createTurnLog, type TurnRecord } from "./turn-log.ts";
@@ -198,11 +197,6 @@ export interface AgentLimits {
   toolCallMs: number;
   /** 多久回收一次孤儿进程（毫秒） */
   orphanSweepMs: number;
-  /**
-   * agent-browser 闲置多久回收（毫秒）：它的守护进程和 Chrome 跟着开它的 agent 走，这个 agent 这么久没调用过工具就不再留；
-   * 同样的时长也交给 agent-browser 自己（AGENT_BROWSER_IDLE_TIMEOUT_MS：这么久没有命令就自己存好状态、关浏览器退出）
-   */
-  browserIdleMs: number;
 }
 
 export const DEFAULT_AGENT_LIMITS: Readonly<AgentLimits> = Object.freeze({
@@ -212,7 +206,6 @@ export const DEFAULT_AGENT_LIMITS: Readonly<AgentLimits> = Object.freeze({
   modelSilenceMs: 90_000,
   toolCallMs: 10 * 60_000,
   orphanSweepMs: 60_000,
-  browserIdleMs: 30 * 60_000,
 });
 
 /**
@@ -358,10 +351,12 @@ export interface AgentManagerOptions {
    */
   interruptedToolResults?: (agentId: string) => Readonly<Record<string, InterruptedToolResult>>;
   /**
-   * 浏览器的可执行文件（web/browser-path.ts 的探测）：拉起时现取，有就放进 bash 起的进程的环境
-   * （AGENT_BROWSER_EXECUTABLE_PATH），agent-browser 这类 skill 靠它找浏览器；没有就不放
+   * ego 浏览器的命令所在的目录（web/ego-browser.ts 的探测，466）：拉起时现取，有就放到 agent 子进程 PATH 的最前面——
+   * pi 的 bash、Claude Code、Codex 起的进程都继承子进程的环境，三种运行时都找得到 ego-browser；没找到就不加
    */
-  browserPath?: () => string | undefined;
+  egoBrowserDir?: () => string | undefined;
+  /** 孤儿回收不碰的程序目录（ego lite 的安装目录、active_version_dir，web/ego-browser.ts 的 egoProgramDirs）：每轮回收时现取 */
+  keepProcessDirs?: () => readonly string[];
   /**
    * 系统提示的前缀（设置 · 系统提示里的"前缀"）：拉起时把请求里的系统提示交给它，加上前缀再交给子进程，每次现取；
    * 没有系统提示的请求不加。不给就原样
@@ -402,32 +397,25 @@ export function contributionsOf(request: Pick<SpawnAgentRequest, "hostTools" | "
   };
 }
 
-/** agent-browser 的守护进程在哪个目录写 `<会话>.pid`、`.port`（每个 agent 一个，孤儿回收据此认出是谁开的） */
-export const AGENT_BROWSER_SOCKET_DIR_ENV = "AGENT_BROWSER_SOCKET_DIR";
-/** agent-browser 的守护进程多久没有命令就自己退出（毫秒） */
-export const AGENT_BROWSER_IDLE_ENV = "AGENT_BROWSER_IDLE_TIMEOUT_MS";
-
 /**
- * bash 起的进程额外的环境变量（宿主协议的 shellEnv）：Python 用 UTF-8（SCRIPT_UTF8_ENV），联网开关关着时的无效代理（OFFLINE_SHELL_ENV），
- * 加上浏览器的路径（agent-browser 靠 AGENT_BROWSER_EXECUTABLE_PATH 找浏览器），
- * 以及这个 agent 自己的 agent-browser socket 目录和闲置时长
+ * bash 起的进程额外的环境变量（宿主协议的 shellEnv）：Python 用 UTF-8（SCRIPT_UTF8_ENV），联网开关关着时的无效代理（OFFLINE_SHELL_ENV）。
+ * 466 起不再给 agent-browser 的三个变量（AGENT_BROWSER_EXECUTABLE_PATH、_SOCKET_DIR、_IDLE_TIMEOUT_MS）：agent 用的浏览器换成了
+ * ego 浏览器，它的命令经子进程的 PATH 找到（agentChildEnv）
  */
-export function shellEnvFor(
-  network: boolean,
-  browserPath: string | undefined,
-  agentBrowser?: { socketDir: string; idleMs: number },
-): Record<string, string> {
+export function shellEnvFor(network: boolean): Record<string, string> {
   return {
     ...SCRIPT_UTF8_ENV,
     ...(network ? {} : OFFLINE_SHELL_ENV),
-    ...(browserPath ? { [AGENT_BROWSER_ENV]: browserPath } : {}),
-    ...(agentBrowser ? { [AGENT_BROWSER_SOCKET_DIR_ENV]: agentBrowser.socketDir, [AGENT_BROWSER_IDLE_ENV]: String(Math.round(agentBrowser.idleMs)) } : {}),
   };
 }
 
-/** agent 的 agent-browser socket 目录：临时区下的 agent-browser/<agentId>（agent-browser 自己会建） */
-export function agentBrowserSocketDir(layout: DataDirLayout, agentId: string): string {
-  return path.join(layout.tmp, "agent-browser", agentId);
+/**
+ * agent 子进程的环境：守护进程按白名单挑的系统变量加上拉起时显式给的（buildChildEnv），找到了 ego 浏览器就把它的目录放到 PATH 最前面
+ * （pi 的 bash、Claude Code、Codex 起的进程都继承它）
+ */
+export function agentChildEnv(parentEnv: Readonly<Record<string, string | undefined>>, explicit: Readonly<Record<string, string>>, egoBrowserDir: string | undefined): Record<string, string> {
+  const env = buildChildEnv(parentEnv, explicit);
+  return egoBrowserDir === undefined ? env : prependPath(env, egoBrowserDir);
 }
 
 /** agent 的会话目录（pi 的会话文件放在这里）：会话区下的 <agentId> */
@@ -482,8 +470,6 @@ class Entry implements ManagedAgent {
   private readonly toolSteps = new Map<string, { title: string; limitMs: number | null }>();
   /** 这一轮里现在这一步从什么时候起（毫秒）：送输入、模型说完一条、工具调用开始和结束时换（411 体检） */
   private stepAt = Date.now();
-  /** 最近一次工具调用开始或结束的时刻（agent-browser 闲置多久按它算）；拉起时算起 */
-  private lastToolActivity = Date.now();
   private modelTimer: NodeJS.Timeout | undefined;
   /** 手动压缩（compact 命令）在等 compacted：到点还没压完就结束子进程 */
   private compactTimer: NodeJS.Timeout | undefined;
@@ -527,11 +513,6 @@ class Entry implements ManagedAgent {
   /** 还没结束的工具调用里最早的开始时刻；没有在跑的调用是 undefined */
   get busySince(): number | undefined {
     return this.toolStarts.size === 0 ? undefined : Math.min(...this.toolStarts.values());
-  }
-
-  /** 它开的 agent-browser 还留不留：有调用在跑，或者最近一次工具调用离现在不到 idleMs */
-  browserInUse(now: number, idleMs: number): boolean {
-    return this.toolStarts.size > 0 || now - this.lastToolActivity < idleMs;
   }
 
   onReport(listener: (report: AgentReport) => void): () => void {
@@ -678,7 +659,6 @@ class Entry implements ManagedAgent {
         break;
       case "tool_call_start":
         this.toolStarts.set(report.toolCallId, Date.now());
-        this.lastToolActivity = Date.now();
         this.stepAt = Date.now();
         this.toolSteps.set(report.toolCallId, { title: this.toolTitle(report.toolName), limitMs: this.toolTimeoutOf(report.toolName) });
         if (this.turnOpen) this.armTool(report.toolCallId, report.toolName);
@@ -687,7 +667,6 @@ class Entry implements ManagedAgent {
       case "tool_call_end": {
         this.toolStarts.delete(report.toolCallId);
         this.toolSteps.delete(report.toolCallId);
-        this.lastToolActivity = Date.now();
         this.stepAt = Date.now();
         const timer = this.toolTimers.get(report.toolCallId);
         if (timer) clearTimeout(timer);
@@ -1004,13 +983,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         ...(request.session === undefined ? {} : { session: request.session }),
         ...(request.freshSession === undefined ? {} : { freshSession: request.freshSession }),
         forwardToolCalls: request.forwardToolCalls ?? false,
-        shellEnv: {
-          ...request.shellEnv,
-          ...shellEnvFor(request.network === true, options.browserPath?.(), {
-            socketDir: agentBrowserSocketDir(layout, request.agentId),
-            idleMs: limits.browserIdleMs,
-          }),
-        },
+        shellEnv: { ...request.shellEnv, ...shellEnvFor(request.network === true) },
         ...(request.tempDir === undefined ? {} : { shellTempDir: request.tempDir }),
         heartbeatIntervalMs: request.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_MS,
         // 太久没回应就提前重试（pi 跑的会话看它）
@@ -1026,7 +999,8 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
       },
       // 子进程里给用户看的几句按现在的语言写
       // 组件区：运行时的子进程要用装在那里的东西（Claude Code 的 Agent SDK）
-      env: buildChildEnv(options.parentEnv, { ...request.env, [CHILD_LANGUAGE_ENV]: activeLanguage(), [COMPONENTS_DIR_ENV]: layout.components }),
+      // ego 浏览器（466）：找到了就把它的目录放到 PATH 最前面，每次拉起现找（后来装上的下次就有）
+      env: agentChildEnv(options.parentEnv, { ...request.env, [CHILD_LANGUAGE_ENV]: activeLanguage(), [COMPONENTS_DIR_ENV]: layout.components }, options.egoBrowserDir?.()),
       job: options.job,
       onLog: (line) => log(`[agent ${request.agentId}] ${line}`),
     });
@@ -1082,17 +1056,15 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
     },
   };
 
-  // 孤儿回收：只在有 Job 对象（Windows）时。还在跑的工具调用期间起的进程先不杀，活着、没闲置太久的 agent 开的
-  // agent-browser 留着（见 orphans.ts）
+  // 孤儿回收：只在有 Job 对象（Windows）时。还在跑的工具调用期间起的进程先不杀，ego lite 的进程一律不杀（见 orphans.ts）
   const job = options.job;
   const sweepScope = (): SweepScope => {
-    const now = Date.now();
     const entries = [...live].filter((e) => e.pid !== undefined);
     const busy = entries.flatMap((e) => (e.busySince === undefined ? [] : [e.busySince]));
     return {
       roots: new Set(entries.map((e) => e.pid!)),
       ...(busy.length === 0 ? {} : { busySince: Math.min(...busy) }),
-      browserSocketDirs: entries.filter((e) => e.browserInUse(now, limits.browserIdleMs)).map((e) => agentBrowserSocketDir(layout, e.agentId)),
+      keepDirs: options.keepProcessDirs?.() ?? [],
     };
   };
   const sweeper = job

@@ -2,7 +2,7 @@
 // - 同时存活的子进程不超过上限；满了以后新的唤起排队（活动状态"排队"），名额空出时按先后拉起；
 // - 负责人闲置到设定时间后子进程退出，再来输入时重新拉起、接着原会话；秘书常驻、不闲置退出；
 // - 单次模型调用、单次工具调用超时被中止并上报错误（工具可以声明更长）；
-// - 孤儿进程按周期被回收（Job 对象只在 Windows 上有）。
+// - 孤儿进程按周期被回收（Job 对象只在 Windows 上有）；ego lite 的进程不回收（466）。
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -168,115 +168,73 @@ describe.runIf(process.platform === "win32")("孤儿进程回收", () => {
     await log.next("turn_end");
   }, 30_000);
 
-  it.skipIf(!renamedNodeRuns())("agent-browser 的守护进程和它开的 Chrome 跟着开它的 agent 走：agent 活着就留着；同一次起的别的后台进程、认不准的照旧回收；agent 退出后回收", async () => {
-    const fakeExe = fakeAgentBrowserExe();
-    const { daemon } = await startTestDaemon({ config: { agents: { orphanSweepSeconds: 0.2 } } });
-    const rec = makeTempDir("ergo-ab-rec-");
-    const elsewhere = makeTempDir("ergo-ab-elsewhere-");
+  it.skipIf(!copiedNodeRuns())("466：ego lite 的进程（可执行文件在 ego 的程序目录下）成了孤儿也不回收，连同它起的进程；同一次起的别的后台进程照旧回收", async () => {
+    // 假的 ego lite 的程序目录：放一份 node.exe（认 ego 的进程按目录，不按名字；改名的 exe 会被有的安全软件拦下），
+    // ego-browser 也"在"这个目录（守护进程据此把它算进 ego 的程序目录）
+    const egoDir = makeTempDir("ergo-fake-ego-");
+    const egoExe = path.join(egoDir, "node.exe");
+    try {
+      fs.linkSync(process.execPath, egoExe);
+    } catch {
+      fs.copyFileSync(process.execPath, egoExe);
+    }
+    const { daemon } = await startTestDaemon({ config: { agents: { orphanSweepSeconds: 0.2 } }, egoBrowser: path.join(egoDir, "ego-browser.exe") });
+    const recEgo = makeTempDir("ergo-ego-rec-");
+    const recOther = makeTempDir("ergo-other-rec-");
+    // 像 ego-browser 拉起 ego lite 那样：ego 目录里的中间进程起一个脱离的同一个程序再退出，后者成了孤儿；另起一个普通的孤儿
     const command = [
-      fakeBrowserCommand(fakeExe, rec, "mine"),
-      // 同一次调用里留下的普通后台进程：照旧回收
-      `"${slash(process.execPath)}" "${slash(GRANDCHILD)}" "${slash(rec)}" --orphan-parent`,
-      // 模型自己改了 socket 目录：认不出是这个 agent 的，照旧回收
-      `AGENT_BROWSER_SOCKET_DIR="${slash(elsewhere)}" ${fakeBrowserCommand(fakeExe, rec, "stray")}`,
+      `"${slash(egoExe)}" "${slash(GRANDCHILD)}" "${slash(recEgo)}" --orphan-parent`,
+      `"${slash(process.execPath)}" "${slash(GRANDCHILD)}" "${slash(recOther)}" --orphan-parent`,
     ].join(" && ");
-    const { agent, log } = spawnTestAgent(daemon, { agentId: "ab-owner", model: fauxModel([call("bash", { command }), say("开好了")]), tools: ["bash"] });
-    await log.next("ready");
-    agent.send({ type: "user_input", inputId: "in-1", text: "开个浏览器" });
-    const end = await log.next("tool_call_end", 30_000);
-    expect(end.resultText).toContain("✓ mine 开好了");
-    expect(end.resultText).toContain("✓ stray 开好了");
-    await log.next("turn_end");
-
-    const pidOf = (name: string) => Number(fs.readFileSync(path.join(rec, name), "utf8"));
-    const [mineDaemon, mineChrome, orphan, strayDaemon, strayChrome] = ["daemon-mine.pid", "chrome-mine.pid", "orphan.pid", "daemon-stray.pid", "chrome-stray.pid"].map(pidOf);
-    await waitUntil(() => [orphan, strayDaemon, strayChrome].every((pid) => !isProcessAlive(pid!)), {
-      timeoutMs: 10_000,
-      describe: () => `该回收的还活着：${[orphan, strayDaemon, strayChrome].filter((pid) => isProcessAlive(pid!)).join("、")}`,
-    });
-    // 又过了好几轮回收，开它的 agent 还活着：守护进程和它下面的 Chrome 都留着
-    await sleep(1500);
-    expect(isProcessAlive(mineDaemon!)).toBe(true);
-    expect(isProcessAlive(mineChrome!)).toBe(true);
-    // agent-browser 自己的闲置退出也设成同样的时长（默认 30 分钟）
-    expect(fs.readFileSync(path.join(rec, "idle-mine.txt"), "utf8")).toBe(String(30 * 60_000));
-
-    agent.kill();
-    await agent.exited;
-    await waitUntil(() => !isProcessAlive(mineDaemon!) && !isProcessAlive(mineChrome!), {
-      timeoutMs: 10_000,
-      describe: () => "agent 退出后它的 agent-browser 还活着",
-    });
-  }, 60_000);
-
-  it.skipIf(!renamedNodeRuns())("agent-browser 闲置：开它的 agent 这么久没调用工具，守护进程和 Chrome 照样回收（agents.browserIdleMinutes）", async () => {
-    const fakeExe = fakeAgentBrowserExe();
-    const { daemon } = await startTestDaemon({ config: { agents: { orphanSweepSeconds: 0.2, browserIdleMinutes: 0.05 } } });
-    const rec = makeTempDir("ergo-ab-rec-");
-    const { agent, log } = spawnTestAgent(daemon, {
-      agentId: "ab-idle",
-      model: fauxModel([call("bash", { command: fakeBrowserCommand(fakeExe, rec, "idle") }), say("开好了")]),
-      tools: ["bash"],
-    });
+    const { agent, log } = spawnTestAgent(daemon, { agentId: "ego-owner", model: fauxModel([call("bash", { command }), say("开好了")]), tools: ["bash"] });
     await log.next("ready");
     agent.send({ type: "user_input", inputId: "in-1", text: "开个浏览器" });
     await log.next("turn_end", 30_000);
-    const pidOf = (name: string) => Number(fs.readFileSync(path.join(rec, name), "utf8"));
-    const [abDaemon, abChrome] = [pidOf("daemon-idle.pid"), pidOf("chrome-idle.pid")];
-    expect(fs.readFileSync(path.join(rec, "idle-idle.txt"), "utf8")).toBe(String(3000));
-    // 还没闲够 3 秒：留着
-    await sleep(800);
-    expect(isProcessAlive(abDaemon)).toBe(true);
-    // 闲够了：agent 还活着也回收
-    await waitUntil(() => !isProcessAlive(abDaemon) && !isProcessAlive(abChrome), { timeoutMs: 10_000, describe: () => "闲置的 agent-browser 还活着" });
-    expect(isProcessAlive(agent.pid!)).toBe(true);
+    const [ego, other] = [orphanPidIn(recEgo), orphanPidIn(recOther)];
+    try {
+      await waitUntil(() => !isProcessAlive(other), { timeoutMs: 10_000, describe: () => `普通的孤儿 ${other} 还活着` });
+      // 又过了好几轮回收：ego 的进程留着；开它的 agent 退了也留着
+      await sleep(1500);
+      expect(isProcessAlive(ego)).toBe(true);
+      agent.kill();
+      await agent.exited;
+      await sleep(1000);
+      expect(isProcessAlive(ego)).toBe(true);
+    } finally {
+      // 它在二狗的 Job 里：守护进程一停，Job 关掉时它也会被结束（466 Comments 里说的风险）；这里先自己收掉
+      if (isProcessAlive(ego)) process.kill(ego);
+    }
   }, 60_000);
 });
 
 const GRANDCHILD = path.join(import.meta.dirname, "..", "fixtures", "grandchild.mjs");
-const FAKE_AB = path.join(import.meta.dirname, "..", "fixtures", "fake-agent-browser.mjs");
-
-/** 把 node.exe 放成 agent-browser-fake.exe（进程快照里的可执行文件名和真的 agent-browser 一样开头）；在 startTestDaemon 之前建，最后才删 */
+/** grandchild.mjs 留下的孤儿写在这个目录里的 pid */
+const orphanPidIn = (dir: string) => Number(fs.readFileSync(path.join(dir, "orphan.pid"), "utf8"));
 /**
- * 改了名、放在临时目录的 node.exe（假的 agent-browser）在这台机器上跑不跑得起来：有的安全软件（比如 360）会拦下不认识的 exe、
- * 扫描三十来秒后报拒绝访问（2026-10-26 本机实测，Node 22、26 一样）。5 秒内跑不完 -v 就当被拦，这两条跳过（GitHub 的测试机上照跑）。
+ * 拷到临时目录的 node.exe 在这台机器上跑不跑得起来：有的安全软件（比如 360）会拦下不认识的 exe、扫描三十来秒后报拒绝访问
+ * （2026-10-26 本机实测：改了名的一律被拦；不改名的 466 实测能跑）。5 秒内跑不完 -v 就当被拦，这一条跳过（GitHub 的测试机上照跑）。
  */
-let renamedNodeRunsCache: boolean | undefined;
-function renamedNodeRuns(): boolean {
+let copiedNodeRunsCache: boolean | undefined;
+function copiedNodeRuns(): boolean {
   if (process.platform !== "win32") return false;
-  if (renamedNodeRunsCache === undefined) {
+  if (copiedNodeRunsCache === undefined) {
     // 收集测试时就要知道（skipIf），这时还不能用 makeTempDir（它挂 onTestFinished）：自己建、自己删
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ergo-fake-ab-probe-"));
-    const exe = path.join(dir, "agent-browser-fake.exe");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ergo-fake-ego-probe-"));
+    const exe = path.join(dir, "node.exe");
     try {
       try {
         fs.linkSync(process.execPath, exe);
       } catch {
         fs.copyFileSync(process.execPath, exe);
       }
-      renamedNodeRunsCache = spawnSync(exe, ["-v"], { timeout: 5000, encoding: "utf8" }).status === 0;
+      copiedNodeRunsCache = spawnSync(exe, ["-v"], { timeout: 5000, encoding: "utf8" }).status === 0;
     } finally {
       // 被拦下时文件可能还被安全软件占着：删不掉就留在临时目录
       try {
         fs.rmSync(dir, { recursive: true, force: true });
       } catch {}
     }
-    if (!renamedNodeRunsCache) console.warn("改名后的 node.exe 在临时目录里跑不起来（可能被安全软件拦了），跳过 agent-browser 回收的两条");
+    if (!copiedNodeRunsCache) console.warn("拷到临时目录的 node.exe 跑不起来（可能被安全软件拦了），跳过 ego lite 不回收的那一条");
   }
-  return renamedNodeRunsCache;
-}
-
-function fakeAgentBrowserExe(): string {
-  const exe = path.join(makeTempDir("ergo-fake-ab-"), "agent-browser-fake.exe");
-  try {
-    fs.linkSync(process.execPath, exe);
-  } catch {
-    fs.copyFileSync(process.execPath, exe);
-  }
-  return exe;
-}
-
-/** 在 bash 里跑假的 agent-browser（fixtures/fake-agent-browser.mjs）：起守护进程和"Chrome"，pid 记进 rec */
-function fakeBrowserCommand(exe: string, rec: string, tag: string): string {
-  return `"${slash(exe)}" "${slash(FAKE_AB)}" "${slash(rec)}" ${tag} "${slash(process.execPath)}"`;
+  return copiedNodeRunsCache;
 }
