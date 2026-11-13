@@ -156,7 +156,7 @@ try {
     main = await attachWeb((url) => url.startsWith(site!.origin));
     await main.waitFor("window.ergoNative && document.getElementById('land').readyState >= 1 && document.getElementById('port').readyState >= 1", 20_000);
     expectEqual(await main.eval("window.ergoNative.videoFullscreen()"), true, "videoFullscreen()");
-    expectEqual(await main.eval("window.ergoNative.appVersion()"), "0.4.4", "App 的版本号");
+    expectEqual(await main.eval("window.ergoNative.appVersion()"), "0.4.5", "App 的版本号");
     expectTrue(!appLandscape(), "开始是竖屏");
     expectEqual(barsVisible(), { status: true, gesture: true }, "开始时状态栏、手势条在");
     await sleep(800);

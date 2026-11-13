@@ -36,7 +36,7 @@ body:
     attributes:
       label: 二狗版本 / ergo version
       description: 设置 · 关于二狗；装了 `ergo` 命令的也可以运行 `ergo --version` / Settings · About Ergo, or `ergo --version`
-      placeholder: "0.4.4"
+      placeholder: "0.4.5"
     validations:
       required: true
   - type: input

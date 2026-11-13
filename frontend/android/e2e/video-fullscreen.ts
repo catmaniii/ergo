@@ -120,7 +120,7 @@ try {
     main = await views.attach((url) => url.startsWith(site!.origin));
     await main.waitFor("window.ergoNative && document.getElementById('land').readyState >= 1 && document.getElementById('port').readyState >= 1", 20_000);
     expectEqual(await main.eval("window.ergoNative.videoFullscreen()"), true, "videoFullscreen()");
-    expectEqual(await main.eval("window.ergoNative.appVersion()"), "0.4.4", "App 的版本号");
+    expectEqual(await main.eval("window.ergoNative.appVersion()"), "0.4.5", "App 的版本号");
     expectEqual(rotation(), 0, "开始是竖屏");
     expectTrue(windowState().barsVisible, "开始时状态栏、导航条在");
     await sleep(800);
