@@ -91,6 +91,9 @@ import {
   MEDIA_FRAME_MAX_BYTES,
   ImportReferenceVoiceBody,
   ImportSkillBody,
+  GithubSkillPreviewBody,
+  GithubSkillInstallBody,
+  GithubSkillDiscardBody,
   SecretarySkillsBody,
   isMediaId,
   ModelSettingsBody,
@@ -155,6 +158,7 @@ import { RequestRejected } from "../errors.ts";
 import type { LanguageService } from "../i18n/index.ts";
 import type { BulkMaterialDeletion, MaterialBrowser, MemoryGraphReader, MemorySettingsService } from "../memory/index.ts";
 import type { MemoryInterviews } from "../memory/api.ts";
+import type { GithubSkills } from "../skills/github.ts";
 import type { SecretarySkills } from "../skills/secretary-skills.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { ToolCallDetailRetention } from "../guard-runtime/detail-retention.ts";
@@ -302,6 +306,8 @@ export interface HttpApiOptions {
   voice?: () => VoiceApi | undefined;
   /** 工具包：skill 库和登记的 MCP、导入 skill；不给就没有这两个接口 */
   toolkits?: Pick<ToolkitService, "catalog" | "importSkill">;
+  /** 从 GitHub 装 skill（465）：预览、安装、放弃；不给就没有这三个接口 */
+  githubSkills?: Pick<GithubSkills, "preview" | "install" | "discard">;
   /** 秘书用的 skill：设置里的 skill 库页看、改；不给就没有这个接口 */
   secretarySkills?: Pick<SecretarySkills, "view" | "set">;
   /** 这个会话能用的斜杠命令；没有这个会话时 undefined；不给就没有这个接口 */
@@ -868,6 +874,34 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             const body = checkHttpBody(ImportSkillBody, await readJson(req));
             if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badSkillImport", { message: body.message }));
             sendJson(res, 200, options.toolkits.importSkill(body.value));
+          },
+        };
+      case "skill_github_preview":
+        return {
+          // 下载、解开、看里面有什么：要一会儿（下载最多两分钟）
+          async POST(req, res) {
+            if (!options.githubSkills) throw new HttpError("not_found", t("gateway.http.noSkills"));
+            const body = checkHttpBody(GithubSkillPreviewBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badGithubSkill", { message: body.message }));
+            sendJson(res, 200, await options.githubSkills.preview(body.value.url));
+          },
+        };
+      case "skill_github_install":
+        return {
+          async POST(req, res) {
+            if (!options.githubSkills) throw new HttpError("not_found", t("gateway.http.noSkills"));
+            const body = checkHttpBody(GithubSkillInstallBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badGithubSkill", { message: body.message }));
+            sendJson(res, 200, options.githubSkills.install(body.value));
+          },
+        };
+      case "skill_github_discard":
+        return {
+          async POST(req, res) {
+            if (!options.githubSkills) throw new HttpError("not_found", t("gateway.http.noSkills"));
+            const body = checkHttpBody(GithubSkillDiscardBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badGithubSkill", { message: body.message }));
+            sendJson(res, 200, { discarded: options.githubSkills.discard(body.value.previewId) });
           },
         };
       case "secretary_skills":

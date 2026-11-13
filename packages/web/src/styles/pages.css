@@ -6982,6 +6982,151 @@ button.ds-item {
   margin-top: 0;
   overflow-wrap: anywhere;
 }
+/* 从 GitHub 装的（465）：列表上"来自 GitHub owner/repo@提交号"一行，点了开网址；集合的放在按钮下面（链接不能放进按钮里） */
+.skill-source {
+  font-size: var(--fs-s);
+  color: var(--primary);
+  overflow-wrap: anywhere;
+}
+.skill-collection-source {
+  padding: 0 12px 10px;
+  margin-top: -6px;
+}
+/* 导入弹窗最上面：从哪导入（本机文件夹、GitHub），两块一样宽 */
+.skill-import-from {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.skill-import-from button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--fs-m);
+  cursor: pointer;
+}
+.skill-import-from button.on {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
+  font-weight: 600;
+}
+.skill-import-from + .seg {
+  margin-top: 10px;
+}
+.fp-path-row > .gh-look {
+  flex: none;
+  white-space: nowrap;
+}
+/* GitHub 的预览：在哪、多大；单个的名字或集合的四项和成员；脚本、不带进来的 */
+.gh-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  font-size: var(--fs-m);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.gh-preview .field {
+  margin-top: 8px;
+}
+.gh-preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 10px;
+}
+.gh-where {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text);
+}
+.gh-preview-head a {
+  font-size: var(--fs-s);
+  color: var(--primary);
+}
+.gh-single {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+.gh-warn {
+  color: var(--high-fg);
+  font-size: var(--fs-s);
+}
+.gh-members {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+.gh-members-head {
+  color: var(--muted);
+}
+.gh-member {
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.gh-member-pick {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+.gh-member.off .gh-member-pick {
+  cursor: default;
+}
+.gh-member-pick input {
+  flex: none;
+  margin-top: 3px;
+}
+.gh-member-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.gh-member.off .gh-member-text b {
+  color: var(--muted);
+}
+.gh-member-dir {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+.gh-member-rename {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 2px 24px;
+}
+.gh-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  font-size: var(--fs-s);
+}
+.gh-scripts,
+.gh-error {
+  color: var(--high-fg);
+}
 /* skill 的选择（ui/skill-picker.tsx）：集合显示成一项（点开单选、× 整套去掉） */
 .skill-picker {
   flex: 1;

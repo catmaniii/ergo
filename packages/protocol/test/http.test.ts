@@ -21,6 +21,13 @@ describe("HTTP 接口的路径", () => {
     expect(parseHttpPath(HTTP_PATHS.doctorUnmute)).toEqual({ route: "doctor_unmute" });
     expect(parseHttpPath("/api/doctor/unmute/x")).toBeUndefined();
     expect(parseHttpPath("/api/doctor/x")).toBeUndefined();
+    // 从 GitHub 装 skill（465）：预览、安装、放弃
+    expect([HTTP_PATHS.skillGithubPreview, HTTP_PATHS.skillGithubInstall, HTTP_PATHS.skillGithubDiscard]).toEqual(["/api/skills/github/preview", "/api/skills/github/install", "/api/skills/github/discard"]);
+    expect(parseHttpPath(HTTP_PATHS.skillGithubPreview)).toEqual({ route: "skill_github_preview" });
+    expect(parseHttpPath(HTTP_PATHS.skillGithubInstall)).toEqual({ route: "skill_github_install" });
+    expect(parseHttpPath(HTTP_PATHS.skillGithubDiscard)).toEqual({ route: "skill_github_discard" });
+    expect(parseHttpPath("/api/skills/github")).toBeUndefined();
+    expect(parseHttpPath("/api/skills/github/other")).toBeUndefined();
     // 消耗页顶上的余额（440）：GET 取、POST 刷新同一个地址
     expect(HTTP_PATHS.usageBalance).toBe("/api/usage/balance");
     expect(parseHttpPath(HTTP_PATHS.usageBalance)).toEqual({ route: "usage_balance" });

@@ -484,7 +484,7 @@ _Avoid_: 看板（已指任务看板）, 大屏, 仪表盘
 _Avoid_: 角色, 角色卡, 工种, 装备
 
 **skill 库（Skill Library）**:
-二狗能放进工具包的全部 skill：框架自带的一批，加上用户导入进数据目录 skill 区的。二狗不读 `~/.claude/skills`，现成的 skill 要用就显式导入一份。秘书也能用库里的 skill（在 skill 库页勾选，默认 agent-browser、yt-dlp）。负责人、秘书写好的 skill 经 **skill 变更** 进库，谁都不能自己往 skill 区写。
+二狗能放进工具包的全部 skill：框架自带的一批，加上用户导入进数据目录 skill 区的。二狗不读 `~/.claude/skills`，现成的 skill 要用就显式导入一份：从本机文件夹导入，或者填公开 GitHub 仓库的地址装（先下载给用户看里面有什么，看过再装，记下来源网址和提交号）。秘书也能用库里的 skill（在 skill 库页勾选，默认 agent-browser、yt-dlp）。负责人、秘书写好的 skill 经 **skill 变更** 进库，谁都不能自己往 skill 区写。
 _Avoid_: 技能市场, 插件库
 
 **skill 变更（Skill Change）**:

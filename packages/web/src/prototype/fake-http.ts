@@ -89,6 +89,8 @@ import type {
   FramePreview,
   HistoryPage,
   ImportSkillBody,
+  GithubSkillInstallBody,
+  GithubSkillPreview,
   MediaTextResult,
   ImportSkillResult,
   SecretarySkillsView,
@@ -195,6 +197,7 @@ import { demoMapDay, demoMapLatest } from "./fake-footprints.ts";
 import { fakeServiceThumbnail } from "./fake-operations.ts";
 import { fakeProjectStandard } from "./fake-standard.ts";
 import { FakeSystemPrompts } from "./fake-system-prompts.ts";
+import { fakeGithubPreview } from "./fake-github-skills.ts";
 
 const DISPLAYABLE = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 
@@ -632,6 +635,52 @@ export class FakeDaemonHttp implements DaemonHttp {
     const skill = { name: named, description: "刚导入的 skill（原型）", origin: "imported" as const };
     this.catalog = { ...this.catalog, skills: [...this.catalog.skills, skill] };
     return Promise.resolve({ skills: [skill], report: [{ name: named, dir: ".", ok: true }], linked: [], excluded: [] });
+  }
+
+  /** 原型：从 GitHub 装（465）的预览，按编号记着（fake-github-skills.ts 给内容）；看要一会儿，装了、放弃了就删 */
+  private githubPreviews = new Map<string, GithubSkillPreview>();
+  private githubSeq = 0;
+
+  async previewGithubSkill(url: string): Promise<GithubSkillPreview> {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    const found = fakeGithubPreview(url);
+    if (typeof found === "string") throw new Error(found);
+    this.githubSeq += 1;
+    const preview: GithubSkillPreview = { ...found, previewId: `demo-${this.githubSeq}`, expiresAt: new Date(Date.now() + 30 * 60_000).toISOString() };
+    this.githubPreviews.set(preview.previewId, preview);
+    return preview;
+  }
+
+  /** 原型：照预览进假 skill 库，记来源；和库里重名的照真的规矩被拒，改名再装 */
+  installGithubSkill(request: GithubSkillInstallBody): Promise<ImportSkillResult> {
+    const preview = this.githubPreviews.get(request.previewId);
+    if (!preview) return Promise.reject(new Error("这次看的已经过期清掉了，重新点「看看里面有什么」"));
+    const github = { url: preview.url, repo: preview.repo, ...(preview.ref ? { ref: preview.ref } : {}), ...(preview.commit ? { commit: preview.commit } : {}), installedAt: nowIso() };
+    const taken = (name: string) => this.catalog.skills.some((s) => s.name === name) || this.catalog.collections.some((c) => c.name === name);
+    if (preview.kind === "single" && preview.single) {
+      const name = request.rename ?? preview.single.name;
+      if (taken(name)) return Promise.reject(new Error(`skill 库里已经有叫 ${name} 的了`));
+      const skill = { name, description: preview.single.description, origin: "imported" as const, github };
+      this.catalog = { ...this.catalog, skills: [...this.catalog.skills, skill] };
+      this.githubPreviews.delete(preview.previewId);
+      return Promise.resolve({ skills: [skill], report: [{ name, dir: ".", ok: true }], linked: [], excluded: preview.dropped.map((d) => d.path) });
+    }
+    const spec = request.collection;
+    if (!spec) return Promise.reject(new Error("这个地址下面是一整套 skill，要给集合名、来源、版本、说明和选中的成员"));
+    const members = (preview.members ?? []).filter((m) => spec.members.includes(m.dir) && m.problem === undefined);
+    const names = members.map((m) => spec.rename?.[m.name] ?? m.name);
+    const clash = [spec.name, ...names].find(taken);
+    if (clash !== undefined) return Promise.reject(new Error(`skill 库里已经有叫 ${clash} 的了`));
+    const skills = members.map((m, i) => ({ name: names[i]!, description: m.description, origin: "imported" as const, collection: spec.name })).toSorted((a, b) => a.name.localeCompare(b.name));
+    const collection = { name: spec.name, source: spec.source, version: spec.version, description: spec.description, skills: skills.map((k) => k.name), github };
+    this.catalog = { ...this.catalog, skills: [...this.catalog.skills, ...skills], collections: [...this.catalog.collections, collection] };
+    this.githubPreviews.delete(preview.previewId);
+    return Promise.resolve({ skills, collection, report: members.map((m, i) => ({ name: names[i]!, dir: m.dir, ok: true })), linked: [], excluded: preview.dropped.map((d) => d.path) });
+  }
+
+  discardGithubSkill(previewId: string): Promise<void> {
+    this.githubPreviews.delete(previewId);
+    return Promise.resolve();
   }
 
   /** 原型的秘书用的 skill：一开始是默认的 */

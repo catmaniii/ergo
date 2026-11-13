@@ -49,10 +49,10 @@ function checksumOk(header: Buffer): boolean {
   return sum === stored;
 }
 
-/** pax 头的内容："长度 键=值\n" 一条一条 */
-function paxPath(data: Buffer): string | undefined {
+/** pax 头的内容："长度 键=值\n" 一条一条（同一个键写了几次的取最后一次） */
+export function paxRecords(data: Buffer): Map<string, string> {
+  const out = new Map<string, string>();
   let offset = 0;
-  let found: string | undefined;
   while (offset < data.length) {
     const space = data.indexOf(32, offset);
     if (space === -1) break;
@@ -60,14 +60,21 @@ function paxPath(data: Buffer): string | undefined {
     if (!Number.isFinite(length) || length <= 0) break;
     const record = data.subarray(space + 1, offset + length - 1).toString("utf8");
     const eq = record.indexOf("=");
-    if (eq > 0 && record.slice(0, eq) === "path") found = record.slice(eq + 1);
+    if (eq > 0) out.set(record.slice(0, eq), record.slice(eq + 1));
     offset += length;
   }
-  return found;
+  return out;
 }
 
-/** 一项项读出来，交给 open 决定往哪写 */
-export async function walkTar(file: string, options: { gzip: boolean; signal?: AbortSignal }, open: (entry: TarEntry) => Promise<TarSink | undefined> | TarSink | undefined): Promise<number> {
+/**
+ * 一项项读出来，交给 open 决定往哪写。onGlobal 拿到全局的 pax 头（git archive 在这里写 comment=<提交号>，GitHub 的压缩包就是它打的）；
+ * 不给就跳过
+ */
+export async function walkTar(
+  file: string,
+  options: { gzip: boolean; signal?: AbortSignal; onGlobal?: (records: Map<string, string>) => void },
+  open: (entry: TarEntry) => Promise<TarSink | undefined> | TarSink | undefined,
+): Promise<number> {
   const raw = fs.createReadStream(file, options.signal ? { signal: options.signal } : {});
   let input: AsyncIterable<Buffer> = raw;
   if (options.gzip) {
@@ -83,17 +90,17 @@ export async function walkTar(file: string, options: { gzip: boolean; signal?: A
   let padding = 0;
   let sink: TarSink | undefined;
   let meta: Buffer[] | undefined;
-  let metaKind: "pax" | "long" | undefined;
+  let metaKind: "pax" | "long" | "global" | undefined;
   let nextPath: string | undefined;
   let entries = 0;
   let sawHeader = false;
   const finish = async () => {
     if (meta) {
-      // 元数据（pax 头、GNU 长名字）：记下给下一项用；全局的 pax 头（metaKind 是 undefined）不用
-      if (metaKind) {
-        const data = Buffer.concat(meta);
-        nextPath = metaKind === "pax" ? (paxPath(data) ?? nextPath) : cString(data, 0, data.length);
-      }
+      // 元数据（pax 头、GNU 长名字）：记下给下一项用；全局的 pax 头交给 onGlobal
+      const data = Buffer.concat(meta);
+      if (metaKind === "global") options.onGlobal?.(paxRecords(data));
+      else if (metaKind === "pax") nextPath = paxRecords(data).get("path") ?? nextPath;
+      else nextPath = cString(data, 0, data.length);
       meta = undefined;
       metaKind = undefined;
     } else if (sink) {
@@ -141,9 +148,9 @@ export async function walkTar(file: string, options: { gzip: boolean; signal?: A
           continue;
         }
         if (typeflag === "g") {
-          // 全局的 pax 头：不用，内容跳过
+          // 全局的 pax 头：给了 onGlobal 才读
           meta = [];
-          metaKind = undefined;
+          metaKind = "global";
           if (size === 0) await finish();
           continue;
         }

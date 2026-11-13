@@ -72,6 +72,7 @@
   "gateway.http.noToolkits": "这个版本还没有工具包",
   "gateway.http.noSkills": "这个版本还没有 skill 库",
   "gateway.http.badSkillImport": "导入 skill 的参数不对：{message}",
+  "gateway.http.badGithubSkill": "从 GitHub 装 skill 的参数不对：{message}",
   "gateway.http.noSecretarySkills": "这个版本的{assistant}还不能用 skill",
   "gateway.http.badSecretarySkills": "{assistant}用的 skill 的参数不对：{message}",
   "gateway.http.noToolCall": "没有这次工具调用的完整内容：{callId}",

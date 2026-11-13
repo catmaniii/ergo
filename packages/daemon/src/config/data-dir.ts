@@ -161,6 +161,8 @@ export interface DataDirLayout {
   uploads: string;
   /** 秘书的草稿区：临时区里秘书专用的一格，也是秘书的工作目录（和其他临时文件一样 7 天后清理） */
   scratch: string;
+  /** 从 GitHub 装 skill 时下载、解开的地方（临时区里的一格，465）：一个预览一个子目录，装完、放弃、放太久都清 */
+  githubSkills: string;
   backups: string;
   logs: string;
   /** 事件来源的状态：本机文件夹变化的比对底子（folders/<订阅>.json），开机比对补发停机期间的变化用 */
@@ -260,6 +262,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     tmp,
     uploads: path.join(tmp, "uploads"),
     scratch: path.join(tmp, "scratch"),
+    githubSkills: path.join(tmp, "github-skills"),
     backups: path.join(root, "backups"),
     logs: path.join(root, "logs"),
     eventSources: path.join(root, "event-sources"),
