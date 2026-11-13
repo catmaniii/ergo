@@ -4,7 +4,8 @@
 //    跟重定向、走系统代理），解到数据目录临时区里自己的一格（tmp/github-skills/<预览编号>/），**只解用户指的那个子目录**
 //    （没指就整个仓库）。解压用 components/tar.ts（跳过链接、拒不安全路径、边读边写），不调系统 tar、不要求装 git；
 //    提交号取压缩包全局 pax 头里的 comment（git archive 写的），不调 GitHub API。
-//    解出来的交给 skill 库看（library.inspectStaged）：本身有 SKILL.md 是单个 skill，没有的话下面几层里的当集合的成员。
+//    解出来的交给 skill 库看（library.inspectStaged）：本身有 SKILL.md 是单个 skill，没有的话下面几层里的当集合的成员——
+//    只找到一个能装的（在子目录里）时当单个 skill 装，来源记到那个子目录（11-14 定的，免得用户还要填集合名、说明）。
 // 2. 安装（install）：用户看过再点。走 skill 库导入的同一段校验和写入（library.installStaged），装完这一格清掉；
 //    重名、改名不合规矩这类被拒的留着这一格（改了名再点安装不用重新下）。
 // 放弃（discard）马上清；放太久（PREVIEW_TTL_MS）没装的、多出 MAX_PREVIEWS 个的最老的、守护进程上次留下的，都清。只清自己这一格目录。
@@ -341,24 +342,38 @@ export function createGithubSkills(options: GithubSkillsOptions): GithubSkills {
       fs.mkdirSync(slot);
       try {
         const got = await fetchInto(address, slot);
-        const repo = `${address.owner}/${address.repo}`;
-        const origin: Kept["origin"] = {
-          url: canonicalUrl(address, got.candidate),
-          repo,
-          ...(got.candidate.ref === undefined ? {} : { ref: got.candidate.ref }),
-          ...(got.commit === undefined ? {} : { commit: got.commit }),
-        };
         // 集合的默认值：集合名是仓库名（规范成小写短横线），来源是网址，版本是像版本号的标签、不然提交号前 7 位
         const defaultName = normalizeSkillDirName(address.repo).replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "").slice(0, 64).replace(/-+$/, "");
         const collectionName = IMPORT_NAME.test(defaultName) ? defaultName : "github-skills";
-        const inspection = options.library.inspectStaged(got.root, collectionName);
+        let root = got.root;
+        let subdir = got.candidate.subdir;
+        let dropped = got.dropped;
+        let inspection = options.library.inspectStaged(root, collectionName);
+        // 地址下面只找到一个能装的 SKILL.md、而且在子目录里：当单个 skill 装（不包成只有一个成员的集合，用户不用填集合名、说明），
+        // 来源记到那个子目录；不带的只列它里面的
+        const installable = inspection.kind === "collection" ? inspection.members.filter((m) => m.problem === undefined) : [];
+        if (installable.length === 1) {
+          const only = installable[0]!.dir;
+          root = path.join(root, ...only.split("/"));
+          subdir = subdir === "" ? only : `${subdir}/${only}`;
+          dropped = new Map([...dropped].flatMap(([p, reason]): [string, GithubDropReason][] => (p.startsWith(`${only}/`) ? [[p.slice(only.length + 1), reason]] : [])));
+          inspection = options.library.inspectStaged(root, collectionName);
+        }
+        const repo = `${address.owner}/${address.repo}`;
+        const origin: Kept["origin"] = {
+          url: canonicalUrl(address, { ref: got.candidate.ref, subdir }),
+          repo,
+          ...(subdir === "" ? {} : { path: subdir }),
+          ...(got.candidate.ref === undefined ? {} : { ref: got.candidate.ref }),
+          ...(got.commit === undefined ? {} : { commit: got.commit }),
+        };
         const k: Kept = {
           id,
           slot,
-          root: got.root,
-          subdir: got.candidate.subdir,
+          root,
+          subdir,
           kind: inspection.kind,
-          dropped: [...got.dropped.keys()],
+          dropped: [...dropped.keys()],
           origin,
           expiresAt: now() + limits.ttlMs,
         };
@@ -366,8 +381,8 @@ export function createGithubSkills(options: GithubSkillsOptions): GithubSkills {
         const result = view(
           k,
           inspection,
-          got.dropped,
-          inspection.kind === "collection" ? { name: collectionName, source: origin.url, version: version.slice(0, 64), description: collectionDescription(got.root) } : undefined,
+          dropped,
+          inspection.kind === "collection" ? { name: collectionName, source: origin.url, version: version.slice(0, 64), description: collectionDescription(root) } : undefined,
         );
         kept.set(id, k);
         // 多出来的清最老的

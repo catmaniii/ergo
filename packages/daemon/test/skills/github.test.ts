@@ -163,6 +163,120 @@ describe("单个 skill", () => {
   });
 });
 
+describe("地址下面只有一个能装的 SKILL.md、在子目录里：当单个装", () => {
+  /** 仓库根上没有 SKILL.md，skills/meeting-notes 下有一个能装的，另一个不合规；外面有隐藏目录、链接 */
+  const soloRepo = (): Record<string, RepoFile> => ({
+    "README.md": "# 只有一个 skill 的仓库\n",
+    ".github/workflows/ci.yml": "on: push\n",
+    "docs/link": { symlink: true },
+    "skills/meeting-notes/SKILL.md": skillMd("meeting-notes", "记会议纪要"),
+    "skills/meeting-notes/templates/minutes.md": "# 纪要\n",
+    "skills/meeting-notes/latest": { symlink: true },
+    "skills/broken/SKILL.md": "没有 frontmatter\n",
+  });
+
+  test("仓库首页：预览是单个，在哪写那个子目录；装进来的只有那个子目录，来源记子目录、网址指到它", async () => {
+    const s = setup();
+    s.gh.reply(archive("acme", "solo"), { status: 200, body: githubArchive(`solo-${SHA}`, soloRepo(), SHA) });
+    const preview = await s.github.preview("https://github.com/acme/solo");
+    expect(preview).toMatchObject({
+      kind: "single",
+      subdir: "skills/meeting-notes",
+      url: "https://github.com/acme/solo/tree/HEAD/skills/meeting-notes",
+      single: { name: "meeting-notes", description: "记会议纪要", dirName: "meeting-notes" },
+      fileCount: 2,
+    });
+    expect(preview.members).toBeUndefined();
+    expect(preview.collection).toBeUndefined();
+    // 不带的只列它里面的（外面的 .github/、docs/link 本来就不装）
+    expect(preview.dropped).toEqual([{ path: "latest", reason: "link" }]);
+    // 当集合装被拒（它是单个）
+    expect(await rejection(() => s.github.install({ previewId: preview.previewId, collection: { name: "solo", source: "s", version: "1", description: "d", members: ["skills/meeting-notes"] } }))).toMatchObject({ code: "bad_params" });
+
+    const result = s.github.install({ previewId: preview.previewId });
+    const github = { url: "https://github.com/acme/solo/tree/HEAD/skills/meeting-notes", repo: "acme/solo", path: "skills/meeting-notes", commit: SHA, installedAt: "2026-11-14T02:00:00.000Z" };
+    expect(result).toMatchObject({ skills: [{ name: "meeting-notes", origin: "imported", github }], excluded: ["latest"] });
+    expect(result.collection).toBeUndefined();
+    const dir = path.join(s.userDir, "meeting-notes");
+    expect(fs.readdirSync(dir).toSorted()).toEqual([SOURCE_FILE, "SKILL.md", "templates"]);
+    expect(fs.readFileSync(path.join(dir, "templates", "minutes.md"), "utf8")).toBe("# 纪要\n");
+    expect(JSON.parse(fs.readFileSync(path.join(dir, SOURCE_FILE), "utf8"))).toEqual({ format: 1, github });
+    expect(s.library.list().find((e) => e.name === "meeting-notes")?.github).toEqual(github);
+    expect(s.library.collections()).toEqual([]);
+    expect(slots(s)).toEqual([]);
+  });
+
+  test("指了 ref、子目录的：子目录接在后面，网址带 ref", async () => {
+    const s = setup();
+    s.gh.reply(archive("acme", "mono", "v2.1.0"), { status: 200, body: githubArchive("mono-2.1.0", { "tools/readme.md": "x", "tools/skills/solo/SKILL.md": skillMd("solo", "唯一一个") }, SHA) });
+    const preview = await s.github.preview("https://github.com/acme/mono/tree/v2.1.0/tools");
+    expect(preview).toMatchObject({ kind: "single", ref: "v2.1.0", subdir: "tools/skills/solo", url: "https://github.com/acme/mono/tree/v2.1.0/tools/skills/solo", single: { name: "solo" } });
+    expect(s.github.install({ previewId: preview.previewId }).skills[0]?.github).toMatchObject({ path: "tools/skills/solo", ref: "v2.1.0", url: "https://github.com/acme/mono/tree/v2.1.0/tools/skills/solo" });
+  });
+});
+
+describe("成员在隐藏目录里（.claude/skills/foo）", () => {
+  /** foo 在 .claude/skills 下（带脚本、参考资料、它自己的隐藏目录）；.claude 里还有别的程序的配置；外面有 .github/ */
+  const hiddenRepo = (withBar: boolean): Record<string, RepoFile> => ({
+    "README.md": "# repo\n",
+    ".github/workflows/ci.yml": "on: push\n",
+    ".claude/settings.json": "{}\n",
+    ".claude/commands/deploy.md": "部署\n",
+    ".claude/hooks/pre.sh": "echo hook\n",
+    ".claude/.cache/x.json": "{}\n",
+    ".claude/skills/foo/SKILL.md": skillMd("foo", "藏在 .claude 下的"),
+    ".claude/skills/foo/scripts/run.sh": "echo run\n",
+    ".claude/skills/foo/references/guide.md": "指南\n",
+    ".claude/skills/foo/.cache/tmp.json": "{}\n",
+    ...(withBar ? { "skills/bar/SKILL.md": skillMd("bar", "放在 skills 下的") } : {}),
+  });
+  const FOO_FILES = ["SKILL.md", "references/guide.md", "scripts/run.sh"];
+  /** 一个目录下面的全部文件（相对、/ 分隔、排好） */
+  const filesUnder = (dir: string): string[] =>
+    fs
+      .readdirSync(dir, { recursive: true, encoding: "utf8" })
+      .filter((rel) => fs.statSync(path.join(dir, rel)).isFile())
+      .map((rel) => rel.split(path.sep).join("/"))
+      .toSorted();
+
+  test("单个装（仓库首页里只有它、地址直接指到它）：成员目录完整装进来，它里面和外面的隐藏目录都不带", async () => {
+    const s = setup();
+    s.gh.reply(archive("acme", "hidden"), { status: 200, body: githubArchive(`hidden-${SHA}`, hiddenRepo(false), SHA) });
+    const a = await s.github.preview("acme/hidden");
+    expect(a).toMatchObject({ kind: "single", subdir: ".claude/skills/foo", single: { name: "foo", dirName: "foo" }, fileCount: 3 });
+    expect(a.dropped).toEqual([{ path: ".cache/", reason: "hidden" }]);
+    s.github.install({ previewId: a.previewId });
+    expect(filesUnder(path.join(s.userDir, "foo"))).toEqual([SOURCE_FILE, ...FOO_FILES].toSorted());
+
+    const b = await s.github.preview("acme/hidden/.claude/skills/foo");
+    expect(b).toMatchObject({ kind: "single", subdir: ".claude/skills/foo", url: "https://github.com/acme/hidden/tree/HEAD/.claude/skills/foo" });
+    s.github.install({ previewId: b.previewId, rename: "foo-two" });
+    expect(filesUnder(path.join(s.userDir, "foo-two"))).toEqual([SOURCE_FILE, ...FOO_FILES].toSorted());
+  });
+
+  test("集合装：.claude 里只带通到成员的那条路和成员本身；.github/、.claude 里别的程序的配置、成员里的隐藏目录都不带", async () => {
+    const s = setup();
+    s.gh.reply(archive("acme", "hidden"), { status: 200, body: githubArchive(`hidden-${SHA}`, hiddenRepo(true), SHA) });
+    const preview = await s.github.preview("acme/hidden");
+    expect(preview.kind).toBe("collection");
+    expect(preview.members?.map((m) => m.dir)).toEqual([".claude/skills/foo", "skills/bar"]);
+    expect(preview.dropped).toEqual([
+      { path: ".claude/.cache/", reason: "hidden" },
+      { path: ".claude/commands/", reason: "hidden" },
+      { path: ".claude/hooks/", reason: "hidden" },
+      { path: ".claude/settings.json", reason: "hidden" },
+      { path: ".claude/skills/foo/.cache/", reason: "hidden" },
+      { path: ".github/", reason: "hidden" },
+    ]);
+    expect(preview.fileCount).toBe(5);
+    const result = s.github.install({ previewId: preview.previewId, collection: { ...preview.collection!, members: [".claude/skills/foo", "skills/bar"] } });
+    expect(result.collection?.skills).toEqual(["bar", "foo"]);
+    const root = path.join(s.userDir, "hidden");
+    expect(filesUnder(root)).toEqual([COLLECTION_MANIFEST, "README.md", ...FOO_FILES.map((f) => `.claude/skills/foo/${f}`), "skills/bar/SKILL.md"].toSorted());
+    expect(s.library.pathsOf(["foo"])).toEqual([path.join(root, ".claude", "skills", "foo")]);
+  });
+});
+
 /** 一个集合的仓库：成员在不同的层（skills/ 下、.claude/skills 下），一个不合规的，插件清单里有说明 */
 function collectionRepo(): Record<string, RepoFile> {
   return {
@@ -346,7 +460,7 @@ describe("找不到、下不下来、太大", () => {
 
   test("压缩包没记提交号：版本用 ref，不调 GitHub API", async () => {
     const s = setup();
-    s.gh.reply(archive("acme", "pack", "main"), { status: 200, body: githubArchive("pack-main", { "a/SKILL.md": skillMd("a", "a") }) });
+    s.gh.reply(archive("acme", "pack", "main"), { status: 200, body: githubArchive("pack-main", { "a/SKILL.md": skillMd("a", "a"), "b/SKILL.md": skillMd("b", "b") }) });
     const preview = await s.github.preview("https://github.com/acme/pack/tree/main");
     expect(preview.commit).toBeUndefined();
     expect(preview.collection?.version).toBe("main");

@@ -1,5 +1,6 @@
-// 原型：从 GitHub 装 skill（465）的假预览。地址里带 habit-tracker 的是单个 skill，带 demo-toolbox 的是一整套（一个成员和库里重名、
-// 一个不合规），带 private 的回"找不到或私有"，不是 GitHub 地址的回"认不出"。全是编的，不连网。
+// 原型：从 GitHub 装 skill（465）的假预览。地址里带 habit-tracker 的是单个 skill（仓库根上就是），带 solo-skill 的是仓库首页、
+// 里面只有 skills/meeting-notes 一个 skill（当单个装，来源记子目录），带 demo-toolbox 的是一整套（一个成员和库里重名、
+// 一个不合规），别的 GitHub 地址回"找不到或私有"，不是 GitHub 地址的回"认不出"。全是编的，不连网。
 import type { GithubSkillPreview } from "../state/index.ts";
 
 /** 假提交号（编的） */
@@ -22,6 +23,21 @@ export const FAKE_GITHUB_SINGLE: Omit<GithubSkillPreview, "previewId" | "expires
     { path: ".env", reason: "sensitive" },
     { path: ".github/", reason: "hidden" },
   ],
+};
+
+/** 仓库首页，里面只有 skills/meeting-notes 一个 skill：当单个装，在哪写那个子目录 */
+export const FAKE_GITHUB_SOLO: Omit<GithubSkillPreview, "previewId" | "expiresAt"> = {
+  url: "https://github.com/demo-org/solo-skill/tree/HEAD/skills/meeting-notes",
+  repo: "demo-org/solo-skill",
+  commit: "6d0b3e9f2a71c84e5d9b0a3f7c6e1d2b8a4f5c93",
+  subdir: "skills/meeting-notes",
+  kind: "single",
+  single: { name: "meeting-notes", description: "把会议录音整理成纪要（假数据）", dirName: "meeting-notes" },
+  fileCount: 3,
+  totalBytes: 7_380,
+  scripts: [],
+  scriptCount: 0,
+  dropped: [],
 };
 
 /** 一整套：成员在 skills/ 下面两层，一个和库里重名、一个不合规 */
@@ -55,6 +71,7 @@ export const FAKE_GITHUB_SET: Omit<GithubSkillPreview, "previewId" | "expiresAt"
 export function fakeGithubPreview(url: string): Omit<GithubSkillPreview, "previewId" | "expiresAt"> | string {
   const text = url.trim();
   if (/habit-tracker/i.test(text)) return FAKE_GITHUB_SINGLE;
+  if (/solo-skill/i.test(text)) return FAKE_GITHUB_SOLO;
   if (/demo-toolbox/i.test(text)) return FAKE_GITHUB_SET;
   const repo = /^(?:https?:\/\/)?(?:www\.)?(?:github\.com\/)?([A-Za-z0-9-]+\/[A-Za-z0-9._-]+)/.exec(text)?.[1];
   if (!repo || /^[a-z]+:\/\/(?!(?:www\.)?github\.com)/i.test(text)) return `认不出这个地址：${text}。要填 GitHub 上公开仓库的地址`;

@@ -655,7 +655,14 @@ export class FakeDaemonHttp implements DaemonHttp {
   installGithubSkill(request: GithubSkillInstallBody): Promise<ImportSkillResult> {
     const preview = this.githubPreviews.get(request.previewId);
     if (!preview) return Promise.reject(new Error("这次看的已经过期清掉了，重新点「看看里面有什么」"));
-    const github = { url: preview.url, repo: preview.repo, ...(preview.ref ? { ref: preview.ref } : {}), ...(preview.commit ? { commit: preview.commit } : {}), installedAt: nowIso() };
+    const github = {
+      url: preview.url,
+      repo: preview.repo,
+      ...(preview.subdir ? { path: preview.subdir } : {}),
+      ...(preview.ref ? { ref: preview.ref } : {}),
+      ...(preview.commit ? { commit: preview.commit } : {}),
+      installedAt: nowIso(),
+    };
     const taken = (name: string) => this.catalog.skills.some((s) => s.name === name) || this.catalog.collections.some((c) => c.name === name);
     if (preview.kind === "single" && preview.single) {
       const name = request.rename ?? preview.single.name;

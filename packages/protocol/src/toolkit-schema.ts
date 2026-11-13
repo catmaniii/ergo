@@ -10,13 +10,14 @@ import { type Static, Type } from "typebox";
 import { PlanToolkit } from "./task-schema.ts";
 
 /**
- * 从 GitHub 装的（465）记下的来源：规范的网址、仓库（owner/repo）、写了的 ref（分支、标签、提交；没写是默认分支）、
- * 提交号（压缩包里 git archive 记的，取不到没有）、装的时间。单个的记在 skill 目录里只由运行时写的 .ergo-source.json，
+ * 从 GitHub 装的（465）记下的来源：规范的网址（指到装的那个子目录）、仓库（owner/repo）、仓库里的子目录（整个仓库的没有）、
+ * 写了的 ref（分支、标签、提交；没写是默认分支）、提交号（压缩包里 git archive 记的，取不到没有）、装的时间。单个的记在 skill 目录里只由运行时写的 .ergo-source.json，
  * 集合的记在 ergo-collection.json 里（来源、版本照旧写网址和版本）。以后查更新从这里取
  */
 export const GithubSkillOrigin = Type.Object({
   url: Type.String(),
   repo: Type.String(),
+  path: Type.Optional(Type.String()),
   ref: Type.Optional(Type.String()),
   commit: Type.Optional(Type.String()),
   installedAt: Type.String(),

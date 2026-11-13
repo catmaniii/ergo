@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { GithubPreviewView, ImportSkill, SkillSourceLink } from "../../src/pages/more/SkillsPage.tsx";
-import { FAKE_GITHUB_SET, FAKE_GITHUB_SINGLE } from "../../src/prototype/fake-github-skills.ts";
+import { FAKE_GITHUB_SET, FAKE_GITHUB_SINGLE, FAKE_GITHUB_SOLO } from "../../src/prototype/fake-github-skills.ts";
 import { activeLocaleFrom, DEFAULT_LANGUAGE, type GithubSkillPreview, initialGithubForm, setActiveLocale } from "../../src/state/index.ts";
 import { TEST_LOCALES } from "../setup-locales.ts";
 
@@ -49,6 +49,17 @@ describe("GitHub 的预览", () => {
     expect(html).toContain("有 2 个脚本文件（用它的 agent 可能会运行）：scripts/remind.ps1、scripts/stats.py");
     expect(html).toContain("密钥、凭据这类文件不带：.env");
     expect(html).toContain("隐藏的文件和目录不带：.github/");
+  });
+
+  test("仓库首页里只有一个 skill（在 skills/meeting-notes）：按单个预览，在哪写到那个子目录，链接指到它；没有集合的那几项", () => {
+    const html = renderPreview(preview(FAKE_GITHUB_SOLO));
+    expect(html).toContain("demo-org/solo-skill@6d0b3e9 里的 skills/meeting-notes");
+    expect(html).toContain('href="https://github.com/demo-org/solo-skill/tree/HEAD/skills/meeting-notes"');
+    expect(html).toContain("单个 skill");
+    expect(html).toContain("meeting-notes");
+    expect(html).toContain("没有脚本文件");
+    expect(html).not.toContain("集合名");
+    expect(html).not.toContain("gh-members");
   });
 
   test("单个和库里重名：写和谁重名，改名框写要填", () => {

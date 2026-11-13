@@ -911,6 +911,8 @@ function realSourceDir(source: string, notDirKey: "skills.import.notDir" | "skil
  * - 复制的部分里有符号链接、目录联接的整个拒绝（列出是哪些、指向哪）；
  * - 依赖目录（node_modules、.venv、venv）本身不能是链接；它里面的链接只认真实路径在来源目录里面的；
  * - .git 和别的隐藏目录、.env*、*.pem、*.key 不带（成员所在的子目录那条路上的不算；memberPaths 是成员所在的子目录，可以有几个）；
+ *   成员在隐藏目录里的（.claude/skills/foo）：那个隐藏目录里只带通到成员的那条路和成员里的东西，旁边的（.claude/settings.json、
+ *   .claude/commands/、.claude/hooks/）不带——那是别的程序的配置，不是 skill 的；
  * - skip 里的目录（GitHub 装的集合里没选的成员）不看、不复制，也不算不带的；
  * - 数一下复制的部分有多少文件、多少字节。
  */
@@ -923,7 +925,10 @@ function planSource(root: string, memberPaths: readonly string[], skip: Readonly
   let bytes = 0;
   const skipped: string[] = [];
   const onMembersPath = (rel: string) => memberPaths.some((m) => m === rel || m.startsWith(`${rel}/`));
-  const walk = (dir: string, rel: string, inDep: boolean) => {
+  /** 在成员（或成员所在的子目录）里面 */
+  const inMember = (rel: string) => memberPaths.some((m) => rel.startsWith(`${m}/`));
+  /** inHidden：在通到成员的那个隐藏目录里（还没进到成员里），只带通到成员的那条路 */
+  const walk = (dir: string, rel: string, inDep: boolean, inHidden = false) => {
     for (const name of fs.readdirSync(dir)) {
       const abs = path.join(dir, name);
       const relPath = joinRel(rel, name);
@@ -938,14 +943,19 @@ function planSource(root: string, memberPaths: readonly string[], skip: Readonly
       if (st.isDirectory()) {
         if (!inDep && skip.has(relPath)) skipped.push(relPath);
         else if (inDep) walk(abs, relPath, true);
+        else if (inHidden && !onMembersPath(relPath) && !inMember(relPath)) excluded.push(`${relPath}/`);
         else if (DEPENDENCY_DIRS.has(name)) {
           deps.push(relPath);
           walk(abs, relPath, true);
         } else if (name.startsWith(".") && !onMembersPath(relPath)) excluded.push(`${relPath}/`);
-        else walk(abs, relPath, false);
+        else walk(abs, relPath, false, (inHidden || name.startsWith(".")) && !memberPaths.includes(relPath) && !inMember(relPath));
         continue;
       }
       if (inDep) continue;
+      if (inHidden && !inMember(relPath)) {
+        excluded.push(relPath);
+        continue;
+      }
       if (isSensitiveFile(name) || RUNTIME_FILES.has(name)) {
         excluded.push(relPath);
         continue;

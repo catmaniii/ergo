@@ -72,6 +72,11 @@ describe("来源和预览的说法", () => {
     expect(githubAt({ ref: "main" })).toBe("main");
     expect(githubAt({})).toBe("默认分支");
     expect(githubSourceLine(undefined)).toBeUndefined();
+    // 装的是仓库里的一个子目录：链接指到那个子目录（网址守护进程拼好了）
+    expect(githubSourceLine({ url: "https://github.com/acme/solo/tree/HEAD/skills/x", repo: "acme/solo", path: "skills/x", commit: SHA, installedAt: "x" })).toEqual({
+      text: "来自 GitHub acme/solo@0123456",
+      url: "https://github.com/acme/solo/tree/HEAD/skills/x",
+    });
   });
 
   test("在哪、多大、脚本、不带进来的", () => {
