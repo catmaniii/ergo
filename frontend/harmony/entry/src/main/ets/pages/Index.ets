@@ -10,6 +10,7 @@ import { AppSettings, DOMAIN, TAG } from '../common/AppSettings';
 import { appTexts, t } from '../common/AppTexts';
 import { connectChecklist } from '../common/ConnectCheck';
 import { ConnectProbe, ConnectResult } from '../common/ConnectProbe';
+import { RenderWatch } from '../common/RenderWatch';
 import { webCallScript } from '../common/WebCall';
 import { checkServerAddress, originOf, ServerAddress } from '../common/ServerAddress';
 import {
@@ -53,6 +54,27 @@ const NOT_ERGO_AFTER_MS = 8000;
 const SCANNED_TEXT_SHOWN = 120;
 /** EntryAbility.ets 的 TEST_SCAN_KEY：联调的测试入口交来的文字 */
 const TEST_SCAN_KEY = 'ergoTestScan';
+
+/** 重载一个网页框；还没接上 Web 组件（重载不了）回 false */
+function reloadWeb(controller: webview.WebviewController): boolean {
+  try {
+    controller.refresh();
+    return true;
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'web refresh failed: %{public}s', JSON.stringify(e));
+    return false;
+  }
+}
+
+/** 结束网页框的渲染进程（同一个渲染进程里的别的网页框也一起没了，各自的 onRenderExited 会重载） */
+function terminateRender(controller: webview.WebviewController): boolean {
+  try {
+    return controller.terminateRenderProcess();
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'terminate render process failed: %{public}s', JSON.stringify(e));
+    return false;
+  }
+}
 
 /**
  * 二狗的鸿蒙 App：原生壳。
@@ -187,6 +209,23 @@ struct Index {
   private videoFullscreen: VideoFullscreen = new VideoFullscreen(() => this.mainWindow, (showing: boolean) => {
     this.videoFull = showing;
   });
+  /**
+   * 网页的渲染进程看护（票 389，common/RenderWatch.ets）：后台放久了系统把渲染进程收掉，回来停在最后一帧、点不动，
+   * 以前只能杀掉 App 重开。主网页：没了重载、卡住结束了再重载、回前台跑一句 JS 自检，救不回来重新打开二狗的地址；
+   * 浏览器、侧边栏（和主网页一般在同一个渲染进程里）没了就重载自己
+   */
+  private mainWatch: RenderWatch = new RenderWatch('main', (text: string) => this.webLog(text),
+    () => this.probeMain(), () => reloadWeb(this.controller),
+    () => {
+      if (this.server !== undefined && !this.editing) {
+        this.openServer(this.server);
+      }
+    },
+    () => terminateRender(this.controller));
+  private browserWatch: RenderWatch = new RenderWatch('browser', (text: string) => this.webLog(text), () => undefined,
+    () => this.browserCreated && reloadWeb(this.browser.controller), () => {}, () => false);
+  private sideWatch: RenderWatch = new RenderWatch('side', (text: string) => this.webLog(text), () => undefined,
+    () => this.sideCreated && reloadWeb(this.sideController), () => {}, () => false);
   private onAvoidAreaChange = (options: window.AvoidAreaOptions): void => {
     if (options.type === window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR || options.type === window.AvoidAreaType.TYPE_SYSTEM) {
       this.updateBottomInset();
@@ -341,6 +380,10 @@ struct Index {
     if (notifyTaps.hasPending()) {
       this.pushNotifyOpen();
     }
+    // 网页的渲染进程在后台被收掉了：重载；没收到回调的也跑一句 JS 自检
+    this.mainWatch.shown();
+    this.browserWatch.shown();
+    this.sideWatch.shown();
   }
 
   // App 切到后台：放掉原生录音器（后台不录；网页的 visibilitychange 不一定先到）。回到前台由网页重新要。
@@ -352,6 +395,25 @@ struct Index {
     this.nativeNotify.setForeground(false);
     // 位置：没打开后台也记的停订（鸿蒙在后台几秒后挂起 App，订着也收不到）
     this.phoneData.setForeground(false);
+    this.mainWatch.hidden();
+    this.browserWatch.hidden();
+    this.sideWatch.hidden();
+  }
+
+  private webLog(text: string): void {
+    hilog.info(DOMAIN, TAG, '%{public}s', text);
+  }
+
+  /** 主网页跑一句 JS（RenderWatch 的自检）；Web 组件还没接上就不探 */
+  private probeMain(): Promise<string> | undefined {
+    if (!this.hasServer || this.editing || this.loadError.length > 0) {
+      return undefined;
+    }
+    try {
+      return this.controller.runJavaScript('1');
+    } catch (e) {
+      return undefined;
+    }
   }
 
   /**
@@ -945,6 +1007,7 @@ struct Index {
       // 页面重新加载、跳走：上一个页面备好的原生录音器放掉（新页面进语音模式时再要）；新页面要重新说它有没有"浏览"页签、
       // 浏览器先藏起来（新页面开到"浏览"会再报内容区）
       .onPageBegin(() => {
+        this.mainWatch.pageBegin();
         this.bridge?.releaseVoice('reload');
         this.browser.attached = false;
         // 新页面要重新说它能不能渲染文件
@@ -959,6 +1022,7 @@ struct Index {
         this.sideFrame = new SideFrame();
       })
       .onPageEnd(() => {
+        this.mainWatch.pageEnd();
         this.checkIsErgo();
         // 网页开场经 safeArea() 取；那时还没量到的，这里再推一次
         this.pushInsets();
@@ -966,8 +1030,16 @@ struct Index {
       .onErrorReceive((event: OnErrorReceiveEvent) => {
         if (event.request.isMainFrame() && !IGNORED_NET_ERRORS.includes(event.error.getErrorCode())) {
           this.loadError = t('harmony.index.cantConnect', { 'error': event.error.getErrorInfo() });
+          // 出错页也是渲染进程画的：重载之后连不上也算网页框救回来了（出错页上有"重试"）
+          this.mainWatch.pageEnd();
         }
       })
+      // 渲染进程没了、卡住了（票 389）：见 mainWatch
+      .onRenderExited((event: OnRenderExitedEvent) => this.mainWatch.exited(event.renderExitReason))
+      .onRenderProcessNotResponding((data: RenderProcessNotRespondingData) => {
+        this.mainWatch.notResponding(`reason ${data.reason}, pid ${data.pid}`);
+      })
+      .onRenderProcessResponding(() => this.mainWatch.responding())
       .onHttpErrorReceive((event: OnHttpErrorReceiveEvent) => {
         if (event.request.isMainFrame() && event.response.getResponseCode() >= 400) {
           this.loadError = t('harmony.index.httpError', { 'code': String(event.response.getResponseCode()) });
@@ -1035,6 +1107,7 @@ struct Index {
       })
       .onLoadIntercept((event: OnLoadInterceptEvent) => this.browserIntercept(event.data))
       .onPageBegin((event: OnPageBeginEvent) => {
+        this.browserWatch.pageBegin();
         this.pageControl.browserPageBegin();
         this.browser.pageBegin(event.url);
         this.fileDocs.pageBegin();
@@ -1042,10 +1115,12 @@ struct Index {
         this.browserTools.pageBegin(event.url);
       })
       .onPageEnd((event: OnPageEndEvent) => {
+        this.browserWatch.pageEnd();
         this.browser.pageEnd(event.url);
         // 能渲染的文件：问这一页的类型报给网页
         this.fileDocs.pageEnd(event.url);
       })
+      .onRenderExited((event: OnRenderExitedEvent) => this.browserWatch.exited(event.renderExitReason))
       .onProgressChange((event: OnProgressChangeEvent) => this.browser.progressChanged(event.newProgress))
       .onTitleReceive((event: OnTitleReceiveEvent) => this.browser.titleReceived(event.title))
       .onRefreshAccessedHistory((event: OnRefreshAccessedHistoryEvent) => this.browser.historyChanged(event.url))
@@ -1095,9 +1170,16 @@ struct Index {
         this.onPermissionRequest(event.request);
       })
       // 侧边栏的网页重新加载：备好的原生录音器放掉（新页面要时再备）
-      .onPageBegin(() => this.sideBridge?.releaseVoice('reload'))
+      .onPageBegin(() => {
+        this.sideWatch.pageBegin();
+        this.sideBridge?.releaseVoice('reload');
+      })
       .onLoadIntercept((event: OnLoadInterceptEvent) => this.sideIntercept(event.data))
-      .onPageEnd(() => this.sidePageEnd())
+      .onPageEnd(() => {
+        this.sideWatch.pageEnd();
+        this.sidePageEnd();
+      })
+      .onRenderExited((event: OnRenderExitedEvent) => this.sideWatch.exited(event.renderExitReason))
       .backgroundColor($r('sys.color.ohos_id_color_background'))
       .position({ x: this.sideFrame.x, y: this.sideFrame.y })
       .width(this.sideFrame.width)

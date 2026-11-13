@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { transformWithOxc } from "vite";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   BUILD_PROFILE,
   BUILD_PROFILE_TEMPLATE,
@@ -436,5 +436,239 @@ describe("用手机地图导航（票 434）", () => {
     expect(want(Number.NaN, 120, "x", "driving")).toBeUndefined();
     expect(want(91, 120, "x", "driving")).toBeUndefined();
     expect(want("30" as unknown as number, 120, "x", "driving")).toBeUndefined();
+  });
+});
+
+/**
+ * 票 389：后台放久了系统把 ArkWeb 的渲染进程收掉，App 停在最后一帧点不动。common/RenderWatch.ets 不 import 东西，整个文件拿来跑
+ * （日志、探测、重载、重建、结束渲染进程都是假的，计时用 vitest 的假时钟）
+ */
+describe("网页渲染进程看护（票 389）", () => {
+  interface Watch {
+    shown(): void;
+    hidden(): void;
+    pageBegin(): void;
+    pageEnd(): void;
+    exited(reason: number): void;
+    notResponding(detail: string): void;
+    responding(): void;
+  }
+  interface Fake {
+    watch: Watch;
+    calls: string[];
+    logs: string[];
+    /** 下一次探测怎么回：answer 马上回、hang 不回、fail 出错、skip 探不了 */
+    probe: "answer" | "hang" | "fail" | "skip";
+    refreshOk: boolean;
+    terminateOk: boolean;
+  }
+  let watchClass: (new (...args: unknown[]) => Watch) | undefined;
+  let constants: Record<string, number> = {};
+
+  async function fake(): Promise<Fake> {
+    if (!watchClass) {
+      const source = readFileSync(path.join(HARMONY_DIR, "entry/src/main/ets/common/RenderWatch.ets"), "utf8").replace(/^export /gm, "");
+      const { code } = await transformWithOxc(source, "RenderWatch.ts");
+      const module = new Function(
+        `${code}\nreturn { RenderWatch, PROBE_DELAY_MS, PROBE_TIMEOUT_MS, EXIT_WAIT_MS, VERIFY_MS, NOT_RESPONDING_GRACE_MS, MAX_ATTEMPTS };`,
+      )() as Record<string, unknown>;
+      watchClass = module.RenderWatch as typeof watchClass;
+      constants = module as Record<string, number>;
+    }
+    const f = { calls: [] as string[], logs: [] as string[], probe: "answer", refreshOk: true, terminateOk: false } as Fake;
+    f.watch = new watchClass!(
+      "main",
+      (text: string) => f.logs.push(text),
+      () => {
+        if (f.probe === "skip") return undefined;
+        f.calls.push("probe");
+        if (f.probe === "answer") return Promise.resolve("1");
+        if (f.probe === "fail") return Promise.reject(new Error("no frame"));
+        return new Promise<string>(() => {});
+      },
+      () => {
+        f.calls.push("refresh");
+        return f.refreshOk;
+      },
+      () => f.calls.push("rebuild"),
+      () => {
+        f.calls.push("terminate");
+        return f.terminateOk;
+      },
+    );
+    return f;
+  }
+
+  /** 打开之后加载完过一次（没加载完过的不探） */
+  async function loaded(): Promise<Fake> {
+    const f = await fake();
+    f.watch.pageBegin();
+    f.watch.pageEnd();
+    return f;
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test("在前台时渲染进程没了：马上重载（已经没了就不用结束、不用等），加载完算救回来", async () => {
+    vi.useFakeTimers();
+    const f = await loaded();
+    f.terminateOk = true;
+    f.watch.exited(1);
+    expect(f.calls).toEqual(["refresh"]);
+    f.watch.pageBegin();
+    f.watch.pageEnd();
+    expect(f.logs.at(-1)).toBe("main web: recovered");
+    // 救回来了：之后不再自己去探
+    await vi.advanceTimersByTimeAsync(constants.VERIFY_MS! * 2);
+    expect(f.calls).toEqual(["refresh"]);
+  });
+
+  test("在后台时没了（用户手机上就是这样）：先不动，回到前台再重载", async () => {
+    vi.useFakeTimers();
+    const f = await loaded();
+    f.watch.hidden();
+    f.watch.exited(0);
+    expect(f.calls).toEqual([]);
+    f.watch.shown();
+    expect(f.calls).toEqual(["refresh"]);
+    expect(f.logs.some((l) => l.includes("render process exited, reason 0"))).toBe(true);
+  });
+
+  test("回到前台自检：网页回了就什么都不做", async () => {
+    vi.useFakeTimers();
+    const f = await loaded();
+    f.watch.hidden();
+    f.watch.shown();
+    expect(f.calls).toEqual([]);
+    await vi.advanceTimersByTimeAsync(constants.PROBE_DELAY_MS!);
+    expect(f.calls).toEqual(["probe"]);
+    await vi.advanceTimersByTimeAsync(constants.PROBE_TIMEOUT_MS! * 2);
+    expect(f.calls).toEqual(["probe"]);
+  });
+
+  test("回到前台自检：系统没报回调、网页几秒不回（卡住）：结束渲染进程，等它的回调再重载，只重载一次", async () => {
+    vi.useFakeTimers();
+    const f = await loaded();
+    f.probe = "hang";
+    f.terminateOk = true;
+    f.watch.hidden();
+    f.watch.shown();
+    await vi.advanceTimersByTimeAsync(constants.PROBE_DELAY_MS! + constants.PROBE_TIMEOUT_MS!);
+    expect(f.calls).toEqual(["probe", "terminate"]);
+    f.watch.exited(1);
+    expect(f.calls).toEqual(["probe", "terminate", "refresh"]);
+    // 等回调的计时器不会再重载一次
+    await vi.advanceTimersByTimeAsync(constants.EXIT_WAIT_MS!);
+    expect(f.calls).toEqual(["probe", "terminate", "refresh"]);
+  });
+
+  test("结束了渲染进程却等不到回调：到点直接重载", async () => {
+    vi.useFakeTimers();
+    const f = await loaded();
+    f.probe = "fail";
+    f.terminateOk = true;
+    f.watch.hidden();
+    f.watch.shown();
+    await vi.advanceTimersByTimeAsync(constants.PROBE_DELAY_MS!);
+    expect(f.calls).toEqual(["probe", "terminate"]);
+    await vi.advanceTimersByTimeAsync(constants.EXIT_WAIT_MS!);
+    expect(f.calls).toEqual(["probe", "terminate", "refresh"]);
+  });
+
+  test("重载了还是没加载完、网页也不回：重建整个网页框；救 MAX_ATTEMPTS 回还不行就停，下次回前台再来", async () => {
+    vi.useFakeTimers();
+    const f = await loaded();
+    f.probe = "hang";
+    f.watch.exited(2);
+    expect(f.calls).toEqual(["refresh"]);
+    for (let i = 0; i < 3; i++) await vi.advanceTimersByTimeAsync(constants.VERIFY_MS! + constants.PROBE_TIMEOUT_MS!);
+    expect(f.calls).toEqual(["refresh", "probe", "terminate", "rebuild", "probe", "terminate", "rebuild", "probe"]);
+    expect(constants.MAX_ATTEMPTS).toBe(3);
+    expect(f.logs.at(-1)).toContain("gave up after 3 tries");
+    await vi.advanceTimersByTimeAsync(constants.VERIFY_MS! * 3);
+    expect(f.calls.filter((c) => c === "rebuild")).toHaveLength(2);
+    // 下次回到前台：重新探、重新救
+    f.calls.length = 0;
+    f.watch.hidden();
+    f.watch.shown();
+    await vi.advanceTimersByTimeAsync(constants.PROBE_DELAY_MS! + constants.PROBE_TIMEOUT_MS!);
+    expect(f.calls).toEqual(["probe", "terminate", "refresh"]);
+  });
+
+  test("重载不了（网页框没接上）：改成重建", async () => {
+    vi.useFakeTimers();
+    const f = await loaded();
+    f.refreshOk = false;
+    f.watch.exited(4);
+    expect(f.calls).toEqual(["refresh", "rebuild"]);
+  });
+
+  test("还没加载完过（刚打开）、探不了：不探；切到后台时、页面自己重新加载时正在探的，回来了也不认", async () => {
+    vi.useFakeTimers();
+    const fresh = await fake();
+    fresh.watch.shown();
+    await vi.advanceTimersByTimeAsync(constants.PROBE_DELAY_MS! + constants.PROBE_TIMEOUT_MS!);
+    expect(fresh.calls).toEqual([]);
+
+    const skip = await loaded();
+    skip.probe = "skip";
+    skip.watch.shown();
+    await vi.advanceTimersByTimeAsync(constants.PROBE_DELAY_MS! + constants.PROBE_TIMEOUT_MS!);
+    expect(skip.calls).toEqual([]);
+
+    const away = await loaded();
+    away.probe = "hang";
+    away.watch.shown();
+    await vi.advanceTimersByTimeAsync(constants.PROBE_DELAY_MS!);
+    away.watch.hidden();
+    await vi.advanceTimersByTimeAsync(constants.PROBE_TIMEOUT_MS! * 2);
+    expect(away.calls).toEqual(["probe"]);
+
+    const reloading = await loaded();
+    reloading.probe = "hang";
+    reloading.watch.shown();
+    await vi.advanceTimersByTimeAsync(constants.PROBE_DELAY_MS!);
+    reloading.watch.pageBegin();
+    await vi.advanceTimersByTimeAsync(constants.PROBE_TIMEOUT_MS! * 2);
+    expect(reloading.calls).toEqual(["probe"]);
+  });
+
+  test("系统报没响应：宽限期里又响应了就不管；一直没响应才结束渲染进程再重载；在后台报的不管", async () => {
+    vi.useFakeTimers();
+    const f = await loaded();
+    f.terminateOk = true;
+    f.watch.notResponding("reason 0, pid 1");
+    await vi.advanceTimersByTimeAsync(constants.NOT_RESPONDING_GRACE_MS! - 1);
+    f.watch.responding();
+    await vi.advanceTimersByTimeAsync(constants.NOT_RESPONDING_GRACE_MS! * 2);
+    expect(f.calls).toEqual([]);
+
+    f.watch.notResponding("reason 0, pid 1");
+    f.watch.notResponding("reason 0, pid 1");
+    await vi.advanceTimersByTimeAsync(constants.NOT_RESPONDING_GRACE_MS!);
+    expect(f.calls).toEqual(["terminate"]);
+    f.watch.exited(1);
+    expect(f.calls).toEqual(["terminate", "refresh"]);
+
+    const away = await loaded();
+    away.watch.hidden();
+    away.watch.notResponding("reason 1, pid 1");
+    await vi.advanceTimersByTimeAsync(constants.NOT_RESPONDING_GRACE_MS! * 2);
+    expect(away.calls).toEqual([]);
+  });
+
+  test("三个网页框都接上了：主网页接没了、没响应、又响应；三个都接前后台、加载开始结束、没了", () => {
+    const index = readFileSync(path.join(HARMONY_DIR, "entry/src/main/ets/pages/Index.ets"), "utf8");
+    expect(index).toContain(".onRenderProcessResponding(() => this.mainWatch.responding())");
+    expect(index).toMatch(/\.onRenderProcessNotResponding\(\(data: RenderProcessNotRespondingData\) => \{\s*this\.mainWatch\.notResponding\(/);
+    for (const watch of ["mainWatch", "browserWatch", "sideWatch"]) {
+      expect(index).toContain(`this.${watch}.shown();`);
+      expect(index).toContain(`this.${watch}.hidden();`);
+      expect(index).toContain(`this.${watch}.pageBegin();`);
+      expect(index).toContain(`this.${watch}.pageEnd();`);
+      expect(index).toContain(`.onRenderExited((event: OnRenderExitedEvent) => this.${watch}.exited(event.renderExitReason))`);
+    }
   });
 });

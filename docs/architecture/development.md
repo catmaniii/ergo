@@ -157,6 +157,8 @@ adb -s <设备号> logcat -s ErgoApp                  # App 和网页的日志
 
 **网页视频全屏**（鸿蒙和安卓一样）：网页里的视频进全屏（Fullscreen API、`<video>` 控件上的按钮）时，App 藏掉状态栏和导航条、手势条（从边缘滑一下临时出来）、屏幕常亮，横视频（宽 > 高）转横屏（两个方向都行），竖视频不转；返回键 / 返回手势先退全屏，切到后台、换地址也先退出，退出时都恢复成进去之前的样子。安卓接 `WebChromeClient.onShowCustomView`（进全屏后在页面里读视频宽高），鸿蒙接 Web 组件的 `onFullScreenEnter`（事件里带宽高），实现在两边的 `video/VideoFullscreen.*`。原生桥上的 `videoFullscreen()` 回 `true`，网页认它在不在才给全屏按钮（旧 App 没有）；只开给主界面，浏览侧边栏没有。联调：`frontend/android/e2e/video-fullscreen.ts`、`frontend/harmony/e2e/video-fullscreen.ts`。
 
+**网页进程没了自己救回来**（鸿蒙，票 389）：后台放久了系统会把 ArkWeb 画网页的渲染进程（`com.catmaniii.ergo:render`）收掉，App 进程还在，网页框停在最后一帧、点不动。`common/RenderWatch.ets` 看着三个网页框：`onRenderExited` 在前台马上重载、在后台等回到前台再重载；主网页回到前台（`onPageShow`）还跑一句 JS 自检，4 秒没回也重载（系统没报回调的情况，日志里是 `render process has not init`）；`onRenderProcessNotResponding` 宽限 5 秒再结束渲染进程。重载不行就重新打开二狗的地址，每回前台最多救 3 回。日志都在 hilog 的 `ErgoApp` 里，以 `main web:` / `browser web:` / `side web:` 开头。网页死循环卡住的渲染进程，`terminateRenderProcess` 回成功但进程还在（模拟器上试过），这种救不回来。联调：`frontend/harmony/e2e/render-recovery.ts`（经调试口 `Page.crash` 弄崩渲染进程）。
+
 **用手机地图导航**（票 434，只有鸿蒙）：原生桥上的 `openNavigation(lat, lon, name, mode)` 拉起系统的「选导航应用」面板（`UIAbilityContext.startAbilityByType('navigation')`，`navigation/NavigationPanel.ets`）：坐标网页转好（大陆里 GCJ-02），开车用「导航」（`sceneType` 2），步行、公交用「路线规划」（`sceneType` 1 带 `vehicleType`）；回 `"ok"`、`"bad"`、`"failed:<错误码>"`，网页不是 `ok` 就退回导航网址。面板是系统的 UIExtension，挂在 App 的窗口里画。只开给主界面；网页认它在不在来分新旧 App（`packages/web/src/app/native-navigation.ts`）。安卓不加原生方法：网页把 `geo:` 链接交给原有的"别的链接交给系统"（`MainActivity.kt` 的 `openOutside`），所以两边的方法表比对时它算"只有鸿蒙有"（`frontend/test/android.test.ts` 的 `HARMONY_ONLY`）。联调：`frontend/harmony/e2e/map-navigation.ts`（模拟器上没装地图 App，面板写「暂无可用导航方式」）。
 
 ### 发布手机安装包
