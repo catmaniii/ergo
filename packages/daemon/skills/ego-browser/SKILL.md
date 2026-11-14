@@ -24,4 +24,4 @@ ego lite 是用户电脑上的浏览器，人和 agent 共用：你操作的就�
 ## 实测过的坑
 
 - 页面里请求另一个子域名的接口，要带 `credentials: "include"`。比如在 www.bilibili.com 的页面里请求 api.bilibili.com，不带就被当成没登录。
-- PowerShell 里不要用 `-e` 传多行脚本，改成写一个 .mjs 文件，照 `ego-browser skill` 里 PowerShell 那一段跑。Git Bash 里用 heredoc。
+- PowerShell 里脚本一律写进一个 .mjs 文件，照 `ego-browser skill` 里 PowerShell 那一段用 `-e "await import('file:///…')"` 跑；直接写在 `-e` 后面的，多行的、带 `&` `|` `<` `>` 的会被拆坏。Git Bash 里用 heredoc。

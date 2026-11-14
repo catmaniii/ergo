@@ -45,8 +45,16 @@ describe.runIf(windows)("替用户打开的程序不在二狗的 Job 里", () =>
       job.assign(gate.pid!);
       expect(job.contains(gate.pid!)).toBe(true);
       gate.stdin.write("open\n");
-      await waitUntil(() => fs.existsSync(pidFile), { timeoutMs: 20_000, describe: () => "假程序没起来" });
-      sleeper = (JSON.parse(fs.readFileSync(pidFile, "utf8")) as { pid: number }).pid;
+      // 文件刚建出来时可能还是空的：读得出进程号才算起来了
+      const readPid = () => {
+        try {
+          return (JSON.parse(fs.readFileSync(pidFile, "utf8")) as { pid: number }).pid;
+        } catch {
+          return undefined;
+        }
+      };
+      await waitUntil(() => readPid() !== undefined, { timeoutMs: 20_000, describe: () => "假程序没起来" });
+      sleeper = readPid()!;
       expect(job.contains(sleeper)).toBe(false);
       expect(job.processIds()).not.toContain(sleeper);
 
