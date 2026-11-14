@@ -141,7 +141,7 @@
 // 不带 provider 时按设置里选的服务商写它的密钥文件（deepseek 或自定义服务商 custom），带了就写点名那个（不是登记表里的回 400）；
 // 权限收紧、先写临时文件再改名；key 原样不回显、不进日志、不进错误信息。
 //
-// 设置里 agent 的联网搜索、读网页（是 DeepSeek、浏览器、agent-browser 三种方式的队列）：GET /api/web-settings 取
+// 设置里 agent 的联网搜索、读网页（是 DeepSeek、浏览器、ego 浏览器三种方式的队列；466 之前第三种是 agent-browser）：GET /api/web-settings 取
 // （WebSettingsView：存着的队列、实际用的顺序、DeepSeek 的 key 配没配、最近一次余额不足）；POST /api/web-settings 整份存（请求体
 // WebSettingsBody，回 WebSettingsView；同样的再存没有变化，不带幂等键；三种不是各一项、一个启用的都没留回 400），下一次搜索、读网页就按新的。
 //
@@ -336,6 +336,10 @@ const SEGMENTS = "segments";
 const TOOLKIT_CATALOG = "toolkit-catalog";
 const SKILLS = "skills";
 const IMPORT = "import";
+const GITHUB = "github";
+const PREVIEW = "preview";
+const INSTALL = "install";
+const DISCARD = "discard";
 const SECRETARY = "secretary";
 const ASSISTANT_NAME = "assistant-name";
 const USER_NAME = "user-name";
@@ -555,6 +559,12 @@ export const HTTP_PATHS = {
   toolkitCatalog: api(TOOLKIT_CATALOG),
   /** 设置里的 skill 库页导入一个 skill 或一个集合（POST，请求体 ImportSkillBody，响应 ImportSkillResult） */
   skillImport: api(SKILLS, IMPORT),
+  /** 从 GitHub 装 skill 的第一步：看看地址下面有什么（POST，请求体 GithubSkillPreviewBody，响应 GithubSkillPreview） */
+  skillGithubPreview: api(SKILLS, GITHUB, PREVIEW),
+  /** 从 GitHub 装 skill 的第二步：从预览安装（POST，请求体 GithubSkillInstallBody，响应 ImportSkillResult） */
+  skillGithubInstall: api(SKILLS, GITHUB, INSTALL),
+  /** 不装了：清掉预览下下来的那一格（POST，请求体 GithubSkillDiscardBody，响应 { discarded: boolean }） */
+  skillGithubDiscard: api(SKILLS, GITHUB, DISCARD),
   /** 秘书用的 skill：GET 看（SecretarySkillsView），POST 改（请求体 SecretarySkillsBody，响应 SecretarySkillsView） */
   secretarySkills: api(SKILLS, SECRETARY),
   /** 改个人助理的名字（POST，请求体 AssistantNameBody，响应 AssistantNameResult） */
@@ -864,6 +874,9 @@ export type HttpRoute =
   | { route: "agent_voice_segment"; voiceId: string; index: number }
   | { route: "toolkit_catalog" }
   | { route: "skill_import" }
+  | { route: "skill_github_preview" }
+  | { route: "skill_github_install" }
+  | { route: "skill_github_discard" }
   | { route: "secretary_skills" }
   | { route: "assistant_name" }
   | { route: "user_name" }
@@ -1016,6 +1029,9 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   }
   if (head === TOOLKIT_CATALOG && id === undefined) return { route: "toolkit_catalog" };
   if (head === SKILLS && id === IMPORT && tail === undefined) return { route: "skill_import" };
+  if (head === SKILLS && id === GITHUB && tail === PREVIEW) return { route: "skill_github_preview" };
+  if (head === SKILLS && id === GITHUB && tail === INSTALL) return { route: "skill_github_install" };
+  if (head === SKILLS && id === GITHUB && tail === DISCARD) return { route: "skill_github_discard" };
   if (head === SKILLS && id === SECRETARY && tail === undefined) return { route: "secretary_skills" };
   if (head === ASSISTANT_NAME && id === undefined) return { route: "assistant_name" };
   if (head === USER_NAME && id === undefined) return { route: "user_name" };

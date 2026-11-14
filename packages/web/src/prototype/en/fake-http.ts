@@ -38,6 +38,8 @@ export const EN_HTTP: Phrases = {
   "名字 {} 不合规矩：只能用小写字母、数字和短横线": "Name {} breaks the rules: only lowercase letters, numbers and hyphens",
   "skill 库里已经有叫 {} 的了": "The skill library already has one called {}",
   "刚导入的 skill（原型）": "Just-imported skill (demo)",
+  "这次看的已经过期清掉了，重新点「看看里面有什么」": "This look has expired and was cleared. Click Look inside again",
+  "这个地址下面是一整套 skill，要给集合名、来源、版本、说明和选中的成员": "This address holds a whole set of skills: give the collection name, source, version, description and the chosen members",
   "<skill><name>{}</name><description>{}</description><location>D:/假的/skills/{}/SKILL.md</location></skill>": "<skill><name>{}</name><description>{}</description><location>D:/fake/skills/{}/SKILL.md</location></skill>",
   "skill 库里没有 {}（先在 skill 库页导入）": "The skill library doesn't have {} (import it on the skill library page first)",
   "原型里没有工作日历": "No work calendar in the demo",

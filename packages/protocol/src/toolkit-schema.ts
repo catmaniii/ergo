@@ -2,12 +2,27 @@
 // - 工具包里能选的东西（ToolkitCatalog，设置里的 skill 库页、项目页和任务详情的工具包区用）：skill 库里的 skill（框架自带的、
 //   用户导入的）和配置区里登记的 MCP（每个工具的中文名、要不要联网、能不能当秘书的快速动作）。走 HTTP（GET）；
 // - 导入 skill（POST）：把一个含 SKILL.md 的目录复制一份进数据目录的 skill 区；可以导入并改名，也可以把一个目录作为一个集合整套导入；
-// - 秘书用的 skill（GET 看、POST 改）：秘书也能用 skill 库里的 skill，默认装 agent-browser、yt-dlp，设置里的 skill 库页勾选；
+// - 秘书用的 skill（GET 看、POST 改）：秘书也能用 skill 库里的 skill，默认装 ego-browser、yt-dlp（466 之前是 agent-browser），设置里的 skill 库页勾选；
 // - 用户在项目页或任务详情里直接改工具包（set_toolkit 请求）：扩大、减少都直接写进工具包，不出计划变更卡；
 // - "工具包变更"卡（toolkit_change）：项目负责人不在任务里时要开 bash、加 MCP、开联网，提交它进待我处理，用户批准或拒绝。
 // 名字和纯函数在 toolkit.ts。
 import { type Static, Type } from "typebox";
 import { PlanToolkit } from "./task-schema.ts";
+
+/**
+ * 从 GitHub 装的（465）记下的来源：规范的网址（指到装的那个子目录）、仓库（owner/repo）、仓库里的子目录（整个仓库的没有）、
+ * 写了的 ref（分支、标签、提交；没写是默认分支）、提交号（压缩包里 git archive 记的，取不到没有）、装的时间。单个的记在 skill 目录里只由运行时写的 .ergo-source.json，
+ * 集合的记在 ergo-collection.json 里（来源、版本照旧写网址和版本）。以后查更新从这里取
+ */
+export const GithubSkillOrigin = Type.Object({
+  url: Type.String(),
+  repo: Type.String(),
+  path: Type.Optional(Type.String()),
+  ref: Type.Optional(Type.String()),
+  commit: Type.Optional(Type.String()),
+  installedAt: Type.String(),
+});
+export type GithubSkillOrigin = Static<typeof GithubSkillOrigin>;
 
 /**
  * skill 库里的一个 skill：名字（SKILL.md 的 name）、说明、来源（框架自带的、你导入的）；
@@ -28,6 +43,8 @@ export const SkillEntry = Type.Object({
       at: Type.String(),
     }),
   ),
+  /** 单个从 GitHub 装的：来源（集合成员的来源记在集合上） */
+  github: Type.Optional(GithubSkillOrigin),
 });
 export type SkillEntry = Static<typeof SkillEntry>;
 
@@ -46,6 +63,8 @@ export const SkillCollectionEntry = Type.Object({
   description: Type.String(),
   /** 成员的 skill 名，按名字排 */
   skills: Type.Array(Type.String()),
+  /** 从 GitHub 装的：来源 */
+  github: Type.Optional(GithubSkillOrigin),
 });
 export type SkillCollectionEntry = Static<typeof SkillCollectionEntry>;
 
@@ -198,6 +217,108 @@ export const ImportSkillResult = Type.Object({
 });
 export type ImportSkillResult = Static<typeof ImportSkillResult>;
 
+/**
+ * 从 GitHub 装（465），分两步：先预览（POST HTTP_PATHS.skillGithubPreview）——守护进程下载那个 ref 的源码压缩包、解到临时区，
+ * 看用户指的那个子目录里有什么；用户看过再安装（POST HTTP_PATHS.skillGithubInstall），走和导入同一段校验和写入。
+ * 不装了就放弃（POST HTTP_PATHS.skillGithubDiscard），临时区那一格马上清；放太久没装的守护进程自己清。只支持公开仓库，不收 token
+ */
+export const GithubSkillPreviewBody = Type.Object({ url: Type.String({ minLength: 1, maxLength: 500 }) }, { additionalProperties: false });
+export type GithubSkillPreviewBody = Static<typeof GithubSkillPreviewBody>;
+
+/** 预览里的一个集合成员：所在的子目录（相对预览的根）、名字、说明；装不了的写原因，和库里重名的写和谁 */
+export const GithubSkillMember = Type.Object({
+  dir: Type.String(),
+  /** skill 名（SKILL.md 读不出名字时是目录名） */
+  name: Type.String(),
+  description: Type.String(),
+  /** SKILL.md 不合规：装不了、不能选 */
+  problem: Type.Optional(Type.String()),
+  /** 和库里谁重名（说给人听的）：要改名才能装 */
+  sameName: Type.Optional(Type.String()),
+});
+export type GithubSkillMember = Static<typeof GithubSkillMember>;
+
+/** 不带进来的一项为什么：链接、密钥这类文件、隐藏目录、依赖目录、名字在 Windows 上用不了、只差大小写的重名 */
+export const GITHUB_DROP_REASONS = ["link", "sensitive", "hidden", "dependency", "badName", "duplicate"] as const;
+export type GithubDropReason = (typeof GITHUB_DROP_REASONS)[number];
+const GithubDropReasonSchema = Type.Union([
+  Type.Literal("link"),
+  Type.Literal("sensitive"),
+  Type.Literal("hidden"),
+  Type.Literal("dependency"),
+  Type.Literal("badName"),
+  Type.Literal("duplicate"),
+]);
+
+/** 预览的结果：来源、单个还是集合、各成员、大小、脚本、会被丢掉的、和库里重名的 */
+export const GithubSkillPreview = Type.Object({
+  /** 安装、放弃时带上它 */
+  previewId: Type.String(),
+  /** 规范的网址（ref 和子目录分好之后的） */
+  url: Type.String(),
+  /** owner/repo */
+  repo: Type.String(),
+  /** 写了的 ref；没写是默认分支 */
+  ref: Type.Optional(Type.String()),
+  /** 提交号（40 位）；压缩包里没记的没有 */
+  commit: Type.Optional(Type.String()),
+  /** 仓库里的哪个目录（整个仓库是空串） */
+  subdir: Type.String(),
+  kind: Type.Union([Type.Literal("single"), Type.Literal("collection")]),
+  /** 单个 skill：名字、说明、装进去的目录名（斜杠命令）；和库里重名的写和谁 */
+  single: Type.Optional(Type.Object({ name: Type.String(), description: Type.String(), dirName: Type.String(), sameName: Type.Optional(Type.String()) })),
+  /** 集合：找到的成员（按目录排），默认全选 */
+  members: Type.Optional(Type.Array(GithubSkillMember)),
+  /** 集合的默认值：集合名（仓库名）、来源（网址）、版本（标签或提交号前 7 位）、说明（插件清单或 README 的第一段，取不到是空串）；集合名被占了写和谁 */
+  collection: Type.Optional(
+    Type.Object({ name: Type.String(), source: Type.String(), version: Type.String(), description: Type.String(), nameTaken: Type.Optional(Type.String()) }),
+  ),
+  /** 要复制的文件一共多少个、多少字节（不带的不算） */
+  fileCount: Type.Integer({ minimum: 0 }),
+  totalBytes: Type.Integer({ minimum: 0 }),
+  /** 脚本文件（.sh .ps1 .py .js 这类，或者开头是 #! 的），最多列 GITHUB_SCRIPTS_SHOWN 个；scriptCount 是一共几个 */
+  scripts: Type.Array(Type.String()),
+  scriptCount: Type.Integer({ minimum: 0 }),
+  /** 不带进来的（相对预览的根，目录以 / 结尾）和为什么 */
+  dropped: Type.Array(Type.Object({ path: Type.String(), reason: GithubDropReasonSchema })),
+  /** 放到什么时候没装就清掉 */
+  expiresAt: Type.String(),
+});
+export type GithubSkillPreview = Static<typeof GithubSkillPreview>;
+
+/** 预览里最多列几个脚本文件 */
+export const GITHUB_SCRIPTS_SHOWN = 30;
+
+/**
+ * 从预览安装（POST HTTP_PATHS.skillGithubInstall 的请求体）：单个的可以改名；集合给集合名、来源、版本、说明、选中的成员目录
+ * （预览里列的，可以取消一些）、成员改名（原来的 skill 名 → 新名字）
+ */
+export const GithubSkillInstallBody = Type.Object(
+  {
+    previewId: Type.String({ minLength: 1, maxLength: 100 }),
+    rename: Type.Optional(Type.String({ pattern: IMPORT_NAME_PATTERN })),
+    collection: Type.Optional(
+      Type.Object(
+        {
+          name: Type.String({ pattern: IMPORT_NAME_PATTERN }),
+          source: Type.String({ minLength: 1, maxLength: 300 }),
+          version: Type.String({ minLength: 1, maxLength: 64 }),
+          description: Type.String({ minLength: 1, maxLength: 300 }),
+          members: Type.Array(Type.String({ minLength: 1, maxLength: 300 }), { minItems: 1, maxItems: 500 }),
+          rename: Type.Optional(Type.Record(Type.String(), Type.String({ pattern: IMPORT_NAME_PATTERN }))),
+        },
+        { additionalProperties: false },
+      ),
+    ),
+  },
+  { additionalProperties: false },
+);
+export type GithubSkillInstallBody = Static<typeof GithubSkillInstallBody>;
+
+/** 放弃一个预览（POST HTTP_PATHS.skillGithubDiscard 的请求体；响应 { discarded }：本来就没有了的是 false） */
+export const GithubSkillDiscardBody = Type.Object({ previewId: Type.String({ minLength: 1, maxLength: 100 }) }, { additionalProperties: false });
+export type GithubSkillDiscardBody = Static<typeof GithubSkillDiscardBody>;
+
 /** 秘书默认装的 skill：库里还没有的不装，导入后自动装上 */
 export const DEFAULT_SECRETARY_SKILLS: readonly string[] = ["ego-browser", "yt-dlp"];
 
@@ -206,9 +327,9 @@ export const SECRETARY_SKILL_PROMPT_WARN_BYTES = 8 * 1024;
 
 /** 秘书用的 skill（GET HTTP_PATHS.secretarySkills 的响应、POST 的结果） */
 export const SecretarySkillsView = Type.Object({
-  /** 选中的 skill 名（默认的两个还没导入的也列着，装配时跳过） */
+  /** 选中的 skill 名（默认的 yt-dlp 还没导入时也列着，装配时跳过；ego-browser 是框架自带的，库里总有） */
   skills: Type.Array(Type.String()),
-  /** 还没改过（用的是默认的 agent-browser、yt-dlp） */
+  /** 还没改过（用的是默认的 ego-browser、yt-dlp） */
   isDefault: Type.Boolean(),
   /** 这些 skill 在秘书的系统提示里的说明（名字、说明、位置）一共多少字、多少字节（UTF-8） */
   promptChars: Type.Integer({ minimum: 0 }),

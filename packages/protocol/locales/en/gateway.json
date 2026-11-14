@@ -72,6 +72,7 @@
   "gateway.http.noToolkits": "This version doesn't have toolkits yet",
   "gateway.http.noSkills": "This version doesn't have the skill library yet",
   "gateway.http.badSkillImport": "Bad parameters for importing a skill: {message}",
+  "gateway.http.badGithubSkill": "Bad parameters for installing a skill from GitHub: {message}",
   "gateway.http.noSecretarySkills": "This version of {assistant} can't use skills yet",
   "gateway.http.badSecretarySkills": "Bad parameters for {assistant}'s skills: {message}",
   "gateway.http.noToolCall": "No full record for this tool call: {callId}",

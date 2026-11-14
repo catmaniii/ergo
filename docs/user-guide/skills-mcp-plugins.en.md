@@ -29,8 +29,8 @@ A skill or MCP server in the library can't be used by agents yet. It has to go i
 
 ![The Import skill dialog](images/skills-mcp-plugins/02-import-skill.png)
 
-1. Click **+ Import skill** and stay on **Single skill**.
-2. Under **Full path of the skill's folder (the one with SKILL.md)**, enter the path on ergo's computer.
+1. Click **+ Import skill**, keep the source on **Folder on this computer**, and stay on **Single skill**.
+2. Under **Full path of the skill's folder (the one with SKILL.md)**, enter the path on ergo's computer. You can also click **Choose folder…** next to it and click your way in; this works from your phone too, picking folders on the computer.
 3. To rename it, fill in **Rename (leave empty to use the name in SKILL.md)**. Only lowercase letters, digits and hyphens are allowed.
 4. Click **Import**. It says **Imported skill “X”**, and a report appears on the page; click **Got it** when you've read it.
 
@@ -41,7 +41,7 @@ It appears under **Imported by you** on the page, with **Not in any project's to
 **When to use it:** A folder holds a batch of skills that refer to each other and need to come together.
 
 1. In the import dialog, click **Whole set (collection)**.
-2. Fill in **Full path of the collection's root folder**, then **Collection name**, **Version**, **Source** and **One-line description**. These four are required.
+2. Fill in **Full path of the collection's root folder** (**Choose folder…** works here too), then **Collection name**, **Version**, **Source** and **One-line description**. These four are required.
 3. If the skills aren't directly in the root, fill in **Subfolder of the root that holds the skills**.
 4. If names clash with the library, write one `old=new` per line under **Rename skills**.
 5. Click **Import**.
@@ -51,11 +51,40 @@ The collection takes one row under **Imported collections**. Click **Show N skil
 **Good to know**
 
 - What's imported is a copy. Later changes to the original folder aren't reflected here.
-- `.git` and other hidden folders, `.env*`, `*.pem` and `*.key` aren't brought in, and the report lists them.
+- `.git` and other hidden folders, `.env*`, `*.pem` and `*.key` aren't brought in, and the report lists them. If the skills sit inside a hidden folder (`.claude/skills`), only the path down to them comes in from that hidden folder.
 - Dependency folders such as `node_modules` aren't copied; they're referenced at their original path.
 - Sources with symlinks or directory junctions aren't imported.
 - Names that clash with the library aren't imported, and it says which one they clash with. Rename and import again.
 - Anything too large is refused. A skill is a set of instructions, so it shouldn't be big.
+
+### Installing from GitHub
+
+**When to use it:** The skill is in a public GitHub repository and you don't want to download it to the computer first.
+
+1. Click **+ Import skill** and pick **GitHub** as the source.
+2. Enter the address under **GitHub address** and click **Look inside**. These forms work:
+   - The repository page `https://github.com/owner/repo` (default branch);
+   - A subfolder at a branch, tag or commit: `…/tree/branch/subfolder`;
+   - The address of a SKILL.md: `…/blob/branch/path/SKILL.md` (installs the folder it's in);
+   - The short forms `owner/repo` and `owner/repo/subfolder`.
+3. ergo downloads it and shows what's inside, telling a single skill from a whole set by itself:
+   - **A single skill**: its name and description. If only one skill is found under the address and it's in a subfolder (say you entered the repository page and the skill is in `skills/xxx`), it's installed as a single skill too, and where it is shows that subfolder. If it clashes with the library it says with which one; enter a new name under **Rename**.
+   - **A whole set**: every skill found a few levels down is listed and all are ticked; untick the ones you don't want. **Collection name** defaults to the repository name, **Source** to the address, **Version** to the tag or the first 7 characters of the commit, and **One-line description** to the plugin manifest or the first paragraph of the README (write one if none is found). A member that clashes with the library gets a box for a new name.
+   - Both show how many files and how big, which script files there are (agents using the skill may run them), and what's left out.
+4. If it looks fine, click **Install**. You get the same message and import report as for a folder.
+
+Once installed, the list shows an extra line **From GitHub owner/repo@commit**; click it to open the address.
+
+**Good to know**
+
+- Public repositories only. No sign-in, and ergo neither takes nor stores any token. Private repositories, GitLab, Gitee and similar addresses aren't recognized.
+- A branch name with `/` (`feature/x`) can't be told apart from a subfolder, so ergo does what GitHub does: it tries the first part as the branch, and if that isn't found, adds the next part. If both exist the shorter one wins; to install the other, use the commit.
+- Links, dependency folders such as `node_modules`, and files whose names can't be used on Windows aren't brought in, and the preview lists them; `.env*`, `*.pem`, `*.key` and hidden folders are left out as with folder imports. Install dependencies yourself as the skill describes, if needed.
+- Skills in hidden folders such as `.claude/skills/xxx` are found too, and the whole skill folder comes in; the other things in that hidden folder (`.claude/settings.json`, commands, hooks: other programs' settings) don't.
+- Repository archives over 50 MB, or over 20 MB or 2000 files unpacked, aren't installed. For a big repository, point the address at the subfolder that holds the skill (the archive is still the whole repository).
+- If you look and don't install, or close the dialog, what was downloaded is cleared right away; anything left for half an hour is cleared too.
+- When the download fails it says why: wrong address or private repository, GitHub rate limiting (try again in a few minutes), can't connect (check the network or proxy), or a timeout.
+- Checking for updates and one-click updates aren't there yet; the source is recorded so they can come later.
 
 ### Giving skills to the secretary
 

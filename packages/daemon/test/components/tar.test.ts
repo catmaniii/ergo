@@ -47,6 +47,24 @@ describe("解 tar 包", () => {
     expect(fs.existsSync(path.join(dir, "escape.txt"))).toBe(false);
   });
 
+  test("全局的 pax 头（git archive 写的 comment=<提交号>）交给 onGlobal，不算一项、不解出文件", async () => {
+    const dir = makeTempDir();
+    const sha = "0123456789abcdef0123456789abcdef01234567";
+    const file = write(dir, "repo.tar.gz", makeTar([{ path: "", type: "global", records: { comment: sha } }, { path: "repo-main/", type: "dir" }, { path: "repo-main/SKILL.md", body: "x" }], true));
+    const seen: Map<string, string>[] = [];
+    const paths: string[] = [];
+    const n = await walkTar(file, { gzip: true, onGlobal: (r) => seen.push(r) }, (e) => {
+      paths.push(e.path);
+      return undefined;
+    });
+    expect(seen.map((r) => r.get("comment"))).toEqual([sha]);
+    expect(paths).toEqual(["repo-main", "repo-main/SKILL.md"]);
+    expect(n).toBe(2);
+    // 不给 onGlobal：照旧跳过
+    expect(await extractTar(file, path.join(dir, "out"), { gzip: true, strip: 1 })).toBe(1);
+    expect(fs.readdirSync(path.join(dir, "out"))).toEqual(["SKILL.md"]);
+  });
+
   test("链接不解（跳过）", async () => {
     const dir = makeTempDir();
     const file = write(dir, "link.tar", makeTar([{ path: "a.txt", body: "a" }, { path: "link", type: "symlink" }]));

@@ -12,6 +12,7 @@ import { EN_DATA_SOURCES } from "./fake-data-sources.ts";
 import { EN_DOCTOR } from "./fake-doctor.ts";
 import { EN_DATA } from "./fake-data.ts";
 import { EN_FOOTPRINTS } from "./fake-footprints.ts";
+import { EN_GITHUB_SKILLS } from "./fake-github-skills.ts";
 import { EN_HTTP } from "./fake-http.ts";
 import { EN_LONG_TASKS } from "./fake-long-tasks.ts";
 import { EN_MANAGED_SERVICES } from "./fake-managed-services.ts";
@@ -45,6 +46,7 @@ export const EN_PHRASES: Phrases = {
   ...EN_DOCTOR,
   ...EN_DATA,
   ...EN_FOOTPRINTS,
+  ...EN_GITHUB_SKILLS,
   ...EN_HTTP,
   ...EN_LONG_TASKS,
   ...EN_MANAGED_SERVICES,

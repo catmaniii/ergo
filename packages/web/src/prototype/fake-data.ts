@@ -28,6 +28,7 @@ import {
   type InboxOrigin,
   type LedgerRole,
   type LibrarySkill,
+  type GithubSkillOrigin,
   localDate,
   type NoticeType,
   type PairedDevice,
@@ -941,15 +942,33 @@ const FAKE_COLLECTIONS: { name: string; source: string; version: string; descrip
   },
 ];
 
+/** 原型里从 GitHub 装的（465）：skill 库页上写"来自 GitHub demo-org/…@提交号"（地址、提交号都是编的） */
+const FAKE_GITHUB_ORIGINS: Readonly<Record<string, GithubSkillOrigin>> = {
+  "demo-receipt-ocr": {
+    url: "https://github.com/demo-org/demo-receipt-ocr",
+    repo: "demo-org/demo-receipt-ocr",
+    commit: "b4e19d07c3a25f6e8d1b0c9a7f4e2d6b3c8a5e10",
+    installedAt: "2026-11-03T20:41:00+08:00",
+  },
+  "demo-engineering": {
+    url: "https://github.com/demo-org/demo-skills/tree/v1.0.0/engineering",
+    repo: "demo-org/demo-skills",
+    ref: "v1.0.0",
+    commit: "5e8d2b0c71f4a96e3d0b8c2a5f7e1d4b9c6a3e82",
+    installedAt: "2026-11-02T21:14:00+08:00",
+  },
+};
+const githubOf = (name: string) => (FAKE_GITHUB_ORIGINS[name] ? { github: FAKE_GITHUB_ORIGINS[name] } : {});
+
 /** 原型的 skill 库和已登记的 MCP（工具包区、skill 库页取它）；集合 */
 export const FAKE_TOOLKIT_CATALOG: ToolkitCatalog = {
   skills: [
-    ...FAKE_SKILLS.map((s): LibrarySkill => ({ name: s.name, description: s.description, origin: s.origin })),
+    ...FAKE_SKILLS.map((s): LibrarySkill => ({ name: s.name, description: s.description, origin: s.origin, ...githubOf(s.name) })),
     { name: "agent-browser", description: "浏览器自动化：打开网页、点按钮、截图（假数据）", origin: "imported" as const },
     { name: "yt-dlp", description: "下载视频和图片（假数据）", origin: "imported" as const },
     ...FAKE_COLLECTIONS.flatMap((c) => c.skills.map((s) => ({ ...s, origin: "imported" as const, collection: c.name }))),
   ].toSorted((a, b) => (a.origin === b.origin ? a.name.localeCompare(b.name) : a.origin === "framework" ? -1 : 1)),
-  collections: FAKE_COLLECTIONS.map((c) => ({ ...c, skills: c.skills.map((s) => s.name).toSorted() })),
+  collections: FAKE_COLLECTIONS.map((c) => ({ ...c, skills: c.skills.map((s) => s.name).toSorted(), ...githubOf(c.name) })),
   mcp: [
     {
       name: "demo-mail-readonly",

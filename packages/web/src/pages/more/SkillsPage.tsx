@@ -3,17 +3,32 @@
 // 二狗不读 ~/.claude/skills：现成的 skill 要用，就在这里显式导入一份。下面顺带列出配置区里登记的 MCP（只读：在配置区的 mcp.json 里改）。
 // - 整套导入的集合（matt-pocock、pstack 这类）不一个一个列，各显示成一项：集合名、几个 skill、版本、来源、一句说明，点开才列出成员；
 //   单个导入的、框架自带的照旧一个一个列（分组是状态层的 groupSkills）；
-// - 秘书用的 skill：最上面一栏，选择和工具包区同一个部件（ui/skill-picker.tsx：集合整套选，点开单选），默认 agent-browser、yt-dlp；
+// - 秘书用的 skill：最上面一栏，选择和工具包区同一个部件（ui/skill-picker.tsx：集合整套选，点开单选），默认 ego-browser、yt-dlp（466 之前是 agent-browser）；
 //   改了之后秘书做完手头这一条就按新名单接着；
-// - 导入：单个 skill（可以改名），或者把一个目录作为集合整套导入（集合名、来源、版本、说明、成员所在的子目录、成员改名）；
-//   导完显示每个 skill 导入成功与否、哪些依赖目录按原路径引用。
-import { useCallback, useEffect, useState } from "react";
+// - 导入：来源两种（465）——
+//   - 本机文件夹：单个 skill（可以改名），或者把一个目录作为集合整套导入（集合名、来源、版本、说明、成员所在的子目录、成员改名）；
+//     路径能手填，也能点「选文件夹…」开几处共用的选文件夹的框（ui/folder-picker.tsx，选的是二狗那台电脑上的，手机上也能点）；
+//   - GitHub：填地址，「看看里面有什么」让守护进程下载、解开、回预览（单个还是一整套、成员、多大、脚本、不带进来的、和库里重名的），
+//     看过再「安装」（同导入的校验和写入）；单个、集合的分法守护进程自己认，重名的就地改名，集合的成员能取消；
+//   导完显示每个 skill 导入成功与否、哪些依赖目录按原路径引用。从 GitHub 装的在列表上多一行"来自 GitHub owner/repo@提交号"，点得开网址。
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import type { DaemonHttp } from "../../app/daemon-http.ts";
 import { useStore } from "../../app/store.tsx";
 import {
   ASSISTANT_NAME_MARK,
   collectionMeta,
   DEFAULT_SECRETARY_SKILLS,
+  type GithubInstallForm,
+  type GithubSkillOrigin,
+  type GithubSkillPreview,
+  githubDroppedLines,
+  githubInstallBody,
+  githubPreviewSize,
+  githubPreviewWhere,
+  githubScriptsText,
+  githubSourceLine,
   groupSkills,
+  initialGithubForm,
   type ImportSkillBody,
   type ImportSkillResult,
   type LibrarySkill,
@@ -22,9 +37,12 @@ import {
   secretarySkillsNote,
   type SkillGroup,
   t,
+  toggleGithubMember,
   type ToolkitCatalog,
 } from "../../state/index.ts";
 import { Section, Sheet } from "../../ui/common.tsx";
+import { FolderPickButton, FolderPickerSheet } from "../../ui/folder-picker.tsx";
+import { Icon } from "../../ui/icons.tsx";
 import { SkillPicker } from "../../ui/skill-picker.tsx";
 import { useToast } from "../../ui/toast.tsx";
 import { AssistantName, NamedText, useAssistantName } from "../../ui/assistant-name.tsx";
@@ -68,8 +86,15 @@ export function SkillsPage() {
     { title: t("pages.skills.imported"), origin: "imported" },
     { title: t("pages.skills.framework"), origin: "framework" },
   ];
+  /** 导好了（本机文件夹导入、从 GitHub 装一样）：说一句、关弹窗、页面上出报告、重取列表 */
+  const imported = (result: ImportSkillResult) => {
+    toast(result.collection ? t("pages.skills.importedCollection", { name: result.collection.name, count: result.skills.length }) : t("pages.skills.importedSkill", { name: result.skills[0]?.name ?? "" }));
+    setImporting(false);
+    setLastImport(result);
+    load();
+  };
   const saveSecretary = (next: string[]) => {
-    // 只能选库里有的；默认的两个（agent-browser、yt-dlp）还没导入的留着，导入后自动装上
+    // 只能选库里有的；默认的两个（ego-browser 框架自带、库里总有，yt-dlp）里还没导入的留着，导入后自动装上
     const kept = next.filter((n) => DEFAULT_SECRETARY_SKILLS.includes(n) || catalog?.skills.some((s) => s.name === n));
     http.setSecretarySkills(kept).then(
       (v) => {
@@ -177,13 +202,9 @@ export function SkillsPage() {
       {importing && (
         <ImportSkill
           onClose={() => setImporting(false)}
-          onImport={async (request) => {
-            const result = await http.importSkill(request);
-            toast(result.collection ? t("pages.skills.importedCollection", { name: result.collection.name, count: result.skills.length }) : t("pages.skills.importedSkill", { name: result.skills[0]?.name ?? "" }));
-            setImporting(false);
-            setLastImport(result);
-            load();
-          }}
+          onImport={async (request) => imported(await http.importSkill(request))}
+          github={http}
+          onInstalled={imported}
         />
       )}
     </>
@@ -201,12 +222,24 @@ function SecretaryPromptSize({ view }: { view: SecretarySkillsView }) {
   );
 }
 
+/** 从 GitHub 装的：来源一行"来自 GitHub owner/repo@提交号"，点了开那个网址；不是从 GitHub 装的不画 */
+export function SkillSourceLink({ origin }: { origin: GithubSkillOrigin | undefined }) {
+  const line = githubSourceLine(origin);
+  if (!line) return null;
+  return (
+    <a className="skill-source" href={line.url} target="_blank" rel="noopener noreferrer" title={line.url}>
+      {line.text}
+    </a>
+  );
+}
+
 function SkillRow({ skill, used }: { skill: LibrarySkill; used: readonly string[] }) {
   return (
     <div className="skill-row">
       <div>
         <b>{skill.name}</b>
         <div className="muted">{skill.description}</div>
+        <SkillSourceLink origin={skill.github} />
         {/* 负责人、秘书提交的：标上谁提的（秘书写用户给它起的名字） */}
         {skill.submittedBy && (
           <div className="muted">
@@ -223,7 +256,7 @@ function SkillRow({ skill, used }: { skill: LibrarySkill; used: readonly string[
   );
 }
 
-/** 集合那一行：集合名、几个 skill、版本、来源、一句说明；点开列出成员 */
+/** 集合那一行：集合名、几个 skill、版本、来源、一句说明；点开列出成员。从 GitHub 装的下面一行来源（链接不能放进按钮里） */
 function CollectionRow({ group, open, onToggle, usedBy }: { group: SkillGroup; open: boolean; onToggle(): void; usedBy(names: readonly string[]): string[] }) {
   const { collection, members } = group;
   const used = usedBy(collection.skills);
@@ -241,6 +274,11 @@ function CollectionRow({ group, open, onToggle, usedBy }: { group: SkillGroup; o
           {open ? t("pages.skills.collapse") : t("pages.skills.viewMembers", { count: members.length })}
         </span>
       </button>
+      {collection.github && (
+        <div className="skill-collection-source">
+          <SkillSourceLink origin={collection.github} />
+        </div>
+      )}
       {open && (
         <div className="skill-collection-list">
           {members.map((m) => (
@@ -298,9 +336,33 @@ function parseRenames(text: string): Record<string, string> | string {
   return out;
 }
 
-function ImportSkill({ onClose, onImport }: { onClose(): void; onImport(request: ImportSkillBody): Promise<void> }) {
+/** 从 GitHub 装要的三个接口（DaemonHttp 里的） */
+type GithubApi = Pick<DaemonHttp, "previewGithubSkill" | "installGithubSkill" | "discardGithubSkill">;
+
+/** 导入弹窗：来源两种——本机文件夹（单个 / 集合，路径能点选）和 GitHub（填地址，先看再装） */
+export function ImportSkill({ onClose, onImport, github, onInstalled }: { onClose(): void; onImport(request: ImportSkillBody): Promise<void>; github: GithubApi; onInstalled(result: ImportSkillResult): void }) {
+  const [from, setFrom] = useState<"folder" | "github">("folder");
+  return (
+    <Sheet title={t("pages.skills.importTitle")} onClose={onClose} center>
+      <div className="skill-import-from" role="tablist" aria-label={t("pages.skills.sourceLabel")}>
+        <button type="button" role="tab" aria-selected={from === "folder"} className={from === "folder" ? "on" : ""} onClick={() => setFrom("folder")}>
+          <Icon name="folder" />
+          {t("pages.skills.fromFolder")}
+        </button>
+        <button type="button" role="tab" aria-selected={from === "github"} className={from === "github" ? "on" : ""} onClick={() => setFrom("github")}>
+          <Icon name="globe" />
+          {t("pages.skills.fromGithub")}
+        </button>
+      </div>
+      {from === "folder" ? <ImportFromFolder onClose={onClose} onImport={onImport} /> : <ImportFromGithub onClose={onClose} api={github} onInstalled={onInstalled} />}
+    </Sheet>
+  );
+}
+
+function ImportFromFolder({ onClose, onImport }: { onClose(): void; onImport(request: ImportSkillBody): Promise<void> }) {
   const [mode, setMode] = useState<"single" | "collection">("single");
   const [path, setPath] = useState("");
+  const [picking, setPicking] = useState(false);
   const [rename, setRename] = useState("");
   const [name, setName] = useState("");
   const [source, setSource] = useState("");
@@ -310,6 +372,7 @@ function ImportSkill({ onClose, onImport }: { onClose(): void; onImport(request:
   const [renames, setRenames] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const pathId = useId();
   const ready = path.trim() !== "" && (mode === "single" || (name.trim() && source.trim() && version.trim() && description.trim()));
   const submit = () => {
     let request: ImportSkillBody;
@@ -338,7 +401,7 @@ function ImportSkill({ onClose, onImport }: { onClose(): void; onImport(request:
     });
   };
   return (
-    <Sheet title={t("pages.skills.importTitle")} onClose={onClose} center>
+    <>
       <div className="seg" role="tablist">
         <button type="button" role="tab" aria-selected={mode === "single"} className={mode === "single" ? "on" : ""} onClick={() => setMode("single")}>
           {t("pages.skills.single")}
@@ -347,10 +410,24 @@ function ImportSkill({ onClose, onImport }: { onClose(): void; onImport(request:
           {t("pages.skills.wholeCollection")}
         </button>
       </div>
-      <label className="field">
-        <span>{mode === "single" ? t("pages.skills.pathSingle") : t("pages.skills.pathCollection")}</span>
-        <input value={path} onChange={(e) => setPath(e.target.value)} placeholder={mode === "single" ? t("pages.skills.pathSinglePlaceholder") : t("pages.skills.pathCollectionPlaceholder")} />
-      </label>
+      <div className="field">
+        <label htmlFor={pathId}>{mode === "single" ? t("pages.skills.pathSingle") : t("pages.skills.pathCollection")}</label>
+        <div className="fp-path-row">
+          <input id={pathId} className="input" value={path} onChange={(e) => setPath(e.target.value)} placeholder={mode === "single" ? t("pages.skills.pathSinglePlaceholder") : t("pages.skills.pathCollectionPlaceholder")} />
+          <FolderPickButton disabled={busy} onClick={() => setPicking(true)} />
+        </div>
+      </div>
+      {picking && (
+        <FolderPickerSheet
+          title={mode === "single" ? t("pages.skills.pickSingleTitle") : t("pages.skills.pickCollectionTitle")}
+          intro={t("pages.skills.pickIntro")}
+          onChoose={(chosen) => {
+            setPath(chosen);
+            setError(undefined);
+          }}
+          onClose={() => setPicking(false)}
+        />
+      )}
       {mode === "single" ? (
         <label className="field">
           <span>{t("pages.skills.rename")}</span>
@@ -399,6 +476,210 @@ function ImportSkill({ onClose, onImport }: { onClose(): void; onImport(request:
           {busy ? t("pages.skills.importing") : t("pages.skills.import")}
         </button>
       </div>
-    </Sheet>
+    </>
+  );
+}
+
+const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+/**
+ * GitHub 来源：填地址，点「看看里面有什么」，守护进程下载、解开、回预览；看过再点「安装」。
+ * 换地址、关弹窗、切回本机文件夹时放弃这次预览（守护进程清掉下下来的）；看的途中关掉的，回来了也放弃
+ */
+function ImportFromGithub({ onClose, api, onInstalled }: { onClose(): void; api: GithubApi; onInstalled(result: ImportSkillResult): void }) {
+  const [url, setUrl] = useState("");
+  const [looking, setLooking] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const [preview, setPreview] = useState<GithubSkillPreview>();
+  const [form, setForm] = useState<GithubInstallForm>();
+  const [error, setError] = useState<string>();
+  const urlId = useId();
+  /** 还没装、还没放弃的预览（关掉时放弃它）；关掉了以后回来的预览直接放弃 */
+  const pending = useRef<string | undefined>(undefined);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      if (pending.current) void api.discardGithubSkill(pending.current).catch(() => {});
+    };
+  }, [api]);
+  const drop = () => {
+    if (pending.current) void api.discardGithubSkill(pending.current).catch(() => {});
+    pending.current = undefined;
+    setPreview(undefined);
+    setForm(undefined);
+  };
+  const look = () => {
+    if (url.trim() === "" || looking) return;
+    drop();
+    setLooking(true);
+    setError(undefined);
+    api.previewGithubSkill(url.trim()).then(
+      (p) => {
+        if (!alive.current) {
+          void api.discardGithubSkill(p.previewId).catch(() => {});
+          return;
+        }
+        pending.current = p.previewId;
+        setPreview(p);
+        setForm(initialGithubForm(p));
+        setLooking(false);
+      },
+      (err: unknown) => {
+        if (!alive.current) return;
+        setError(errorText(err));
+        setLooking(false);
+      },
+    );
+  };
+  const install = () => {
+    if (!preview || !form) return;
+    const body = githubInstallBody(preview, form);
+    if ("problem" in body) return setError(body.problem);
+    setInstalling(true);
+    setError(undefined);
+    api.installGithubSkill(body).then(
+      (result) => {
+        pending.current = undefined;
+        onInstalled(result);
+      },
+      (err: unknown) => {
+        if (!alive.current) return;
+        setError(errorText(err));
+        setInstalling(false);
+      },
+    );
+  };
+  return (
+    <>
+      <div className="field">
+        <label htmlFor={urlId}>{t("pages.skills.githubUrl")}</label>
+        <div className="fp-path-row">
+          <input
+            id={urlId}
+            className="input"
+            value={url}
+            spellCheck={false}
+            inputMode="url"
+            placeholder={t("pages.skills.githubUrlPlaceholder")}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") look();
+            }}
+          />
+          <button type="button" className={preview ? "btn gh-look" : "btn primary gh-look"} disabled={looking || installing || url.trim() === ""} onClick={look}>
+            {looking ? t("pages.skills.githubLooking") : t("pages.skills.githubLook")}
+          </button>
+        </div>
+      </div>
+      {!preview && <div className="hint">{t("pages.skills.githubHint")}</div>}
+      {preview && form && <GithubPreviewView preview={preview} form={form} onForm={setForm} />}
+      {error && <div className="hint gh-error">{error}</div>}
+      <div className="auth-actions">
+        <button type="button" className="btn ghost" onClick={onClose}>
+          {t("pages.skills.cancel")}
+        </button>
+        <button type="button" className="btn primary" disabled={!preview || installing || looking} onClick={install}>
+          {installing ? t("pages.skills.githubInstalling") : t("pages.skills.githubInstall")}
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** GitHub 的预览：在哪、单个还是一整套、多大；单个的名字和说明（重名的就地改名）；集合的四项和成员（能取消、重名的就地改名）；脚本、不带进来的 */
+export function GithubPreviewView({ preview, form, onForm }: { preview: GithubSkillPreview; form: GithubInstallForm; onForm(next: GithubInstallForm): void }) {
+  const dropped = githubDroppedLines(preview);
+  const members = preview.members ?? [];
+  const set = (patch: Partial<GithubInstallForm>) => onForm({ ...form, ...patch });
+  return (
+    <div className="gh-preview">
+      <div className="gh-preview-head">
+        <span className="gh-where">{githubPreviewWhere(preview)}</span>
+        <a href={preview.url} target="_blank" rel="noopener noreferrer" title={preview.url}>
+          {t("pages.skills.githubOpen")}
+        </a>
+      </div>
+      <div className="muted">
+        {preview.kind === "single" ? t("pages.skills.githubIsSingle") : t("pages.skills.githubIsSet", { count: members.length })}
+        {" · "}
+        {githubPreviewSize(preview)}
+      </div>
+      {preview.kind === "single" && preview.single && (
+        <div className="gh-single">
+          <b>{preview.single.name}</b>
+          <span className="muted">{preview.single.description}</span>
+          {preview.single.sameName && <div className="gh-warn">{t("pages.skills.githubSameName", { owner: preview.single.sameName })}</div>}
+          <label className="field">
+            <span>{preview.single.sameName ? t("pages.skills.githubRenameNeeded") : t("pages.skills.rename")}</span>
+            <input value={form.rename} onChange={(e) => set({ rename: e.target.value })} placeholder={t("pages.skills.renamePlaceholder")} />
+          </label>
+        </div>
+      )}
+      {preview.kind === "collection" && (
+        <>
+          {preview.collection?.nameTaken && <div className="gh-warn">{t("pages.skills.githubNameTaken", { name: preview.collection.name, owner: preview.collection.nameTaken })}</div>}
+          <div className="field-row">
+            <label className="field">
+              <span>{t("pages.skills.collectionName")}</span>
+              <input value={form.name} onChange={(e) => set({ name: e.target.value })} />
+            </label>
+            <label className="field">
+              <span>{t("pages.skills.version")}</span>
+              <input value={form.version} onChange={(e) => set({ version: e.target.value })} />
+            </label>
+          </div>
+          <label className="field">
+            <span>{t("pages.skills.source")}</span>
+            <input value={form.source} onChange={(e) => set({ source: e.target.value })} />
+          </label>
+          <label className="field">
+            <span>{t("pages.skills.description")}</span>
+            <input value={form.description} onChange={(e) => set({ description: e.target.value })} placeholder={t("pages.skills.githubDescriptionPlaceholder")} />
+          </label>
+          <div className="gh-members" role="group" aria-label={t("pages.skills.githubMembers")}>
+            <div className="gh-members-head">
+              <span>{t("pages.skills.githubMembersPicked", { picked: form.selected.length, total: members.filter((m) => m.problem === undefined).length })}</span>
+            </div>
+            {members.map((m) => {
+              const on = form.selected.includes(m.dir);
+              return (
+                <div key={m.dir} className={`gh-member${m.problem ? " off" : ""}`}>
+                  <label className="gh-member-pick">
+                    <input type="checkbox" checked={on} disabled={m.problem !== undefined} onChange={() => onForm(toggleGithubMember(form, m.dir))} />
+                    <span className="gh-member-text">
+                      <b>{m.name}</b>
+                      <span className="muted gh-member-dir">{m.dir}</span>
+                      {m.problem ? <span className="gh-warn">{t("pages.skills.githubMemberProblem", { problem: m.problem })}</span> : <span className="muted">{m.description}</span>}
+                    </span>
+                  </label>
+                  {m.sameName && on && (
+                    <div className="gh-member-rename">
+                      <span className="gh-warn">{t("pages.skills.githubSameName", { owner: m.sameName })}</span>
+                      <input
+                        className="input"
+                        value={form.renames[m.name] ?? ""}
+                        aria-label={t("pages.skills.githubRenameMember", { name: m.name })}
+                        placeholder={t("pages.skills.githubRenamePlaceholder")}
+                        onChange={(e) => set({ renames: { ...form.renames, [m.name]: e.target.value } })}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+      <div className="gh-facts">
+        <div className={preview.scriptCount > 0 ? "gh-scripts" : "muted"}>{githubScriptsText(preview)}</div>
+        {dropped.map((line) => (
+          <div key={line} className="muted">
+            {line}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

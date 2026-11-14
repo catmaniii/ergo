@@ -38,11 +38,19 @@
 // 负责人提交的在 skill 目录里记一份 .ergo-submission.json（谁提的、什么时候）：skill 库页上标"负责人提交的"。只由运行时写，来源里带的不复制。
 // 秘书也能提交（只能加）：来源是运行时把卡上的 SKILL.md 落到秘书草稿区里的一格（skills/change.ts），走的还是这同一段校验和写入；
 // 和库里重名时不当场拒绝（previewSubmission 交回同名检查），用户在卡上选覆盖（就是"改"）、改名（同导入并改名）或放弃。
+//
+// 从 GitHub 装（465，下载、解开、预览在 skills/github.ts）：来源是运行时解到临时区（stagedDir）里的一格，也走这同一段校验和写入
+// （importSingle、importCollection），差别只有三处：
+// - **来源**只能在临时区里（按真实路径认），不走"来源不能在数据目录里"那条；
+// - **集合的成员**是预览时找到的那几个（inspectStaged：子目录下面几层里含 SKILL.md 的目录，不一定在同一层），用户可以取消一些——
+//   取消的那几个目录不复制；
+// - **记来源**：单个的在 skill 目录里写一份 .ergo-source.json（只由运行时写，来源里带的不复制），集合的写进 ergo-collection.json 的 github。
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  GithubSkillOrigin,
   type ImportCollectionSpec,
   IMPORT_NAME_PATTERN,
   type ImportReportLine,
@@ -100,8 +108,8 @@ const SKILL_FILE_MAX = 512 * 1024;
 export const IMPORT_MAX_BYTES = 20 * 1024 * 1024;
 export const IMPORT_MAX_FILES = 2000;
 
-/** 依赖目录：不复制，在原来的位置建目录联接指向来源里的那个目录 */
-const DEPENDENCY_DIRS = new Set(["node_modules", ".venv", "venv"]);
+/** 依赖目录：不复制，在原来的位置建目录联接指向来源里的那个目录（GitHub 装的解开时就丢掉） */
+export const DEPENDENCY_DIRS: ReadonlySet<string> = new Set(["node_modules", ".venv", "venv"]);
 
 /** 不带进来的文件：密钥、凭据这类（.env、.env.local……、*.pem、*.key） */
 function isSensitiveFile(name: string): boolean {
@@ -111,6 +119,12 @@ function isSensitiveFile(name: string): boolean {
 
 /** 负责人提交的 skill 记谁提的文件（skill 目录的根上，只由运行时写，来源里带的不复制） */
 export const SUBMISSION_FILE = ".ergo-submission.json";
+/** 从 GitHub 装的单个 skill 记来源的文件（skill 目录的根上，只由运行时写，来源里带的不复制） */
+export const SOURCE_FILE = ".ergo-source.json";
+/** 只由运行时写的文件：来源里带的不复制 */
+const RUNTIME_FILES = new Set([SUBMISSION_FILE, SOURCE_FILE]);
+/** 集合的成员最深在来源下面几层（GitHub 装的，按 SKILL.md 找） */
+const MAX_MEMBER_DEPTH = 6;
 /** skill 区里放旧版的目录（改、删之前挪进来；隐藏目录不算 skill） */
 export const HISTORY_DIR = ".history";
 /** 每个 skill 留最近几份旧版 */
@@ -143,9 +157,15 @@ const CollectionManifest = Type.Object({
   linked: Type.Optional(Type.Array(Type.Object({ dir: Type.String(), target: Type.String() }))),
   /** 没带进来的（相对来源的根目录） */
   excluded: Type.Optional(Type.Array(Type.String())),
+  /** 从 GitHub 装的：来源（465） */
+  github: Type.Optional(GithubSkillOrigin),
 });
 type CollectionManifest = Static<typeof CollectionManifest>;
 const manifestShape = schemaChecker(CollectionManifest);
+
+/** 单个从 GitHub 装的 skill 目录里记来源的文件 */
+const SourceRecord = Type.Object({ format: Type.Literal(1), github: GithubSkillOrigin });
+const sourceRecordShape = schemaChecker(SourceRecord);
 
 export interface SkillLibraryOptions {
   /** 框架自带的 skill 所在的目录（测试可以换） */
@@ -158,7 +178,56 @@ export interface SkillLibraryOptions {
   now?: () => string;
   /** 目录改名（就位、挪旧版）；不给用 renameRetrying（测试换掉它来试失败） */
   renameDir?: (from: string, to: string) => void;
+  /** 临时区里放 GitHub 下下来的那一格（465）：installStaged 的来源只能在它里面；不给就不能从 GitHub 装 */
+  stagedDir?: string;
   log: (line: string) => void;
+}
+
+/** 解在临时区里的一个来源（GitHub 下下来的）看一遍的结果：一个文件都不写（465） */
+export type StagedInspection = StagedSingle | StagedCollection;
+
+interface StagedCommon {
+  /** 要复制的文件一共多少个、多少字节 */
+  fileCount: number;
+  totalBytes: number;
+  /** 脚本文件（相对来源，按路径排） */
+  scripts: string[];
+  /** 不带的（相对来源；目录以 / 结尾） */
+  excluded: string[];
+}
+
+export interface StagedSingle extends StagedCommon {
+  kind: "single";
+  name: string;
+  description: string;
+  /** 装进去的目录名（斜杠命令） */
+  dirName: string;
+  /** 和库里谁重名（名字或目录名撞上）：要改名才能装 */
+  sameName?: string;
+}
+
+export interface StagedMember {
+  /** 相对来源，用 / 分隔 */
+  dir: string;
+  name: string;
+  description: string;
+  problem?: string;
+  sameName?: string;
+}
+
+export interface StagedCollection extends StagedCommon {
+  kind: "collection";
+  members: StagedMember[];
+  /** 给的集合名被谁占了 */
+  nameTaken?: string;
+}
+
+/** 从临时区装：来源（临时区里的目录）、记的来源；单个的可以改名，集合给集合名这些和选中的成员目录 */
+export interface StagedInstall {
+  root: string;
+  github: GithubSkillOrigin;
+  rename?: string;
+  collection?: Omit<ImportCollectionSpec, "skillsDir"> & { members: readonly string[] };
 }
 
 /**
@@ -222,6 +291,13 @@ export interface SkillLibrary {
    */
   importFrom(request: ImportSkillBody): ImportSkillResult;
   /**
+   * 看一个解在临时区里的来源（465，GitHub 下下来的）：本身有 SKILL.md 是单个 skill；没有的话下面几层里含 SKILL.md 的目录
+   * 当集合的成员，一个都没有抛 RequestRejected。和库里重名的写在结果里，不抛。collectionName 是要查占没占的集合名
+   */
+  inspectStaged(root: string, collectionName?: string): StagedInspection;
+  /** 从临时区装进库（465）：和导入同一段校验和写入；不合规矩的抛 RequestRejected */
+  installStaged(request: StagedInstall): ImportSkillResult;
+  /**
    * 校验一个负责人提交的来源：和导入同一段逻辑，一个文件都不写。不合规矩的抛 RequestRejected
    * （来源不在 roots 里、经链接绕出去、没有 SKILL.md、带链接、太大、重名……）
    */
@@ -262,6 +338,8 @@ interface SourcePlan {
   deps: string[];
   /** 不带的（相对 root；目录以 / 结尾） */
   excluded: string[];
+  /** 不复制、也不算不带的目录（相对 root）：GitHub 装的集合里没选的成员 */
+  skipped: string[];
   files: number;
   bytes: number;
   /** 要复制的文件（相对 root，用 / 分隔）和大小 */
@@ -292,8 +370,8 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
     const found: FoundCollection[] = collections.map((c) => {
       const kept = c.members.toSorted(byName).filter(keep);
       members.push(...kept);
-      const { name, source, version, description } = c.manifest;
-      return { entry: { name, source, version, description, skills: kept.map((m) => m.entry.name) }, dir: c.dir, unreadable: c.unreadable };
+      const { name, source, version, description, github } = c.manifest;
+      return { entry: { name, source, version, description, skills: kept.map((m) => m.entry.name), ...(github ? { github } : {}) }, dir: c.dir, unreadable: c.unreadable };
     });
     return { skills: [...builtin, ...[...singles, ...members].toSorted(byName)], collections: found };
   };
@@ -324,15 +402,17 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
     return { read, name, sourceDir, dirName, target };
   };
 
-  const importSingle = (plan: SourcePlan, rename: string | undefined): ImportSkillResult => {
+  /** 单个 skill 进库；github 给了是从 GitHub 装的：skill 目录里记一份来源（.ergo-source.json） */
+  const importSingle = (plan: SourcePlan, rename: string | undefined, github?: GithubSkillOrigin): ImportSkillResult => {
     const { root } = plan;
     const { read, name, sourceDir, dirName, target } = checkSingle(plan, rename);
     const linked = copyInto(plan, target, dirName, (staging) => {
       if (name !== read.name) renameInSkillFile(path.join(staging, "SKILL.md"), name);
+      if (github) fs.writeFileSync(path.join(staging, SOURCE_FILE), `${JSON.stringify({ format: 1, github }, null, 2)}\n`);
     });
     const renamed = name !== read.name ? t("skills.import.renamed", { original: read.name }) : undefined;
-    options.log(`导入了 skill ${name}（来自 ${root}${renamed ? `，${renamed}` : ""}）`);
-    const entry: SkillEntry = { name, description: read.description, origin: "imported" };
+    options.log(`导入了 skill ${name}（来自 ${github?.url ?? root}${renamed ? `，${renamed}` : ""}）`);
+    const entry: SkillEntry = { name, description: read.description, origin: "imported", ...(github ? { github } : {}) };
     const note = [renamed, rename === undefined ? normalizedDirText(sourceDir, dirName) : undefined, freeNameText(name), ...linked.map(linkedText)].filter(Boolean).join(t("skills.sep"));
     return {
       skills: [entry],
@@ -342,9 +422,13 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
     };
   };
 
-  const importCollection = (plan: SourcePlan, membersRel: string, spec: ImportCollectionSpec): ImportSkillResult => {
+  /**
+   * 集合进库。成员从哪来：本机导入的是 membersRel（成员所在的子目录）下面一层每个含 SKILL.md 的目录；GitHub 装的是预览时
+   * 找到、用户选中的那几个目录（rels，相对来源，可以在不同的层）。github 给了是从 GitHub 装的：记进说明文件
+   */
+  const importCollection = (plan: SourcePlan, from: { membersRel: string } | { rels: readonly string[] }, spec: Omit<ImportCollectionSpec, "skillsDir">, github?: GithubSkillOrigin): ImportSkillResult => {
     const { root } = plan;
-    const membersRoot = path.join(root, ...splitRel(membersRel));
+    const membersRoot = "membersRel" in from ? path.join(root, ...splitRel(from.membersRel)) : root;
     if (spec.name === RESERVED_COLLECTION_NAME) {
       throw new RequestRejected("bad_params", t("skills.import.reservedCollection", { reserved: RESERVED_COLLECTION_NAME }));
     }
@@ -354,32 +438,36 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
     const target = path.join(options.userDir, spec.name);
     if (fs.existsSync(target)) throw new RequestRejected("conflict", t("skills.import.collectionDirTaken", { name: spec.name }));
 
-    // 成员：成员目录下面一层每个含 SKILL.md 的目录（隐藏目录、依赖目录不算）
-    const candidates = fs
-      .readdirSync(membersRoot, { withFileTypes: true })
-      .filter((e) => e.isDirectory() && !e.name.startsWith(".") && !DEPENDENCY_DIRS.has(e.name) && fs.existsSync(path.join(membersRoot, e.name, "SKILL.md")))
-      .map((e) => e.name)
-      .toSorted();
+    // 成员（相对来源的目录）：本机导入的是成员目录下面一层每个含 SKILL.md 的目录（隐藏目录、依赖目录不算）
+    const candidates =
+      "membersRel" in from
+        ? fs
+            .readdirSync(membersRoot, { withFileTypes: true })
+            .filter((e) => e.isDirectory() && !e.name.startsWith(".") && !DEPENDENCY_DIRS.has(e.name) && fs.existsSync(path.join(membersRoot, e.name, "SKILL.md")))
+            .map((e) => joinRel(from.membersRel, e.name))
+            .toSorted()
+        : [...from.rels];
     if (candidates.length === 0) throw new RequestRejected("bad_params", t("skills.import.noMembers", { root: membersRoot }));
     const rename = spec.rename ?? {};
     const report: ImportReportLine[] = [];
-    /** 成员：来源里的目录名、原来的 skill 名、导入后的名字、就位后的目录名（改了名的是新名字） */
-    const members: { dirName: string; original: string; name: string; description: string; finalDir: string }[] = [];
-    for (const dirName of candidates) {
-      const read = readSkill(path.join(membersRoot, dirName));
-      const dir = joinRel(membersRel, dirName);
+    /** 成员：来源里的位置（相对来源）、所在的目录、目录名、原来的 skill 名、导入后的名字、就位后的目录名（改了名的是新名字） */
+    const members: { rel: string; parent: string; dirName: string; original: string; name: string; description: string; finalDir: string }[] = [];
+    for (const rel of candidates) {
+      const parent = parentRel(rel);
+      const dirName = rel.slice(parent === "" ? 0 : parent.length + 1);
+      const read = readSkill(path.join(root, ...splitRel(rel)));
       if ("problem" in read) {
-        report.push({ name: dirName, dir, ok: false, note: t("skills.import.notValid", { problem: read.problem }) });
+        report.push({ name: dirName, dir: rel, ok: false, note: t("skills.import.notValid", { problem: read.problem }) });
         continue;
       }
       const name = rename[read.name] ?? read.name;
       // 就位后的目录名（也是斜杠命令名）：改了名的是新名字，否则是来源的目录名规范化
       const finalDir = name === read.name ? normalizeSkillDirName(dirName) : name;
       if (finalDir === "") {
-        report.push({ name: read.name, dir, ok: false, note: t("skills.import.emptyMemberDir", { dir: dirName }) });
+        report.push({ name: read.name, dir: rel, ok: false, note: t("skills.import.emptyMemberDir", { dir: dirName }) });
         continue;
       }
-      members.push({ dirName, original: read.name, name, description: read.description, finalDir });
+      members.push({ rel, parent, dirName, original: read.name, name, description: read.description, finalDir });
     }
     const strayRenames = Object.keys(rename).filter((k) => !members.some((m) => m.original === k));
     if (strayRenames.length > 0) throw new RequestRejected("bad_params", t("skills.import.strayRenames", { names: strayRenames.join(t("skills.listSep")) }));
@@ -387,6 +475,8 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
       const lines = report.map((r) => t("skills.import.reportLine", { name: r.name, note: r.note ?? "" })).join(t("skills.sep"));
       throw new RequestRejected("bad_params", t("skills.import.noValidMembers", { root: membersRoot, lines }));
     }
+    /** 就位后在集合目录里的位置 */
+    const finalRel = (m: (typeof members)[number]) => joinRel(m.parent, m.finalDir);
 
     // 重名（按 skill 原来的名字，改了名的按新名字）：和库里已有的、集合名、集合里别的成员；改名后的目录和来源里别的目录撞上也不行
     const conflicts: { name: string; owner: string }[] = [];
@@ -398,12 +488,12 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
       else if (members.some((o) => o !== m && o.finalDir === m.finalDir)) {
         const other = members.find((o) => o !== m && o.finalDir === m.finalDir)!;
         conflicts.push({ name: m.name, owner: t("skills.conflict.sameDir", { name: other.name, dir: other.dirName, finalDir: m.finalDir }) });
-      } else if (m.finalDir !== m.dirName && fs.existsSync(path.join(membersRoot, m.finalDir))) conflicts.push({ name: m.name, owner: t("skills.conflict.sourceDir", { dir: joinRel(membersRel, m.finalDir) }) });
+      } else if (m.finalDir !== m.dirName && fs.existsSync(path.join(root, ...splitRel(finalRel(m))))) conflicts.push({ name: m.name, owner: t("skills.conflict.sourceDir", { dir: finalRel(m) }) });
     }
     if (conflicts.length > 0) throw new RequestRejected("conflict", t("skills.import.collectionConflict", { name: spec.name, conflicts: conflictText(dedupeConflicts(conflicts)) }));
 
     checkSize(plan);
-    const renamedDirs = new Map(members.filter((m) => m.finalDir !== m.dirName).map((m) => [joinRel(membersRel, m.dirName), joinRel(membersRel, m.finalDir)]));
+    const renamedDirs = new Map(members.filter((m) => m.finalDir !== m.dirName).map((m) => [m.rel, finalRel(m)]));
     const linked = copyInto(
       plan,
       target,
@@ -413,9 +503,9 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
         // 点名改名的成员动目录名和 SKILL.md 的 name 一行；目录名不规范的只改目录名；别的一个字不动
         for (const m of members) {
           if (m.name === m.original && m.finalDir === m.dirName) continue;
-          const from = path.join(staging, ...splitRel(joinRel(membersRel, m.dirName)));
-          const to = path.join(staging, ...splitRel(joinRel(membersRel, m.finalDir)));
-          if (from !== to) renameRetrying(from, to);
+          const fromDir = path.join(staging, ...splitRel(m.rel));
+          const to = path.join(staging, ...splitRel(finalRel(m)));
+          if (fromDir !== to) renameRetrying(fromDir, to);
           if (m.name !== m.original) renameInSkillFile(path.join(to, "SKILL.md"), m.name);
         }
       },
@@ -427,17 +517,18 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
       source: spec.source.trim(),
       version: spec.version.trim(),
       description: spec.description.trim(),
-      members: members.map((m) => joinRel(membersRel, m.finalDir)),
+      members: members.map(finalRel),
       ...(members.some((m) => m.name !== m.original) ? { renamed: Object.fromEntries(members.filter((m) => m.name !== m.original).map((m) => [m.name, m.original])) } : {}),
-      importedFrom: root,
+      importedFrom: github?.url ?? root,
       importedAt: now(),
       ...(linked.length > 0 ? { linked } : {}),
       ...(plan.excluded.length > 0 ? { excluded: plan.excluded } : {}),
+      ...(github ? { github } : {}),
     };
     fs.writeFileSync(path.join(target, COLLECTION_MANIFEST), `${JSON.stringify(manifest, null, 2)}\n`);
 
     for (const m of members) {
-      const memberDir = joinRel(membersRel, m.finalDir);
+      const memberDir = finalRel(m);
       const notes = [
         ...(m.name !== m.original ? [t("skills.import.renamed", { original: m.original })] : []),
         // 目录名不规范的照样改名（不拒绝这个成员），提醒一句相对引用的事
@@ -445,15 +536,15 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
         ...[freeNameText(m.name)].filter((note): note is string => note !== undefined),
         ...linked.filter((l) => l.dir === memberDir || l.dir.startsWith(`${memberDir}/`)).map(linkedText),
       ];
-      report.push({ name: m.name, dir: joinRel(membersRel, m.dirName), ok: true, ...(notes.length > 0 ? { note: notes.join(t("skills.sep")) } : {}) });
+      report.push({ name: m.name, dir: m.rel, ok: true, ...(notes.length > 0 ? { note: notes.join(t("skills.sep")) } : {}) });
     }
     report.sort((a, b) => a.dir.localeCompare(b.dir));
     const skipped = report.filter((r) => !r.ok).length;
-    options.log(`导入了集合 ${spec.name}（来自 ${root}，${members.length} 个 skill${skipped > 0 ? `，跳过 ${skipped} 个不合规的` : ""}）`);
+    options.log(`导入了集合 ${spec.name}（来自 ${github?.url ?? root}，${members.length} 个 skill${skipped > 0 ? `，跳过 ${skipped} 个不合规的` : ""}）`);
     const skills = members.map((m): SkillEntry => ({ name: m.name, description: m.description, origin: "imported", collection: spec.name })).toSorted((a, b) => a.name.localeCompare(b.name));
     return {
       skills,
-      collection: { name: spec.name, source: manifest.source, version: manifest.version, description: manifest.description, skills: skills.map((k) => k.name) },
+      collection: { name: spec.name, source: manifest.source, version: manifest.version, description: manifest.description, skills: skills.map((k) => k.name), ...(github ? { github } : {}) },
       report,
       linked: linked.map((l) => ({ dir: joinRel(spec.name, l.dir), target: l.target })),
       excluded: plan.excluded,
@@ -585,10 +676,10 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
       return found.map((f) => f.dir);
     },
     checkSubmission(request) {
-      return checkPlan(planSource(submissionRoot(request.source, request.roots), ""), request.replacing, request.rename).report;
+      return checkPlan(planSource(submissionRoot(request.source, request.roots), []), request.replacing, request.rename).report;
     },
     previewSubmission(request) {
-      const plan = planSource(submissionRoot(request.source, request.roots), "");
+      const plan = planSource(submissionRoot(request.source, request.roots), []);
       try {
         return checkPlan(plan, undefined).report;
       } catch (err) {
@@ -597,7 +688,7 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
       }
     },
     applySubmission(request) {
-      const plan = planSource(submissionRoot(request.source, request.roots), "");
+      const plan = planSource(submissionRoot(request.source, request.roots), []);
       const { checked, report } = checkPlan(plan, request.replacing, request.rename);
       const changedText = t("skills.change.sourceChanged", { dir: plan.root });
       if (report.source.fingerprint !== request.fingerprint) throw new RequestRejected("conflict", changedText);
@@ -657,15 +748,84 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
       const newNames = [request.rename, request.collection?.name, ...Object.values(request.collection?.rename ?? {})].filter((n): n is string => n !== undefined);
       const badName = newNames.find((n) => !IMPORT_NAME.test(n));
       if (badName !== undefined) throw new RequestRejected("bad_params", t("skills.import.badName", { name: badName }));
-      if (!request.collection) return importSingle(planSource(realDir, ""), request.rename);
+      if (!request.collection) return importSingle(planSource(realDir, []), request.rename);
       if (fs.existsSync(path.join(realDir, "SKILL.md"))) throw new RequestRejected("bad_params", t("skills.import.isSkill"));
       const membersRel = normalizeRel(request.collection.skillsDir ?? "");
       if (membersRel === undefined) throw new RequestRejected("bad_params", t("skills.import.membersRel", { dir: request.collection.skillsDir }));
       const membersStat = fs.lstatSync(path.join(realDir, ...splitRel(membersRel)), { throwIfNoEntry: false });
       if (!membersStat?.isDirectory() || membersStat.isSymbolicLink()) throw new RequestRejected("bad_params", t("skills.import.noMembersDir", { dir: membersRel }));
-      return importCollection(planSource(realDir, membersRel), membersRel, request.collection);
+      return importCollection(planSource(realDir, membersRel === "" ? [] : [membersRel]), { membersRel }, request.collection);
+    },
+    inspectStaged(root, collectionName) {
+      const realDir = stagedRoot(root);
+      const s = scan();
+      if (fs.existsSync(path.join(realDir, "SKILL.md"))) {
+        const read = readSkill(realDir);
+        if ("problem" in read) throw new RequestRejected("bad_params", read.problem);
+        const plan = planSource(realDir, []);
+        const sourceDir = path.basename(realDir);
+        const dirName = normalizeSkillDirName(sourceDir);
+        // 和库里重名：名字撞上的、目录名（斜杠命令）撞上的、skill 区里已经有这个目录的
+        const sameName = ownerOf(s, read.name) ?? (dirName === "" ? undefined : (dirOwner(s, dirName) ?? (fs.existsSync(path.join(options.userDir, dirName)) ? t("skills.owner.dir", { dir: dirName }) : undefined)));
+        return { kind: "single", name: read.name, description: read.description, dirName, ...(sameName ? { sameName } : {}), ...stagedCommon(plan) };
+      }
+      const rels = memberDirs(realDir);
+      if (rels.length === 0) throw new RequestRejected("bad_params", t("skills.github.noSkill"));
+      const members: StagedMember[] = rels.map((dir) => {
+        const read = readSkill(path.join(realDir, ...splitRel(dir)));
+        const fallback = dir.split("/").at(-1) ?? dir;
+        if ("problem" in read) return { dir, name: fallback, description: "", problem: read.problem };
+        const owner = ownerOf(s, read.name);
+        return { dir, name: read.name, description: read.description, ...(owner ? { sameName: owner } : {}) };
+      });
+      // 集合里两个成员同名：后面那个标出来（装的时候要给它改名，或者取消一个）
+      for (const [i, m] of members.entries()) {
+        if (m.problem === undefined && m.sameName === undefined && members.slice(0, i).some((o) => o.problem === undefined && o.name === m.name)) m.sameName = t("skills.conflict.sameName", { name: m.name });
+      }
+      const plan = planSource(realDir, rels);
+      const nameTaken = collectionName === undefined ? undefined : (ownerOf(s, collectionName) ?? (fs.existsSync(path.join(options.userDir, collectionName)) ? t("skills.owner.dir", { dir: collectionName }) : undefined));
+      return { kind: "collection", members, ...(nameTaken ? { nameTaken } : {}), ...stagedCommon(plan) };
+    },
+    installStaged(request) {
+      const realDir = stagedRoot(request.root);
+      const newNames = [request.rename, request.collection?.name, ...Object.values(request.collection?.rename ?? {})].filter((n): n is string => n !== undefined);
+      const badName = newNames.find((n) => !IMPORT_NAME.test(n));
+      if (badName !== undefined) throw new RequestRejected("bad_params", t("skills.import.badName", { name: badName }));
+      const isSkill = fs.existsSync(path.join(realDir, "SKILL.md"));
+      if (!request.collection) {
+        if (!isSkill) throw new RequestRejected("bad_params", t("skills.github.notSingle"));
+        return importSingle(stagedPlan(realDir, [], []), request.rename, request.github);
+      }
+      if (isSkill) throw new RequestRejected("bad_params", t("skills.import.isSkill"));
+      if (request.rename !== undefined) throw new RequestRejected("bad_params", t("skills.import.collectionRename"));
+      // 选中的成员只能是预览时找到的那几个；没选的那几个目录不复制
+      const found = memberDirs(realDir);
+      const chosen = [...new Set(request.collection.members.map((m) => normalizeRel(m) ?? m))];
+      const stray = chosen.filter((m) => !found.includes(m));
+      if (stray.length > 0) throw new RequestRejected("bad_params", t("skills.github.strayMembers", { dirs: stray.join(t("skills.listSep")) }));
+      const { name, source, version, description, rename } = request.collection;
+      return importCollection(
+        stagedPlan(
+          realDir,
+          chosen,
+          found.filter((m) => !chosen.includes(m)),
+        ),
+        { rels: chosen.toSorted() },
+        { name, source, version, description, ...(rename ? { rename } : {}) },
+        request.github,
+      );
     },
   };
+
+  /** 临时区里的来源：要在 stagedDir 下面（按真实路径认，不能是它本身），本身不能是链接 */
+  function stagedRoot(source: string): string {
+    if (options.stagedDir === undefined) throw new RequestRejected("not_allowed", t("skills.github.unavailable"));
+    const { dir, realDir } = realSourceDir(source, "skills.import.notDir");
+    const realStaged = realPathOf(options.stagedDir) ?? path.resolve(options.stagedDir);
+    if (!isWithin(realDir, realStaged) || isWithin(realStaged, realDir)) throw new RequestRejected("not_allowed", t("skills.github.notStaged", { dir }));
+    return realDir;
+  }
+
 
   /**
    * 复制来源到 skill 区的 target：先复制到旁边的临时目录，就位前做 prepare（改名、改 SKILL.md 的 name），
@@ -674,7 +834,7 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
    */
   function copyInto(plan: SourcePlan, target: string, label: string, prepare: (staging: string) => void, mapRel: (rel: string) => string = (rel) => rel, place?: (staging: string) => void): { dir: string; target: string }[] {
     const { root } = plan;
-    const skip = new Set([...plan.deps, ...plan.excluded.map((e) => e.replace(/\/$/, ""))]);
+    const skip = new Set([...plan.deps, ...plan.skipped, ...plan.excluded.map((e) => e.replace(/\/$/, ""))]);
     fs.mkdirSync(options.userDir, { recursive: true });
     const staging = path.join(options.userDir, `.importing-${label}-${process.pid}-${Date.now()}`);
     const links: { dir: string; target: string }[] = [];
@@ -720,6 +880,16 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
   }
 }
 
+/**
+ * 临时区里的来源的复制计划：解开时依赖目录已经丢掉了（按原路径引用会指进临时区，装完就没了），这里再挡一道；
+ * skip 是不复制的目录（集合里没选的成员）
+ */
+function stagedPlan(root: string, memberPaths: readonly string[], skip: readonly string[]): SourcePlan {
+  const plan = planSource(root, memberPaths, new Set(skip));
+  if (plan.deps.length > 0) throw new RequestRejected("bad_params", t("skills.github.hasDeps", { dirs: plan.deps.join(t("skills.listSep")) }));
+  return plan;
+}
+
 /** 来源目录：绝对路径、真实目录（本身不能是符号链接、目录联接）。交回真实路径 */
 function realSourceDir(source: string, notDirKey: "skills.import.notDir" | "skills.import.notDirCollection"): { dir: string; realDir: string } {
   if (!path.isAbsolute(source)) throw new RequestRejected("bad_params", t("skills.import.notAbsolute", { path: source }));
@@ -740,18 +910,25 @@ function realSourceDir(source: string, notDirKey: "skills.import.notDir" | "skil
  * 导入前把来源（真实路径）整个看一遍，不跟任何链接：
  * - 复制的部分里有符号链接、目录联接的整个拒绝（列出是哪些、指向哪）；
  * - 依赖目录（node_modules、.venv、venv）本身不能是链接；它里面的链接只认真实路径在来源目录里面的；
- * - .git 和别的隐藏目录、.env*、*.pem、*.key 不带（成员所在的子目录那条路上的不算）；
+ * - .git 和别的隐藏目录、.env*、*.pem、*.key 不带（成员所在的子目录那条路上的不算；memberPaths 是成员所在的子目录，可以有几个）；
+ *   成员在隐藏目录里的（.claude/skills/foo）：那个隐藏目录里只带通到成员的那条路和成员里的东西，旁边的（.claude/settings.json、
+ *   .claude/commands/、.claude/hooks/）不带——那是别的程序的配置，不是 skill 的；
+ * - skip 里的目录（GitHub 装的集合里没选的成员）不看、不复制，也不算不带的；
  * - 数一下复制的部分有多少文件、多少字节。
  */
-function planSource(root: string, membersRel: string): SourcePlan {
+function planSource(root: string, memberPaths: readonly string[], skip: ReadonlySet<string> = new Set()): SourcePlan {
   const deps: string[] = [];
   const excluded: string[] = [];
   const links: string[] = [];
   const entries: { rel: string; size: number }[] = [];
   let files = 0;
   let bytes = 0;
-  const onMembersPath = (rel: string) => membersRel === rel || membersRel.startsWith(`${rel}/`);
-  const walk = (dir: string, rel: string, inDep: boolean) => {
+  const skipped: string[] = [];
+  const onMembersPath = (rel: string) => memberPaths.some((m) => m === rel || m.startsWith(`${rel}/`));
+  /** 在成员（或成员所在的子目录）里面 */
+  const inMember = (rel: string) => memberPaths.some((m) => rel.startsWith(`${m}/`));
+  /** inHidden：在通到成员的那个隐藏目录里（还没进到成员里），只带通到成员的那条路 */
+  const walk = (dir: string, rel: string, inDep: boolean, inHidden = false) => {
     for (const name of fs.readdirSync(dir)) {
       const abs = path.join(dir, name);
       const relPath = joinRel(rel, name);
@@ -764,16 +941,22 @@ function planSource(root: string, membersRel: string): SourcePlan {
         continue;
       }
       if (st.isDirectory()) {
-        if (inDep) walk(abs, relPath, true);
+        if (!inDep && skip.has(relPath)) skipped.push(relPath);
+        else if (inDep) walk(abs, relPath, true);
+        else if (inHidden && !onMembersPath(relPath) && !inMember(relPath)) excluded.push(`${relPath}/`);
         else if (DEPENDENCY_DIRS.has(name)) {
           deps.push(relPath);
           walk(abs, relPath, true);
         } else if (name.startsWith(".") && !onMembersPath(relPath)) excluded.push(`${relPath}/`);
-        else walk(abs, relPath, false);
+        else walk(abs, relPath, false, (inHidden || name.startsWith(".")) && !memberPaths.includes(relPath) && !inMember(relPath));
         continue;
       }
       if (inDep) continue;
-      if (isSensitiveFile(name) || name === SUBMISSION_FILE) {
+      if (inHidden && !inMember(relPath)) {
+        excluded.push(relPath);
+        continue;
+      }
+      if (isSensitiveFile(name) || RUNTIME_FILES.has(name)) {
         excluded.push(relPath);
         continue;
       }
@@ -790,7 +973,7 @@ function planSource(root: string, membersRel: string): SourcePlan {
       links.length > 10 ? t("skills.import.linksMore", { links: shown, count: links.length, n: links.length }) : t("skills.import.links", { links: shown }),
     );
   }
-  return { root, deps, excluded: excluded.toSorted(), files, bytes, entries };
+  return { root, deps, excluded: excluded.toSorted(), skipped, files, bytes, entries };
 }
 
 /**
@@ -940,6 +1123,58 @@ function renamedRel(rel: string, renamed: ReadonlyMap<string, string>): string {
   return rel;
 }
 
+/** 相对路径的上一级（"a/b/c" → "a/b"，"a" → ""） */
+function parentRel(rel: string): string {
+  const i = rel.lastIndexOf("/");
+  return i < 0 ? "" : rel.slice(0, i);
+}
+
+/**
+ * 一个来源下面几层里的 skill 目录（含 SKILL.md 的，相对来源，按路径排）：找到一个就不再往它里面找（skill 自己的子目录是它的材料），
+ * .git、依赖目录、链接不进去，最深 MAX_MEMBER_DEPTH 层。别的隐藏目录照样找（不少仓库把 skill 放在 .claude/skills 下）
+ */
+function memberDirs(root: string): string[] {
+  const out: string[] = [];
+  const walk = (dir: string, rel: string, depth: number) => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (!e.isDirectory() || e.name === ".git" || DEPENDENCY_DIRS.has(e.name)) continue;
+      const abs = path.join(dir, e.name);
+      const relPath = joinRel(rel, e.name);
+      if (fs.statSync(path.join(abs, "SKILL.md"), { throwIfNoEntry: false })?.isFile()) out.push(relPath);
+      else if (depth < MAX_MEMBER_DEPTH) walk(abs, relPath, depth + 1);
+    }
+  };
+  walk(root, "", 1);
+  return out.toSorted();
+}
+
+/** 预览要的：要复制的文件数、字节数，脚本（看扩展名和开头的 #!），不带的 */
+function stagedCommon(plan: SourcePlan): { fileCount: number; totalBytes: number; scripts: string[]; excluded: string[] } {
+  const scripts = plan.entries
+    .filter((e) => {
+      if (SCRIPT_EXTENSIONS.has(path.extname(e.rel).toLowerCase())) return true;
+      const head = Buffer.alloc(2);
+      let fd: number | undefined;
+      try {
+        fd = fs.openSync(path.join(plan.root, ...splitRel(e.rel)), "r");
+        return fs.readSync(fd, head, 0, 2, 0) === 2 && isScript(e.rel, head);
+      } catch {
+        return false;
+      } finally {
+        if (fd !== undefined) fs.closeSync(fd);
+      }
+    })
+    .map((e) => e.rel)
+    .toSorted();
+  return { fileCount: plan.files, totalBytes: plan.bytes, scripts, excluded: plan.excluded };
+}
+
 /** 一个目录下面一层的各个 skill 目录（含 SKILL.md 的） */
 function scanSingles(root: string, origin: SkillEntry["origin"], log: (line: string) => void): LibrarySkill[] {
   return topDirs(root).flatMap((dir) => {
@@ -1015,7 +1250,20 @@ function foundSkill(dir: string, origin: SkillEntry["origin"], collection: strin
     return undefined;
   }
   const submittedBy = origin === "imported" && !collection ? readSubmission(dir) : undefined;
-  return { entry: { name: read.name, description: read.description, origin, ...(collection ? { collection } : {}), ...(submittedBy ? { submittedBy } : {}) }, dir };
+  const github = origin === "imported" && !collection ? readSourceRecord(dir) : undefined;
+  return { entry: { name: read.name, description: read.description, origin, ...(collection ? { collection } : {}), ...(submittedBy ? { submittedBy } : {}), ...(github ? { github } : {}) }, dir };
+}
+
+/** 单个从 GitHub 装的 skill 目录里记的来源；没有、读不懂的是 undefined */
+function readSourceRecord(dir: string): GithubSkillOrigin | undefined {
+  const file = path.join(dir, SOURCE_FILE);
+  if (!fs.existsSync(file)) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
+    return sourceRecordShape.check(parsed) ? parsed.github : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** skill 目录里记的谁提的；没有、读不懂的算用户自己导入的 */
