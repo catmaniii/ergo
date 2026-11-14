@@ -125,5 +125,7 @@ ego lite 没开着时 `ego-browser` 会自己去拉起它（程序里有 "Failed
 
 ### Consequences
 
-- agent 不经 PATH、用完整路径直接调 ego 安装目录里的 `ego-browser.exe`（或者 Python 的 `subprocess` 只认 .exe）时绕过了 shim，ego lite 没开着的话还是会被拉进 Job：孤儿回收照旧不碰它，skill 里写了"就用 `ego-browser` 这个命令名"。
+- agent 用完整路径直接调 ego 安装目录里的 `ego-browser.exe` 时绕过了 shim，ego lite 没开着的话还是会被拉进 Job：孤儿回收照旧不碰它，skill 里写了"就用 `ego-browser` 这个命令名"。
+- 不经 shell 直接起 `ego-browser` 的（Node 的 `spawn`、Python 的 `subprocess`，Windows 上只找 .exe）找不到它：shim 目录里没有 .exe，ego 的目录也不再放到 PATH 上。经 shell 起照常。
+- PowerShell、cmd 经 `.cmd` 转一道，有 `.cmd` 的老毛病：没加引号的参数里的 `&` `|` `<` `>` `^` 会被 cmd 拆开；skill 里让 PowerShell 的脚本一律写进 .mjs 文件。
 - 常驻的秘书 PATH 是拉起时定的：秘书起来之后才装的 ego lite，要等秘书下次重新拉起（重启二狗、秘书的子进程重来）才在它的 bash 里找得到；工具说明里"没装"那句跟着每次装配现写。

@@ -165,4 +165,14 @@ describe("几个 agent 同时要用时只开一次", () => {
     takeover!();
     expect(fs.existsSync(path.join(dir, "opening"))).toBe(false);
   });
+
+  it("根本建不了占位（目录的位置被一个文件占着，像只许写工作区的沙箱）：不占也照开，不会因为占不到就一直不开", () => {
+    const parent = makeTempDir("ergo-ego-claim-");
+    const blocked = path.join(parent, "shim");
+    fs.writeFileSync(blocked, "x");
+    const release = claimOpening(blocked);
+    expect(release).toBeTypeOf("function");
+    release!();
+    expect(fs.readFileSync(blocked, "utf8")).toBe("x");
+  });
 });

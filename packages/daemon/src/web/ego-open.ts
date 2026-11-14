@@ -201,18 +201,24 @@ export function desktopShellRunning(): boolean {
 
 /**
  * "正在开"的占位：lockDir 下的 opening 目录（mkdir 原子）。占到了回放手的函数；别人占着回 undefined；
- * 占着超过 staleMs 的当作那边已经死了，删掉自己占
+ * 占着超过 staleMs 的当作那边已经死了，删掉自己占。根本建不了（没权限、目录写不了，比如 agent 在只许写工作区的沙箱里）时
+ * 不占也照开（回一个什么都不做的放手函数）：宁可偶尔多开一个窗口，也不能因为占不到就一直不开
  */
 export function claimOpening(lockDir: string, options: { staleMs?: number; now?: () => number } = {}): (() => void) | undefined {
   const mark = path.join(lockDir, "opening");
   const now = options.now ?? Date.now;
-  const tryClaim = () => {
+  /** 占到了 true；别人占着 false；建不了 "unavailable" */
+  const tryClaim = (): boolean | "unavailable" => {
     try {
       fs.mkdirSync(lockDir, { recursive: true });
+    } catch {
+      return "unavailable";
+    }
+    try {
       fs.mkdirSync(mark);
       return true;
-    } catch {
-      return false;
+    } catch (err) {
+      return (err as NodeJS.ErrnoException).code === "EEXIST" ? false : "unavailable";
     }
   };
   const release = () => {
@@ -222,14 +228,18 @@ export function claimOpening(lockDir: string, options: { staleMs?: number; now?:
       // 已经没了
     }
   };
-  if (tryClaim()) return release;
+  const first = tryClaim();
+  if (first === true) return release;
+  if (first === "unavailable") return () => {};
   try {
     if (now() - fs.statSync(mark).mtimeMs < (options.staleMs ?? EGO_OPEN_STALE_MS)) return undefined;
   } catch {
     // 刚被放掉：再占一次
   }
   release();
-  return tryClaim() ? release : undefined;
+  const again = tryClaim();
+  if (again === "unavailable") return () => {};
+  return again ? release : undefined;
 }
 
 /** 真的：本机进程、命名管道、桌面外壳 */
