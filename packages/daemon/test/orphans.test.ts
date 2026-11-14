@@ -2,20 +2,13 @@
 // - 从活着的 agent 子进程顺着 Windows 父进程号走不到的是孤儿候选（findOrphans）；
 // - 还在跑的工具调用期间起的进程这一轮不杀（reapable）：Git Bash 里管道各段、`bash 脚本` 的 Windows 父进程交接完就退了，
 //   bash 其实还在等它们，按父进程号判会误杀（根因）；
-// - agent-browser 的守护进程（和它下面的 Chrome）跟着开它的 agent 走：认得出的才留，认不准的照旧回收。
-import fs from "node:fs";
+// - 466：ego lite 的进程（用户自己的浏览器）一律不杀：可执行文件在 ego lite 的程序目录下的（取不到路径的按名字）连同它下面的进程
+//   都不算孤儿；agent-browser 的守护进程不再特别认（466 起 agent 不用它了）。
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import {
-  findOrphans,
-  isAgentBrowserExe,
-  ORPHAN_CREATION_MARGIN_MS,
-  readBrowserDaemonPids,
-  reapable,
-  recognizedBrowserDaemons,
-} from "../src/agent-manager/orphans.ts";
-import { processCreationTimes, processSnapshot } from "../src/process/process-list.ts";
-import { makeTempDir } from "./helpers/temp-dir.ts";
+import { egoProcesses, findOrphans, ORPHAN_CREATION_MARGIN_MS, reapable } from "../src/agent-manager/orphans.ts";
+import { processCreationTimes, processImagePaths, processSnapshot } from "../src/process/process-list.ts";
+import { egoProgramDirs, isUnderDirs } from "../src/web/index.ts";
 
 describe("findOrphans：从活着的 agent 子进程顺着父进程号走不到的", () => {
   // 100 是 agent 子进程；101 启动器 bash → 102 bash → 103 tail；
@@ -36,7 +29,7 @@ describe("findOrphans：从活着的 agent 子进程顺着父进程号走不到�
     expect(findOrphans(job, parentOf, new Set([100])).toSorted()).toEqual([201, 202, 203, 300]);
   });
 
-  it("多给的根（认得出的 agent-browser 守护进程）连同它下面的都不算孤儿", () => {
+  it("多给的根（认出来的 ego lite 进程）连同它下面的都不算孤儿", () => {
     expect(findOrphans(job, parentOf, new Set([100, 201])).toSorted()).toEqual([300]);
   });
 });
@@ -59,32 +52,67 @@ describe("reapable：还在跑的工具调用期间起的进程这一轮不杀",
   });
 });
 
-describe("agent-browser 的守护进程：认得出的才留", () => {
-  it("可执行文件名按 agent-browser 开头认（不分大小写）", () => {
-    for (const name of ["agent-browser-win32-x64.exe", "Agent-Browser.exe", "agent-browser"]) expect(isAgentBrowserExe(name)).toBe(true);
-    for (const name of ["node.exe", "chrome.exe", "my-agent-browser.exe", ""]) expect(isAgentBrowserExe(name)).toBe(false);
-  });
-
-  it("pid 文件里写的、在 Job 里、可执行文件是 agent-browser 的才算；pid 被别的程序复用了、不在 Job 里的不算", () => {
-    const exeOf = new Map([
-      [10, "agent-browser-win32-x64.exe"],
-      [11, "node.exe"],
-      [12, "agent-browser-win32-x64.exe"],
-      [13, "agent-browser-win32-x64.exe"],
+describe("466：ego lite 的进程一律不杀", () => {
+  const EGO_ROOT = "C:\\Program Files\\Citro Labs\\ego lite";
+  const dirs = [EGO_ROOT, "C:\\Users\\u\\.local\\share\\ego"];
+  it("孤儿里可执行文件在 ego lite 程序目录下的认出来（不分大小写）；取不到路径的按名字（ego.exe、ego-browser.exe）；别的照旧是孤儿", () => {
+    const imageOf = new Map([
+      [1, "C:\\Program Files\\Citro Labs\\ego lite\\Application\\ego.exe"],
+      [2, "c:\\program files\\citro labs\\EGO LITE\\Application\\0.6.3.14\\ego-browser.exe"],
+      [3, "C:\\Program Files\\Citro Labs\\ego lite2\\ego.exe"],
+      [4, "D:\\tools\\node.exe"],
     ]);
-    // 10：认得出；11：pid 复用成了 node；12：不在 Job 里；13：在 Job 里但没有 pid 文件指着它（别处起的）
-    expect(recognizedBrowserDaemons([10, 11, 12], [10, 11, 13], exeOf)).toEqual([10]);
+    const exeOf = new Map([
+      [1, "ego.exe"],
+      [2, "ego-browser.exe"],
+      [3, "ego.exe"],
+      [4, "node.exe"],
+      [5, "ego.exe"],
+      [6, "chrome.exe"],
+    ]);
+    // 5：取不到路径、名字是 ego.exe → 留；6：取不到路径、名字不是 → 照旧回收；3：路径在别的目录（名字一样也不算）
+    expect(egoProcesses([1, 2, 3, 4, 5, 6], imageOf, exeOf, dirs)).toEqual([1, 2, 5]);
   });
 
-  it("从 socket 目录读 <会话>.pid：只认整数，别的文件、坏内容跳过；目录不在是空的", () => {
-    const dir = makeTempDir("ergo-ab-sock-");
-    fs.writeFileSync(path.join(dir, "default.pid"), "4242");
-    fs.writeFileSync(path.join(dir, "work.pid"), "  777\r\n");
-    fs.writeFileSync(path.join(dir, "bad.pid"), "abc");
-    fs.writeFileSync(path.join(dir, "default.port"), "58729");
-    fs.writeFileSync(path.join(dir, "default.target"), "{}");
-    expect(readBrowserDaemonPids(dir).toSorted((a, b) => a - b)).toEqual([777, 4242]);
-    expect(readBrowserDaemonPids(path.join(dir, "不在"))).toEqual([]);
+  it("认出来的 ego 进程当根：它下面的进程也留着", () => {
+    // 10 是 agent；20 是 ego.exe（拉起它的 ego-browser 已经退了），21、22 是它的子进程；30 是别的孤儿
+    const parentOf = new Map([
+      [10, 1],
+      [20, 19],
+      [21, 20],
+      [22, 21],
+      [30, 29],
+    ]);
+    const job = [10, 20, 21, 22, 30];
+    const orphans = findOrphans(job, parentOf, new Set([10]));
+    expect(orphans.toSorted()).toEqual([20, 21, 22, 30]);
+    const ego = egoProcesses(orphans, new Map([[20, `${EGO_ROOT}\\Application\\ego.exe`]]), new Map([[20, "ego.exe"], [21, "ego.exe"], [22, "crashpad.exe"], [30, "node.exe"]]), dirs);
+    // 21 取不到路径、名字是 ego.exe；22 取不到路径但挂在 ego 下面
+    expect(findOrphans(job, parentOf, new Set([10, ...ego]))).toEqual([30]);
+  });
+
+  it("程序目录：找到的 ego-browser 所在目录、解开链接后的版本目录和安装目录，加上固定的几处；目录前缀要整段对上", () => {
+    const found = { path: "C:\\Users\\u\\.local\\share\\ego\\active_version_dir\\ego-browser.exe", dir: "C:\\Users\\u\\.local\\share\\ego\\active_version_dir", source: "default" as const };
+    const got = egoProgramDirs({
+      found,
+      env: { ProgramFiles: "C:\\Program Files", "ProgramFiles(x86)": "C:\\Program Files (x86)", LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local" },
+      homeDir: "C:\\Users\\u",
+      platform: "win32",
+      realpath: () => `${EGO_ROOT}\\Application\\0.6.3.14`,
+    });
+    expect(got).toEqual([
+      found.dir,
+      `${EGO_ROOT}\\Application\\0.6.3.14`,
+      EGO_ROOT,
+      "C:\\Program Files (x86)\\Citro Labs\\ego lite",
+      "C:\\Users\\u\\AppData\\Local\\Citro Labs\\ego lite",
+      "C:\\Users\\u\\.local\\share\\ego",
+    ]);
+    // 没找到：只有固定的几处
+    expect(egoProgramDirs({ found: undefined, env: { ProgramFiles: "C:\\Program Files" }, homeDir: "C:\\Users\\u", platform: "win32" })).toEqual([EGO_ROOT, "C:\\Users\\u\\.local\\share\\ego"]);
+    expect(isUnderDirs(`${EGO_ROOT}\\Application\\ego.exe`, [EGO_ROOT], "win32")).toBe(true);
+    expect(isUnderDirs(`${EGO_ROOT} beta\\ego.exe`, [EGO_ROOT], "win32")).toBe(false);
+    expect(isUnderDirs("/Applications/ego lite.app/Contents/MacOS/ego", ["/Applications/ego lite.app"], "darwin")).toBe(true);
   });
 });
 
@@ -97,5 +125,9 @@ describe.runIf(process.platform === "win32")("进程快照和创建时间（Wind
     const times = processCreationTimes([process.pid, 0x7ffffff0]);
     expect(Math.abs(times.get(process.pid)! - started)).toBeLessThan(2000);
     expect(times.has(0x7ffffff0)).toBe(false);
+    // 可执行文件的完整路径（466：认 ego lite 的进程用）
+    const images = processImagePaths([process.pid, 0x7ffffff0]);
+    expect(images.get(process.pid)?.toLowerCase()).toBe(process.execPath.toLowerCase());
+    expect(images.has(0x7ffffff0)).toBe(false);
   });
 });

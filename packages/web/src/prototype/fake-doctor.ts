@@ -238,6 +238,13 @@ function kernelItems(): DoctorItemView[] {
         },
       },
     ),
+    // ego 浏览器（466）：装了、这会儿没开着——算正常，agent 要用时二狗会替用户打开
+    keyed(
+      "ego-browser",
+      "ok",
+      { key: "doctor.check.egoBrowser.title" },
+      { key: "doctor.egoBrowser.notRunning", params: { path: "C:\\Users\\xiaoming\\.local\\share\\ego\\active_version_dir\\ego-browser.exe", version: "0.6.3.14" } },
+    ),
   ];
 }
 

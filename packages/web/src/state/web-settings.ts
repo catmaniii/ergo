@@ -22,8 +22,8 @@ export const WEB_METHOD_TRAIT: Readonly<Record<WebMethod, string>> = Object.free
   get browser() {
     return t("state.webSettings.trait.browser");
   },
-  get "agent-browser"() {
-    return t("state.webSettings.trait.agentBrowser");
+  get "ego-browser"() {
+    return t("state.webSettings.trait.egoBrowser");
   },
   get "app-browser"() {
     return t("state.webSettings.trait.appBrowser");
@@ -40,7 +40,7 @@ const tool = (text: string): WebToolPart => ({ kind: "tool", text });
 
 /**
  * 这种方式用哪些英文工具：DeepSeek、浏览器是 web_search（写各自的 engine）、web_fetch（直接请求被拦时由它代读）；
- * agent-browser 是 bash 里的命令；内置浏览器是秘书的 browse_* 工具。句子按当前语言（工具名、engine 原样）
+ * ego 浏览器是 bash 里的 ego-browser 命令；内置浏览器是秘书的 browse_* 工具。句子按当前语言（工具名、engine 原样）
  */
 export function webMethodTools(method: WebMethod): WebToolPart[] {
   const parts =
@@ -50,8 +50,8 @@ export function webMethodTools(method: WebMethod): WebToolPart[] {
           engine: { kind: "engine", text: method === "deepseek" ? "engine: deepseek" : "engine: browser / ddg / bing / google" },
           fetch: tool("web_fetch"),
         })
-      : method === "agent-browser"
-        ? tParts("state.webSettings.tools.agentBrowser", { command: tool("agent-browser") })
+      : method === "ego-browser"
+        ? tParts("state.webSettings.tools.egoBrowser", { command: tool("ego-browser") })
         : tParts("state.webSettings.tools.appBrowser", {
             open: tool("browse_open"),
             read: tool("browse_read_page"),

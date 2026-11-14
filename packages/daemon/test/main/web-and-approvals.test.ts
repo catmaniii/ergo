@@ -80,6 +80,8 @@ describe("秘书的联网搜索、读网页（假的实现）", () => {
       secretary: [call("web_search", { query: "二狗 天气", n: 2 }), call("web_fetch", { url: "https://a.example/1" }), { kind: "echo_context" }],
       webAccess: web,
       config: approvals("off"),
+      // 466：假的 ego-browser（只看说明、交给实现的）
+      egoBrowser: path.join(makeTempDir("ergo-fake-ego-"), "ego-browser.exe"),
     });
     await tell(frontend, "查一下天气");
 
@@ -87,9 +89,9 @@ describe("秘书的联网搜索、读网页（假的实现）", () => {
     expect(search).toMatchObject({ tool: "web_search", argsSummary: "二狗 天气", categoryTitles: [], disposition: "do", genericBash: false, outcome: "done" });
     expect(search!.resultSummary).toMatch(/^搜索: 二狗 天气 （浏览器 ddg，2 条） 1\. 二狗 天气 一/);
     expect(fetchPart).toMatchObject({ tool: "web_fetch", argsSummary: "https://a.example/1", categoryTitles: [], disposition: "do", outcome: "done" });
-    // 秘书有 bash：联网工具交给实现"这个 agent 能用 agent-browser"；秘书有 browse_* 工具，交给实现这一轮（秘书页签里发的）用不了内置浏览器
-    expect(web.searches).toEqual([{ query: "二狗 天气", n: 2, agentBrowser: true, appBrowser: false }]);
-    expect(web.fetches).toEqual([{ url: "https://a.example/1", max: 8000, agentBrowser: true, appBrowser: false }]);
+    // 秘书有 bash、找得到 ego-browser：联网工具交给实现"这个 agent 能用 ego 浏览器"；秘书有 browse_* 工具，交给实现这一轮（秘书页签里发的）用不了内置浏览器
+    expect(web.searches).toEqual([{ query: "二狗 天气", n: 2, egoBrowser: true, appBrowser: false }]);
+    expect(web.fetches).toEqual([{ url: "https://a.example/1", max: 8000, egoBrowser: true, appBrowser: false }]);
     const seen = lastEcho(frontend);
     expect(seen).toContain("[toolResult] web_search: 搜索: 二狗 天气 （浏览器 ddg，2 条）");
     expect(seen).toContain("今天晴，25 度");

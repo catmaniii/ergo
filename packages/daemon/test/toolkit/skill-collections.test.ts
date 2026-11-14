@@ -433,17 +433,17 @@ describe("把一个目录作为集合导入", () => {
 });
 
 describe("秘书用的 skill", () => {
-  it("没有设置文件按默认的 agent-browser、yt-dlp（库里还没有的悄悄跳过，导入后自动装上）；只能选库里有的；改了通知、名单没变不通知；文件写错了按默认的并说明", () => {
+  it("没有设置文件按默认的 ego-browser、yt-dlp（库里还没有的悄悄跳过，导入后自动装上）；只能选库里有的；改了通知、名单没变不通知；文件写错了按默认的并说明", () => {
     const { lib, dataDir, userDir, logs } = library();
     const file = path.join(dataDir, "config", "secretary-skills.json");
     const skills = createSecretarySkills({ file, library: lib, log: (l) => logs.push(l) });
     let changes = 0;
     skills.onChange(() => changes++);
-    expect(skills.view()).toEqual({ skills: ["agent-browser", "yt-dlp"], isDefault: true, promptChars: 0, promptBytes: 0 });
+    expect(skills.view()).toEqual({ skills: ["ego-browser", "yt-dlp"], isDefault: true, promptChars: 0, promptBytes: 0 });
     expect(skills.paths()).toEqual([]);
     writeSkill(path.join(userDir, "yt-dlp"), "yt-dlp", "下载视频");
     expect(skills.paths()).toEqual([path.join(userDir, "yt-dlp")]);
-    expect(logs.filter((l) => l.includes("agent-browser"))).toEqual([]);
+    expect(logs.filter((l) => l.includes("ego-browser"))).toEqual([]);
 
     expect(rejection(() => skills.set(["yt-dlp", "nope"]))).toMatchObject({ code: "bad_params", message: expect.stringContaining("skill 库里没有 nope") });
     expect(changes).toBe(0);
@@ -462,13 +462,36 @@ describe("秘书用的 skill", () => {
     expect(skills.set([])).toEqual({ skills: [], isDefault: false, promptChars: 0, promptBytes: 0 });
     expect(skills.paths()).toEqual([]);
     // 改过名单之后，默认的两个照样可以先于导入留着（导入后自动装上），别的不行
-    expect(skills.set(["agent-browser", "yt-dlp"])).toMatchObject({ skills: ["agent-browser", "yt-dlp"], isDefault: false });
+    expect(skills.set(["ego-browser", "yt-dlp"])).toMatchObject({ skills: ["ego-browser", "yt-dlp"], isDefault: false });
     expect(skills.paths()).toEqual([path.join(userDir, "yt-dlp")]);
-    writeSkill(path.join(userDir, "agent-browser"), "agent-browser", "浏览器");
-    expect(skills.paths()).toEqual([path.join(userDir, "agent-browser"), path.join(userDir, "yt-dlp")]);
+    writeSkill(path.join(userDir, "ego-browser"), "ego-browser", "浏览器");
+    expect(skills.paths()).toEqual([path.join(userDir, "ego-browser"), path.join(userDir, "yt-dlp")]);
     expect(logs.filter((l) => l.includes("不在 skill 库里"))).toEqual([]);
 
     fs.writeFileSync(file, "{ 坏了");
-    expect(skills.view()).toMatchObject({ skills: ["agent-browser", "yt-dlp"], isDefault: true, problem: expect.stringContaining("读不了") });
+    expect(skills.view()).toMatchObject({ skills: ["ego-browser", "yt-dlp"], isDefault: true, problem: expect.stringContaining("读不了") });
+  });
+
+  it("466：replace 把名单里的一个名字原位换成另一个（另一个已经在就只去掉它），别的不动，写文件、通知；没有文件、没有它、文件坏了都不动", () => {
+    const { lib, dataDir, logs } = library();
+    const file = path.join(dataDir, "config", "secretary-skills.json");
+    const skills = createSecretarySkills({ file, library: lib, log: (l) => logs.push(l) });
+    let changes = 0;
+    skills.onChange(() => changes++);
+    // 没有文件：用的是默认的（默认已经是 ego-browser），不动、不写文件
+    expect(skills.replace("agent-browser", "ego-browser")).toBe(false);
+    expect(fs.existsSync(file)).toBe(false);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ format: 1, skills: ["yt-dlp", "agent-browser", "notes"] }));
+    expect(skills.replace("agent-browser", "ego-browser")).toBe(true);
+    expect(JSON.parse(fs.readFileSync(file, "utf8"))).toEqual({ format: 1, skills: ["yt-dlp", "ego-browser", "notes"] });
+    expect(changes).toBe(1);
+    expect(skills.replace("agent-browser", "ego-browser")).toBe(false);
+    fs.writeFileSync(file, JSON.stringify({ format: 1, skills: ["ego-browser", "agent-browser"] }));
+    expect(skills.replace("agent-browser", "ego-browser")).toBe(true);
+    expect(JSON.parse(fs.readFileSync(file, "utf8")).skills).toEqual(["ego-browser"]);
+    fs.writeFileSync(file, "{ 坏了");
+    expect(skills.replace("agent-browser", "ego-browser")).toBe(false);
+    expect(changes).toBe(2);
   });
 });

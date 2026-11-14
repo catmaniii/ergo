@@ -141,7 +141,7 @@
 // 不带 provider 时按设置里选的服务商写它的密钥文件（deepseek 或自定义服务商 custom），带了就写点名那个（不是登记表里的回 400）；
 // 权限收紧、先写临时文件再改名；key 原样不回显、不进日志、不进错误信息。
 //
-// 设置里 agent 的联网搜索、读网页（是 DeepSeek、浏览器、agent-browser 三种方式的队列）：GET /api/web-settings 取
+// 设置里 agent 的联网搜索、读网页（是 DeepSeek、浏览器、ego 浏览器三种方式的队列；466 之前第三种是 agent-browser）：GET /api/web-settings 取
 // （WebSettingsView：存着的队列、实际用的顺序、DeepSeek 的 key 配没配、最近一次余额不足）；POST /api/web-settings 整份存（请求体
 // WebSettingsBody，回 WebSettingsView；同样的再存没有变化，不带幂等键；三种不是各一项、一个启用的都没留回 400），下一次搜索、读网页就按新的。
 //

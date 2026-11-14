@@ -28,16 +28,16 @@ export interface FetchedPage {
 }
 
 /**
- * 直接请求和后面的几条都没读到：说法直接给模型看；agentBrowser 是设置里还启用着 agent-browser、发起调用的 agent 用得了（
+ * 直接请求和后面的几条都没读到：说法直接给模型看；egoBrowser 是设置里还启用着 ego 浏览器、发起调用的 agent 用得了（
  * 工具提示用它），appBrowser 同样是鸿蒙 App 的内置浏览器（启用着、这一轮用得了）
  */
 export class FetchFailed extends Error {
   override readonly name = "FetchFailed";
-  readonly agentBrowser: boolean;
+  readonly egoBrowser: boolean;
   readonly appBrowser: boolean;
-  constructor(message: string, options: { agentBrowser?: boolean; appBrowser?: boolean } = {}) {
+  constructor(message: string, options: { egoBrowser?: boolean; appBrowser?: boolean } = {}) {
     super(message);
-    this.agentBrowser = options.agentBrowser === true;
+    this.egoBrowser = options.egoBrowser === true;
     this.appBrowser = options.appBrowser === true;
   }
 }
@@ -171,10 +171,10 @@ export function isPrivateUrl(url: string): boolean {
  * 读网页：先直接请求，被拦、不成功、网络出错、超时时按 after 的顺序换：DeepSeek 读网页（给了 deepseek、不是本机内网的网址时）、
  * 浏览器（顺序和用不用都照设置里的队列；不给 after 是 DeepSeek → 浏览器）。前面的没读到时，后面读到的结果里多一行"说明"
  * 写明前面的原因（只是直接请求没成不写，浏览器的结果里本来就有 HTTP 状态）。都不行时抛 FetchFailed（每一条的原因都说清楚；
- * agentBrowser、appBrowser 照传进来的，工具据此提示用 agent-browser、内置浏览器）。limits 默认是 DIRECT_TIMEOUT_MS、DIRECT_MAX_BYTES（测试里换小的）
+ * egoBrowser、appBrowser 照传进来的，工具据此提示用 ego 浏览器、内置浏览器）。limits 默认是 DIRECT_TIMEOUT_MS、DIRECT_MAX_BYTES（测试里换小的）
  */
 export async function webFetch(
-  deps: { fetch: FetchFunction; browser: BrowserDriver; deepseek?: Pick<DeepSeekTools, "fetch"> | undefined; after?: readonly ("deepseek" | "browser")[]; agentBrowser?: boolean; appBrowser?: boolean },
+  deps: { fetch: FetchFunction; browser: BrowserDriver; deepseek?: Pick<DeepSeekTools, "fetch"> | undefined; after?: readonly ("deepseek" | "browser")[]; egoBrowser?: boolean; appBrowser?: boolean },
   req: FetchRequest,
   options: { signal?: AbortSignal | undefined; log?: (line: string) => void; limits?: DirectLimits } = {},
 ): Promise<FetchedPage> {
@@ -218,5 +218,5 @@ export async function webFetch(
     }
     laterFailed = true;
   }
-  throw new FetchFailed(`没读到 ${url}：${tried.join("；")}`, { agentBrowser: deps.agentBrowser === true, appBrowser: deps.appBrowser === true });
+  throw new FetchFailed(`没读到 ${url}：${tried.join("；")}`, { egoBrowser: deps.egoBrowser === true, appBrowser: deps.appBrowser === true });
 }

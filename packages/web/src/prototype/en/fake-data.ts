@@ -235,6 +235,7 @@ export const EN_DATA: Phrases = {
   "公司电脑 · Edge（Windows 11）": "Work PC · Edge (Windows 11)",
   "经隧道 · 192.0.2.80": "Via tunnel · 192.0.2.80",
   "框架自带的示例 skill，演示 skill 的写法（假数据）。": "Sample skill that ships with the framework, shows how to write one (demo data).",
+  "用你电脑上的 ego 浏览器操作网页：用你登录好的网站，要登录、过验证码时把那一页交给你（假数据）。": "Operates web pages with the ego browser on your computer: uses the sites you're signed in to, and hands you the page when it needs a sign-in or a CAPTCHA (demo data).",
   "读 PDF、抽取文字和表格（假数据）。": "Read PDFs, pull out text and tables (demo data).",
   "识别小票和发票上的金额（假数据）。": "Read amounts off receipts and invoices (demo data).",
   "按拍摄时间和地点给照片分组（假数据）。": "Group photos by time and place (demo data).",

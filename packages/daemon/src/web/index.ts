@@ -1,8 +1,8 @@
-// 联网工具：联网搜索、读网页（守护进程代为执行），以及它们和 agent-browser 共用的浏览器探测。别处只从这里取东西。
+// 联网工具：联网搜索、读网页（守护进程代为执行）、它们用的浏览器探测，以及 agent 用的 ego 浏览器在哪（466）。别处只从这里取东西。
 export {
   AllSearchesFailed,
   createWebAccess,
-  OnlyAgentBrowser,
+  OnlyEgoBrowser,
   SearchMethodsUnusable,
   type SearchRequest,
   WEB_SEARCH_ENGINES,
@@ -37,6 +37,28 @@ export {
   systemChromePaths,
   systemEdgePaths,
 } from "./browser-path.ts";
+export {
+  createEgoBrowserLocator,
+  egoVersionFromPath,
+  EGO_BROWSER_COMMAND,
+  EGO_LITE_URL,
+  EGO_MISS_TTL_MS,
+  egoDefaultCandidates,
+  egoExeName,
+  egoLiteRunning,
+  type EgoBrowserFound,
+  type EgoBrowserLocator,
+  type EgoBrowserProbe,
+  type EgoBrowserSource,
+  egoProgramDirs,
+  expandWindowsVars,
+  findEgoBrowser,
+  isEgoProgramName,
+  isUnderDirs,
+  pathDirs,
+  realEgoProbe,
+} from "./ego-browser.ts";
+export { type EgoAgentPath, prepareEgoShim } from "./ego-shim.ts";
 export {
   DIRECT_MAX_BYTES,
   DIRECT_TIMEOUT_MS,
@@ -94,5 +116,5 @@ export {
   webSearch,
 } from "./search.ts";
 export { engineBlocked, engineMethod, fetchPlan, isToolMethod, type ModelMethod, type SearchPlan, searchEngines, searchPlan, type NextModel, type ToolMethod } from "./queue.ts";
-export { type AppBrowserTurn, appBrowserTurnNote, searchResultText, WEB_FETCH_DEFAULT_MAX, WEB_SEARCH_DEFAULT_N, type WebBilledCall, webFetchDescription, webSearchDescription, type WebToolsSetup, webTools } from "./tools.ts";
+export { type AppBrowserTurn, appBrowserTurnNote, type EgoBrowserUse, searchResultText, WEB_FETCH_DEFAULT_MAX, WEB_SEARCH_DEFAULT_N, type WebBilledCall, webFetchDescription, webSearchDescription, type WebToolsSetup, webTools } from "./tools.ts";
 export { createWebSettings, type WebSettingsOptions, type WebSettingsService } from "./web-settings.ts";

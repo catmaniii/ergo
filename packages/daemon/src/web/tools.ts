@@ -6,26 +6,29 @@
 // engine 多了 deepseek（DeepSeek 的搜索接口）、browser（浏览器的整条回退链）、tavily。
 // DeepSeek 的结果多写站点、日期、长摘要和"优质""权威"的提示，json 给原样的字段；换了路的写一句说明。
 // DeepSeek 只对成功、有结果的调用计费，"结果来自 DeepSeek"就是计费了：交给 onBilled 记账（记在发起调用的 agent 名下，daemon.ts 接账本）。
-// 设置里的联网搜索改成 DeepSeek、浏览器、agent-browser 三种方式的队列：
+// 设置里的联网搜索改成 DeepSeek、浏览器、ego 浏览器（466 之前是 agent-browser）三种方式的队列：
 // - 工具说明、能写的 engine 每次装配时按队列现写（setup）：写明用户排的顺序；停用了的、没配 key 的方式不写、engine 里也没有
 //   （模型看到说明里有 deepseek 就自己去指定），Tavily 配了 key 才写；
-// - agent-browser 是模型自己在 bash 里操作的，它在队列里的位置写进说明（这个 agent 有 bash 时）：排第一先用它、排中间 / 最后什么时候用、
-//   停用了别拿它搜（skill 照旧能操作网页、下载文件）、只启用了它时别调 web_search；都附上"别用管道接它的输出"；
-// - 结果的标题行写明用了哪种；只用 agent-browser、指定的方式停用了、试到 agent-browser 为止、读网页都没读到时说清楚接下来怎么办。
+// - ego 浏览器是模型自己在 bash 里用 ego-browser 操作用户电脑上的 ego lite，它在队列里的位置写进说明（这个 agent 有 bash、
+//   这台电脑找得到 ego-browser 时，web/ego-browser.ts）：排第一先用它、排中间 / 最后什么时候用、停用了别拿它搜（skill 照旧能操作网页、
+//   下载文件）、只启用了它时别调 web_search；都附上"要登录、过验证码的交给用户"。有 bash 却找不到 ego-browser 时写"ego 浏览器没装"
+//   （去哪装），web_search 当它不在队列里；
+// - 结果的标题行写明用了哪种；只用 ego 浏览器、指定的方式停用了、试到 ego 浏览器为止、读网页都没读到时说清楚接下来怎么办。
 // 队列多第四种"鸿蒙 App 的内置浏览器"：秘书在浏览侧边栏、悬浮按钮那一轮用 browse_* 工具在用户手机上的浏览器里搜：
 // - 只给有 browse_* 工具的 agent（秘书）写它：工具说明是装配时写的、不分哪一轮（换说明要重新装配，前缀缓存失效，就为此
 //   没按轮换工具），所以说明写清"只在侧边栏、悬浮按钮那一轮算数、那一轮的顺序"，那一轮交给秘书的输入后面再加一句（appBrowserTurnNote）；
 // - 那一轮（appBrowser(call) 给出发消息那台设备的搜索引擎）web_search 试到它为止、停下，给出那台设备"浏览"里的搜索引擎的结果页地址，
 //   让秘书 browse_open 打开再读、看、点；排第一时一种都不试（验收："内置浏览器排第一时，web_search 停下让模型先用 browse_*"）；
-// - 停用了：说明里写别拿它搜索，用户明确要操作网页时 browse_* 照旧能用（和 agent-browser 一样）。
+// - 停用了：说明里写别拿它搜索，用户明确要操作网页时 browse_* 照旧能用（和 ego 浏览器一样）。
 // @i18n-ignore-file model：工具说明、参数说明、结果和出错的说明都是给模型看的；工具的名字在守卫的工具注册表里
 import { type BrowseSearchEngineId, browseSearchUrl, type Static, type TSchema, Type, WEB_METHODS, type WebCallKind, type WebCallService, type WebMethod } from "@ergo/protocol";
 import { defineHostTool, type HostTool, type HostToolCall, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import { BROWSE_CLICK_TOOL, BROWSE_OPEN_TOOL, BROWSE_READ_PAGE_TOOL, BROWSE_SNAPSHOT_TOOL } from "../browsing/api.ts";
 import { BUILTIN_TOOL_REGISTRY, findTool, TOOL } from "../guard/index.ts";
-import { AllSearchesFailed, OnlyAgentBrowser, SearchMethodsUnusable, type WEB_SEARCH_ENGINES, type WebAccess, WebMethodUnavailable, type WebSearchEngine } from "./access.ts";
+import { AllSearchesFailed, OnlyEgoBrowser, SearchMethodsUnusable, type WEB_SEARCH_ENGINES, type WebAccess, WebMethodUnavailable, type WebSearchEngine } from "./access.ts";
 import { BrowserUnavailable } from "./browser.ts";
 import { DEEPSEEK_AUTHORITY_HIGH, DEEPSEEK_GOOD_SCORE, DeepSeekFailed } from "./deepseek.ts";
+import { EGO_LITE_URL } from "./ego-browser.ts";
 import { FetchFailed } from "./fetch.ts";
 import { isToolMethod, type ModelMethod, searchEngines, searchPlan, type ToolMethod } from "./queue.ts";
 import { SEARCH_TIMES, type SearchFound, type SearchResult, SearchFailed, type SearchTime, TavilyFailed, TavilyKeyMissing } from "./search.ts";
@@ -61,11 +64,19 @@ export interface AppBrowserTurn {
   engine: BrowseSearchEngineId;
 }
 
+/**
+ * 这个 agent 用不用得了 ego 浏览器：true 是有 bash、找得到 ego-browser；"missing" 是有 bash、这台电脑没装 ego lite（找不到命令）；
+ * false 是没有 bash
+ */
+export type EgoBrowserUse = boolean | "missing";
+
 /** 说明里的叫法 */
-const NAME: Readonly<Record<WebMethod, string>> = { deepseek: "DeepSeek", browser: "浏览器", "agent-browser": "agent-browser", "app-browser": "鸿蒙 App 的内置浏览器" };
-const AB = "agent-browser（浏览器命令行，在 bash 里跑，用法见 agent-browser skill，或在 bash 里跑 agent-browser skills get core）";
-const AB_USE = "在 bash 里跑，用法见 agent-browser skill，或在 bash 里跑 agent-browser skills get core";
-const AB_PIPE = "用 agent-browser 时别用管道接它的输出（| head、| cat 会卡住），把输出重定向到文件再读（比如 agent-browser … > ab.txt 2>&1）。";
+const NAME: Readonly<Record<WebMethod, string>> = { deepseek: "DeepSeek", browser: "浏览器", "ego-browser": "ego 浏览器", "app-browser": "鸿蒙 App 的内置浏览器" };
+const EGO = "ego 浏览器（ego-browser 命令：在 bash 里跑脚本，操作用户电脑上的 ego lite，用的是用户登录好的网站；用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）";
+const EGO_USE = "在 bash 里跑 ego-browser，用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill";
+const EGO_NOTE = "用 ego 浏览器时要登录、过验证码的交给用户（task.handOff()，告诉用户去电脑上的 ego 里操作），不猜密码、不绕过验证；ego lite 没开着不用管，跑 ego-browser 时二狗会替用户打开；打不开时命令输出会说原因，照着请用户自己打开。";
+const EGO_MISSING = "这台电脑没装 ego lite（找不到 ego-browser 命令）";
+const EGO_INSTALL = `用户要用时告诉他去 ${EGO_LITE_URL} 装 ego lite、走完首次引导（二狗下次拉起 agent 时会重新找）`;
 const ENABLE_OTHERS = "要联网查资料，告诉用户去设置 · 浏览与填框里启用别的方式。";
 const APP = NAME["app-browser"];
 /** 用内置浏览器搜：打开什么（"它"是结果页的地址）、再怎么看 */
@@ -119,34 +130,34 @@ export function searchResultText(query: string, found: SearchFound, json = false
 const spaced = (text: string, trailing = true) => `${/^[A-Za-z0-9]/.test(text) ? " " : ""}${text}${trailing && /[A-Za-z0-9]$/.test(text) ? " " : ""}`;
 
 /**
- * agent-browser 在队列里的位置写成一两句（这个 agent 有 bash 时；queue 里至少有一种工具自己能做的，不含鸿蒙 App 的内置浏览器——
+ * ego 浏览器在队列里的位置写成一两句（这个 agent 有 bash、找得到 ego-browser 时；queue 里至少有一种工具自己能做的，不含鸿蒙 App 的内置浏览器——
  * 它只在侧边栏、悬浮按钮那一轮算数，那一轮的顺序由 appBrowserHint 另写）
  */
-function agentBrowserHint(queue: readonly WebMethod[]): string {
-  const at = queue.indexOf("agent-browser");
-  if (at < 0) return `agent-browser 在设置里停用了联网搜索：别拿它来搜索；操作网页、下载文件照旧能用它。${AB_PIPE}`;
+function egoBrowserHint(queue: readonly WebMethod[]): string {
+  const at = queue.indexOf("ego-browser");
+  if (at < 0) return `ego 浏览器在设置里停用了联网搜索：别拿它来搜索；操作网页、下载文件、用用户登录好的网站照旧能用它。${EGO_NOTE}`;
   const before = queue.slice(0, at) as ToolMethod[];
   const after = queue.slice(at + 1) as ToolMethod[];
-  const tail = `下载图片、PDF 这类文件用 agent-browser 或 bash（web_fetch 只读文字）。${AB_PIPE}`;
-  if (at === 0) return `agent-browser 排第一：搜索、下载先用 ${AB}，用不成再调 web_search（按${spaced(after.map((m) => NAME[m]).join(" → "))}的顺序试）。${tail}`;
-  if (after.length === 0) return `web_search 都没搜成时再用 ${AB}搜。${tail}`;
+  const tail = `下载图片、PDF 这类文件，或者要用用户登录好的网站时，用 ego 浏览器或 bash（web_fetch 只读文字、不带登录）。${EGO_NOTE}`;
+  if (at === 0) return `ego 浏览器排第一：搜索、下载先用 ${EGO}，用不成再调 web_search（按${spaced(after.map((m) => NAME[m]).join(" → "))}的顺序试）。${tail}`;
+  if (after.length === 0) return `web_search 都没搜成时再用 ${EGO}搜。${tail}`;
   const names = before.map((m) => NAME[m]).join("、");
-  return `agent-browser 排在${spaced(names)}后面：不填 engine 时 web_search 只试${spaced(names, false)}，没成就停下，这时用 ${AB}搜；还不成再调 web_search，engine ${after.length === 1 ? `写 ${after[0]}` : `依次写 ${after.join("、")}`}。${tail}`;
+  return `ego 浏览器排在${spaced(names)}后面：不填 engine 时 web_search 只试${spaced(names, false)}，没成就停下，这时用 ${EGO}搜；还不成再调 web_search，engine ${after.length === 1 ? `写 ${after[0]}` : `依次写 ${after.join("、")}`}。${tail}`;
 }
 
-/** 内置浏览器那一轮的顺序：agent-browser 只在这个 agent 有 bash 时算 */
-const sideOrder = (queue: readonly WebMethod[], agentBrowser: boolean) => queue.filter((m) => m !== "agent-browser" || agentBrowser);
+/** 内置浏览器那一轮的顺序：ego 浏览器只在这个 agent 用得了它时算 */
+const sideOrder = (queue: readonly WebMethod[], egoBrowser: boolean) => queue.filter((m) => m !== "ego-browser" || egoBrowser);
 
 /**
  * 鸿蒙 App 的内置浏览器在队列里的位置（只给有 browse_* 工具的 agent，就是秘书）：说明是装配时写的、不分哪一轮，所以写清
  * 只在侧边栏、悬浮按钮那一轮算数、那一轮的顺序和 web_search 什么时候停下；停用了写别拿它搜索、操作网页照旧能用
  */
-function appBrowserHint(queue: readonly WebMethod[], agentBrowser: boolean): string {
+function appBrowserHint(queue: readonly WebMethod[], egoBrowser: boolean): string {
   if (!queue.includes("app-browser")) return `${APP}在设置里停用了联网搜索：别拿它来搜索；用户明确要你在网页上点、填框、交文件时 browse_* 工具照旧能用（停用只是不拿它来搜索）。`;
-  const side = sideOrder(queue, agentBrowser);
+  const side = sideOrder(queue, egoBrowser);
   const head = `${APP}（用户手机上二狗 App「浏览」里的浏览器，用户看得见你在做什么）${APP_TURNS}算进联网搜索的顺序，别的轮次跳过它、web_search 照其余的顺序试。`;
   const open = `用 ${BROWSE_OPEN_TOOL} 打开它或者目标网站，${APP_LOOK}`;
-  const plan = searchPlan(queue, agentBrowser, true);
+  const plan = searchPlan(queue, egoBrowser, true);
   const order = side[0] === "app-browser" ? "那一轮它排第一：" : `那一轮的顺序是 ${side.map((m) => NAME[m]).join(" → ")}：`;
   if (plan.kind !== "try" || plan.next?.method !== "app-browser") return `${head}${order}它排在后面，前面的都没成时再用（web_search 停下时会写明，给出搜索结果页的地址），${open}。`;
   const stop =
@@ -157,28 +168,31 @@ function appBrowserHint(queue: readonly WebMethod[], agentBrowser: boolean): str
 }
 
 /** 启用的只有模型自己操作的方式时（队列里没有 DeepSeek、浏览器）说明里的那句 */
-function onlyModelText(queue: readonly WebMethod[], agentBrowser: boolean, appBrowser: boolean): string {
+function onlyModelText(queue: readonly WebMethod[], egoBrowser: EgoBrowserUse, appBrowser: boolean): string {
   const models = queue.filter((m): m is ModelMethod => !isToolMethod(m));
-  const onlyAb =
-    agentBrowser
-      ? `用户在设置里只启用了 agent-browser 来联网搜索：用 ${AB}搜索、下载，不要调 web_search（会直接回“只用 agent-browser”）；读网页可以先用 web_fetch。${AB_PIPE}`
-      : `用户在设置里只启用了 agent-browser 来联网搜索，你这里没有 bash，用不了它，也就搜不了；${ENABLE_OTHERS}`;
+  const onlyEgo =
+    egoBrowser === true
+      ? `用户在设置里只启用了 ego 浏览器来联网搜索：用 ${EGO}搜索、下载，不要调 web_search（会直接回“只用 ego 浏览器”）；读网页可以先用 web_fetch。${EGO_NOTE}`
+      : egoBrowser === "missing"
+        ? `用户在设置里只启用了 ego 浏览器来联网搜索，可${EGO_MISSING}，也就搜不了；${EGO_INSTALL}，或者去设置 · 浏览与填框里启用别的方式。`
+        : `用户在设置里只启用了 ego 浏览器来联网搜索，你这里没有 bash，用不了它，也就搜不了；${ENABLE_OTHERS}`;
   if (models.length === 0) return "用户在设置里停用了联网搜索的各种方式。";
-  if (models.length === 1 && models[0] === "agent-browser") return onlyAb;
+  if (models.length === 1 && models[0] === "ego-browser") return onlyEgo;
   const appUse = `${APP_TURNS}能用——那一轮调 web_search 会直接停下、给出搜索结果页的地址，用 ${BROWSE_OPEN_TOOL} 打开它或者目标网站，${APP_LOOK}`;
   if (models.length === 1) return appBrowser ? `用户在设置里只启用了${APP}来联网搜索：${appUse}；别的轮次搜不了，${ENABLE_OTHERS}` : `用户在设置里只启用了${APP}来联网搜索，你这里用不了它，也就搜不了；${ENABLE_OTHERS}`;
   // 两种都启用了
+  const usable = egoBrowser === true;
   return [
     `用户在设置里只启用了${spaced(models.map((m) => NAME[m]).join(" → "))}来联网搜索。`,
-    agentBrowser ? `用 ${AB}搜索、下载；${AB_PIPE}` : "你这里没有 bash，用不了 agent-browser。",
+    usable ? `用 ${EGO}搜索、下载；${EGO_NOTE}` : egoBrowser === "missing" ? `${EGO_MISSING}，用不了 ego 浏览器；${EGO_INSTALL}。` : "你这里没有 bash，用不了 ego 浏览器。",
     appBrowser ? `${APP}${appUse}。` : `你这里用不了${APP}。`,
-    agentBrowser || appBrowser ? "" : ENABLE_OTHERS,
+    usable || appBrowser ? "" : ENABLE_OTHERS,
   ].join("");
 }
 
 /**
  * 侧边栏、悬浮按钮那一轮交给秘书的输入后面加的一句（agent-input.ts 接在网页上下文那段里）：这一轮联网搜索算上鸿蒙 App 的
- * 内置浏览器、设置里的顺序；停用了不写（undefined）。queue 是实际用的顺序，秘书有 bash，agent-browser 照算
+ * 内置浏览器、设置里的顺序；停用了不写（undefined）。queue 是实际用的顺序（秘书有 bash，ego 浏览器照列）
  */
 export function appBrowserTurnNote(queue: readonly WebMethod[]): string | undefined {
   if (!queue.includes("app-browser")) return undefined;
@@ -186,19 +200,19 @@ export function appBrowserTurnNote(queue: readonly WebMethod[]): string | undefi
 }
 
 /**
- * web_search 的说明（按队列现写）：setup 是设置里的队列，agentBrowser 是这个 agent 能不能用 agent-browser（有 bash；
- * 不给是不知道，不提 agent-browser），appBrowser 是这个 agent 有没有 browse_* 工具（秘书：不给就不提鸿蒙 App 的内置浏览器）
+ * web_search 的说明（按队列现写）：setup 是设置里的队列，egoBrowser 是这个 agent 用不用得了 ego 浏览器（EgoBrowserUse；
+ * 不给是不知道，不提 ego 浏览器），appBrowser 是这个 agent 有没有 browse_* 工具（秘书：不给就不提鸿蒙 App 的内置浏览器）
  */
-export function webSearchDescription(setup: WebToolsSetup, agentBrowser?: boolean, appBrowser?: boolean): string {
+export function webSearchDescription(setup: WebToolsSetup, egoBrowser?: EgoBrowserUse, appBrowser?: boolean): string {
   const intro =
     "联网搜索，返回标题、链接、摘要。要最新的、实时的信息（新闻、价格、版本号、最新文档），要查证一个事实、找官方文档或教程链接，或者你不确定、可能记错时，先搜再答，不要凭空编。" +
     "摘要不够回答时，挑一两个最相关的链接用 web_fetch 读正文。回答里带上来源链接。";
-  const queue = setup.queue.filter((m) => (m === "agent-browser" ? agentBrowser === true : m === "app-browser" ? appBrowser === true : true));
+  const queue = setup.queue.filter((m) => (m === "ego-browser" ? egoBrowser === true : m === "app-browser" ? appBrowser === true : true));
   const tools = queue.filter(isToolMethod);
   const engines = searchEngines(setup.queue, setup.tavily);
   const options = `选项：n 条数、time 时间范围、${engines.length > 0 ? "engine 指定方式、" : ""}region 地区和语言、${setup.tavily ? "tavily 用 Tavily、" : ""}json 结果写成 JSON。`;
   if (tools.length === 0) {
-    const why = onlyModelText(setup.queue, agentBrowser === true, appBrowser === true);
+    const why = onlyModelText(setup.queue, egoBrowser ?? false, appBrowser === true);
     return `${intro}${why}${setup.tavily ? "tavily：Tavily 的接口（只在 engine 写 tavily 时用）。" : ""}${options}`;
   }
   const parts = [
@@ -213,8 +227,9 @@ export function webSearchDescription(setup: WebToolsSetup, agentBrowser?: boolea
     ...(tools.includes("browser") ? ["browser：浏览器真实渲染搜索结果页，不花钱，首次要几秒，ddg → bing → google 依次试；要某个引擎自己的结果页时 engine 写 ddg、bing 或 google（只用它，不回退）。"] : []),
     ...(setup.tavily ? ["tavily：Tavily 的接口（只在 engine 写 tavily 时用）。"] : []),
     "engine 只能写上面这几种，写了就只用那一种、没成不换。",
-    ...(agentBrowser === true ? [agentBrowserHint(setup.queue.filter((m) => m !== "app-browser"))] : []),
-    ...(appBrowser === true ? [appBrowserHint(setup.queue, agentBrowser === true)] : []),
+    ...(egoBrowser === true ? [egoBrowserHint(setup.queue.filter((m) => m !== "app-browser"))] : []),
+    ...(egoBrowser === "missing" && setup.queue.includes("ego-browser") ? [`设置里的 ego 浏览器这次用不了：${EGO_MISSING}，web_search 跳过它；${EGO_INSTALL}。`] : []),
+    ...(appBrowser === true ? [appBrowserHint(setup.queue, egoBrowser === true)] : []),
     "搜不到先换更短、更通用的关键词，再不行换英文关键词或者换一种方式。",
     options,
   ];
@@ -222,10 +237,10 @@ export function webSearchDescription(setup: WebToolsSetup, agentBrowser?: boolea
 }
 
 /** web_fetch 的说明（按队列现写直接请求之后换哪几条；appBrowser 同 webSearchDescription） */
-export function webFetchDescription(setup: WebToolsSetup, agentBrowser?: boolean, appBrowser?: boolean): string {
+export function webFetchDescription(setup: WebToolsSetup, egoBrowser?: EgoBrowserUse, appBrowser?: boolean): string {
   const tools = setup.queue.filter(isToolMethod);
   const way: Record<ToolMethod, string> = { deepseek: "让 DeepSeek 读（回 Markdown，按次计费）", browser: "用浏览器真实渲染" };
-  const ab = agentBrowser === true && setup.queue.includes("agent-browser") ? "，这时用 agent-browser 打开网页读" : "";
+  const ab = egoBrowser === true && setup.queue.includes("ego-browser") ? "，这时用 ego 浏览器打开网页读" : "";
   const app = appBrowser === true && setup.queue.includes("app-browser") ? `；从浏览侧边栏、悬浮按钮来的那一轮还能用 ${BROWSE_OPEN_TOOL} 在${APP}里打开、${BROWSE_READ_PAGE_TOOL} 读` : "";
   const then =
     tools.length === 0
@@ -294,23 +309,23 @@ const FetchParams = Type.Object({
 /**
  * 联网搜索、读网页两个工具：都经 access 联网（正式的是浏览器、直接请求、DeepSeek 和 Tavily，测试里是假的）。
  * onBilled：DeepSeek 成了的调用（按次计费）每次叫一次。setup：设置里的队列此刻的样子（说明、能写的 engine 按它；不给按初始的、都用得上）。
- * agentBrowser：这个 agent 能不能用 agent-browser（有 bash）；说明里写不写 agent-browser、交给 access 的都按它，不给就不提。
+ * egoBrowser：这个 agent 用不用得了 ego 浏览器（EgoBrowserUse：有 bash、找得到 ego-browser）；说明里怎么写 ego 浏览器、交给 access 的都按它，不给就不提。
  * appBrowser（只给有 browse_* 工具的秘书）：这一次调用所在的那一轮能不能用鸿蒙 App 的内置浏览器（能用回发消息那台设备的
  * 搜索引擎，不能用回 undefined）；给了，说明里就写内置浏览器的位置，交给 access 的按这一轮；不给就不提
  */
 export function webTools(
   access: WebAccess,
-  options: { onBilled?: (call: WebBilledCall) => void; setup?: WebToolsSetup; agentBrowser?: boolean; appBrowser?: (call: HostToolCall) => AppBrowserTurn | undefined } = {},
+  options: { onBilled?: (call: WebBilledCall) => void; setup?: WebToolsSetup; egoBrowser?: EgoBrowserUse; appBrowser?: (call: HostToolCall) => AppBrowserTurn | undefined } = {},
 ): HostTool[] {
   const billed = (kind: WebCallKind, call: HostToolCall) => options.onBilled?.({ service: "deepseek", kind, agentId: call.agentId });
   const setup = options.setup ?? ALL_AVAILABLE;
-  const { agentBrowser } = options;
+  const { egoBrowser } = options;
   const hasApp = options.appBrowser !== undefined;
-  const ab = agentBrowser === undefined ? {} : { agentBrowser };
-  /** 这一次调用交给 access 的：agent-browser 用不用得了、这一轮能不能用内置浏览器 */
+  const ab = egoBrowser === undefined ? {} : { egoBrowser: egoBrowser === true };
+  /** 这一次调用交给 access 的：ego 浏览器用不用得了、这一轮能不能用内置浏览器 */
   const usable = (app: AppBrowserTurn | undefined) => ({ ...ab, ...(hasApp ? { appBrowser: app !== undefined } : {}) });
   const search = webTool(TOOL.web_search, {
-    description: webSearchDescription(setup, agentBrowser, hasApp),
+    description: webSearchDescription(setup, egoBrowser, hasApp),
     parameters: searchParams(setup),
     async run(args, call) {
       const { query, n, time, engine, region, tavily, json } = args as SearchArgs;
@@ -323,12 +338,13 @@ export function webTools(
         if (err instanceof BrowserUnavailable) return { text: `联网搜索用不了：${err.message}`, isError: true };
         if (err instanceof AllSearchesFailed && err.next) return { text: thenModelText(query, err, app), isError: true };
         if (err instanceof SearchFailed || err instanceof AllSearchesFailed) return { text: `没搜到「${query}」（${err.message}）。换更短、更通用的关键词再试，再不行换英文关键词。`, isError: true };
-        if (err instanceof OnlyAgentBrowser) {
-          return err.usable
-            ? { text: `联网搜索现在只用 agent-browser（用户在设置里只启用了它）：用 ${AB}搜；别用管道接它的输出（| head、| cat 会卡住），把输出重定向到文件再读。`, isError: true }
-            : { text: `联网搜索现在只用 agent-browser（用户在设置里只启用了它），你这里没有 bash，用不了；${ENABLE_OTHERS}`, isError: true };
+        if (err instanceof OnlyEgoBrowser) {
+          if (err.usable) return { text: `联网搜索现在只用 ego 浏览器（用户在设置里只启用了它）：用 ${EGO}搜。${EGO_NOTE}`, isError: true };
+          return egoBrowser === "missing"
+            ? { text: `联网搜索现在只用 ego 浏览器（用户在设置里只启用了它），可${EGO_MISSING}，搜不了；${EGO_INSTALL}，或者去设置 · 浏览与填框里启用别的方式。`, isError: true }
+            : { text: `联网搜索现在只用 ego 浏览器（用户在设置里只启用了它），你这里没有 bash，用不了；${ENABLE_OTHERS}`, isError: true };
         }
-        if (err instanceof SearchMethodsUnusable) return { text: unusableText(err.methods), isError: true };
+        if (err instanceof SearchMethodsUnusable) return { text: unusableText(err.methods, egoBrowser), isError: true };
         if (err instanceof WebMethodUnavailable) {
           return { text: `${err.why === "disabled" ? `这种方式已停用：${err.message}` : err.message}。不填 engine 按设置里的顺序搜。`, isError: true };
         }
@@ -343,7 +359,7 @@ export function webTools(
     },
   });
   const fetchTool = webTool(TOOL.web_fetch, {
-    description: webFetchDescription(setup, agentBrowser, hasApp),
+    description: webFetchDescription(setup, egoBrowser, hasApp),
     parameters: FetchParams,
     async run({ url, max }, call) {
       try {
@@ -353,7 +369,7 @@ export function webTools(
       } catch (err) {
         if (err instanceof FetchFailed) {
           const hints = [
-            ...(err.agentBrowser ? [`用 agent-browser（${AB_USE}）打开这个网址读`] : []),
+            ...(err.egoBrowser ? [`用 ego 浏览器（${EGO_USE}）打开这个网址读`] : []),
             ...(err.appBrowser ? [`用 ${BROWSE_OPEN_TOOL} 在${APP}里打开它、${BROWSE_READ_PAGE_TOOL} 读`] : []),
           ];
           return { text: hints.length > 0 ? `${err.message}。可以${hints.join("，或者")}。` : err.message, isError: true };
@@ -386,21 +402,24 @@ function thenModelText(query: string, err: AllSearchesFailed, app: AppBrowserTur
       continue;
     }
     flush();
-    steps.push(m === "agent-browser" ? `用 agent-browser（${AB_USE}）搜` : `用${APP}（${BROWSE_OPEN_TOOL} 打开 ${url}）`);
+    steps.push(m === "ego-browser" ? `用 ego 浏览器（${EGO_USE}）搜` : `用${APP}（${BROWSE_OPEN_TOOL} 打开 ${url}）`);
   }
   flush();
   const more = steps.length === 0 ? "" : `；还不成${steps.join("；再不成")}`;
-  if (next.method === "agent-browser") {
-    const head = err.message ? `没搜到「${query}」（${err.message}）。设置里接下来是 agent-browser：` : "这一轮联网搜索先用 agent-browser：";
-    return `${head}用它（${AB_USE}）搜${more}。别用管道接它的输出（会卡住），重定向到文件再读。`;
+  if (next.method === "ego-browser") {
+    const head = err.message ? `没搜到「${query}」（${err.message}）。设置里接下来是 ego 浏览器：` : "这一轮联网搜索先用 ego 浏览器：";
+    return `${head}用它（${EGO_USE}）搜${more}。${EGO_NOTE}`;
   }
   const head = err.message ? `没搜到「${query}」（${err.message}）。设置里接下来是${APP}：` : `这一轮联网搜索先用${APP}（用户在设置里把它排在前面）：`;
   return `${head}用 ${BROWSE_OPEN_TOOL} 打开 ${url}（${ENGINE_NAME[engine]}搜「${query}」的结果页）或者直接打开目标网站，${APP_LOOK}${more}。`;
 }
 
-/** 启用的都是这一次用不了的模型自己操作的方式 */
-function unusableText(methods: readonly ModelMethod[]): string {
-  const why: Record<ModelMethod, string> = { "agent-browser": "agent-browser 要 bash", "app-browser": "内置浏览器只在用户从浏览侧边栏、悬浮按钮跟秘书说话的那一轮能用" };
+/** 启用的都是这一次用不了的模型自己操作的方式（egoBrowser 说清 ego 浏览器为什么用不了：没装还是没有 bash） */
+function unusableText(methods: readonly ModelMethod[], egoBrowser: EgoBrowserUse | undefined): string {
+  const why: Record<ModelMethod, string> = {
+    "ego-browser": egoBrowser === "missing" ? `${EGO_MISSING}，${EGO_INSTALL}` : "ego 浏览器要 bash",
+    "app-browser": "内置浏览器只在用户从浏览侧边栏、悬浮按钮跟秘书说话的那一轮能用",
+  };
   if (methods.length === 1 && methods[0] === "app-browser") {
     return `联网搜索现在只用${APP}（用户在设置里只启用了它），它只在用户从浏览侧边栏、悬浮按钮跟秘书说话的那一轮能用，这里用不了；${ENABLE_OTHERS}`;
   }

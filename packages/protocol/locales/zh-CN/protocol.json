@@ -463,7 +463,7 @@
   "protocol.tokenPrices.peakHours": "高峰时段是北京时间周一至周五（国内法定节假日除外）的 {windows}；其余时间（含周末、法定节假日全天）是空闲时段，空闲价是高峰价的一半。每一笔用量按记账时间落在哪个时段算价。",
   "protocol.webSettings.method.deepseek": "DeepSeek 付费搜索",
   "protocol.webSettings.method.browser": "二狗自带的浏览器搜索",
-  "protocol.webSettings.method.agentBrowser": "agent-browser",
+  "protocol.webSettings.method.egoBrowser": "ego 浏览器",
   "protocol.webSettings.method.appBrowser": "手机 App 的内置浏览器",
   "protocol.webSettings.queueShape": "队列里要四种方式各一项（{methods}）",
   "protocol.webSettings.needOne": "至少要留一种启用的方式",

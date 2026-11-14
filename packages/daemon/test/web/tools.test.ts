@@ -1,9 +1,9 @@
 // 联网搜索、读网页两个工具：给模型看的文字、参数的校验、出错时的说法。联网经假的实现，不起浏览器、不联网。
 // engine 多了 deepseek、browser、tavily；DeepSeek 的结果写长摘要、站点、日期和"优质""权威"的提示，json 给原样的字段；
 // 换了路的写一句说明；DeepSeek 成了的调用（计费的）交给 onBilled 记账，记在发起调用的 agent 名下。
-// 工具说明、能写的 engine 跟着设置里的队列（停用了的、没 key 的不写，Tavily 配了 key 才写）；agent-browser 在队列里的位置写进
-// 说明（排第一先用它、排中间/最后什么时候用、停用了别拿它搜、只启用了它时别调 web_search；别用管道接它的输出）；结果的标题行写明用了哪种；
-// 只用 agent-browser、指定的方式停用了、试到 agent-browser 为止、读网页都没读到时的说法。
+// 工具说明、能写的 engine 跟着设置里的队列（停用了的、没 key 的不写，Tavily 配了 key 才写）；ego 浏览器 在队列里的位置写进
+// 说明（排第一先用它、排中间/最后什么时候用、停用了别拿它搜、只启用了它时别调 web_search；要登录、过验证码的交给用户）；466：找不到 ego-browser 时写"没装"、去哪装；结果的标题行写明用了哪种；
+// 只用 ego 浏览器、指定的方式停用了、试到 ego 浏览器 为止、读网页都没读到时的说法。
 import type { WebMethod } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { BUILTIN_TOOL_REGISTRY, TOOL } from "../../src/guard/index.ts";
@@ -13,7 +13,7 @@ import {
   BrowserUnavailable,
   DeepSeekFailed,
   FetchFailed,
-  OnlyAgentBrowser,
+  OnlyEgoBrowser,
   SearchMethodsUnusable,
   TavilyFailed,
   TavilyKeyMissing,
@@ -205,7 +205,7 @@ describe("联网工具", () => {
   });
 });
 
-const ALL: WebMethod[] = ["deepseek", "browser", "agent-browser"];
+const ALL: WebMethod[] = ["deepseek", "browser", "ego-browser"];
 const engineEnum = (tools: ReturnType<typeof webTools>) => {
   const spec = byName(tools, TOOL.web_search).spec.parameters as { properties: Record<string, { anyOf?: { const: string }[] }> };
   return spec.properties.engine?.anyOf?.map((v) => v.const);
@@ -218,106 +218,134 @@ const thrower = (err: Error) =>
     },
   });
 /** 有 bash 的 agent、初始的队列，搜索一律抛这个错时 web_search 回的 */
-const searchWith = (err: Error) => byName(webTools(thrower(err), { setup: { queue: ALL, tavily: false }, agentBrowser: true }), TOOL.web_search).run({ query: "x" }, CALL);
+const searchWith = (err: Error) => byName(webTools(thrower(err), { setup: { queue: ALL, tavily: false }, egoBrowser: true }), TOOL.web_search).run({ query: "x" }, CALL);
 /** 搜索一律回一条、引擎是这个的假实现 */
 const found = (engine: "ddg" | "tavily") => fakeWebAccess({ search: () => ({ engine, results: [{ title: "一", url: "https://a.example/1", snippet: "摘要" }] }) });
 const searchKeys = (tools: ReturnType<typeof webTools>) => Object.keys((byName(tools, TOOL.web_search).spec.parameters as { properties: object }).properties);
 
 describe("工具说明、能写的 engine 跟着设置里的队列", () => {
-  it("初始顺序：写明顺序，各种方式都写；agent-browser 排最后、都没搜成时用它，别用管道接它的输出", () => {
+  it("初始顺序：写明顺序，各种方式都写；ego 浏览器排最后、都没搜成时用它，要登录、过验证码的交给用户", () => {
     const text = webSearchDescription({ queue: ALL, tavily: false }, true);
-    expect(text).toContain("用户在设置里排的联网搜索顺序：DeepSeek → 浏览器 → agent-browser，排前面的先用。不填 engine 时按这个顺序试，没搜成自动换下一个，结果里写明用了哪种、前面的为什么没成。");
+    expect(text).toContain("用户在设置里排的联网搜索顺序：DeepSeek → 浏览器 → ego 浏览器，排前面的先用。不填 engine 时按这个顺序试，没搜成自动换下一个，结果里写明用了哪种、前面的为什么没成。");
     expect(text).toContain("deepseek：DeepSeek 的搜索接口");
     expect(text).toContain("browser：浏览器真实渲染搜索结果页");
     expect(text).not.toContain("tavily");
-    expect(text).toContain("web_search 都没搜成时再用 agent-browser（浏览器命令行，在 bash 里跑，用法见 agent-browser skill，或在 bash 里跑 agent-browser skills get core）搜。");
-    expect(text).toContain("用 agent-browser 时别用管道接它的输出（| head、| cat 会卡住），把输出重定向到文件再读（比如 agent-browser … > ab.txt 2>&1）。");
-    expect(text).toContain("下载图片、PDF 这类文件用 agent-browser 或 bash（web_fetch 只读文字）。");
+    expect(text).toContain("web_search 都没搜成时再用 ego 浏览器（ego-browser 命令：在 bash 里跑脚本，操作用户电脑上的 ego lite，用的是用户登录好的网站；用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜。");
+    expect(text).toContain("用 ego 浏览器时要登录、过验证码的交给用户（task.handOff()，告诉用户去电脑上的 ego 里操作），不猜密码、不绕过验证；ego lite 没开着不用管，跑 ego-browser 时二狗会替用户打开；打不开时命令输出会说原因，照着请用户自己打开。");
+    expect(text).toContain("下载图片、PDF 这类文件，或者要用用户登录好的网站时，用 ego 浏览器或 bash（web_fetch 只读文字、不带登录）。");
   });
 
   it("停用了的、没 key 的不写进说明和 engine；Tavily 配了 key 才写；engine 一种都没有时不给这个参数", () => {
-    const browserOnly = webTools(fakeWebAccess(), { setup: { queue: ["browser"], tavily: false }, agentBrowser: true });
+    const browserOnly = webTools(fakeWebAccess(), { setup: { queue: ["browser"], tavily: false }, egoBrowser: true });
     const text = byName(browserOnly, TOOL.web_search).spec.description;
     expect(text).not.toMatch(/deepseek|DeepSeek|tavily|site:/);
     expect(engineEnum(browserOnly)).toEqual(["browser", "ddg", "bing", "google"]);
     expect(searchKeys(browserOnly)).toEqual(["query", "n", "time", "engine", "region", "json"]);
     expect(text).toContain("选项：n 条数、time 时间范围、engine 指定方式、region 地区和语言、json 结果写成 JSON。");
-    const withTavily = webTools(fakeWebAccess(), { setup: { queue: ["deepseek", "agent-browser"], tavily: true }, agentBrowser: true });
+    const withTavily = webTools(fakeWebAccess(), { setup: { queue: ["deepseek", "ego-browser"], tavily: true }, egoBrowser: true });
     expect(engineEnum(withTavily)).toEqual(["deepseek", "tavily"]);
     expect(searchKeys(withTavily)).toEqual(["query", "n", "time", "engine", "region", "tavily", "json"]);
-    const onlyAb = webTools(fakeWebAccess(), { setup: { queue: ["agent-browser"], tavily: false }, agentBrowser: true });
+    const onlyAb = webTools(fakeWebAccess(), { setup: { queue: ["ego-browser"], tavily: false }, egoBrowser: true });
     expect(searchKeys(onlyAb)).toEqual(["query", "n", "time", "region", "json"]);
   });
 
-  it("agent-browser 排第一、排中间、停用了、只启用了它；这个 agent 没有 bash 时不提它（只启用了它时说明用不了）", () => {
-    expect(webSearchDescription({ queue: ["browser", "agent-browser", "deepseek"], tavily: false }, true)).toContain("agent-browser 排在浏览器后面：不填 engine 时 web_search 只试浏览器，没成就停下");
-    expect(webSearchDescription({ queue: ["agent-browser", "browser", "deepseek"], tavily: false }, true)).toContain(
-      "agent-browser 排第一：搜索、下载先用 agent-browser（浏览器命令行，在 bash 里跑，用法见 agent-browser skill，或在 bash 里跑 agent-browser skills get core），用不成再调 web_search（按浏览器 → DeepSeek 的顺序试）。",
+  it("ego 浏览器排第一、排中间、停用了、只启用了它；这个 agent 没有 bash 时不提它（只启用了它时说明用不了）", () => {
+    expect(webSearchDescription({ queue: ["browser", "ego-browser", "deepseek"], tavily: false }, true)).toContain("ego 浏览器排在浏览器后面：不填 engine 时 web_search 只试浏览器，没成就停下");
+    expect(webSearchDescription({ queue: ["ego-browser", "browser", "deepseek"], tavily: false }, true)).toContain(
+      "ego 浏览器排第一：搜索、下载先用 ego 浏览器（ego-browser 命令：在 bash 里跑脚本，操作用户电脑上的 ego lite，用的是用户登录好的网站；用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill），用不成再调 web_search（按浏览器 → DeepSeek 的顺序试）。",
     );
-    expect(webSearchDescription({ queue: ["deepseek", "agent-browser", "browser"], tavily: false }, true)).toContain(
-      "agent-browser 排在 DeepSeek 后面：不填 engine 时 web_search 只试 DeepSeek，没成就停下，这时用 agent-browser（浏览器命令行，在 bash 里跑，用法见 agent-browser skill，或在 bash 里跑 agent-browser skills get core）搜；还不成再调 web_search，engine 写 browser。",
+    expect(webSearchDescription({ queue: ["deepseek", "ego-browser", "browser"], tavily: false }, true)).toContain(
+      "ego 浏览器排在 DeepSeek 后面：不填 engine 时 web_search 只试 DeepSeek，没成就停下，这时用 ego 浏览器（ego-browser 命令：在 bash 里跑脚本，操作用户电脑上的 ego lite，用的是用户登录好的网站；用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜；还不成再调 web_search，engine 写 browser。",
     );
     const off = webSearchDescription({ queue: ["deepseek", "browser"], tavily: false }, true);
-    expect(off).toContain("agent-browser 在设置里停用了联网搜索：别拿它来搜索；操作网页、下载文件照旧能用它。");
-    expect(off).toContain("别用管道接它的输出");
-    const only = webSearchDescription({ queue: ["agent-browser"], tavily: false }, true);
-    expect(only).toContain("用户在设置里只启用了 agent-browser 来联网搜索：用 agent-browser（浏览器命令行，在 bash 里跑，用法见 agent-browser skill，或在 bash 里跑 agent-browser skills get core）搜索、下载，不要调 web_search（会直接回“只用 agent-browser”）；读网页可以先用 web_fetch。");
+    expect(off).toContain("ego 浏览器在设置里停用了联网搜索：别拿它来搜索；操作网页、下载文件、用用户登录好的网站照旧能用它。");
+    expect(off).toContain("要登录、过验证码的交给用户（task.handOff()");
+    const only = webSearchDescription({ queue: ["ego-browser"], tavily: false }, true);
+    expect(only).toContain("用户在设置里只启用了 ego 浏览器来联网搜索：用 ego 浏览器（ego-browser 命令：在 bash 里跑脚本，操作用户电脑上的 ego lite，用的是用户登录好的网站；用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜索、下载，不要调 web_search（会直接回“只用 ego 浏览器”）；读网页可以先用 web_fetch。");
     expect(only).not.toContain("用户在设置里排的联网搜索顺序");
-    // 没有 bash：顺序里不写 agent-browser，也不提它
-    const noBash = webSearchDescription({ queue: ["deepseek", "agent-browser", "browser"], tavily: false }, false);
+    // 没有 bash：顺序里不写 ego 浏览器，也不提它
+    const noBash = webSearchDescription({ queue: ["deepseek", "ego-browser", "browser"], tavily: false }, false);
     expect(noBash).toContain("用户在设置里排的联网搜索顺序：DeepSeek → 浏览器，排前面的先用。");
-    expect(noBash).not.toContain("agent-browser");
-    expect(webSearchDescription({ queue: ["agent-browser"], tavily: false }, false)).toContain(
-      "用户在设置里只启用了 agent-browser 来联网搜索，你这里没有 bash，用不了它，也就搜不了；要联网查资料，告诉用户去设置 · 浏览与填框里启用别的方式。",
+    expect(noBash).not.toContain("ego-browser");
+    expect(noBash).not.toContain("ego 浏览器");
+    expect(webSearchDescription({ queue: ["ego-browser"], tavily: false }, false)).toContain(
+      "用户在设置里只启用了 ego 浏览器来联网搜索，你这里没有 bash，用不了它，也就搜不了；要联网查资料，告诉用户去设置 · 浏览与填框里启用别的方式。",
     );
+  });
+
+  it("466：有 bash 但这台电脑没装 ego lite（找不到 ego-browser）：说明里写没装、去哪装，web_search 当它不在；只启用了它时说清楚", () => {
+    const missing = webSearchDescription({ queue: ["deepseek", "ego-browser", "browser"], tavily: false }, "missing");
+    expect(missing).toContain("用户在设置里排的联网搜索顺序：DeepSeek → 浏览器，排前面的先用。");
+    expect(missing).toContain(
+      "设置里的 ego 浏览器这次用不了：这台电脑没装 ego lite（找不到 ego-browser 命令），web_search 跳过它；用户要用时告诉他去 https://lite.ego.app/ 装 ego lite、走完首次引导（二狗下次拉起 agent 时会重新找）。",
+    );
+    // 停用了又没装：不提
+    expect(webSearchDescription({ queue: ["deepseek", "browser"], tavily: false }, "missing")).not.toContain("ego");
+    expect(webSearchDescription({ queue: ["ego-browser"], tavily: false }, "missing")).toContain(
+      "用户在设置里只启用了 ego 浏览器来联网搜索，可这台电脑没装 ego lite（找不到 ego-browser 命令），也就搜不了；用户要用时告诉他去 https://lite.ego.app/ 装 ego lite、走完首次引导（二狗下次拉起 agent 时会重新找），或者去设置 · 浏览与填框里启用别的方式。",
+    );
+    expect(webFetchDescription({ queue: ["ego-browser"], tavily: false }, "missing")).not.toContain("ego 浏览器");
+  });
+
+  it("466：没装 ego lite 时调用：交给实现的是用不了；只启用了它时回没装、去哪装", async () => {
+    const access = fakeWebAccess({ search: () => ({ engine: "ddg", results: [] }) });
+    await byName(webTools(access, { setup: { queue: ALL, tavily: false }, egoBrowser: "missing" }), TOOL.web_search).run({ query: "x" }, CALL);
+    expect(access.searches).toEqual([{ query: "x", n: WEB_SEARCH_DEFAULT_N, egoBrowser: false }]);
+    const only = byName(webTools(thrower(new OnlyEgoBrowser(false)), { setup: { queue: ["ego-browser"], tavily: false }, egoBrowser: "missing" }), TOOL.web_search);
+    expect(await only.run({ query: "x" }, CALL)).toEqual({
+      text: "联网搜索现在只用 ego 浏览器（用户在设置里只启用了它），可这台电脑没装 ego lite（找不到 ego-browser 命令），搜不了；用户要用时告诉他去 https://lite.ego.app/ 装 ego lite、走完首次引导（二狗下次拉起 agent 时会重新找），或者去设置 · 浏览与填框里启用别的方式。",
+      isError: true,
+    });
+    const unusable = byName(webTools(thrower(new SearchMethodsUnusable(["ego-browser", "app-browser"])), { setup: { queue: ["ego-browser", "app-browser"], tavily: false }, egoBrowser: "missing" }), TOOL.web_search);
+    expect((await unusable.run({ query: "x" }, CALL)).text).toContain("这里都用不了（这台电脑没装 ego lite（找不到 ego-browser 命令），用户要用时告诉他去 https://lite.ego.app/ 装 ego lite");
   });
 
   it("读网页的说明：直接请求之后按队列换；都停用了时说明只直接请求", () => {
     expect(webFetchDescription({ queue: ALL, tavily: false }, true)).toContain("先直接请求，被拦了、超时了按设置里的顺序换：先让 DeepSeek 读（回 Markdown，按次计费），再不行用浏览器真实渲染。");
     expect(webFetchDescription({ queue: ["browser", "deepseek"], tavily: false }, true)).toContain("先直接请求，被拦了、超时了按设置里的顺序换：先用浏览器真实渲染，再不行让 DeepSeek 读（回 Markdown，按次计费）。");
     expect(webFetchDescription({ queue: ["browser"], tavily: false }, true)).toContain("先直接请求，被拦了、超时了用浏览器真实渲染。");
-    expect(webFetchDescription({ queue: ["agent-browser"], tavily: false }, true)).toContain("只直接请求（用户在设置里停用了 DeepSeek 和浏览器），被拦了就读不到，这时用 agent-browser 打开网页读。");
+    expect(webFetchDescription({ queue: ["ego-browser"], tavily: false }, true)).toContain("只直接请求（用户在设置里停用了 DeepSeek 和浏览器），被拦了就读不到，这时用 ego 浏览器打开网页读。");
   });
 
-  it("调用时交给实现：这个 agent 能不能用 agent-browser", async () => {
+  it("调用时交给实现：这个 agent 能不能用 ego 浏览器", async () => {
     const access = fakeWebAccess({ search: () => ({ engine: "ddg", results: [] }), fetch: () => ({ text: "正文", via: "direct" }) });
-    const tools = webTools(access, { setup: { queue: ALL, tavily: false }, agentBrowser: false });
+    const tools = webTools(access, { setup: { queue: ALL, tavily: false }, egoBrowser: false });
     await byName(tools, TOOL.web_search).run({ query: "x" }, CALL);
     await byName(tools, TOOL.web_fetch).run({ url: "https://a.example/1" }, CALL);
-    expect(access.searches).toEqual([{ query: "x", n: WEB_SEARCH_DEFAULT_N, agentBrowser: false }]);
-    expect(access.fetches).toEqual([{ url: "https://a.example/1", max: WEB_FETCH_DEFAULT_MAX, agentBrowser: false }]);
+    expect(access.searches).toEqual([{ query: "x", n: WEB_SEARCH_DEFAULT_N, egoBrowser: false }]);
+    expect(access.fetches).toEqual([{ url: "https://a.example/1", max: WEB_FETCH_DEFAULT_MAX, egoBrowser: false }]);
   });
 
-  it("只用 agent-browser、指定的方式停用了 / 没 key：按出错交回，说清楚怎么办", async () => {
-    expect(await searchWith(new OnlyAgentBrowser(true))).toEqual({
-      text: "联网搜索现在只用 agent-browser（用户在设置里只启用了它）：用 agent-browser（浏览器命令行，在 bash 里跑，用法见 agent-browser skill，或在 bash 里跑 agent-browser skills get core）搜；别用管道接它的输出（| head、| cat 会卡住），把输出重定向到文件再读。",
+  it("只用 ego 浏览器、指定的方式停用了 / 没 key：按出错交回，说清楚怎么办", async () => {
+    expect(await searchWith(new OnlyEgoBrowser(true))).toEqual({
+      text: "联网搜索现在只用 ego 浏览器（用户在设置里只启用了它）：用 ego 浏览器（ego-browser 命令：在 bash 里跑脚本，操作用户电脑上的 ego lite，用的是用户登录好的网站；用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜。用 ego 浏览器时要登录、过验证码的交给用户（task.handOff()，告诉用户去电脑上的 ego 里操作），不猜密码、不绕过验证；ego lite 没开着不用管，跑 ego-browser 时二狗会替用户打开；打不开时命令输出会说原因，照着请用户自己打开。",
       isError: true,
     });
-    expect(await searchWith(new OnlyAgentBrowser(false))).toEqual({
-      text: "联网搜索现在只用 agent-browser（用户在设置里只启用了它），你这里没有 bash，用不了；要联网查资料，告诉用户去设置 · 浏览与填框里启用别的方式。",
+    expect(await searchWith(new OnlyEgoBrowser(false))).toEqual({
+      text: "联网搜索现在只用 ego 浏览器（用户在设置里只启用了它），你这里没有 bash，用不了；要联网查资料，告诉用户去设置 · 浏览与填框里启用别的方式。",
       isError: true,
     });
     expect(await searchWith(new WebMethodUnavailable("deepseek", "disabled"))).toEqual({ text: "这种方式已停用：DeepSeek 付费搜索在设置里停用了。不填 engine 按设置里的顺序搜。", isError: true });
     expect(await searchWith(new WebMethodUnavailable("deepseek", "no_key"))).toEqual({ text: "没配 DeepSeek 的 key，用不了 DeepSeek 付费搜索。不填 engine 按设置里的顺序搜。", isError: true });
   });
 
-  it("试到 agent-browser 为止都没成：写明接下来用 agent-browser（排中间的再写还不成时指定哪种）", async () => {
-    expect((await searchWith(new AllSearchesFailed("DeepSeek：DeepSeek 没搜到结果", { method: "agent-browser", rest: ["browser"] }))).text).toBe(
-      "没搜到「x」（DeepSeek：DeepSeek 没搜到结果）。设置里接下来是 agent-browser：用它（在 bash 里跑，用法见 agent-browser skill，或在 bash 里跑 agent-browser skills get core）搜；还不成再调 web_search，engine 写 browser。别用管道接它的输出（会卡住），重定向到文件再读。",
+  it("试到 ego 浏览器 为止都没成：写明接下来用 ego 浏览器（排中间的再写还不成时指定哪种）", async () => {
+    expect((await searchWith(new AllSearchesFailed("DeepSeek：DeepSeek 没搜到结果", { method: "ego-browser", rest: ["browser"] }))).text).toBe(
+      "没搜到「x」（DeepSeek：DeepSeek 没搜到结果）。设置里接下来是 ego 浏览器：用它（在 bash 里跑 ego-browser，用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜；还不成再调 web_search，engine 写 browser。用 ego 浏览器时要登录、过验证码的交给用户（task.handOff()，告诉用户去电脑上的 ego 里操作），不猜密码、不绕过验证；ego lite 没开着不用管，跑 ego-browser 时二狗会替用户打开；打不开时命令输出会说原因，照着请用户自己打开。",
     );
-    expect((await searchWith(new AllSearchesFailed("DeepSeek：DeepSeek 没搜到结果", { method: "agent-browser", rest: [] }))).text).toBe(
-      "没搜到「x」（DeepSeek：DeepSeek 没搜到结果）。设置里接下来是 agent-browser：用它（在 bash 里跑，用法见 agent-browser skill，或在 bash 里跑 agent-browser skills get core）搜。别用管道接它的输出（会卡住），重定向到文件再读。",
+    expect((await searchWith(new AllSearchesFailed("DeepSeek：DeepSeek 没搜到结果", { method: "ego-browser", rest: [] }))).text).toBe(
+      "没搜到「x」（DeepSeek：DeepSeek 没搜到结果）。设置里接下来是 ego 浏览器：用它（在 bash 里跑 ego-browser，用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜。用 ego 浏览器时要登录、过验证码的交给用户（task.handOff()，告诉用户去电脑上的 ego 里操作），不猜密码、不绕过验证；ego lite 没开着不用管，跑 ego-browser 时二狗会替用户打开；打不开时命令输出会说原因，照着请用户自己打开。",
     );
   });
 
-  it("读网页都没读到、agent-browser 启用着：提示用它打开读", async () => {
+  it("读网页都没读到、ego 浏览器 启用着：提示用它打开读", async () => {
     const access = fakeWebAccess({
       fetch: () => {
-        throw new FetchFailed("没读到 https://a.example/1：直接请求回了 HTTP 403", { agentBrowser: true });
+        throw new FetchFailed("没读到 https://a.example/1：直接请求回了 HTTP 403", { egoBrowser: true });
       },
     });
-    expect(await byName(webTools(access, { setup: { queue: ALL, tavily: false }, agentBrowser: true }), TOOL.web_fetch).run({ url: "https://a.example/1" }, CALL)).toEqual({
-      text: "没读到 https://a.example/1：直接请求回了 HTTP 403。可以用 agent-browser（在 bash 里跑，用法见 agent-browser skill，或在 bash 里跑 agent-browser skills get core）打开这个网址读。",
+    expect(await byName(webTools(access, { setup: { queue: ALL, tavily: false }, egoBrowser: true }), TOOL.web_fetch).run({ url: "https://a.example/1" }, CALL)).toEqual({
+      text: "没读到 https://a.example/1：直接请求回了 HTTP 403。可以用 ego 浏览器（在 bash 里跑 ego-browser，用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）打开这个网址读。",
       isError: true,
     });
   });
@@ -328,37 +356,37 @@ describe("工具说明、能写的 engine 跟着设置里的队列", () => {
   });
 });
 
-const FOUR: WebMethod[] = ["deepseek", "browser", "agent-browser", "app-browser"];
+const FOUR: WebMethod[] = ["deepseek", "browser", "ego-browser", "app-browser"];
 /** 秘书（有 bash、有 browse_* 工具）的 web_search；sideTurn 时这一轮能用内置浏览器（发消息那台设备的"浏览"用 engine 搜） */
 const secretarySearch = (access: ReturnType<typeof fakeWebAccess>, queue: WebMethod[], sideTurn: false | "bing" | "baidu" = "bing") =>
-  byName(webTools(access, { setup: { queue, tavily: false }, agentBrowser: true, appBrowser: () => (sideTurn ? { engine: sideTurn } : undefined) }), TOOL.web_search);
+  byName(webTools(access, { setup: { queue, tavily: false }, egoBrowser: true, appBrowser: () => (sideTurn ? { engine: sideTurn } : undefined) }), TOOL.web_search);
 
 describe("鸿蒙 App 的内置浏览器", () => {
   it("说明：只给有 browse_* 工具的（秘书）写它的位置、只在侧边栏和悬浮按钮那一轮算数、那一轮的顺序；没有的不提", () => {
-    const text = webSearchDescription({ queue: ["app-browser", "deepseek", "browser", "agent-browser"], tavily: false }, true, true);
-    expect(text).toContain("用户在设置里排的联网搜索顺序：鸿蒙 App 的内置浏览器 → DeepSeek → 浏览器 → agent-browser，排前面的先用。");
+    const text = webSearchDescription({ queue: ["app-browser", "deepseek", "browser", "ego-browser"], tavily: false }, true, true);
+    expect(text).toContain("用户在设置里排的联网搜索顺序：鸿蒙 App 的内置浏览器 → DeepSeek → 浏览器 → ego 浏览器，排前面的先用。");
     expect(text).toContain(
       "鸿蒙 App 的内置浏览器（用户手机上二狗 App「浏览」里的浏览器，用户看得见你在做什么）只在用户从浏览侧边栏、悬浮按钮跟你说话的那一轮算进联网搜索的顺序，别的轮次跳过它、web_search 照其余的顺序试。",
     );
     expect(text).toContain(
       "那一轮它排第一：不填 engine 调 web_search 会直接停下、给出搜索结果页的地址（用户在「浏览」里设的搜索引擎），这时用 browse_open 打开它或者目标网站，再用 browse_read_page 读、browse_snapshot 和 browse_click 看和点；还不成再照 web_search 停下时说的往后用。",
     );
-    // agent-browser 的位置照不算内置浏览器的那几轮写（排最后）
-    expect(text).toContain("web_search 都没搜成时再用 agent-browser");
-    const middle = webSearchDescription({ queue: ["deepseek", "app-browser", "browser", "agent-browser"], tavily: false }, true, true);
-    expect(middle).toContain("那一轮的顺序是 DeepSeek → 鸿蒙 App 的内置浏览器 → 浏览器 → agent-browser：不填 engine 时 web_search 只试 DeepSeek，没成就停下、给出搜索结果页的地址");
+    // ego 浏览器 的位置照不算内置浏览器的那几轮写（排最后）
+    expect(text).toContain("web_search 都没搜成时再用 ego 浏览器");
+    const middle = webSearchDescription({ queue: ["deepseek", "app-browser", "browser", "ego-browser"], tavily: false }, true, true);
+    expect(middle).toContain("那一轮的顺序是 DeepSeek → 鸿蒙 App 的内置浏览器 → 浏览器 → ego 浏览器：不填 engine 时 web_search 只试 DeepSeek，没成就停下、给出搜索结果页的地址");
     const last = webSearchDescription({ queue: FOUR, tavily: false }, true, true);
-    expect(last).toContain("那一轮的顺序是 DeepSeek → 浏览器 → agent-browser → 鸿蒙 App 的内置浏览器：它排在后面，前面的都没成时再用（web_search 停下时会写明，给出搜索结果页的地址）");
+    expect(last).toContain("那一轮的顺序是 DeepSeek → 浏览器 → ego 浏览器 → 鸿蒙 App 的内置浏览器：它排在后面，前面的都没成时再用（web_search 停下时会写明，给出搜索结果页的地址）");
     // 负责人这类没有 browse_* 工具的：顺序里不写它，也不提
-    const maintainer = webSearchDescription({ queue: ["app-browser", "deepseek", "browser", "agent-browser"], tavily: false }, true);
-    expect(maintainer).toContain("用户在设置里排的联网搜索顺序：DeepSeek → 浏览器 → agent-browser，排前面的先用。");
+    const maintainer = webSearchDescription({ queue: ["app-browser", "deepseek", "browser", "ego-browser"], tavily: false }, true);
+    expect(maintainer).toContain("用户在设置里排的联网搜索顺序：DeepSeek → 浏览器 → ego 浏览器，排前面的先用。");
     expect(maintainer).not.toMatch(/内置浏览器|browse_/);
   });
 
   it("说明：停用了就写别拿它搜索，用户明确要操作网页时 browse_* 照旧能用", () => {
-    const off = webSearchDescription({ queue: ["deepseek", "browser", "agent-browser"], tavily: false }, true, true);
+    const off = webSearchDescription({ queue: ["deepseek", "browser", "ego-browser"], tavily: false }, true, true);
     expect(off).toContain("鸿蒙 App 的内置浏览器在设置里停用了联网搜索：别拿它来搜索；用户明确要你在网页上点、填框、交文件时 browse_* 工具照旧能用（停用只是不拿它来搜索）。");
-    expect(off).toContain("用户在设置里排的联网搜索顺序：DeepSeek → 浏览器 → agent-browser，排前面的先用。");
+    expect(off).toContain("用户在设置里排的联网搜索顺序：DeepSeek → 浏览器 → ego 浏览器，排前面的先用。");
   });
 
   it("说明：只启用了它", () => {
@@ -371,61 +399,61 @@ describe("鸿蒙 App 的内置浏览器", () => {
   });
 
   it("侧边栏、悬浮按钮那一轮、排第一：web_search 停下，给出发消息那台设备的搜索引擎的结果页地址，让模型先用 browse_*；后面的写明", async () => {
-    const queue: WebMethod[] = ["app-browser", "deepseek", "browser", "agent-browser"];
-    const access = thrower(new AllSearchesFailed("", { method: "app-browser", rest: ["deepseek", "browser", "agent-browser"] }));
+    const queue: WebMethod[] = ["app-browser", "deepseek", "browser", "ego-browser"];
+    const access = thrower(new AllSearchesFailed("", { method: "app-browser", rest: ["deepseek", "browser", "ego-browser"] }));
     const out = await secretarySearch(access, queue, "baidu").run({ query: "二狗 天气" }, CALL);
     expect(out).toEqual({
       text:
         "这一轮联网搜索先用鸿蒙 App 的内置浏览器（用户在设置里把它排在前面）：用 browse_open 打开 https://www.baidu.com/s?wd=%E4%BA%8C%E7%8B%97%20%E5%A4%A9%E6%B0%94（百度搜「二狗 天气」的结果页）或者直接打开目标网站，再用 browse_read_page 读、browse_snapshot 和 browse_click 看和点" +
-        "；还不成再调 web_search，engine 依次写 deepseek、browser；再不成用 agent-browser（在 bash 里跑，用法见 agent-browser skill，或在 bash 里跑 agent-browser skills get core）搜。",
+        "；还不成再调 web_search，engine 依次写 deepseek、browser；再不成用 ego 浏览器（在 bash 里跑 ego-browser，用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜。",
       isError: true,
     });
     // 交给实现的：这一轮能用内置浏览器
-    expect(access.searches).toEqual([{ query: "二狗 天气", n: WEB_SEARCH_DEFAULT_N, agentBrowser: true, appBrowser: true }]);
+    expect(access.searches).toEqual([{ query: "二狗 天气", n: WEB_SEARCH_DEFAULT_N, egoBrowser: true, appBrowser: true }]);
   });
 
-  it("排中间：前面的没成才停下（写明原因）；排在 agent-browser 后面：agent-browser 那句后面接上它", async () => {
+  it("排中间：前面的没成才停下（写明原因）；排在 ego 浏览器 后面：ego 浏览器 那句后面接上它", async () => {
     const mid = await secretarySearch(thrower(new AllSearchesFailed("DeepSeek：DeepSeek 没搜到结果", { method: "app-browser", rest: ["browser"] })), FOUR).run({ query: "x" }, CALL);
     expect(mid.text).toBe(
       "没搜到「x」（DeepSeek：DeepSeek 没搜到结果）。设置里接下来是鸿蒙 App 的内置浏览器：用 browse_open 打开 https://cn.bing.com/search?q=x（必应搜「x」的结果页）或者直接打开目标网站，再用 browse_read_page 读、browse_snapshot 和 browse_click 看和点；还不成再调 web_search，engine 写 browser。",
     );
-    const afterAb = await secretarySearch(thrower(new AllSearchesFailed("DeepSeek：DeepSeek 没搜到结果；浏览器：ddg：没有结果", { method: "agent-browser", rest: ["app-browser"] })), FOUR).run({ query: "x" }, CALL);
+    const afterAb = await secretarySearch(thrower(new AllSearchesFailed("DeepSeek：DeepSeek 没搜到结果；浏览器：ddg：没有结果", { method: "ego-browser", rest: ["app-browser"] })), FOUR).run({ query: "x" }, CALL);
     expect(afterAb.text).toBe(
-      "没搜到「x」（DeepSeek：DeepSeek 没搜到结果；浏览器：ddg：没有结果）。设置里接下来是 agent-browser：用它（在 bash 里跑，用法见 agent-browser skill，或在 bash 里跑 agent-browser skills get core）搜；还不成用鸿蒙 App 的内置浏览器（browse_open 打开 https://cn.bing.com/search?q=x）。别用管道接它的输出（会卡住），重定向到文件再读。",
+      "没搜到「x」（DeepSeek：DeepSeek 没搜到结果；浏览器：ddg：没有结果）。设置里接下来是 ego 浏览器：用它（在 bash 里跑 ego-browser，用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜；还不成用鸿蒙 App 的内置浏览器（browse_open 打开 https://cn.bing.com/search?q=x）。用 ego 浏览器时要登录、过验证码的交给用户（task.handOff()，告诉用户去电脑上的 ego 里操作），不猜密码、不绕过验证；ego lite 没开着不用管，跑 ego-browser 时二狗会替用户打开；打不开时命令输出会说原因，照着请用户自己打开。",
     );
   });
 
   it("不是侧边栏、悬浮按钮那一轮：交给实现的是这一轮用不了；只启用了它时说明这一轮搜不了", async () => {
     const access = fakeWebAccess({ search: () => ({ engine: "ddg", results: [] }) });
     await secretarySearch(access, FOUR, false).run({ query: "x" }, CALL);
-    expect(access.searches).toEqual([{ query: "x", n: WEB_SEARCH_DEFAULT_N, agentBrowser: true, appBrowser: false }]);
+    expect(access.searches).toEqual([{ query: "x", n: WEB_SEARCH_DEFAULT_N, egoBrowser: true, appBrowser: false }]);
     expect(await secretarySearch(thrower(new SearchMethodsUnusable(["app-browser"])), ["app-browser"], false).run({ query: "x" }, CALL)).toEqual({
       text: "联网搜索现在只用鸿蒙 App 的内置浏览器（用户在设置里只启用了它），它只在用户从浏览侧边栏、悬浮按钮跟秘书说话的那一轮能用，这里用不了；要联网查资料，告诉用户去设置 · 浏览与填框里启用别的方式。",
       isError: true,
     });
-    expect((await secretarySearch(thrower(new SearchMethodsUnusable(["agent-browser", "app-browser"])), ["agent-browser", "app-browser"], false).run({ query: "x" }, CALL)).text).toBe(
-      "联网搜索现在只用 agent-browser、鸿蒙 App 的内置浏览器（用户在设置里只启用了它们），这里都用不了（agent-browser 要 bash；内置浏览器只在用户从浏览侧边栏、悬浮按钮跟秘书说话的那一轮能用）；要联网查资料，告诉用户去设置 · 浏览与填框里启用别的方式。",
+    expect((await secretarySearch(thrower(new SearchMethodsUnusable(["ego-browser", "app-browser"])), ["ego-browser", "app-browser"], false).run({ query: "x" }, CALL)).text).toBe(
+      "联网搜索现在只用 ego 浏览器、鸿蒙 App 的内置浏览器（用户在设置里只启用了它们），这里都用不了（ego 浏览器要 bash；内置浏览器只在用户从浏览侧边栏、悬浮按钮跟秘书说话的那一轮能用）；要联网查资料，告诉用户去设置 · 浏览与填框里启用别的方式。",
     );
   });
 
   it("读网页都没读到、这一轮能用内置浏览器：提示用 browse_open 打开读", async () => {
     const access = fakeWebAccess({
       fetch: () => {
-        throw new FetchFailed("没读到 https://a.example/1：直接请求回了 HTTP 403", { agentBrowser: true, appBrowser: true });
+        throw new FetchFailed("没读到 https://a.example/1：直接请求回了 HTTP 403", { egoBrowser: true, appBrowser: true });
       },
     });
-    const tool = byName(webTools(access, { setup: { queue: FOUR, tavily: false }, agentBrowser: true, appBrowser: () => ({ engine: "bing" }) }), TOOL.web_fetch);
+    const tool = byName(webTools(access, { setup: { queue: FOUR, tavily: false }, egoBrowser: true, appBrowser: () => ({ engine: "bing" }) }), TOOL.web_fetch);
     expect(await tool.run({ url: "https://a.example/1" }, CALL)).toEqual({
-      text: "没读到 https://a.example/1：直接请求回了 HTTP 403。可以用 agent-browser（在 bash 里跑，用法见 agent-browser skill，或在 bash 里跑 agent-browser skills get core）打开这个网址读，或者用 browse_open 在鸿蒙 App 的内置浏览器里打开它、browse_read_page 读。",
+      text: "没读到 https://a.example/1：直接请求回了 HTTP 403。可以用 ego 浏览器（在 bash 里跑 ego-browser，用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）打开这个网址读，或者用 browse_open 在鸿蒙 App 的内置浏览器里打开它、browse_read_page 读。",
       isError: true,
     });
-    expect(access.fetches).toEqual([{ url: "https://a.example/1", max: WEB_FETCH_DEFAULT_MAX, agentBrowser: true, appBrowser: true }]);
+    expect(access.fetches).toEqual([{ url: "https://a.example/1", max: WEB_FETCH_DEFAULT_MAX, egoBrowser: true, appBrowser: true }]);
   });
 
   it("侧边栏、悬浮按钮那一轮交给秘书的输入后面加的一句：启用着时写这一轮算上它和顺序，停用了不写", () => {
-    expect(appBrowserTurnNote(["deepseek", "app-browser", "browser", "agent-browser"])).toBe(
-      "这一轮联网搜索算上鸿蒙 App 的内置浏览器（设置里的顺序：DeepSeek → 鸿蒙 App 的内置浏览器 → 浏览器 → agent-browser）：轮到它时 web_search 会停下、给出搜索结果页的地址，用 browse_open 打开它或者目标网站再看、点。",
+    expect(appBrowserTurnNote(["deepseek", "app-browser", "browser", "ego-browser"])).toBe(
+      "这一轮联网搜索算上鸿蒙 App 的内置浏览器（设置里的顺序：DeepSeek → 鸿蒙 App 的内置浏览器 → 浏览器 → ego 浏览器）：轮到它时 web_search 会停下、给出搜索结果页的地址，用 browse_open 打开它或者目标网站再看、点。",
     );
-    expect(appBrowserTurnNote(["deepseek", "browser", "agent-browser"])).toBeUndefined();
+    expect(appBrowserTurnNote(["deepseek", "browser", "ego-browser"])).toBeUndefined();
   });
 });

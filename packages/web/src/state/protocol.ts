@@ -890,7 +890,7 @@ export type {
   ModelVisionSource,
   SessionModelView,
 } from "@ergo/protocol";
-// 设置里 agent 的联网搜索、读网页（是 DeepSeek、浏览器、agent-browser 三种方式的队列）：名字、初始顺序、
+// 设置里 agent 的联网搜索、读网页（是 DeepSeek、浏览器、ego 浏览器三种方式的队列）：名字、初始顺序、
 // 实际用哪几种、至少留一个；消耗页的按次计费的联网调用
 export {
   BUILTIN_WEB_CALL_PRICE_SOURCE,

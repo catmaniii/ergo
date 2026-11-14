@@ -2,7 +2,7 @@
 // - 工具包里能选的东西（ToolkitCatalog，设置里的 skill 库页、项目页和任务详情的工具包区用）：skill 库里的 skill（框架自带的、
 //   用户导入的）和配置区里登记的 MCP（每个工具的中文名、要不要联网、能不能当秘书的快速动作）。走 HTTP（GET）；
 // - 导入 skill（POST）：把一个含 SKILL.md 的目录复制一份进数据目录的 skill 区；可以导入并改名，也可以把一个目录作为一个集合整套导入；
-// - 秘书用的 skill（GET 看、POST 改）：秘书也能用 skill 库里的 skill，默认装 agent-browser、yt-dlp，设置里的 skill 库页勾选；
+// - 秘书用的 skill（GET 看、POST 改）：秘书也能用 skill 库里的 skill，默认装 ego-browser、yt-dlp（466 之前是 agent-browser），设置里的 skill 库页勾选；
 // - 用户在项目页或任务详情里直接改工具包（set_toolkit 请求）：扩大、减少都直接写进工具包，不出计划变更卡；
 // - "工具包变更"卡（toolkit_change）：项目负责人不在任务里时要开 bash、加 MCP、开联网，提交它进待我处理，用户批准或拒绝。
 // 名字和纯函数在 toolkit.ts。
@@ -320,16 +320,16 @@ export const GithubSkillDiscardBody = Type.Object({ previewId: Type.String({ min
 export type GithubSkillDiscardBody = Static<typeof GithubSkillDiscardBody>;
 
 /** 秘书默认装的 skill：库里还没有的不装，导入后自动装上 */
-export const DEFAULT_SECRETARY_SKILLS: readonly string[] = ["agent-browser", "yt-dlp"];
+export const DEFAULT_SECRETARY_SKILLS: readonly string[] = ["ego-browser", "yt-dlp"];
 
 /** 秘书的系统提示里 skill 说明超过这么多字节，设置页上提醒一句（整套选 pstack 这类集合时很长） */
 export const SECRETARY_SKILL_PROMPT_WARN_BYTES = 8 * 1024;
 
 /** 秘书用的 skill（GET HTTP_PATHS.secretarySkills 的响应、POST 的结果） */
 export const SecretarySkillsView = Type.Object({
-  /** 选中的 skill 名（默认的两个还没导入的也列着，装配时跳过） */
+  /** 选中的 skill 名（默认的 yt-dlp 还没导入时也列着，装配时跳过；ego-browser 是框架自带的，库里总有） */
   skills: Type.Array(Type.String()),
-  /** 还没改过（用的是默认的 agent-browser、yt-dlp） */
+  /** 还没改过（用的是默认的 ego-browser、yt-dlp） */
   isDefault: Type.Boolean(),
   /** 这些 skill 在秘书的系统提示里的说明（名字、说明、位置）一共多少字、多少字节（UTF-8） */
   promptChars: Type.Integer({ minimum: 0 }),

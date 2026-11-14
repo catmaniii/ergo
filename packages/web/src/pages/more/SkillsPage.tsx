@@ -3,7 +3,7 @@
 // 二狗不读 ~/.claude/skills：现成的 skill 要用，就在这里显式导入一份。下面顺带列出配置区里登记的 MCP（只读：在配置区的 mcp.json 里改）。
 // - 整套导入的集合（matt-pocock、pstack 这类）不一个一个列，各显示成一项：集合名、几个 skill、版本、来源、一句说明，点开才列出成员；
 //   单个导入的、框架自带的照旧一个一个列（分组是状态层的 groupSkills）；
-// - 秘书用的 skill：最上面一栏，选择和工具包区同一个部件（ui/skill-picker.tsx：集合整套选，点开单选），默认 agent-browser、yt-dlp；
+// - 秘书用的 skill：最上面一栏，选择和工具包区同一个部件（ui/skill-picker.tsx：集合整套选，点开单选），默认 ego-browser、yt-dlp（466 之前是 agent-browser）；
 //   改了之后秘书做完手头这一条就按新名单接着；
 // - 导入：来源两种（465）——
 //   - 本机文件夹：单个 skill（可以改名），或者把一个目录作为集合整套导入（集合名、来源、版本、说明、成员所在的子目录、成员改名）；
@@ -94,7 +94,7 @@ export function SkillsPage() {
     load();
   };
   const saveSecretary = (next: string[]) => {
-    // 只能选库里有的；默认的两个（agent-browser、yt-dlp）还没导入的留着，导入后自动装上
+    // 只能选库里有的；默认的两个（ego-browser 框架自带、库里总有，yt-dlp）里还没导入的留着，导入后自动装上
     const kept = next.filter((n) => DEFAULT_SECRETARY_SKILLS.includes(n) || catalog?.skills.some((s) => s.name === n));
     http.setSecretarySkills(kept).then(
       (v) => {

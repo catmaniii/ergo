@@ -17,7 +17,8 @@
     "removed": []
   },
   "web": {
-    "browserPath": "<Chrome 或 Edge 的可执行文件的绝对路径（不写就自动找）>"
+    "browserPath": "<Chrome 或 Edge 的可执行文件的绝对路径（不写就自动找）>",
+    "egoBrowserPath": "<ego lite 的 ego-browser 命令的绝对路径（不写就自动找）>"
   },
   "tasks": {
     "maxRunning": 3,
@@ -51,8 +52,7 @@
     "idleMinutes": 10,
     "modelCallMinutes": 5,
     "toolCallMinutes": 10,
-    "orphanSweepSeconds": 60,
-    "browserIdleMinutes": 30
+    "orphanSweepSeconds": 60
   },
   "shellTools": {
     "longCallMinutes": 30

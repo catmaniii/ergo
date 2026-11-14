@@ -289,6 +289,7 @@ The config is optional, and without it everything uses defaults. To change somet
 | `voice.recognizer.python` | The `python.exe` with faster-whisper installed (only `spawn` uses it) | `python` on PATH |
 | `voice.speech.url` / `voice.speech.model` | The speech service's address and model | `http://127.0.0.1:8090` |
 | `web.browserPath` | The Chrome / Edge used for web access; found automatically if not set | — |
+| `web.egoBrowserPath` | The ego browser agents use (ego lite's `ego-browser` command); if not set, it's looked for in PATH, the user PATH and the default location, afresh every time an agent starts | — |
 | `backup.time` / `backup.syncDir` / `backup.schedule` | The nightly backup time, a sync folder for an extra copy, and what does the scheduling (can be changed under **Settings · Backup**, effective right away) | 03:30 / no extra copy / `"internal"` |
 | `memory.maxModelCalls` / `memory.enabled` | Maximum model calls per nightly consolidation, whether this machine runs consolidation | 200 / `true` |
 | `media.maxUploadBytes` | Size limit for a single upload | 200 MB |

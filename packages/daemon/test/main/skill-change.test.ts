@@ -287,7 +287,7 @@ description: ${MARKER}
     ok(await frontend.cardAction({ cardId: card.id, action: "approve", expectedVersion: card.version, note: "收了" }));
     expect(fs.readFileSync(path.join(skillArea(td), "notes-style", "SKILL.md"), "utf8")).toBe(payload.source!.skillMd);
     expect((await toolkitApi.catalog(td.url)).body.skills.find((s) => s.name === "notes-style")).toMatchObject({ description, submittedBy: { kind: "secretary" } });
-    expect((await toolkitApi.secretarySkills(td.url)).body.skills).toEqual(["agent-browser", "yt-dlp", "notes-style"]);
+    expect((await toolkitApi.secretarySkills(td.url)).body.skills).toEqual(["ego-browser", "yt-dlp", "notes-style"]);
     expect(td.daemon.store.read("skills", 0).map((e) => e.payload as SkillDecidedPayload)).toMatchObject([{ decision: "approved", action: "add", name: "notes-style", submitter: { kind: "secretary" }, applied: true, note: "收了" }]);
     // 通知秘书的那一轮：已经按新名单装配好（pi 读出来的说明和卡上一样）
     const second = await nthReply(frontend, SECRETARY, 2);

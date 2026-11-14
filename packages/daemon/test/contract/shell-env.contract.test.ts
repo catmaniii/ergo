@@ -1,13 +1,16 @@
 // pi 契约测试：bash 起的进程的环境和装配给 pi 的工具（孙进程环境里剥掉所有密钥）。
 // 联网开关关着时，二狗把 pi 的 bash 工具换成同名的一份，在起进程前往环境里加一组无效的代理地址，
 // 让常见的联网方式（curl、Python 的 requests、Node 的 fetch）连不上；子进程自己的环境不受影响。
-// 找到了浏览器就把它的路径（AGENT_BROWSER_EXECUTABLE_PATH）放进 bash 的环境，agent-browser 靠它找浏览器（测试里是假的路径）；
+// 466：不再往 bash 的环境里放 AGENT_BROWSER_EXECUTABLE_PATH；找到了 ego 浏览器，给 agent 的那个目录在 agent 子进程 PATH 的最前面，
+// bash 里直接敲 ego-browser 就能跑——Windows 上找到的是二狗写在缓存区的薄 ego-browser（web/ego-shim.ts），它再把参数交给真的
+// （测试里"真的"由 node.exe 充当，只跑 --version，不碰真的 ego lite）；
 // grep、find 不再跟着联网开关去掉——pi 第一次用它们时找 rg、fd，找不到也不下载（子进程固定带 PI_OFFLINE=1）。
 // 模型 key 经 stdin 交给子进程，不进环境变量，所以 bash 里也看不到。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { AgentReport } from "../../src/runtime/index.ts";
+import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { OFFLINE_PROXY } from "../../src/process/child-env.ts";
 import { fauxModel, spawnTestAgent, startTestDaemon } from "../helpers/daemon.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
@@ -15,15 +18,20 @@ import { fakeSecret } from "../helpers/fake-secrets.ts";
 
 const KEY = fakeSecret("sk-", "contract-shell-env-0123456789abcdef");
 const PRINT_ENV = 'echo "proxy=$HTTPS_PROXY|$HTTP_PROXY|$ALL_PROXY node=$NODE_USE_ENV_PROXY browser=$AGENT_BROWSER_EXECUTABLE_PATH"; env';
-/** 假的浏览器路径（不存在也没关系：只看它有没有进环境） */
+/** 假的浏览器路径（不存在也没关系：只看它进不进环境） */
 const FAKE_BROWSER = "D:\\假的浏览器\\chrome-131\\chrome.exe";
 
-async function runEnv(network: boolean | undefined, browserPath?: string) {
-  const { daemon } = await startTestDaemon(browserPath === undefined ? {} : { browserPath });
+async function runEnv(network: boolean | undefined, browserPath?: string, egoBrowser?: string, command = PRINT_ENV) {
+  return (await runEnvIn(network, browserPath, egoBrowser, command)).out;
+}
+
+/** 同 runEnv，也回这次的数据目录 */
+async function runEnvIn(network: boolean | undefined, browserPath?: string, egoBrowser?: string, command = PRINT_ENV) {
+  const { daemon, dataDir } = await startTestDaemon({ ...(browserPath === undefined ? {} : { browserPath }), ...(egoBrowser === undefined ? {} : { egoBrowser }) });
   const { agent, log } = spawnTestAgent(daemon, {
     agentId: `contract-shell-env-${String(network)}`,
     cwd: makeTempDir("ergo-cwd-"),
-    model: fauxModel([{ kind: "reply", toolCalls: [{ name: "bash", arguments: { command: PRINT_ENV } }] }, { kind: "reply", text: "看完了" }]),
+    model: fauxModel([{ kind: "reply", toolCalls: [{ name: "bash", arguments: { command } }] }, { kind: "reply", text: "看完了" }]),
     tools: ["bash"],
     credentials: { deepseek: KEY },
     ...(network === undefined ? {} : { network }),
@@ -33,7 +41,7 @@ async function runEnv(network: boolean | undefined, browserPath?: string) {
   const end = await log.next("tool_call_end");
   expect(end.isError).toBe(false);
   await log.next("turn_end");
-  return end.resultText;
+  return { out: end.resultText, dataDir };
 }
 
 describe("pi 契约：bash 起的进程的环境", () => {
@@ -56,9 +64,22 @@ describe("pi 契约：bash 起的进程的环境", () => {
     expect(out).not.toContain(KEY);
   });
 
-  it("找到了浏览器：路径放进 AGENT_BROWSER_EXECUTABLE_PATH，联网开关开着、关着都放", async () => {
-    expect(await runEnv(true, FAKE_BROWSER)).toContain(`proxy=|| node= browser=${FAKE_BROWSER}`);
-    expect(await runEnv(false, FAKE_BROWSER)).toContain(`node=1 browser=${FAKE_BROWSER}`);
+  it("466：联网搜索的浏览器找到了也不再放进 AGENT_BROWSER_EXECUTABLE_PATH；找到了 ego 浏览器：bash 里直接能跑 ego-browser（给 agent 的目录在 PATH 最前面），联网开关开着、关着都是", async () => {
+    expect(await runEnv(true, FAKE_BROWSER)).toContain("proxy=|| node= browser=\n");
+    const command = 'ego-browser --version; echo "where=$(cygpath -w "$(command -v ego-browser)")"; echo "ab=$(env | grep -c "^AGENT_BROWSER_")"';
+    for (const network of [true, false]) {
+      // "真的 ego-browser"由 node.exe 充当：--version 打出 Node 的版本（只看版本的不用 ego lite 开着，不碰真的 ego lite）
+      const { out, dataDir } = await runEnvIn(network, FAKE_BROWSER, process.execPath, command);
+      expect(out).toContain(process.version);
+      // Git Bash 自己会在 PATH 前面加它的 mingw64、usr/bin；ego-browser 找到的是放进去的那个目录里的：
+      // Windows 上是缓存区里二狗写的 shim，别的系统是 ego-browser 自己的目录
+      const where = /where=(.+)/.exec(out)![1]!.trim();
+      const expected = process.platform === "win32" ? dataDirLayout(dataDir).egoBrowserShim : path.dirname(process.execPath);
+      expect(fs.realpathSync.native(path.dirname(where))).toBe(fs.realpathSync.native(expected));
+      expect(out).toContain("ab=0");
+    }
+    // 没找到 ego：bash 里没有这个命令
+    expect(await runEnv(true, undefined, undefined, "command -v ego-browser || echo 没有")).toContain("没有");
   });
 });
 

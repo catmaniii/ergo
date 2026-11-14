@@ -945,7 +945,7 @@ const NETWORK_HANDLERS: Readonly<Record<string, Handler>> = {
 const BARE_LOCAL_URL = /^(?:localhost|127(?:\.\d{1,3}){3}|\[::1\])(?::\d+)?(?:[/?#]\S*)?$/i;
 
 /**
- * 浏览器工具：agent-browser，和直接起的浏览器（chrome、msedge……带上调试端口一样能被程序操作）。命令本身照旧按
+ * 浏览器工具：agent-browser、ego-browser（466；脚本在 heredoc、文件里的认不出网址，-e 写在命令行里的照样认），和直接起的浏览器（chrome、msedge……带上调试端口一样能被程序操作）。命令本身照旧按
  * "其他命令"拆（像路径的词照旧不知道读写，截图写到哪照旧管）；命令里写着网址的（参数里的网址、没写协议的本机地址、`--app=` 这样
  * 写在选项里的、eval 的脚本里写着的）另拆一条"用浏览器打开网页"，打开的是不是二狗自己的页面由判定函数看。
  * 拼出来的网址（变量、命令替换）认不出，和守卫别处一样不追
@@ -963,7 +963,7 @@ const browser: Handler = (inv, args, program) => {
 };
 
 /** 浏览器工具的程序名（查表时程序名去掉目录和 .exe、小写） */
-const BROWSER_PROGRAMS = ["agent-browser", "chrome", "msedge", "chromium", "chromium-browser", "google-chrome", "google-chrome-stable", "firefox", "brave", "brave-browser"];
+const BROWSER_PROGRAMS = ["agent-browser", "ego-browser", "chrome", "msedge", "chromium", "chromium-browser", "google-chrome", "google-chrome-stable", "firefox", "brave", "brave-browser"];
 
 /** 联网的程序名（见 NETWORK_HANDLERS） */
 export const NETWORK_PROGRAMS: readonly string[] = Object.freeze(Object.keys(NETWORK_HANDLERS));

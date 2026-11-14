@@ -7,6 +7,7 @@
 //   走 DeepSeek；
 // - 停用内置浏览器：侧边栏那一轮 web_search 不拿它搜（直接走 DeepSeek），那句也不写；用户要的网页操作（browse_open）照旧能做。
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import {
   type BrowserOutcome,
@@ -34,6 +35,9 @@ import { waitUntil } from "../helpers/process.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 import { FakeBrowser } from "../helpers/web.ts";
 import { fakeSecret } from "../helpers/fake-secrets.ts";
+
+/** 466：假的 ego-browser（不存在也没关系：守护进程只把它的目录放进 agent 的 PATH，说明里写"能用"） */
+const FAKE_EGO = path.join(os.tmpdir(), "ergo-fake-ego", "ego-browser.exe");
 
 const SECRETARY = CHANNELS.secretary;
 const FAKE_KEY = fakeSecret("sk-", "fake-web-app-browser-0000");
@@ -99,7 +103,7 @@ async function withWeb(secretary: FauxStep[], reuse?: { dataDir: string; homeDir
     settings: () => td!.daemon.webSettings.current(),
     log: () => undefined,
   });
-  td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: FAKE_KEY }, webAccess, secretary, ...(reuse ? { reuse } : {}) });
+  td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: FAKE_KEY }, webAccess, egoBrowser: FAKE_EGO, secretary, ...(reuse ? { reuse } : {}) });
   const frontend = await TestFrontend.connect(td.url);
   await frontend.subscribe({ [SECRETARY]: 0 });
   return { td, server, browser, frontend };
@@ -109,16 +113,16 @@ describe("设置里的四种方式", () => {
   it("初始：鸿蒙 App 的内置浏览器排最后、启用；存的三项的文件读成四项，它加在最后", async () => {
     const { url } = await startTestDaemon({ env: { DEEPSEEK_API_KEY: FAKE_KEY } });
     expect((await webSettingsApi.view(url)).body).toMatchObject({
-      settings: queue(["deepseek", true], ["browser", true], ["agent-browser", true], ["app-browser", true]),
-      effective: ["deepseek", "browser", "agent-browser", "app-browser"],
+      settings: queue(["deepseek", true], ["browser", true], ["ego-browser", true], ["app-browser", true]),
+      effective: ["deepseek", "browser", "ego-browser", "app-browser"],
     });
     const dataDir = makeTempDir("ergo-data-");
     const file = dataDirLayout(dataDir).webSettingsFile;
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, JSON.stringify({ format: 2, ...queue(["browser", true], ["deepseek", false], ["agent-browser", true]) }));
+    fs.writeFileSync(file, JSON.stringify({ format: 2, ...queue(["browser", true], ["deepseek", false], ["ego-browser", true]) }));
     const old = await startTestDaemon({ env: { DEEPSEEK_API_KEY: FAKE_KEY }, reuse: { dataDir, homeDir: makeTempDir("ergo-home-") } });
     const view = (await webSettingsApi.view(old.url)).body;
-    expect(view.settings).toEqual(queue(["browser", true], ["deepseek", false], ["agent-browser", true], ["app-browser", true]));
+    expect(view.settings).toEqual(queue(["browser", true], ["deepseek", false], ["ego-browser", true], ["app-browser", true]));
     expect(view.settingsFileError).toBeUndefined();
   });
 });
@@ -127,11 +131,11 @@ describe("秘书的联网搜索和内置浏览器", () => {
   it("内置浏览器排第一：侧边栏那一轮写明算上它，web_search 停下、给出那台设备的搜索引擎的结果页地址；秘书页签的普通一轮跳过它走 DeepSeek", async () => {
     const search = call("web_search", { query: "二狗 天气", n: 2 });
     const { td, server, browser, frontend } = await withWeb([search, ECHO, search, ECHO]);
-    await webSettingsApi.change(td.url, queue(["app-browser", true], ["deepseek", true], ["browser", true], ["agent-browser", true]));
+    await webSettingsApi.change(td.url, queue(["app-browser", true], ["deepseek", true], ["browser", true], ["ego-browser", true]));
     const device = fakeDevice(frontend, () => ({ ok: true }));
     await device.report();
 
-    // 普通一轮（秘书页签里发的）：跳过内置浏览器，按 DeepSeek → 浏览器 → agent-browser
+    // 普通一轮（秘书页签里发的）：跳过内置浏览器，按 DeepSeek → 浏览器 → ego 浏览器
     await tell(frontend, "查一下二狗天气");
     const plain = lastEcho(frontend);
     expect(toolResultOf(plain, "web_search")).toMatch(/^搜索: 二狗 天气 （DeepSeek，2 条）/);
@@ -142,10 +146,10 @@ describe("秘书的联网搜索和内置浏览器", () => {
     await tell(frontend, "帮我搜一下二狗天气", SIDEBAR);
     device.stop();
     const side = lastEcho(frontend);
-    expect(lastUserOf(side)).toContain("这一轮联网搜索算上鸿蒙 App 的内置浏览器（设置里的顺序：鸿蒙 App 的内置浏览器 → DeepSeek → 浏览器 → agent-browser）");
+    expect(lastUserOf(side)).toContain("这一轮联网搜索算上鸿蒙 App 的内置浏览器（设置里的顺序：鸿蒙 App 的内置浏览器 → DeepSeek → 浏览器 → ego 浏览器）");
     expect(toolResultOf(side, "web_search")).toBe(
       "这一轮联网搜索先用鸿蒙 App 的内置浏览器（用户在设置里把它排在前面）：用 browse_open 打开 https://www.baidu.com/s?wd=%E4%BA%8C%E7%8B%97%20%E5%A4%A9%E6%B0%94（百度搜「二狗 天气」的结果页）或者直接打开目标网站，再用 browse_read_page 读、browse_snapshot 和 browse_click 看和点" +
-        "；还不成再调 web_search，engine 依次写 deepseek、browser；再不成用 agent-browser（在 bash 里跑，用法见 agent-browser skill，或在 bash 里跑 agent-browser skills get core）搜。",
+        "；还不成再调 web_search，engine 依次写 deepseek、browser；再不成用 ego 浏览器（在 bash 里跑 ego-browser，用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜。",
     );
     // 停下来的那一次没调 DeepSeek、没起浏览器，也没替秘书去开网页
     expect([server.count("search"), browser.visited, device.requests]).toEqual([1, [], []]);
@@ -153,7 +157,7 @@ describe("秘书的联网搜索和内置浏览器", () => {
 
   it("停用内置浏览器：侧边栏那一轮 web_search 不拿它搜（直接走 DeepSeek），也不写那句；用户要的网页操作照旧能做", async () => {
     const { td, server, frontend } = await withWeb([call("web_search", { query: "二狗 天气", n: 2 }), call("browse_open", { url: "https://example.org/rules" }), ECHO]);
-    await webSettingsApi.change(td.url, queue(["app-browser", false], ["deepseek", true], ["browser", true], ["agent-browser", true]));
+    await webSettingsApi.change(td.url, queue(["app-browser", false], ["deepseek", true], ["browser", true], ["ego-browser", true]));
     const device = fakeDevice(frontend, () => ({ ok: true }));
     await device.report();
     await tell(frontend, "搜一下二狗天气，再打开规则那一页", SIDEBAR);

@@ -1,10 +1,10 @@
 // 联网搜索、读网页走哪条路（改成按设置里的队列）：假的浏览器驱动、本机临时端口上的假 DeepSeek（base URL 可配），
 // 不联网、不用真 key。
 // - 搜索：不指定 engine 按队列里启用的方式依次试（排前面的先用；DeepSeek 没 key 时跳过），失效了按顺序换下一个并写明；
-//   agent-browser 排中间时试到它前面为止、停下让模型用它，只启用了它时回"只用 agent-browser"；
+//   ego-browser 排中间时试到它前面为止、停下让模型用它，只启用了它时回"只用 ego-browser"；
 //   engine 指定启用着的方式时只用那一种（deepseek 没成就报，不换），停用了的、没 key 的拒绝；tavily 照旧只在指定时用；
 // - 读网页：直接请求 → 队列里的 DeepSeek、浏览器（按队列的顺序，停用了的不用）；DeepSeek 回 403、404 的写明原因再换下一个；
-//   本机、内网的网址不交给 DeepSeek；都没读到时 agent-browser 启用着的提示用它。
+//   本机、内网的网址不交给 DeepSeek；都没读到时 ego-browser 启用着的提示用它。
 import { DEFAULT_WEB_SETTINGS, type WebMethod, type WebSettings } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import {
@@ -14,7 +14,7 @@ import {
   DeepSeekFailed,
   FetchFailed,
   type FetchFunction,
-  OnlyAgentBrowser,
+  OnlyEgoBrowser,
   type PostFunction,
   SearchFailed,
   SearchMethodsUnusable,
@@ -51,7 +51,7 @@ interface Setup {
   browser?: FakeBrowser;
   reply?: (nth: number) => FakeToolsReply | undefined;
   key?: string | undefined;
-  /** 设置里的队列；不给是初始的（DeepSeek → 浏览器 → agent-browser） */
+  /** 设置里的队列；不给是初始的（DeepSeek → 浏览器 → ego-browser） */
   queue?: WebSettings;
   fetch?: FetchFunction;
   post?: PostFunction;
@@ -84,7 +84,7 @@ describe("联网搜索按队列走", () => {
   });
 
   it("浏览器排第一：走浏览器，不调 DeepSeek", async () => {
-    const { access, server } = await setup({ queue: queueOf("browser", "deepseek", "agent-browser") });
+    const { access, server } = await setup({ queue: queueOf("browser", "deepseek", "ego-browser") });
     const found = await access.search({ query: "二狗 天气", n: 5 });
     expect(found.engine).toBe("ddg");
     expect(found.note).toBeUndefined();
@@ -124,13 +124,13 @@ describe("联网搜索按队列走", () => {
   });
 
   it("浏览器排第一没搜到（引擎都没结果、浏览器用不了）：换下一个 DeepSeek 并写明", async () => {
-    const { access, server } = await setup({ queue: queueOf("browser", "deepseek", "agent-browser"), browser: deadBrowser() });
+    const { access, server } = await setup({ queue: queueOf("browser", "deepseek", "ego-browser"), browser: deadBrowser() });
     const found = await access.search({ query: "二狗 天气", n: 5 });
     expect(found.engine).toBe("deepseek");
     expect(found.note).toMatch(/^浏览器没搜到（ddg：.*；bing：.*；google：.*），这次用的是 DeepSeek$/);
     expect(server.count("search")).toBe(1);
 
-    const unavailable = await setup({ queue: queueOf("browser", "deepseek", "agent-browser"), browser: new FakeBrowser(() => undefined, { unavailable: "找不到浏览器" }) });
+    const unavailable = await setup({ queue: queueOf("browser", "deepseek", "ego-browser"), browser: new FakeBrowser(() => undefined, { unavailable: "找不到浏览器" }) });
     expect((await unavailable.access.search({ query: "x", n: 5 })).note).toBe("浏览器没搜到（找不到浏览器），这次用的是 DeepSeek");
   });
 
@@ -139,7 +139,7 @@ describe("联网搜索按队列走", () => {
     const err = await access.search({ query: "二狗 天气", n: 5 }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AllSearchesFailed);
     expect((err as Error).message).toMatch(/^DeepSeek：DeepSeek 余额不足（HTTP 402：Insufficient Balance）；浏览器：ddg：/);
-    const noKey = await setup({ queue: queueOf("browser", "deepseek", "agent-browser"), browser: deadBrowser(), key: undefined });
+    const noKey = await setup({ queue: queueOf("browser", "deepseek", "ego-browser"), browser: deadBrowser(), key: undefined });
     // 没 key：队列里实际只有浏览器，没搜到就照原样报（不换 DeepSeek）
     expect(await noKey.access.search({ query: "x", n: 5 }).catch((e: unknown) => (e as Error).name)).toBe("SearchFailed");
     expect(noKey.server.requests).toEqual([]);
@@ -151,60 +151,60 @@ describe("联网搜索按队列走", () => {
     expect(server.requests).toEqual([]);
   });
 
-  it("agent-browser 排最后、这个 agent 能用（有 bash）：前面的都没成时写明下一个是 agent-browser", async () => {
+  it("ego-browser 排最后、这个 agent 能用（有 bash）：前面的都没成时写明下一个是 ego-browser", async () => {
     const { access } = await setup({ browser: deadBrowser(), reply: () => ({ status: 402, json: deepseekError("Insufficient Balance") }) });
-    const err = (await access.search({ query: "二狗 天气", n: 5, agentBrowser: true }).catch((e: unknown) => e)) as AllSearchesFailed;
+    const err = (await access.search({ query: "二狗 天气", n: 5, egoBrowser: true }).catch((e: unknown) => e)) as AllSearchesFailed;
     expect(err).toBeInstanceOf(AllSearchesFailed);
-    expect(err.next).toEqual({ method: "agent-browser", rest: [] });
-    // 只有浏览器加 agent-browser：浏览器一种没成也带上"接下来用 agent-browser"
-    const free = await setup({ queue: queueOf("browser", "agent-browser"), browser: deadBrowser() });
-    const one = (await free.access.search({ query: "x", n: 5, agentBrowser: true }).catch((e: unknown) => e)) as AllSearchesFailed;
+    expect(err.next).toEqual({ method: "ego-browser", rest: [] });
+    // 只有浏览器加 ego-browser：浏览器一种没成也带上"接下来用 ego-browser"
+    const free = await setup({ queue: queueOf("browser", "ego-browser"), browser: deadBrowser() });
+    const one = (await free.access.search({ query: "x", n: 5, egoBrowser: true }).catch((e: unknown) => e)) as AllSearchesFailed;
     expect(one).toBeInstanceOf(AllSearchesFailed);
     expect(one.message).toMatch(/^浏览器：ddg：/);
-    expect(one.next).toEqual({ method: "agent-browser", rest: [] });
-    // 用不了 agent-browser（没有 bash）：照原样报
+    expect(one.next).toEqual({ method: "ego-browser", rest: [] });
+    // 用不了 ego-browser（没有 bash）：照原样报
     expect(await free.access.search({ query: "x", n: 5 }).catch((e: unknown) => e)).toBeInstanceOf(SearchFailed);
   });
 
-  it("agent-browser 排中间：试到它前面为止（DeepSeek 没成不换浏览器），写明接下来用 agent-browser、再不行指定浏览器", async () => {
-    const { access, browser } = await setup({ queue: queueOf("deepseek", "agent-browser", "browser"), reply: () => ({ status: 200, json: { results: [] } }) });
-    const err = (await access.search({ query: "二狗 天气", n: 5, agentBrowser: true }).catch((e: unknown) => e)) as AllSearchesFailed;
+  it("ego-browser 排中间：试到它前面为止（DeepSeek 没成不换浏览器），写明接下来用 ego-browser、再不行指定浏览器", async () => {
+    const { access, browser } = await setup({ queue: queueOf("deepseek", "ego-browser", "browser"), reply: () => ({ status: 200, json: { results: [] } }) });
+    const err = (await access.search({ query: "二狗 天气", n: 5, egoBrowser: true }).catch((e: unknown) => e)) as AllSearchesFailed;
     expect(err).toBeInstanceOf(AllSearchesFailed);
     expect(err.message).toBe("DeepSeek：DeepSeek 没搜到结果");
-    expect(err.next).toEqual({ method: "agent-browser", rest: ["browser"] });
+    expect(err.next).toEqual({ method: "ego-browser", rest: ["browser"] });
     expect(browser.visited).toEqual([]);
     // 模型照说明指定了浏览器：只用浏览器
-    expect((await access.search({ query: "二狗 天气", n: 5, engine: "browser", agentBrowser: true })).engine).toBe("ddg");
-    // 没有 bash 的 agent：agent-browser 当不在，接着换浏览器
+    expect((await access.search({ query: "二狗 天气", n: 5, engine: "browser", egoBrowser: true })).engine).toBe("ddg");
+    // 没有 bash 的 agent：ego-browser 当不在，接着换浏览器
     const found = await access.search({ query: "二狗 天气", n: 5 });
     expect(found.engine).toBe("ddg");
     expect(found.note).toBe("DeepSeek 没搜成（DeepSeek 没搜到结果），这次用的是浏览器（ddg）");
   });
 
-  it("agent-browser 排第一：调了 web_search 就按后面的顺序试", async () => {
-    const { access, server } = await setup({ queue: queueOf("agent-browser", "browser", "deepseek") });
-    expect((await access.search({ query: "二狗 天气", n: 5, agentBrowser: true })).engine).toBe("ddg");
+  it("ego-browser 排第一：调了 web_search 就按后面的顺序试", async () => {
+    const { access, server } = await setup({ queue: queueOf("ego-browser", "browser", "deepseek") });
+    expect((await access.search({ query: "二狗 天气", n: 5, egoBrowser: true })).engine).toBe("ddg");
     expect(server.requests).toEqual([]);
   });
 
-  it("只启用了 agent-browser：不试别的，回“只用 agent-browser”（带上这个 agent 用不用得了）", async () => {
-    const { access, browser, server } = await setup({ queue: queueOf("agent-browser") });
-    const err = (await access.search({ query: "x", n: 5, agentBrowser: true }).catch((e: unknown) => e)) as OnlyAgentBrowser;
-    expect(err).toBeInstanceOf(OnlyAgentBrowser);
+  it("只启用了 ego-browser：不试别的，回“只用 ego-browser”（带上这个 agent 用不用得了）", async () => {
+    const { access, browser, server } = await setup({ queue: queueOf("ego-browser") });
+    const err = (await access.search({ query: "x", n: 5, egoBrowser: true }).catch((e: unknown) => e)) as OnlyEgoBrowser;
+    expect(err).toBeInstanceOf(OnlyEgoBrowser);
     expect(err.usable).toBe(true);
-    expect(((await access.search({ query: "x", n: 5 }).catch((e: unknown) => e)) as OnlyAgentBrowser).usable).toBe(false);
+    expect(((await access.search({ query: "x", n: 5 }).catch((e: unknown) => e)) as OnlyEgoBrowser).usable).toBe(false);
     expect([browser.visited, server.requests]).toEqual([[], []]);
   });
 
   it("鸿蒙 App 的内置浏览器排第一：这一轮能用时一种都不试、直接停下（写明后面的）；这一轮用不了时跳过它", async () => {
     const { access, browser, server } = await setup({ queue: queueOf("app-browser", "deepseek", "browser") });
-    const err = (await access.search({ query: "二狗 天气", n: 5, agentBrowser: true, appBrowser: true }).catch((e: unknown) => e)) as AllSearchesFailed;
+    const err = (await access.search({ query: "二狗 天气", n: 5, egoBrowser: true, appBrowser: true }).catch((e: unknown) => e)) as AllSearchesFailed;
     expect(err).toBeInstanceOf(AllSearchesFailed);
     expect(err.message).toBe("");
     expect(err.next).toEqual({ method: "app-browser", rest: ["deepseek", "browser"] });
     expect([browser.visited, server.requests]).toEqual([[], []]);
     // 不是侧边栏、悬浮按钮来的那一轮：跳过它，照 DeepSeek → 浏览器
-    expect((await access.search({ query: "二狗 天气", n: 5, agentBrowser: true })).engine).toBe("deepseek");
+    expect((await access.search({ query: "二狗 天气", n: 5, egoBrowser: true })).engine).toBe("deepseek");
   });
 
   it("内置浏览器排中间：这一轮能用时试到它前面为止（DeepSeek 没成不换浏览器），写明接下来用它", async () => {
@@ -219,14 +219,14 @@ describe("联网搜索按队列走", () => {
 
   it("只启用了内置浏览器、这一轮用不了：不试别的，回用不了（带上是哪几种）", async () => {
     const { access, browser, server } = await setup({ queue: queueOf("app-browser") });
-    const err = (await access.search({ query: "x", n: 5, agentBrowser: true }).catch((e: unknown) => e)) as SearchMethodsUnusable;
+    const err = (await access.search({ query: "x", n: 5, egoBrowser: true }).catch((e: unknown) => e)) as SearchMethodsUnusable;
     expect(err).toBeInstanceOf(SearchMethodsUnusable);
     expect(err.methods).toEqual(["app-browser"]);
     expect([browser.visited, server.requests]).toEqual([[], []]);
   });
 
   it("engine 指定启用着的 deepseek：不管排第几都只用 DeepSeek，没成就报（不换浏览器）", async () => {
-    const ok = await setup({ queue: queueOf("browser", "deepseek", "agent-browser") });
+    const ok = await setup({ queue: queueOf("browser", "deepseek", "ego-browser") });
     expect((await ok.access.search({ query: "x", n: 5, engine: "deepseek" })).engine).toBe("deepseek");
     expect(ok.server.count("search")).toBe(1);
     const broke = await setup({ reply: () => ({ status: 402, json: deepseekError("Insufficient Balance") }) });
@@ -236,7 +236,7 @@ describe("联网搜索按队列走", () => {
   });
 
   it("engine 指定停用了的、没配 key 的方式：不搜，回这种方式已停用 / 没配 key（浏览器的几个引擎跟着浏览器）", async () => {
-    const { access, browser, server } = await setup({ queue: queueOf("browser", "agent-browser") });
+    const { access, browser, server } = await setup({ queue: queueOf("browser", "ego-browser") });
     const disabled = (await access.search({ query: "x", n: 5, engine: "deepseek" }).catch((e: unknown) => e)) as WebMethodUnavailable;
     expect(disabled).toBeInstanceOf(WebMethodUnavailable);
     expect([disabled.method, disabled.why]).toEqual(["deepseek", "disabled"]);
@@ -277,7 +277,7 @@ describe("联网搜索按队列走", () => {
 
   it("设置每次现取：改了下一次就按新的", async () => {
     const server = await startFakeDeepSeekTools();
-    let settings = queueOf("deepseek", "browser", "agent-browser");
+    let settings = queueOf("deepseek", "browser", "ego-browser");
     const deepseek = createDeepSeekTools({ key: () => "sk-fake", baseUrl: server.baseUrl, log: () => undefined });
     const access = createWebAccess({ browser: goodBrowser(), deepseek, settings: () => settings, log: () => undefined });
     expect((await access.search({ query: "二狗 天气", n: 5 })).engine).toBe("deepseek");
@@ -326,7 +326,7 @@ describe("读网页按队列走", () => {
   });
 
   it("DeepSeek 停用了、没配 key：直接请求 → 浏览器，不调 DeepSeek", async () => {
-    for (const options of [{ queue: queueOf("browser", "agent-browser") }, { key: undefined }] as const) {
+    for (const options of [{ queue: queueOf("browser", "ego-browser") }, { key: undefined }] as const) {
       const { access, server } = await setup({ ...options, fetch: direct(403), browser: articleBrowser() });
       const page = await access.fetch({ url: "https://a.example/article", max: 8000 });
       expect(page.via).toBe("browser");
@@ -344,29 +344,29 @@ describe("读网页按队列走", () => {
     expect(page).toEqual({ via: "deepseek", text: "URL: https://a.example/article\n说明: 直接请求回了 HTTP 403；浏览器没读到（找不到浏览器），改用 DeepSeek\n标题: 示例文章\n\n# 示例文章\n\n第一段正文。\n\n第二段正文。" });
   });
 
-  it("浏览器停用了：直接请求 → DeepSeek，都没读到不起浏览器；agent-browser 启用着、这个 agent 用得了时标出来（提示用它）", async () => {
-    const { access, browser } = await setup({ queue: queueOf("deepseek", "agent-browser"), fetch: direct(403), browser: articleBrowser(), reply: () => ({ status: 404, json: deepseekError("none") }) });
-    const err = (await access.fetch({ url: "https://a.example/article", max: 100, agentBrowser: true }).catch((e: unknown) => e)) as FetchFailed;
+  it("浏览器停用了：直接请求 → DeepSeek，都没读到不起浏览器；ego-browser 启用着、这个 agent 用得了时标出来（提示用它）", async () => {
+    const { access, browser } = await setup({ queue: queueOf("deepseek", "ego-browser"), fetch: direct(403), browser: articleBrowser(), reply: () => ({ status: 404, json: deepseekError("none") }) });
+    const err = (await access.fetch({ url: "https://a.example/article", max: 100, egoBrowser: true }).catch((e: unknown) => e)) as FetchFailed;
     expect(err).toBeInstanceOf(FetchFailed);
     expect(err.message).toBe("没读到 https://a.example/article：直接请求回了 HTTP 403；DeepSeek 没读到（DeepSeek 没取到可用的正文（HTTP 404：none））");
-    expect(err.agentBrowser).toBe(true);
+    expect(err.egoBrowser).toBe(true);
     expect(browser.visited).toEqual([]);
-    expect(((await access.fetch({ url: "https://a.example/article", max: 100 }).catch((e: unknown) => e)) as FetchFailed).agentBrowser).toBe(false);
+    expect(((await access.fetch({ url: "https://a.example/article", max: 100 }).catch((e: unknown) => e)) as FetchFailed).egoBrowser).toBe(false);
   });
 
-  it("只启用了 agent-browser：只直接请求，没读到时提示用 agent-browser", async () => {
-    const ok = await setup({ queue: queueOf("agent-browser"), fetch: direct(200) });
-    expect((await ok.access.fetch({ url: "https://a.example/article", max: 8000, agentBrowser: true })).via).toBe("direct");
-    const { access, browser, server } = await setup({ queue: queueOf("agent-browser"), fetch: direct(403), browser: articleBrowser() });
-    const err = (await access.fetch({ url: "https://a.example/article", max: 100, agentBrowser: true }).catch((e: unknown) => e)) as FetchFailed;
-    expect([err.message, err.agentBrowser]).toEqual(["没读到 https://a.example/article：直接请求回了 HTTP 403", true]);
+  it("只启用了 ego-browser：只直接请求，没读到时提示用 ego-browser", async () => {
+    const ok = await setup({ queue: queueOf("ego-browser"), fetch: direct(200) });
+    expect((await ok.access.fetch({ url: "https://a.example/article", max: 8000, egoBrowser: true })).via).toBe("direct");
+    const { access, browser, server } = await setup({ queue: queueOf("ego-browser"), fetch: direct(403), browser: articleBrowser() });
+    const err = (await access.fetch({ url: "https://a.example/article", max: 100, egoBrowser: true }).catch((e: unknown) => e)) as FetchFailed;
+    expect([err.message, err.egoBrowser]).toEqual(["没读到 https://a.example/article：直接请求回了 HTTP 403", true]);
     expect([browser.visited, server.requests]).toEqual([[], []]);
   });
 
   it("内置浏览器不打断读网页；都没读到、这一轮能用它时标出来（提示用 browse_open 打开读）", async () => {
     const { access } = await setup({ queue: queueOf("app-browser", "deepseek"), fetch: direct(403), reply: () => ({ status: 404, json: deepseekError("none") }) });
     const err = (await access.fetch({ url: "https://a.example/article", max: 100, appBrowser: true }).catch((e: unknown) => e)) as FetchFailed;
-    expect([err.agentBrowser, err.appBrowser]).toEqual([false, true]);
+    expect([err.egoBrowser, err.appBrowser]).toEqual([false, true]);
     expect(((await access.fetch({ url: "https://a.example/article", max: 100 }).catch((e: unknown) => e)) as FetchFailed).appBrowser).toBe(false);
   });
 

@@ -1,16 +1,16 @@
 // 按设置里的队列选方式（"需要用的时候，排最上面的最优先……enable 的搜索方式，如果第一个失效，
 // 就转而使用下一个，按顺序切换"）。纯函数：输入是实际用的顺序（protocol 的 effectiveWebQueue：启用了、用得上的）和这一次调用能不能用
 // 模型自己操作的方式，输出是 web_search / web_fetch 依次试哪几种。
-// - web_search、web_fetch 自己能做的只有 DeepSeek 和浏览器；agent-browser、鸿蒙 App 的内置浏览器是模型自己操作的
-//   （bash 里的命令、browse_* 工具），工具做不了，只能告诉模型：
-//   - agent-browser 排第一：模型先用它（工具说明里写）；调了 web_search 就按后面的顺序试；
+// - web_search、web_fetch 自己能做的只有 DeepSeek 和浏览器；ego 浏览器（466 之前是 agent-browser）、鸿蒙 App 的内置浏览器是模型自己操作的
+//   （bash 里的 ego-browser 命令、browse_* 工具），工具做不了，只能告诉模型：
+//   - ego 浏览器排第一：模型先用它（工具说明里写）；调了 web_search 就按后面的顺序试；
 //   - 排中间：web_search 试到它前面为止，都没成就停下，回"接下来用它"并写明它后面的（再调时指定 engine）；
 //   - 排最后：都没成时提示用它；
-//   - 只启用了 agent-browser：web_search 不试别的，回"联网搜索现在只用 agent-browser"；
-//   - 这一次用不了（agent-browser 要这个 agent 有 bash；内置浏览器要这一轮是秘书从浏览侧边栏、悬浮按钮来的）：当它不在队列里，
+//   - 只启用了 ego 浏览器：web_search 不试别的，回"联网搜索现在只用 ego 浏览器"；
+//   - 这一次用不了（ego 浏览器要这个 agent 有 bash、这台电脑装了 ego lite；内置浏览器要这一轮是秘书从浏览侧边栏、悬浮按钮来的）：当它不在队列里，
 //     启用的都用不了时说明用不了。
 // - 内置浏览器排第一时（验收："内置浏览器排第一时，web_search 停下让模型先用 browse_*"）web_search 一种都不试、直接停下——
-//   和 agent-browser 排第一不一样：工具说明是装配时写的、不分哪一轮，模型不一定知道这一轮该先用它，靠 web_search 停下来告诉它
+//   和 ego 浏览器排第一不一样：工具说明是装配时写的、不分哪一轮，模型不一定知道这一轮该先用它，靠 web_search 停下来告诉它
 //   （连同搜索结果页的地址）。
 // - web_fetch 没有指定方式的参数，模型自己操作的方式不打断它：直接请求之后按队列试 DeepSeek、浏览器，都没读到再提示它们。
 // - 显式指定 engine：只能用启用着、用得上的；停用了的回"这种方式已停用"，没 key 的
@@ -20,7 +20,7 @@ import { SEARCH_ENGINES, type SearchEngine } from "./search.ts";
 
 /** web_search、web_fetch 自己能做的方式 */
 export type ToolMethod = "deepseek" | "browser";
-/** 模型自己操作的方式（工具做不了，只能告诉模型）：bash 里的 agent-browser、秘书的 browse_* 工具（鸿蒙 App 的内置浏览器） */
+/** 模型自己操作的方式（工具做不了，只能告诉模型）：bash 里的 ego-browser、秘书的 browse_* 工具（鸿蒙 App 的内置浏览器） */
 export type ModelMethod = Exclude<WebMethod, ToolMethod>;
 
 /** 接下来该模型自己用的方式：method 是它，rest 是排在它后面的（它也不成时按顺序用：工具的指定 engine，模型的照用） */
@@ -31,42 +31,42 @@ export interface NextModel {
 
 /**
  * web_search 不指定 engine 时：依次试 methods；next 是这些都没成（methods 是空的就是一个不试）时下一个是模型自己操作的方式。
- * 只启用了 agent-browser 时是 only_agent_browser（usable：这个 agent 用不用得了）；启用的只有模型自己操作的、这一次都用不了
+ * 只启用了 ego 浏览器时是 only_ego_browser（usable：这个 agent 用不用得了）；启用的只有模型自己操作的、这一次都用不了
  * 时是 unusable（methods 是启用着的那几种）
  */
 export type SearchPlan =
   | { kind: "try"; methods: ToolMethod[]; next?: NextModel }
-  | { kind: "only_agent_browser"; usable: boolean }
+  | { kind: "only_ego_browser"; usable: boolean }
   | { kind: "unusable"; methods: ModelMethod[] };
 
 export const isToolMethod = (m: WebMethod): m is ToolMethod => m === "deepseek" || m === "browser";
 
 /**
- * web_search 不指定 engine 时依次试哪几种。queue 是实际用的顺序；agentBrowser 是这个 agent 有没有 bash；appBrowser 是这一轮能不能用
+ * web_search 不指定 engine 时依次试哪几种。queue 是实际用的顺序；egoBrowser 是这个 agent 用不用得了 ego 浏览器（有 bash、装了 ego lite）；appBrowser 是这一轮能不能用
  * 鸿蒙 App 的内置浏览器（秘书、从浏览侧边栏或悬浮按钮来的那一轮）
  */
-export function searchPlan(queue: readonly WebMethod[], agentBrowser: boolean, appBrowser = false): SearchPlan {
-  const usable = queue.filter((m) => isToolMethod(m) || (m === "agent-browser" ? agentBrowser : appBrowser));
+export function searchPlan(queue: readonly WebMethod[], egoBrowser: boolean, appBrowser = false): SearchPlan {
+  const usable = queue.filter((m) => isToolMethod(m) || (m === "ego-browser" ? egoBrowser : appBrowser));
   if (usable.length === 0) {
     const methods = queue.filter((m): m is ModelMethod => !isToolMethod(m));
-    return methods.length === 1 && methods[0] === "agent-browser" ? { kind: "only_agent_browser", usable: false } : { kind: "unusable", methods };
+    return methods.length === 1 && methods[0] === "ego-browser" ? { kind: "only_ego_browser", usable: false } : { kind: "unusable", methods };
   }
-  // 排在最前面的 agent-browser：模型已经先用过它了（说明里写着先用它），调了 web_search 就接着往后试
-  const start = usable[0] === "agent-browser" ? 1 : 0;
+  // 排在最前面的 ego 浏览器：模型已经先用过它了（说明里写着先用它），调了 web_search 就接着往后试
+  const start = usable[0] === "ego-browser" ? 1 : 0;
   const methods: ToolMethod[] = [];
   for (let i = start; i < usable.length; i++) {
     const m = usable[i]!;
     if (isToolMethod(m)) methods.push(m);
     else return { kind: "try", methods, next: { method: m, rest: usable.slice(i + 1) } };
   }
-  return methods.length > 0 ? { kind: "try", methods } : { kind: "only_agent_browser", usable: true };
+  return methods.length > 0 ? { kind: "try", methods } : { kind: "only_ego_browser", usable: true };
 }
 
 /**
- * web_fetch 在直接请求之后依次试哪几种；agentBrowser、appBrowser 是都没读到时提示用它们（启用着、这一次用得了）
+ * web_fetch 在直接请求之后依次试哪几种；egoBrowser、appBrowser 是都没读到时提示用它们（启用着、这一次用得了）
  */
-export function fetchPlan(queue: readonly WebMethod[], agentBrowser: boolean, appBrowser = false): { methods: ToolMethod[]; agentBrowser: boolean; appBrowser: boolean } {
-  return { methods: queue.filter(isToolMethod), agentBrowser: agentBrowser && queue.includes("agent-browser"), appBrowser: appBrowser && queue.includes("app-browser") };
+export function fetchPlan(queue: readonly WebMethod[], egoBrowser: boolean, appBrowser = false): { methods: ToolMethod[]; egoBrowser: boolean; appBrowser: boolean } {
+  return { methods: queue.filter(isToolMethod), egoBrowser: egoBrowser && queue.includes("ego-browser"), appBrowser: appBrowser && queue.includes("app-browser") };
 }
 
 /** web_search 显式指定的 engine 属于哪种方式：deepseek 是 DeepSeek，browser 和 ddg / bing / google 是浏览器 */

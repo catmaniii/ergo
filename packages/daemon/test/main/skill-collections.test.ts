@@ -1,7 +1,7 @@
 // 主切面：skill 库的集合、导入并改名、秘书用的 skill。都用自己造的假 skill、假集合，不碰真的第三方 skill。
 // - 经 HTTP 导入：单个导入并改名、把一个目录作为集合整套导入（记下集合名、来源、版本），工具包目录里集合显示成一项；
 //   同名冲突被拒、说清和谁重名；带依赖目录（假 node_modules）的按原路径引用，node_modules 是指向密钥区的联接的拒绝；
-// - 秘书也能用 skill：默认装 agent-browser、yt-dlp（库里有的），设置里改了（只能选库里有的），下一轮按新名单装配；
+// - 秘书也能用 skill：默认装 ego-browser（框架自带）、yt-dlp（库里有的；466 之前是 agent-browser，用户导入的那份留在库里、不再默认装），设置里改了（只能选库里有的），下一轮按新名单装配；
 //   名字带空格的照原样用；只在用户点名时才用的 skill（disable-model-invocation）另起一段写进系统提示；用户打 /skill:目录名
 //   在加时间标记之前展开（命令名是目录名，/目录名 的各种情况在 slash-commands.test.ts）；
 // - 负责人用 adjust_skills 写集合名整套加上（工具包里记的是成员的 skill 名）。
@@ -103,11 +103,12 @@ describe("经 HTTP 导入：集合、导入并改名、依赖目录", () => {
 });
 
 describe("秘书也能用 skill", () => {
-  it("默认装 agent-browser、yt-dlp（库里有的）；设置里改了（只能选库里有的），下一轮按新名单装配；名字带空格的照原样用；点名才用的 skill 另起一段写进系统提示；用户打 /skill:目录名 在加时间标记之前展开", async () => {
+  it("默认装 ego-browser（框架自带）、yt-dlp（库里有的），用户导入的 agent-browser 不再默认装；设置里改了（只能选库里有的），下一轮按新名单装配；名字带空格的照原样用；点名才用的 skill 另起一段写进系统提示；用户打 /skill:目录名 在加时间标记之前展开", async () => {
     // 数据目录里先放好：秘书一启动就装配
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
     const skillsDir = dataDirLayout(dataDir).skills;
+    // 用户以前导入的 agent-browser：留在库里，不再默认装（466）
     writeSkill(path.join(skillsDir, "agent-browser"), "agent-browser", "MARKER_SECRETARY_AGENT_BROWSER");
     writeSkill(path.join(skillsDir, "yt-dlp"), "yt-dlp", "MARKER_SECRETARY_YT_DLP");
     writeSkill(path.join(skillsDir, "notes-style"), "notes-style", "MARKER_NOT_FOR_SECRETARY");
@@ -118,14 +119,15 @@ describe("秘书也能用 skill", () => {
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [SECRETARY]: 0 });
 
-    expect((await toolkitApi.secretarySkills(td.url)).body).toMatchObject({ skills: ["agent-browser", "yt-dlp"], isDefault: true });
+    expect((await toolkitApi.secretarySkills(td.url)).body).toMatchObject({ skills: ["ego-browser", "yt-dlp"], isDefault: true });
     const first = await secretaryEcho(frontend, "你有什么 skill");
-    expect(first).toContain("MARKER_SECRETARY_AGENT_BROWSER");
+    expect(first).toContain("<name>ego-browser</name>");
+    expect(first).not.toContain("MARKER_SECRETARY_AGENT_BROWSER");
     expect(first).toContain("MARKER_SECRETARY_YT_DLP");
     expect(first).not.toContain("MARKER_NOT_FOR_SECRETARY");
     expect(first).not.toContain("user_invoked_skills");
 
-    // 改：库里没有的不行；整套加一个集合里的两个（其中一个点名才用），去掉 agent-browser
+    // 改：库里没有的不行；整套加一个集合里的两个（其中一个点名才用），去掉 ego-browser
     await toolkitApi.importSkill(td.url, { path: fakeSet(makeTempDir("ergo-src-")), collection: FAKE_SET });
     expect(await toolkitApi.setSecretarySkills(td.url, ["yt-dlp", "nope"])).toMatchObject({ status: 400, body: { message: expect.stringContaining("skill 库里没有 nope") } });
     const picked = ["yt-dlp", "fake-alpha", "fake-gamma", "Fancy Mode"];
@@ -140,7 +142,7 @@ describe("秘书也能用 skill", () => {
     const now = latestSystem(second);
     expect(now).toContain("MARKER_SECRETARY_YT_DLP");
     expect(now).toContain("MARKER_FAKE_ALPHA");
-    expect(now).not.toContain("MARKER_SECRETARY_AGENT_BROWSER");
+    expect(now).not.toContain("<name>ego-browser</name>");
     expect(now).not.toContain("MARKER_FAKE_BETA");
     // 点名才用的不在 pi 的 skill 清单里，在另起的一段里（写明只在用户点名时用）
     expect(now).toContain("只在用户点名时才用");

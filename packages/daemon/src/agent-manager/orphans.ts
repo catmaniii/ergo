@@ -7,19 +7,19 @@
 //   新的 Windows 进程，它的 Windows 父进程（fork 出来的中间进程）交接完马上就退了。管道各段、`bash 脚本`、它们下面的整棵树
 //   因此顺着父进程号走不到，可 bash 还在等它们。按创建时间认：晚于所有活着的 agent 里最早一个还没结束的工具调用的开始时间
 //   （留 1 秒余量）的、取不到创建时间的，这一轮先留着；调用都结束之后它们若还在，下一轮照样回收。
-// - **agent-browser 跟着开它的 agent 走**：agent 的 bash 环境里 AGENT_BROWSER_SOCKET_DIR 指向这个 agent
-//   自己的目录（agent-manager.ts 注入），agent-browser 的守护进程在那里写 `<会话>.pid`。pid 文件里写着的、在 Job 里、可执行文件名
-//   是 agent-browser 开头的守护进程算开它的 agent 的，连同它下面的进程（它开的 Chrome）都不当孤儿——只限那个 agent 还活着、
-//   还没闲置太久（管家决定给不给它的目录）。认不准的（改了 socket 目录、pid 被复用了……）照旧回收。
-import fs from "node:fs";
-import path from "node:path";
+// - **ego lite 的进程一律不杀**（466）：ego lite 没开着时，二狗的 shim 会抢先像用户自己打开那样替他打开（不在 Job 里，web/ego-open.ts）；
+//   可万一还是被 ego-browser 自己拉起来了（agent 用完整路径调了真的 ego-browser、shim 没能用上），拉起来的就在 Job 里，
+//   ego-browser 退了它就成了孤儿。那是用户自己用的浏览器（登录着各种网站），可执行文件在 ego lite 的程序目录下
+//   （web/ego-browser.ts 的 egoProgramDirs：安装目录、active_version_dir）的进程连同它下面的进程都不算孤儿；
+//   取不到完整路径的，名字是 ego.exe、ego-browser.exe 的也留着。
 import type { JobObject } from "../process/job-object.ts";
-import { processCreationTimes, processSnapshot } from "../process/process-list.ts";
+import { processCreationTimes, processImagePaths, processSnapshot } from "../process/process-list.ts";
+import { isEgoProgramName, isUnderDirs } from "../web/index.ts";
 
 /** 创建时间和工具调用开始时间比较时的余量（毫秒）：调用开始是守护进程收到报告的时刻，进程创建在子进程那边 */
 export const ORPHAN_CREATION_MARGIN_MS = 1000;
 
-/** Job 里哪些进程是孤儿：从 roots（活着的 agent 子进程，加上认得出的 agent-browser 守护进程）顺着父子关系往下走不到的（纯函数） */
+/** Job 里哪些进程是孤儿：从 roots（活着的 agent 子进程，加上 ego lite 的进程）顺着父子关系往下走不到的（纯函数） */
 export function findOrphans(jobPids: readonly number[], parentOf: ReadonlyMap<number, number>, roots: ReadonlySet<number>): number[] {
   const inJob = new Set(jobPids);
   const children = new Map<number, number[]>();
@@ -51,32 +51,13 @@ export function reapable(orphans: readonly number[], createdAt: ReadonlyMap<numb
   });
 }
 
-/** 是不是 agent-browser 的可执行文件（Windows 上是 agent-browser-win32-x64.exe；CLI 和守护进程是同一个） */
-export function isAgentBrowserExe(name: string): boolean {
-  return /^agent-browser/i.test(name);
-}
-
-/** pid 文件里写着的进程里，认得出是 agent-browser 守护进程的：在 Job 里、可执行文件名是 agent-browser 开头（纯函数） */
-export function recognizedBrowserDaemons(listed: readonly number[], jobPids: readonly number[], exeOf: ReadonlyMap<number, string>): number[] {
-  const inJob = new Set(jobPids);
-  return [...new Set(listed)].filter((pid) => inJob.has(pid) && isAgentBrowserExe(exeOf.get(pid) ?? ""));
-}
-
-/** agent-browser 的 socket 目录里各会话的守护进程 pid（`<会话>.pid`，内容是整数）；目录不在、读不了是空的 */
-export function readBrowserDaemonPids(socketDir: string): number[] {
-  let names: string[];
-  try {
-    names = fs.readdirSync(socketDir).filter((name) => name.endsWith(".pid"));
-  } catch {
-    return [];
-  }
-  return names.flatMap((name) => {
-    try {
-      const text = fs.readFileSync(path.join(socketDir, name), "utf8").trim();
-      return /^\d+$/.test(text) ? [Number(text)] : [];
-    } catch {
-      return [];
-    }
+/**
+ * 孤儿里哪些是 ego lite 的进程（纯函数）：可执行文件的完整路径在 keepDirs 下的；取不到完整路径的按名字（ego.exe、ego-browser.exe）
+ */
+export function egoProcesses(orphans: readonly number[], imageOf: ReadonlyMap<number, string>, exeOf: ReadonlyMap<number, string>, keepDirs: readonly string[]): number[] {
+  return orphans.filter((pid) => {
+    const image = imageOf.get(pid);
+    return image === undefined ? isEgoProgramName(exeOf.get(pid) ?? "") : isUnderDirs(image, keepDirs);
   });
 }
 
@@ -86,8 +67,8 @@ export interface SweepScope {
   roots: ReadonlySet<number>;
   /** 活着的 agent 里最早一个还没结束的工具调用的开始时间（毫秒）；没有在跑的调用不给 */
   busySince?: number;
-  /** 这些 agent-browser socket 目录里的守护进程留着（活着、没闲置太久的 agent 的） */
-  browserSocketDirs?: readonly string[];
+  /** 可执行文件在这些目录下的进程（连同它下面的）不当孤儿：ego lite 的程序目录 */
+  keepDirs?: readonly string[];
 }
 
 /** 回收一次：结束 Job 里的孤儿进程，返回结束了哪些 */
@@ -96,8 +77,12 @@ export function sweepOrphans(job: JobObject, scope: SweepScope, log: (line: stri
   const snapshot = processSnapshot();
   const parentOf = new Map([...snapshot].map(([pid, { parent }]) => [pid, parent]));
   const exeOf = new Map([...snapshot].map(([pid, { exe }]) => [pid, exe]));
-  const browsers = recognizedBrowserDaemons((scope.browserSocketDirs ?? []).flatMap(readBrowserDaemonPids), jobPids, exeOf);
-  const orphans = findOrphans(jobPids, parentOf, new Set([...scope.roots, ...browsers]));
+  let orphans = findOrphans(jobPids, parentOf, new Set(scope.roots));
+  // ego lite 的进程：认出来的当根，它下面的进程一起留着（只对孤儿取完整路径，没有孤儿时一个都不取）
+  if (orphans.length > 0) {
+    const ego = egoProcesses(orphans, processImagePaths(orphans), exeOf, scope.keepDirs ?? []);
+    if (ego.length > 0) orphans = findOrphans(jobPids, parentOf, new Set([...scope.roots, ...ego]));
+  }
   const busySince = scope.busySince;
   const candidates = reapable(orphans, busySince === undefined || orphans.length === 0 ? new Map() : processCreationTimes(orphans), busySince);
   const killed: number[] = [];

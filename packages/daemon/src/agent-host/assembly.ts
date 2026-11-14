@@ -341,7 +341,7 @@ export function assemble(deps: AssemblyDeps, request: AssemblyRequest): Executio
 /**
  * 每个会话都配的工具（联网搜索、读网页，口语总结、发语音）：各种会话的装配都经这一处。
  * 插件给负责人的工具按这份装配给谁（哪种负责人、哪种会话、工具包）筛好接在它们后面。
- * bash：这份装配有没有 bash（联网工具的说明据此提不提 agent-browser）
+ * bash：这份装配有没有 bash（联网工具的说明据此提不提 ego 浏览器）
  */
 function sessionTools(deps: Pick<AssemblyDeps, "sessionTools" | "contributions">, target: ContributionTarget, bash: boolean): HostTool[] {
   return [...conversationTools(deps.sessionTools, { bash }), ...(deps.contributions?.toolsFor(target) ?? []), ...(deps.contributions?.toolsFor(target, "end") ?? [])];
@@ -611,7 +611,7 @@ function fixedSetup(deps: AssemblyDeps, input: FixedRequest): ExecutionSetup {
   const hostTools = [
     ...input.fixed.tools(scope),
     ...runtime,
-    // 没有 pi 的内置工具（连 bash 也没有）：用不了 agent-browser
+    // 没有 pi 的内置工具（连 bash 也没有）：用不了 ego 浏览器
     ...sessionTools(deps, contributionTarget(input), false),
     ...letterTools(deps.letters, input.toolkit, input.sender),
     ...readAttachmentTools(deps, input.agentId),

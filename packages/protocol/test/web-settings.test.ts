@@ -10,6 +10,7 @@ import {
   copyWebSettings,
   DEFAULT_WEB_SETTINGS,
   effectiveWebQueue,
+  LEGACY_AGENT_BROWSER_METHOD,
   migrateWebSettingsV1,
   normalizeWebQueue,
   schemaChecker,
@@ -25,9 +26,10 @@ import {
 const queue = (...entries: [WebSettings["queue"][number]["method"], boolean][]): WebSettings => ({ queue: entries.map(([method, enabled]) => ({ method, enabled })) });
 
 describe("联网搜索的队列", () => {
-  test("初始顺序照报告：DeepSeek → 浏览器 → agent-browser，手机 App 的内置浏览器排最后，都启用；默认值改不动", () => {
-    expect(DEFAULT_WEB_SETTINGS).toEqual(queue(["deepseek", true], ["browser", true], ["agent-browser", true], ["app-browser", true]));
+  test("初始顺序照报告：DeepSeek → 浏览器 → ego 浏览器，手机 App 的内置浏览器排最后，都启用；默认值改不动", () => {
+    expect(DEFAULT_WEB_SETTINGS).toEqual(queue(["deepseek", true], ["browser", true], ["ego-browser", true], ["app-browser", true]));
     expect(WEB_METHOD_LABEL["app-browser"]).toBe("手机 App 的内置浏览器");
+    expect(WEB_METHOD_LABEL["ego-browser"]).toBe("ego 浏览器");
     expect(Object.isFrozen(DEFAULT_WEB_SETTINGS.queue[0])).toBe(true);
     const copy = copyWebSettings(DEFAULT_WEB_SETTINGS);
     copy.queue[0]!.enabled = false;
@@ -35,10 +37,10 @@ describe("联网搜索的队列", () => {
   });
 
   test("实际用的：启用了、用得上的按队列；没配 DeepSeek 的 key 时跳过它；一个都没有时临时用浏览器", () => {
-    expect(effectiveWebQueue(DEFAULT_WEB_SETTINGS, true)).toEqual(["deepseek", "browser", "agent-browser", "app-browser"]);
-    expect(effectiveWebQueue(DEFAULT_WEB_SETTINGS, false)).toEqual(["browser", "agent-browser", "app-browser"]);
-    expect(effectiveWebQueue(queue(["agent-browser", true], ["browser", false], ["deepseek", true], ["app-browser", false]), true)).toEqual(["agent-browser", "deepseek"]);
-    const onlyDeepseek = queue(["deepseek", true], ["browser", false], ["agent-browser", false], ["app-browser", false]);
+    expect(effectiveWebQueue(DEFAULT_WEB_SETTINGS, true)).toEqual(["deepseek", "browser", "ego-browser", "app-browser"]);
+    expect(effectiveWebQueue(DEFAULT_WEB_SETTINGS, false)).toEqual(["browser", "ego-browser", "app-browser"]);
+    expect(effectiveWebQueue(queue(["ego-browser", true], ["browser", false], ["deepseek", true], ["app-browser", false]), true)).toEqual(["ego-browser", "deepseek"]);
+    const onlyDeepseek = queue(["deepseek", true], ["browser", false], ["ego-browser", false], ["app-browser", false]);
     expect(effectiveWebQueue(onlyDeepseek, true)).toEqual(["deepseek"]);
     expect(webQueueFallback(onlyDeepseek, true)).toBe(false);
     expect(effectiveWebQueue(onlyDeepseek, false)).toEqual(["browser"]);
@@ -47,40 +49,55 @@ describe("联网搜索的队列", () => {
 
   test("要存的：四种各一项、至少留一个启用而且用得上的（只启用手机 App 的内置浏览器也算留了一个）", () => {
     expect(webSettingsProblem(DEFAULT_WEB_SETTINGS, true)).toBeUndefined();
-    expect(webSettingsProblem(queue(["agent-browser", true], ["deepseek", false], ["browser", false], ["app-browser", false]), true)).toBeUndefined();
-    expect(webSettingsProblem(queue(["app-browser", true], ["deepseek", false], ["browser", false], ["agent-browser", false]), true)).toBeUndefined();
-    expect(webSettingsProblem(queue(["deepseek", false], ["browser", false], ["agent-browser", false], ["app-browser", false]), true)).toBe("至少要留一种启用的方式");
+    expect(webSettingsProblem(queue(["ego-browser", true], ["deepseek", false], ["browser", false], ["app-browser", false]), true)).toBeUndefined();
+    expect(webSettingsProblem(queue(["app-browser", true], ["deepseek", false], ["browser", false], ["ego-browser", false]), true)).toBeUndefined();
+    expect(webSettingsProblem(queue(["deepseek", false], ["browser", false], ["ego-browser", false], ["app-browser", false]), true)).toBe("至少要留一种启用的方式");
     // 没 key：只启用 DeepSeek 不算；DeepSeek 存着启用、另外还启用了一种就行（存着的照旧，配上 key 马上用上）
-    expect(webSettingsProblem(queue(["deepseek", true], ["browser", false], ["agent-browser", false], ["app-browser", false]), false)).toBe("至少要留一种启用的方式（没配 DeepSeek 的 key，只启用它不算）");
-    expect(webSettingsProblem(queue(["deepseek", true], ["browser", false], ["agent-browser", true], ["app-browser", false]), false)).toBeUndefined();
+    expect(webSettingsProblem(queue(["deepseek", true], ["browser", false], ["ego-browser", false], ["app-browser", false]), false)).toBe("至少要留一种启用的方式（没配 DeepSeek 的 key，只启用它不算）");
+    expect(webSettingsProblem(queue(["deepseek", true], ["browser", false], ["ego-browser", true], ["app-browser", false]), false)).toBeUndefined();
     for (const bad of [
-      queue(["deepseek", true], ["deepseek", true], ["browser", true], ["agent-browser", true]),
-      queue(["deepseek", true], ["browser", true], ["agent-browser", true]),
+      queue(["deepseek", true], ["deepseek", true], ["browser", true], ["ego-browser", true]),
+      queue(["deepseek", true], ["browser", true], ["ego-browser", true]),
     ]) {
-      expect(webSettingsProblem(bad, true)).toBe("队列里要四种方式各一项（deepseek、browser、agent-browser、app-browser）");
+      expect(webSettingsProblem(bad, true)).toBe("队列里要四种方式各一项（deepseek、browser、ego-browser、app-browser）");
     }
   });
 
   test("设置文件里的队列：存的三项读成四项，手机 App 的内置浏览器加在最后、启用；认不得的方式跳过；重复的留给合规检查", () => {
     const old = [
       { method: "browser", enabled: true },
-      { method: "agent-browser", enabled: false },
+      { method: "ego-browser", enabled: false },
       { method: "deepseek", enabled: true },
     ];
-    expect(normalizeWebQueue(old)).toEqual({ settings: queue(["browser", true], ["agent-browser", false], ["deepseek", true], ["app-browser", true]), skipped: [], added: ["app-browser"] });
+    expect(normalizeWebQueue(old)).toEqual({ settings: queue(["browser", true], ["ego-browser", false], ["deepseek", true], ["app-browser", true]), skipped: [], added: ["app-browser"], renamed: false });
     expect(normalizeWebQueue([{ method: "tavily", enabled: true }, ...old, { method: "app-browser", enabled: false }])).toEqual({
-      settings: queue(["browser", true], ["agent-browser", false], ["deepseek", true], ["app-browser", false]),
+      settings: queue(["browser", true], ["ego-browser", false], ["deepseek", true], ["app-browser", false]),
       skipped: ["tavily"],
       added: [],
+      renamed: false,
     });
     const dup = normalizeWebQueue([...old, { method: "browser", enabled: true }]);
     expect(webSettingsProblem(dup.settings, true)).toMatch(/^队列里要四种方式各一项/);
   });
 
-  test("旧设置并进队列：默认浏览器的浏览器排第一、DeepSeek 第二，agent-browser、手机 App 的内置浏览器在后面，都启用；读网页的开关没有对应的了", () => {
-    expect(migrateWebSettingsV1({ search: "deepseek", deepseekFetch: true })).toEqual(queue(["deepseek", true], ["browser", true], ["agent-browser", true], ["app-browser", true]));
-    expect(migrateWebSettingsV1({ search: "deepseek", deepseekFetch: false })).toEqual(queue(["deepseek", true], ["browser", true], ["agent-browser", true], ["app-browser", true]));
-    expect(migrateWebSettingsV1({ search: "browser", deepseekFetch: false })).toEqual(queue(["browser", true], ["deepseek", true], ["agent-browser", true], ["app-browser", true]));
+  test("466：文件里 466 之前的 agent-browser 原位换成 ego-browser、启用状态照旧（renamed）；两样都有时留先出现的；请求体里不认它", () => {
+    const legacy = [
+      { method: "deepseek", enabled: true },
+      { method: LEGACY_AGENT_BROWSER_METHOD, enabled: false },
+      { method: "browser", enabled: true },
+      { method: "app-browser", enabled: true },
+    ];
+    expect(normalizeWebQueue(legacy)).toEqual({ settings: queue(["deepseek", true], ["ego-browser", false], ["browser", true], ["app-browser", true]), skipped: [], added: [], renamed: true });
+    expect(normalizeWebQueue([{ method: "ego-browser", enabled: true }, ...legacy]).settings).toEqual(queue(["ego-browser", true], ["deepseek", true], ["browser", true], ["app-browser", true]));
+    expect(normalizeWebQueue(legacy.slice(0, 3))).toMatchObject({ added: ["app-browser"], renamed: true });
+    const body = schemaChecker(WebSettingsBody);
+    expect(body.check({ queue: legacy.map((e) => ({ ...e })) })).toBe(false);
+  });
+
+  test("旧设置并进队列：默认浏览器的浏览器排第一、DeepSeek 第二，ego 浏览器、手机 App 的内置浏览器在后面，都启用；读网页的开关没有对应的了", () => {
+    expect(migrateWebSettingsV1({ search: "deepseek", deepseekFetch: true })).toEqual(queue(["deepseek", true], ["browser", true], ["ego-browser", true], ["app-browser", true]));
+    expect(migrateWebSettingsV1({ search: "deepseek", deepseekFetch: false })).toEqual(queue(["deepseek", true], ["browser", true], ["ego-browser", true], ["app-browser", true]));
+    expect(migrateWebSettingsV1({ search: "browser", deepseekFetch: false })).toEqual(queue(["browser", true], ["deepseek", true], ["ego-browser", true], ["app-browser", true]));
   });
 
   test("schema：请求体只有队列（四项，每项方式和开关），文件多一个 format 2（认不得的方式、少几项也读得进来，读完再整理）；旧文件 format 1 照认", () => {
@@ -89,7 +106,7 @@ describe("联网搜索的队列", () => {
     const three = [
       { method: "deepseek", enabled: true },
       { method: "browser", enabled: true },
-      { method: "agent-browser", enabled: true },
+      { method: "ego-browser", enabled: true },
     ];
     for (const bad of [{ search: "browser", deepseekFetch: true }, { queue: [] }, { queue: three }, { queue: [{ method: "tavily", enabled: true }, ...three] }, { ...DEFAULT_WEB_SETTINGS, extra: 1 }]) {
       expect(body.check(bad)).toBe(false);

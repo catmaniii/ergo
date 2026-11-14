@@ -109,6 +109,8 @@ describe("版本目录里有什么", () => {
       // ergo backup / ergo restore跑的这两个
       "packages/daemon/src/run-backup.js",
       "packages/daemon/src/restore.js",
+      // agent 的 PATH 上那个薄的 ego-browser 跑的入口（466）
+      "packages/daemon/src/web/ego-browser-shim-main.js",
       "packages/daemon/src/components/manifest.json",
       "packages/daemon/src/release/release-key.pub",
       // 内置的默认参考音色（ADR-0036）：素材是 src 里的非 .ts 文件，跟着转译原样带进版本目录
@@ -118,6 +120,7 @@ describe("版本目录里有什么", () => {
       "packages/daemon/prompts/secretary.md",
       "packages/daemon/holidays/cn-2026.json",
       "packages/daemon/skills/example-checklist/SKILL.md",
+      "packages/daemon/skills/ego-browser/SKILL.md",
       "packages/protocol/src/index.js",
       "packages/protocol/locales/zh-CN/cli.json",
       "packages/protocol/locales/en/cli.json",

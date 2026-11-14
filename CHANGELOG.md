@@ -4,6 +4,10 @@
 
 ## [未发布]
 
+### 联网
+
+- **agent 用的浏览器换成 ego 浏览器**：二狗的 agent 不再用 agent-browser，改用你电脑上的 ego lite（ego 浏览器，在 https://lite.ego.app/ 下载）。agent 在 bash 里用 `ego-browser` 命令操作它，用的是你在里面登录好的网站；碰到要登录、过验证码、两步验证的页面，把那一页交给你，在对话里请你去电脑上的 ego 里操作，好了回它一句；不猜密码、不碰付款、不清 cookie。ego lite 没开着时，agent 一用它二狗就替你打开，和你自己打开的一样：二狗重启、停下都不会把它关掉。框架自带一个 `ego-browser` skill，秘书默认用它（和 yt-dlp）。设置 · 浏览与填框里的「agent-browser」改叫「ego 浏览器」，原来的位置和开关照旧；以前勾了 agent-browser 的秘书名单、项目和任务的工具包升级后原位换成 ego-browser（只换一次；你自己导入的 agent-browser 二狗不会自动删，不用了在 skill 库里删掉）。没装 ego lite 时这一项跳过，装好、走完首次引导之后新起的 agent 就能用，不用重启二狗。体检「二狗本身」多一项「ego 浏览器」：找没找到（位置、版本）、开没开（没开着不算问题）。见[手册](docs/user-guide/settings.md#浏览与填框)。
+
 ### skill
 
 - **填 GitHub 地址直接装 skill**：设置 · skill 和 MCP ·「＋ 导入 skill」里来源多了「GitHub」。填公开仓库的地址（仓库首页、`…/tree/分支/子目录`、`…/blob/…/SKILL.md`，或者简写 `用户名/仓库名`），点「看看里面有什么」，二狗先下载下来给你看：单个 skill 还是一整套（自己认；地址下面只有一个 skill、在子目录里的也按单个装；一整套的成员可以取消几个）、一共多大、有哪些脚本、哪些不带进来、和库里有没有重名（就地改名）；看过再点「安装」，校验和本机导入是同一套。装好的在列表上写「来自 GitHub 用户名/仓库名@提交号」，点得开网址。只支持公开仓库，不收 token；不装的、放了半小时的，下下来的东西都清掉。见[手册](docs/user-guide/skills-mcp-plugins.md#从-github-装)。

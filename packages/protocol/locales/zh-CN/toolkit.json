@@ -8,6 +8,7 @@
   "toolkit.taskNotFound": "没有任务 {taskId}",
   "toolkit.editedInProjectPage": "你在项目档案里改了工具包",
   "toolkit.editedInTaskDetail": "你在任务详情里改了工具包",
+  "toolkit.egoBrowserMigrated": "二狗把 agent-browser 换成了 ego 浏览器（ego-browser）",
   "toolkit.tool.adjustSkills": "增减 skill",
   "toolkit.skillsAdjustedWhy": "负责人调整了 skill（{reason}）",
   "toolkit.tool.requestChange": "申请工具包变更",

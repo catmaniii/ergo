@@ -2,12 +2,13 @@
 // - 名单存在数据目录配置区的 secretary-skills.json（随数据目录备份，不进仓库），是真相；只由运行时写（设置里的 skill 库页，
 //   POST HTTP_PATHS.secretarySkills；秘书提交的 skill 用户在卡上批准进库之后，add 加上它）；配置区是受保护区域，
 //   agent 用任何方式都写不进，所以秘书不能自己给自己加 skill。
-// - 没有这个文件时按默认的（DEFAULT_SECRETARY_SKILLS：agent-browser、yt-dlp）；默认的这两个库里还没有的
+// - 没有这个文件时按默认的（DEFAULT_SECRETARY_SKILLS：ego-browser、yt-dlp；466 之前是 agent-browser）；默认的这两个库里还没有的
 //   不装也不记日志（导入之后下一次装配自动装上）——在设置里改过名单也一样：名单里留着的默认项可以先于导入（只有它们可以），
 //   别的只能选库里有的。文件读不了、写错了时按默认的装，设置页上显示问题。
 // - 每次装配秘书时现读（下一次装配生效）；在设置里改了之后叫 onChange 登记的函数（秘书据此做完手头这一条就按新名单重新装配）。
 // - 设置页要看这些 skill 在秘书的系统提示里占多少（整套选 pstack 这类集合时很长）：view() 带上名字、说明、位置一共多少字、
 //   多少字节（照 pi 列 skill 的写法估），超过 SECRETARY_SKILL_PROMPT_WARN_BYTES 时页面上提醒一句。
+// - 466：名单里的一个名字原位换成另一个（replace：agent-browser → ego-browser 的一次性迁移用，skills/ego-browser-migration.ts）。
 import fs from "node:fs";
 import path from "node:path";
 import { ASSISTANT_NAME_MARK, DEFAULT_SECRETARY_SKILLS, schemaChecker, type SecretarySkillsFile as SecretarySkillsFileShape, SecretarySkillsFile, type SecretarySkillsView, t } from "@ergo/protocol";
@@ -33,6 +34,11 @@ export interface SecretarySkills {
   onChange(fn: () => void): () => void;
   /** 名单里的一个 skill 在库里被改了、删了：叫 onChange 登记的函数，下一次装配按新的 */
   libraryChanged(): void;
+  /**
+   * 存着的名单里的 from 原位换成 to（to 已经在名单里时只去掉 from），别的不动；写文件、叫 onChange 登记的函数，返回 true。
+   * 没有设置文件（用的是默认的）、名单里没有 from、文件读不了写错了，都不动、返回 false（不查库：迁移时用，换上的是框架自带的）
+   */
+  replace(from: string, to: string): boolean;
 }
 
 /** 设置页上显示的问题：提到秘书写名字占位，前端按用户起的名字显示 */
@@ -120,6 +126,14 @@ export function createSecretarySkills(options: SecretarySkillsOptions): Secretar
     },
     libraryChanged() {
       for (const fn of listeners) fn();
+    },
+    replace(from, to) {
+      const now = readList();
+      if (now.isDefault || now.problem !== undefined || !now.skills.includes(from)) return false;
+      const skills = now.skills.includes(to) ? now.skills.filter((s) => s !== from) : now.skills.map((s) => (s === from ? to : s));
+      writeJsonAtomic(file, { format: 1, skills } satisfies SecretarySkillsFileShape);
+      for (const fn of listeners) fn();
+      return true;
     },
   };
 }

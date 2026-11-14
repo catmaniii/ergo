@@ -144,7 +144,8 @@ export interface ErgoConfig {
    * agent 子进程的资源限制。配置里写 agents：maxLive（同时存活的子进程上限，默认 8）、idleMinutes（负责人闲置多久退出，
    * 默认 10）、modelCallMinutes（单次模型调用超时，默认 5）、modelSilenceSeconds（一次模型调用多久一个字都没回来就中止、交给 pi 重试，
    * 默认 90）、toolCallMinutes（单次工具调用的默认超时，默认 10）、
-   * orphanSweepSeconds（多久回收一次孤儿进程，默认 60）、browserIdleMinutes（agent 开的 agent-browser 闲置多久回收，默认 30）
+   * orphanSweepSeconds（多久回收一次孤儿进程，默认 60）。466 之前还有 browserIdleMinutes（agent 开的 agent-browser 闲置多久回收）：
+   * 配置里还写着的照常读（写错了照样报），但不再用
    */
   agentLimits: AgentLimits;
   /** 节假日数据的检查。配置里写 holidayCheck: { fromMonth, dayOfMonth, time }，不写的取默认 */
@@ -185,7 +186,7 @@ export interface ErgoConfig {
    * 不写、写坏了都当"什么都没做"（见 parseSetup）
    */
   setup: SetupConfig;
-  /** 联网搜索、读网页和 agent-browser 用的浏览器。配置里写 web: { browserPath }，见 WebConfig */
+  /** 联网搜索、读网页用的浏览器和 agent 用的 ego 浏览器。配置里写 web: { browserPath, egoBrowserPath }，见 WebConfig */
   web: WebConfig;
   /**
    * 连接地址：用户手填的固定地址（自己搭的反代、frp，服务管家不知道的）。配置里写 connection: { manualAddress }，
@@ -246,12 +247,14 @@ export interface SetupConfig {
 export const DEFAULT_SETUP_CONFIG: Readonly<SetupConfig> = Object.freeze({ format: 2, skipped: [], done: [] });
 
 /**
- * 浏览器：联网搜索、读网页用 playwright-core 驱动它（不下载浏览器），agent 的 bash 里的 AGENT_BROWSER_EXECUTABLE_PATH
- * 也是它。browserPath 是 Chrome / Edge 的可执行文件的绝对路径，写了就排最前；不写就按固定的候选顺序找（web/browser-path.ts：
- * 环境变量 AGENT_BROWSER_EXECUTABLE_PATH、agent-browser 自带的那份签名的 Chrome、系统 Chrome、系统 Edge）。示例配置里是占位符（`<…>`），原样用时当没写
+ * 浏览器：联网搜索、读网页用 playwright-core 驱动它（不下载浏览器）。browserPath 是 Chrome / Edge 的可执行文件的绝对路径，
+ * 写了就排最前；不写就按固定的候选顺序找（web/browser-path.ts：环境变量 AGENT_BROWSER_EXECUTABLE_PATH、agent-browser 自带的那份签名的
+ * Chrome、系统 Chrome、系统 Edge）。egoBrowserPath 是 ego lite 的 ego-browser 命令的绝对路径（466），写了就排最前；不写按 PATH、
+ * 用户 PATH、默认位置找（web/ego-browser.ts）。示例配置里是占位符（`<…>`），原样用时当没写
  */
 export interface WebConfig {
   browserPath?: string;
+  egoBrowserPath?: string;
 }
 
 /**
@@ -708,15 +711,20 @@ function parseConnection(value: unknown): ConnectionConfig {
   return manual?.ok ? { manualAddress: manual.url } : {};
 }
 
-/** web：browserPath 是绝对路径；不写、写空、写占位符都当没写（按默认的顺序找） */
+/** web：browserPath、egoBrowserPath 是绝对路径；不写、写空、写占位符都当没写（按默认的顺序找） */
 function parseWeb(value: unknown, file: string): WebConfig {
-  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：web 必须是一个对象（{ browserPath }）`);
-  const browserPath = value?.browserPath;
-  if (browserPath === undefined || browserPath === null || browserPath === "") return {};
-  if (typeof browserPath !== "string") throw new Error(`配置文件 ${file}：web.browserPath 必须是 Chrome 或 Edge 的可执行文件的绝对路径`);
-  if (isPlaceholder(browserPath)) return {};
-  if (!path.isAbsolute(browserPath)) throw new Error(`配置文件 ${file}：web.browserPath 必须是绝对路径，实际是 ${JSON.stringify(browserPath)}`);
-  return { browserPath: path.resolve(browserPath) };
+  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：web 必须是一个对象（{ browserPath, egoBrowserPath }）`);
+  const absolute = (key: "browserPath" | "egoBrowserPath", what: string): string | undefined => {
+    const raw = value?.[key];
+    if (raw === undefined || raw === null || raw === "") return undefined;
+    if (typeof raw !== "string") throw new Error(`配置文件 ${file}：web.${key} 必须是${what}的绝对路径`);
+    if (isPlaceholder(raw)) return undefined;
+    if (!path.isAbsolute(raw)) throw new Error(`配置文件 ${file}：web.${key} 必须是绝对路径，实际是 ${JSON.stringify(raw)}`);
+    return path.resolve(raw);
+  };
+  const browserPath = absolute("browserPath", " Chrome 或 Edge 的可执行文件");
+  const egoBrowserPath = absolute("egoBrowserPath", " ego lite 的 ego-browser 命令");
+  return { ...(browserPath === undefined ? {} : { browserPath }), ...(egoBrowserPath === undefined ? {} : { egoBrowserPath }) };
 }
 
 /** toolCallDetails：保留天数、总量上限（GB）都是正数，可以带小数 */
@@ -1119,6 +1127,8 @@ function parseAgentLimits(value: unknown, file: string): AgentLimits {
     amountOf(value?.[key], unitMs, fallbackMs, (raw) => {
       throw new Error(`配置文件 ${file}：agents.${key} 必须是正数，实际是 ${JSON.stringify(raw)}`);
     });
+  // 466 之前的 agent-browser 闲置回收：还写着的照常读（写错了照样报），不再用
+  duration("browserIdleMinutes", 60_000, 30 * 60_000);
   return {
     maxLive,
     idleMs: duration("idleMinutes", 60_000, d.idleMs),
@@ -1126,7 +1136,6 @@ function parseAgentLimits(value: unknown, file: string): AgentLimits {
     modelSilenceMs: duration("modelSilenceSeconds", 1000, d.modelSilenceMs),
     toolCallMs: duration("toolCallMinutes", 60_000, d.toolCallMs),
     orphanSweepMs: duration("orphanSweepSeconds", 1000, d.orphanSweepMs),
-    browserIdleMs: duration("browserIdleMinutes", 60_000, d.browserIdleMs),
   };
 }
 

@@ -589,11 +589,11 @@ export interface TaskExecution {
   /** 把几个阶段标成做不了（计划变更被拒、在现有授权内也重排不了时）：这一支停下找用户 */
   markInfeasible(scope: MaintainerScope, input: { stageIds: string[]; reason: string }): InfeasibleResult;
   /**
-   * 改任务的工具包：用户在任务详情里直接改（扩大、减少都直接生效，不出计划变更卡），负责人增减 skill。
+   * 改任务的工具包：用户在任务详情里直接改（扩大、减少都直接生效，不出计划变更卡），负责人增减 skill，二狗自己的一次性迁移（system，466）。
    * 现在生效的计划换成新的一版（只改了工具包），时间线记一笔，工具包变了的负责人按新工具包重新装配、子 agent 跟着收窄。
    * 计划还没确认的、已经结束的任务不能改；有计划变更卡在等的先等它有结论。没有改动时什么都不追加
    */
-  changeToolkit(input: { taskId: string; toolkit: PlanToolkit; by: "user" | "maintainer"; why: string; idempotencyKey?: string; events?: NewEvent[] }): {
+  changeToolkit(input: { taskId: string; toolkit: PlanToolkit; by: "user" | "maintainer" | "system"; why: string; idempotencyKey?: string; events?: NewEvent[] }): {
     task: Task;
     before: PlanToolkit;
     after: PlanToolkit;
