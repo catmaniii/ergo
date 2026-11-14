@@ -39,11 +39,10 @@ export {
 } from "./browser-path.ts";
 export {
   createEgoBrowserLocator,
-  createEgoVersionReader,
+  egoVersionFromPath,
   EGO_BROWSER_COMMAND,
   EGO_LITE_URL,
   EGO_MISS_TTL_MS,
-  EGO_VERSION_TIMEOUT_MS,
   egoDefaultCandidates,
   egoExeName,
   egoLiteRunning,

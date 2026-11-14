@@ -13,7 +13,6 @@
 //
 // ego 自己的东西二狗只读不碰：不关 ego lite，不在里面开 TaskSpace（那是 agent 经 ego-browser 做的事）。唯一的例外是 agent 要用、它又没开着时，
 // 像用户自己打开那样替他打开（466 返修，web/ego-open.ts、ego-shim.ts）。
-import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { processImagePaths, processSnapshot } from "../process/process-list.ts";
@@ -25,8 +24,6 @@ export const EGO_BROWSER_COMMAND = "ego-browser";
 export const EGO_LITE_URL = "https://lite.ego.app/";
 /** 没找到的结果记多久（毫秒）：这期间不重复探测 */
 export const EGO_MISS_TTL_MS = 30_000;
-/** `ego-browser --version` 最多等多久（毫秒） */
-export const EGO_VERSION_TIMEOUT_MS = 8_000;
 
 /** 从哪找到的：配置、守护进程的 PATH、用户 PATH（注册表）、默认位置 */
 export type EgoBrowserSource = "config" | "path" | "user-path" | "default";
@@ -242,44 +239,21 @@ export function isEgoProgramName(exe: string): boolean {
 }
 
 /**
- * `ego-browser --version` 打的版本号（"ego-browser 0.6.3.14" → 0.6.3.14；它打在 stderr 上）。只跑 --version（ego 的帮助里它只打印版本，
- * 版本号是编进程序里的常量，看着不用连浏览器；ego lite 没开着时它会不会去拉起还没实测，列在 466 和用户一起实测的步骤里）。
- * 按"文件 + 修改时间"记住，文件没变直接用；读不出来是 undefined
+ * ego lite 的版本号，从路径上看（不起任何进程）：找到的 ego-browser 所在目录解开链接后的最后一段——active_version_dir 是指向
+ * `…\ego lite\Application\<版本>` 的链接，像版本号（数字加点，0.6.3.14）就是它；不像（装在别处、没有链接）是 undefined，只报"装了"。
+ * 不跑 `ego-browser --version`：ego lite 没开着时它会不会去拉起 ego 没实测过，拉起来的就在二狗的 Job 里（466）；
+ * ego-browser.exe 的 FileVersion、ProductVersion 都是空的，读 PE 版本信息也没用
  */
-export function createEgoVersionReader(options: { run?: (file: string) => Promise<string>; mtime?: (file: string) => number | undefined } = {}): (file: string) => Promise<string | undefined> {
-  const run =
-    options.run ??
-    ((file: string) =>
-      new Promise<string>((resolve, reject) => {
-        // 0.6.3.14 把版本打在 stderr 上（实测），两路都收
-        execFile(file, ["--version"], { timeout: EGO_VERSION_TIMEOUT_MS, windowsHide: true }, (err, stdout, stderr) => (err ? reject(err) : resolve(`${String(stdout)}\n${String(stderr)}`)));
-      }));
-  const mtime =
-    options.mtime ??
-    ((file: string) => {
-      try {
-        return fs.statSync(file).mtimeMs;
-      } catch {
-        return undefined;
-      }
-    });
-  const cache = new Map<string, { mtime: number | undefined; version: string | undefined }>();
-  return async (file) => {
-    const stamp = mtime(file);
-    const known = cache.get(file);
-    if (known && known.mtime === stamp && known.version !== undefined) return known.version;
-    let version: string | undefined;
-    try {
-      const out = await run(file);
-      // "ego-browser 0.6.3.14" 那一行；没有就取第一行非空的里的版本号
-      const first = out.split(/\r?\n/).find((line) => line.trim() !== "") ?? "";
-      version = (/ego-browser\s+v?(\d+(?:\.\d+)+)/i.exec(out) ?? /(\d+(?:\.\d+)+)/.exec(first))?.[1];
-    } catch {
-      version = undefined;
-    }
-    cache.set(file, { mtime: stamp, version });
-    return version;
-  };
+export function egoVersionFromPath(found: Pick<EgoBrowserFound, "dir">, realpath: (p: string) => string = (p) => fs.realpathSync.native(p)): string | undefined {
+  let real: string;
+  try {
+    real = realpath(found.dir);
+  } catch {
+    return undefined;
+  }
+  // Windows 和 POSIX 的分隔符都认（macOS 上解出来是 /Applications/…）
+  const last = real.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? "";
+  return /^\d+(?:\.\d+)+$/.test(last) ? last : undefined;
 }
 
 /**

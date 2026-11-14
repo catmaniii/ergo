@@ -74,6 +74,7 @@ import { detectLayout, type InstallLayout, readInstallState } from "./release/la
 import { releasePublicKey } from "./release/public-key.ts";
 import { createDoctorChecks, type DoctorCheckRegistry } from "./doctor/checks.ts";
 import { registerCoreDoctorChecks } from "./doctor/core.ts";
+import { realEgoBrowserSources } from "./doctor/ego-browser.ts";
 import { readMemoryUse } from "./doctor/memory-use.ts";
 import { createDeepDoctor, type DeepDoctorService } from "./doctor/deep.ts";
 import { registerDeepDoctorChecks } from "./doctor/deep-checks.ts";
@@ -297,11 +298,9 @@ import {
   createBrowserLocator,
   createDeepSeekTools,
   createEgoBrowserLocator,
-  createEgoVersionReader,
   createWebAccess,
   createWebSettings,
   type EgoBrowserFound,
-  egoLiteRunning,
   egoProgramDirs,
   playwrightDriver,
   prepareEgoShim,
@@ -3295,8 +3294,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         now: () => clock.now(),
         // 二狗占的内存（439）：查的时候现读本进程和子孙进程的计数；向量模型加载着没有看内核那一份向量函数
         memory: () => readMemoryUse(() => memoryEmbedder.loaded?.()),
-        // ego 浏览器（466）：和拉起 agent 同一份探测；版本按文件 + 修改时间记住
-        egoBrowser: { find: egoBrowser, version: createEgoVersionReader(), running: () => egoLiteRunning(egoDirs()) },
+        // ego 浏览器（466）：和拉起 agent 同一份探测；版本从路径上看、开没开看进程快照，不起任何进程（不跑 ego-browser）
+        egoBrowser: realEgoBrowserSources({ find: egoBrowser, programDirs: egoDirs }),
       }),
     );
     // 体检"二狗本身"的新检查（二）（411，doctor/housekeeping.ts；登记在 410 那几项后面，页面上排在它们之后）：备份、定时触发的任务、内部作业、卡住的 agent 和名额、日志大小、

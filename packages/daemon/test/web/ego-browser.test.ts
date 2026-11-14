@@ -1,8 +1,8 @@
 // 466：找 ego 浏览器（ego lite 的 ego-browser 命令）——配置 → 守护进程的 PATH → 用户 PATH（注册表）→ 默认位置；
-// 没找到的不一直记着（后来装上的下次能找到），找到的记住、只看文件还在不在；`ego-browser --version` 的版本按文件 + 修改时间记住。
+// 没找到的不一直记着（后来装上的下次能找到），找到的记住、只看文件还在不在；版本从路径上看（不跑 ego-browser）。
 // 全用假的文件系统、假的注册表：结果不看这台机器装没装 ego。
 import { describe, expect, it } from "vitest";
-import { createEgoBrowserLocator, createEgoVersionReader, type EgoBrowserProbe, egoDefaultCandidates, expandWindowsVars, findEgoBrowser, pathDirs } from "../../src/web/index.ts";
+import { createEgoBrowserLocator, type EgoBrowserProbe, egoDefaultCandidates, expandWindowsVars, findEgoBrowser, egoVersionFromPath, pathDirs } from "../../src/web/index.ts";
 
 const HOME = "C:\\Users\\u";
 const DEFAULT_EXE = "C:\\Users\\u\\.local\\share\\ego\\active_version_dir\\ego-browser.exe";
@@ -100,30 +100,23 @@ describe("探测要便宜、后来装上的要找得到", () => {
   });
 });
 
-describe("ego-browser --version", () => {
-  it("取 \"ego-browser x.y.z\" 里的版本号（stdout、stderr 都收）；文件没变用记住的，变了（升级了）再跑；跑不了是 undefined", async () => {
-    let runs = 0;
-    let mtime = 1;
-    let out = "ego-browser 0.6.3.14\n  chromium 156.0.8078.96\n  node v24.22.1\n";
-    const read = createEgoVersionReader({
-      run: async () => {
-        runs++;
-        return out;
-      },
-      mtime: () => mtime,
-    });
-    expect(await read("C:\\ego\\ego-browser.exe")).toBe("0.6.3.14");
-    expect(await read("C:\\ego\\ego-browser.exe")).toBe("0.6.3.14");
-    expect(runs).toBe(1);
-    mtime = 2;
-    out = "ego-browser 0.7.0.1\n";
-    expect(await read("C:\\ego\\ego-browser.exe")).toBe("0.7.0.1");
-    expect(runs).toBe(2);
-    // 0.6.3.14 实测把版本打在 stderr 上：收到的是"空的 stdout + stderr"
-    mtime = 3;
-    out = "\nego-browser 0.6.3.15\r\n  chromium 156.0.8078.96\r\n";
-    expect(await read("C:\\ego\\ego-browser.exe")).toBe("0.6.3.15");
-    const broken = createEgoVersionReader({ run: () => Promise.reject(new Error("跑不起来")), mtime: () => 1 });
-    expect(await broken("C:\\ego\\ego-browser.exe")).toBeUndefined();
+describe("ego lite 的版本：从路径上看，不跑 ego-browser", () => {
+  it("找到的目录解开链接后的最后一段像版本号（数字加点）就是版本；不像、解不开是 undefined", () => {
+    const dir = "C:\\Users\\u\\.local\\share\\ego\\active_version_dir";
+    const linkedTo = (target: string) => (p: string) => (p === dir ? target : p);
+    expect(egoVersionFromPath({ dir }, linkedTo("C:\\Program Files\\Citro Labs\\ego lite\\Application\\0.6.3.14"))).toBe("0.6.3.14");
+    expect(egoVersionFromPath({ dir }, linkedTo("C:\\Program Files\\Citro Labs\\ego lite\\Application\\0.7.0.1\\"))).toBe("0.7.0.1");
+    // macOS：ego lite.app 里的 Helpers，最后一段不是版本
+    expect(egoVersionFromPath({ dir: "/Applications/ego lite.app/Contents/Frameworks/x.framework/Versions/Current/Helpers" }, (p) => p)).toBeUndefined();
+    // 装在别处、没有链接
+    expect(egoVersionFromPath({ dir: "D:\\tools\\ego" }, (p) => p)).toBeUndefined();
+    expect(egoVersionFromPath({ dir: "D:\\tools\\ego-0.6" }, (p) => p)).toBeUndefined();
+    expect(egoVersionFromPath({ dir: "D:\\tools\\6" }, (p) => p)).toBeUndefined();
+    expect(
+      egoVersionFromPath({ dir }, () => {
+        throw new Error("ENOENT");
+      }),
+    ).toBeUndefined();
   });
 });
+
