@@ -319,6 +319,7 @@ import { BUILTIN_SKILLS_DIR, createSkillLibrary, type SkillLibrary } from "./ski
 import { createSkillChangeService, skillChangeCardType } from "./skills/change.ts";
 import * as skillChangeTexts from "./skills/change-texts.ts";
 import { skillDecisionPurge, skillDecisionSource } from "./skills/material-source.ts";
+import { createGithubSkills } from "./skills/github.ts";
 import { createSecretarySkills, type SecretarySkills } from "./skills/secretary-skills.ts";
 import { skillDirProblems } from "./skills/skill-command.ts";
 import { conversationSlashCommands } from "./slash-commands/list.ts";
@@ -1216,7 +1217,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     registry.register(questionsCardType(projectSystem.clarificationReply));
     // skill 库、MCP 登记和工具包：skill 库是框架自带的加数据目录 skill 区里导入的；MCP 登记在配置区（只读），
     // 服务进程按需拉起、各放进自己的 Job 对象（不放 agent 管家的：那里按"从活着的 agent 走不到"回收孤儿）
-    const skills = createSkillLibrary({ builtinDir: options.builtinSkillsDir ?? BUILTIN_SKILLS_DIR, userDir: realLayout.skills, dataDir: realLayout.root, now, log });
+    const skills = createSkillLibrary({ builtinDir: options.builtinSkillsDir ?? BUILTIN_SKILLS_DIR, userDir: realLayout.skills, dataDir: realLayout.root, stagedDir: realLayout.githubSkills, now, log });
     // 秘书用的 skill：名单在配置区（设置里的 skill 库页改），每次装配秘书时现取
     const secretarySkills = createSecretarySkills({ file: layout.secretarySkillsFile, library: skills, log });
     const mcp = createMcpService({
@@ -1679,6 +1680,15 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       log,
     });
     const componentsTransport = options.components?.transport ?? componentTransport(options.env, "ergo-components");
+    // 从 GitHub 装 skill（465）：下载走同一层（跟重定向、走系统代理；测试换的也是 components.transport），解到临时区里自己的一格
+    const githubSkills = createGithubSkills({
+      library: skills,
+      dir: realLayout.githubSkills,
+      transport: options.components?.transport ?? componentTransport(options.env, "ergo-skills"),
+      now: () => clock.now(),
+      log,
+    });
+    teardown.push(() => githubSkills.stop());
     // 查更新：取发布页上的版本清单，查的地址和 ergo update 一样（自己给的发布地址优先）；有新版本告诉用户，点了才换
     const releaseBase = options.env.ERGO_RELEASE_URL?.trim() || (installLayout.root ? readInstallState(installLayout.root).source?.url : undefined);
     const components = createComponents({
@@ -3082,6 +3092,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 设置 · 语音（参考音色、两个模型的状态）、分段合成的段、Debug 工具集的语音组（经语音插件的服务现取）
         voice: () => plugins.service(VOICE),
         toolkits,
+        githubSkills,
         secretarySkills,
         // 输入框里打 / 弹出的候选：这个会话能用的二狗的命令和 skill，和装配时一样现取
         // 310：带参数提示；不是用户语言的说明换成用户语言的（运行时自带的说明表、二狗的模型翻的缓存）；记忆管理员的会话也有命令

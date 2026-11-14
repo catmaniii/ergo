@@ -6,7 +6,7 @@
 // - 放进项目列表一个立项书已确认、带工具包的项目（负责人休眠，用户在它的会话里说话时唤起）。
 import fs from "node:fs";
 import path from "node:path";
-import { HTTP_PATHS, type ImportSkillBody, type ImportSkillResult, type PlanToolkit, type Project, type SecretarySkillsView, type ToolkitCatalog } from "@ergo/protocol";
+import { type GithubSkillInstallBody, type GithubSkillPreview, HTTP_PATHS, type ImportSkillBody, type ImportSkillResult, type PlanToolkit, type Project, type SecretarySkillsView, type ToolkitCatalog } from "@ergo/protocol";
 import type { Daemon } from "../../src/daemon.ts";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { requestJson } from "./http.ts";
@@ -80,6 +80,10 @@ export const toolkitApi = {
     requestJson<ImportSkillResult & { message?: string; code?: string }>(url, HTTP_PATHS.skillImport, { method: "POST", body: typeof source === "string" ? { path: source } : source }),
   secretarySkills: (url: string) => requestJson<SecretarySkillsView>(url, HTTP_PATHS.secretarySkills),
   setSecretarySkills: (url: string, skills: string[]) => requestJson<SecretarySkillsView & { message?: string; code?: string }>(url, HTTP_PATHS.secretarySkills, { method: "POST", body: { skills } }),
+  /** 从 GitHub 装（465）：预览、安装、放弃 */
+  githubPreview: (url: string, address: string) => requestJson<GithubSkillPreview & { message?: string; code?: string }>(url, HTTP_PATHS.skillGithubPreview, { method: "POST", body: { url: address } }),
+  githubInstall: (url: string, body: GithubSkillInstallBody) => requestJson<ImportSkillResult & { message?: string; code?: string }>(url, HTTP_PATHS.skillGithubInstall, { method: "POST", body }),
+  githubDiscard: (url: string, previewId: string) => requestJson<{ discarded: boolean; message?: string }>(url, HTTP_PATHS.skillGithubDiscard, { method: "POST", body: { previewId } }),
 };
 
 /** 工具包 */

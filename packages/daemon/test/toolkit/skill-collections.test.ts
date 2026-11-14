@@ -194,13 +194,19 @@ describe("不带进来的东西", () => {
     expect(JSON.parse(fs.readFileSync(path.join(copied, COLLECTION_MANIFEST), "utf8")).excluded).toEqual(result.excluded);
   });
 
-  it("成员所在的子目录在隐藏目录里（.claude/skills）：那条路上的不算隐藏目录", () => {
-    const { lib } = library();
+  it("成员所在的子目录在隐藏目录里（.claude/skills）：那条路上的不算隐藏目录；那个隐藏目录里旁边的（别的程序的配置）不带", () => {
+    const { lib, userDir } = library();
     const root = makeTempDir("ergo-src-");
     writeSkill(path.join(root, ".claude", "skills", "one"), "one", "一个");
+    write(path.join(root, ".claude", "skills", "one", "notes.md"), "笔记\n");
     write(path.join(root, ".claude", "settings.json"), "{}\n");
+    write(path.join(root, ".claude", "hooks", "pre.sh"), "echo\n");
     const result = lib.importFrom({ path: root, collection: { name: "fake-hidden", source: "假的", version: "1", description: "假的", skillsDir: ".claude/skills" } });
     expect(result.collection?.skills).toEqual(["one"]);
+    expect(result.excluded).toEqual([".claude/hooks/", ".claude/settings.json"]);
+    const copied = path.join(userDir, "fake-hidden", ".claude");
+    expect(fs.readdirSync(copied)).toEqual(["skills"]);
+    expect(fs.readFileSync(path.join(copied, "skills", "one", "notes.md"), "utf8")).toBe("笔记\n");
   });
 });
 

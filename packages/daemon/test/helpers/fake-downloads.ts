@@ -313,9 +313,20 @@ export function makeZip(items: readonly ZipItem[], options: { zip64?: boolean } 
 export interface TarItem {
   path: string;
   body?: Buffer | string;
-  type?: "file" | "dir" | "symlink";
+  /** global 是全局的 pax 头（git archive 在这里写 comment=<提交号>），内容是 records；path 不用 */
+  type?: "file" | "dir" | "symlink" | "global";
   /** 用 pax 头写长名字 */
   pax?: boolean;
+  /** 全局 pax 头的记录 */
+  records?: Record<string, string>;
+}
+
+/** pax 头的一条记录："长度 键=值" 加换行，长度按字节算、连它自己在内 */
+function paxRecord(key: string, value: string): string {
+  const record = `${key}=${value}\n`;
+  let length = Buffer.byteLength(record) + 3;
+  while (Buffer.byteLength(`${length} ${record}`) !== length) length = Buffer.byteLength(`${length} ${record}`);
+  return `${length} ${record}`;
 }
 
 function header(name: string, size: number, typeflag: string, linkname = ""): Buffer {
@@ -344,6 +355,11 @@ export function makeTar(items: readonly TarItem[], gzip = false): Buffer {
   const blocks: Buffer[] = [];
   for (const item of items) {
     const body = Buffer.isBuffer(item.body) ? item.body : Buffer.from(item.body ?? "");
+    if (item.type === "global") {
+      const data = Buffer.from(Object.entries(item.records ?? {}).map(([k, v]) => paxRecord(k, v)).join(""));
+      blocks.push(header("pax_global_header", data.length, "g"), data, pad(data.length));
+      continue;
+    }
     if (item.pax) {
       const record = `path=${item.path}\n`;
       // 长度按字节算、连它自己在内

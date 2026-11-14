@@ -71,6 +71,7 @@ export * from "./web-settings.ts";
 export * from "./popup.ts";
 export * from "./composer-outbox.ts";
 export * from "./skill-groups.ts";
+export * from "./github-skill.ts";
 export * from "./system-prompts.ts";
 export * from "./agent-settings.ts";
 export * from "./slash-commands.ts";
