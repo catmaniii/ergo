@@ -7,8 +7,9 @@
 //   新的 Windows 进程，它的 Windows 父进程（fork 出来的中间进程）交接完马上就退了。管道各段、`bash 脚本`、它们下面的整棵树
 //   因此顺着父进程号走不到，可 bash 还在等它们。按创建时间认：晚于所有活着的 agent 里最早一个还没结束的工具调用的开始时间
 //   （留 1 秒余量）的、取不到创建时间的，这一轮先留着；调用都结束之后它们若还在，下一轮照样回收。
-// - **ego lite 的进程一律不杀**（466）：agent 用 ego-browser 时，ego lite 没开着的话它可能会被拉起来（拉起来的就在 Job 里），
-//   ego-browser 退了它就成了孤儿。可那是用户自己用的浏览器（登录着各种网站），可执行文件在 ego lite 的程序目录下
+// - **ego lite 的进程一律不杀**（466）：ego lite 没开着时，二狗的 shim 会抢先像用户自己打开那样替他打开（不在 Job 里，web/ego-open.ts）；
+//   可万一还是被 ego-browser 自己拉起来了（agent 用完整路径调了真的 ego-browser、shim 没能用上），拉起来的就在 Job 里，
+//   ego-browser 退了它就成了孤儿。那是用户自己用的浏览器（登录着各种网站），可执行文件在 ego lite 的程序目录下
 //   （web/ego-browser.ts 的 egoProgramDirs：安装目录、active_version_dir）的进程连同它下面的进程都不算孤儿；
 //   取不到完整路径的，名字是 ego.exe、ego-browser.exe 的也留着。
 import type { JobObject } from "../process/job-object.ts";

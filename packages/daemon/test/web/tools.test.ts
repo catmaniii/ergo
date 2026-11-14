@@ -231,7 +231,7 @@ describe("工具说明、能写的 engine 跟着设置里的队列", () => {
     expect(text).toContain("browser：浏览器真实渲染搜索结果页");
     expect(text).not.toContain("tavily");
     expect(text).toContain("web_search 都没搜成时再用 ego 浏览器（ego-browser 命令：在 bash 里跑脚本，操作用户电脑上的 ego lite，用的是用户登录好的网站；用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜。");
-    expect(text).toContain("用 ego 浏览器时要登录、过验证码的交给用户（task.handOff()，告诉用户去电脑上的 ego 里操作），不猜密码、不绕过验证；ego lite 没开着先请用户打开，别自己去拉起它。");
+    expect(text).toContain("用 ego 浏览器时要登录、过验证码的交给用户（task.handOff()，告诉用户去电脑上的 ego 里操作），不猜密码、不绕过验证；ego lite 没开着不用管，跑 ego-browser 时二狗会替用户打开；打不开时命令输出会说原因，照着请用户自己打开。");
     expect(text).toContain("下载图片、PDF 这类文件，或者要用用户登录好的网站时，用 ego 浏览器或 bash（web_fetch 只读文字、不带登录）。");
   });
 
@@ -318,7 +318,7 @@ describe("工具说明、能写的 engine 跟着设置里的队列", () => {
 
   it("只用 ego 浏览器、指定的方式停用了 / 没 key：按出错交回，说清楚怎么办", async () => {
     expect(await searchWith(new OnlyEgoBrowser(true))).toEqual({
-      text: "联网搜索现在只用 ego 浏览器（用户在设置里只启用了它）：用 ego 浏览器（ego-browser 命令：在 bash 里跑脚本，操作用户电脑上的 ego lite，用的是用户登录好的网站；用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜。用 ego 浏览器时要登录、过验证码的交给用户（task.handOff()，告诉用户去电脑上的 ego 里操作），不猜密码、不绕过验证；ego lite 没开着先请用户打开，别自己去拉起它。",
+      text: "联网搜索现在只用 ego 浏览器（用户在设置里只启用了它）：用 ego 浏览器（ego-browser 命令：在 bash 里跑脚本，操作用户电脑上的 ego lite，用的是用户登录好的网站；用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜。用 ego 浏览器时要登录、过验证码的交给用户（task.handOff()，告诉用户去电脑上的 ego 里操作），不猜密码、不绕过验证；ego lite 没开着不用管，跑 ego-browser 时二狗会替用户打开；打不开时命令输出会说原因，照着请用户自己打开。",
       isError: true,
     });
     expect(await searchWith(new OnlyEgoBrowser(false))).toEqual({
@@ -331,10 +331,10 @@ describe("工具说明、能写的 engine 跟着设置里的队列", () => {
 
   it("试到 ego 浏览器 为止都没成：写明接下来用 ego 浏览器（排中间的再写还不成时指定哪种）", async () => {
     expect((await searchWith(new AllSearchesFailed("DeepSeek：DeepSeek 没搜到结果", { method: "ego-browser", rest: ["browser"] }))).text).toBe(
-      "没搜到「x」（DeepSeek：DeepSeek 没搜到结果）。设置里接下来是 ego 浏览器：用它（在 bash 里跑 ego-browser，用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜；还不成再调 web_search，engine 写 browser。用 ego 浏览器时要登录、过验证码的交给用户（task.handOff()，告诉用户去电脑上的 ego 里操作），不猜密码、不绕过验证；ego lite 没开着先请用户打开，别自己去拉起它。",
+      "没搜到「x」（DeepSeek：DeepSeek 没搜到结果）。设置里接下来是 ego 浏览器：用它（在 bash 里跑 ego-browser，用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜；还不成再调 web_search，engine 写 browser。用 ego 浏览器时要登录、过验证码的交给用户（task.handOff()，告诉用户去电脑上的 ego 里操作），不猜密码、不绕过验证；ego lite 没开着不用管，跑 ego-browser 时二狗会替用户打开；打不开时命令输出会说原因，照着请用户自己打开。",
     );
     expect((await searchWith(new AllSearchesFailed("DeepSeek：DeepSeek 没搜到结果", { method: "ego-browser", rest: [] }))).text).toBe(
-      "没搜到「x」（DeepSeek：DeepSeek 没搜到结果）。设置里接下来是 ego 浏览器：用它（在 bash 里跑 ego-browser，用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜。用 ego 浏览器时要登录、过验证码的交给用户（task.handOff()，告诉用户去电脑上的 ego 里操作），不猜密码、不绕过验证；ego lite 没开着先请用户打开，别自己去拉起它。",
+      "没搜到「x」（DeepSeek：DeepSeek 没搜到结果）。设置里接下来是 ego 浏览器：用它（在 bash 里跑 ego-browser，用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜。用 ego 浏览器时要登录、过验证码的交给用户（task.handOff()，告诉用户去电脑上的 ego 里操作），不猜密码、不绕过验证；ego lite 没开着不用管，跑 ego-browser 时二狗会替用户打开；打不开时命令输出会说原因，照着请用户自己打开。",
     );
   });
 
@@ -419,7 +419,7 @@ describe("鸿蒙 App 的内置浏览器", () => {
     );
     const afterAb = await secretarySearch(thrower(new AllSearchesFailed("DeepSeek：DeepSeek 没搜到结果；浏览器：ddg：没有结果", { method: "ego-browser", rest: ["app-browser"] })), FOUR).run({ query: "x" }, CALL);
     expect(afterAb.text).toBe(
-      "没搜到「x」（DeepSeek：DeepSeek 没搜到结果；浏览器：ddg：没有结果）。设置里接下来是 ego 浏览器：用它（在 bash 里跑 ego-browser，用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜；还不成用鸿蒙 App 的内置浏览器（browse_open 打开 https://cn.bing.com/search?q=x）。用 ego 浏览器时要登录、过验证码的交给用户（task.handOff()，告诉用户去电脑上的 ego 里操作），不猜密码、不绕过验证；ego lite 没开着先请用户打开，别自己去拉起它。",
+      "没搜到「x」（DeepSeek：DeepSeek 没搜到结果；浏览器：ddg：没有结果）。设置里接下来是 ego 浏览器：用它（在 bash 里跑 ego-browser，用法见 ego-browser skill，或先在 bash 里跑 ego-browser skill）搜；还不成用鸿蒙 App 的内置浏览器（browse_open 打开 https://cn.bing.com/search?q=x）。用 ego 浏览器时要登录、过验证码的交给用户（task.handOff()，告诉用户去电脑上的 ego 里操作），不猜密码、不绕过验证；ego lite 没开着不用管，跑 ego-browser 时二狗会替用户打开；打不开时命令输出会说原因，照着请用户自己打开。",
     );
   });
 

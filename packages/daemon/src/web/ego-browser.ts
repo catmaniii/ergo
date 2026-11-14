@@ -11,7 +11,8 @@
 // 没找到不一直记着：用户后来装上的，下次拉起 agent 时要找得到。探测要便宜：找到了记住，下次只看那个文件还在不在（stat 一次）；
 // 没找到的结果只记 MISS_TTL_MS（这期间连着拉起几个 agent 不重复读注册表）；读注册表是进程内调 RegGetValueW，不起子进程。
 //
-// ego 自己的东西二狗只读不碰：不替用户打开、关掉 ego lite，不在里面开 TaskSpace（那是 agent 经 ego-browser 做的事）。
+// ego 自己的东西二狗只读不碰：不关 ego lite，不在里面开 TaskSpace（那是 agent 经 ego-browser 做的事）。唯一的例外是 agent 要用、它又没开着时，
+// 像用户自己打开那样替他打开（466 返修，web/ego-open.ts、ego-shim.ts）。
 import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -242,7 +243,7 @@ export function isEgoProgramName(exe: string): boolean {
 
 /**
  * `ego-browser --version` 打的版本号（"ego-browser 0.6.3.14" → 0.6.3.14；它打在 stderr 上）。只跑 --version（ego 的帮助里它只打印版本，
- * 版本号是编进程序里的常量，不用连浏览器；ego lite 没开着时它会不会去拉起没实测过，见 466 的 Comments）。
+ * 版本号是编进程序里的常量，看着不用连浏览器；ego lite 没开着时它会不会去拉起还没实测，列在 466 和用户一起实测的步骤里）。
  * 按"文件 + 修改时间"记住，文件没变直接用；读不出来是 undefined
  */
 export function createEgoVersionReader(options: { run?: (file: string) => Promise<string>; mtime?: (file: string) => number | undefined } = {}): (file: string) => Promise<string | undefined> {

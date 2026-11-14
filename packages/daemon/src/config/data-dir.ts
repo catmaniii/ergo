@@ -182,6 +182,11 @@ export interface DataDirLayout {
   mapTiles: string;
   /** 斜杠命令说明的译文（按"语言 + 命令名 + 原文"）：二狗的模型翻的，随时能重新翻出来 */
   slashTranslationsFile: string;
+  /**
+   * agent 的 PATH 上那个薄的 ego-browser（466，web/ego-shim.ts）：拉起 agent 时写，先确保 ego lite 开着再交给真的 ego-browser。
+   * 随时能重新写出来
+   */
+  egoBrowserShim: string;
 }
 
 /**
@@ -277,6 +282,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     pageThumbnails: path.join(root, "cache", "page-thumbnails"),
     mapTiles: path.join(root, "cache", "map-tiles"),
     slashTranslationsFile: path.join(root, "cache", "slash-translations.json"),
+    egoBrowserShim: path.join(root, "cache", "ego-browser"),
   };
 }
 

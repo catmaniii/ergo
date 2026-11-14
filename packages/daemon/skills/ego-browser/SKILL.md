@@ -11,14 +11,15 @@ ego lite 是用户电脑上的浏览器，人和 agent 共用：你操作的就�
 
 1. 在 bash 里跑 `ego-browser skill`，照它打印的用法做。用法和装的 ego lite 版本配套，以它为准。输出的最后一行是 `[ego-browser:skill] end of guide`，没看到就是被截断了：重定向到文件，再分段读。
 2. 找不到命令（`command not found`）：这台电脑没装 ego lite，或者装了还没走完首次引导。告诉用户去 https://lite.ego.app/ 装 ego lite、打开它走完首次引导，好了回你一句，然后再试一次。二狗每次拉起 agent 都会重新找这个命令。
-3. ego lite 没开着：先请用户打开，不要自己去拉起它。看它开没开（Git Bash）：`tasklist //FI "IMAGENAME eq ego.exe" //NH | grep -qi "^ego.exe" && echo 开着 || echo 没开`。
+3. ego lite 没开着：不用先查、也不用自己去开。你跑 `ego-browser` 时二狗会像用户自己打开那样替他打开（输出里有一行 `[二狗] ego lite 没开着，二狗已经替用户打开了…`），等它好了再接着跑你的命令。打不开时命令不会往下跑，`[二狗]` 那一行写着原因：照着请用户自己打开 ego lite，好了再跑一次。
 
 ## 二狗这边的规矩
 
+- 就用 `ego-browser` 这个命令名，不要改用 ego 安装目录里那个 ego-browser.exe 的完整路径：二狗替用户打开 ego lite 靠的是 PATH 上的这一个。
 - 一个目标只用一个 TaskSpace，接着做同一件事时回到它；做完了 `finish`。
 - 要登录、过验证码、两步验证时：`task.handOff()`，这一轮就停在这里，在对话里告诉用户"去电脑上的 ego 里操作，好了回我一句"。不猜密码，不绕过验证。用户回了之后接着同一个 TaskSpace。
 - 不碰付款：下单、支付、转账到了那一步就停下，交给用户。
-- 不清 cookie、缓存和存储。真要清，先读 ego 自带的说明 `ego-skills/ego-browser/references/clearing-state.md`（在 ego-browser 命令所在的目录里），并且先问用户。
+- 不清 cookie、缓存和存储。真要清，先读 ego 自带的说明 `ego-skills/ego-browser/references/clearing-state.md`（在 ego lite 的版本目录里，Windows 上是 `~/.local/share/ego/active_version_dir/` 下面），并且先问用户。
 
 ## 实测过的坑
 

@@ -351,10 +351,12 @@ export interface AgentManagerOptions {
    */
   interruptedToolResults?: (agentId: string) => Readonly<Record<string, InterruptedToolResult>>;
   /**
-   * ego 浏览器的命令所在的目录（web/ego-browser.ts 的探测，466）：拉起时现取，有就放到 agent 子进程 PATH 的最前面——
-   * pi 的 bash、Claude Code、Codex 起的进程都继承子进程的环境，三种运行时都找得到 ego-browser；没找到就不加
+   * 给 agent 的 ego 浏览器（466）：拉起时现取，有就把 dir 放到 agent 子进程 PATH 的最前面、env 一起给——
+   * pi 的 bash、Claude Code、Codex 起的进程都继承子进程的环境，三种运行时都找得到 ego-browser；没找到就不加。
+   * Windows 上 dir 是二狗写的那个薄的 ego-browser（web/ego-shim.ts：先确保 ego lite 开着、不在二狗的 Job 里，再交给真的），
+   * 别的系统是 ego-browser 所在的目录
    */
-  egoBrowserDir?: () => string | undefined;
+  egoBrowserPath?: () => EgoBrowserForAgent | undefined;
   /** 孤儿回收不碰的程序目录（ego lite 的安装目录、active_version_dir，web/ego-browser.ts 的 egoProgramDirs）：每轮回收时现取 */
   keepProcessDirs?: () => readonly string[];
   /**
@@ -409,13 +411,19 @@ export function shellEnvFor(network: boolean): Record<string, string> {
   };
 }
 
+/** 给 agent 的 ego 浏览器：放到 PATH 最前面的目录，和一起给的环境变量（web/ego-shim.ts 的 EgoAgentPath） */
+export interface EgoBrowserForAgent {
+  dir: string;
+  env?: Readonly<Record<string, string>>;
+}
+
 /**
- * agent 子进程的环境：守护进程按白名单挑的系统变量加上拉起时显式给的（buildChildEnv），找到了 ego 浏览器就把它的目录放到 PATH 最前面
- * （pi 的 bash、Claude Code、Codex 起的进程都继承它）
+ * agent 子进程的环境：守护进程按白名单挑的系统变量加上拉起时显式给的（buildChildEnv），找到了 ego 浏览器就把它的目录放到 PATH 最前面、
+ * 它的环境变量一起给（pi 的 bash、Claude Code、Codex 起的进程都继承它）
  */
-export function agentChildEnv(parentEnv: Readonly<Record<string, string | undefined>>, explicit: Readonly<Record<string, string>>, egoBrowserDir: string | undefined): Record<string, string> {
-  const env = buildChildEnv(parentEnv, explicit);
-  return egoBrowserDir === undefined ? env : prependPath(env, egoBrowserDir);
+export function agentChildEnv(parentEnv: Readonly<Record<string, string | undefined>>, explicit: Readonly<Record<string, string>>, ego: EgoBrowserForAgent | undefined): Record<string, string> {
+  if (ego === undefined) return buildChildEnv(parentEnv, explicit);
+  return prependPath(buildChildEnv(parentEnv, { ...ego.env, ...explicit }), ego.dir);
 }
 
 /** agent 的会话目录（pi 的会话文件放在这里）：会话区下的 <agentId> */
@@ -1000,7 +1008,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
       // 子进程里给用户看的几句按现在的语言写
       // 组件区：运行时的子进程要用装在那里的东西（Claude Code 的 Agent SDK）
       // ego 浏览器（466）：找到了就把它的目录放到 PATH 最前面，每次拉起现找（后来装上的下次就有）
-      env: agentChildEnv(options.parentEnv, { ...request.env, [CHILD_LANGUAGE_ENV]: activeLanguage(), [COMPONENTS_DIR_ENV]: layout.components }, options.egoBrowserDir?.()),
+      env: agentChildEnv(options.parentEnv, { ...request.env, [CHILD_LANGUAGE_ENV]: activeLanguage(), [COMPONENTS_DIR_ENV]: layout.components }, options.egoBrowserPath?.()),
       job: options.job,
       onLog: (line) => log(`[agent ${request.agentId}] ${line}`),
     });

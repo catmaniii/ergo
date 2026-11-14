@@ -304,6 +304,7 @@ import {
   egoLiteRunning,
   egoProgramDirs,
   playwrightDriver,
+  prepareEgoShim,
   realEgoProbe,
   type WebAccess,
   type WebBilledCall,
@@ -1784,10 +1785,17 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const browserLocator = createBrowserLocator({ configured: config.web.browserPath, homeDir: options.homeDir, env: options.env, log });
     const browserPath = options.browserPath ?? (() => browserLocator.path());
     // ego 浏览器（466）：agent 在 bash 里用的 ego-browser 命令。每次拉起 agent 现找（配置的 web.egoBrowserPath → PATH → 用户 PATH → 默认位置，
-    // 没找到的只记一会儿），找到了把目录放到 agent 子进程 PATH 的最前面；孤儿回收不碰 ego lite 的程序目录下的进程
+    // 没找到的只记一会儿），找到了在 agent 子进程 PATH 的最前面放一个薄的 ego-browser（Windows：缓存区里二狗写的 shim，先确保 ego lite
+    // 开着——没开就像用户自己打开那样替他打开、不在二狗的 Job 里——再交给真的；写不了、别的系统放 ego 的目录）；
+    // 孤儿回收不碰 ego lite 的程序目录下的进程
     const egoLocator = createEgoBrowserLocator(realEgoProbe({ env: options.env, homeDir: options.homeDir, configured: config.web.egoBrowserPath }), { log });
     const egoBrowser = options.egoBrowser ?? (() => egoLocator.find());
     const egoDirs = () => egoProgramDirs({ found: egoBrowser(), env: options.env, homeDir: options.homeDir });
+    const egoForAgent = () => {
+      const found = egoBrowser();
+      if (!found) return undefined;
+      return prepareEgoShim({ dir: layout.egoBrowserShim, egoBrowser: found.path, log }) ?? { dir: found.dir };
+    };
     /**
      * 设置里选的自定义（OpenAI 兼容）服务商（自定义服务商这一步）：设置服务在下面才建（它要用这里建好的 agent 管家做模型探查），
      * 所以两边在这里交汇——先留个口子，设置服务建好之后填进来；拉起 agent、模型探查、另起的生成都现取它
@@ -1796,7 +1804,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const agents = createAgentManager({
       layout,
       parentEnv: options.env,
-      egoBrowserDir: () => egoBrowser()?.dir,
+      egoBrowserPath: egoForAgent,
       keepProcessDirs: egoDirs,
       job,
       limits: config.agentLimits,

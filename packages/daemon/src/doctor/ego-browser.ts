@@ -1,8 +1,8 @@
 // 体检"二狗本身"里的"ego 浏览器"（466）：agent 用的浏览器是用户电脑上的 ego lite（ego-browser 命令）。
 // - 找不找得到命令（web/ego-browser.ts 的探测，和拉起 agent 时同一份），找到了报路径和 `ego-browser --version` 的版本；
 // - ego lite 开没开（进程快照里有它的 ego.exe）。
-// 没装 → 注意，告诉用户去哪装；装了没开 → 注意，告诉用户打开就行（agent 用它时也会先请用户打开，不自己去拉起）；
-// 开着 → 正常；看不了开没开（不是 Windows）→ 正常，只报路径和版本。
+// 没装 → 注意，告诉用户去哪装；装了没开 → 正常（466 返修：agent 要用时二狗会像用户自己打开那样替他打开，见 web/ego-open.ts），
+// 只写一句没开着、agent 要用时二狗会打开；开着 → 正常；看不了开没开（不是 Windows）→ 正常，只报路径和版本。
 // cost 是 local：要起一次 `ego-browser --version`（按文件 + 修改时间记住，文件没变不再起），超时放到它的等待时长加一秒。
 import { EGO_LITE_URL, EGO_VERSION_TIMEOUT_MS, type EgoBrowserFound } from "../web/index.ts";
 import { t } from "@ergo/protocol";
@@ -19,7 +19,7 @@ export interface EgoBrowserFacts {
 export function judgeEgoBrowser(facts: EgoBrowserFacts): DoctorFinding {
   if (!facts.found) return { level: "warn", fact: { key: "doctor.egoBrowser.missing" }, fix: { key: "doctor.fix.egoBrowserMissing", params: { url: EGO_LITE_URL } } };
   const params = { path: facts.found.path, version: facts.found.version ?? t("doctor.egoBrowser.versionUnknown") };
-  if (facts.running === false) return { level: "warn", fact: { key: "doctor.egoBrowser.notRunning", params }, fix: { key: "doctor.fix.egoBrowserNotRunning" } };
+  if (facts.running === false) return { level: "ok", fact: { key: "doctor.egoBrowser.notRunning", params } };
   return { level: "ok", fact: { key: facts.running === true ? "doctor.egoBrowser.running" : "doctor.egoBrowser.found", params } };
 }
 

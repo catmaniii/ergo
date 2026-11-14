@@ -99,7 +99,7 @@ It says **Saved. ergo switches to the new skill list after finishing the current
 **Good to know**
 
 - The defaults are ego-browser (built in; operates web pages with the ego browser on your computer) and yt-dlp. Those not imported yet keep their names, and install automatically once imported.
-- If you had agent-browser ticked: after upgrading it's replaced by ego-browser in the same place, here and in project and task toolkits, once only. The agent-browser you imported stays in the library; tick it again if you want it.
+- If you had agent-browser ticked: after upgrading it's replaced by ego-browser in the same place, here and in project and task toolkits, once only. Ergo never deletes the agent-browser you imported on its own, so it stays in the library; if you no longer need it, delete it from the list above (deleted skills can be recovered from the history area).
 - Below it shows how many characters these skills' descriptions come to in total. They're sent with every turn of conversation, and if they're too long it reminds you to remove ones you don't use.
 - Plain tasks (not belonging to a project) use this list too.
 

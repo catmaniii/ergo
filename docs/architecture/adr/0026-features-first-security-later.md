@@ -109,11 +109,21 @@
 
 - **队列里的第三种换成 `ego-browser`**（显示名"ego 浏览器"）：存着的 `agent-browser` 读的时候原位换成它、启用状态照旧，记一条日志、当场改写设置文件。能不能用：这个 agent 有 bash，而且这台电脑找得到 `ego-browser`；有 bash 却找不到时工具说明写"ego 浏览器没装"、去哪装，`web_search` 当它不在队列里。
 - **找 `ego-browser` 只有一处**（`web/ego-browser.ts`）：配置的 `web.egoBrowserPath` → 守护进程的 PATH → 用户 PATH（注册表 HKCU\Environment，ego lite 首次引导加在这里，只对之后启动的进程生效）→ 默认位置。每次拉起 agent 现找：找到的记住、只看文件还在不在，没找到的只记 30 秒——用户后来装上的，下次拉起 agent 就有。
-- **交给 agent 的是 PATH，不是环境变量**：拉起 agent 子进程时把 `ego-browser` 所在的目录放到 PATH 最前面；pi 的 bash、Claude Code、Codex 都继承子进程的环境，三种运行时一样。agent-browser 的三个环境变量（`AGENT_BROWSER_EXECUTABLE_PATH`、`_SOCKET_DIR`、`_IDLE_TIMEOUT_MS`）、每个 agent 的 socket 目录、闲置回收（`agents.browserIdleMinutes`，还写着的照常读、不再用）、孤儿回收里认 agent-browser 守护进程的那段都拆了。无头搜索选浏览器（`web/browser-path.ts`）不动，agent-browser 自带的签名 Chrome 照旧当候选。
-- **skill**：框架自带一份薄的 `ego-browser`（先跑 `ego-browser skill` 照它的用法做；二狗这边的规矩：一个目标一个 TaskSpace、要登录过验证码 handOff、ego lite 没开着先请用户打开、不碰付款、不清 cookie；实测的坑）。秘书的默认 skill、存着的秘书名单和各工具包里的 `agent-browser` 换成它，只换一次（记在配置区的 `migrations.json`）。用户自己导入的 agent-browser 留在库里。
+- **交给 agent 的是 PATH，不是环境变量**：拉起 agent 子进程时把一个目录放到 PATH 最前面；pi 的 bash、Claude Code、Codex 都继承子进程的环境，三种运行时一样。Windows 上放的是二狗在缓存区写的薄 `ego-browser`（`web/ego-shim.ts`，见下面的返修），别的系统是 `ego-browser` 所在的目录。agent-browser 的三个环境变量（`AGENT_BROWSER_EXECUTABLE_PATH`、`_SOCKET_DIR`、`_IDLE_TIMEOUT_MS`）、每个 agent 的 socket 目录、闲置回收（`agents.browserIdleMinutes`，还写着的照常读、不再用）、孤儿回收里认 agent-browser 守护进程的那段都拆了。无头搜索选浏览器（`web/browser-path.ts`）不动，agent-browser 自带的签名 Chrome 照旧当候选。
+- **skill**：框架自带一份薄的 `ego-browser`（先跑 `ego-browser skill` 照它的用法做；二狗这边的规矩：一个目标一个 TaskSpace、要登录过验证码 handOff、就用 `ego-browser` 这个命令名、不碰付款、不清 cookie；实测的坑）。秘书的默认 skill、存着的秘书名单和各工具包里的 `agent-browser` 换成它，只换一次（记在配置区的 `migrations.json`）。用户自己导入的 agent-browser 留在库里。
 - **保护用户的 ego**：孤儿回收不杀可执行文件在 ego lite 程序目录（安装目录、active_version_dir）下的进程，连同它们下面的进程；取不到路径的按名字（`ego.exe`、`ego-browser.exe`）留。
+
+### 返修：ego lite 没开着时二狗替用户打开（466，用户定的"甲"）
+
+ego lite 没开着时 `ego-browser` 会自己去拉起它（程序里有 "Failed to start ego lite"、`--startup-ego-browser-service`）。拉起来的进程是 agent 的 bash 的子孙，在二狗的 Job 里（KILL_ON_JOB_CLOSE、不许脱离），二狗一停就把用户的浏览器连同登录着的网站一起关掉。用户定的是：agent（三种运行时都算）一要用，二狗替它把 ego lite 打开，而且要像用户自己打开的一样——不在二狗的 Job 里，二狗重启、停止、崩溃都带不走，清残留进程也碰不到。
+
+- **钩子放在 PATH 上，不放在守卫里**：agent 的 PATH 最前面是一个 shim 目录（`<数据目录>/cache/ego-browser`），里面一个 sh 脚本（Git Bash：pi 的 bash、Claude Code 的 Bash）、一个 `.cmd`（PowerShell、cmd：Codex、Claude Code 的 PowerShell）和 `target.json`（真的 `ego-browser` 在哪）。两个脚本都用二狗自己那份 Node 跑 `web/ego-browser-shim-main.ts`：要连 ego lite 的命令（`nodejs`、`skill`、`import`、`upgrade`……，只看帮助、版本的不算）先确保 ego lite 开着，再把参数原样交给真的 `ego-browser`（标准输入、输出、退出码都照旧）。脚本里、子 shell 里按名字调的都经过它；守卫只看得见 agent 直接写的那一句，也不该顺手开程序。`.cmd` 按控制台代码页读，所以 Node 和入口的路径先走环境变量 `ERGO_EGO_SHIM_NODE`、`ERGO_EGO_SHIM_ENTRY`（拉起 agent 时和 PATH 一起给），没有时才用写在里面的（只在全是 ASCII 时写）。
+- **怎么开才不在 Job 里**：`explorer.exe "<ego.exe>"`。新起的 explorer 把"打开它"转给用户登录时就在的桌面外壳、自己马上退出，ego.exe 是桌面外壳的子进程，和用户双击图标打开的一样（测试在一个 KILL_ON_JOB_CLOSE 的 Job 里这样起一个假程序，关掉 Job 后它还活着；直接起的反例会被一起关掉）。不建计划任务、服务，不改注册表和系统设置，不留常驻的东西。同一个会话里没有桌面外壳时不开（那样起的 explorer 自己会成外壳、留在 Job 里）。shim 自己开、不回头请守护进程开：agent 的进程到守护进程没有现成的通道，而交给桌面外壳谁来做都一样。
+- **怎么等它好**：`ego-browser` 经命名管道 `\\.\pipe\mojo.CitroLabs.ego.<版本>`（ego lite 的 ego_cli 引导服务）连 ego lite，管道出现就往下；管道没出现、但 ego lite 的主进程起来 5 秒也往下（它已经占住单实例，`ego-browser` 再起的 `ego.exe` 只会把命令转给它）。20 秒都没见它起来就不往下跑，告诉 agent 请用户自己打开——不让 `ego-browser` 自己去起一个留在 Job 里的。几个 agent 同时要用时只开一次（shim 目录里占一个 `opening` 目录）。
+- **体检**：装了没开着算正常，只写一句"agent 要用时二狗会替你打开"。
+- macOS：二狗只支持 Windows，shim 只在 Windows 上写，别的系统照旧放 `ego-browser` 的目录；macOS 上打开 App 用 `open`，本来就不跟着调用方走。
 
 ### Consequences
 
-- ego lite 没开着时 `ego-browser nodejs` 多半会自己去拉起它（程序里有"Failed to start ego lite: cannot find the app…"的提示，没实测）。拉起来的进程是 agent 的 bash 起的，在二狗的 Job 里（Job 不允许脱离）：孤儿回收不碰它，可二狗一停，Job 关掉时会把用户的浏览器一起关掉。现在靠 skill 的规矩挡（先看 `ego.exe` 在不在跑，不在就请用户打开），没有硬拦；怎么硬拦等用户定（466 的 Comments）。
+- agent 不经 PATH、用完整路径直接调 ego 安装目录里的 `ego-browser.exe`（或者 Python 的 `subprocess` 只认 .exe）时绕过了 shim，ego lite 没开着的话还是会被拉进 Job：孤儿回收照旧不碰它，skill 里写了"就用 `ego-browser` 这个命令名"。
 - 常驻的秘书 PATH 是拉起时定的：秘书起来之后才装的 ego lite，要等秘书下次重新拉起（重启二狗、秘书的子进程重来）才在它的 bash 里找得到；工具说明里"没装"那句跟着每次装配现写。

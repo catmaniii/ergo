@@ -59,6 +59,7 @@ export {
   pathDirs,
   realEgoProbe,
 } from "./ego-browser.ts";
+export { type EgoAgentPath, prepareEgoShim } from "./ego-shim.ts";
 export {
   DIRECT_MAX_BYTES,
   DIRECT_TIMEOUT_MS,

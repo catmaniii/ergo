@@ -6,7 +6,7 @@
 
 ### 联网
 
-- **agent 用的浏览器换成 ego 浏览器**：二狗的 agent 不再用 agent-browser，改用你电脑上的 ego lite（ego 浏览器，在 https://lite.ego.app/ 下载）。agent 在 bash 里用 `ego-browser` 命令操作它，用的是你在里面登录好的网站；碰到要登录、过验证码、两步验证的页面，把那一页交给你，在对话里请你去电脑上的 ego 里操作，好了回它一句；不猜密码、不碰付款、不清 cookie。ego lite 没开着时 agent 先请你打开，不自己去拉起。框架自带一个 `ego-browser` skill，秘书默认用它（和 yt-dlp）。设置 · 浏览与填框里的「agent-browser」改叫「ego 浏览器」，原来的位置和开关照旧；以前勾了 agent-browser 的秘书名单、项目和任务的工具包升级后原位换成 ego-browser（只换一次，你自己导入的 agent-browser 还在库里）。没装 ego lite 时这一项跳过，装好、走完首次引导之后新起的 agent 就能用，不用重启二狗。体检「二狗本身」多一项「ego 浏览器」：找没找到（位置、版本）、开没开。见[手册](docs/user-guide/settings.md#浏览与填框)。
+- **agent 用的浏览器换成 ego 浏览器**：二狗的 agent 不再用 agent-browser，改用你电脑上的 ego lite（ego 浏览器，在 https://lite.ego.app/ 下载）。agent 在 bash 里用 `ego-browser` 命令操作它，用的是你在里面登录好的网站；碰到要登录、过验证码、两步验证的页面，把那一页交给你，在对话里请你去电脑上的 ego 里操作，好了回它一句；不猜密码、不碰付款、不清 cookie。ego lite 没开着时，agent 一用它二狗就替你打开，和你自己打开的一样：二狗重启、停下都不会把它关掉。框架自带一个 `ego-browser` skill，秘书默认用它（和 yt-dlp）。设置 · 浏览与填框里的「agent-browser」改叫「ego 浏览器」，原来的位置和开关照旧；以前勾了 agent-browser 的秘书名单、项目和任务的工具包升级后原位换成 ego-browser（只换一次，你自己导入的 agent-browser 还在库里）。没装 ego lite 时这一项跳过，装好、走完首次引导之后新起的 agent 就能用，不用重启二狗。体检「二狗本身」多一项「ego 浏览器」：找没找到（位置、版本）、开没开（没开着不算问题）。见[手册](docs/user-guide/settings.md#浏览与填框)。
 
 ### skill
 

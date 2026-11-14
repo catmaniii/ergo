@@ -1,7 +1,8 @@
 // @i18n-ignore-file log：底层出错的说明只进日志（给开发者看）
 // 本机进程的父子关系和创建时间（只在 Windows 上有，孤儿回收用）：CreateToolhelp32Snapshot 拍一张进程快照，
 // 读出每个进程的父进程 id 和可执行文件名；创建时间按需用 GetProcessTimes 取，占的内存按需用 K32GetProcessMemoryInfo 取（439 体检"二狗占的内存"），
-// 可执行文件的完整路径按需用 QueryFullProcessImageNameW 取（466：孤儿回收认出 ego lite 的进程、体检看 ego lite 在不在跑）。
+// 可执行文件的完整路径按需用 QueryFullProcessImageNameW 取（466：孤儿回收认出 ego lite 的进程、体检看 ego lite 在不在跑），
+// 进程在哪个会话按需用 ProcessIdToSessionId 取（466：替 agent 打开 ego lite 前先看用户的桌面外壳 explorer.exe 和自己在不在同一个会话）。
 // 用 koffi 直接调 kernel32（和 job-object.ts 一样）。
 import koffi from "koffi";
 
@@ -40,6 +41,8 @@ interface Toolhelp {
   K32GetProcessMemoryInfo(process: number, counters: Buffer, cb: number): boolean;
   /** 可执行文件的完整路径（flags 0 是 Win32 写法），size 进是缓冲区的字数、出是写了的字数 */
   QueryFullProcessImageNameW(process: number, flags: number, name: Buffer, size: [number]): boolean;
+  /** 进程在哪个会话里（不用打开进程） */
+  ProcessIdToSessionId(pid: number, session: [number]): boolean;
   CloseHandle(handle: number): boolean;
   GetLastError(): number;
 }
@@ -59,6 +62,7 @@ function load(): Toolhelp {
     GetProcessTimes: lib.func("__stdcall", "GetProcessTimes", "bool", ["intptr_t", "void *", "void *", "void *", "void *"]),
     K32GetProcessMemoryInfo: lib.func("__stdcall", "K32GetProcessMemoryInfo", "bool", ["intptr_t", "void *", "uint32"]),
     QueryFullProcessImageNameW: lib.func("__stdcall", "QueryFullProcessImageNameW", "bool", ["intptr_t", "uint32", "void *", "_Inout_ uint32 *"]),
+    ProcessIdToSessionId: lib.func("__stdcall", "ProcessIdToSessionId", "bool", ["uint32", "_Out_ uint32 *"]),
     CloseHandle: lib.func("__stdcall", "CloseHandle", "bool", ["intptr_t"]),
     GetLastError: lib.func("__stdcall", "GetLastError", "uint32", []),
   } as unknown as Toolhelp;
@@ -151,6 +155,17 @@ export function processMemory(pids: readonly number[]): Map<number, ProcessMemor
     } finally {
       api.CloseHandle(handle);
     }
+  }
+  return result;
+}
+
+/** 这些进程各在哪个会话（登录用户的桌面是它登录的那个会话，服务在 0 号）。取不到的（已经退出、没权限）不在结果里 */
+export function processSessionIds(pids: readonly number[]): Map<number, number> {
+  const api = load();
+  const result = new Map<number, number>();
+  for (const pid of pids) {
+    const session: [number] = [0];
+    if (api.ProcessIdToSessionId(pid, session)) result.set(pid, session[0]);
   }
   return result;
 }
