@@ -112,6 +112,41 @@ describe("受保护的进程", () => {
     expect(facts.ancestors).toBeUndefined();
   });
 
+  it("配置了多份（468）：其他各份的守护进程也受保护——服务管家记的它们登记的 pid、它们数据目录里 daemon.pid 记的；启动时间对不上的、读不了的不算", () => {
+    const svc = makeTempDir("ergo-svc-guard-");
+    const b = makeTempDir("ergo-b-");
+    const c = makeTempDir("ergo-c-");
+    fs.writeFileSync(path.join(svc, "state.json"), JSON.stringify({ manager: { pid: 4343 }, services: { "ergo-daemon": { pid: 4100 }, "ergo-b": { pid: 5100 } } }));
+    fs.writeFileSync(path.join(b, "daemon.pid"), JSON.stringify({ pid: 5200, startedAt: new Date(7).toISOString(), port: 48820 }));
+    // ergo-c 的 daemon.pid 是上次留下的：5300 现在是别的进程（创建时间对不上）
+    fs.writeFileSync(path.join(c, "daemon.pid"), JSON.stringify({ pid: 5300, startedAt: new Date(7).toISOString(), port: 48830 }));
+    const snapshot: ReadonlyMap<number, ProcessEntry> = new Map([...SNAPSHOT, [5100, { parent: 4343, exe: "cmd.exe" }], [5200, { parent: 5100, exe: "node.exe" }], [5300, { parent: 900, exe: "notepad.exe" }]]);
+    const times: ReadonlyMap<number, number> = new Map([...TIMES, [5100, 6], [5200, 7], [5300, 999_999]]);
+    const facts = (others: () => readonly { id: string; dataDirs: readonly string[] }[]) =>
+      supervisorGuardFacts({
+        svcDataDir: svc,
+        env: {},
+        selfPid: 4242,
+        snapshot: () => snapshot,
+        creationTimes: (pids) => new Map(pids.flatMap((p) => (times.has(p) ? [[p, times.get(p)!] as const] : []))),
+        otherInstances: others,
+      }).processes();
+    const got = facts(() => [
+      { id: "ergo-b", dataDirs: [b] },
+      { id: "ergo-c", dataDirs: [c] },
+    ]);
+    expect(got.protected.filter((p) => p.role === "instance")).toEqual([
+      { pid: 5100, role: "instance", service: "ergo-b", exe: "cmd.exe" },
+      { pid: 5200, role: "instance", service: "ergo-b", exe: "node.exe" },
+    ]);
+    expect(got.complete).toBe(true);
+    // 读不了其他各份：只是不认它们
+    const failed = facts(() => {
+      throw new Error("no registry");
+    });
+    expect(failed.protected.some((p) => p.role === "instance")).toBe(false);
+  });
+
   it("拍不了进程快照：守护进程按自己的可执行文件认，别的没有名字", () => {
     const dir = makeTempDir("ergo-svc-guard-");
     fs.writeFileSync(path.join(dir, "state.json"), STATE);
@@ -149,7 +184,10 @@ describe("守护进程一侧：有相关的调用才取", () => {
     expect(gatherFacts([shell("http_request", { method: "GET", url: "http://127.0.0.1:1/" })], ctx)).toEqual({ supervisorPorts: [47421] });
     expect(gatherFacts([shell("opaque_shell", { reason: "x", command: "x" })], ctx)).toEqual({ supervisorPorts: [47421] });
     expect(gatherFacts([shell("kill_process", { program: "kill", pids: [1] })], ctx)).toEqual({ processes: { protected: [], complete: true } });
-    expect({ ports, processes }).toEqual({ ports: 2, processes: 1 });
+    // 拆不开的命令里写着杀进程的也取（认它写着的是不是另一份的守护进程的进程号，468）
+    const opaqueKill: JudgedCall = { tool: "opaque_shell", args: { reason: "x", command: 'powershell -Command "Stop-Process -Id 5200"' }, origin: "shell", text: 'powershell -Command "Stop-Process -Id 5200"' };
+    expect(gatherFacts([opaqueKill], ctx)).toEqual({ supervisorPorts: [47421], processes: { protected: [], complete: true } });
+    expect({ ports, processes }).toEqual({ ports: 3, processes: 2 });
   });
 
   it("取的时候出错：不给（判定时按更严的算）", () => {

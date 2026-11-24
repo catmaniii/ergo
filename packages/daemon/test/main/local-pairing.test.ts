@@ -25,6 +25,7 @@ import {
 } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { createContext } from "../../src/cli/context.ts";
+import { writeMarker } from "../../src/cli/instances.ts";
 import { runCli } from "../../src/cli/run.ts";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { localCookies } from "../../src/pairing/credentials.ts";
@@ -345,6 +346,49 @@ describe("不带浏览器的本机调用方：命令行", () => {
     expect(await cli.run("local-pairing", "maybe")).toBe(2);
   });
 
+  it("一台电脑上有多份（468）：ergo local-pairing 管的是认出的那一份（--dir > ERGO_DATA_DIR > 所在文件夹的那一份），令牌读的是那一份的密钥区", async () => {
+    const first = await daemonOnConfigPorts();
+    const second = await daemonOnConfigPorts();
+    writeMarker(first.dataDir, "first");
+    writeMarker(second.dataDir, "second");
+    expect(tokenOf(first)).not.toBe(tokenOf(second));
+    const accessOf = async (td: TestDaemon) => (await httpRequest(td.url, HTTP_PATHS.access)).json<AccessInfo>();
+    /** 在 cwd 里跑 ergo（不带 ERGO_DATA_DIR，除非 extra 里给了；默认那份 ~/.ergo 是空的临时目录） */
+    const cliIn = (cwd: string, extra: Record<string, string> = {}) => {
+      const out: string[] = [];
+      const err: string[] = [];
+      const env: NodeJS.ProcessEnv = { ...process.env, LSM_DATA_DIR: makeTempDir("ergo-svc-"), ERGO_LANGUAGE: "zh-CN", ...extra };
+      if (extra.ERGO_DATA_DIR === undefined) delete env.ERGO_DATA_DIR;
+      delete env.ERGO_SERVICE_ID;
+      const ctx = createContext(detectLayout({ cliFile: CLI_MAIN, env }), env, { out: (l) => out.push(l), err: (l) => err.push(l), ask: () => Promise.resolve("") }, makeTempDir("ergo-home-"), { cwd });
+      return { out, err, run: (...argv: string[]) => runCli(argv, ctx) };
+    };
+
+    // 在第二份的文件夹里（它的子文件夹）跑：关的是第二份（它的端口、它的令牌：拿错了令牌会被拒、只改配置），第一份照旧开着
+    const inSecond = cliIn(dataDirLayout(second.dataDir).config);
+    expect(await inSecond.run("local-pairing", "off")).toBe(0);
+    expect(inSecond.out.at(-1)).toContain("马上生效");
+    expect(inSecond.out.at(-1)).toContain(second.url);
+    expect(await accessOf(second)).toEqual({ access: "local" });
+    expect(await accessOf(first)).toEqual({ access: "none", local: true });
+    expect(configOf(first.dataDir).pairing).toEqual({ localRequestsNeedPairing: true });
+
+    // ERGO_DATA_DIR 指着第一份、人在第二份的文件夹里：看的是第一份（开着）
+    const envFirst = cliIn(second.dataDir, { ERGO_DATA_DIR: first.dataDir });
+    expect(await envFirst.run("local-pairing", "status")).toBe(0);
+    expect(envFirst.out.at(-1)).toContain("开着");
+
+    // --dir 指着第一份、ERGO_DATA_DIR 指着第二份：关的是第一份；打开只在网页上
+    const dirFirst = cliIn(second.dataDir, { ERGO_DATA_DIR: second.dataDir });
+    expect(await dirFirst.run("local-pairing", "on", "--dir", first.dataDir)).toBe(2);
+    expect(await dirFirst.run("--dir", first.dataDir, "local-pairing", "off")).toBe(0);
+    expect(dirFirst.out.at(-1)).toContain("马上生效");
+    expect(dirFirst.out.at(-1)).toContain(first.url);
+    expect(await accessOf(first)).toEqual({ access: "local" });
+
+    // --dir 指着一个不是一份二狗的文件夹：不做（不落到默认那份头上）
+    expect(await dirFirst.run("local-pairing", "off", "--dir", makeTempDir("not-ergo-"))).toBe(1);
+  });
 });
 
 describe("不带浏览器的本机调用方：项目的服务、项目自动转的 MCP（开着）", () => {

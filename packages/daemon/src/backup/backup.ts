@@ -422,6 +422,8 @@ export interface BackupServiceOptions {
   openFolder: (dir: string) => Promise<void>;
   /** 这份程序是怎么装的（页面上的命令按它写）；不给按代码所在的位置认 */
   install?: Pick<InstallLayout, "kind" | "appDir" | "node">;
+  /** 这一份二狗在服务管家里的登记 id（自己 git clone 的，页面上的停、起命令按它写；配置了多份时各份不同，不给是 ergo-daemon） */
+  serviceId?: string;
 }
 
 /** 事项的动作"知道了"（按字认，不翻） */
@@ -599,7 +601,14 @@ export function createBackupService(options: BackupServiceOptions): BackupServic
       queued: pendingManual > 0,
       localDir: layout.backups,
       retention: { local: LOCAL_KEEP, syncDaily: SYNC_DAILY_KEEP, syncWeekly: SYNC_WEEKLY_KEEP },
-      commands: backupCommands({ layout: install, dataDir: layout.root, customDataDir, hasSync: sync.kind !== "none", ...(latestLocal ? { date: latestLocal } : {}) }),
+      commands: backupCommands({
+        layout: install,
+        dataDir: layout.root,
+        customDataDir,
+        hasSync: sync.kind !== "none",
+        ...(latestLocal ? { date: latestLocal } : {}),
+        ...(options.serviceId === undefined ? {} : { serviceId: options.serviceId }),
+      }),
       verifying: pendingVerify > 0,
       ...(lastVerify ? { lastVerify } : {}),
     };

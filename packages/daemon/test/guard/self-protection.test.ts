@@ -1,7 +1,8 @@
 // 守卫切面：堵住用 bash 停二狗、杀服务管家的路（419；调研 .scratch/ergo-v2/research/2026-11-07-secretary-lsm.md 第一节"bash 绕路"表、第三节 C 层）。
 // - 服务管家的数据目录进受保护区域：注册表、运行状态写入永不，.secrets/ 是密钥区（连读都拒绝）；
-// - 发往管理器端口的不是查询的请求、跑服务管家的命令行（lsm、packages/supervisor/bin 里的脚本）、ergo 的停止、重启、升级、回退、卸载和 svc：
-//   一律硬拒绝，说明里叫秘书用服务管家工具；查询（GET）照旧；
+// - 发往管理器端口的请求（468 起查询也算：管理器的接口回所有服务——包括这台电脑上别的二狗——的详情和日志）、用浏览器打开它的页面、
+//   跑服务管家的命令行（lsm、packages/supervisor/bin 里的脚本）、ergo 的停止、重启、升级、回退、卸载和 svc：
+//   一律硬拒绝，说明里叫秘书用服务管家工具；
 // - 杀进程（taskkill、tskill、kill、pkill、killall、Stop-Process、wmic process）拆成"杀进程"：杀到二狗自己、服务管家、命脉服务的永不，
 //   看不准的（受保护的进程没取全、变量、管道传来的、不带 /T 杀它们的上级进程）接近底线先问，别的先问；
 // - 拆不开的命令里写着杀进程、管理器端口、服务管家的命令行、ergo 的停止重启升级、它的计划任务的：接近底线先问（对话审批关着也问）。
@@ -162,9 +163,9 @@ describe("服务管家的端口：不是查询的请求硬拒绝，查询照旧"
     });
   }
 
-  it("查询（GET、HEAD）照旧放行", () => {
-    for (const command of [`curl http://127.0.0.1:${port}/api/state`, `curl -I http://localhost:${port}/`, `Invoke-RestMethod http://127.0.0.1:${port}/api/state`]) {
-      expect({ command, verdicts: verdicts(bash(command)) }).toEqual({ command, verdicts: ["runs", "runs"] });
+  it("查询（GET、HEAD）也硬拒绝（468：管理器的接口会读到别的二狗的详情和日志；看状态、日志用服务管家工具）", () => {
+    for (const command of [`curl http://127.0.0.1:${port}/api/state`, `curl -I http://localhost:${port}/`, `Invoke-RestMethod http://127.0.0.1:${port}/api/state`, `curl "http://127.0.0.1:${port}/api/logs?id=ergo-daemon"`]) {
+      expect({ command, verdicts: verdicts(bash(command)) }).toEqual({ command, verdicts: ["refused", "refused"] });
     }
   });
 
@@ -180,10 +181,10 @@ describe("服务管家的端口：不是查询的请求硬拒绝，查询照旧"
     expect(verdict(judge(SECRETARY, bash(`curl -X POST http://127.0.0.1:${port}/api/action`), { places }))).toBe("refused");
   });
 
-  it("用浏览器打开服务管家的页面：接近底线先问", () => {
-    expect(verdict(judge(MAINTAINER, bash(`agent-browser open http://127.0.0.1:${port}/`)))).toBe("keeps_asking");
+  it("用浏览器打开服务管家的页面：硬拒绝（468 起；上面看得到所有服务的日志）", () => {
+    expect(verdict(judge(MAINTAINER, bash(`agent-browser open http://127.0.0.1:${port}/`)))).toBe("refused");
     // 466：ego-browser 的脚本写在命令行里（-e）的，里面的网址照样认
-    expect(verdict(judge(MAINTAINER, bash(`ego-browser nodejs -e 'const t = await taskSpace("x"); await t.page("p1").goto("http://127.0.0.1:${port}/")'`)))).toBe("keeps_asking");
+    expect(verdict(judge(MAINTAINER, bash(`ego-browser nodejs -e 'const t = await taskSpace("x"); await t.page("p1").goto("http://127.0.0.1:${port}/")'`)))).toBe("refused");
   });
 
   it("别的本机端口、没给服务管家时照原来的规矩", () => {
@@ -373,7 +374,7 @@ describe("服务管家的计划任务：停、删、改接近底线先问，查�
 });
 
 describe("正常用法没被误伤", () => {
-  it("跑测试、写草稿区、项目里读写、跑别的脚本、GET 本机服务：照旧放行", () => {
+  it("跑测试、写草稿区、项目里读写、跑别的脚本、GET 本机别的服务：照旧放行", () => {
     const CASES: [GuardAgent, ToolCall][] = [
       [MAINTAINER, bash("npm test")],
       [MAINTAINER, bash("npx vitest run test/a.test.ts")],
@@ -381,7 +382,6 @@ describe("正常用法没被误伤", () => {
       [MAINTAINER, bash("echo hi > notes.md && cat notes.md")],
       [SECRETARY, bash("echo draft > draft.md")],
       [SECRETARY, call("write", { path: `${P.scratch}\\draft.md`, content: "x" })],
-      [SECRETARY, bash(`curl http://127.0.0.1:${PORT}/api/state`)],
       [SECRETARY, bash("curl http://127.0.0.1:18090/health")],
       [MAINTAINER, bash("node server.js & sleep 2; curl http://127.0.0.1:3000/health")],
     ];

@@ -6,6 +6,8 @@
 //   ergo svc <命令…>                                        服务管家的命令原样转过去（ergo svc status = lsm status）
 //   ergo onboard                                            把二狗起来，指路去网页走设置向导（向导只做网页）
 //   ergo notify <事件名> [--data <JSON>]                     给项目的服务用的：报一个事件，叫醒等它的任务（不算操作二狗）
+//   ergo init | list | unregister                           可以配置多份二狗（468）：在空文件夹里建一份、列出各份、从服务管家里拿掉一份
+// 每条命令都认 --dir <文件夹>；管哪一份按 --dir > ERGO_DATA_DIR > 当前目录或上级的实例标记文件 > ~/.ergo（instances.ts）。
 // 装好的程序里由启动器（ergo.exe / ergo.cmd）用自带的 node 跑它；开发时 npm run ergo -- <命令>。
 // 给人看的话按二狗设置的语言（数据目录的 config/language.json），没设按系统的语言（中文系统中文，别的英文）；环境变量 ERGO_LANGUAGE 可以指定。
 import "../i18n/boot.ts";
@@ -14,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import { t } from "@ergo/protocol";
 import { installBuiltinLocales } from "../i18n/builtin.ts";
 import { detectLayout } from "../release/layout.ts";
+import { takeDirFlag } from "./args.ts";
 import { type CliIo, createContext } from "./context.ts";
 import { cliLanguage, runCli } from "./run.ts";
 
@@ -34,9 +37,12 @@ function terminalIo(): CliIo {
 }
 
 const layout = detectLayout({ cliFile: fileURLToPath(import.meta.url) });
-const ctx = createContext(layout, process.env, terminalIo());
+const argv = process.argv.slice(2);
+// --dir 在这里就认：命令行说话的语言按那一份的设置
+const { dir } = takeDirFlag(argv);
+const ctx = createContext(layout, process.env, terminalIo(), undefined, dir === undefined || dir.trim() === "" ? {} : { dir });
 installBuiltinLocales(cliLanguage(process.env, ctx.dataDir));
-runCli(process.argv.slice(2), ctx).then(
+runCli(argv, ctx).then(
   (code) => {
     process.exitCode = code;
   },

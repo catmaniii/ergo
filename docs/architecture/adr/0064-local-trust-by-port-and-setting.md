@@ -1,6 +1,6 @@
-# ADR-0063 本机信任从"按端口"变成"按端口 + 设置"：本机来的也要配对、本机程序令牌
+# ADR-0064 本机信任从"按端口"变成"按端口 + 设置"：本机来的也要配对、本机程序令牌
 
-状态：已定（469）。补充 [ADR-0026](0026-features-first-security-later.md)（本机端口不认 Origin 就信任，留到接安全机制时再看）、[ADR-0043](0043-project-service-events.md) 和 [ADR-0045](0045-project-ops-auto-mcp.md)（两个自带 Bearer 的本机接口）。
+状态：已定（469）。补充 [ADR-0026](0026-features-first-security-later.md)（本机端口不认 Origin 就信任，留到接安全机制时再看）、[ADR-0043](0043-project-service-events.md) 和 [ADR-0045](0045-project-ops-auto-mcp.md)（两个自带 Bearer 的本机接口）。和 [ADR-0063](0063-multiple-instances-one-data-folder-each.md)（一台电脑上配置多份）配合：那边各份的文件夹、端口互相挡开，这边是各份的本机端口自己的门。
 
 ## 背景
 
@@ -30,7 +30,7 @@
 
 6. **本机程序令牌**：守护进程每次起来生成一份新的（256 位随机值），写进这一份数据目录的密钥区（`secrets/local-token`，`dataDirLayout().localTokenFile`），请求和握手带在 `x-ergo-local-token` 里。内存里只留摘要、定长比较；原值不进日志、事件、错误信息，不进守护进程的环境（子进程、agent 拿不到）；密钥区 agent 读不到（守卫拒）。只在本机端口、只在设置开着时看它；外网端口永远不认。转发给项目的服务时去掉这个头。
 7. **打开时不把自己关在外面**：`PUT /api/local-pairing`。本机端口上靠端口被信任的浏览器去打开时，网关先替它配上对（`PairingService.pairDirectly`：等待首次使用的设备，凭证放进这次响应的 cookie），回 `pairedThisBrowser`、还不打开；浏览器带着凭证、`confirm` 再来一次，网关看到凭证真的带回来了才打开（存不下 cookie 的浏览器回 400、照旧关着）。以前开过一次、还带着这一份本机端口上有效凭证的浏览器直接打开，不再多配一台。已配对的设备、本机程序直接开关（本机程序不替它配对）。打开的那一刻本机端口上没凭证的 WebSocket（连同转发给服务的）断开（`WS_CLOSE_UNPAIRED`），页面重新问自己被不被信任。
-8. **退路**：`ergo local-pairing off`。二狗在跑时带着令牌请它关（马上生效）；连不上就直接改这一份的配置文件（下次起来是关着的）；被拒（比如没有这项设置的旧版本）也改配置，说一句要重启。命令行只能关，打开只在网页上（那里有自动配对）。守卫把 `local-pairing` 当服务管家的命令（`ERGO_OPS`）硬拒绝：agent 不能替用户关，和停二狗同一级别。
+8. **退路**：`ergo local-pairing off`（管哪一份照 ADR-0063 的认法：`--dir` > `ERGO_DATA_DIR` > 所在文件夹的那一份 > 默认那份；令牌、配置都读认出的那一份的）。二狗在跑时带着令牌请它关（马上生效）；连不上就直接改这一份的配置文件（下次起来是关着的）；被拒（比如没有这项设置的旧版本）也改配置，说一句要重启。命令行只能关，打开只在网页上（那里有自动配对）。守卫把 `local-pairing` 当服务管家的命令（`ERGO_OPS`）硬拒绝：agent 不能替用户关，和停二狗同一级别。
 
 ## Considered Options
 

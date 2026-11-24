@@ -13,7 +13,8 @@
 //   要删除的、在工作目录里的目录里面有什么（递归、不跟进链接，最多 MAX_CONTENTS 项），带通配符要删除的展开成的每个现有路径的文件事实；
 // - 有授权的文件夹时（FactsContext.authorizedFolders）：通配符展开成的路径落在里面的，也取一份文件事实——读授权的文件夹按真实路径算，
 //   通配符穿过的符号链接只有这样才看得见；
-// - 服务管家（FactsContext.supervisor，419）：有发 HTTP 请求这类调用时管理器此刻的端口，有杀进程的调用时受保护的进程。
+// - 服务管家（FactsContext.supervisor，419）：有发 HTTP 请求这类调用时管理器此刻的端口，有杀进程的调用时受保护的进程
+//   （拆不开的命令里写着杀进程的也取：认它写着的是不是另一份二狗的守护进程的进程号，468）。
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -31,6 +32,7 @@ import {
   isWithin,
   isWithinAny,
   type JudgedCall,
+  killsInText,
   pathReplacement,
   type ProcessFacts,
   type ScriptFact,
@@ -130,7 +132,7 @@ function supervisorFacts(calls: readonly JudgedCall[], ctx: FactsContext, facts:
       // 读不了 manager.yaml：按起来时读的
     }
   }
-  if (calls.some((c) => c.tool === TOOL.kill_process)) {
+  if (calls.some((c) => c.tool === TOOL.kill_process || (c.tool === TOOL.opaque_shell && killsInText(c.text ?? (typeof c.args.command === "string" ? c.args.command : ""))))) {
     try {
       facts.processes = supervisor.processes();
     } catch {

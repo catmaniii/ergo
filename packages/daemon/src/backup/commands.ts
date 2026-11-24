@@ -17,6 +17,8 @@ export interface BackupCommandsOptions {
   date?: string;
   /** 配了另存的文件夹（多写一条从那里恢复） */
   hasSync: boolean;
+  /** 这一份二狗在服务管家里的登记 id（配置了多份时各份不同；不给是 ergo-daemon） */
+  serviceId?: string;
 }
 
 /** PowerShell 里一个单引号的字符串 */
@@ -29,7 +31,7 @@ export function backupCommands(options: BackupCommandsOptions): BackupCommandsVi
   const withDataDir = (command: string) => (customDataDir ? `${setDataDir}; ${command}` : command);
   const source = layout.kind === "dev";
   const node = quoted(layout.node);
-  const lsm = (verb: string) => `& ${node} ${quoted(path.join(layout.appDir, "packages", "supervisor", "bin", "lsm.mjs"))} ${verb} ergo-daemon`;
+  const lsm = (verb: string) => `& ${node} ${quoted(path.join(layout.appDir, "packages", "supervisor", "bin", "lsm.mjs"))} ${verb} ${options.serviceId ?? "ergo-daemon"}`;
   const restoreCommand = source ? `& ${node} ${quoted(path.join(layout.appDir, "packages", "daemon", "src", "restore.ts"))}` : "ergo restore";
   const steps: BackupRestoreStep[] = [
     ...(customDataDir ? [{ note: t("backup.restore.setDataDir"), command: setDataDir }] : []),

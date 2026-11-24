@@ -524,12 +524,13 @@ const PSEUDO_TOOLS: UntitledTool[] = [
     nature: "modify",
   },
   {
-    // 服务管家和二狗自己的运维命令（419）：lsm、packages/supervisor/bin 里的脚本、ergo 的停止、重启、升级、回退、卸载和 svc。
-    // 判定函数一律硬拒绝，叫 agent 用服务管家工具
+    // 服务管家和二狗自己的运维命令（419）：lsm、packages/supervisor/bin 里的脚本、ergo 的停止、重启、升级、回退、卸载、svc、init、unregister。
+    // 判定函数一律硬拒绝，叫 agent 用服务管家工具。scoped：ergo 作用在某一份上的命令（status、logs、start……，468），
+    // 只有这一份时照旧，配置了多份时硬拒绝
     name: TOOL.supervisor_command,
     source: "pseudo",
     categories: [],
-    args: { program: other, command: content },
+    args: { program: other, command: content, scoped: { kind: "other", type: "boolean" } },
   },
   {
     name: TOOL.run_script,

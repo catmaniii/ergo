@@ -42,9 +42,30 @@ export function scanScript(file: string, interpreter = ""): ScriptFact | undefin
   for (const language of languages) for (const hit of SCANNERS[language](text)) found.add(hit);
   // 写着的绝对路径：守卫据此判它会不会碰受保护区域
   const mentionedPaths = absolutePathsIn(text);
+  // 写着的像端口的数：守卫据此判它会不会连另一份二狗（468）
+  const mentionedPorts = portsIn(text);
   const hits = [...found];
   const local = hits.length > 0 && hits.every((hit) => LOOPBACK_CAPABLE.has(hit)) && onlyLoopback(text);
-  return { networkUsage: local ? [] : hits, ...(local ? { localOnly: hits } : {}), ...(mentionedPaths.length > 0 ? { mentionedPaths } : {}) };
+  return {
+    networkUsage: local ? [] : hits,
+    ...(local ? { localOnly: hits } : {}),
+    ...(mentionedPaths.length > 0 ? { mentionedPaths } : {}),
+    ...(mentionedPorts.length > 0 ? { mentionedPorts } : {}),
+  };
+}
+
+/** 最多记多少个像端口的数（数据脚本里的数太多时只看前面的） */
+const MAX_SCRIPT_PORTS = 500;
+
+/** 一段文字里像端口的数：1024–65535 的整数（前后不是数字、小数点、字母），去重 */
+export function portsIn(text: string): number[] {
+  const ports = new Set<number>();
+  for (const m of text.matchAll(/(?<![\w.])(\d{4,5})(?![\w.])/g)) {
+    const n = Number(m[1]);
+    if (n >= 1024 && n <= 65535) ports.add(n);
+    if (ports.size >= MAX_SCRIPT_PORTS) break;
+  }
+  return [...ports];
 }
 
 /** 能只连本机的库、函数、程序：这些写着本机地址、又没写别的地址的，算只连本机 */

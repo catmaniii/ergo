@@ -17,6 +17,7 @@
 // 也报忙（restart-hold.ts），免得二狗在秘书回话的半截停掉。
 // 工具结果按当前语言写人话（服务名、状态、做了什么），给用户看的工具卡片上就是它；工具的说明给模型看，照旧中文。
 // 服务管家的事一律用这几个工具，不用 bash 敲命令行或端口（工具说明里写明；守卫那边的拦截在 419）。
+// 配置了多份二狗时（468）：另一份的登记和它名下的服务不出现在列表里，按名字点到它们、按场景会碰到它们的，一律拒绝（看日志也不行）。
 import { t, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import { type LsmManage, type LsmManagedService, type LsmManageReply, type LsmProfileResult, MANAGE_REQUEST_TIMEOUT_MS } from "./link.ts";
@@ -44,6 +45,8 @@ export interface LsmToolDeps {
   manage(): LsmManage | undefined;
   /** 重启自己排上之后、秘书这一轮说完之前算忙 */
   restartHold: RestartSelfHold;
+  /** 这台电脑上其他各份二狗在服务管家里的登记 id（468）：它们和它们名下的服务碰不得；不给是只有这一份 */
+  otherInstances?: () => readonly string[];
 }
 
 type ControlAction = "start" | "stop" | "stop_when_idle" | "cancel_stop" | "restart" | "autostart_on" | "profile_start";
@@ -235,20 +238,60 @@ export function findManaged(services: readonly LsmManagedService[], query: strin
   return services.filter((s) => names(s).some((n) => n.includes(q) || q.includes(n)));
 }
 
-type Listed = { ok: true; services: LsmManagedService[]; self: string | undefined; profiles: Record<string, string[]> } | { ok: false; out: HostToolOutput };
+type Listed =
+  | {
+      ok: true;
+      services: LsmManagedService[];
+      self: string | undefined;
+      profiles: Record<string, string[]>;
+      /** 另一份二狗的（它自己、它名下的服务）：不列出来，点到了就拒（468） */
+      hidden: { s: LsmManagedService; other: string }[];
+      /** 场景里有另一份二狗的：场景名 → 那一份的 id */
+      blockedProfiles: Map<string, string>;
+    }
+  | { ok: false; out: HostToolOutput };
 
-/** 取一次列表（失败的已经说成人话） */
-async function listOf(manage: LsmManage | undefined): Promise<Listed> {
+/** 另一份二狗的：它自己的登记、它名下的服务（<id>--*）；回那一份的 id */
+function otherOf(others: readonly string[], id: string): string | undefined {
+  return others.find((o) => id === o || id.startsWith(`${o}--`));
+}
+
+/** 取一次列表（失败的已经说成人话）；另一份二狗的挪到 hidden 里 */
+async function listOf(manage: LsmManage | undefined, deps?: Pick<LsmToolDeps, "otherInstances">): Promise<Listed> {
   if (!manage) return { ok: false, out: { text: t("lsm.tools.err.notLinked"), isError: true } };
   const reply = await manage.list();
   if (!reply.ok) return { ok: false, out: failed(reply) };
-  return { ok: true, services: reply.services ?? [], self: reply.self, profiles: reply.profiles ?? {} };
+  const others = deps?.otherInstances?.() ?? [];
+  const all = reply.services ?? [];
+  const hidden = all.flatMap((s) => {
+    const other = otherOf(others, s.id);
+    return other === undefined ? [] : [{ s, other }];
+  });
+  const profiles: Record<string, string[]> = {};
+  const blockedProfiles = new Map<string, string>();
+  for (const [name, members] of Object.entries(reply.profiles ?? {})) {
+    const other = members.map((m) => otherOf(others, m)).find((o) => o !== undefined);
+    if (other !== undefined) blockedProfiles.set(name, other);
+    profiles[name] = members.filter((m) => otherOf(others, m) === undefined);
+  }
+  return { ok: true, services: all.filter((s) => otherOf(others, s.id) === undefined), self: reply.self, profiles, hidden, blockedProfiles };
 }
 
-/** 按名字认出一个服务；对不上、不止一个的照实说 */
+/** 点到了另一份二狗的：拒绝，说清是另一份的 */
+function otherInstanceRefusal(name: string, other: string): HostToolOutput {
+  return { text: t("lsm.tools.otherInstance", { name, id: other }), isError: true };
+}
+
+/** 按名字认出一个服务；对不上、不止一个的照实说；是另一份二狗的拒绝 */
 function pick(listed: Extract<Listed, { ok: true }>, query: string | undefined): { s: LsmManagedService } | { out: HostToolOutput } {
   if (!query) return { out: { text: t("lsm.tools.find.needService"), isError: true } };
   const found = findManaged(listed.services, query);
+  // 另一份二狗的：全名、名下短名、标题完全对得上的（这一份的同样对得上的除外）；这一份的一个都对不上时，互相包含的也算
+  const exact = (s: LsmManagedService) => [s.id, shortOf(s.id) ?? "", s.title ?? ""].map(norm).filter(Boolean).includes(norm(query));
+  const hiddenHit = !listed.services.some(exact)
+    ? (listed.hidden.find((h) => exact(h.s)) ?? (found.length === 0 ? listed.hidden.find((h) => findManaged([h.s], query).length > 0) : undefined))
+    : undefined;
+  if (hiddenHit) return { out: otherInstanceRefusal(nameOf(hiddenHit.s), hiddenHit.other) };
   if (found.length === 1) return { s: found[0]! };
   const all = listed.services.map(nameOf).join(listSep());
   if (found.length === 0) return { out: { text: t("lsm.tools.find.none", { query, list: all || "—" }), isError: true } };
@@ -260,6 +303,9 @@ function pickProfile(listed: Extract<Listed, { ok: true }>, query: string | unde
   if (!query) return { out: { text: t("lsm.tools.find.needProfile"), isError: true } };
   const names = Object.keys(listed.profiles);
   const hit = names.find((n) => n === query) ?? names.find((n) => norm(n) === norm(query));
+  // 场景里有另一份二狗的：按场景起停会连它一起，不做（468）
+  const other = hit === undefined ? undefined : listed.blockedProfiles.get(hit);
+  if (other !== undefined) return { out: { text: t("lsm.tools.otherInstanceProfile", { profile: hit!, id: other }), isError: true } };
   if (hit !== undefined) return { profile: hit, members: listed.profiles[hit] ?? [] };
   return { out: { text: names.length > 0 ? t("lsm.tools.find.noProfile", { profile: query, list: names.join(listSep()) }) : t("lsm.tools.find.noProfiles", { profile: query }), isError: true } };
 }
@@ -379,7 +425,7 @@ function doneText(action: AnyAction, s: LsmManagedService, reply: Extract<LsmMan
 /** 一个动作走完：先认服务、本地先拒命脉，再发给服务管家、说结果 */
 async function act(deps: LsmToolDeps, action: AnyAction, args: { service?: string; profile?: string; tailnetName?: string }): Promise<HostToolOutput> {
   const manage = deps.manage();
-  const listed = await listOf(manage);
+  const listed = await listOf(manage, deps);
   if (!listed.ok) return listed.out;
   if (PROFILE_ACTIONS.has(action)) {
     const found = pickProfile(listed, args.profile);
@@ -419,7 +465,7 @@ export function lsmSecretaryTools(deps: LsmToolDeps): HostTool[] {
     readOnlyOrIdempotent: true,
     nature: "look",
     run: async ({ service }) => {
-      const listed = await listOf(deps.manage());
+      const listed = await listOf(deps.manage(), deps);
       if (!listed.ok) return listed.out;
       if (service !== undefined) {
         const found = pick(listed, service);
@@ -455,7 +501,7 @@ export function lsmSecretaryTools(deps: LsmToolDeps): HostTool[] {
     nature: "look",
     run: async ({ service, lines, source }) => {
       const manage = deps.manage();
-      const listed = await listOf(manage);
+      const listed = await listOf(manage, deps);
       if (!listed.ok) return listed.out;
       const found = pick(listed, service);
       if ("out" in found) return found.out;

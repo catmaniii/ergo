@@ -34,6 +34,8 @@ export interface ManagedServicesDeps {
   voicePorts(): VoicePortsInUse;
   /** 服务管家的网页（只在这台电脑上打得开）；没接入是 undefined */
   managerUrl(): string | undefined;
+  /** 二狗自己在服务管家里的登记 id（服务管家的列表没回 self 时用；配置了多份时各份不同，不给是 ergo-daemon） */
+  selfId?: string;
   now?: () => number;
 }
 
@@ -137,7 +139,7 @@ export function createManagedServices(deps: ManagedServicesDeps): ManagedService
   const list = async (manage: LsmManage): Promise<{ listed: Listed } | { failure: Failure }> => {
     const reply = await manage.list();
     if (!reply.ok) return { failure: { code: reply.error.code, message: reply.error.message } };
-    const self = reply.self ?? DAEMON_SERVICE_ID;
+    const self = reply.self ?? deps.selfId ?? DAEMON_SERVICE_ID;
     const services = reply.services ?? [];
     const gateway = typeof reply.tailnetGateway === "string" && reply.tailnetGateway !== "" ? reply.tailnetGateway : undefined;
     const related = ergoRelated(services.map(relatedInput), { self, ...deps.voicePorts(), tailnetGateway: gateway });

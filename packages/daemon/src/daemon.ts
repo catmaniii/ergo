@@ -60,16 +60,18 @@ import { createSessionRollbacks, type RollbackSession, type SessionRollbackHook 
 import { isConversationChannel } from "./conversation/history.ts";
 import { type CardTypeDefinition, CardTypeRegistry } from "./cards/registry.ts";
 import { cardsView } from "./cards/views.ts";
-import { DEFAULT_MEMORY_PROVIDER, loadConfig, readTokenPrices, type ErgoConfig, writeConnectionConfig, writeFreshInstallDefaults } from "./config/config.ts";
+import { DEFAULT_MEMORY_PROVIDER, loadConfig, prepareDataDir, readTokenPrices, type ErgoConfig, writeConnectionConfig } from "./config/config.ts";
 import { dataDirLayout, type DataDirLayout } from "./config/data-dir.ts";
 import { modelConfigKey } from "./config/model-key.ts";
 import { createSafetySettings, type SafetySettingsService, withLiveBudgetControl } from "./config/safety-settings.ts";
 import { createSetupState, type SetupStateService } from "./config/setup-state.ts";
 import { defaultSvcDataDir } from "./cli/context.ts";
+import { ownServiceId } from "./cli/instances.ts";
 import { managerAddress } from "./cli/service.ts";
 import { registeredServiceOnPort } from "./lsm/registered.ts";
 import { type AutostartSwitch, createAutostartSwitch } from "./lsm/autostart-switch.ts";
 import { supervisorGuardFacts } from "./lsm/guard-facts.ts";
+import { otherInstances } from "./lsm/other-instances.ts";
 import { detectLayout, type InstallLayout, readInstallState } from "./release/layout.ts";
 import { releasePublicKey } from "./release/public-key.ts";
 import { createDoctorChecks, type DoctorCheckRegistry } from "./doctor/checks.ts";
@@ -736,15 +738,11 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
   // 数据目录不存在时建好（第一次装的人什么都不用先建）
   if (!fs.existsSync(layout.root)) log(`数据目录 ${layout.root} 还没有，新建一个`); // @i18n-ignore log：启动时的说明
   // 新装：数据目录里还没有事件库——对话审批、任务的预算控制两项收紧，明着写进配置文件
-  // （里面已经写了的不碰），再读一遍配置。已有的数据目录不写：没写这两项的照旧是代码里的默认（关着）
-  const freshInstall = !fs.existsSync(layout.eventsDb);
-  for (const dir of [layout.config, layout.db, layout.sessions, layout.tmp, layout.scratch, layout.logs]) fs.mkdirSync(dir, { recursive: true });
-  if (freshInstall) {
-    const written = writeFreshInstallDefaults(layout.configFile);
-    if (written.length > 0) {
-      log(`新装：在配置文件 ${layout.configFile} 里写明了 ${written.join("、")}（默认不勾，设置 · 关注类别里能勾上）`); // @i18n-ignore log：启动时的说明
-      config = loadConfig({ env: options.env, homeDir: options.homeDir });
-    }
+  // （里面已经写了的不碰），再读一遍配置。已有的数据目录不写：没写这两项的照旧是代码里的默认（关着）。ergo init 建新的一份时建的是同一套（prepareDataDir）
+  const written = prepareDataDir(layout);
+  if (written.length > 0) {
+    log(`新装：在配置文件 ${layout.configFile} 里写明了 ${written.join("、")}（默认不勾，设置 · 关注类别里能勾上）`); // @i18n-ignore log：启动时的说明
+    config = loadConfig({ env: options.env, homeDir: options.homeDir });
   }
   // 会意的推理库搬进插件自己的数据目录（<数据目录>/memory/subtext/rg.db）。
   // 放在这么早、这么显眼的地方，是因为**顺序要紧**：记忆插件在下面 plugins.start() 里就会打开推理库（openReasoningDb），
@@ -967,7 +965,11 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 所以它不在默认位置时，二狗的登记要声明这个变量（ergo start 写的登记自带；手写的见 deploy/lsm/ergo-daemon.example.yaml）。
     // 守卫（它的注册表、运行状态、密钥区受保护，419）、体检、开机自启开关都用这一份
     const svcDataDir = options.env.LSM_DATA_DIR?.trim() ? path.resolve(options.env.LSM_DATA_DIR.trim()) : defaultSvcDataDir(options.env);
-    const svcGuardFacts = supervisorGuardFacts({ svcDataDir, env: options.env });
+    // 可以配置多份二狗（468）：这一份在服务管家里的登记 id（登记的 env 里的 ERGO_SERVICE_ID，默认那份是 ergo-daemon），
+    // 其他各份从服务管家的注册表现读（守卫挡它们的文件夹、端口、日志、守护进程，服务管家工具不碰它们）
+    const selfServiceId = ownServiceId(options.env);
+    const others = otherInstances({ svcDataDir, selfId: selfServiceId, ownDataDir: realLayout.root, homeDir: options.homeDir });
+    const svcGuardFacts = supervisorGuardFacts({ svcDataDir, env: options.env, otherInstances: () => others.current() });
     const places: GuardPlaces = {
       dataDir: { root: realLayout.root, config: realLayout.config, secrets: realLayout.secrets, db: realLayout.db, projects: realLayout.projects, skills: realLayout.skills },
       programDir,
@@ -977,6 +979,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       ownPorts: [localPort, options.externalPort ?? config.ports.external],
       // 服务管家：停二狗、杀服务管家的路只走服务管家工具（419）。端口判定前现取（guards 的 supervisor），这里是取不到时用的
       supervisor: { dataDir: real(svcDataDir), ports: svcGuardFacts.ports() },
+      // 其他各份二狗（468）：判定时现取（读一次留几秒），新建的一份不用重启这一份就认得
+      get otherInstances() {
+        return others.current();
+      },
     };
     // 唯一的后接接线点（解循环依赖）：任务模块要派单器派起草计划的工单（项目系统要任务模块，建在它之后；项目系统自己的后接线
     // 收在 projects/system.ts 里，这里只剩这一处），任务控制快速动作要执行控制器（执行控制器建在快速动作登记之后）。
@@ -1384,7 +1390,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     agentContributions.tools.register({
       to: { agents: ["secretary"], sessions: ["secretary"] },
       at: "end",
-      tools: () => lsmSecretaryTools({ manage: () => lsmForTools?.manage, restartHold }),
+      tools: () => lsmSecretaryTools({ manage: () => lsmForTools?.manage, restartHold, otherInstances: () => others.ids() }),
     });
     // 媒体库（附件、语音的录音和合成出的音频）、授权的文件夹（秘书在聊天里和浏览插件的找文件共用一份，每次现读）：
     // 语音插件、浏览插件装配时要用，在插件之前打开
@@ -1740,7 +1746,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       internalJobs.rearm();
       wiring.scheduledJobs?.rearm();
     });
-    const backup = createBackupService({ layout, config: config.backup, inbox, clock, internalJobs, log, homeDir: options.homeDir, openFolder: options.openFolder ?? openFolderOnDesktop, ...(options.backupFiles ? { files: options.backupFiles } : {}) });
+    const backup = createBackupService({ layout, config: config.backup, inbox, clock, internalJobs, log, homeDir: options.homeDir, serviceId: selfServiceId, openFolder: options.openFolder ?? openFolderOnDesktop, ...(options.backupFiles ? { files: options.backupFiles } : {}) });
     teardown.push(() => backup.stop());
     teardown.push(() => internalJobs.stop());
     backup.start();
@@ -2094,6 +2100,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 配对设备的算法和设置向导"手机"那一步一样：吊销了还没删的算现在用不上，不算；本机端口上配对的（469）不算外网入口
         external: externalProbe({
           svcDataDir,
+          selfId: selfServiceId,
           pairedDevices: () => pairing.list().filter((device) => !device.revoked && device.local !== true).length,
           addresses: () => {
             const view = connectionAddresses.view();
@@ -3192,6 +3199,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
           manage: () => lsmForTools?.manage,
           voicePorts: () => voicePortsInUse(config.voice, { voiceOn: plugins.service(VOICE) !== undefined, speechUrl: options.speechUrl }),
           managerUrl: () => lsmForTools?.managerUrl,
+          selfId: selfServiceId,
         }),
         // 手机 App 的更新：程序目录里带的安卓安装包（GET /api/app-update、/api/app-update/android.apk，票 399）
         appPackages: createAppPackages({ programDir, log }),
@@ -3297,7 +3305,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         supervisor: supervisorSnapshot,
         // 二狗在用的语音服务的端口：和设置 · 服务一页（428）同一份算法（lsm/voice-ports.ts：语音插件启用着才算；
         // 识别是 LSM 托管的那条或 audio.cpp 上的，二狗自己拉起的 Python 不归服务管家）
-        servicesInUse: () => voicePortsInUse(config.voice, { voiceOn: plugins.service(VOICE) !== undefined, speechUrl: options.speechUrl }),
+        servicesInUse: () => ({ ...voicePortsInUse(config.voice, { voiceOn: plugins.service(VOICE) !== undefined, speechUrl: options.speechUrl }), self: selfServiceId }),
         managerUrl: () => lsm.managerUrl,
         plugins: () => plugins.info(),
         webIndex: path.join(options.webRoot ?? DEFAULT_WEB_ROOT, "index.html"),

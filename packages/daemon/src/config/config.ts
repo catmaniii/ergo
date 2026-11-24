@@ -566,6 +566,16 @@ export interface SafetyConfig {
 export const FRESH_INSTALL_SAFETY: Readonly<SafetyConfig> = Object.freeze({ conversationApprovals: "off", budgetControl: false });
 
 /**
+ * 数据目录的骨架：守护进程每次起来时建（没有的才建），ergo init 新建一份二狗时也建同一套（468），不另写一份。
+ * 新装（还没有事件库）时把收紧的两项明着写进配置文件（writeFreshInstallDefaults，已经写了的不碰）。交回这次写了哪几项
+ */
+export function prepareDataDir(layout: Pick<ReturnType<typeof dataDirLayout>, "config" | "configFile" | "db" | "eventsDb" | "sessions" | "tmp" | "scratch" | "logs">): string[] {
+  const freshInstall = !fs.existsSync(layout.eventsDb);
+  for (const dir of [layout.config, layout.db, layout.sessions, layout.tmp, layout.scratch, layout.logs]) fs.mkdirSync(dir, { recursive: true });
+  return freshInstall ? writeFreshInstallDefaults(layout.configFile) : [];
+}
+
+/**
  * 新装：把收紧的两项写进配置文件——里面已经写了的键不碰（安装时、用户先写好的照旧），别的内容原样留着，文件不在就新建。
  * 交回这次写了哪几项（配置里的写法，如 guard.conversationApprovals）；都写过了是空的、不动文件
  */
