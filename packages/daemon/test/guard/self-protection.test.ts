@@ -134,6 +134,13 @@ describe("服务管家的命令行和 ergo 的运维命令：一律硬拒绝", (
       expect({ command, verdict: verdict(judge(SECRETARY, bash(command))) }).toEqual({ command, verdict: "runs" });
     }
   });
+
+  it("关掉「本机来的也要配对」的退路（469：ergo local-pairing）同样硬拒绝：只能由用户自己跑", () => {
+    for (const command of ["ergo local-pairing off", "ergo.cmd local-pairing off", "npm run ergo -- local-pairing off", `cd ${sh(P.programDir)} && node packages/daemon/src/cli/main.ts local-pairing off`, "ergo local-pairing"]) {
+      expect({ command, verdicts: verdicts(bash(command)) }).toEqual({ command, verdicts: ["refused", "refused"] });
+    }
+    expect(judge(SECRETARY, bash("ergo local-pairing off")).explanation).toContain("本机来的也要配对");
+  });
 });
 
 describe("服务管家的端口：不是查询的请求硬拒绝，查询照旧", () => {

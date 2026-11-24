@@ -389,3 +389,39 @@ describe("停、杀另一份二狗：一律硬拒绝（批准的是这一份的�
     expect(verdict(judgeKill(MAINTAINER, "pkill -f ergo-backup"))).toBe("ask");
   });
 });
+
+describe("本机来的也要配对（469）：另一份的退路命令、另一份的本机程序令牌", () => {
+  it("对另一份跑 ergo local-pairing（--dir、在它的文件夹里、ERGO_DATA_DIR）硬拒绝；对这一份跑也硬拒绝（只能由用户自己跑）", () => {
+    for (const command of [
+      "ergo local-pairing off --dir E:/ergo-b",
+      "ergo --dir=E:/ergo-b local-pairing off",
+      "ergo local-pairing --dir='E:\\ergo-b'",
+      "ergo local-pairing off --dir ~/.ergo",
+      "cd E:/ergo-b && ergo local-pairing off",
+      "ERGO_DATA_DIR=E:/ergo-b ergo local-pairing off",
+    ]) {
+      expect({ command, verdicts: both(bash(command)) }).toEqual({ command, verdicts: ["other", "other"] });
+    }
+    for (const others of [OTHERS, []]) {
+      for (const command of ["ergo local-pairing off", "ergo local-pairing", "npm run ergo -- local-pairing off"]) {
+        expect({ command, others: others.length, verdict: verdict(judge(MAINTAINER, bash(command), {}, others)) }).toEqual({ command, others: others.length, verdict: "supervisor" });
+      }
+    }
+  });
+
+  it("读另一份密钥区里的本机程序令牌（拿去冒充那一份的本机程序）硬拒绝；这一份自己的也读不到（密钥区）", () => {
+    for (const toolCall of [
+      bash("cat E:/ergo-b/secrets/local-token"),
+      bash("cat ~/.ergo/secrets/local-token"),
+      bash(`curl -H "x-ergo-local-token: $(cat E:/ergo-b/secrets/local-token)" http://127.0.0.1:48820/api/safety-settings`),
+      bash("cat 'E:\\ergo-b\\secrets\\local-token'"),
+      call("read", { path: "E:\\ergo-b\\secrets\\local-token" }),
+      call("read", { path: `${P.home}\\.ergo\\secrets\\local-token` }),
+    ]) {
+      expect({ args: toolCall.args, verdicts: both(toolCall) }).toEqual({ args: toolCall.args, verdicts: ["other", "other"] });
+    }
+    for (const toolCall of [bash("cat D:/ergo-data/secrets/local-token"), call("read", { path: `${P.secrets}\\local-token` })]) {
+      for (const agent of AGENTS) expect({ args: toolCall.args, refusal: judge(agent, toolCall).hardRefusal }).toEqual({ args: toolCall.args, refusal: ["secrets_area"] });
+    }
+  });
+});

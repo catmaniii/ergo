@@ -1200,6 +1200,11 @@ export const PairedDevice = Type.Object({
   appVersion: Type.Optional(Type.String({ maxLength: APP_VERSION_MAX_LENGTH })),
   /** 哪种 App；认不出的没有 */
   appPlatform: Type.Optional(Type.Enum(APP_PLATFORMS)),
+  /**
+   * 从这台电脑的本机端口配对的（469，本机来的也要配对开着时）：是这台电脑上的浏览器，不算"手机配好了"、不算"有外网入口"；
+   * 从外面来的没有这一项
+   */
+  local: Type.Optional(Type.Literal(true)),
 });
 export type PairedDevice = Static<typeof PairedDevice>;
 

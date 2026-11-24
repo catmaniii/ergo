@@ -191,17 +191,43 @@ export type HistoryPage = Static<typeof HistoryPage>;
 
 // ───────────────────────── 设备配对 ─────────────────────────
 
-/** GET /api/access：这个请求被信任吗。local：从本机端口进来；device：带着有效凭证的已配对设备；none：还没配对 */
+/**
+ * GET /api/access：这个请求被信任吗。local：从本机端口进来（"本机来的也要配对"关着；开着时是带着本机程序令牌的）；
+ * device：带着有效凭证的已配对设备；none：还没配对。
+ * local（device、none 上）：这个请求是从这台电脑的本机端口进来的——"本机来的也要配对"开着时本机端口和外网端口同一套规矩，
+ * 配对页据此写明"这是这台电脑上的二狗"和关掉这项设置的退路
+ */
 export const AccessInfo = Type.Union([
   Type.Object({ access: Type.Literal("local") }),
-  Type.Object({ access: Type.Literal("device"), device: Type.Object({ id: Type.String(), name: Type.String() }) }),
+  Type.Object({ access: Type.Literal("device"), device: Type.Object({ id: Type.String(), name: Type.String() }), local: Type.Optional(Type.Literal(true)) }),
   /**
    * reason：带来的凭证为什么不认（这一次响应同时让浏览器删掉它，所以只有第一次问时有）；没带凭证、凭证认不出时没有。
    * 页面看到 revoked 就在浏览器里留"本设备已被吊销"的记号，刷新后不自动重新申请
    */
-  Type.Object({ access: Type.Literal("none"), reason: Type.Optional(Type.Enum(CREDENTIAL_REJECTIONS)) }),
+  Type.Object({ access: Type.Literal("none"), reason: Type.Optional(Type.Enum(CREDENTIAL_REJECTIONS)), local: Type.Optional(Type.Literal(true)) }),
 ]);
 export type AccessInfo = Static<typeof AccessInfo>;
+
+/**
+ * GET /api/local-pairing（469）：本机来的也要配对开没开。真相是这一份的配置文件 config/ergo.json 的 pairing.localRequestsNeedPairing，
+ * 默认关（本机端口来的自动信任，和以前一样）
+ */
+export const LocalPairingView = Type.Object({ on: Type.Boolean() });
+export type LocalPairingView = Static<typeof LocalPairingView>;
+
+/**
+ * PUT /api/local-pairing 的请求体：开或关。confirm：上一次回了 pairedThisBrowser，浏览器带着刚领到的凭证再发一次——
+ * 网关看到凭证真的带回来了才打开（存不下 cookie 的浏览器不会把自己关在外面）
+ */
+export const LocalPairingBody = Type.Object({ on: Type.Boolean(), confirm: Type.Optional(Type.Boolean()) }, { additionalProperties: false });
+export type LocalPairingBody = Static<typeof LocalPairingBody>;
+
+/**
+ * PUT /api/local-pairing 的响应：改完之后开没开。pairedThisBrowser：本机端口上还没配对的浏览器要打开，网关先替它配上对
+ * （这次响应的 Set-Cookie 里是它的设备凭证），还没打开；页面带 confirm 再发一次
+ */
+export const LocalPairingResult = Type.Object({ on: Type.Boolean(), pairedThisBrowser: Type.Optional(Type.Literal(true)) });
+export type LocalPairingResult = Static<typeof LocalPairingResult>;
 
 /** 新设备这一侧看到的配对请求（/api/pairing 的响应体 `{ request }`）。凭证不在这里，只在 Set-Cookie 里 */
 export const PairingRequestView = Type.Object({

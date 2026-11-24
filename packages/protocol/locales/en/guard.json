@@ -328,7 +328,7 @@
   "guard.judge.areas.supervisorState": "the service manager's run state",
   "guard.judge.areas.supervisorSecrets": "the service manager's secrets area",
   "guard.judge.supervisor.useTools": "use the service manager tools for service-manager work (status and logs, starting and stopping services, restarting ergo itself); don't go around them with the command line, its API or by killing processes",
-  "guard.judge.supervisor.command": "{what} is a service manager or ergo maintenance command (lsm, ergo stop/restart/update and the like) that can stop ergo",
+  "guard.judge.supervisor.command": "{what} is a service manager or ergo maintenance command (lsm, ergo stop/restart/update and the like, which can stop ergo; or ergo local-pairing, since only the user may turn off \"Require pairing on this computer too\")",
   "guard.judge.supervisor.port": "{what} sends a {method} request to the service manager's port {port}: the service manager doesn't check who is calling, so this could stop ergo or change services; only queries (GET) are allowed on this port",
   "guard.judge.supervisor.connect": "{what} connects to the service manager's port {port} and could send it any request, bypassing its API",
   "guard.judge.supervisor.page": "{what} opens the service manager's page (port {port}) in a browser, which shows every service's logs (including other ergo instances on this computer) and has stop and restart buttons; not allowed",

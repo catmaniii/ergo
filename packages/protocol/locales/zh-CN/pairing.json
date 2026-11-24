@@ -19,5 +19,6 @@
   "pairing.reject.noRequest": "没有这个配对请求",
   "pairing.reject.handled": "已被处理",
   "pairing.source.tunnel": "经隧道 · {source}",
-  "pairing.source.external": "外网端口 · {source}"
+  "pairing.source.external": "外网端口 · {source}",
+  "pairing.source.local": "本机端口 · 这台电脑"
 }

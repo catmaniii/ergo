@@ -161,6 +161,8 @@ export interface ProjectSystemDeps {
   ports: { local: number; external: number };
   /** 服务首页的缩略图怎么截（测试注入假的）；不给就用 browser() 驱动无头浏览器截 */
   serviceThumbnail?: (url: string, signal: AbortSignal) => Promise<Buffer>;
+  /** 本机程序的令牌（469）：截服务首页的浏览器带着它（只发给二狗的本机端口），"本机来的也要配对"开着时照样截得到 */
+  localToken?: () => string;
   /** 项目的服务报事件：交事件的前台（内核的事件来源，建在项目系统之前）、最近收到的记录放哪、限速和大小上限 */
   serviceEvents: { desk: ServiceEventDesk; stateDir: string; thresholds: EventSourceThresholds };
   browser: () => BrowserDriver;
@@ -388,6 +390,7 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
       thumbnailsDir: deps.layout.serviceThumbnails,
       serviceEvents: deps.serviceEvents,
       ...(deps.serviceThumbnail ? { serviceThumbnail: deps.serviceThumbnail } : {}),
+      ...(deps.localToken ? { localToken: deps.localToken } : {}),
       browser: deps.browser,
       ports: deps.ports,
       newJob: deps.newJob,

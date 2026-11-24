@@ -98,6 +98,9 @@ import {
 /** 使用记录最多隔这么久落一次（续期因此最多提前这么多失效，偏保守） */
 export const DEVICE_USE_RECORD_INTERVAL_MS = 3600_000;
 
+/** 从这台电脑的本机端口来的（469） */
+export const localSourceLabel = () => t("pairing.source.local");
+
 /** 待我处理里配对请求的来源 */
 const inboxSource = () => t("pairing.inboxSource");
 
@@ -119,6 +122,8 @@ export interface NewPairingRequest {
   source: string;
   /** 经隧道来的（来源取自 X-Real-IP） */
   viaTunnel: boolean;
+  /** 从这台电脑的本机端口来的（469，"本机来的也要配对"开着时）：卡片和设备列表上来源写"本机端口 · 这台电脑" */
+  local?: boolean;
 }
 
 export interface PairingService {
@@ -131,6 +136,11 @@ export interface PairingService {
   claim(secret: string | undefined): { request: PairingRequestView; credential?: string; device?: PairedDevice } | undefined;
   /** 新设备上改设备名（只在待批时能改）；配对请求卡跟着改 */
   rename(secret: string | undefined, deviceName: string): PairingRequestView;
+  /**
+   * 469：本机端口上已被信任的浏览器打开"本机来的也要配对"的那一刻，直接给它配上对（不走请求、批准）：返回设备和凭证原值
+   * （只放进这一个响应）。设备是"等待首次使用"，浏览器带着凭证再来一次才启用——和领凭证一样，响应丢了的不会白占一个有效设备
+   */
+  pairDirectly(input: { userAgent: string; deviceName?: string }): { device: PairedDevice; credential: string };
   /** 外网端口上的请求带来的凭证：有效（没吊销、没过期）就算这台设备用了一次（第一次是启用，之后是续期），返回设备 */
   authenticate(credential: string | undefined): PairedDevice | undefined;
   /** 不认的凭证是怎么回事（认得出是哪台设备时）；没带、乱写的是 undefined */
@@ -174,8 +184,9 @@ function deadlineOf(r: PairingRequestRecord): number {
   return r.status === "approved" ? ms(r.claimBefore ?? r.expiresAt) : ms(r.expiresAt);
 }
 
-/** 卡片和设备列表上给人看的来源 */
-function sourceLabel(source: string, viaTunnel: boolean): string {
+/** 卡片和设备列表上给人看的来源：本机端口来的写"这台电脑"（469），不是"认不出" */
+function sourceLabel(source: string, viaTunnel: boolean, local = false): string {
+  if (local) return localSourceLabel();
   if (isLoopback(source)) return unidentifiedSourceLabel();
   return t(viaTunnel ? "pairing.source.tunnel" : "pairing.source.external", { source });
 }
@@ -321,7 +332,7 @@ export function createPairingService(options: PairingServiceOptions): PairingSer
       const requestId = `pr-${randomUUID()}`;
       const shortCode = newShortCode();
       const fingerprint = fingerprintOf(secret);
-      const from = sourceLabel(input.source, input.viaTunnel);
+      const from = sourceLabel(input.source, input.viaTunnel, input.local);
       const expiresAt = iso(now + PAIRING_REQUEST_TTL_MS);
       // 像网络上的自动访问：只是记下原因、卡上提示，不拦
       const automated = automatedAccess(input.userAgent);
@@ -342,6 +353,7 @@ export function createPairingService(options: PairingServiceOptions): PairingSer
         expiresAt,
         status: "pending",
         ...flagged,
+        ...(input.local ? { local: true as const } : {}),
       };
       const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: pairingRequestTitle(deviceName), source: inboxSource(), urgency: "non_blocking" });
       store.appendBatch([requestEvent(record), card.event, item.event]);
@@ -366,10 +378,31 @@ export function createPairingService(options: PairingServiceOptions): PairingSer
         lastUsedAt: iso(now),
         expiresAt: iso(now + DEVICE_FIRST_USE_WINDOW_MS),
         revoked: false,
+        ...(r.local ? { local: true as const } : {}),
       };
       const claimed: PairingRequestRecord = { ...r, status: "claimed", deviceId: device.id };
       store.appendBatch([credentialEvent(device.id, hashSecret(credential)), deviceEvent(device, "paired"), requestEvent(claimed)]);
       return { request: viewOf(claimed), credential, device };
+    },
+
+    pairDirectly(input) {
+      const deviceName = normalizeDeviceName(input.deviceName ?? defaultDeviceName(input.userAgent)) ?? defaultDeviceName("");
+      const now = clock.now();
+      const credential = newSecret();
+      // 等待首次使用：浏览器带着凭证再来一次才启用（照 claim）
+      const device: PairedDevice = {
+        id: `d-${randomUUID()}`,
+        name: deviceName,
+        from: localSourceLabel(),
+        pairedAt: iso(now),
+        activated: false,
+        lastUsedAt: iso(now),
+        expiresAt: iso(now + DEVICE_FIRST_USE_WINDOW_MS),
+        revoked: false,
+        local: true,
+      };
+      store.appendBatch([credentialEvent(device.id, hashSecret(credential)), deviceEvent(device, "paired")]);
+      return { device, credential };
     },
 
     rename(secret, name) {

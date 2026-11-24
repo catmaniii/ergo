@@ -1273,6 +1273,9 @@ export { DEFAULT_MEMORY_SETTINGS, MEMORY_ANSWER_VERDICTS, MEMORY_QUESTION_EVENTS
 export type { MemoryAnswerVerdict, MemoryQuestionEvent, MemoryQuestionLogEntry, MemorySettingsBody, MemorySettingsView } from "@ergo/protocol";
 // 安全和预算的两个开关：设置 · 关注类别那一页上
 export type { SafetySettingsBody, SafetySettingsView } from "@ergo/protocol";
+// 本机来的也要配对（469）：设置 · 设备配对里"这台电脑"那一块的开关
+export type { LocalPairingBody, LocalPairingResult, LocalPairingView } from "@ergo/protocol";
+export { LOCAL_PAIRING_OFF_COMMAND } from "@ergo/protocol";
 // 首次设置向导：五步是哪五步、顺序，GET /api/setup 的形状、POST 标一步的请求体
 export { SETUP_STEPS } from "@ergo/protocol";
 export type { AutostartBody, AutostartState, AutostartView } from "@ergo/protocol";

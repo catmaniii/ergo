@@ -7,6 +7,7 @@ import { cmdBackupTool } from "./backup-tools.ts";
 import { cmdComponents } from "./components.ts";
 import { type CliContext, contextForInstance } from "./context.ts";
 import { cmdInit, cmdList, cmdUnregister, isDefaultDataDir } from "./instance-commands.ts";
+import { cmdLocalPairing } from "./local-pairing.ts";
 import { cmdNotify } from "./notify.ts";
 import { cmdLogs, cmdOnboard, cmdOpen, cmdRestart, cmdSvc, cmdStart, cmdStatus, cmdStop } from "./service.ts";
 import { cmdUninstall } from "./uninstall.ts";
@@ -140,6 +141,9 @@ export async function runCli(fullArgv: readonly string[], given: CliContext): Pr
       return cmdList(ctx, flagOn(args, "json"));
     case "unregister":
       return cmdUnregister(ctx);
+    case "local-pairing":
+      // 469：看、关"本机来的也要配对"（被关在外面时的退路）
+      return cmdLocalPairing(ctx, args.positional[0]);
     default:
       ctx.io.err(t("cli.unknownCommand", { command: args.command }));
       usage(ctx);

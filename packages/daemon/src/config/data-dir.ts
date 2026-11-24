@@ -1,5 +1,6 @@
 // 数据目录的各区。每类东西有固定归宿，任何模块都从这里取路径，不自己拼。
 import path from "node:path";
+import { LOCAL_TOKEN_FILE } from "@ergo/protocol";
 
 export interface DataDirLayout {
   root: string;
@@ -99,6 +100,11 @@ export interface DataDirLayout {
    * 只由守护进程读写（不经 LSM 注入环境），agent 读不到（守卫把整个密钥区挡在外面）；不进备份（密钥区整个不进）
    */
   dataSourceSecrets: string;
+  /**
+   * 本机程序的令牌（469，密钥区里的 local-token，协议包的 LOCAL_TOKEN_FILE）：守护进程每次起来生成一份，本机的命令行、冒烟脚本按数据目录读它；
+   * "本机来的也要配对"开着时本机端口上带着它的当本机程序信任。agent 读不到（守卫把整个密钥区挡在外面），不进备份
+   */
+  localTokenFile: string;
   /**
    * 共用的导入文件夹：手动导出的文件（现在只有 Google 联系人导出的 vCard）放进来，守护进程认出是哪个数据源的、交给它导入，
    * 导完挪到 importedDir（"已导入"），认不出的留在原地。整个不进备份（nonBackupEntries：Takeout 这类导出可能几十 GB，导入后的数据已经在事件和素材里）
@@ -252,6 +258,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     locales: path.join(root, "locales"),
     secrets: path.join(root, "secrets"),
     dataSourceSecrets: path.join(root, "secrets", "data-sources"),
+    localTokenFile: path.join(root, ...LOCAL_TOKEN_FILE.split("/")),
     imports: path.join(root, "imports"),
     importedDir: path.join(root, "imports", "imported"),
     db: path.join(root, "db"),

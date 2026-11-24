@@ -2,6 +2,7 @@
 // "运营概况"上显示，点了和入口一样在内置浏览器里打开。截图是守护进程做的，不是 agent 做的（不经守卫）。
 // - 怎么截（captureServiceHome）：打开经二狗转发的本机地址 http://127.0.0.1:<本机端口>/apps/<应用名>/<首页>（相对地址都对），
 //   1280×800 排版、0.5 倍出图，存成 640×400 的 JPEG；页面没有响应、状态码 ≥ 400（服务不在线时转发给的说明页）、超时的算没截成；
+//   "本机来的也要配对"开着时本机端口也要凭证（469）：截图的浏览器带着本机程序的令牌，只加在发往二狗本机端口的请求上（ownHeaders）；
 // - 什么时候截（谁来叫见 project-services.ts）：上线并且在线（健康检查过了）之后截一次；改了运营方案、服务重启之后重截（重启引起的
 //   离上一张不到 10 分钟的不截：健康检查抖一下不来回截）；之后有人看（取图的请求）时，旧了（6 小时）、还没有的补一张；
 //   没截成的留着上一张，有人看时半小时内不再试；
@@ -32,10 +33,19 @@ export const SERVICE_THUMBNAIL_RETRY_MS = 30 * 60_000;
 /** 服务重启引起的重截：离上一张不到这么久的不截 */
 export const SERVICE_THUMBNAIL_RESTART_GAP_MS = 10 * 60_000;
 
-/** 用浏览器截服务首页：1280×800 排版、0.5 倍出图的 JPEG。页面没有响应、状态码 ≥ 400 的抛错（浏览器起不来也抛） */
-export async function captureServiceHome(driver: BrowserDriver, url: string, signal?: AbortSignal): Promise<Buffer> {
+/**
+ * 用浏览器截服务首页：1280×800 排版、0.5 倍出图的 JPEG。页面没有响应、状态码 ≥ 400 的抛错（浏览器起不来也抛）。
+ * ownHeaders 只加在发往 url 同一个源（二狗的本机端口）的请求上
+ */
+export async function captureServiceHome(driver: BrowserDriver, url: string, signal?: AbortSignal, ownHeaders?: Record<string, string>): Promise<Buffer> {
   return driver.withPage(
-    { userAgent: SEARCH_USER_AGENT, locale: "zh-CN", viewport: { ...SERVICE_THUMBNAIL_VIEWPORT }, deviceScaleFactor: SERVICE_THUMBNAIL_SCALE },
+    {
+      userAgent: SEARCH_USER_AGENT,
+      locale: "zh-CN",
+      viewport: { ...SERVICE_THUMBNAIL_VIEWPORT },
+      deviceScaleFactor: SERVICE_THUMBNAIL_SCALE,
+      ...(ownHeaders === undefined ? {} : { originHeaders: { origin: new URL(url).origin, headers: ownHeaders } }),
+    },
     async (page) => {
       const status = await page.goto(url, GOTO_TIMEOUT_MS);
       if (status === 0) throw new Error("页面没有响应"); // @i18n-ignore log：截不成的原因只进日志

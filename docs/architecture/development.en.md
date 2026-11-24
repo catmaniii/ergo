@@ -75,7 +75,7 @@ From the repository root:
 | i18n check | `npm run i18n:check` ([Internationalization](README.en.md#internationalization)) |
 | Build the web UI | `npm run build:web` (the installed page, no sample data; a single file, `packages/web/dist/index.html`) |
 | Build the online demo | `npm run build:demo` (into `packages/web/dist-demo/`; when changing the UI, build this and open it over `file://`, [Where pages come from](README.en.md#where-pages-come-from-prototype-and-online-demo)) |
-| Open the real page after deploying | `npm run smoke:page` (headless Chrome on `http://127.0.0.1:8810/`; `-- <url>` for another address) |
+| Open the real page after deploying | `npm run smoke:page` (headless Chrome on `http://127.0.0.1:8810/`; `-- <url>` for another address; when that copy has "Require pairing on this computer too" on, it sends that copy's local program token, found by `ERGO_DATA_DIR`) |
 | Build the HarmonyOS app | `npm run build:harmony` ([Phone apps](#phone-apps)) |
 | Build the Android app | `npm run build:android` ([Android app](#android-app)) |
 | Build a release | `npm run release` (`--build-mobile` builds the phone packages only if the app version went up; see [Publishing the phone packages](#publishing-the-phone-packages)) |

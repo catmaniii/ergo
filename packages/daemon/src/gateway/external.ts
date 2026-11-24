@@ -4,6 +4,8 @@
 // - 带了 Origin 就必须和 Host 是同一个源：挡住别的网站借用户的浏览器发请求（凭证 cookie 本身也是 SameSite=Strict）；
 // - 来源：经隧道来的请求 TCP 对端都是本机，以 nginx 覆盖写的 X-Real-IP 为准（只在外网端口上信任这个头），
 //   只用于配对请求的限频和卡片上显示的来源。
+// "本机来的也要配对"开着时（469）本机端口也走这一套（配对接口、凭证 cookie 都在这里），只是 cookie 名带本机端口、
+// 来源按 TCP 对端（本机端口上不信任客户端写的 X-Real-IP），见 gateway.ts。
 import type http from "node:http";
 import net from "node:net";
 import {
@@ -18,13 +20,19 @@ import {
   t,
 } from "@ergo/protocol";
 import { RequestRejected } from "../errors.ts";
-import { DEVICE_COOKIE, PAIRING_COOKIE, readCookie, setCookieHeader } from "../pairing/credentials.ts";
-import type { PairingService } from "../pairing/pairing.ts";
+import { type CookieNames, DEVICE_COOKIE, EXTERNAL_COOKIES, readCookie, setCookieHeader } from "../pairing/credentials.ts";
+import type { NewPairingRequest, PairingService } from "../pairing/pairing.ts";
 import { sendError, sendJson } from "./http-api.ts";
 import type { OriginCheck } from "./local-origin.ts";
 
 /** 网关用到的配对模块的那部分 */
-export type DevicePairing = Pick<PairingService, "authenticate" | "rejectionOf" | "refresh" | "createRequest" | "claim" | "rename" | "onRevoked" | "cookieMaxAgeMs">;
+export type DevicePairing = Pick<PairingService, "authenticate" | "rejectionOf" | "refresh" | "createRequest" | "claim" | "rename" | "onRevoked" | "cookieMaxAgeMs" | "pairDirectly">;
+
+/** 配对接口在哪个端口上：cookie 叫什么、来源怎么认（不给是外网端口的：默认的 cookie 名，来源以 X-Real-IP 为准） */
+export interface PairingRouteOptions {
+  cookies?: CookieNames;
+  source?: (req: http.IncomingMessage) => Pick<NewPairingRequest, "source" | "viaTunnel" | "local">;
+}
 
 /** 配对接口的请求体上限 */
 const MAX_BODY_BYTES = 4096;
@@ -67,8 +75,10 @@ const HTTP_CODE_OF: Partial<Record<ErrorCode, HttpErrorCode>> = {
  * - GET 查自己这个请求（靠配对 cookie 认），已批准就在这次响应里下发设备凭证；
  * - PATCH 改设备名。
  */
-export function handlePairingRoute(req: http.IncomingMessage, res: http.ServerResponse, pairing: DevicePairing, log: (line: string) => void): void {
-  const secret = readCookie(req.headers.cookie, PAIRING_COOKIE);
+export function handlePairingRoute(req: http.IncomingMessage, res: http.ServerResponse, pairing: DevicePairing, log: (line: string) => void, options: PairingRouteOptions = {}): void {
+  const cookies = options.cookies ?? EXTERNAL_COOKIES;
+  const sourceOf = options.source ?? requestSource;
+  const secret = readCookie(req.headers.cookie, cookies.pairing);
   const run = (fn: () => void) => {
     try {
       fn();
@@ -85,7 +95,7 @@ export function handlePairingRoute(req: http.IncomingMessage, res: http.ServerRe
         const found = pairing.claim(secret);
         if (!found) return sendError(res, "not_found", t("gateway.noPairingRequest"));
         // 领到了凭证：放进 HttpOnly cookie（页面脚本看不到），配对 cookie 用完删掉
-        if (found.credential !== undefined) res.setHeader("Set-Cookie", [deviceCookie(found.credential), setCookieHeader(PAIRING_COOKIE, "", 0)]);
+        if (found.credential !== undefined) res.setHeader("Set-Cookie", [deviceCookie(found.credential, undefined, cookies.device), setCookieHeader(cookies.pairing, "", 0)]);
         sendJson(res, 200, { request: found.request });
       });
     case "POST":
@@ -97,9 +107,9 @@ export function handlePairingRoute(req: http.IncomingMessage, res: http.ServerRe
           const { request, secret: newSecret } = pairing.createRequest({
             ...(deviceName === undefined ? {} : { deviceName }),
             userAgent: req.headers["user-agent"] ?? "",
-            ...requestSource(req),
+            ...sourceOf(req),
           });
-          res.setHeader("Set-Cookie", setCookieHeader(PAIRING_COOKIE, newSecret, PAIRING_COOKIE_MAX_AGE_MS));
+          res.setHeader("Set-Cookie", setCookieHeader(cookies.pairing, newSecret, PAIRING_COOKIE_MAX_AGE_MS));
           sendJson(res, 201, { request });
         }),
       );
@@ -122,17 +132,17 @@ export function handlePairingRoute(req: http.IncomingMessage, res: http.ServerRe
  * 设备凭证的 Set-Cookie：默认 DEVICE_COOKIE_MAX_AGE_MS（400 天，比服务端多留 35 天，过期一个月内的设备延期后直接能用；
  * 每次使用都重新下发）；延期到更远的给到那时（配对模块的 cookieMaxAgeMs），免得 cookie 先在浏览器里过期
  */
-export function deviceCookie(credential: string, maxAgeMs = DEVICE_COOKIE_MAX_AGE_MS): string {
-  return setCookieHeader(DEVICE_COOKIE, credential, maxAgeMs);
+export function deviceCookie(credential: string, maxAgeMs = DEVICE_COOKIE_MAX_AGE_MS, name = DEVICE_COOKIE): string {
+  return setCookieHeader(name, credential, maxAgeMs);
 }
 
 /** 删掉浏览器里失效的设备凭证（吊销了、过期了） */
-export function clearDeviceCookie(): string {
-  return setCookieHeader(DEVICE_COOKIE, "", 0);
+export function clearDeviceCookie(name = DEVICE_COOKIE): string {
+  return setCookieHeader(name, "", 0);
 }
 
-/** 读 JSON 请求体（空的算 {}）；太大或不是 JSON 直接回错误 */
-function readJson(req: http.IncomingMessage, res: http.ServerResponse, then: (body: unknown) => void): void {
+/** 读 JSON 请求体（空的算 {}）；太大或不是 JSON 直接回错误（配对接口、/api/local-pairing 用） */
+export function readJson(req: http.IncomingMessage, res: http.ServerResponse, then: (body: unknown) => void): void {
   const chunks: Buffer[] = [];
   let size = 0;
   let aborted = false;

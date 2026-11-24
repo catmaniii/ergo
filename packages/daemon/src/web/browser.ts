@@ -11,6 +11,11 @@ export interface PageOptions {
   viewport?: { width: number; height: number };
   /** 设备像素比（缩略图按 1280×800 排版、0.5 倍截下来就是 640×400）；不给是 1 */
   deviceScaleFactor?: number;
+  /**
+   * 只加在发往这个源（协议、主机、端口）的请求上的头（469：守护进程截服务首页时带本机程序的令牌，只给二狗自己的本机端口，
+   * 页面引用的别处的东西拿不到）。WebSocket 握手不带
+   */
+  originHeaders?: { origin: string; headers: Record<string, string> };
 }
 
 /** 搜索结果页上一条结果怎么取：结果的容器、标题链接、摘要（CSS 选择器） */
@@ -139,6 +144,8 @@ export function playwrightDriver(input: { executablePath: () => string | undefin
           ...(options.viewport ? { viewport: options.viewport } : {}),
           ...(options.deviceScaleFactor ? { deviceScaleFactor: options.deviceScaleFactor } : {}),
         });
+        const only = options.originHeaders;
+        if (only) await context.route((url) => url.origin === only.origin, (route) => route.continue({ headers: { ...route.request().headers(), ...only.headers } }));
         return await work(playwrightPage(await context.newPage()));
       } finally {
         signal?.removeEventListener("abort", close);

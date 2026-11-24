@@ -12,6 +12,9 @@
   "guard": {
     "conversationApprovals": "off"
   },
+  "pairing": {
+    "localRequestsNeedPairing": false
+  },
   "plugins": {
     "disabled": [],
     "removed": []

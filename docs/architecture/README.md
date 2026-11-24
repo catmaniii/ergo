@@ -166,7 +166,8 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 两个端口都只监听 `127.0.0.1`：
 
-- **本机端口**（默认 8810）自动信任。每个 HTTP 请求和 WebSocket 握手都校验 Host 是 `127.0.0.1:<端口>` 或 `localhost:<端口>`（防 DNS 重绑定），带了 Origin 就必须是这两个源之一（防跨站请求）；`Origin: null` 一律不认。
+- **本机端口**（默认 8810）默认自动信任。每个 HTTP 请求和 WebSocket 握手都校验 Host 是 `127.0.0.1:<端口>` 或 `localhost:<端口>`（防 DNS 重绑定），带了 Origin 就必须是这两个源之一（防跨站请求）；`Origin: null` 一律不认。
+- **本机来的也要配对**（469，配置 `pairing.localRequestsNeedPairing`，默认关；[ADR-0064](adr/0064-local-trust-by-port-and-setting.md)）：开着时本机端口和外网端口同一套规矩（没凭证只放页面、`/api/access`（多带 `local: true`）、配对接口），凭证 cookie 的名字带本机端口（`__Host-ergo-device-l<端口>`，同一台电脑上几份二狗都在 127.0.0.1 上，cookie 不分端口），配对请求的来源按 TCP 对端、写"本机端口 · 这台电脑"。不带浏览器的本机调用方：带本机程序令牌（`x-ergo-local-token`，守护进程每次起来写进密钥区的 `secrets/local-token`，命令行、`smoke:page`、截服务首页的无头浏览器按数据目录读）的当本机程序信任；`GET /healthz` 照放（服务管家的健康探针）；`/api/service-events`、`/api/project-ops-mcp` 自带 Bearer、交给接口自己认。外网端口永远不认令牌；转发给项目的服务时令牌和本机端口的凭证 cookie 都去掉。开关在 `GET / PUT /api/local-pairing`（网关自己回）：本机端口上靠端口被信任的浏览器去打开时，先替它配上对（`PairingService.pairDirectly`），带着凭证 `confirm` 再来一次才打开；打开的那一刻本机端口上没凭证的连接断开（`WS_CLOSE_UNPAIRED`）。退路 `ergo local-pairing off`，守卫当服务管家的命令硬拒绝。
 - **外网端口**（默认 8811）是隧道、Tailscale 这类入口的唯一目标：不看来源 IP、不看 Host，只看设备凭证（cookie `__Host-ergo-device`）。没有有效凭证只放行三样：页面本身（显示配对页）、`/api/access`、配对接口；别的一律 401。以后加的接口自动在这道门后面。
 - `/healthz`：秘书在不在运行、网页构建了没有、启用着的插件装没装上（没装上算 `degraded`、照旧回 200）。
 - `/fonts/`：视觉风格的字体（外网端口上同样要凭证）。网页运行时不请求任何外部地址——唯一的破例是地图页在国内用的高德 JS API（[ADR-0051](adr/0051-map-amap-js-and-osm-tiles.md)）。
@@ -282,6 +283,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 |---|---|---|
 | `ports.local` / `ports.external` | 本机端口、外网端口（都只听 127.0.0.1） | 8810 / 8811 |
 | `guard.conversationApprovals` | 对话里有风险的事先问我（`"on"` / `"off"`） | `"off"` |
+| `pairing.localRequestsNeedPairing` | 本机来的也要配对（`true` / `false`；设置 · 设备配对里改了马上生效，`ergo local-pairing off` 关） | `false` |
 | `tasks.maxRunning` | 最多几个任务同时执行 | 3 |
 | `tasks.thresholds` | 拉回几次停下、多久没进展算停滞、预算超几倍停下…… | 见样例 |
 | `agents.maxLive` | 同时存活的 agent 子进程上限 | 8 |

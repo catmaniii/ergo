@@ -56,4 +56,31 @@ describe("真的截一张服务首页（要本机的 Chrome / Edge，找不到�
     expect(jpegSize(jpeg)).toEqual({ width: 640, height: 400 });
     await expect(captureServiceHome(driver(), `${base}/apps/p-1-gone/`)).rejects.toThrow("页面打不开（HTTP 404）");
   }, 60_000);
+
+  it("带上的头（469：本机程序的令牌）只发给要截的那个源，页面引用的别处的东西拿不到", async () => {
+    const heard: Array<{ who: string; url: string; token: string | undefined }> = [];
+    const header = "x-ergo-local-token";
+    const listen = (who: string, respond: (req: http.IncomingMessage, res: http.ServerResponse) => void) => {
+      const srv = http.createServer((req, res) => {
+        heard.push({ who, url: req.url ?? "", token: req.headers[header] as string | undefined });
+        respond(req, res);
+      });
+      return new Promise<{ server: http.Server; url: string }>((resolve) => srv.listen(0, "127.0.0.1", () => resolve({ server: srv, url: `http://127.0.0.1:${(srv.address() as AddressInfo).port}` })));
+    };
+    const elsewhere = await listen("elsewhere", (_req, res) => {
+      res.writeHead(200, { "Content-Type": "image/svg+xml" });
+      res.end('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>');
+    });
+    const own = await listen("own", (req, res) => {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(req.url === "/apps/p-1-site/" ? `<!doctype html><html><body><img src="${elsewhere.url}/pic.svg"><img src="/apps/p-1-site/pic.svg"></body></html>` : "");
+    });
+    try {
+      await captureServiceHome(driver(), `${own.url}/apps/p-1-site/`, undefined, { [header]: "secret-token" });
+      expect(heard.filter((h) => h.who === "own").map((h) => [h.url, h.token])).toEqual(expect.arrayContaining([["/apps/p-1-site/", "secret-token"], ["/apps/p-1-site/pic.svg", "secret-token"]]));
+      expect(heard.filter((h) => h.who === "elsewhere").map((h) => [h.url, h.token])).toEqual([["/pic.svg", undefined]]);
+    } finally {
+      await Promise.all([own, elsewhere].map((s) => new Promise<void>((resolve) => s.server.close(() => resolve()))));
+    }
+  }, 60_000);
 });

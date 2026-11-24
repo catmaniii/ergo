@@ -423,7 +423,7 @@ If the address is recognizably a tailnet one, the Tailscale item comes first.
 - Pending requests expire after 5 minutes. If one expires or is denied, go back to the pairing page and tap **Request pairing** again.
 - At most 5 requests from the same source within 10 minutes. After repeated failures, wait 10 minutes and try again.
 - You can also change the device name while waiting for approval, and the computer's side updates to match.
-- This computer doesn't need pairing itself: connections from its local port are trusted automatically.
+- This computer doesn't need pairing itself: connections from its local port are trusted automatically. The exception is when **Require pairing on this computer too** is on; see [Require pairing on this computer too](#require-pairing-on-this-computer-too).
 
 ## Change address
 
@@ -471,6 +471,36 @@ If the address is recognizably a tailnet one, the Tailscale item comes first.
 - A revoked phone says **This device has been revoked**. Tap **Request pairing** to apply again, and you'll have to approve it again too.
 - The phone keeps a copy of how things looked last time, together with the records it has fetched (everything except conversations: cards, Inbox, the task board, activity and so on; only in this phone's browser storage). Next time it shows that first, then fetches from your computer only what changed since, instead of going through the whole history every time. After ergo updates its web page (including the automatic refresh when you switch back), the new version rebuilds from the records on the phone and still fetches only what's new; conversations fetch their latest page from the computer again. When the same thing changed many times (a task updated along the way, usage added up call by call), the computer sends and the phone keeps only the latest record, so a new phone opens quickly too and what the phone stores doesn't keep growing with use. All of this is deleted when this phone is revoked, expires or goes back to the pairing page.
 - Chat history you've scrolled up to is also kept on this phone (stored separately, up to about 50 MB; when it's full, the conversations you haven't looked at for longest go first). Scrolling up again shows what the phone has right away, even offline; only what's missing is fetched from your computer, and that gets kept too. If you rolled back a conversation, permanently deleted messages or restored the data folder on the computer, what the phone kept is discarded and fetched again, so it never shows outdated history. How much is kept is shown in the Debug toolkit (Settings → About ergo) under Connection. It's all deleted when this phone is revoked, expires or goes back to the pairing page.
+
+## Require pairing on this computer too
+
+**What it is:** By default, connections through this computer's own local port are trusted automatically, so a browser can just open ergo. With **Require pairing on this computer too** on, browsers and other programs on this computer need pairing too, just like devices from outside. Use it to keep things apart when several copies of ergo or other programs run on the same computer: whatever isn't paired can't get in. It's off by default.
+
+**Where to find it:** Settings · Data & devices · Device pairing, the switch in the **This computer (local)** block.
+
+**Step by step:**
+
+1. Turn on **Require pairing on this computer too**.
+2. The box that opens explains what happens: browsers on this computer need pairing from now on; the browser you're using now is paired automatically right away, so you won't lock yourself out; and how to turn it off if you do get locked out.
+3. Click **Turn on**. The page reloads once, and the browser you're using shows up under **Paired**, marked **(this device)**, with the source **Local port · this computer**.
+4. Other browsers on this computer now see the pairing page when they open ergo, saying it's the ergo on this computer. Follow [Pairing: check and approve](#pairing-check-and-approve) and approve them on a paired device.
+5. To stop, turn the switch back off. It takes effect right away, with no confirmation.
+
+**Keeps working:** the `ergo` command on this computer, the service manager's health check, project services reporting events (`ergo notify`), the MCP made from a project's operations, and the service home-page thumbnails ergo takes itself all work without pairing.
+
+**If you're locked out:** no browser on this computer is paired and no paired device is at hand. Run this on the computer:
+
+```
+ergo local-pairing off
+```
+
+If ergo is running, it's turned off right away; if not, the configuration is changed and ergo starts with it off. With several copies of ergo on one computer, run it in that copy's folder. `ergo local-pairing` on its own shows whether it's on. Agents inside ergo can't run this command for you.
+
+**Good to know:**
+
+- You can only turn it on from the web page; the command line can only turn it off.
+- A paired browser that clears its cookies has to pair again. Opening ergo as `127.0.0.1` and as `localhost` counts as two browsers, each paired separately.
+- You can also turn it on from your phone. Then no browser gets paired automatically: ergo pages open on the computer go back to the pairing page, and you approve them on the phone.
 
 ## Update the app
 
