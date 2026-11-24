@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import YAML from "yaml";
 import { takeDirFlag } from "../../src/cli/args.ts";
 import { type CliContext, createContext } from "../../src/cli/context.ts";
-import { DEFAULT_SERVICE_ID, INSTANCE_MARKER, InstanceMarkerError, literalEnv, pickPorts, registeredInstances, resolveInstance, writeMarker } from "../../src/cli/instances.ts";
+import { DEFAULT_SERVICE_ID, INSTANCE_MARKER, InstanceMarkerError, instanceLogFiles, literalEnv, pickPorts, registeredInstances, resolveInstance, writeMarker } from "../../src/cli/instances.ts";
 import { runCli } from "../../src/cli/run.ts";
 import { daemonEntryYaml, defaultManagerYaml } from "../../src/cli/service.ts";
 import { cmdUninstall } from "../../src/cli/uninstall.ts";
@@ -435,5 +435,17 @@ describe("登记文件读得出来的样子", () => {
       "  enabled: true",
     ].join("\n");
     expect(Object.fromEntries(literalEnv(text))).toEqual({ ERGO_DATA_DIR: "D:\\a b\\it's", ERGO_SERVICE_ID: "ergo-x", PLAIN: "C:\\x" });
+  });
+
+  it("服务管家日志目录里属于一份的：它的日志（还没起过、没有文件也算上）、切下来的、它名下服务的；别的一份的不算", () => {
+    const svc = fs.mkdtempSync(path.join(os.tmpdir(), "ergo-468-logs-"));
+    try {
+      expect(instanceLogFiles(svc, "ergo-b")).toEqual([path.join(svc, "logs", "ergo-b.out.log")]);
+      fs.mkdirSync(path.join(svc, "logs"));
+      for (const f of ["ergo-b.out.log", "ergo-b.out.log.1", "ergo-b--web.out.log", "ergo-bb.out.log", "ergo-daemon.out.log"]) fs.writeFileSync(path.join(svc, "logs", f), "");
+      expect(instanceLogFiles(svc, "ergo-b").map((f) => path.basename(f)).toSorted()).toEqual(["ergo-b--web.out.log", "ergo-b.out.log", "ergo-b.out.log.1"]);
+    } finally {
+      fs.rmSync(svc, { recursive: true, force: true });
+    }
   });
 });

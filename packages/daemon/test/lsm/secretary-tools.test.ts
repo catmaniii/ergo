@@ -494,13 +494,15 @@ describe("守卫：类别整个工具固定，对话审批关着时普通的直�
   }
 });
 
+/** 配置了多份二狗时的工具：ergo-b 是另一份 */
+function withOthers(manage: LsmManage) {
+  const list = lsmSecretaryTools({ manage: () => manage, restartHold: createRestartSelfHold(), otherInstances: () => ["ergo-b"] });
+  return (name: string, args: Record<string, unknown>) => list.find((tool) => tool.spec.name === name)!.run(args as never, { toolCallId: "call-1" });
+}
+
 describe("配置了多份二狗（468）：另一份和它名下的服务不列、不碰", () => {
   const others = [svc("ergo-b", { title: "ergo (b)", port: 18820, state: "RUNNING", up: true }), svc("ergo-b--web", { title: "b 的简报站", owner: "ergo-b", port: 18830 })];
   const listed = () => fakeManage({ list: () => ({ ok: true, self: "ergo-daemon", services: [...SERVICES, ...others], profiles: { ...PROFILES, ergo: ["ergo-daemon", "ergo-tunnel", "ergo-b"] }, lifeline: [] }) });
-  const withOthers = (manage: LsmManage) => {
-    const list = lsmSecretaryTools({ manage: () => manage, restartHold: createRestartSelfHold(), otherInstances: () => ["ergo-b"] });
-    return (name: string, args: Record<string, unknown>) => list.find((tool) => tool.spec.name === name)!.run(args as never, { toolCallId: "call-1" });
-  };
 
   it("列表里没有另一份和它名下的服务；场景里也去掉它们", async () => {
     const fake = listed();

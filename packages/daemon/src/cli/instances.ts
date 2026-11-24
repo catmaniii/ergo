@@ -293,21 +293,24 @@ export function instancePorts(dataDir: string): { local: number; external: numbe
   }
 }
 
-/** 服务管家的日志目录里属于这个登记的文件（<id>.out.log 和切下来的、它名下的服务的 <id>--*） */
+/**
+ * 服务管家的日志目录里属于这个登记的文件：<id>.out.log（还没有也算上：它一起来就有了）、切下来的，它名下的服务的 <id>--*
+ */
 export function instanceLogFiles(svcDataDir: string, id: string): string[] {
   const dir = path.join(svcDataDir, "logs");
   const lower = id.toLowerCase();
+  const own = path.join(dir, `${id}.out.log`);
+  let names: string[] = [];
   try {
-    return fs
-      .readdirSync(dir)
-      .filter((name) => {
-        const n = name.toLowerCase();
-        return n.startsWith(`${lower}.`) || n.startsWith(`${lower}--`);
-      })
-      .map((name) => path.join(dir, name));
+    names = fs.readdirSync(dir).filter((name) => {
+      const n = name.toLowerCase();
+      return n.startsWith(`${lower}.`) || n.startsWith(`${lower}--`);
+    });
   } catch {
-    return [];
+    // 还没有日志目录
   }
+  const files = names.map((name) => path.join(dir, name));
+  return files.some((f) => f.toLowerCase() === own.toLowerCase()) ? files : [own, ...files];
 }
 
 // ───────────────────────── 挑端口 ─────────────────────────
