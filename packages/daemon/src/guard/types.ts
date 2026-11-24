@@ -135,14 +135,18 @@ export interface GuardSupervisor {
 
 /**
  * 受保护的进程（杀进程时判定用）：调用方判定前现取（lsm/guard-facts.ts）——守护进程自己、服务管家（state.json 记的 manager.pid）、
- * 命脉服务（二狗自己的登记、它的公网隧道 exposure.via、tailnet 网关；state.json 记的 pid）
+ * 命脉服务（二狗自己的登记、它的公网隧道 exposure.via、tailnet 网关；state.json 记的 pid）；配置了多份时还有其他各份的守护进程
+ * （468：state.json 记的 pid、它数据目录里 daemon.pid 记的）
  */
 export interface ProtectedProcess {
   pid: number;
   /** 可执行文件名（node.exe、ssh.exe）；取不到不写 */
   exe?: string;
-  /** daemon：守护进程；manager：服务管家；service：命脉服务（service 是它的 id） */
-  role: "daemon" | "manager" | "service";
+  /**
+   * daemon：守护进程；manager：服务管家；service：命脉服务（service 是它的 id）；
+   * instance：这台电脑上另一份二狗的守护进程（service 是它的登记 id；杀它硬拒绝，468）
+   */
+  role: "daemon" | "manager" | "service" | "instance";
   service?: string;
 }
 

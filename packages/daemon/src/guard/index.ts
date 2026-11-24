@@ -7,6 +7,7 @@ export {
   isReadOnlyOrIdempotentCall,
   judgeToolCall,
   judgementExecutes,
+  killsInText,
   neverObjectsOf,
   type ProtectedArea,
   protectedAreasOf,

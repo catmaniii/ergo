@@ -1142,6 +1142,13 @@ function mentionsLocalPort(text: string, port: number): boolean {
 /** 拆不开的文字里的杀进程写法（taskkill、Stop-Process、kill 进程号、wmic process … delete、process.kill(…)……） */
 const KILL_IN_TEXT =
   /\b(?:taskkill|tskill|pskill|pkill|killall|stop-process|spps)\b|\bkill\s+(?:-\S+\s+)*(?:[%$]|-?\d)|\bkill\s+-(?:name|id|processname|inputobject)\b|\bwmic\b[^\n]*\bprocess\b[^\n]*\b(?:delete|terminate)\b|\.kill\s*\(|\bTerminateProcess\b|\bInvoke-CimMethod\b[^\n]*\bTerminate\b/i;
+/** 按端口杀进程的程序（npx kill-port 8810、fuser -k 8810/tcp） */
+const KILL_BY_PORT_IN_TEXT = /\bkill-port\b|\bfuser\b[^\n|;&]*\s-[a-z]*k/i;
+
+/** 一段文字里写着杀进程（拆不开的命令、按端口杀的程序）：现取事实时据此取受保护的进程（guard-runtime/facts.ts，468） */
+export function killsInText(text: string): boolean {
+  return KILL_IN_TEXT.test(text) || KILL_BY_PORT_IN_TEXT.test(text);
+}
 /** 拆不开的文字里服务管家的命令行：lsm、lsm.mjs、tailnet-gateway、packages/supervisor/bin、守护进程的停止脚本 */
 const SUPERVISOR_CLI_IN_TEXT = /\blsm(?:\.mjs|\.cmd)?\b|\btailnet-gateway\b|supervisor[\\/]+bin\b|daemon[\\/]+src[\\/]+stop\.[cm]?[jt]s\b/i;
 /** 拆不开的文字里 ergo 的停止、重启、升级、回退、卸载、svc，和改服务管家登记的 init、unregister（468） */
@@ -1234,6 +1241,54 @@ function otherInstanceRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollect
   if ((ctx.input.places.otherInstances ?? []).length === 0) return;
   const scripts = kc.call.tool === TOOL.run_script ? pathArgs(ctx, kc).flatMap((p) => (p.resolved.kind === "absolute" ? [ctx.scriptFact(p.resolved.path)] : [])) : [];
   otherInstanceReach(ctx, kc.call, kc.what, requestUrls(kc), scripts, out);
+  otherInstanceStop(ctx, kc, out);
+}
+
+/**
+ * 这次调用在停、杀东西：杀进程、服务管家的命令（lsm、ergo 的停止重启……，作用在某一份上的不算）、发往管理器端口的改动请求（查询不算，
+ * 它照 supervisorRule 硬拒绝）、文字里写着杀进程、服务管家的命令行、ergo 的停止重启的
+ */
+function stopsSomething(ctx: JudgeContext, kc: KnownCall): boolean {
+  const { call } = kc;
+  if (call.tool === TOOL.kill_process) return true;
+  if (call.tool === TOOL.supervisor_command) return call.args.scoped !== true;
+  if (call.tool === TOOL.http_request) return !isReadOnlyMethod(call.args.method) && supervisorPorts(ctx).some((port) => requestUrls(kc).some((u) => isSupervisorUrl(u, port)));
+  const text = callText(kc);
+  return killsInText(text) || SUPERVISOR_CLI_IN_TEXT.test(text) || ERGO_OPS_IN_TEXT.test(text);
+}
+
+/** 一段文字里写着这个词（登记 id、文件夹名）：前后不连着字母、数字、点；后面跟 `--` 的也算（它名下的服务） */
+function wordMentioned(text: string, word: string): boolean {
+  if (word.length < 3) return false;
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![\\w.-])${escaped}(?![\\w.]|-(?!-))`, "i").test(text);
+}
+
+/**
+ * 停、杀另一份二狗（468）：杀进程、服务管家的命令、发往管理器的请求、拆不开的命令里写着杀进程的，写着另一份的端口、登记 id、
+ * 文件夹（名字或里面的路径）、它的守护进程的进程号（拆不开的命令里）——硬拒绝。审批卡是这一份的用户点的，点的人可能就是从外面进了这一份的人，
+ * 不能替另一份做主。看的是这次调用的原文、参数，bash 拆出来的还看整条命令（`netstat -ano | grep 8820 | … | xargs kill`）。
+ * 按进程号、按名字直接杀到它的守护进程的见 killProcessRule；写不出是谁的杀进程照原来的规矩
+ */
+function otherInstanceStop(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
+  if (!stopsSomething(ctx, kc)) return;
+  const whole = kc.call.origin === "shell" ? ((ctx.input.call.args as { command?: unknown } | null)?.command ?? "") : "";
+  const texts = [callText(kc), ...stringsIn(kc.call.args), ...(typeof whole === "string" ? [whole] : [])];
+  const pidsOf = (id: string) => (ctx.input.facts.processes?.protected ?? []).filter((p) => p.role === "instance" && p.service === id).map((p) => p.pid);
+  for (const other of ctx.input.places.otherInstances ?? []) {
+    const marks: string[] = [];
+    // 杀进程写明的进程号碰巧和它的端口一样的不算写着端口
+    const killPids = kc.call.tool === TOOL.kill_process && Array.isArray(kc.call.args.pids) ? kc.call.args.pids : [];
+    const port = other.ports.find((p) => !killPids.includes(p) && texts.some((s) => mentionsPort(s, p)));
+    if (port !== undefined) marks.push(t("guard.judge.otherInstance.mark.port", { port }));
+    if (texts.some((s) => wordMentioned(s, other.id))) marks.push(t("guard.judge.otherInstance.mark.id", { id: other.id }));
+    const dir = other.dataDirs.find((d) => texts.some((s) => wordMentioned(s, win32.basename(comparable(d))) || nameMentioned(s, d) || absolutePathsIn(s).some((p) => isWithin(p, d))));
+    if (dir !== undefined) marks.push(t("guard.judge.otherInstance.mark.dir", { dir }));
+    // 进程号只认拆不开的命令里写着的（拆得开的杀进程按进程号比，见 killProcessRule）
+    const pid = kc.call.tool === TOOL.kill_process ? undefined : pidsOf(other.id).find((p) => texts.some((s) => new RegExp(`(?<![\\w.])${p}(?![\\w.])`).test(s)));
+    if (pid !== undefined) marks.push(t("guard.judge.otherInstance.mark.pid", { pid }));
+    if (marks.length > 0) refuseOtherInstance(out, t("guard.judge.otherInstance.stopNamed", { what: kc.what, marks: marks.join(t("pages.common.listSep")) }), other.id);
+  }
 }
 
 /** otherInstanceRule 的那几样（没登记的工具也走这里：只看参数里写着的地址） */
@@ -1266,6 +1321,7 @@ function managesTasks(call: JudgedCall): boolean {
 function processTitle(p: ProtectedProcess): string {
   if (p.role === "daemon") return t("guard.judge.kill.who.daemon", { pid: p.pid });
   if (p.role === "manager") return t("guard.judge.kill.who.manager", { pid: p.pid });
+  if (p.role === "instance") return t("guard.judge.kill.who.instance", { pid: p.pid, id: p.service ?? "?" });
   return t("guard.judge.kill.who.service", { pid: p.pid, service: p.service ?? "?" });
 }
 
@@ -1293,6 +1349,11 @@ function nameHits(name: string, exe: string, match: unknown): boolean | undefine
   return bareName(name) === bareName(exe);
 }
 
+/** 是这台电脑上另一份二狗的守护进程（468） */
+function isInstance(p: ProtectedProcess | undefined): p is ProtectedProcess {
+  return p?.role === "instance";
+}
+
 function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
 }
@@ -1301,6 +1362,7 @@ function stringList(value: unknown): string[] {
  * 杀进程（419，shell/programs.ts 拆出来的 kill_process）：拿调用方现取的受保护的进程（EnvironmentFacts.processes）比——
  * - 杀到二狗的守护进程、服务管家、命脉服务的：按进程号命中、按名字杀到同名的（taskkill /IM node.exe）、连同子进程杀它们的上级进程、
  *   杀所有进程（kill -1）——永不（被杀了服务管家会把二狗拉回来，但停掉、杀掉服务管家就没人拉了）；
+ * - 杀到这台电脑上另一份二狗的守护进程的（468，同样这几种写法）：硬拒绝（批准的是这一份的用户，不能替另一份做主）；
  * - 看不准的：受保护的进程没取到（取不全）、要杀的看不出是哪些（变量、管道传来的、按命令行匹配、别的筛选条件）、不带 /T 杀它们的上级进程——
  *   接近底线先问（对话审批关着也问）；
  * - 别的（写明的、不受保护的进程，自己起的作业）：先问（和别的"先问我"一样跟着对话审批的开关）
@@ -1315,25 +1377,39 @@ function killProcessRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector
   const tree = args.tree === true;
   const hits: string[] = [];
   const unsure: string[] = [];
-  if (args.all === true) hits.push(t("guard.judge.kill.all"));
+  // 另一份二狗的守护进程（468）：按它的登记 id 分开记，硬拒绝
+  const instanceHits = new Map<string, string[]>();
+  const instanceHit = (p: ProtectedProcess, title: string) => instanceHits.set(p.service ?? "?", [...(instanceHits.get(p.service ?? "?") ?? []), title]);
+  if (args.all === true) {
+    hits.push(t("guard.judge.kill.all"));
+    for (const p of known.filter(isInstance)) instanceHit(p, t("guard.judge.kill.all"));
+  }
   const pids = Array.isArray(args.pids) ? args.pids.filter((p): p is number => typeof p === "number") : [];
   for (const pid of pids) {
     const p = known.find((x) => x.pid === pid);
     const above = ancestors.find((x) => x.pid === pid);
     const below = above && known.find((x) => x.pid === above.of);
-    if (p) hits.push(processTitle(p));
+    if (isInstance(p)) instanceHit(p, processTitle(p));
+    else if (p) hits.push(processTitle(p));
+    else if (above && tree && isInstance(below)) instanceHit(below, t("guard.judge.kill.ancestor", { pid, who: processTitle(below) }));
     else if (above) (tree ? hits : unsure).push(t("guard.judge.kill.ancestor", { pid, who: below ? processTitle(below) : String(above.of) }));
     else if (!complete) unsure.push(t("guard.judge.kill.pidUnchecked", { pid }));
   }
   for (const name of stringList(args.names)) {
-    const same = known.filter((x) => x.exe !== undefined && nameHits(name, x.exe, args.match) === true);
+    const matched = known.filter((x) => x.exe !== undefined && nameHits(name, x.exe, args.match) === true);
+    for (const p of matched.filter(isInstance)) instanceHit(p, t("guard.judge.kill.byName", { name, who: processTitle(p) }));
+    const same = matched.filter((x) => !isInstance(x));
     const bad = known.some((x) => x.exe !== undefined && nameHits(name, x.exe, args.match) === undefined);
     const aboveSame = ancestors.filter((x) => x.exe !== undefined && nameHits(name, x.exe, args.match) === true);
     if (same.length > 0) hits.push(t("guard.judge.kill.byName", { name, who: same.map(processTitle).join(t("pages.common.listSep")) }));
-    else if (aboveSame.length > 0) unsure.push(t("guard.judge.kill.ancestorName", { name }));
+    else if (matched.length > 0) {
+      // 只杀到另一份的：上面已经硬拒绝
+    } else if (aboveSame.length > 0) unsure.push(t("guard.judge.kill.ancestorName", { name }));
     else if (!complete || bad || !known.every((x) => x.exe !== undefined)) unsure.push(t("guard.judge.kill.nameUnchecked", { name }));
   }
   for (const target of stringList(args.unknown)) unsure.push(t("guard.judge.kill.unknownTarget", { target }));
+  for (const [id, titles] of instanceHits) refuseOtherInstance(out, t("guard.judge.otherInstance.kill", { what: kc.what, hits: titles.join(t("pages.common.listSep")) }), id);
+  if (instanceHits.size > 0 && hits.length === 0 && unsure.length === 0) return;
   if (hits.length > 0) {
     out.push({ kind: "process", id: "protected_process", disposition: "never", message: t("guard.judge.kill.protected", { what: kc.what, hits: hits.join(t("pages.common.listSep")) }) + sep() + supervisorToolsNote() });
   } else if (unsure.length > 0) {

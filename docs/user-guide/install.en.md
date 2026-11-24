@@ -192,7 +192,7 @@ There are two layers, and **both must be on for ergo to come back after a restar
 
 ## Several instances on one computer
 
-You can configure several ergo instances on one computer, kept apart from each other: each has its own data folder, ports, paired devices and credentials, so one instance's web page or phone can't get into another; one instance's agents can't reach another instance's files, ports or logs either (refused outright, even with your approval). All instances are run by the same service manager, can start at boot, and share one copy of the program (one update switches them all).
+You can configure several ergo instances on one computer, kept apart from each other: each has its own data folder, ports, paired devices and credentials, so one instance's web page or phone can't get into another; one instance's agents can't reach another instance's files, ports or logs, or stop or kill it, either (refused outright, even with your approval). All instances are run by the same service manager, can start at boot, and share one copy of the program (one update switches them all).
 
 To create one:
 

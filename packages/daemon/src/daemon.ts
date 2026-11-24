@@ -960,11 +960,11 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 所以它不在默认位置时，二狗的登记要声明这个变量（ergo start 写的登记自带；手写的见 deploy/lsm/ergo-daemon.example.yaml）。
     // 守卫（它的注册表、运行状态、密钥区受保护，419）、体检、开机自启开关都用这一份
     const svcDataDir = options.env.LSM_DATA_DIR?.trim() ? path.resolve(options.env.LSM_DATA_DIR.trim()) : defaultSvcDataDir(options.env);
-    const svcGuardFacts = supervisorGuardFacts({ svcDataDir, env: options.env });
     // 可以配置多份二狗（468）：这一份在服务管家里的登记 id（登记的 env 里的 ERGO_SERVICE_ID，默认那份是 ergo-daemon），
-    // 其他各份从服务管家的注册表现读（守卫挡它们的文件夹、端口、日志，服务管家工具不碰它们）
+    // 其他各份从服务管家的注册表现读（守卫挡它们的文件夹、端口、日志、守护进程，服务管家工具不碰它们）
     const selfServiceId = ownServiceId(options.env);
     const others = otherInstances({ svcDataDir, selfId: selfServiceId, ownDataDir: realLayout.root, homeDir: options.homeDir });
+    const svcGuardFacts = supervisorGuardFacts({ svcDataDir, env: options.env, otherInstances: () => others.current() });
     const places: GuardPlaces = {
       dataDir: { root: realLayout.root, config: realLayout.config, secrets: realLayout.secrets, db: realLayout.db, projects: realLayout.projects, skills: realLayout.skills },
       programDir,

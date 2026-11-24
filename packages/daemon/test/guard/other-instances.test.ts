@@ -2,12 +2,12 @@
 // 这一份（数据目录 D:\ergo-data，端口 48810 / 48811）看得到另外两份：
 //   - ergo-b：文件夹 E:\ergo-b，端口 48820 / 48821，服务管家日志目录里有 ergo-b.out.log 和它名下服务的 ergo-b--web.out.log；
 //   - 默认那份 ergo-daemon：文件夹 C:\Users\tester\.ergo（用户主目录下），端口 48830 / 48831。
-// 读写它们的文件、访问它们的端口一律硬拒绝（other_instance），批准了也不行；服务管家的端口连查询也拒（supervisor）；
+// 读写它们的文件、访问它们的端口、停或杀它们的守护进程一律硬拒绝（other_instance），批准了也不行；服务管家的端口连查询也拒（supervisor）；
 // 自己那份、别的本机服务照旧。各种写法都试：正斜杠、反斜杠、Git Bash、~、$HOME、%USERPROFILE%、$env:、相对路径、通配符、短名、链接、
 // curl / wget / Invoke-WebRequest / httpie / nc / ssh -L、浏览器工具、WebFetch、MCP 的浏览器工具、写成脚本再跑。
 // 只做判定：路径、端口都是编的，不碰文件、不连端口。挡不住的写法（下面"挡不住"那一组）照实写在这里和票的 Comments 里。
 import { describe, expect, it } from "vitest";
-import { type GuardAgent, type GuardInput, type GuardJudgement, judgementExecutes, judgeToolCall, type OtherInstance, type ScriptFact, type ToolCall } from "../../src/guard/index.ts";
+import { type GuardAgent, type GuardInput, type GuardJudgement, judgementExecutes, judgeToolCall, type OtherInstance, type ProcessFacts, type ScriptFact, type ToolCall } from "../../src/guard/index.ts";
 import { bash, call, inChat, inTask, maintainer, P, secretary, v1Satisfied } from "./helpers/guard-input.ts";
 
 const SVC = "C:\\Users\\tester\\AppData\\Local\\ergo\\supervisor";
@@ -210,9 +210,12 @@ describe("ergo 命令：配置了多份时作用在某一份上的都拒（认�
   });
 
   it("init、unregister 一律硬拒绝（改服务管家里的登记）", () => {
-    for (const command of ["ergo init --name x", "ergo unregister", "ergo --dir E:/work/x init", "ergo --dir=E:/ergo-b unregister"]) {
+    for (const command of ["ergo init --name x", "ergo unregister", "ergo --dir E:/work/x init"]) {
       for (const others of [OTHERS, []]) expect({ command, verdict: verdict(judge(MAINTAINER, bash(command), {}, others)) }).toEqual({ command, verdict: "supervisor" });
     }
+    // 指着另一份的：停掉、拿掉另一份，按另一份拒（没有别的份时它就只是个文件夹，照服务管家的命令拒）
+    expect(verdict(judge(MAINTAINER, bash("ergo --dir=E:/ergo-b unregister")))).toBe("other");
+    expect(verdict(judge(MAINTAINER, bash("ergo --dir=E:/ergo-b unregister"), {}, []))).toBe("supervisor");
   });
 
   it("--dir 写在命令前面也认得出子命令；--dir 指着另一份的文件夹按路径拒", () => {
@@ -282,5 +285,107 @@ describe("挡不住的（照实记下，见票的 Comments）", () => {
     // 前面赋过值的变量守卫会代进去（P=48820; curl …:$P 是挡得住的），从文件读的、算出来的认不出
     expect(verdict(judge(MAINTAINER, bash("P=48820; curl http://127.0.0.1:$P/api/state")))).toBe("other");
     expect(verdict(judge(MAINTAINER, bash("curl http://127.0.0.1:$(cat port.txt)/api/state")))).not.toBe("other");
+  });
+});
+
+describe("停、杀另一份二狗：一律硬拒绝（批准的是这一份的用户，不能替另一份做主）", () => {
+  // 受保护的进程：这一份的守护进程 4242、服务管家 4343；ergo-b 的守护进程（服务管家记的 5100 是包着它的 cmd，它自己的 daemon.pid 记的 5200）；
+  // 编一个连同子进程杀会杀到 ergo-b 的上级进程 5050
+  const PROCS: ProcessFacts = {
+    protected: [
+      { pid: 4242, exe: "node.exe", role: "daemon" },
+      { pid: 4343, exe: "node.exe", role: "manager" },
+      { pid: 5100, exe: "cmd.exe", role: "instance", service: "ergo-b" },
+      { pid: 5200, exe: "node.exe", role: "instance", service: "ergo-b" },
+    ],
+    complete: true,
+    ancestors: [
+      { pid: 4000, exe: "conhost.exe", of: 4343 },
+      { pid: 5050, exe: "pwsh.exe", of: 5200 },
+    ],
+  };
+  function judgeKill(agent: GuardAgent, command: string, approvals: "on" | "off" = "off"): GuardJudgement {
+    const base = agent.kind === "secretary" ? inChat(agent, bash(command)) : inTask(agent, bash(command), v1Satisfied());
+    return judgeToolCall({
+      ...base,
+      places: { ...base.places, supervisor: { dataDir: SVC, ports: [MANAGER_PORT] }, otherInstances: OTHERS },
+      facts: { ...base.facts, processes: PROCS },
+      conversationApprovals: approvals,
+    });
+  }
+  const killBoth = (command: string) => AGENTS.flatMap((agent) => (["off", "on"] as const).map((approvals) => verdict(judgeKill(agent, command, approvals))));
+
+  it("按进程号、按名字、连同子进程杀上级、杀所有进程，杀到它的守护进程：硬拒绝（对话审批开着、关着都一样）", () => {
+    for (const command of [
+      "taskkill /F /PID 5200",
+      "taskkill //PID 5100 //F",
+      "kill 5200",
+      "kill -9 5100",
+      "Stop-Process -Id 5200 -Force",
+      "tskill 5200",
+      "wmic process 5200 delete",
+      "taskkill /T /F /PID 5050",
+      "taskkill /IM node.exe /F",
+      "kill -9 -- -1",
+    ]) {
+      expect({ command, verdicts: killBoth(command) }).toEqual({ command, verdicts: ["other", "other", "other", "other"] });
+    }
+    const j = judgeKill(MAINTAINER, "taskkill /F /PID 5200");
+    expect(j.findings.find((f) => f.kind === "hard_refusal")?.message).toContain("另一份二狗 ergo-b 的守护进程（PID 5200）");
+  });
+
+  it("写着它的端口、登记 id、文件夹的杀进程和按端口杀：硬拒绝", () => {
+    for (const command of [
+      "npx kill-port 48820",
+      "fuser -k 48821/tcp",
+      "netstat -ano | grep 48820 | awk '{print $5}' | xargs kill",
+      "lsof -ti:48820 | xargs kill -9",
+      "pkill -f ergo-b",
+      "pkill -f E:/ergo-b",
+      `wmic process where "commandline like '%ergo-b%'" delete`,
+      `taskkill /FI "WINDOWTITLE eq ergo-b" /F`,
+      "kill $(cat E:/ergo-b/daemon.pid)",
+      `powershell -Command "Get-NetTCPConnection -LocalPort 48820 | ForEach-Object { Stop-Process -Id $_.OwningProcess }"`,
+      `powershell -Command "Stop-Process -Id 5200 -Force"`,
+      `cmd /c "taskkill /PID 5100 /F"`,
+      `python -c "import os; os.kill(5200, 9)"`,
+    ]) {
+      expect({ command, verdict: verdict(judgeKill(MAINTAINER, command)) }).toEqual({ command, verdict: "other" });
+    }
+  });
+
+  it("ergo 停、重启另一份（--dir、在它的文件夹里、ERGO_DATA_DIR）和服务管家的停止、重启：硬拒绝", () => {
+    for (const command of [
+      "ergo --dir E:/ergo-b stop",
+      "ergo stop --dir='E:\\ergo-b'",
+      "ergo restart --dir ~/.ergo",
+      "cd E:/ergo-b && ergo stop",
+      "ERGO_DATA_DIR=E:/ergo-b ergo restart",
+      "lsm stop ergo-b",
+      "lsm restart ergo-b",
+      "lsm stop ergo-b--web",
+      "lsm stop ergo-daemon",
+      "ergo svc restart ergo-b",
+      `curl -X POST http://127.0.0.1:${MANAGER_PORT}/api/action -H "Content-Type: application/json" -d '{"id":"ergo-b","action":"stop"}'`,
+      `powershell -Command "lsm restart ergo-b"`,
+    ]) {
+      expect({ command, verdict: verdict(judgeKill(MAINTAINER, command)) }).toEqual({ command, verdict: "other" });
+    }
+    expect(judgeKill(MAINTAINER, "lsm stop ergo-b").findings.find((f) => f.kind === "hard_refusal" && f.id === "other_instance")?.message).toContain("登记 id ergo-b");
+  });
+
+  it("认不出是谁的杀进程、停服务照原来的规矩；进程号碰巧和它的端口一样的不算", () => {
+    // 对话审批关着：和别的"先问我"一样直接做（开着先问）
+    expect(verdict(judgeKill(MAINTAINER, "kill 7777"))).toBe("runs");
+    expect(verdict(judgeKill(MAINTAINER, "taskkill /IM python.exe /F"))).toBe("runs");
+    expect(verdict(judgeKill(MAINTAINER, "kill 48820"))).toBe("runs");
+    expect(verdict(judgeKill(MAINTAINER, "kill 7777", "on"))).toBe("ask");
+    // 不带 /T 杀它的上级进程：看不准，照旧接近底线先问
+    expect(judgeKill(MAINTAINER, "taskkill /PID 5050").hardRefusal).toBeNull();
+    // 这一份自己的守护进程照 419 永不；别的服务管家命令照 419 硬拒绝（不算另一份）
+    expect(verdict(judgeKill(MAINTAINER, "kill 4242"))).toBe("never");
+    expect(verdict(judgeKill(MAINTAINER, "lsm stop comfyui"))).toBe("supervisor");
+    expect(verdict(judgeKill(MAINTAINER, "ergo stop"))).toBe("supervisor");
+    expect(verdict(judgeKill(MAINTAINER, "pkill -f ergo-backup"))).toBe("ask");
   });
 });

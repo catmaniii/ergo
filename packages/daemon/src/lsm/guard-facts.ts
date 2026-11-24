@@ -3,14 +3,16 @@
 // - 管理器端口：registry/manager.yaml 的 port（没有这个文件是 ERGO_SVC_PORT 或 7420，和 ergo 命令一个算法），加上 LSM_URL 里的；
 // - 受保护的进程：守护进程自己（process.pid），服务管家（state.json 的 manager.pid），命脉服务（state.json 里记的 pid）——
 //   二狗自己的登记（ERGO_SERVICE_ID、LSM_SERVICE_ID，都没有是 ergo-daemon）、它的公网隧道（登记里 exposure.via）、tailnet 网关（manager.yaml 的 tailnet.gateway）；
+//   配置了多份时（468）还有其他各份的守护进程：state.json 里记的它们登记的 pid，和它们数据目录里 daemon.pid 记的（启动时间对不上的是进程号复用了，不算）；
 // - 进程快照（process/process-list.ts）补上可执行文件名（按名字杀时比）、已经不在的去掉，连同它们的上级进程（连同子进程杀上级会连带杀到它们）。
 // 取不到的照实报：state.json 在却读不了、没记管理器的进程号，或者是服务管家拉起来的却找不到 state.json（数据目录读错了地方）时
 // complete 是 false，守卫按"接近底线"先问。
 import fs from "node:fs";
 import path from "node:path";
-import type { ProcessFacts, ProtectedProcess } from "../guard/index.ts";
+import type { OtherInstance, ProcessFacts, ProtectedProcess } from "../guard/index.ts";
 import { ownServiceId } from "../cli/instances.ts";
 import { managerAddress } from "../cli/service.ts";
+import { readPidFile } from "../process/pid-file.ts";
 import { processCreationTimes, processSnapshot, type ProcessEntry } from "../process/process-list.ts";
 
 /** 守卫现取的服务管家的事实（GuardRuntimeOptions.supervisor） */
@@ -36,7 +38,12 @@ export interface SupervisorGuardFactsOptions {
   snapshot?: () => ReadonlyMap<number, ProcessEntry>;
   /** 进程的创建时间（认上级进程时防进程号复用；测试里换） */
   creationTimes?: (pids: readonly number[]) => ReadonlyMap<number, number>;
+  /** 这台电脑上的其他各份二狗（468，lsm/other-instances.ts）：它们的守护进程也受保护，杀它们硬拒绝 */
+  otherInstances?: () => readonly Pick<OtherInstance, "id" | "dataDirs">[];
 }
+
+/** daemon.pid 记的启动时间和进程实际的创建时间相差不超过这么多才算同一个进程（和 process/pid-file.ts 一样） */
+const PID_FILE_TOLERANCE_MS = 2_000;
 
 /** 往上认几层上级进程 */
 const MAX_ANCESTORS = 8;
@@ -67,9 +74,44 @@ export function supervisorGuardFacts(options: SupervisorGuardFactsOptions): Supe
           if (pid !== undefined) list.push(id === own ? { pid, role: "daemon" } : { pid, role: "service", service: id });
         }
       }
+      list.push(...otherInstanceProcesses(state, options));
       return withSnapshot(dedupe(list), complete, options);
     },
   };
+}
+
+/**
+ * 其他各份的守护进程（468）：服务管家记的它们登记的 pid（服务管家起的那个进程，可能是包着它的 cmd），
+ * 和它们数据目录里 daemon.pid 记的（守护进程自己）；daemon.pid 记的启动时间和这个进程号现在的进程对不上的，是进程号被复用了，不算
+ */
+function otherInstanceProcesses(state: SupervisorState | "unreadable" | undefined, options: SupervisorGuardFactsOptions): ProtectedProcess[] {
+  let others: readonly Pick<OtherInstance, "id" | "dataDirs">[] = [];
+  try {
+    others = options.otherInstances?.() ?? [];
+  } catch {
+    // 读不了注册表：不认其他各份（判定那边照它拿到的其他各份挡文件夹、端口）
+  }
+  const out: ProtectedProcess[] = [];
+  const recorded: Array<{ pid: number; startedAt: number; id: string }> = [];
+  for (const other of others) {
+    const registered = state === "unreadable" || state === undefined ? undefined : pidOf(state.services?.[other.id]?.pid);
+    if (registered !== undefined) out.push({ pid: registered, role: "instance", service: other.id });
+    const dir = other.dataDirs[0];
+    const record = dir === undefined ? undefined : readPidFile(path.join(dir, "daemon.pid"));
+    if (record && pidOf(record.pid) !== undefined) recorded.push({ pid: record.pid, startedAt: Date.parse(record.startedAt), id: other.id });
+  }
+  let times: ReadonlyMap<number, number> = new Map();
+  try {
+    if (recorded.length > 0) times = (options.creationTimes ?? processCreationTimes)(recorded.map((r) => r.pid));
+  } catch {
+    // 取不到创建时间：不核对（宁可多认）
+  }
+  for (const r of recorded) {
+    const actual = times.get(r.pid);
+    if (actual !== undefined && Number.isFinite(r.startedAt) && Math.abs(actual - r.startedAt) > PID_FILE_TOLERANCE_MS) continue;
+    out.push({ pid: r.pid, role: "instance", service: r.id });
+  }
+  return out;
 }
 
 interface SupervisorState {
