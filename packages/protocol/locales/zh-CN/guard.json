@@ -331,7 +331,7 @@
   "guard.judge.supervisor.command": "{what}是服务管家或二狗自己的运维命令（lsm、ergo 的停止、重启、升级这类），用它能把二狗停掉",
   "guard.judge.supervisor.port": "{what}往服务管家的端口 {port} 发 {method} 请求：服务管家不验身份，发过去就能停掉二狗、改服务，这个端口只许查询（GET）",
   "guard.judge.supervisor.connect": "{what}连到服务管家的端口 {port}，能绕过它的接口发任何请求",
-  "guard.judge.supervisor.page": "{what}用浏览器打开服务管家的页面（端口 {port}），上面能点停止、重启，先问用户",
+  "guard.judge.supervisor.page": "{what}用浏览器打开服务管家的页面（端口 {port}）：上面看得到所有服务（包括这台电脑上别的二狗）的日志，还能点停止、重启，不许打开",
   "guard.judge.supervisor.task": "{what}动的是服务管家的计划任务 LocalServiceManager（停了、删了、改了，服务管家就不在了），先问用户",
   "guard.judge.supervisor.opaque": "{what}拆不开，里面写着{reasons}，可能停掉二狗或杀掉服务管家，先问用户",
   "guard.judge.supervisor.reason.kill": "杀进程",
@@ -351,5 +351,15 @@
   "guard.judge.kill.ancestorName": "名字是 {name} 的进程（二狗或服务管家的上级进程也叫这个，可能连带）",
   "guard.judge.kill.unknownTarget": "看不出是哪些进程（{target}）",
   "guard.judge.kill.unsure": "{what}要杀的进程看不准：{unsure}；可能是二狗自己或服务管家，先问用户",
-  "guard.judge.kill.other": "{what}要杀进程，先问用户"
+  "guard.judge.kill.other": "{what}要杀进程，先问用户",
+  "guard.judge.areas.otherInstance": "另一份二狗（{id}）的地方",
+  "guard.judge.otherInstance.refuse": "{how}：这是这台电脑上另一份二狗（{id}）的，不能碰。各份二狗互相隔开，读、写它的文件，访问它的端口都不行，用户批准了也不行",
+  "guard.judge.otherInstance.port": "{what}访问端口 {port}",
+  "guard.judge.supervisor.query": "{what}往服务管家的端口 {port} 发 {method} 请求：服务管家的接口回的是它管的所有服务（包括这台电脑上别的二狗）的详情、登记和日志，不许直接访问",
+  "guard.judge.supervisor.opaquePort": "{what}拆不开，里面写着服务管家的端口 {port}：这台电脑上配置了多份二狗，服务管家的接口会读到别的那几份，不许",
+  "guard.judge.supervisor.ergoScoped": "{what}是作用在某一份二狗上的 ergo 命令：这台电脑上配置了多份二狗，在这里跑认不准管的是哪一份，可能碰到别的那一份，不许",
+  "guard.judge.unknownPathNamed": "{what}要碰的 {path} 没法确定，但里面写着另一份二狗的文件夹或日志的名字",
+  "guard.judge.opaqueNamed": "{what}拆不开，里面写着另一份二狗的文件夹或日志的名字",
+  "guard.judge.argMentions": "{what}的参数里写着 {target}",
+  "guard.judge.otherInstance.inside": "{what}要{verb} {target}，它里面有另一份二狗的文件夹或日志，会连带碰到"
 }

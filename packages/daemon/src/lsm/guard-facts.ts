@@ -2,14 +2,15 @@
 // （guard-runtime/facts.ts 只在这次判定有相关的调用时才取）。只读服务管家数据目录里的文件、拍一张本机进程快照，不连服务管家、不改任何东西。
 // - 管理器端口：registry/manager.yaml 的 port（没有这个文件是 ERGO_SVC_PORT 或 7420，和 ergo 命令一个算法），加上 LSM_URL 里的；
 // - 受保护的进程：守护进程自己（process.pid），服务管家（state.json 的 manager.pid），命脉服务（state.json 里记的 pid）——
-//   二狗自己的登记（LSM_SERVICE_ID，没有是 ergo-daemon）、它的公网隧道（登记里 exposure.via）、tailnet 网关（manager.yaml 的 tailnet.gateway）；
+//   二狗自己的登记（ERGO_SERVICE_ID、LSM_SERVICE_ID，都没有是 ergo-daemon）、它的公网隧道（登记里 exposure.via）、tailnet 网关（manager.yaml 的 tailnet.gateway）；
 // - 进程快照（process/process-list.ts）补上可执行文件名（按名字杀时比）、已经不在的去掉，连同它们的上级进程（连同子进程杀上级会连带杀到它们）。
 // 取不到的照实报：state.json 在却读不了、没记管理器的进程号，或者是服务管家拉起来的却找不到 state.json（数据目录读错了地方）时
 // complete 是 false，守卫按"接近底线"先问。
 import fs from "node:fs";
 import path from "node:path";
 import type { ProcessFacts, ProtectedProcess } from "../guard/index.ts";
-import { DAEMON_SERVICE_ID, managerAddress } from "../cli/service.ts";
+import { ownServiceId } from "../cli/instances.ts";
+import { managerAddress } from "../cli/service.ts";
 import { processCreationTimes, processSnapshot, type ProcessEntry } from "../process/process-list.ts";
 
 /** 守卫现取的服务管家的事实（GuardRuntimeOptions.supervisor） */
@@ -59,7 +60,7 @@ export function supervisorGuardFacts(options: SupervisorGuardFactsOptions): Supe
         const manager = pidOf(state.manager?.pid);
         if (manager === undefined) complete = false;
         else list.push({ pid: manager, role: "manager" });
-        const own = env.LSM_SERVICE_ID?.trim() || DAEMON_SERVICE_ID;
+        const own = ownServiceId(env);
         const lifelines = [own, exposureVia(path.join(registry, "services", `${own}.yaml`)), tailnetGateway(path.join(registry, "manager.yaml"))];
         for (const id of new Set(lifelines.filter((x): x is string => x !== undefined))) {
           const pid = pidOf(state.services?.[id]?.pid);

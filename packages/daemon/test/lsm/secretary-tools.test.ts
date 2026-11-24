@@ -493,3 +493,48 @@ describe("守卫：类别整个工具固定，对话审批关着时普通的直�
     });
   }
 });
+
+describe("配置了多份二狗（468）：另一份和它名下的服务不列、不碰", () => {
+  const others = [svc("ergo-b", { title: "ergo (b)", port: 18820, state: "RUNNING", up: true }), svc("ergo-b--web", { title: "b 的简报站", owner: "ergo-b", port: 18830 })];
+  const listed = () => fakeManage({ list: () => ({ ok: true, self: "ergo-daemon", services: [...SERVICES, ...others], profiles: { ...PROFILES, ergo: ["ergo-daemon", "ergo-tunnel", "ergo-b"] }, lifeline: [] }) });
+  const withOthers = (manage: LsmManage) => {
+    const list = lsmSecretaryTools({ manage: () => manage, restartHold: createRestartSelfHold(), otherInstances: () => ["ergo-b"] });
+    return (name: string, args: Record<string, unknown>) => list.find((tool) => tool.spec.name === name)!.run(args as never, { toolCallId: "call-1" });
+  };
+
+  it("列表里没有另一份和它名下的服务；场景里也去掉它们", async () => {
+    const fake = listed();
+    const out = await withOthers(fake.manage)(LSM_TOOL.status, {});
+    expect(out.text.split("\n")[0]).toBe("服务管家里有 10 个服务：");
+    expect(out.text).not.toContain("ergo-b");
+    expect(out.text).toContain("ergo（ergo-daemon、ergo-tunnel）");
+  });
+
+  it("点名点到另一份（全名、名下短名、标题）：看详情、看日志、启停都拒绝，一次都不发给服务管家", async () => {
+    const fake = listed();
+    const run = withOthers(fake.manage);
+    for (const [tool, args] of [
+      [LSM_TOOL.status, { service: "ergo-b" }],
+      [LSM_TOOL.logs, { service: "ergo-b" }],
+      [LSM_TOOL.logs, { service: "b 的简报站" }],
+      [LSM_TOOL.control, { action: "stop", service: "ergo-b" }],
+      [LSM_TOOL.control, { action: "start", service: "ergo-b--web" }],
+      [LSM_TOOL.force, { action: "remove", service: "ergo-b--web" }],
+    ] as const) {
+      const out = await run(tool, args);
+      expect({ tool, args, error: out.isError, text: out.text }).toMatchObject({ tool, args, error: true, text: expect.stringContaining("另一份二狗（ergo-b）") });
+    }
+    expect(fake.commands()).toEqual([]);
+  });
+
+  it("按场景起停会碰到另一份的：拒绝", async () => {
+    const fake = listed();
+    const out = await withOthers(fake.manage)(LSM_TOOL.control, { action: "profile_start", profile: "ergo" });
+    expect(out.isError).toBe(true);
+    expect(out.text).toContain("场景「ergo」里有这台电脑上另一份二狗（ergo-b）的服务");
+    expect(fake.commands()).toEqual([]);
+    // 别的场景照旧
+    await withOthers(fake.manage)(LSM_TOOL.control, { action: "profile_start", profile: "gpu" });
+    expect(fake.commands()).toEqual([{ method: "profileStart", args: ["gpu"] }]);
+  });
+});

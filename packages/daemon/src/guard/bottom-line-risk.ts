@@ -136,6 +136,15 @@ function dataDirNames(dataDir: string): RegExp[] {
   return [segment(escaped), ...(short.length > 0 ? [segment(`${short}~\\d+`)] : [])];
 }
 
+/**
+ * 一段文字里（没法确定的路径的原文、拆不开的命令）有没有一段是这个目录的目录名或它的 8.3 短名，或者就是这个文件的名字（468：
+ * 另一份二狗的文件夹、服务管家里它的日志，写成 `$LOCALAPPDATA/…/ergo-b.out.log`、`$X/ergo-b/config` 这样展不开的也认）
+ */
+export function nameMentioned(text: string, dir: string): boolean {
+  const bare = text.replace(/^<unresolved:([\s\S]*)>$/, "$1");
+  return hasSegment(bare.replaceAll("\\", "/"), dataDirNames(dir));
+}
+
 function hasSegment(p: string, names: readonly RegExp[]): boolean {
   return names.some((n) => n.test(p));
 }

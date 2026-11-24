@@ -23,6 +23,7 @@ import { win32 } from "node:path";
 import { DISPOSITION_INFO, executes, strictest, type Disposition } from "./disposition.ts";
 import { findCoveringGrant, planConcernsCategory } from "./grants.ts";
 import {
+  absolutePathsIn,
   agentShellEnv,
   agentScope,
   comparable,
@@ -35,7 +36,7 @@ import {
   type ResolvedPath,
   type ShellEnv,
 } from "./paths.ts";
-import { dataDirMentions, globCanReach, isLocalUrl, isSupervisorUrl, ownApiNote, ownPortsOf, related, sendsInText, urlsInText, wildcardPrefix } from "./bottom-line-risk.ts";
+import { dataDirMentions, globCanReach, isLocalUrl, isSupervisorUrl, nameMentioned, ownApiNote, ownPortsOf, related, sendsInText, urlsInText, wildcardPrefix } from "./bottom-line-risk.ts";
 import { isSecretFile, isSecretLikeFile } from "./secret-files.ts";
 import { outboundTextOf, readSecretTitle, secretsIn } from "./secrets.ts";
 import { READ_ONLY_COMMANDS } from "./shell/programs.ts";
@@ -73,6 +74,7 @@ import {
   type HardRefusalFinding,
   type HardRefusalId,
   type JudgedCall,
+  type OtherInstance,
   type ProtectedProcess,
   type PullBackFinding,
   SCRIPT_NOT_CHECKED,
@@ -427,19 +429,21 @@ class JudgeContext {
   }
 }
 
-/** 一个受保护区域：目录、怎么称呼它、是不是密钥区 */
+/** 一个受保护区域：目录、怎么称呼它、是不是密钥区；otherInstance 是另一份二狗的（它的登记 id，468：读写都硬拒绝） */
 export interface ProtectedArea {
   dir: string;
   title: string;
   secrets: boolean;
+  otherInstance?: string;
 }
 
 /**
  * 受保护区域（写入一律永不，密钥区连读都拒绝）：数据目录的配置区、密钥区、数据库区、skill 区和二狗程序目录，
- * 给了服务管家时再加它的注册表、运行状态和密钥区（419）。守卫判定、本机文件夹变化不许监视的地方（event-sources/folder.ts
- * 另加整个数据目录）都用这一份
+ * 给了服务管家时再加它的注册表、运行状态和密钥区（419），配置了多份二狗时再加其他各份的数据文件夹和它们在服务管家里的日志（468，
+ * 和密钥区同一级别：读写都拒绝）。守卫判定、本机文件夹变化不许监视的地方（event-sources/folder.ts 另加整个数据目录）、
+ * 新建时不许选的工作文件夹都用这一份
  */
-export function protectedAreasOf(places: Pick<GuardPlaces, "dataDir" | "programDir" | "supervisor">): ProtectedArea[] {
+export function protectedAreasOf(places: Pick<GuardPlaces, "dataDir" | "programDir" | "supervisor" | "otherInstances">): ProtectedArea[] {
   const d = places.dataDir;
   return [
     { dir: d.config, title: t("guard.judge.areas.config"), secrets: false },
@@ -448,7 +452,49 @@ export function protectedAreasOf(places: Pick<GuardPlaces, "dataDir" | "programD
     ...(d.skills === undefined ? [] : [{ dir: d.skills, title: t("guard.judge.areas.skills"), secrets: false }]),
     { dir: places.programDir, title: t("guard.judge.areas.program"), secrets: false },
     ...(places.supervisor === undefined ? [] : supervisorAreas(places.supervisor.dataDir)),
+    ...(places.otherInstances ?? []).flatMap(otherInstanceAreas),
   ];
+}
+
+/** 另一份二狗的地方（468）：它的数据文件夹、服务管家日志目录里它的日志；都按密钥区那一级（读也拒绝） */
+function otherInstanceAreas(other: OtherInstance): ProtectedArea[] {
+  const title = t("guard.judge.areas.otherInstance", { id: other.id });
+  return [...other.dataDirs, ...other.logFiles].map((dir) => ({ dir, title, secrets: true, otherInstance: other.id }));
+}
+
+/** 一段展不开的文字里写着哪一份别的二狗的文件夹名（或短名）、日志文件名：回那一份的 id */
+function otherInstanceNamed(ctx: JudgeContext, text: string): string | undefined {
+  return ctx.protectedAreas.find((a) => a.otherInstance !== undefined && nameMentioned(text, a.dir))?.otherInstance;
+}
+
+/** 只看一层、不往里读的：cd 进去，ls / dir / Get-ChildItem 不带递归的开关 */
+const ONE_LEVEL = /^\s*(?:cd|pushd|set-location|sl)\b|^\s*(?:ls|dir|get-childitem|gci)\b(?![^|;&\n]*(?:\s-[a-z]*R|\s-recurse\b|\s\/s\b|\s-r\b))/i;
+
+/**
+ * 路径参数是目录时会不会连带碰到它里面的东西：删除、挪走、看不出读写的程序，复制、搜内容、找文件；bash 拆出来的读（grep -r、rg、find、
+ * du、tree、ls -R……都拆成读）除了只看一层的（cd、不带递归的 ls）都算。文件工具的列目录（ls）只看一层
+ */
+function reachesInto(kc: KnownCall, access: PathAccess): boolean {
+  if (access === "delete" || access === "unknown") return true;
+  const tool = kc.call.tool;
+  if (tool === TOOL.copy || tool === TOOL.grep || tool === TOOL.find) return true;
+  if (tool !== TOOL.read) return false;
+  return kc.call.text === undefined || !ONE_LEVEL.test(kc.call.text);
+}
+
+/** 这个目录里面（不是它本身）有哪一份别的二狗的地方 */
+function otherInstanceInside(ctx: JudgeContext, dir: string): ProtectedArea | undefined {
+  return ctx.protectedAreas.find((a) => a.otherInstance !== undefined && isWithin(a.dir, dir) && !isWithin(dir, a.dir));
+}
+
+/** 这个路径落在哪一份别的二狗的地方里 */
+function otherInstanceAreaOf(ctx: JudgeContext, path: string): ProtectedArea | undefined {
+  return ctx.protectedAreas.find((a) => a.otherInstance !== undefined && isWithin(path, a.dir));
+}
+
+/** 碰到另一份二狗：硬拒绝，说清这是另一份的、不能碰（how 写明是怎么碰到的） */
+function refuseOtherInstance(out: FindingCollector, how: string, id: string): void {
+  out.refuse("other_instance", t("guard.judge.otherInstance.refuse", { how, id }));
 }
 
 /**
@@ -521,6 +567,7 @@ const CALL_RULES: readonly CallRule[] = [
   httpMethodRule,
   ownPageRule,
   supervisorRule,
+  otherInstanceRule,
   killProcessRule,
   networkRule,
   bottomLineRule,
@@ -538,6 +585,14 @@ function judgeOneCall(ctx: JudgeContext, call: JudgedCall, index: number, grantS
   // 伪工具只能由守卫拆 bash 得到；模型直接调用同名工具时按没登记处理
   if (!tool || (tool.source === "pseudo" && call.origin === "tool")) {
     out.category("unknown_write", t("guard.judge.unregistered", { tool: call.tool }));
+    // 没登记的（MCP 的浏览器、文件工具……）：参数里写着另一份二狗的地址、路径的照样硬拒绝（468）
+    otherInstanceReach(ctx, call, call.tool, [], [], out);
+    for (const s of stringsIn(call.args)) {
+      for (const p of absolutePathsIn(s)) {
+        const other = otherInstanceAreaOf(ctx, p);
+        if (other) refuseOtherInstance(out, t("guard.judge.argMentions", { what: call.tool, target: p }), other.otherInstance!);
+      }
+    }
     return out.findings;
   }
   for (const rule of CALL_RULES) rule(ctx, { call, tool, what: describeCall(call, tool) }, out);
@@ -582,6 +637,12 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
     // 带"删除或覆盖"标签的工具整个落入那个类别（categoryTagRule），这里只算删除和整体重写
     const replaces = replacement === "delete" || replacement === "overwrite";
     if (p.resolved.kind === "unknown") {
+      // 写着另一份二狗的文件夹名、它的日志文件名（变量拼出来的，468）：读写都硬拒绝
+      const other = otherInstanceNamed(ctx, p.raw);
+      if (other !== undefined) {
+        refuseOtherInstance(out, t("guard.judge.unknownPathNamed", { what, path: p.raw }), other);
+        continue;
+      }
       // 要写（或看不出读写）的路径没法确定：也可能落在受保护区域里，依据标 keepAsking；可能碰到硬底线，
       // 对话审批关着时秘书和任务的 agent 也照旧问（nearBottomLine）。只读的路径没法确定照常放开
       const scope = t(writes ? "guard.judge.unknownScopeWrite" : "guard.judge.unknownScope", { scope: ctx.words.scope });
@@ -615,6 +676,18 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
 
     for (const target of targets) {
       const verb = t(access === "read" ? "guard.judge.verb.read" : access === "delete" ? "guard.judge.verb.delete" : "guard.judge.verb.write");
+      // 另一份二狗的文件夹、它的日志（468）：读写都硬拒绝，授权的文件夹、目录授权都不放开
+      const other = otherInstanceAreaOf(ctx, target);
+      if (other) {
+        refuseOtherInstance(out, t("guard.judge.touches", { what, verb, target }), other.otherInstance!);
+        continue;
+      }
+      // 另一份二狗的文件夹在它里面：搜、找、复制、删、挪、看不出读写的程序会连带碰到（grep -r、rg、find、cp -r、rm -rf、tar……）
+      const inside = reachesInto(kc, access) ? otherInstanceInside(ctx, target) : undefined;
+      if (inside) {
+        refuseOtherInstance(out, t("guard.judge.otherInstance.inside", { what, verb, target }), inside.otherInstance!);
+        continue;
+      }
       const area = ctx.protectedAreas.find((a) => isWithin(target, a.dir)) ?? historyArea(ctx, target);
       if (area && writes) out.push(protectedAreaFinding(t("guard.judge.touches", { what, verb, target }), area));
       // 删除一个目录连带删掉它里面的项目档案历史区（rm -rf 项目档案）：同样永不
@@ -907,6 +980,9 @@ function scriptTextRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector)
   if (opaqueText !== undefined) {
     const found = dataDirMentions(opaqueText, mentionContext(ctx));
     mentioned.push(...found.paths);
+    // 写着另一份二狗的文件夹名、它的日志文件名（$env:LOCALAPPDATA 这类拼出来的，468）
+    const other = otherInstanceNamed(ctx, opaqueText);
+    if (other !== undefined) refuseOtherInstance(out, t("guard.judge.opaqueNamed", { what: kc.what }), other);
     if (found.dataDir && found.areas.length === 0) {
       out.category("unknown_write", t("guard.judge.dataDirMention", { what: kc.what }), [], { keepAsking: true, nearBottomLine: true });
     }
@@ -921,7 +997,9 @@ function scriptTextRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector)
     const area = ctx.protectedAreas.find((a) => isWithin(target, a.dir)) ?? historyArea(ctx, target);
     if (!area) continue;
     const how = t("guard.judge.scriptMentions", { what: kc.what, target });
-    if (area.secrets) out.push({ ...protectedAreaFinding(how, area), message: t("guard.judge.scriptSecrets", { how, area: area.title }) });
+    const other = otherInstanceAreaOf(ctx, target);
+    if (other) refuseOtherInstance(out, how, other.otherInstance!);
+    else if (area.secrets) out.push({ ...protectedAreaFinding(how, area), message: t("guard.judge.scriptSecrets", { how, area: area.title }) });
     // 可能碰到硬底线：对话审批关着也照旧先问；真写进去的那一步照样判永不
     else out.category("unknown_write", t("guard.judge.scriptProtected", { how, area: area.title }), [], { keepAsking: true, nearBottomLine: true });
   }
@@ -962,6 +1040,12 @@ function wildcardUnexpanded(ctx: JudgeContext, kc: KnownCall, p: PathArg, prefix
   const areas = ctx.protectedAreas.filter((a) => (writes || a.secrets) && related(prefix, a.dir));
   if (areas.length === 0) return false;
   const resolved = p.resolved.path;
+  // 能匹配到另一份二狗的地方（468）：读写都硬拒绝
+  const other = ctx.protectedAreas.find((a) => a.otherInstance !== undefined && globCanReach(resolved, a.dir));
+  if (other) {
+    refuseOtherInstance(out, how, other.otherInstance!);
+    return true;
+  }
   const secrets = ctx.protectedAreas.find((a) => a.secrets && globCanReach(resolved, a.dir));
   if (!writes && secrets) {
     out.refuse("secrets_area", t("guard.judge.wildcardSecrets", { how, area: secrets.title }));
@@ -1060,9 +1144,11 @@ const KILL_IN_TEXT =
   /\b(?:taskkill|tskill|pskill|pkill|killall|stop-process|spps)\b|\bkill\s+(?:-\S+\s+)*(?:[%$]|-?\d)|\bkill\s+-(?:name|id|processname|inputobject)\b|\bwmic\b[^\n]*\bprocess\b[^\n]*\b(?:delete|terminate)\b|\.kill\s*\(|\bTerminateProcess\b|\bInvoke-CimMethod\b[^\n]*\bTerminate\b/i;
 /** 拆不开的文字里服务管家的命令行：lsm、lsm.mjs、tailnet-gateway、packages/supervisor/bin、守护进程的停止脚本 */
 const SUPERVISOR_CLI_IN_TEXT = /\blsm(?:\.mjs|\.cmd)?\b|\btailnet-gateway\b|supervisor[\\/]+bin\b|daemon[\\/]+src[\\/]+stop\.[cm]?[jt]s\b/i;
-/** 拆不开的文字里 ergo 的停止、重启、升级、回退、卸载和 svc */
+/** 拆不开的文字里 ergo 的停止、重启、升级、回退、卸载、svc，和改服务管家登记的 init、unregister（468） */
 const ERGO_OPS_IN_TEXT =
-  /\bergo(?:\.cmd|\.exe|\.bat)?['"]?\s+(?:stop|restart|svc|update|rollback|uninstall)\b|\brun\s+ergo\b[^\n]*\b(?:stop|restart|svc|update|rollback|uninstall)\b|cli[\\/]+main\.[cm]?[jt]s['"]?\s+(?:stop|restart|svc|update|rollback|uninstall)\b/i;
+  /\bergo(?:\.cmd|\.exe|\.bat)?['"]?\s+(?:--dir\S*\s+(?:\S+\s+)?)?(?:stop|restart|svc|update|rollback|uninstall|init|unregister)\b|\brun\s+ergo\b[^\n]*\b(?:stop|restart|svc|update|rollback|uninstall|init|unregister)\b|cli[\\/]+main\.[cm]?[jt]s['"]?\s+(?:stop|restart|svc|update|rollback|uninstall|init|unregister)\b/i;
+/** 拆不开的文字里 ergo 作用在某一份上的命令（468：配置了多份时看不准是哪一份） */
+const ERGO_SCOPED_IN_TEXT = /\bergo(?:\.cmd|\.exe|\.bat)?['"]?\s+(?:--dir\S*\s+(?:\S+\s+)?)?(?:start|status|logs|open|onboard|list|backup|restore|components)\b|\brun\s+ergo\b|cli[\\/]+main\.[cm]?[jt]s\b/i;
 /** 服务管家的计划任务（开机拉起它的那个） */
 const SUPERVISOR_TASK = /\bLocalServiceManager\b/i;
 /** 只查计划任务的 */
@@ -1071,18 +1157,24 @@ const TASK_QUERY = /\bschtasks(?:\.exe)?\b[^|;&\n]*[/-]query\b|\bget-scheduledta
 /**
  * 服务管家（419）：绕过服务管家工具停二狗、杀服务管家的路——
  * - 服务管家的命令（lsm、ergo 的停止、重启、升级……，shell/programs.ts 拆出来的）、跑程序目录里 packages/supervisor/bin 下的脚本：硬拒绝；
- * - 发往管理器端口的不是查询的请求（不是 GET、HEAD、OPTIONS，看不出方法的也算）、连到本机管理器端口的远端命令（nc、ssh -L）：硬拒绝。
- *   查询照旧；管理器默认不验身份，所以写死不准；
- * - 用浏览器打开管理器的页面（上面能点停止、重启）：接近底线先问；
+ *   ergo 作用在某一份上的命令（status、logs、start……，scoped）：只有这一份时照旧，配置了多份时硬拒绝（468：看不准管的是哪一份，
+ *   agent 的环境里没有 ERGO_DATA_DIR，不在这一份的文件夹里跑就会管到默认那份）；
+ * - 发往管理器端口的请求（468 起查询也拒：管理器的接口回的是所有服务——包括另一份二狗——的详情、登记和日志；看状态、日志有服务管家工具）、
+ *   连到本机管理器端口的远端命令（nc、ssh -L）、用浏览器打开管理器的页面：硬拒绝；
  * - 动服务管家的计划任务（停、删、改 LocalServiceManager；查的照旧）：接近底线先问；
  * - 拆不开的命令（powershell -Command、cmd /c、python -c……）里写着杀进程、管理器端口、服务管家的命令行、ergo 的停止重启升级、
- *   它的计划任务的：接近底线先问（对话审批关着也问）。
+ *   它的计划任务的：接近底线先问（对话审批关着也问）；配置了多份时写着管理器端口、ergo 作用在某一份上的命令的硬拒绝（批准的是这一份的用户，
+ *   不能替另一份做主）。
  * 服务管家的数据目录在受保护区域里（protectedAreasOf），杀进程见 killProcessRule
  */
 function supervisorRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
   const { call, what } = kc;
   const text = callText(kc);
-  if (call.tool === TOOL.supervisor_command) out.refuse("supervisor", t("guard.judge.supervisor.command", { what }) + sep() + supervisorToolsNote());
+  const multi = (ctx.input.places.otherInstances ?? []).length > 0;
+  if (call.tool === TOOL.supervisor_command) {
+    if (call.args.scoped !== true) out.refuse("supervisor", t("guard.judge.supervisor.command", { what }) + sep() + supervisorToolsNote());
+    else if (multi) out.refuse("supervisor", t("guard.judge.supervisor.ergoScoped", { what }) + sep() + supervisorToolsNote());
+  }
   if (call.tool === TOOL.run_script) {
     const bin = win32.join(ctx.input.places.programDir, "packages", "supervisor", "bin");
     if (pathArgs(ctx, kc).some((p) => p.resolved.kind === "absolute" && isWithin(p.resolved.path, bin))) {
@@ -1092,17 +1184,19 @@ function supervisorRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector)
   const ports = supervisorPorts(ctx);
   for (const port of ports) {
     const hits = (urls: readonly string[]) => urls.some((u) => isSupervisorUrl(u, port));
-    if (call.tool === TOOL.http_request && hits(requestUrls(kc)) && !isReadOnlyMethod(call.args.method)) {
+    if (call.tool === TOOL.http_request && hits(requestUrls(kc))) {
       const method = typeof call.args.method === "string" && call.args.method !== "" ? call.args.method.toUpperCase() : t("guard.judge.unknownMethod");
-      out.refuse("supervisor", t("guard.judge.supervisor.port", { what, method, port }) + sep() + supervisorToolsNote());
+      const key = isReadOnlyMethod(call.args.method) ? "guard.judge.supervisor.query" : "guard.judge.supervisor.port";
+      out.refuse("supervisor", t(key, { what, method, port }) + sep() + supervisorToolsNote());
     }
     if (call.tool === TOOL.network_command && mentionsLocalPort(text, port)) out.refuse("supervisor", t("guard.judge.supervisor.connect", { what, port }) + sep() + supervisorToolsNote());
-    if (call.tool === TOOL.browse && hits(requestUrls(kc))) {
-      out.category("unknown_write", t("guard.judge.supervisor.page", { what, port }) + sep() + supervisorToolsNote(), [], { keepAsking: true, nearBottomLine: true });
-    }
+    if (call.tool === TOOL.browse && hits(requestUrls(kc))) out.refuse("supervisor", t("guard.judge.supervisor.page", { what, port }) + sep() + supervisorToolsNote());
   }
   if (call.tool === TOOL.opaque_shell) {
     const mentioned = ports.filter((port) => mentionsPort(text, port));
+    // 配置了多份：写着管理器端口、ergo 作用在某一份上的命令的，问了也不行（468）
+    if (multi && mentioned.length > 0) out.refuse("supervisor", t("guard.judge.supervisor.opaquePort", { what, port: mentioned.join(t("pages.common.listSep")) }) + sep() + supervisorToolsNote());
+    if (multi && ERGO_SCOPED_IN_TEXT.test(text)) out.refuse("supervisor", t("guard.judge.supervisor.ergoScoped", { what }) + sep() + supervisorToolsNote());
     const reasons = [
       ...(KILL_IN_TEXT.test(text) ? [t("guard.judge.supervisor.reason.kill")] : []),
       ...(mentioned.length > 0 ? [t("guard.judge.supervisor.reason.port", { port: mentioned.join(t("pages.common.listSep")) })] : []),
@@ -1116,6 +1210,48 @@ function supervisorRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector)
     }
   } else if (managesTasks(call) && SUPERVISOR_TASK.test(text) && !TASK_QUERY.test(text)) {
     out.category("unknown_write", t("guard.judge.supervisor.task", { what }) + sep() + supervisorToolsNote(), [], { keepAsking: true, nearBottomLine: true });
+  }
+}
+
+/** 一个值里所有的字符串（参数里嵌着的对象、数组也找） */
+function stringsIn(value: unknown, out: string[] = [], depth = 0): string[] {
+  if (typeof value === "string") out.push(value);
+  else if (depth < 6 && Array.isArray(value)) for (const v of value) stringsIn(v, out, depth + 1);
+  else if (depth < 6 && typeof value === "object" && value !== null) for (const v of Object.values(value)) stringsIn(v, out, depth + 1);
+  return out;
+}
+
+/**
+ * 另一份二狗的端口（468，本机端口、外网端口）：访问一律硬拒绝，批准、授权都改变不了——
+ * - 网址：任何工具的 url 参数、发 HTTP 请求和浏览器工具的命令原文里写着的网址和本机地址、任何参数里写着的本机地址（WebFetch、MCP 的浏览器工具、
+ *   写进文件的脚本……都算），是本机（含 0.0.0.0、httpie 的 :端口 简写）、端口是它的；
+ * - 连远端主机的命令（nc、ssh -L、telnet……）写着本机地址和它的端口；
+ * - 拆不开的命令（powershell -Command、python -c……）里写着它的端口（单独的数）；
+ * - 跑的脚本里写着它的端口、脚本又用到能联网的库（调用方扫描报上来的 mentionedPorts、networkUsage、localOnly）。
+ * 拼出来的端口（变量、算出来的）、从文件或环境变量读的认不出，和守卫别处一样不追
+ */
+function otherInstanceRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
+  if ((ctx.input.places.otherInstances ?? []).length === 0) return;
+  const scripts = kc.call.tool === TOOL.run_script ? pathArgs(ctx, kc).flatMap((p) => (p.resolved.kind === "absolute" ? [ctx.scriptFact(p.resolved.path)] : [])) : [];
+  otherInstanceReach(ctx, kc.call, kc.what, requestUrls(kc), scripts, out);
+}
+
+/** otherInstanceRule 的那几样（没登记的工具也走这里：只看参数里写着的地址） */
+function otherInstanceReach(ctx: JudgeContext, call: JudgedCall, what: string, requested: readonly string[], scripts: readonly (ScriptFact | undefined)[], out: FindingCollector): void {
+  const others = ctx.input.places.otherInstances ?? [];
+  if (others.length === 0) return;
+  const text = call.text ?? (typeof call.args.command === "string" ? call.args.command : "");
+  const strings = stringsIn(call.args);
+  const urls = [...requested, ...strings.flatMap((s) => [...urlsInText(s), ...(s.match(LOCAL_ADDRESS) ?? [])])];
+  for (const other of others) {
+    const hit = other.ports.find(
+      (port) =>
+        urls.some((u) => isSupervisorUrl(u, port)) ||
+        (call.tool === TOOL.network_command && mentionsLocalPort(text, port)) ||
+        (call.tool === TOOL.opaque_shell && mentionsPort(text, port)) ||
+        scripts.some((f) => f !== undefined && (f.mentionedPorts ?? []).includes(port) && (f.networkUsage.length > 0 || (f.localOnly ?? []).length > 0)),
+    );
+    if (hit !== undefined) refuseOtherInstance(out, t("guard.judge.otherInstance.port", { what, port: hit }), other.id);
   }
 }
 

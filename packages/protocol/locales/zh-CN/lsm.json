@@ -143,5 +143,7 @@
   "lsm.tools.managerNote": "服务管家说：{note}",
   "lsm.tools.done.forcedStop": "{name}没有正常停止的办法，已经强制停下（它手上正在做的断了）。",
   "lsm.tools.done.forcedRestart": "{name}没有正常重启的办法，已经强制重启（先强制停下再起来）。",
-  "lsm.tools.err.noIdleStop": "{name}没有接入忙闲，等不了它空闲。用户只是要停的话用 stop：它没有正常停止的办法时会直接强制停下。"
+  "lsm.tools.err.noIdleStop": "{name}没有接入忙闲，等不了它空闲。用户只是要停的话用 stop：它没有正常停止的办法时会直接强制停下。",
+  "lsm.tools.otherInstance": "「{name}」是这台电脑上另一份二狗（{id}）的，不能看、不能动：各份二狗互相隔开。要管它请到那一份二狗里去",
+  "lsm.tools.otherInstanceProfile": "场景「{profile}」里有这台电脑上另一份二狗（{id}）的服务，按场景起停会连它一起，不做。请逐个起停这一份自己的服务"
 }

@@ -1314,8 +1314,42 @@ const net: Handler = (inv, args, program) => {
 // 别处拷的 lsm.mjs）、ergo 的停止、重启、升级、回退、卸载和 svc（原样转给 lsm）、守护进程的停止脚本 stop.ts，都拆成
 // "服务管家的命令"，判定函数一律硬拒绝。程序目录里 packages/supervisor/bin 下的别的脚本由判定函数按路径认。
 
-/** ergo 命令里会停掉、换掉二狗，或者原样转给服务管家的子命令 */
-const ERGO_OPS = new Set(["stop", "restart", "svc", "update", "rollback", "uninstall"]);
+/** ergo 命令里会停掉、换掉二狗，原样转给服务管家，或者改服务管家里的登记（init、unregister，468）的子命令 */
+const ERGO_OPS = new Set(["stop", "restart", "svc", "update", "rollback", "uninstall", "init", "unregister"]);
+/** ergo 命令里什么都不碰的子命令（帮助、版本，项目的服务报事件） */
+const ERGO_HARMLESS = new Set(["help", "--help", "version", "--version", "notify"]);
+/** ergo 命令带值的开关（找子命令时跳过它们的值；和 cli/run.ts 的 VALUE_FLAGS 一样，加上每条命令都认的 --dir） */
+const ERGO_VALUE_FLAGS = new Set(["--dir", "-n", "--version", "--from", "--mirror", "--idle-timeout", "--data", "--name", "--port"]);
+
+/** ergo 后面的子命令（跳过开关和它们的值；--dir 放在前面也认得出）和 --dir 的值 */
+function ergoSubcommand(args: readonly ShellWord[]): { sub: ShellWord | undefined; dir: ShellWord | undefined } {
+  let dir: ShellWord | undefined;
+  let sub: ShellWord | undefined;
+  for (let i = 0; i < args.length; i++) {
+    const w = args[i]!;
+    const v = w.value;
+    if (v !== null && v.startsWith("-")) {
+      const flag = v.includes("=") ? v.slice(0, v.indexOf("=")) : v;
+      if (flag === "--dir") dir = v.includes("=") ? (optionAssignedValue(w) ?? w) : args[i + 1];
+      if (!v.includes("=") && ERGO_VALUE_FLAGS.has(flag) && !(flag === "--version" && sub === undefined && i + 1 >= args.length)) i++;
+      continue;
+    }
+    sub ??= w;
+  }
+  return { sub, dir };
+}
+
+/**
+ * ergo 的子命令怎么拆：会停二狗、改登记的（ERGO_OPS）、看不出是哪个的是服务管家的命令（硬拒绝）；帮助、版本、报事件是普通命令；
+ * 别的（status、logs、start、list……）作用在某一份上，另拆一条带 scoped 的服务管家的命令——只有这一份时照旧，配置了多份时硬拒绝（468）
+ */
+function ergoKind(sub: ShellWord | undefined): "ops" | "harmless" | "scoped" {
+  if (sub === undefined) return "harmless";
+  if (sub.value === null) return "ops";
+  const name = sub.value.toLowerCase();
+  if (ERGO_OPS.has(name)) return "ops";
+  return ERGO_HARMLESS.has(name) ? "harmless" : "scoped";
+}
 
 /** lsm：服务管家的命令行，不分子命令（查状态也走服务管家工具） */
 const lsmCommand: Handler = (inv, args, program) => {
@@ -1323,15 +1357,25 @@ const lsmCommand: Handler = (inv, args, program) => {
   inv.emit(TOOL.supervisor_command, { program, command: inv.ctx.text });
 };
 
-/** ergo 命令（装好的 ergo.exe / ergo.cmd、仓库里的 npm run ergo、cli/main.ts）：危险的子命令、看不出是哪个的算服务管家的命令，别的照"其他命令" */
+/**
+ * ergo 命令（装好的 ergo.exe / ergo.cmd、仓库里的 npm run ergo、cli/main.ts）：危险的子命令、看不出是哪个的算服务管家的命令，
+ * 作用在某一份上的另拆一条带 scoped 的（见 ergoKind），别的照"其他命令"。--dir 写的文件夹算读（另一份二狗的文件夹按路径拒）
+ */
 function ergoCli(inv: Invocation, args: readonly ShellWord[], program: string): void {
-  const sub = args.find((w) => w.value === null || !w.value.startsWith("-"));
-  if (sub !== undefined && (sub.value === null || ERGO_OPS.has(sub.value.toLowerCase()))) {
+  const { sub, dir } = ergoSubcommand(args);
+  const kind = ergoKind(sub);
+  if (kind === "ops") {
     inv.skip(...args);
     inv.emit(TOOL.supervisor_command, { program, command: inv.ctx.text });
     return;
   }
-  genericCommand(inv, program, args);
+  if (dir !== undefined) inv.emitEachPath(TOOL.read, [dir]);
+  if (kind === "scoped") inv.emit(TOOL.supervisor_command, { program, command: inv.ctx.text, scoped: true });
+  genericCommand(
+    inv,
+    program,
+    args.filter((w) => w !== dir),
+  );
 }
 
 const ergoCommand: Handler = (inv, args, program) => ergoCli(inv, args, program);
@@ -1351,8 +1395,13 @@ function opsScript(inv: Invocation, script: ShellWord, rest: readonly ShellWord[
   const label = program === "" ? written : `${program} ${written}`;
   if (paths.some((p) => SUPERVISOR_SCRIPT.test(p))) inv.emit(TOOL.supervisor_command, { program: label, command: inv.ctx.text });
   else if (paths.some((p) => ERGO_SCRIPT.test(p))) {
-    const sub = rest.find((w) => w.value === null || !w.value.startsWith("-"));
-    if (sub !== undefined && (sub.value === null || ERGO_OPS.has(sub.value.toLowerCase()))) inv.emit(TOOL.supervisor_command, { program: label, command: inv.ctx.text });
+    const { sub, dir } = ergoSubcommand(rest);
+    const kind = ergoKind(sub);
+    if (kind === "ops") inv.emit(TOOL.supervisor_command, { program: label, command: inv.ctx.text });
+    else {
+      if (dir !== undefined) inv.emitEachPath(TOOL.read, [dir]);
+      if (kind === "scoped") inv.emit(TOOL.supervisor_command, { program: label, command: inv.ctx.text, scoped: true });
+    }
   }
 }
 
