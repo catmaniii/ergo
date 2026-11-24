@@ -64,6 +64,23 @@ describe("部署命令", () => {
     expect(out).toContain("https://ergo.203.0.113.10.sslip.io");
   });
 
+  it("一台电脑上的多份：ergo init 建的一份按登记 id 写自己的站点文件，不覆盖默认那份的 ergo.conf；标记坏了不部署", async () => {
+    const dataDir = dataDirWith({ publicAccess: { ...PUBLIC_ACCESS, domain: "b.203.0.113.10.sslip.io", tunnelPort: 18821 } });
+    fs.writeFileSync(path.join(dataDir, "ergo-instance.json"), JSON.stringify({ format: 1, name: "b", serviceId: "ergo-b" }));
+    const { code, calls, out } = await run(dataDir);
+    expect(code).toBe(0);
+    const [{ stdin }] = calls as [(typeof calls)[number]];
+    expect(stdin).toContain("ln -sf /etc/nginx/sites-available/ergo-b.conf /etc/nginx/sites-enabled/ergo-b.conf");
+    expect(stdin).not.toContain("/etc/nginx/sites-available/ergo.conf");
+    expect(out).toContain("/etc/nginx/sites-available/ergo-b.conf");
+
+    fs.writeFileSync(path.join(dataDir, "ergo-instance.json"), JSON.stringify({ format: 1, name: "b; rm -rf /", serviceId: "ergo-b; rm -rf /" }));
+    const bad = await run(dataDir);
+    expect(bad.code).toBe(2);
+    expect(bad.calls).toEqual([]);
+    expect(bad.out).toContain("实例标记文件不对");
+  });
+
   it("--print：只打印生成的配置，不 ssh", async () => {
     const { code, calls, out } = await run(dataDirWith({ publicAccess: PUBLIC_ACCESS }), ["--print"]);
     expect(code).toBe(0);
