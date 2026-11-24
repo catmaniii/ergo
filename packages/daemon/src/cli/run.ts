@@ -2,17 +2,21 @@
 import fs from "node:fs";
 import path from "node:path";
 import { t } from "@ergo/protocol";
-import { flagOn, flagString, parseArgs } from "./args.ts";
+import { flagOn, flagString, parseArgs, takeDirFlag } from "./args.ts";
 import { cmdBackupTool } from "./backup-tools.ts";
 import { cmdComponents } from "./components.ts";
-import type { CliContext } from "./context.ts";
+import { type CliContext, contextForInstance } from "./context.ts";
+import { cmdInit, cmdList, cmdUnregister, isDefaultDataDir } from "./instance-commands.ts";
 import { cmdNotify } from "./notify.ts";
 import { cmdLogs, cmdOnboard, cmdOpen, cmdRestart, cmdSvc, cmdStart, cmdStatus, cmdStop } from "./service.ts";
 import { cmdUninstall } from "./uninstall.ts";
 import { cmdRollback, cmdUpdate } from "./versions.ts";
 
-/** 带值的开关 */
-const VALUE_FLAGS = new Set(["n", "version", "from", "mirror", "idle-timeout", "data"]);
+/** 带值的开关（--dir 在分派之前就拿掉了，见 takeDirFlag） */
+const VALUE_FLAGS = new Set(["n", "version", "from", "mirror", "idle-timeout", "data", "name", "port"]);
+
+/** 不管是哪一份的命令：实例标记文件不对时照样能跑 */
+const ANY_INSTANCE = new Set([undefined, "help", "--help", "version", "--version", "init", "list"]);
 
 /** 命令行用哪种语言 */
 export function cliLanguage(env: NodeJS.ProcessEnv, dataDir: string, systemLocale: string = Intl.DateTimeFormat().resolvedOptions().locale): string {
@@ -44,9 +48,28 @@ function version(ctx: CliContext): number {
   return 0;
 }
 
-/** 跑一条命令，回退出码 */
-export async function runCli(argv: readonly string[], ctx: CliContext): Promise<number> {
+/**
+ * 跑一条命令，回退出码。--dir <文件夹> 每条命令都认（放在命令前后都行）：管的就是那个文件夹那一份（认法见 instances.ts）。
+ * main.ts 建上下文时已经按它认过；测试直接调这里时在这里认
+ */
+export async function runCli(fullArgv: readonly string[], given: CliContext): Promise<number> {
+  const taken = takeDirFlag(fullArgv);
+  if (taken.dir !== undefined && taken.dir.trim() === "") {
+    given.io.err(t("cli.instance.dirMissing"));
+    return 2;
+  }
+  const ctx = taken.dir === undefined ? given : contextForInstance(given, { dir: taken.dir });
+  const argv = taken.argv;
   const args = parseArgs(argv, VALUE_FLAGS);
+  if (ctx.instanceError && !ANY_INSTANCE.has(args.command)) {
+    ctx.io.err(t("cli.instance.badMarker", ctx.instanceError));
+    return 1;
+  }
+  // --dir 指的文件夹没有标记、又不是默认那份的数据目录：不是一份二狗（写错了的不能落到默认那份头上：start 会把它的登记改指那里）
+  if (taken.dir !== undefined && !ANY_INSTANCE.has(args.command) && ctx.instanceName === undefined && !isDefaultDataDir(ctx, ctx.dataDir)) {
+    ctx.io.err(t("cli.instance.notInstance", { dir: ctx.dataDir }));
+    return 1;
+  }
   const idleTimeoutMs = Number(flagString(args, "idle-timeout") ?? 7200) * 1000;
   switch (args.command) {
     case undefined:
@@ -107,6 +130,16 @@ export async function runCli(argv: readonly string[], ctx: CliContext): Promise<
     case "notify":
       // 给项目的服务用的：报一个事件，叫醒等它的任务
       return cmdNotify(ctx, args.positional[0], args.flags.get("data"));
+    case "init": {
+      // 只看 --dir 和当前文件夹（ERGO_DATA_DIR、上级的标记文件不算：要建的就是这个文件夹）
+      const name = flagString(args, "name");
+      const port = flagString(args, "port");
+      return cmdInit(ctx, { ...(taken.dir === undefined ? {} : { dir: taken.dir }), ...(name === undefined ? {} : { name }), ...(port === undefined ? {} : { port }) });
+    }
+    case "list":
+      return cmdList(ctx, flagOn(args, "json"));
+    case "unregister":
+      return cmdUnregister(ctx);
     default:
       ctx.io.err(t("cli.unknownCommand", { command: args.command }));
       usage(ctx);

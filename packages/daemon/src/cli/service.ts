@@ -7,6 +7,8 @@
 // 开机自启（服务管家的计划任务）由安装脚本默认装（经 ergo svc install-autostart）；这里在每次按 current 重写登记时核对一下它还指着在用的版本，
 // 改指了、而在跑的服务管家正是这个任务起的，就经任务把它重起成新版本（restartManagerViaTask）。
 // 开机拉起哪些服务看服务管家的名单 registry/autostart.yaml：还没有时写一份只含二狗的，有了就再也不碰（用的人关掉后不会被下一次 start 打开）。
+// 可以配置多份二狗（468，instances.ts）：每条命令管的是认出来的那一份（ctx.serviceId，默认那份是 ergo-daemon），登记文件、日志、启停都按它；
+// 默认那份以外的，登记第一次写出来时（ergo init、unregister 之后再 start）把它加进开机自启名单（只加它自己，经 lsm autostart，不动名单里别的）。
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -15,9 +17,10 @@ import { t } from "@ergo/protocol";
 import { installPaths, readInstallState, writeInstallState } from "../release/layout.ts";
 import { type AutostartTaskInfo, interceptTaskCommand, readAutostartTaskInfo, runTaskOp, sameDir, taskDataDir, taskInsideRoot, taskRunsScript } from "./autostart.ts";
 import { type CliContext, daemonPort, daemonUrl, defaultSvcDataDir } from "./context.ts";
+import { DEFAULT_SERVICE_ID, registeredInstances, SERVICE_ID_ENV } from "./instances.ts";
 
-/** 二狗在服务管家里登记的 id */
-export const DAEMON_SERVICE_ID = "ergo-daemon";
+/** 默认那份二狗在服务管家里登记的 id（别的各份是 ergo-<名字>，见 instances.ts） */
+export const DAEMON_SERVICE_ID = DEFAULT_SERVICE_ID;
 /** 第一次生成服务管家设置时用的端口（环境变量 ERGO_SVC_PORT 可以换，测试用它避开本机正在用的） */
 export const DEFAULT_SVC_PORT = 7420;
 
@@ -31,16 +34,18 @@ export interface SvcPaths {
   daemonLog: string;
 }
 
-export function svcPaths(ctx: Pick<CliContext, "svcDataDir">): SvcPaths {
+/** 服务管家里的这些文件；登记文件、日志是 ctx 那一份的（没给 serviceId 是默认那份的） */
+export function svcPaths(ctx: Pick<CliContext, "svcDataDir"> & Partial<Pick<CliContext, "serviceId">>): SvcPaths {
   const registry = path.join(ctx.svcDataDir, "registry");
+  const id = ctx.serviceId ?? DAEMON_SERVICE_ID;
   return {
     registry,
     services: path.join(registry, "services"),
     managerYaml: path.join(registry, "manager.yaml"),
     bootList: path.join(registry, "autostart.yaml"),
-    daemonEntry: path.join(registry, "services", `${DAEMON_SERVICE_ID}.yaml`),
+    daemonEntry: path.join(registry, "services", `${id}.yaml`),
     state: path.join(ctx.svcDataDir, "state.json"),
-    daemonLog: path.join(ctx.svcDataDir, "logs", `${DAEMON_SERVICE_ID}.out.log`),
+    daemonLog: path.join(ctx.svcDataDir, "logs", `${id}.out.log`),
   };
 }
 
@@ -121,9 +126,16 @@ export function entryPaths(ctx: Pick<CliContext, "layout">): { root: string; nod
   return { root: layout.appDir, node: layout.node, main: `packages/daemon/src/main.${ext}`, stop: `packages/daemon/src/stop.${ext}` };
 }
 
+/** 登记 env 里我们自己的项的名字（照旧覆盖；ERGO_SERVICE_ID 默认那份不写，写着也去掉） */
+function ownEnvNames(ctx: Pick<CliContext, "dataDir" | "svcDataDir" | "serviceId">): Set<string> {
+  return new Set([...ownEnvLines(ctx).flatMap((line) => /^ {2}- name: (\S+)$/.exec(line)?.[1] ?? []), SERVICE_ID_ENV]);
+}
+
 /** 二狗自己写进登记 env 的项（一行一行）。以后不再写某一项时，旧登记里的它会被当成用的人加的留下来（userEnvLines），到时要记下它的名字 */
-function ownEnvLines(ctx: Pick<CliContext, "dataDir" | "svcDataDir">): string[] {
+function ownEnvLines(ctx: Pick<CliContext, "dataDir" | "svcDataDir" | "serviceId">): string[] {
   return [
+    // 默认那份以外的：告诉守护进程它是哪个登记（体检、守卫、服务管家工具按它认自己；默认那份不写，守护进程没有它就是 ergo-daemon）
+    ...(ctx.serviceId === DAEMON_SERVICE_ID ? [] : [`  - name: ${SERVICE_ID_ENV}`, "    from: literal", `    value: ${yamlQuote(ctx.serviceId)}`]),
     "  - name: ERGO_DATA_DIR",
     "    from: literal",
     `    value: ${yamlQuote(ctx.dataDir)}`,
@@ -251,13 +263,17 @@ export function userExposureLines(oldEntry: string): string[] {
 }
 
 /** 二狗的登记（每次 start 重写，userEnv 是 env 里用的人多加的项，userExposure 是用的人写的公网入口）。DeepSeek 的 key 照旧由服务管家从数据目录的密钥区读出来注入（没有也能起来，optional） */
-export function daemonEntryYaml(ctx: Pick<CliContext, "layout" | "dataDir" | "svcDataDir">, userEnv: readonly string[] = [], userExposure: readonly string[] = []): string {
+export function daemonEntryYaml(
+  ctx: Pick<CliContext, "layout" | "dataDir" | "svcDataDir" | "serviceId"> & Partial<Pick<CliContext, "instanceName">>,
+  userEnv: readonly string[] = [],
+  userExposure: readonly string[] = [],
+): string {
   const p = entryPaths(ctx);
   const port = daemonPort(ctx);
   return [
     ENTRY_HEAD,
-    `id: ${DAEMON_SERVICE_ID}`,
-    "name: ergo",
+    `id: ${ctx.serviceId}`,
+    ctx.serviceId === DAEMON_SERVICE_ID || ctx.instanceName === undefined ? "name: ergo" : `name: ${yamlQuote(`ergo (${ctx.instanceName})`)}`,
     "project: ergo",
     `root: ${yamlQuote(p.root)}`,
     "kind: managed",
@@ -304,12 +320,15 @@ export function writeSvcConfig(ctx: CliContext): { managerCreated: boolean; boot
     managerCreated = true;
   }
   let bootListCreated = false;
-  try {
-    // wx：已经有了就写不进去。服务管家关掉所有开关时写的是 services: []，所以"有文件"就是用的人定过了
-    fs.writeFileSync(p.bootList, defaultBootListYaml(), { flag: "wx" });
-    bootListCreated = true;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+  // 默认那份以外的不写默认名单（里面是 ergo-daemon，没登记它时服务管家会报"名单里的不存在"）：它们第一次登记时经 lsm autostart 只加自己
+  if (ctx.serviceId === DAEMON_SERVICE_ID) {
+    try {
+      // wx：已经有了就写不进去。服务管家关掉所有开关时写的是 services: []，所以"有文件"就是用的人定过了
+      fs.writeFileSync(p.bootList, defaultBootListYaml(), { flag: "wx" });
+      bootListCreated = true;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+    }
   }
   let old = "";
   try {
@@ -317,7 +336,7 @@ export function writeSvcConfig(ctx: CliContext): { managerCreated: boolean; boot
   } catch {
     // 还没登记过
   }
-  const ownNames = new Set(ownEnvLines(ctx).flatMap((line) => /^ {2}- name: (\S+)$/.exec(line)?.[1] ?? []));
+  const ownNames = ownEnvNames(ctx);
   const entry = daemonEntryYaml(ctx, userEnvLines(old, ownNames), userExposureLines(old));
   if (old !== entry) fs.writeFileSync(p.daemonEntry, entry);
   return { managerCreated, bootListCreated, entryChanged: old !== entry };
@@ -536,8 +555,9 @@ export function svcSnapshot(ctx: CliContext): SvcSnapshot | undefined {
   }
 }
 
-export function daemonSnapshot(ctx: CliContext): ServiceSnapshot | undefined {
-  const s = svcSnapshot(ctx)?.services.find((x) => x.id === DAEMON_SERVICE_ID);
+/** ctx 那一份二狗在服务管家里现在的样子（给了快照就从快照里取，不另跑一次 lsm） */
+export function daemonSnapshot(ctx: CliContext, snapshot?: SvcSnapshot): ServiceSnapshot | undefined {
+  const s = (snapshot ?? svcSnapshot(ctx))?.services.find((x) => x.id === ctx.serviceId);
   if (!s) return undefined;
   const { id, state, tier, pid, port, busy, busyReason, lastError, runningSince } = s;
   return { id, state, ...(tier ? { tier } : {}), ...(pid ? { pid } : {}), ...(port ? { port } : {}), ...(busy ? { busy, ...(busyReason ? { busyReason } : {}) } : {}), ...(lastError ? { lastError } : {}), ...(runningSince ? { runningSince } : {}) };
@@ -577,7 +597,18 @@ export function syncAutostart(ctx: CliContext, known?: { task: AutostartTaskInfo
 
 /** 这次第一次写开机自启名单：告诉用的人一声，怎么关 */
 export function tellBootListCreated(ctx: CliContext): void {
-  ctx.io.out(t("cli.svc.bootListCreated", { file: svcPaths(ctx).bootList, id: DAEMON_SERVICE_ID }));
+  ctx.io.out(t("cli.svc.bootListCreated", { file: svcPaths(ctx).bootList, id: ctx.serviceId }));
+}
+
+/**
+ * 默认那份以外的一份第一次登记（ergo init、unregister 之后再 start）：加进开机自启名单——只加它自己，经 lsm autostart（服务管家在跑就经它，
+ * 不在就本地改名单），不动名单里别的。加不上只说一句怎么自己加，不耽误别的
+ */
+export function addToBootList(ctx: CliContext): boolean {
+  const r = runLsm(ctx, ["autostart", ctx.serviceId, "on"], { capture: true });
+  if (r.code === 0) return true;
+  ctx.io.err(t("cli.instance.autostartFailed", { id: ctx.serviceId, detail: `${r.stdout}${r.stderr}`.trim() || String(r.code) }));
+  return false;
 }
 
 /**
@@ -586,6 +617,30 @@ export function tellBootListCreated(ctx: CliContext): void {
  * （从没有这一条的旧版本升上来时，跑 update 的是旧的 ergo，不会重起它）——就经任务把它重起成在用的版本，和切版本时一样
  */
 export async function ensureSvc(ctx: CliContext): Promise<{ startedManager: boolean }> {
+  const p = svcPaths(ctx);
+  const firstEntry = !fs.existsSync(p.daemonEntry);
+  const bootListBefore = fs.existsSync(p.bootList);
+  const started = await ensureSvcConfigured(ctx);
+  // 默认那份以外的这一份是第一次登记（init 之后、unregister 之后再 start）：登记好、服务管家认了之后加进开机自启名单
+  if (firstEntry && ctx.serviceId !== DAEMON_SERVICE_ID) addToBootList(ctx);
+  // 默认那份第一次登记时，先建的别的一份已经留下了名单：名单照旧不碰，说一声怎么加
+  else if (firstEntry && bootListBefore && registeredInstances(ctx.svcDataDir).some((i) => i.id !== DAEMON_SERVICE_ID) && !bootListHas(p.bootList, ctx.serviceId)) {
+    ctx.io.out(t("cli.instance.notInBootList", { id: ctx.serviceId }));
+  }
+  return started;
+}
+
+/** 开机自启名单里有没有这个 id（只认简单的写法；读不了当没有） */
+function bootListHas(file: string, id: string): boolean {
+  try {
+    // 登记 id 只有小写字母、数字、连字符（instances.ts），不用转义
+    return new RegExp(`(?:^|[\\s,['"])${id}(?=$|[\\s,\\]'"])`, "m").test(fs.readFileSync(file, "utf8"));
+  } catch {
+    return false;
+  }
+}
+
+async function ensureSvcConfigured(ctx: CliContext): Promise<{ startedManager: boolean }> {
   const { managerCreated, bootListCreated } = writeSvcConfig(ctx);
   if (managerCreated) ctx.io.out(t("cli.svc.managerConfigCreated", { file: svcPaths(ctx).managerYaml, port: managerAddress(ctx).port }));
   if (bootListCreated) tellBootListCreated(ctx);
@@ -627,7 +682,7 @@ export async function waitForDaemon(ctx: CliContext, ok: (s: ServiceSnapshot | u
 export async function cmdStart(ctx: CliContext): Promise<number> {
   await ensureSvc(ctx);
   ctx.io.out(t("cli.start.starting"));
-  const r = runLsm(ctx, ["start", DAEMON_SERVICE_ID], { capture: true });
+  const r = runLsm(ctx, ["start", ctx.serviceId], { capture: true });
   const snap = daemonSnapshot(ctx);
   if (r.code !== 0 || !isRunning(snap)) {
     ctx.io.err(t("cli.start.failed", { detail: (snap?.lastError ?? `${r.stdout}${r.stderr}`).trim() || "?" }));
@@ -650,7 +705,7 @@ export async function cmdStop(ctx: CliContext): Promise<number> {
     ctx.io.out(t("cli.stop.managerDown"));
     return 0;
   }
-  const r = runLsm(ctx, ["stop", DAEMON_SERVICE_ID], { capture: true });
+  const r = runLsm(ctx, ["stop", ctx.serviceId], { capture: true });
   if (r.code !== 0) {
     ctx.io.err(t("cli.stop.failed", { detail: `${r.stdout}${r.stderr}`.trim() }));
     return 1;
@@ -662,7 +717,7 @@ export async function cmdStop(ctx: CliContext): Promise<number> {
 export async function cmdRestart(ctx: CliContext): Promise<number> {
   await ensureSvc(ctx);
   ctx.io.out(t("cli.restart.restarting"));
-  const r = runLsm(ctx, ["restart", DAEMON_SERVICE_ID], { capture: true });
+  const r = runLsm(ctx, ["restart", ctx.serviceId], { capture: true });
   const snap = await waitForDaemon(ctx, isRunning, 90_000);
   if (r.code !== 0 || !snap) {
     ctx.io.err(t("cli.start.failed", { detail: `${r.stdout}${r.stderr}`.trim() || "?" }));
@@ -675,6 +730,8 @@ export async function cmdRestart(ctx: CliContext): Promise<number> {
 export interface StatusView {
   version?: string;
   install: { kind: string; root?: string; home: string; node: string };
+  /** 这一份的登记 id 和名字（默认那份没有名字） */
+  instance: { serviceId: string; name?: string };
   dataDir: string;
   svcDataDir: string;
   manager: { up: boolean; port: number };
@@ -688,6 +745,7 @@ export async function statusView(ctx: CliContext): Promise<StatusView> {
   return {
     ...(layout.info ? { version: layout.info.version } : {}),
     install: { kind: layout.info?.kind ?? layout.kind, ...(layout.root ? { root: layout.root } : {}), home: layout.home, node: layout.node },
+    instance: { serviceId: ctx.serviceId, ...(ctx.instanceName === undefined ? {} : { name: ctx.instanceName }) },
     dataDir: ctx.dataDir,
     svcDataDir: ctx.svcDataDir,
     manager: { up, port: managerAddress(ctx).port },
@@ -704,6 +762,7 @@ export async function cmdStatus(ctx: CliContext, json: boolean): Promise<number>
   }
   ctx.io.out(t("cli.status.version", { version: v.version ?? t("cli.status.dev"), kind: t(`cli.kind.${v.install.kind}`) }));
   ctx.io.out(t("cli.status.installedAt", { dir: v.install.root ?? v.install.home }));
+  if (v.instance.name !== undefined) ctx.io.out(t("cli.status.instance", { name: v.instance.name, id: v.instance.serviceId }));
   ctx.io.out(t("cli.status.dataDir", { dir: v.dataDir }));
   ctx.io.out(v.manager.up ? t("cli.status.managerUp", { port: v.manager.port }) : t("cli.status.managerDown"));
   if (v.manager.up) {
