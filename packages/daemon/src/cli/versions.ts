@@ -6,6 +6,7 @@
 //        开机自启的计划任务指着这个安装的，也改指新版本；服务管家是这个任务起的，就停一下、再起一下任务，让它也换成新版本
 //        （同一个登录会话，不按开机处理；旧版本目录不再被它占着）。这条命令自己还跑在旧版本上，所以这几步都按新版本的目录做。
 //        最后只留在用的和上一个版本，别的删掉（正被占用删不掉的留着，下次再删）。
+//        配置了多份二狗（468）时：服务管家里登记的每一份都一样——在跑的都等空闲再停、切完都重起，登记都按新版本重写（不管在不在跑）。
 // 源码装的（install.ps1 -FromSource）：交给安装脚本拉新代码、构建进新的版本目录，再照上面切过去。开发模式（--link）、npm 装的给一句怎么更新。
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -28,10 +29,11 @@ import {
 import { releasePublicKey } from "../release/public-key.ts";
 import { extractZip } from "../release/zip.ts";
 import { renameRetrying } from "../util/atomic-file.ts";
+import { resolveDataDir } from "../config/data-dir.ts";
 import { readAutostartTaskInfo } from "./autostart.ts";
-import type { CliContext } from "./context.ts";
+import { type CliContext, contextForInstance } from "./context.ts";
+import { registeredInstances } from "./instances.ts";
 import {
-  DAEMON_SERVICE_ID,
   daemonSnapshot,
   isRunning,
   managerStartedByErgo,
@@ -39,8 +41,10 @@ import {
   managerUp,
   restartManagerViaTask,
   runLsm,
+  type ServiceSnapshot,
   startManager,
   stopManager,
+  svcSnapshot,
   syncAutostart,
   tellBootListCreated,
   waitForDaemon,
@@ -94,23 +98,52 @@ function contextOfVersion(ctx: CliContext, root: string, name: string): CliConte
 }
 
 /**
- * 切到 versions\<target>：二狗在跑就等它空闲再停，切完重起服务管家（是 ergo 起的那个）和二狗。
+ * 换版本要管的各份二狗：这条命令认的那一份在最前，后面是服务管家里登记的别的各份（登记的文件夹里的标记对不上的不碰，说一声）
+ */
+export function instanceContexts(ctx: CliContext): CliContext[] {
+  const list = [ctx];
+  for (const i of registeredInstances(ctx.svcDataDir)) {
+    if (i.id === ctx.serviceId) continue;
+    const dir = i.dataDir ?? resolveDataDir({}, ctx.homeDir);
+    const other = contextForInstance(ctx, { dir });
+    if (other.instanceError || other.serviceId !== i.id) {
+      ctx.io.err(t("cli.switch.instanceSkipped", { id: i.id, dir }));
+      continue;
+    }
+    list.push(other);
+  }
+  return list;
+}
+
+const stoppedState = (s: ServiceSnapshot | undefined) => s !== undefined && !isRunning(s) && s.state !== "STOPPING";
+
+/**
+ * 切到 versions\<target>：二狗在跑就等它空闲再停，切完重起服务管家（是 ergo 起的那个）和二狗。配置了多份的，在跑的每一份都这样。
  * 回 true 是切过去了
  */
 export async function switchTo(ctx: CliContext, root: string, target: string, idleTimeoutMs: number): Promise<boolean> {
   const from = currentVersionName(root);
+  const instances = instanceContexts(ctx);
   const managerWasUp = await managerUp(ctx);
-  const daemonWasRunning = managerWasUp && isRunning(daemonSnapshot(ctx));
-  if (daemonWasRunning) {
+  const snapshot = managerWasUp ? svcSnapshot(ctx) : undefined;
+  const running = managerWasUp ? instances.filter((c) => isRunning(daemonSnapshot(c, snapshot))) : [];
+  if (running.length > 0) {
     ctx.io.out(t("cli.switch.waitingIdle"));
-    runLsm(ctx, ["stop", DAEMON_SERVICE_ID, "--when-idle"], { capture: true });
-    const stopped = await waitForDaemon(ctx, (s) => s !== undefined && !isRunning(s) && s.state !== "STOPPING", idleTimeoutMs, (s) =>
-      ctx.io.out(t("cli.switch.stillBusy", { reason: s?.busyReason ?? s?.state ?? "?" })),
-    );
-    if (!stopped) {
-      runLsm(ctx, ["cancel-stop", DAEMON_SERVICE_ID], { capture: true });
-      ctx.io.err(t("cli.switch.idleTimeout"));
-      return false;
+    for (const c of running) runLsm(c, ["stop", c.serviceId, "--when-idle"], { capture: true });
+    const deadline = Date.now() + idleTimeoutMs;
+    for (const c of running) {
+      const stopped = await waitForDaemon(c, stoppedState, Math.max(1000, deadline - Date.now()), (s) =>
+        ctx.io.out(t("cli.switch.stillBusy", { reason: s?.busyReason ?? s?.state ?? "?" })),
+      );
+      if (!stopped) {
+        // 等不到：都不切了。还排着的撤掉"等空闲再停"，已经停了的照原样起来
+        for (const x of running) {
+          if (stoppedState(daemonSnapshot(x))) runLsm(x, ["start", x.serviceId], { capture: true });
+          else runLsm(x, ["cancel-stop", x.serviceId], { capture: true });
+        }
+        ctx.io.err(t("cli.switch.idleTimeout"));
+        return false;
+      }
     }
   }
   // 服务管家：ergo 起的那个这里停、切完按新版本起；开机自启的任务起的那个切完经任务重起（restartManagerViaTask），
@@ -130,9 +163,11 @@ export async function switchTo(ctx: CliContext, root: string, target: string, id
   } catch (err) {
     ctx.io.err(t("cli.switch.failed", { detail: err instanceof Error ? err.message : String(err) }));
   }
-  // 切过去了：登记、服务管家、开机自启都按新版本（ctx 是这条命令启动时认的旧版本）；没切过去：照原样
-  const now = switched ? contextOfVersion(ctx, root, target) : ctx;
+  // 切过去了：登记、服务管家、开机自启都按新版本（ctx 是这条命令启动时认的旧版本）；没切过去：照原样。别的各份的登记也按新版本重写
+  const nows = instances.map((c) => (switched ? contextOfVersion(c, root, target) : c));
+  const now = nows[0]!;
   if (writeSvcConfig(now).bootListCreated) tellBootListCreated(now);
+  for (const other of nows.slice(1)) writeSvcConfig(other);
   // 读过任务了（服务管家在跑、不是 ergo 起的）就不再读一遍：切版本不动任务，读到的还是它
   const autostart = switched ? syncAutostart(now, known) : undefined;
   // 任务起的：任务改指了新版本（或本来就指着）才重起，起来的就是新版本；改指没成就不动它，免得白白重起一个旧的
@@ -142,10 +177,11 @@ export async function switchTo(ctx: CliContext, root: string, target: string, id
     // 新起的服务管家起来时读的就是刚写好的登记；旧的停不下来就照旧让它重读
     if ((await restartManagerViaTask(now)) === "failed") runLsm(now, ["reload"], { capture: true });
   } else if (managerWasUp) runLsm(now, ["reload"], { capture: true });
-  if (daemonWasRunning) {
-    const r = runLsm(now, ["start", DAEMON_SERVICE_ID], { capture: true });
-    if (r.code !== 0 || !isRunning(daemonSnapshot(now))) ctx.io.err(t("cli.start.failed", { detail: `${r.stdout}${r.stderr}`.trim() || "?" }));
-    else ctx.io.out(t(switched ? "cli.switch.restarted" : "cli.switch.restartedOld"));
+  for (const c of nows.filter((x) => running.some((r) => r.serviceId === x.serviceId))) {
+    const r = runLsm(c, ["start", c.serviceId], { capture: true });
+    if (r.code !== 0 || !isRunning(daemonSnapshot(c))) ctx.io.err(t("cli.start.failed", { detail: `${r.stdout}${r.stderr}`.trim() || "?" }));
+    else if (c === now) ctx.io.out(t(switched ? "cli.switch.restarted" : "cli.switch.restartedOld"));
+    else ctx.io.out(t("cli.switch.restartedInstance", { id: c.serviceId }));
   }
   if (!switched) return false;
   const keep = [target, ...(from && from !== target ? [from] : [])];

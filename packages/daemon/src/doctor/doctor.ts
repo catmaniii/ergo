@@ -662,13 +662,16 @@ export function externalProbe(options: {
    * 有入口也算依据（排在登记文件后面：服务管家的数据目录不在这台二狗知道的地方时靠它）
    */
   reachability?: () => { entries: DoctorExternalEntry[]; waiting: boolean };
+  /** 二狗自己在服务管家里的登记 id（配置了多份时各份不同；不给是 ergo-daemon） */
+  selfId?: string;
 }): () => DoctorCheckDataById["external"] {
+  const self = options.selfId ?? DAEMON_SERVICE_ID;
   const found = (entries: readonly DoctorExternalEntry[]): DoctorCheckDataById["external"] => {
     const registry = path.join(options.svcDataDir, "registry");
-    if (hasTailnetEntry(path.join(registry, "tailnet.yaml"))) {
+    if (hasTailnetEntry(path.join(registry, "tailnet.yaml"), self)) {
       return { configured: true, kind: hasHeadscale(path.join(options.svcDataDir, "vps-setup.json")) ? "headscale" : "tailscale" };
     }
-    if (exposureVia(path.join(registry, "services", `${DAEMON_SERVICE_ID}.yaml`)) !== undefined) return { configured: true, kind: "tunnel" };
+    if (exposureVia(path.join(registry, "services", `${self}.yaml`)) !== undefined) return { configured: true, kind: "tunnel" };
     if (entries.length > 0) return { configured: true, kind: entries[0]!.kind === "tailnet" ? "tailscale" : "tunnel" };
     if (options.addresses?.().manual) return { configured: true, kind: "manual" };
     const devices = options.pairedDevices();
@@ -694,10 +697,10 @@ function readText(file: string): string | undefined {
   }
 }
 
-/** tailnet.yaml 的 entries 里有没有二狗这一项（列表里的 - id: ergo-daemon，引号、空格都认） */
-function hasTailnetEntry(file: string): boolean {
+/** tailnet.yaml 的 entries 里有没有二狗这一项（列表里的 - id: ergo-daemon，引号、空格都认；id 是二狗自己的登记 id） */
+function hasTailnetEntry(file: string, id: string): boolean {
   const text = readText(file);
-  return text !== undefined && new RegExp(`^\\s*-?\\s*id:\\s*['"]?${DAEMON_SERVICE_ID}['"]?\\s*$`, "m").test(text);
+  return text !== undefined && new RegExp(`^\\s*-?\\s*id:\\s*['"]?${id}['"]?\\s*$`, "m").test(text);
 }
 
 /** vps-setup.json 里记着自建 headscale 那一种（lsm vps setup headscale 搭的） */

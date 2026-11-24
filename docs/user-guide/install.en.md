@@ -190,6 +190,47 @@ There are two layers, and **both must be on for ergo to come back after a restar
 - **Installed with `-NoStart`:** ergo only comes back after a restart once you've run `ergo start`.
 - **Installed from source:** replace `ergo svc` above with `node bin\lsm.mjs` run in `packages\supervisor`; see steps 3 and 5 of [Install from source](#install-from-source).
 
+## Several instances on one computer
+
+You can configure several ergo instances on one computer, kept apart from each other: each has its own data folder, ports, paired devices and credentials, so one instance's web page or phone can't get into another; one instance's agents can't reach another instance's files, ports or logs, or stop or kill it, either (refused outright, even with your approval). All instances are run by the same service manager, can start at boot, and share one copy of the program (one update switches them all).
+
+To create one:
+
+```powershell
+mkdir D:\work\ergo-b
+cd D:\work\ergo-b
+ergo init      # turn this empty folder into a new instance: picks ports, registers it with the service manager and autostart; doesn't start it
+ergo onboard   # start it and go through the setup wizard in the web page
+```
+
+- **The folder has to be empty.** This instance's data goes in it (it is this instance's data folder), kept apart from your own files. It can't be inside another instance's folder.
+- **The name** defaults to the folder name: lowercase letters, digits and hyphens only (uppercase is lowered). If the folder name won't do (Chinese characters, say), you're asked for one, or give it with `ergo init --name <name>`. The instance is registered with the service manager as `ergo-<name>`; the default one stays `ergo-daemon`.
+- **Ports** are picked automatically: local 8820 and external 8821, or 8830 and 8831 if those are taken, and so on. To choose, use `--port <local port>`; the external port is that plus 1. They're written to the instance's `config\ergo.json`.
+
+**Which instance a command acts on:** `ergo start`, `stop`, `restart`, `status`, `logs`, `open`, `backup`, `restore`, `components` and `onboard` run in an instance's folder (or a folder under it) act on that instance; run anywhere else they act on the default one (`~/.ergo`) as before. Every command takes `--dir <folder>`, before or after the command. The order is:
+
+1. `--dir <folder>`;
+2. the `ERGO_DATA_DIR` environment variable;
+3. the instance `ergo init` created in the current folder or a parent (it has `ergo-instance.json` at its root);
+4. the default instance, `~/.ergo`.
+
+| To | Command |
+|---|---|
+| See the instances on this computer: running or not, web address, autostart | `ergo list` |
+| Stop an instance and remove it from the service manager (folder and data stay) | `ergo unregister` in its folder |
+| Use it again after that | `ergo start` in its folder: registers it again and puts it back on autostart |
+| Delete an instance | `ergo unregister` first, then delete the folder yourself |
+| Turn off an instance's autostart | `ergo svc autostart ergo-<name> off` |
+
+Good to know:
+
+- **One update switches every instance.** After `ergo update` or `ergo rollback` switches versions, every running instance is restarted on the new version (each is stopped once it's idle).
+- **Uninstalling** stops every instance, removes them from the service manager, and asks about each folder (kept by default). The default instance can't be unregistered; use `ergo uninstall` to remove it.
+- **Give each instance its own backup "Also save to" folder.** Snapshots are stored by date, so instances sharing a folder overwrite each other.
+- **Shared by all instances, one per computer:** the service manager, the speech service (all instances use the one on local port 8090 by default), the ego browser, and this Windows account's Claude Code and Codex sign-ins.
+- **Public access** (the tunnel in the [deployment guide](../architecture/deployment.en.md)) is written for the default instance; reaching another instance from outside needs its own tunnel and port.
+- **An instance's agents** can't use ergo commands to look at or manage an instance (with several instances it can't tell which one), and can't call the service manager's port directly; to see status and logs in the service manager, just ask ergo (see [Have ergo switch services for you](#have-ergo-switch-services-for-you) above).
+
 ## Install with npm (if you already have Node 22)
 
 ```powershell

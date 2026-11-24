@@ -99,6 +99,24 @@ export interface GuardPlaces {
    * （跑它的命令行、ergo 的停止重启升级、杀进程照样认）
    */
   supervisor?: GuardSupervisor;
+  /**
+   * 这台电脑上配置的其他各份二狗（468）：它们的数据文件夹、本机和外网端口、服务管家日志目录里属于它们的日志。
+   * 读、写它们的文件，访问它们的端口（http 请求、网络命令、浏览器工具、脚本里写着），一律硬拒绝（other_instance）——
+   * 批准、授权都改变不了：审批卡是这一份的用户点的，不能替另一份做主。调用方现取（守护进程从服务管家的注册表读）；不给是只有这一份
+   */
+  otherInstances?: readonly OtherInstance[];
+}
+
+/** 另一份二狗在守卫眼里（GuardPlaces.otherInstances） */
+export interface OtherInstance {
+  /** 服务管家里的登记 id（默认那份是 ergo-daemon） */
+  id: string;
+  /** 数据文件夹（写着的和真实路径都给：哪一种对上都算） */
+  dataDirs: readonly string[];
+  /** 本机端口和外网端口 */
+  ports: readonly number[];
+  /** 服务管家日志目录里属于它的日志文件（它自己的命令行输出、切下来的，它名下的服务的） */
+  logFiles: readonly string[];
 }
 
 /** 服务管家在守卫眼里：数据目录（受保护）和管理器端口 */
@@ -117,14 +135,18 @@ export interface GuardSupervisor {
 
 /**
  * 受保护的进程（杀进程时判定用）：调用方判定前现取（lsm/guard-facts.ts）——守护进程自己、服务管家（state.json 记的 manager.pid）、
- * 命脉服务（二狗自己的登记、它的公网隧道 exposure.via、tailnet 网关；state.json 记的 pid）
+ * 命脉服务（二狗自己的登记、它的公网隧道 exposure.via、tailnet 网关；state.json 记的 pid）；配置了多份时还有其他各份的守护进程
+ * （468：state.json 记的 pid、它数据目录里 daemon.pid 记的）
  */
 export interface ProtectedProcess {
   pid: number;
   /** 可执行文件名（node.exe、ssh.exe）；取不到不写 */
   exe?: string;
-  /** daemon：守护进程；manager：服务管家；service：命脉服务（service 是它的 id） */
-  role: "daemon" | "manager" | "service";
+  /**
+   * daemon：守护进程；manager：服务管家；service：命脉服务（service 是它的 id）；
+   * instance：这台电脑上另一份二狗的守护进程（service 是它的登记 id；杀它硬拒绝，468）
+   */
+  role: "daemon" | "manager" | "service" | "instance";
   service?: string;
 }
 
@@ -414,6 +436,11 @@ export interface ScriptFact {
    * 写着别的受保护区域里的路径落入"未知的写操作"（先问用户）
    */
   mentionedPaths?: string[];
+  /**
+   * 脚本里写着的、像端口的数（1024–65535 的整数，不论是不是写在本机地址后面；最多记 MAX_SCRIPT_PORTS 个，尽力而为）：
+   * 写着另一份二狗的端口、脚本又用到能联网的库的，判定函数硬拒绝（468）
+   */
+  mentionedPorts?: number[];
 }
 
 export interface GuardInput {
@@ -553,10 +580,11 @@ export interface JudgedCall {
  * - not_in_toolkit：工具包没给这个工具；
  * - sub_agent_records：子 agent 写项目档案（文件工具和 bash 都算）；
  * - secret_file：碰目录授权的登记目录里名字像密钥的文件（读、写、删都算，ADR-0049）；
- * - supervisor：绕过服务管家工具碰服务管家——往它的端口发不是查询的请求、跑它的命令行（lsm、packages/supervisor/bin 里的脚本）、
- *   ergo 的停止、重启、升级、回退、卸载和 svc（419）。
+ * - supervisor：绕过服务管家工具碰服务管家——往它的端口发请求、用浏览器打开它的页面、跑它的命令行（lsm、packages/supervisor/bin 里的脚本）、
+ *   ergo 的停止、重启、升级、回退、卸载、svc、init、unregister（419、468）；
+ * - other_instance：碰这台电脑上另一份二狗——读写它的文件夹、服务管家里它的日志，访问它的端口（468）。
  */
-export type HardRefusalId = "fence" | "secrets_area" | "network_off" | "no_bash" | "not_in_toolkit" | "sub_agent_records" | "secret_file" | "supervisor";
+export type HardRefusalId = "fence" | "secrets_area" | "network_off" | "no_bash" | "not_in_toolkit" | "sub_agent_records" | "secret_file" | "supervisor" | "other_instance";
 
 /** 一条处置依据 */
 export interface DispositionFinding {

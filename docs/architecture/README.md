@@ -366,6 +366,8 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 | 开机自启名单 `registry/autostart.yaml` | 服务管家数据目录 | 第一次 `ergo start` 写一份只含 `ergo-daemon` 的（`wx`，有文件绝不改）；之后归服务管家（WebUI、`lsm autostart`） | 不动 |
 | 二狗的登记 `registry/services/ergo-daemon.yaml` | 服务管家数据目录 | 每次 `ergo start`、切版本时按当前版本重写；`env` 里用的人多加的项（二狗自己写的那几项照旧覆盖）、用的人写的顶层 `exposure:` 留着，别处的手改不留 | 重写 |
 
+**可以配置多份（468，[ADR-0063](adr/0063-multiple-instances-one-data-folder-each.md)）。** 一份 = 一个数据文件夹。`cli/instances.ts` 认哪一份（`--dir` > `ERGO_DATA_DIR` > 当前目录或上级的实例标记文件 `ergo-instance.json` > `~/.ergo`；有标记就是那一份，没有就是默认那份 `ergo-daemon`）、读服务管家里登记的各份（`ergo-daemon` 和 env 里 `ERGO_SERVICE_ID` 写着自己 id 的登记）、挑端口；`CliContext` 带 `serviceId`，登记文件、日志、启停都按它。`ergo init / list / unregister` 在 `cli/instance-commands.ts`。默认那份以外的登记 env 多一项 `ERGO_SERVICE_ID`，第一次登记时经 `lsm autostart <id> on` 进开机自启名单（默认那份的名单规矩不变）。`switchTo` 换版本时各份的登记都重写、在跑的都重起（`instanceContexts`），`ergo uninstall` 各份都拿掉。守护进程按 `ownServiceId` 认自己，其他各份由 `lsm/other-instances.ts` 从注册表现读、交给守卫（`GuardPlaces.otherInstances`：文件夹、日志、端口一律硬拒绝 `other_instance`；它们的守护进程由 `lsm/guard-facts.ts` 记进受保护的进程，停、杀它们也硬拒绝）和秘书的服务管家工具（不列、不碰）。
+
 `syncAutostart`（`cli/service.ts`）只在安装版做，`ensureSvc`（`start`、`restart`）和 `switchTo`（`update`、`rollback`）都调：没有任务不新建（用的人撤掉了）；任务指着安装目录以外不动（用的人自己的服务管家，和 `ergo uninstall`、安装脚本同一条规矩）；指着安装目录里别的版本才重新注册；失败只说一句。`switchTo` 那个进程还跑在旧版本上（版本目录是启动器按 `current` 找的），切过去之后的登记、服务管家、任务都要按新版本的上下文做（`contextOfVersion`）。
 
 开机时服务管家按 `bootPlan` 判断"新的登录会话"，比较账本里上一次的 `sessionEpoch`：第一次起来没有记录，按不是开机处理。所以 `-NoStart` 装完没跑过 `ergo start` 就重启，二狗不会起来（那时也还没有登记和名单）。

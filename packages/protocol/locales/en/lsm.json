@@ -149,5 +149,7 @@
   "lsm.tools.managerNote": "The service manager says: {note}",
   "lsm.tools.done.forcedStop": "{name} has no normal way to stop, so it was force-stopped (whatever it was doing was cut off).",
   "lsm.tools.done.forcedRestart": "{name} has no normal way to restart, so it was force-restarted (force-stopped, then started).",
-  "lsm.tools.err.noIdleStop": "{name} doesn't report when it's busy, so there's no waiting until it's idle. If the user just wants it stopped, use stop: with no normal way to stop, it gets force-stopped right away."
+  "lsm.tools.err.noIdleStop": "{name} doesn't report when it's busy, so there's no waiting until it's idle. If the user just wants it stopped, use stop: with no normal way to stop, it gets force-stopped right away.",
+  "lsm.tools.otherInstance": "“{name}” belongs to another ergo instance on this computer ({id}), so it can't be viewed or changed from here: instances are kept apart. Manage it from that instance",
+  "lsm.tools.otherInstanceProfile": "The profile “{profile}” includes services of another ergo instance on this computer ({id}); starting or stopping it as a profile would reach them too, so it wasn't done. Start or stop this instance's own services one by one"
 }

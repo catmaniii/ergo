@@ -87,7 +87,8 @@ export function parseSupervisorSnapshot(raw: unknown): SupervisorSnapshot | unde
 }
 
 /** 二狗在用的本机服务的端口（语音合成、语音识别；组合根用 voicePortsInUse 从配置算）；不在用的不给 */
-export type ServicesInUse = VoicePortsInUse;
+/** 二狗在用的语音服务的端口，和二狗自己在服务管家里的登记 id（配置了多份时各份不同；不给是 ergo-daemon） */
+export type ServicesInUse = VoicePortsInUse & { self?: string };
 
 /** 和二狗有关的一个服务：它是干什么的（几种用途可以叠）、二狗要不要用它 */
 type Use = "speech" | "recognizer" | "tunnel" | "gateway" | "dependency" | "project" | "marked";
@@ -121,7 +122,7 @@ function relatedOf(snapshot: SupervisorSnapshot, inUse: ServicesInUse): Related[
     ...(s.ergo ? { ergo: true } : {}),
   }));
   const byId = new Map(snapshot.services.map((s) => [s.id, s]));
-  const related = ergoRelated(services, { self: DAEMON_SERVICE_ID, ...inUse, tailnetGateway: snapshot.tailnetGateway?.id });
+  const related = ergoRelated(services, { ...inUse, self: inUse.self ?? DAEMON_SERVICE_ID, tailnetGateway: snapshot.tailnetGateway?.id });
   return [...related].flatMap(([id, ergoUses]) => {
     const uses = ergoUses.flatMap((use) => USE_OF[use] ?? []);
     const service = byId.get(id);

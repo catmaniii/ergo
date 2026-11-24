@@ -38,3 +38,30 @@ export function flagString(args: ParsedArgs, name: string): string | undefined {
 export function flagOn(args: ParsedArgs, name: string): boolean {
   return args.flags.has(name);
 }
+
+/**
+ * 拿出 --dir <文件夹>（--dir=<文件夹>）：每条命令都认，放在命令前后都行（-- 之后的不算）。回剩下的参数和它的值（写了几次取最后一次）。
+ * 原样转给别的程序的命令（svc、backup、restore）也先拿掉它，免得转过去
+ */
+export function takeDirFlag(argv: readonly string[]): { dir?: string; argv: string[] } {
+  const rest: string[] = [];
+  let dir: string | undefined;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]!;
+    if (a === "--") {
+      rest.push(...argv.slice(i));
+      break;
+    }
+    if (a === "--dir") {
+      if (i + 1 < argv.length) dir = argv[++i]!;
+      else dir = "";
+      continue;
+    }
+    if (a.startsWith("--dir=")) {
+      dir = a.slice("--dir=".length);
+      continue;
+    }
+    rest.push(a);
+  }
+  return dir === undefined ? { argv: rest } : { dir, argv: rest };
+}
