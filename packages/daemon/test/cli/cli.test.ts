@@ -203,6 +203,16 @@ describe("参数和语言", () => {
     ]);
   });
 
+  it("ergo --version、-v 打版本，和 ergo version 一样（不是帮助）", async () => {
+    const t = await installedCli();
+    for (const flag of ["--version", "-v", "version"]) {
+      t.out.length = 0;
+      expect(await t.run(flag)).toBe(0);
+      expect(t.out.join("\n")).toContain("0.2.0");
+      expect(t.out.join("\n")).not.toContain("start ");
+    }
+  });
+
   it("语言：ERGO_LANGUAGE > 二狗设置的语言 > 系统的（中文系统中文，别的英文）", () => {
     const data = tmp();
     expect(cliLanguage({}, data, "zh-Hans-CN")).toBe("zh-CN");

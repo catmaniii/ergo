@@ -62,6 +62,8 @@ export async function runCli(fullArgv: readonly string[], given: CliContext): Pr
   const ctx = taken.dir === undefined ? given : contextForInstance(given, { dir: taken.dir });
   const argv = taken.argv;
   const args = parseArgs(argv, VALUE_FLAGS);
+  // parseArgs 把开头的 --version、-v 当成开关，命令就成了空的（以前 ergo --version 打出的是帮助）
+  if (args.command === undefined && (argv[0] === "--version" || argv[0] === "-v")) args.command = "version";
   if (ctx.instanceError && !ANY_INSTANCE.has(args.command)) {
     ctx.io.err(t("cli.instance.badMarker", ctx.instanceError));
     return 1;
