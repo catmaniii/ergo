@@ -194,13 +194,39 @@ There are two layers, and **both must be on for ergo to come back after a restar
 
 You can configure several ergo instances on one computer, kept apart from each other: each has its own data folder, ports, paired devices and credentials, so one instance's web page or phone can't get into another; one instance's agents can't reach another instance's files, ports or logs, or stop or kill it, either (refused outright, even with your approval). All instances are run by the same service manager, can start at boot, and share one copy of the program (one update switches them all).
 
-To create one:
+To create one, follow these four steps. The example folder is `D:\ergo-instances\work`; put it anywhere and call it anything.
 
-```powershell
-mkdir D:\work\ergo-b
-cd D:\work\ergo-b
-ergo init      # turn this empty folder into a new instance: picks ports, registers it with the service manager and autostart; doesn't start it
-ergo onboard   # start it and go through the setup wizard in the web page
+1. **Make an empty folder, go into it, and run `ergo init`.**
+
+   ```powershell
+   mkdir D:\ergo-instances\work
+   cd D:\ergo-instances\work
+   ergo init
+   ```
+
+   This turns the folder into a new instance and does three things: picks a free pair of ports, registers it with the service manager as `ergo-work`, and adds it to autostart. It doesn't start it yet. It prints:
+
+   ```text
+   Created an ergo instance: work, folder D:\ergo-instances\work, service manager entry ergo-work, local port 8820, external port 8821
+   Registered with the service manager and added to the autostart list (to turn that off: ergo svc autostart ergo-work off)
+   It isn't running yet. Next, run ergo onboard in this folder (D:\ergo-instances\work) to start it, then go through the setup wizard at http://127.0.0.1:8820/
+   ```
+
+2. **Still in that folder, run `ergo onboard` to start it.**
+
+3. **Open its address in a browser and go through the setup wizard.** The address is the `http://127.0.0.1:8820/` printed in step 1, not the default instance's 8810. This instance's model key, assistant name and data sources are all set separately, independent of the default one. From then on, `ergo open` in this folder opens this instance's page.
+
+4. **A phone that should use this instance has to reach it and pair with it separately.**
+   - Reach it the same way as the default instance (see [Letting your phone reach your computer](mobile.en.md#letting-your-phone-reach-your-computer-choosing-outside-access)), except that you connect to this instance's external port (8821 in the example, not 8811).
+   - Then scan the QR code in this instance's Settings · Device pairing.
+   - A phone paired with the default instance can't get into this one. An app connects to one instance at a time; to switch, see [Change address](mobile.en.md#change-address).
+
+Once it's created, `ergo list` shows the instances on this computer:
+
+```text
+  default (ergo-daemon)  running  http://127.0.0.1:8810/  C:\Users\<you>\.ergo  autostart
+* work (ergo-work)  running  http://127.0.0.1:8820/  D:\ergo-instances\work  autostart
+* is the instance commands run here act on
 ```
 
 - **The folder has to be empty.** This instance's data goes in it (it is this instance's data folder), kept apart from your own files. It can't be inside another instance's folder.
@@ -224,11 +250,12 @@ ergo onboard   # start it and go through the setup wizard in the web page
 
 Good to know:
 
+- **A browser on this computer can open every instance directly by default.** As with the default instance, requests on the local port don't need pairing. To make browsers and other programs on this computer pair before they get in, turn on "Require pairing on this computer too" in that instance's Settings · Device pairing; see [Require pairing on this computer too](mobile.en.md#require-pairing-on-this-computer-too).
 - **One update switches every instance.** After `ergo update` or `ergo rollback` switches versions, every running instance is restarted on the new version (each is stopped once it's idle).
 - **Uninstalling** stops every instance, removes them from the service manager, and asks about each folder (kept by default). The default instance can't be unregistered; use `ergo uninstall` to remove it.
 - **Give each instance its own backup "Also save to" folder.** Snapshots are stored by date, so instances sharing a folder overwrite each other.
 - **Shared by all instances, one per computer:** the service manager, the speech service (all instances use the one on local port 8090 by default), the ego browser, and this Windows account's Claude Code and Codex sign-ins.
-- **Public access** (the tunnel in the [deployment guide](../architecture/deployment.en.md)) is written for the default instance; reaching another instance from outside needs its own tunnel and port: put that instance's own `publicAccess` (its own domain and tunnel port on the VPS) in its `config\ergo.json`, register another tunnel in the service manager (copy `ergo-tunnel` and change the ports at both ends), then run the deploy command for that instance (with `ERGO_DATA_DIR` pointing at its folder). The deploy command writes one nginx site file per instance (`ergo.conf` for the default one, the service id such as `ergo-b.conf` for the others), so they never overwrite each other.
+- **Public access** (the tunnel in the [deployment guide](../architecture/deployment.en.md)) is written for the default instance; reaching another instance from outside needs its own tunnel and port: put that instance's own `publicAccess` (its own domain and tunnel port on the VPS) in its `config\ergo.json`, register another tunnel in the service manager (copy `ergo-tunnel` and change the ports at both ends), then run the deploy command for that instance (with `ERGO_DATA_DIR` pointing at its folder). The deploy command writes one nginx site file per instance (`ergo.conf` for the default one, the service id such as `ergo-work.conf` for the others), so they never overwrite each other.
 - **An instance's agents** can't use ergo commands to look at or manage an instance (with several instances it can't tell which one), and can't call the service manager's port directly; to see status and logs in the service manager, just ask ergo (see [Have ergo switch services for you](#have-ergo-switch-services-for-you) above).
 
 ## Install with npm (if you already have Node 22)

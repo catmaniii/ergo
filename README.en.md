@@ -47,6 +47,17 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 
 Then open <http://127.0.0.1:8810/> and follow the setup wizard; from now on ergo starts by itself when the PC restarts. Already installed? Update with `ergo update`.
 
+You can also run more than one ergo on the same computer, kept apart from each other: say one just for work, or one for someone else in your family. Each has its own data, ports and paired devices, and each starts at boot. Make an empty folder and run two commands in it:
+
+```powershell
+mkdir D:\ergo-instances\work
+cd D:\ergo-instances\work
+ergo init      # turn this empty folder into a new instance: picks ports, registers it with the service manager, adds it to autostart
+ergo onboard   # start it, then open the address it prints (e.g. http://127.0.0.1:8820/) and go through the setup wizard
+```
+
+`ergo list` shows the instances on this computer. For connecting a phone, and for stopping or deleting an instance, see [Several instances on one computer](docs/user-guide/install.en.md#several-instances-on-one-computer).
+
 Install options, source installs, updating, rolling back and uninstalling are in [Install, update and uninstall](docs/user-guide/install.en.md).
 
 On your phone: open ergo in the phone's browser, or install the phone app (the built-in browser is only in the app). The apps aren't in any app store:

@@ -47,6 +47,17 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 
 装好后浏览器打开 <http://127.0.0.1:8810/> 走设置向导；以后电脑重启，二狗自己起来。已经装了的，升级跑 `ergo update`。
 
+一台电脑上还能再开几份二狗，各份互相隔开，比如工作上的事单独放一份，或者给家里人另开一份。各份有各自的数据、端口、配对的设备，都开机自启。建一个空文件夹，在里面运行两条命令：
+
+```powershell
+mkdir D:\ergo-instances\work
+cd D:\ergo-instances\work
+ergo init      # 把这个空文件夹变成新的一份：挑端口、在服务管家里登记、加进开机自启
+ergo onboard   # 把它起来，再打开它打出的地址（比如 http://127.0.0.1:8820/）走设置向导
+```
+
+`ergo list` 看这台电脑上有哪几份。手机怎么连、怎么停用和删掉一份，见[一台电脑上配置多份](docs/user-guide/install.md#一台电脑上配置多份)。
+
 安装选项、从源码装、升级、回滚和卸载见[安装、升级和卸载](docs/user-guide/install.md)。
 
 手机上用：手机浏览器打开就行，或者装手机 App（内置浏览器只有 App 里有）。App 不在应用市场：
