@@ -6,6 +6,7 @@ import { flagOn, flagString, parseArgs } from "./args.ts";
 import { cmdBackupTool } from "./backup-tools.ts";
 import { cmdComponents } from "./components.ts";
 import type { CliContext } from "./context.ts";
+import { cmdLocalPairing } from "./local-pairing.ts";
 import { cmdNotify } from "./notify.ts";
 import { cmdLogs, cmdOnboard, cmdOpen, cmdRestart, cmdSvc, cmdStart, cmdStatus, cmdStop } from "./service.ts";
 import { cmdUninstall } from "./uninstall.ts";
@@ -107,6 +108,9 @@ export async function runCli(argv: readonly string[], ctx: CliContext): Promise<
     case "notify":
       // 给项目的服务用的：报一个事件，叫醒等它的任务
       return cmdNotify(ctx, args.positional[0], args.flags.get("data"));
+    case "local-pairing":
+      // 469：看、关"本机来的也要配对"（被关在外面时的退路）
+      return cmdLocalPairing(ctx, args.positional[0]);
     default:
       ctx.io.err(t("cli.unknownCommand", { command: args.command }));
       usage(ctx);

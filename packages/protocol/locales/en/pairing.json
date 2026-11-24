@@ -19,5 +19,6 @@
   "pairing.reject.noRequest": "No such pairing request",
   "pairing.reject.handled": "Already handled",
   "pairing.source.tunnel": "Via tunnel · {source}",
-  "pairing.source.external": "External port · {source}"
+  "pairing.source.external": "External port · {source}",
+  "pairing.source.local": "Local port · this computer"
 }

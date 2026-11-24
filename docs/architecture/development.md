@@ -75,7 +75,7 @@ Codex 不是 npm 依赖。用本机的：`npm i -g @openai/codex`，或者在设
 | 多语言检查 | `npm run i18n:check`（[多语言](README.md#多语言)） |
 | 构建网页 | `npm run build:web`（安装版，不带假数据，产物是单个文件 `packages/web/dist/index.html`） |
 | 构建在线演示页 | `npm run build:demo`（产物在 `packages/web/dist-demo/`；改界面时先构建它，再用 `file://` 打开看效果，[页面从哪里来](README.md#页面从哪里来原型和在线演示页)） |
-| 部署后打开真的页面看一眼 | `npm run smoke:page`（无头 Chrome 打开 `http://127.0.0.1:8810/`，`-- <地址>` 换地址） |
+| 部署后打开真的页面看一眼 | `npm run smoke:page`（无头 Chrome 打开 `http://127.0.0.1:8810/`，`-- <地址>` 换地址；那一份开着「本机来的也要配对」时带上它的本机程序令牌，数据目录按 `ERGO_DATA_DIR`） |
 | 构建鸿蒙 App | `npm run build:harmony`（[手机 App](#手机-app)） |
 | 构建安卓 App | `npm run build:android`（[安卓 App](#安卓-app)） |
 | 打发布包 | `npm run release`（`--build-mobile` 按 App 版本决定手机安装包编不编，[发布手机安装包](#发布手机安装包)） |

@@ -45,6 +45,8 @@ export interface PairingRequestRecord {
   deviceId?: string;
   /** 浏览器标识看起来像网络上的自动访问：原因；像普通浏览器的没有 */
   automated?: { reason: string };
+  /** 从这台电脑的本机端口发起的（469）：领到凭证的设备记成本机的（PairedDevice.local） */
+  local?: true;
 }
 
 export interface PairingRequestEventPayload {

@@ -410,6 +410,25 @@ button.device-main {
   color: var(--high-fg);
   font-weight: 600;
 }
+/*
+ * "这台电脑"那一块（469）：上面一段说明，下面隔一条细线是"本机来的也要配对"的开关（样子照安全开关 .safety-setting），
+ * 两段竖着排；打开前的弹窗里"正在用的这个浏览器"那一句加粗，命令能断行
+ */
+.device-row.device-local {
+  flex-direction: column;
+  align-items: stretch;
+}
+.device-local .local-pairing-setting {
+  padding: 10px 0 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+.local-pairing-confirm .local-pairing-self {
+  font-weight: 600;
+}
+.local-pairing-confirm code {
+  overflow-wrap: anywhere;
+}
 
 /* ---------- 设备配对：最上面的"显示配对二维码"，配对二维码界面。颜色、字号一律用 token；只有二维码本身永远白底黑块（ui/qr-code.tsx） ---------- */
 .device-show-qr {

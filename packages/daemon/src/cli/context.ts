@@ -1,11 +1,13 @@
 // ergo 命令的上下文：装在哪、数据在哪、服务管家的数据在哪、怎么输出、怎么联网。各条命令只经它拿这些，测试换成假的。
 import fs from "node:fs";
+import { LOCAL_TOKEN_HEADER } from "@ergo/protocol";
 import os from "node:os";
 import path from "node:path";
 import { componentTransport } from "../components/index.ts";
 import type { Transport } from "../components/transport.ts";
 import { DEFAULT_PORTS } from "../config/config.ts";
-import { resolveDataDir } from "../config/data-dir.ts";
+import { dataDirLayout, resolveDataDir } from "../config/data-dir.ts";
+import { readLocalToken } from "../pairing/local-access.ts";
 import { defaultInstallRoot, type InstallLayout } from "../release/layout.ts";
 
 export interface CliIo {
@@ -62,4 +64,13 @@ export function daemonPort(ctx: Pick<CliContext, "dataDir">): number {
 
 export function daemonUrl(ctx: Pick<CliContext, "dataDir">): string {
   return `http://127.0.0.1:${daemonPort(ctx)}/`;
+}
+
+/**
+ * 发给二狗本机端口的请求带上这一份的本机程序令牌（469："本机来的也要配对"开着时本机端口也要凭证；关着时二狗不看它）。
+ * 令牌在这一份数据目录的密钥区，守护进程每次起来换一份；读不到（没起来过、旧版本）就不带
+ */
+export function localTokenHeaders(ctx: Pick<CliContext, "dataDir">): Record<string, string> {
+  const token = readLocalToken(dataDirLayout(ctx.dataDir).localTokenFile);
+  return token === undefined ? {} : { [LOCAL_TOKEN_HEADER]: token };
 }

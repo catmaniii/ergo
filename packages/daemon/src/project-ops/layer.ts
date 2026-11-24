@@ -8,7 +8,7 @@
 // - 交出去的是各调用方的小接口：转入使用那一套（项目服务、提转入使用的工具）、秘书的工具、负责人的 check_ops、网关的启停请求、
 //   订阅时补推的服务、缩略图；接入 LSM 之后 start（组合根原来的位置，经组装函数的 startServices），停机时 stop。
 // 建这些都没有副作用（订阅事件、接 LSM 都在 start 里），所以组装函数在原来建项目的服务的位置装它：卡片类型、运营手段登记的先后照原来。
-import { CHANNELS, EVENT_TYPES, type EventFrame, HTTP_PATHS, type OperationsPlanView, type Project, type ProjectEventPayload, type ProjectServiceView } from "@ergo/protocol";
+import { CHANNELS, EVENT_TYPES, type EventFrame, HTTP_PATHS, LOCAL_TOKEN_HEADER, type OperationsPlanView, type Project, type ProjectEventPayload, type ProjectServiceView } from "@ergo/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { checkAppPrefix } from "../apps/prefix-check.ts";
 import type { CardService } from "../cards/cards.ts";
@@ -86,6 +86,8 @@ export interface OpsLayerDeps {
   serviceEvents: { desk: ServiceEventDesk; stateDir: string; thresholds: EventSourceThresholds };
   /** 服务首页的缩略图怎么截（测试注入假的）；不给就用 browser() 驱动无头浏览器截 */
   serviceThumbnail?: (url: string, signal: AbortSignal) => Promise<Buffer>;
+  /** 本机程序的令牌（469）：截服务首页的浏览器带着它，只加在发往二狗本机端口的请求上（"本机来的也要配对"开着时本机端口也要凭证） */
+  localToken?: () => string;
   browser: () => BrowserDriver;
   /** 二狗自己的端口：接入 LSM（start 交来实际监听的）之前按配置的 */
   ports: { local: number; external: number };
@@ -151,10 +153,11 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
     clock,
     now,
     log,
-    // 服务首页的缩略图：守护进程自己截，经二狗本机端口的转发（网关开好之后才有地址），存在缓存区；浏览器和联网工具同一个
+    // 服务首页的缩略图：守护进程自己截，经二狗本机端口的转发（网关开好之后才有地址），存在缓存区；浏览器和联网工具同一个。
+    // 带着本机程序的令牌（只发给本机端口）：本机来的也要配对开着时照样截得到
     thumbnails: {
       dir: deps.thumbnailsDir,
-      capture: deps.serviceThumbnail ?? ((url, signal) => captureServiceHome(deps.browser(), url, signal)),
+      capture: deps.serviceThumbnail ?? ((url, signal) => captureServiceHome(deps.browser(), url, signal, deps.localToken ? { [LOCAL_TOKEN_HEADER]: deps.localToken() } : undefined)),
       baseUrl: () => (ports ? `http://${LOCAL_HOST}:${ports.local}` : undefined),
     },
     events: { service: serviceEvents, url: () => (ports ? `http://${LOCAL_HOST}:${ports.local}${HTTP_PATHS.serviceEvents}` : undefined) },

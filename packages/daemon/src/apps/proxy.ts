@@ -4,7 +4,7 @@
 // - 普通请求、流式响应（边收边转，响应头先发出去）、WebSocket 升级（转成原始的 socket 管道）都转；
 // - 请求：Host 换成服务自己的（127.0.0.1:<端口>，开发服务器常常只认它）；Origin、Referer 是二狗自己的源，换成服务的源
 //   （服务眼里请求就是从它自己的页面发出的，它自己的同源检查、CSRF 检查照常过）；带上 X-Forwarded-Prefix / -Proto / -Host / -For
-//   （客户端自己写的这几个和 X-Real-IP 先去掉）；二狗自己的 cookie（设备凭证、配对）不转给服务；
+//   （客户端自己写的这几个和 X-Real-IP 先去掉）；二狗自己的 cookie（设备凭证、配对）、本机程序的令牌（469）不转给服务；
 // - 响应：Location 里服务自己的地址（http://127.0.0.1:<端口>/…）和以 / 开头、不在前缀下的路径改写回前缀下；
 //   去掉挡嵌入的头（X-Frame-Options、CSP 的 frame-ancestors），内置浏览器的 iframe 才显示得出来；
 //   Set-Cookie 的 Path 改到前缀下、去掉 Domain（几个服务的 cookie 互不覆盖），二狗自己的 cookie 名不许服务写；
@@ -15,7 +15,7 @@
 import http from "node:http";
 import type { Socket } from "node:net";
 import type { Duplex } from "node:stream";
-import { activeLanguage, APP_PREFIX_HEADER, appUrl, parseAppPath, t } from "@ergo/protocol";
+import { activeLanguage, APP_PREFIX_HEADER, appUrl, LOCAL_TOKEN_HEADER, parseAppPath, t } from "@ergo/protocol";
 import { isLoopbackHost, type AppRegistry, type RegisteredApp } from "./registry.ts";
 
 /** 网关交来的：这个请求从哪来 */
@@ -37,6 +37,8 @@ export interface AppProxy {
   upgrade(req: http.IncomingMessage, socket: Duplex, head: Buffer, ctx: AppRequestContext): void;
   /** 断开一台设备开着的 WebSocket 管道（它被吊销了） */
   dropDevice(deviceId: string): void;
+  /** 断开不是已配对设备开的 WebSocket 管道（469："本机来的也要配对"刚打开，本机端口上没凭证的连接都断开） */
+  dropUnpaired(): void;
   /** 断开全部开着的管道和还在流的响应（网关关闭） */
   close(): void;
 }
@@ -154,7 +156,7 @@ function forwardHeaders(req: http.IncomingMessage, app: RegisteredApp, ctx: AppR
   const out: http.OutgoingHttpHeaders = {};
   for (const [name, value] of Object.entries(req.headers)) {
     if (value === undefined || drop.has(name) || CLIENT_FORWARDED.includes(name)) continue;
-    if (name === "host" || name === "cookie" || name === "origin" || name === "referer") continue;
+    if (name === "host" || name === "cookie" || name === "origin" || name === "referer" || name === LOCAL_TOKEN_HEADER) continue;
     out[name] = value;
   }
   if (upgrading) {
@@ -367,6 +369,8 @@ export function createAppProxy(options: { registry: AppRegistry; log: (line: str
     },
 
     dropDevice: (deviceId) => dropTunnels((tunnel) => tunnel.deviceId === deviceId),
+
+    dropUnpaired: () => dropTunnels((tunnel) => tunnel.deviceId === undefined),
 
     close() {
       offRemoved();

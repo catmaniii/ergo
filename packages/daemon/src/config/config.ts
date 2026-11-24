@@ -198,12 +198,25 @@ export interface ErgoConfig {
    * 设置 · 插件里停用、启用、移除也写这里（writePluginsConfig）
    */
   plugins: PluginsConfig;
+  /**
+   * 设备配对（469）。配置里写 pairing: { localRequestsNeedPairing: true } 让本机端口来的请求也要配对（同一台电脑上有多个实例、
+   * 别的程序时互相隔开），默认关（本机端口来的自动信任）。设置 · 设备配对里开关（writePairingConfig），`ergo local-pairing off` 关
+   */
+  pairing: PairingConfig;
 }
 
 /** 连接地址：见 ErgoConfig 的 connection */
 export interface ConnectionConfig {
   manualAddress?: string;
 }
+
+/** 设备配对：见 ErgoConfig 的 pairing */
+export interface PairingConfig {
+  localRequestsNeedPairing: boolean;
+}
+
+/** 默认：本机端口来的自动信任，和以前一样 */
+export const DEFAULT_PAIRING_CONFIG: Readonly<PairingConfig> = Object.freeze({ localRequestsNeedPairing: false });
 
 /**
  * 插件：disabled 里写插件名（插件清单 plugins/manifest.ts 里的 name，比如 reminders），这些插件不装。
@@ -506,7 +519,25 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgoConfig {
   const connection = parseConnection(raw.connection);
   const web = parseWeb(raw.web, file);
   const plugins = parsePlugins(raw.plugins, file);
-  return { dataDir, ports, media, models, timeZone, materials, memory, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, reminders, scheduledJobs, eventSources, tokenPrices, voice, toolCallDetails, guard, setup, connection, web, plugins };
+  const pairing = parsePairing(raw.pairing, file);
+  return { dataDir, ports, media, models, timeZone, materials, memory, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, reminders, scheduledJobs, eventSources, tokenPrices, voice, toolCallDetails, guard, setup, connection, web, plugins, pairing };
+}
+
+/** 现读配置文件里的设备配对这一节（命令行 ergo local-pairing 看现在开没开用：不起守护进程、不读别的节）；文件不对时抛错 */
+export function readPairingConfig(configFile: string): PairingConfig {
+  return parsePairing(readConfigFile(configFile).pairing, configFile);
+}
+
+/**
+ * 本机来的也要配对改了（设置 · 设备配对、ergo local-pairing off）：只动配置文件 pairing 节的这一项（别的内容原样留着，
+ * 先写临时文件再改名）。关掉时去掉这一项，节空了整节去掉：没开过和开过又关掉是一个意思
+ */
+export function writePairingConfig(configFile: string, pairing: PairingConfig): void {
+  const raw = readConfigFile(configFile);
+  const { localRequestsNeedPairing: _old, ...rest } = isRecord(raw.pairing) ? raw.pairing : {};
+  const next = pairing.localRequestsNeedPairing ? { ...rest, localRequestsNeedPairing: true } : rest;
+  const { pairing: _p, ...others } = raw;
+  writeJsonAtomic(configFile, Object.keys(next).length > 0 ? { ...others, pairing: next } : others);
 }
 
 /**
@@ -703,6 +734,18 @@ function parseSetup(value: unknown): SetupConfig {
   };
   const legacyMarked = format === 1 && [value.skipped, value.done].some((list) => Array.isArray(list) && list.includes("components"));
   return { format, skipped: steps("skipped"), done: steps("done"), ...(legacyMarked ? { legacyComponentsMarked: true as const } : {}) };
+}
+
+/**
+ * pairing：localRequestsNeedPairing 只认 true / false，不写是关着。是安全开关，写错了拒绝启动（不悄悄当成关着），
+ * 说清楚怎么改；被锁在外面的退路是 ergo local-pairing off（它会改写这一项）
+ */
+function parsePairing(value: unknown, file: string): PairingConfig {
+  if (value === undefined) return { ...DEFAULT_PAIRING_CONFIG };
+  if (!isRecord(value)) throw new Error(`配置文件 ${file}：pairing 必须是一个对象（{ localRequestsNeedPairing }）`);
+  const on = value.localRequestsNeedPairing ?? DEFAULT_PAIRING_CONFIG.localRequestsNeedPairing;
+  if (typeof on !== "boolean") throw new Error(`配置文件 ${file}：pairing.localRequestsNeedPairing 必须是 true 或 false（本机来的也要配对），实际是 ${JSON.stringify(on)}`);
+  return { localRequestsNeedPairing: on };
 }
 
 /** connection：手填的地址收拾一下，写坏了当没写（不挡启动） */

@@ -3044,6 +3044,64 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }, 60_000);
   });
 
+  // 469：设置 · 设备配对"这台电脑"那一块的"本机来的也要配对"：打开前弹窗说清后果（本机端口上打开的写"这个浏览器自动配上对"，
+  // 别处打开的写"那台电脑上的页面回到配对页"，都写退路的命令），确认了才开；关掉直接关。配对页预览按这台电脑上的二狗显示（?demo-local）
+  test.each([
+    ["", "这台电脑上现在开着的二狗页面会回到配对页", "已打开：本机来的也要配对"],
+    ["?demo-local", "你正在用的这个浏览器会马上自动配上对", "已打开：本机来的也要配对"],
+    ["?lang=en&demo-local", "The browser you're using now is paired automatically", "On: pairing is required on this computer too"],
+  ])("设备页的本机来的也要配对（%s）：打开前说清后果，确认了才开，关掉直接关", async (search, selfLine, onToast) => {
+    for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
+      const { page, errors } = await open(viewport, search);
+      try {
+        await page.evaluate("location.hash = '#/more/devices'");
+        const toggle = page.locator(".device-local input[role=switch]");
+        await toggle.waitFor();
+        await expect.poll(() => toggle.isDisabled(), { timeout: 5000 }).toBe(false);
+        expect(await toggle.isChecked()).toBe(false);
+        await toggle.click();
+        const dialog = page.locator(".local-pairing-confirm");
+        await dialog.waitFor();
+        const text = await dialog.innerText();
+        expect(text).toContain(selfLine);
+        expect(text).toContain("ergo local-pairing off");
+        // 取消：还是关着
+        await page.locator(".modal .auth-actions .btn.ghost").click();
+        expect(await dialog.count()).toBe(0);
+        expect(await toggle.isChecked()).toBe(false);
+        await toggle.click();
+        await page.locator("[data-action=local-pairing-on]").click();
+        await expect.poll(() => toggle.isChecked(), { timeout: 5000 }).toBe(true);
+        await expect.poll(() => page.locator(".toast").innerText(), { timeout: 5000 }).toContain(onToast);
+        // 关掉不再问
+        await toggle.click();
+        await expect.poll(() => toggle.isChecked(), { timeout: 5000 }).toBe(false);
+        expect(await page.locator(".local-pairing-confirm").count()).toBe(0);
+        expect(errors).toEqual([]);
+      } finally {
+        await page.close();
+      }
+    }
+  }, 90_000);
+
+  test.each([
+    ["?demo-local", "这是这台电脑上的二狗"],
+    ["?lang=en&demo-local", "This is the ergo on this computer"],
+  ])("配对页预览（%s）：写明这是这台电脑上的二狗、在已配对的设备上批准、退路的命令", async (search, intro) => {
+    const { page, errors } = await open({ width: 390, height: 844 }, search);
+    try {
+      await page.evaluate("location.hash = '#/pair/wait'");
+      const card = page.locator(".pair-card");
+      await card.waitFor();
+      const text = await card.innerText();
+      expect(text).toContain(intro);
+      expect(text).toContain("ergo local-pairing off");
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
   test("演示数据：待办没有等你验收，提醒和越界通知和真实的一样，长程任务没有由你过目的阶段，界面上没有 LSM", async () => {
     const { page, errors } = await open({ width: 1280, height: 800 });
     const go = (to: string) => page.evaluate(`window.location.hash = ${JSON.stringify(to)}`);

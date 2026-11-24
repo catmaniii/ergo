@@ -235,6 +235,17 @@ export function isMediaId(value: string): boolean {
 /** HTTP 接口都在这个前缀下 */
 export const HTTP_API_PREFIX = "/api/";
 
+/**
+ * 本机程序的令牌（469）：守护进程每次起来生成一份，放在这一份数据目录的密钥区（LOCAL_TOKEN_FILE，相对数据目录），
+ * 本机的命令行、冒烟脚本按数据目录读它，带在请求和 WebSocket 握手的这个头里。"本机来的也要配对"开着时，本机端口上带着它的
+ * 当本机程序信任；关着时不看它。不进页面、不进日志，转发给项目的服务时去掉
+ */
+export const LOCAL_TOKEN_HEADER = "x-ergo-local-token";
+/** 本机程序的令牌在数据目录里的位置（密钥区，agent 读不到） */
+export const LOCAL_TOKEN_FILE = "secrets/local-token";
+/** 被关在外面时关掉"本机来的也要配对"的那条命令（命令行的帮助、设置页的说明、配对页上写的都是它） */
+export const LOCAL_PAIRING_OFF_COMMAND = "ergo local-pairing off";
+
 /** 查询参数的名字 */
 export const HTTP_QUERY = {
   /** 写分片：这个分片从第几个字节起 */
@@ -440,11 +451,17 @@ export const HTTP_PATHS = {
   /** GET：这个请求被信任吗（本机端口、带着有效凭证的已配对设备、都不是）。两个端口都有，不需要凭证 */
   access: `${HTTP_API_PREFIX}access`,
   /**
-   * 设备配对，只在外网端口上、不需要凭证：POST 发起（`{ deviceName? }`，不给就按 User-Agent 生成，
+   * 设备配对，只在外网端口上（"本机来的也要配对"开着时本机端口也有）、不需要凭证：POST 发起（`{ deviceName? }`，不给就按 User-Agent 生成，
    * 同一来源 10 分钟内最多 5 个）；GET 查自己这个请求，已批准就在这次响应里领到设备凭证（Set-Cookie）；
    * PATCH 改设备名（`{ deviceName }`，只在待批时能改）。认哪个请求靠发起时下发的配对 cookie（HttpOnly）
    */
   pairing: `${HTTP_API_PREFIX}pairing`,
+  /**
+   * 本机来的也要配对（469，形状在 http-schema.ts 的 LocalPairingView、LocalPairingBody）：GET 现在开没开，PUT 开或关。
+   * 由网关自己回（和 /api/access 一样），要已被信任。本机端口上还没配对的浏览器要打开它时，先替这个浏览器配上对
+   * （回 pairedThisBrowser，浏览器带着刚领到的凭证、confirm 再发一次才真的打开）
+   */
+  localPairing: `${HTTP_API_PREFIX}local-pairing`,
   uploads: api(UPLOADS),
   upload: (uploadId: string) => api(UPLOADS, uploadId),
   /** 写分片：从 offset 起 */

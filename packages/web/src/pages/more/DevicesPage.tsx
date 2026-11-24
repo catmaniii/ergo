@@ -1,6 +1,7 @@
 // 设置 · 设备配对（以前叫"已配对设备"）：最上面一个醒目的"显示配对二维码"（进 PairingQrPage），下面是已配对的设备。
 // 从外网用二狗的设备，可以随时延期、吊销、删除（吊销、删除后它开着的页面立刻被断开，回到配对页）。
-// PC 本机直接用，不需要配对。列表来自前端状态层（已配对设备频道上的 device 事件）。
+// PC 本机直接用，不需要配对——除非打开了"本机来的也要配对"（469，"这台电脑"那一块里的开关：打开前说清后果，本机端口上的这个浏览器
+// 由守护进程先配上对、带着凭证确认一次才打开，之后页面重新载入；关掉直接关）。列表来自前端状态层（已配对设备频道上的 device 事件）。
 // 领到凭证、还没带着它来过的设备标"等待首次使用"（领取的响应可能丢了），到期还没用过就自动作废。
 // 开过手机 App 的设备写 App 的版本，太旧的标要升到哪一版（ADR-0047）。安卓手机的 App 比二狗带的安装包旧时写"有新版 x.y.z"，
 // 就是这台手机的那一行（在 App 里开着设置）多一个"更新"按钮（ui/app-update.tsx，票 399）；鸿蒙不出（装不了，版本号还是两边共用的）。
@@ -25,6 +26,9 @@ import {
   DEVICE_CREDENTIAL_TTL_MS,
   DEVICE_EXTEND_CHOICES,
   DEVICE_FIRST_USE_WINDOW_MS,
+  type AccessInfo,
+  LOCAL_PAIRING_OFF_COMMAND,
+  type LocalPairingView,
   deviceAppNote,
   deviceSelfLine,
   type DeviceBatchAction,
@@ -47,6 +51,7 @@ import {
   toggleSelected,
 } from "../../state/index.ts";
 import { Section, Segmented, Sheet, TopBar, useNow } from "../../ui/common.tsx";
+import { T } from "../../ui/i18n.tsx";
 import { AppUpdateAction, useAppUpdateView } from "../../ui/app-update.tsx";
 import { useLongPress } from "../../ui/long-press.ts";
 import { PopupMenu } from "../../ui/popup.tsx";
@@ -202,15 +207,7 @@ export function DevicesPage({
             {t("pages.devices.showQr")}
           </button>
         )}
-        <div className="card device-row device-local">
-          <div>
-            <b>
-              {t("pages.devices.localComputer")}
-              {access?.access === "local" && <span className="muted">{t("pages.devices.thisOne")}</span>}
-            </b>
-            <div className="muted">{t("pages.devices.localTrusted")}</div>
-          </div>
-        </div>
+        <LocalComputer access={access} />
         <Section title={t("pages.devices.paired", { n: active.length })} extra={groupAll(activeEntries)}>
           {active.length === 0 && <div className="muted">{t("pages.devices.noneYet")}</div>}
           {rows(activeEntries)}
@@ -248,6 +245,125 @@ export function DevicesPage({
         />
       )}
     </div>
+  );
+}
+
+const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+/**
+ * "这台电脑"那一块：现在本机端口来的要不要配对，和"本机来的也要配对"的开关（469）。打开前弹窗说清后果；
+ * 在本机端口上（还没配对的这个浏览器）打开时，守护进程先替它配上对（凭证在那次响应的 cookie 里），带着凭证确认一次才打开，
+ * 之后重新载入页面（带着新凭证连上，"就是这台"跟着换）。关掉直接关
+ */
+function LocalComputer({ access }: { access: AccessInfo | undefined }) {
+  const { http } = useStore();
+  const toast = useToast();
+  const [view, setView] = useState<LocalPairingView>();
+  const [failed, setFailed] = useState<string>();
+  const [saving, setSaving] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const here = access?.access === "local";
+
+  useEffect(() => {
+    let live = true;
+    http.localPairing().then(
+      (next) => {
+        if (!live) return;
+        setView(next);
+        setFailed(undefined);
+      },
+      (err: unknown) => live && setFailed(t("pages.devices.localPairing.loadFailed", { reason: errorText(err) })),
+    );
+    return () => {
+      live = false;
+    };
+  }, [http]);
+
+  const save = async (on: boolean) => {
+    setSaving(true);
+    try {
+      let result = await http.saveLocalPairing({ on });
+      if (result.pairedThisBrowser) {
+        // 这个浏览器刚配上对：带着凭证确认一次才打开
+        result = await http.saveLocalPairing({ on: true, confirm: true });
+      }
+      // 本机端口上的这个浏览器打开了：带着凭证重新载入（从此是"已配对"里的一台；原型不发凭证，不重新载入）
+      if (on && result.on && here && import.meta.env.MODE !== "demo") return window.location.reload();
+      setView({ on: result.on });
+      toast(t(result.on ? "pages.devices.localPairing.on" : "pages.devices.localPairing.off"));
+    } catch (err) {
+      toast(t("pages.devices.localPairing.failed", { reason: errorText(err) }));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const on = view?.on === true;
+  return (
+    <div className="card device-row device-local">
+      <div>
+        <b>
+          {t("pages.devices.localComputer")}
+          {/* 开着时这个浏览器是"已配对"里的一台（那一行标就是这台） */}
+          {here && !on && <span className="muted">{t("pages.devices.thisOne")}</span>}
+        </b>
+        <div className="muted">{on ? t("pages.devices.localNeedsPairing") : t("pages.devices.localTrusted")}</div>
+      </div>
+      {failed && (
+        <div className="field-error" role="alert">
+          {failed}
+        </div>
+      )}
+      <label className="menu-item mem-setting safety-setting local-pairing-setting" data-switch="local-pairing">
+        <span className="menu-text">
+          {t("pages.devices.localPairing.title")}
+          <small>{t("pages.devices.localPairing.sub")}</small>
+        </span>
+        <input
+          type="checkbox"
+          role="switch"
+          className="mem-setting-switch"
+          aria-label={t("pages.devices.localPairing.title")}
+          checked={on}
+          disabled={view === undefined || saving}
+          onChange={(e) => (e.currentTarget.checked ? setAsking(true) : void save(false))}
+        />
+      </label>
+      {asking && (
+        <LocalPairingDialog
+          here={here}
+          onCancel={() => setAsking(false)}
+          onConfirm={() => {
+            setAsking(false);
+            void save(true);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** 打开"本机来的也要配对"之前：这台电脑上的浏览器以后也要配对；在本机端口上打开的，这个浏览器自动配上对；退路是哪条命令 */
+export function LocalPairingDialog({ here, onCancel, onConfirm }: { here: boolean; onCancel(): void; onConfirm(): void }) {
+  return (
+    <Sheet title={t("pages.devices.localPairing.confirmTitle")} onClose={onCancel} center>
+      <div className="modal-body local-pairing-confirm">
+        <p>{t("pages.devices.localPairing.confirmWho")}</p>
+        <p className="local-pairing-self">{here ? t("pages.devices.localPairing.confirmSelf") : t("pages.devices.localPairing.confirmRemote")}</p>
+        <p>{t("pages.devices.localPairing.confirmPrograms")}</p>
+        <p className="muted">
+          <T k="pages.devices.localPairing.confirmEscape" params={{ command: <code>{LOCAL_PAIRING_OFF_COMMAND}</code> }} />
+        </p>
+      </div>
+      <div className="auth-actions">
+        <button type="button" className="btn ghost" onClick={onCancel}>
+          {t("pages.devices.cancel")}
+        </button>
+        <button type="button" className="btn primary" data-action="local-pairing-on" onClick={onConfirm}>
+          {t("pages.devices.localPairing.turnOn")}
+        </button>
+      </div>
+    </Sheet>
   );
 }
 

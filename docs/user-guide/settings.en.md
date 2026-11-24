@@ -555,7 +555,7 @@ After restoring:
 
 ### Device pairing
 
-**What it is:** Connect a phone by scanning a code, and manage paired devices. At the top is **Show pairing code**; devices below can be extended, revoked or deleted.
+**What it is:** Connect a phone by scanning a code, and manage paired devices. At the top is **Show pairing code**; devices below can be extended, revoked or deleted. The **This computer (local)** block has the **Require pairing on this computer too** switch (off by default); see [Require pairing on this computer too](mobile.en.md#require-pairing-on-this-computer-too).
 
 See [On your phone](mobile.en.md) for more.
 

@@ -166,6 +166,9 @@ import type {
   AutostartView,
   SafetySettingsBody,
   SafetySettingsView,
+  LocalPairingBody,
+  LocalPairingResult,
+  LocalPairingView,
   MemorySettingsView,
   InterviewStartResult,
   InterviewStatusView,
@@ -565,6 +568,18 @@ export class FakeDaemonHttp implements DaemonHttp {
     this.safetyValue = { conversationApprovals: body.conversationApprovals ?? this.safetyValue.conversationApprovals, budgetControl: body.budgetControl ?? this.safetyValue.budgetControl };
     this.safetyPush?.pushSafety(this.safetyValue);
     return this.safetySettings();
+  }
+
+  /** 本机来的也要配对（469）：原型里只记在内存里，开头关着（默认）；原型不发凭证，打开直接算开了 */
+  private localPairingOn = false;
+
+  localPairing(): Promise<LocalPairingView> {
+    return Promise.resolve({ on: this.localPairingOn });
+  }
+
+  saveLocalPairing(body: LocalPairingBody): Promise<LocalPairingResult> {
+    this.localPairingOn = body.on;
+    return Promise.resolve({ on: this.localPairingOn });
   }
 
   /** 记忆的设置：原型里只记在这一页里，刷新回到默认（开着） */

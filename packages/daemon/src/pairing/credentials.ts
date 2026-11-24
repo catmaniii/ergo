@@ -10,6 +10,24 @@ import { PAIRING_FINGERPRINT_HEX_DIGITS, PAIRING_SHORT_CODE_DIGITS } from "@ergo
 export const DEVICE_COOKIE = "__Host-ergo-device";
 export const PAIRING_COOKIE = "__Host-ergo-pairing";
 
+/** 一个端口上的设备凭证、配对 cookie 叫什么 */
+export interface CookieNames {
+  device: string;
+  pairing: string;
+}
+
+/** 外网端口上的（经隧道来，各份二狗的域名不同，不会互相覆盖） */
+export const EXTERNAL_COOKIES: Readonly<CookieNames> = Object.freeze({ device: DEVICE_COOKIE, pairing: PAIRING_COOKIE });
+
+/**
+ * 本机端口上的（469，"本机来的也要配对"开着时）：cookie 不分端口，同一台电脑上几份二狗都在 127.0.0.1 上，
+ * 名字带上本机端口才不会互相覆盖、互相删掉（一份认不出另一份的凭证时会让浏览器删掉它）。仍以 __Host-ergo- 开头：
+ * 转发给项目的服务时一样去掉。Chrome、Edge 在 http://127.0.0.1 上照样收、照样带回 Secure 的 cookie（本机地址算安全的来源）
+ */
+export function localCookies(port: number): CookieNames {
+  return { device: `${DEVICE_COOKIE}-l${port}`, pairing: `${PAIRING_COOKIE}-l${port}` };
+}
+
 /** 256 位随机值，base64url（43 个字符） */
 export function newSecret(): string {
   return randomBytes(32).toString("base64url");

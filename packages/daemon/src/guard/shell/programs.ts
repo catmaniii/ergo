@@ -1311,11 +1311,12 @@ const net: Handler = (inv, args, program) => {
 // ───────────────────────── 服务管家和二狗自己的运维命令（419） ─────────────────────────
 //
 // 停二狗、杀服务管家的路要走服务管家工具（418），不走命令行：lsm（服务管家的命令行，含 packages/supervisor/bin 里的脚本、
-// 别处拷的 lsm.mjs）、ergo 的停止、重启、升级、回退、卸载和 svc（原样转给 lsm）、守护进程的停止脚本 stop.ts，都拆成
+// 别处拷的 lsm.mjs）、ergo 的停止、重启、升级、回退、卸载和 svc（原样转给 lsm）、关掉"本机来的也要配对"的 local-pairing（469：
+// 被关在外面时用户自己的退路，agent 不能替用户关）、守护进程的停止脚本 stop.ts，都拆成
 // "服务管家的命令"，判定函数一律硬拒绝。程序目录里 packages/supervisor/bin 下的别的脚本由判定函数按路径认。
 
-/** ergo 命令里会停掉、换掉二狗，或者原样转给服务管家的子命令 */
-const ERGO_OPS = new Set(["stop", "restart", "svc", "update", "rollback", "uninstall"]);
+/** ergo 命令里会停掉、换掉二狗，原样转给服务管家，或者放松二狗的门（local-pairing，469）的子命令 */
+const ERGO_OPS = new Set(["stop", "restart", "svc", "update", "rollback", "uninstall", "local-pairing"]);
 
 /** lsm：服务管家的命令行，不分子命令（查状态也走服务管家工具） */
 const lsmCommand: Handler = (inv, args, program) => {

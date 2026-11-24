@@ -167,15 +167,18 @@ if (appReport) connection.reportAppVersion?.(appReport);
 // 原型的 ?demo-debug：一打开就在关于页，Debug 工具集已打开，各组有假数据（在页面读地址之前）
 if (demo && !SIDE_MODE) demo.startDebug();
 
-/** 这个页面被信任吗：问的路上、问到了（问不到也照常进，连不上时界面会提示）、还没配对（配对等待页怎么开场） */
-type AccessState = { kind: "checking" } | { kind: "ready"; info?: AccessInfo } | { kind: "unpaired"; opening: PairingOpening };
+/**
+ * 这个页面被信任吗：问的路上、问到了（问不到也照常进，连不上时界面会提示）、还没配对（配对等待页怎么开场；
+ * local：从这台电脑的本机端口打开的，本机来的也要配对开着，469）
+ */
+type AccessState = { kind: "checking" } | { kind: "ready"; info?: AccessInfo } | { kind: "unpaired"; opening: PairingOpening; local: boolean };
 
 function useAccessCheck(): AccessState {
   const [state, setState] = useState<AccessState>(demo ? { kind: "ready", info: demo.access() } : { kind: "checking" });
   useEffect(() => {
     if (demo) return;
     checkAccess().then(
-      (info) => setState(info.access === "none" ? { kind: "unpaired", opening: pairingOpening(info.reason, revokedMark.get()) } : { kind: "ready", info }),
+      (info) => setState(info.access === "none" ? { kind: "unpaired", opening: pairingOpening(info.reason, revokedMark.get()), local: info.local === true } : { kind: "ready", info }),
       () => setState({ kind: "ready" }),
     );
   }, []);
@@ -189,20 +192,31 @@ const reload = () => window.location.reload();
  * 外网端口上还没配对（或者凭证失效了）：只有配对等待页（不连 WebSocket，连了也会被拒）。
  * 原型里吊销、删除了"就是这台"也到这里，用假的配对接口（重新申请、模拟批准之后刷新，假数据从头来）
  */
-function Unpaired({ opening }: { opening: PairingOpening }) {
+function Unpaired({ opening, local = false }: { opening: PairingOpening; local?: boolean }) {
   const [api] = useState(() => (demo ? demo.pairingApi() : httpPairingApi));
   // 回到配对页（还没配对、被吊销、过期）：本机快照、本机存的聊天记录都删掉，手机上不留个人数据
   useEffect(() => {
     void snapshots?.clear();
     void chatCache?.clear();
   }, []);
-  return <PairingWait api={api} onPaired={reload} opening={opening} onReapply={() => revokedMark.set(false)} />;
+  return <PairingWait api={api} onPaired={reload} opening={opening} onReapply={() => revokedMark.set(false)} local={local} />;
 }
 
-/** 用着用着连接报 unpaired：按知道的原因和浏览器里的记号定开场（打开这一页时定一次） */
+/**
+ * 用着用着连接报 unpaired：按知道的原因和浏览器里的记号定开场（打开这一页时定一次）；是不是这台电脑的本机端口（469：本机来的也要配对
+ * 刚打开）再问一次，问到了配对页上补上那几句
+ */
 function UnpairedNow({ reason }: { reason: CredentialRejection | undefined }) {
   const [opening] = useState(() => pairingOpening(reason, revokedMark.get()));
-  return <Unpaired opening={opening} />;
+  const [local, setLocal] = useState(false);
+  useEffect(() => {
+    if (demo) return;
+    checkAccess().then(
+      (info) => setLocal(info.access === "none" && info.local === true),
+      () => undefined,
+    );
+  }, []);
+  return <Unpaired opening={opening} local={local} />;
 }
 
 /** 跟着守护进程换词典：语言频道上推来的版本和手里的对不上就取一份；整个页面一份 */
@@ -247,7 +261,7 @@ export default function App() {
   useLocale();
   const access = useAccessCheck();
   if (access.kind === "checking") return null;
-  if (access.kind === "unpaired") return <Unpaired opening={access.opening} />;
+  if (access.kind === "unpaired") return <Unpaired opening={access.opening} local={access.local} />;
   const shell = SIDE_MODE ? <SideShell /> : <PrototypeStage />;
   return (
     <AccessProvider access={access.info}>
@@ -371,7 +385,7 @@ function Shell({ width }: { width: number }) {
   // 用着用着凭证失效了（外网端口上被吊销、过期）：回到配对等待页
   if (ui.connection === "unpaired") return <UnpairedNow reason={ui.unpairedReason} />;
   // 配对等待页的预览（演示页的设置 · 已配对设备里点进来）：新设备上看到的样子，用假的配对接口，没有 tab
-  if (demo && shown.tab === "pair-wait") return <PairingPreview api={demo.pairingApi} onExit={() => navigate({ tab: "more", page: "devices" })} />;
+  if (demo && shown.tab === "pair-wait") return <PairingPreview api={demo.pairingApi} local={demo.localPairingPreview()} onExit={() => navigate({ tab: "more", page: "devices" })} />;
 
   const current = navItemOf(shown);
   const nav = <MainNav orientation={wide ? "rail" : "bar"} items={navItems} pages={pages} fit={fit} highlight={current && navHighlight(fit, current)} badge={badge} navigate={navigate} onMeasure={onMeasure} />;
@@ -438,9 +452,9 @@ function PluginOffPage({ plugin }: { plugin: string | undefined }) {
 }
 
 /** 演示页：配对等待页的预览（不连守护进程） */
-function PairingPreview({ api: makeApi, onExit }: { api(): PairingApi; onExit(): void }) {
+function PairingPreview({ api: makeApi, onExit, local }: { api(): PairingApi; onExit(): void; local: boolean }) {
   const [api] = useState(makeApi);
-  return <PairingWait api={api} onPaired={onExit} onExit={onExit} />;
+  return <PairingWait api={api} onPaired={onExit} onExit={onExit} local={local} />;
 }
 
 function Page({ route, wide, folded, navigate }: { route: Route; wide: boolean; folded: readonly NavItem[]; navigate: Navigate }) {

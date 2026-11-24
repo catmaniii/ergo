@@ -186,6 +186,7 @@ import {
 } from "./projects/system.ts";
 import { createPairingService, type PairingService } from "./pairing/pairing.ts";
 import { pairingView } from "./pairing/views.ts";
+import { createLocalPairingSetting, issueLocalToken } from "./pairing/local-access.ts";
 import { bindService, createPluginHost, type PluginDefinition, type PluginHost } from "./plugins/host.ts";
 import { KERNEL, KERNEL_SERVICES } from "./plugins/kernel.ts";
 import { PLUGIN_MANIFEST } from "./plugins/manifest.ts";
@@ -769,6 +770,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         `多半是文件被别的程序占着或者没有权限，处理完重启守护进程就会再搬一次（老库一个字节没动）`,
     );
   }
+  // 本机来的也要配对（469）：设置现取（网关每个请求看它，改了马上生效）；本机程序的令牌每次起来换一份新的，写进这一份的密钥区，
+  // 本机的命令行、冒烟脚本按数据目录读它（守护进程的环境里没有它，子进程拿不到；agent 读不到密钥区）
+  const localPairing = createLocalPairingSetting({ configFile: layout.configFile, initial: config.pairing.localRequestsNeedPairing, log });
+  const localToken = issueLocalToken(layout.localTokenFile, log);
   // 安全和预算的两个开关：设置里改了写回配置文件、马上生效——下面交给守卫、任务执行、项目的工单判定、系统提示的都是现取的
   const safety = createSafetySettings({ configFile: layout.configFile, initial: { conversationApprovals: config.guard.conversationApprovals, budgetControl: config.tasks.thresholds.budgetControl }, log });
   const taskThresholds = withLiveBudgetControl(config.tasks.thresholds, safety);
@@ -1188,6 +1193,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       realDirs: { projects: realLayout.projects, data: realLayout.root, secrets: realLayout.secrets, program: programDir },
       ports: { local: localPort, external: options.externalPort ?? config.ports.external },
       ...(options.serviceThumbnail ? { serviceThumbnail: options.serviceThumbnail } : {}),
+      // 截服务首页的浏览器带着本机程序的令牌（469）
+      localToken: () => localToken.value(),
       // 服务首页的缩略图：浏览器和联网工具同一个（下面的浏览器探测）
       browser: () => playwrightDriver({ executablePath: browserPath, missing: () => browserLocator.missingReason() }),
       // project_ops 跟负责人说一句：和秘书转达、网关发消息同一条路（下面 userMessageScopeOf、userMessagePreludeOf）
@@ -2040,7 +2047,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       ready: {
         language: () => userName.current() !== undefined,
         model: () => modelSettings.keyView().apiKey.configured,
-        phone: () => pairing.list().some((device) => !device.revoked),
+        // 本机端口上配对的（469：这台电脑上的浏览器）不算手机
+        phone: () => pairing.list().some((device) => !device.revoked && device.local !== true),
       },
       // 只用来算老数据目录当时走完向导没有（以前第③步的条件，按功能门：装在这儿或者别处已经有了都算）
       legacyComponentsReady: () => components.view().features.some((feature) => feature.feature === COMPONENT_FEATURES.memorySemantic && feature.ready),
@@ -2083,10 +2091,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         },
         // 410：服务管家的数据和日志（%LOCALAPPDATA%\ergo\supervisor）在另一个卷上时那个卷也看
         disk: diskProbe(layout.root, { supervisorDir: svcDataDir }),
-        // 配对设备的算法和设置向导"手机"那一步一样：吊销了还没删的算现在用不上，不算
+        // 配对设备的算法和设置向导"手机"那一步一样：吊销了还没删的算现在用不上，不算；本机端口上配对的（469）不算外网入口
         external: externalProbe({
           svcDataDir,
-          pairedDevices: () => pairing.list().filter((device) => !device.revoked).length,
+          pairedDevices: () => pairing.list().filter((device) => !device.revoked && device.local !== true).length,
           addresses: () => {
             const view = connectionAddresses.view();
             return { manual: view.manual !== undefined, rejected: view.rejected };
@@ -2994,6 +3002,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       port: localPort,
       externalPort: options.externalPort ?? config.ports.external,
       pairing,
+      // 本机来的也要配对（469）：开着时本机端口也要凭证，不带浏览器的本机程序带令牌
+      localAccess: { setting: localPairing, token: localToken },
       ...(options.heartbeatIntervalMs === undefined ? {} : { heartbeatIntervalMs: options.heartbeatIntervalMs }),
       ...(options.webVersionPollMs === undefined ? {} : { webVersionPollMs: options.webVersionPollMs }),
       store,

@@ -1,10 +1,11 @@
 // ergo components list | add <id> [--accept-license] | remove <id> | import <文件或文件夹>（接组件和下载器）：
 // 只是二狗本机端口上组件接口（GET/POST /api/components…）的终端前端——下载、校验、装、离线导入都在守护进程里那一份，网页和这里共用。
+// 请求带着本机程序的令牌（469）："本机来的也要配对"开着时照常能用。
 // 二狗没在跑时说一句先 ergo start。要确认许可的组件：没加 --accept-license 时打出许可、不下载。
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { type ComponentImportResult, type ComponentsView, type ComponentView, componentBusy, componentNeedsLicense, t } from "@ergo/protocol";
-import { type CliContext, daemonUrl } from "./context.ts";
+import { type CliContext, daemonUrl, localTokenHeaders } from "./context.ts";
 import { sizeText } from "./texts.ts";
 
 class DaemonDown extends Error {}
@@ -14,7 +15,9 @@ async function api<T>(ctx: CliContext, method: "GET" | "POST", route: string, bo
   try {
     res = await fetch(new URL(route, daemonUrl(ctx)), {
       method,
-      ...(body === undefined ? {} : { body: JSON.stringify(body), headers: { "content-type": "application/json" } }),
+      // 本机程序的令牌："本机来的也要配对"开着时本机端口也要凭证（469）
+      headers: { ...localTokenHeaders(ctx), ...(body === undefined ? {} : { "content-type": "application/json" }) },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: AbortSignal.timeout(60_000),
     });
   } catch {

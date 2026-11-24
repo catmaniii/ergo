@@ -1,7 +1,12 @@
 // 网关：两个监听端口，都只监听 127.0.0.1。
-// - 本机端口：自动信任，校验 Host 和 Origin（local-origin.ts）；
+// - 本机端口：校验 Host 和 Origin（local-origin.ts）；默认自动信任；
 // - 外网端口：隧道的唯一目标，永远不享受本机信任，每个 HTTP 请求和 WebSocket 握手都要带有效的设备凭证；
 //   没有凭证只能拿到页面本身、查"我有没有被信任"、发配对请求（external.ts）。本机信任只看从哪个端口进来，不看来源 IP。
+// - 本机来的也要配对（469，设置项，默认关；pairing/local-access.ts）：开着时本机端口和外网端口同一套规矩——没凭证的只能拿页面、
+//   查状态、发配对请求；凭证 cookie 的名字带本机端口（同一台电脑上几份二狗互不覆盖）。不带浏览器的本机调用方照常能用：
+//   带着本机程序令牌（LOCAL_TOKEN_HEADER，命令行、冒烟脚本、守护进程自己截服务首页）的当本机程序信任；服务管家的健康探针
+//   只放 /healthz 这一个；项目的服务报事件、项目自动转的 MCP 自带 Bearer 凭证，交给接口自己认。打开的那一刻本机端口上没凭证的
+//   连接都断开；本机端口上靠端口被信任的浏览器去打开它时，先替这个浏览器配上对（/api/local-pairing），不把自己关在外面。
 // 两个端口提供同样的东西：
 // - Web UI 的静态文件（单文件构建产物 index.html，每次请求重新读，重新构建后不用重启；原样发出，不往页面里塞任何密钥或令牌）；
 //   浏览器说收 gzip 的压缩了发（450：页面近 4 MB，压完 1 MB 左右；手机经隧道切回前台、页面换了一版要重新下的时候白屏的那几秒
@@ -109,6 +114,11 @@ import {
   type WebVersionView,
   WS_CLOSE_UNPAIRED,
   compactChannel,
+  checkHttpBody,
+  LOCAL_TOKEN_HEADER,
+  LocalPairingBody,
+  type LocalPairingResult,
+  type LocalPairingView,
   t,
 } from "@ergo/protocol";
 import { type PerMessageDeflateOptions, WebSocket, WebSocketServer } from "ws";
@@ -122,8 +132,9 @@ import type { StreamHub } from "../conversation/stream-hub.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EphemeralSource } from "../events/ephemeral.ts";
 import type { EventStore, NewEvent, StoredEvent } from "../events/event-store.ts";
-import { DEVICE_COOKIE, readCookie } from "../pairing/credentials.ts";
-import { checkExternalOrigin, clearDeviceCookie, deviceCookie, type DevicePairing, handlePairingRoute, requestSource } from "./external.ts";
+import { type CookieNames, EXTERNAL_COOKIES, localCookies, readCookie } from "../pairing/credentials.ts";
+import type { LocalPairingSetting, LocalToken } from "../pairing/local-access.ts";
+import { checkExternalOrigin, clearDeviceCookie, deviceCookie, type DevicePairing, handlePairingRoute, type PairingRouteOptions, readJson, requestSource } from "./external.ts";
 import { FONTS_PREFIX, serveFont } from "./fonts.ts";
 import { MAP_FRAME_PATH, serveMapFrame } from "./map-frame.ts";
 import { isMapPath, serveMap } from "./map-routes.ts";
@@ -280,6 +291,11 @@ export interface GatewayOptions {
   browsers?: () => BrowserLinks | undefined;
   /** 地图插件的服务：/tiles/、/_AMapService/ 交给它（现取，插件没启用时回 undefined）；不给就当没启用 */
   map?: () => MapService | undefined;
+  /**
+   * 本机来的也要配对（469）：设置（每个请求现取）和本机程序的令牌怎么认。不给就和以前一样：本机端口来的一律信任，
+   * 没有 /api/local-pairing
+   */
+  localAccess?: { setting: LocalPairingSetting; token: Pick<LocalToken, "matches"> };
   log: (line: string) => void;
 }
 
@@ -301,16 +317,29 @@ interface DeviceSession {
   refresh(): boolean;
 }
 
-/** 一个请求凭什么被信任：从本机端口进来，或者带着有效凭证的已配对设备 */
-type Trust = { kind: "local" } | { kind: "device"; device: PairedDevice };
+/**
+ * 一个请求凭什么被信任：从本机端口进来（program：本机来的也要配对开着时，带着本机程序令牌的），
+ * 或者带着有效凭证的已配对设备（local：从本机端口进来的，469）
+ */
+type Trust = { kind: "local"; program?: true } | { kind: "device"; device: PairedDevice; local?: true };
+
+/** 没被本机信任的请求从哪个端口来：外网端口，或者本机来的也要配对开着时的本机端口（cookie 名带端口，来源按 TCP 对端） */
+interface UntrustedSide {
+  cookies: CookieNames;
+  local: boolean;
+  pairingRoute: PairingRouteOptions;
+}
 
 const pathnameOf = (req: http.IncomingMessage) => new URL(req.url ?? "/", `http://${LOCAL_HOST}`).pathname;
+/** 本机端口上的来源：TCP 对端（本机端口上不信任客户端写的 X-Real-IP） */
+const localSource = (req: http.IncomingMessage) => ({ source: req.socket.remoteAddress ?? LOCAL_HOST, viaTunnel: false, local: true });
 /**
  * 转发给本机服务时写明的：浏览器连二狗用的协议（本机端口 http；外网端口按 nginx 覆盖写的 X-Forwarded-Proto，
  * 只在外网端口上信任它，没有就是直连的 http）、来源（外网端口同配对限频，以 X-Real-IP 为准）、哪台设备
  */
 const appContext = (req: http.IncomingMessage, trust: Trust): AppRequestContext => {
   if (trust.kind === "local") return { proto: "http", source: req.socket.remoteAddress ?? LOCAL_HOST };
+  if (trust.local) return { proto: "http", source: localSource(req).source, deviceId: trust.device.id };
   const proto = req.headers["x-forwarded-proto"];
   return { proto: proto === "https" ? "https" : "http", source: requestSource(req).source, deviceId: trust.device.id };
 };
@@ -370,12 +399,80 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     reply(res, 200, "text/html; charset=utf-8", gzipped.body, { "Content-Encoding": "gzip", Vary: "Accept-Encoding" });
   };
 
-  /** 已经被信任的请求（本机端口，或者外网端口上带着有效凭证的设备） */
+  const serveHealth = (res: http.ServerResponse) => {
+    const { status, body } = health();
+    return reply(res, status, "application/json; charset=utf-8", JSON.stringify(body));
+  };
+
+  // 本机来的也要配对（469）：设置每个请求现取；本机端口上的 cookie 名带端口（监听之后才知道实际端口）
+  const localAccess = options.localAccess;
+  const localNeedsPairing = () => localAccess?.setting.on() === true;
+  const localSide = (): UntrustedSide => {
+    const cookies = localCookies(localPort);
+    return { cookies, local: true, pairingRoute: { cookies, source: localSource } };
+  };
+  const EXTERNAL_SIDE: UntrustedSide = { cookies: EXTERNAL_COOKIES, local: false, pairingRoute: {} };
+  /** 带着本机程序的令牌（本机端口上才看） */
+  const programToken = (req: http.IncomingMessage) => {
+    const value = req.headers[LOCAL_TOKEN_HEADER];
+    return localAccess !== undefined && typeof value === "string" && localAccess.token.matches(value);
+  };
+
+  /**
+   * GET / PUT /api/local-pairing：开关"本机来的也要配对"。打开时，本机端口上靠端口被信任的浏览器（设置还关着）先替它配上对、
+   * 发下凭证（还不打开），浏览器带着凭证、confirm 再来一次，网关看到凭证真的带回来了才打开——存不下 cookie 的浏览器不会把自己关在外面。
+   * 已配对的设备、本机程序直接开关
+   */
+  const localPairingRoute = (req: http.IncomingMessage, res: http.ServerResponse, trust: Trust) => {
+    if (!localAccess) {
+      req.resume();
+      return sendError(res, "not_found", t("gateway.localPairing.none"));
+    }
+    if (req.method === "GET" || req.method === "HEAD") {
+      req.resume();
+      return sendJson(res, 200, { on: localAccess.setting.on() } satisfies LocalPairingView);
+    }
+    if (req.method !== "PUT") {
+      req.resume();
+      res.setHeader("Allow", "GET, HEAD, PUT");
+      return sendError(res, "method_not_allowed", t("gateway.methodNotAllowed", { method: req.method }));
+    }
+    readJson(req, res, (body) => {
+      const checked = checkHttpBody(LocalPairingBody, body);
+      if (!checked.ok) return sendError(res, "bad_request", t("gateway.badBody", { message: checked.message }));
+      const { on, confirm } = checked.value;
+      const done = (result: LocalPairingResult) => sendJson(res, 200, result);
+      if (!on) {
+        localAccess.setting.set(false);
+        return done({ on: false });
+      }
+      if (trust.kind === "device" || trust.program === true) {
+        localAccess.setting.set(true);
+        return done({ on: true });
+      }
+      // 本机端口上靠端口被信任的浏览器：已经带着这一份本机端口上的有效凭证（以前配过）的直接打开；确认时凭证没带回来的不打开
+      const cookies = localCookies(localPort);
+      const credential = readCookie(req.headers.cookie, cookies.device);
+      const device = pairing.authenticate(credential);
+      if (device && credential !== undefined) {
+        res.setHeader("Set-Cookie", deviceCookie(credential, pairing.cookieMaxAgeMs(device), cookies.device));
+        localAccess.setting.set(true);
+        return done({ on: true });
+      }
+      if (confirm === true) return sendError(res, "bad_request", t("gateway.localPairing.noCredential"));
+      const paired = pairing.pairDirectly({ userAgent: req.headers["user-agent"] ?? "" });
+      res.setHeader("Set-Cookie", deviceCookie(paired.credential, pairing.cookieMaxAgeMs(paired.device), cookies.device));
+      return done({ on: localAccess.setting.on(), pairedThisBrowser: true });
+    });
+  };
+
+  /** 已经被信任的请求（本机端口，或者带着有效凭证的设备） */
   const route = (req: http.IncomingMessage, res: http.ServerResponse, trust: Trust) => {
     const url = new URL(req.url ?? "/", `http://${LOCAL_HOST}`);
     const { pathname } = url;
     if (pathname === HTTP_PATHS.access) {
-      const access: AccessInfo = trust.kind === "local" ? { access: "local" } : { access: "device", device: { id: trust.device.id, name: trust.device.name } };
+      const access: AccessInfo =
+        trust.kind === "local" ? { access: "local" } : { access: "device", device: { id: trust.device.id, name: trust.device.name }, ...(trust.local ? { local: true as const } : {}) };
       return sendJson(res, 200, access);
     }
     if (pathname === HTTP_PATHS.pairing) {
@@ -383,8 +480,9 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
         req.resume();
         return sendError(res, "not_found", t("gateway.noPairingLocal"));
       }
-      return handlePairingRoute(req, res, pairing, log);
+      return handlePairingRoute(req, res, pairing, log, trust.local ? localSide().pairingRoute : {});
     }
+    if (pathname === HTTP_PATHS.localPairing) return localPairingRoute(req, res, trust);
     // 网页现在是哪一版：页面切回前台时问一次
     if (pathname === HTTP_PATHS.webVersion) {
       const version = webVersion.current();
@@ -395,10 +493,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     // 转发本机服务的页面：登记过的才转（任何方法都转），没登记的回 404 说明页
     if (options.apps.handles(pathname)) return options.apps.serve(req, res, appContext(req, trust));
     if (req.method !== "GET" && req.method !== "HEAD") return reply(res, 405, "text/plain; charset=utf-8", `${t("gateway.getOnly")}\n`);
-    if (pathname === "/healthz") {
-      const { status, body } = health();
-      return reply(res, status, "application/json; charset=utf-8", JSON.stringify(body));
-    }
+    if (pathname === "/healthz") return serveHealth(res);
     if (isPage(pathname)) return servePage(res);
     // 地图：瓦片转发、高德安全密钥代理；地图页的隔离框（453：谷歌关在里面跑）
     if (isMapPath(pathname)) return serveMap(req, res, url, options.map?.(), log);
@@ -413,13 +508,51 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     return reply(res, 404, "text/plain; charset=utf-8", `${t("gateway.noSuchPath")}\n`);
   };
 
+  /**
+   * 没被本机信任的请求：只认设备凭证。外网端口上的一律走这里；本机来的也要配对开着时，本机端口上不带本机程序令牌的也走这里
+   * （cookie 名带本机端口，来源按 TCP 对端）
+   */
+  const deviceGate = (req: http.IncomingMessage, res: http.ServerResponse, side: UntrustedSide) => {
+    const credential = readCookie(req.headers.cookie, side.cookies.device);
+    const device = pairing.authenticate(credential);
+    if (device && credential !== undefined) {
+      // 每次使用都续期：浏览器里的 cookie 跟着服务端一起延长（延期到更远的，活到那时）
+      res.setHeader("Set-Cookie", deviceCookie(credential, pairing.cookieMaxAgeMs(device), side.cookies.device));
+      return route(req, res, { kind: "device", device, ...(side.local ? { local: true as const } : {}) });
+    }
+    // 带着失效的凭证（吊销了、过期了）：让浏览器删掉它；查"我有没有被信任"时顺带告诉它为什么不认
+    // （页面据此在浏览器里留个"本设备已被吊销"的记号，刷新后不会自动重新申请）
+    const rejection = pairing.rejectionOf(credential);
+    if (credential !== undefined) res.setHeader("Set-Cookie", clearDeviceCookie(side.cookies.device));
+    const pathname = pathnameOf(req);
+    if (pathname === HTTP_PATHS.pairing) return handlePairingRoute(req, res, pairing, log, side.pairingRoute);
+    if (pathname === HTTP_PATHS.access) {
+      return sendJson(res, 200, { access: "none", ...(rejection === undefined ? {} : { reason: rejection }), ...(side.local ? { local: true as const } : {}) } satisfies AccessInfo);
+    }
+    // 页面本身：前端看到自己没被信任，显示配对等待页（首页以外的地址也给，见 isNavigation）
+    if ((req.method === "GET" || req.method === "HEAD") && (isPage(pathname) || isNavigation(req.headers))) return servePage(res);
+    // 别的一律要凭证（健康探针、历史分页、媒体上传下载……）；没读的请求体丢掉
+    req.resume();
+    return sendError(res, "unauthorized", t("gateway.unpaired"));
+  };
+
   const local = http.createServer((req, res) => {
     const check = checkLocalRequest(req.headers, localPort);
     if (!check.ok) {
       req.resume();
       return sendError(res, "forbidden", t("gateway.refused", { reason: check.reason }));
     }
-    route(req, res, { kind: "local" });
+    // 关着时本机端口来的一律信任；带着令牌的照样认出是本机程序（打开这项设置时不替它配对）
+    if (!localNeedsPairing()) return route(req, res, programToken(req) ? { kind: "local", program: true } : { kind: "local" });
+    // 本机来的也要配对：不带浏览器的本机调用方照常能用
+    // - 带着本机程序令牌的（命令行、冒烟脚本、守护进程自己截服务首页）当本机程序信任；
+    if (programToken(req)) return route(req, res, { kind: "local", program: true });
+    const pathname = pathnameOf(req);
+    // - 项目的服务报事件、项目自动转的 MCP 自带 Bearer 凭证，交给接口自己认（不带、带错的由接口回 401）；
+    if (pathname === HTTP_PATHS.serviceEvents || pathname === HTTP_PATHS.projectOpsMcp) return options.api(req, res, new URL(req.url ?? "/", `http://${LOCAL_HOST}`));
+    // - 服务管家的健康探针：只放 /healthz 这一个
+    if (pathname === "/healthz" && (req.method === "GET" || req.method === "HEAD")) return serveHealth(res);
+    deviceGate(req, res, localSide());
   });
 
   // 外网端口：不看来源 IP、不看 Host，只看凭证
@@ -439,25 +572,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
       req.resume();
       return sendError(res, "forbidden", t("gateway.refused", { reason: check.reason }));
     }
-    const credential = readCookie(req.headers.cookie, DEVICE_COOKIE);
-    const device = pairing.authenticate(credential);
-    if (device && credential !== undefined) {
-      // 每次使用都续期：浏览器里的 cookie 跟着服务端一起延长（延期到更远的，活到那时）
-      res.setHeader("Set-Cookie", deviceCookie(credential, pairing.cookieMaxAgeMs(device)));
-      return route(req, res, { kind: "device", device });
-    }
-    // 带着失效的凭证（吊销了、过期了）：让浏览器删掉它；查"我有没有被信任"时顺带告诉它为什么不认
-    // （页面据此在浏览器里留个"本设备已被吊销"的记号，刷新后不会自动重新申请）
-    const rejection = pairing.rejectionOf(credential);
-    if (credential !== undefined) res.setHeader("Set-Cookie", clearDeviceCookie());
-    const pathname = pathnameOf(req);
-    if (pathname === HTTP_PATHS.pairing) return handlePairingRoute(req, res, pairing, log);
-    if (pathname === HTTP_PATHS.access) return sendJson(res, 200, { access: "none", ...(rejection === undefined ? {} : { reason: rejection }) } satisfies AccessInfo);
-    // 页面本身：前端看到自己没被信任，显示配对等待页（首页以外的地址也给，见 isNavigation）
-    if ((req.method === "GET" || req.method === "HEAD") && (isPage(pathname) || isNavigation(req.headers))) return servePage(res);
-    // 别的一律要凭证（健康探针、历史分页、媒体上传下载……）；没读的请求体丢掉
-    req.resume();
-    return sendError(res, "unauthorized", t("gateway.unpaired"));
+    deviceGate(req, res, EXTERNAL_SIDE);
   });
 
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME_BYTES, perMessageDeflate: PER_MESSAGE_DEFLATE });
@@ -474,16 +589,25 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     });
   };
   // 握手：/ws 是前端协议；/apps/ 下面的是转发给本机服务的 WebSocket，校验和 /ws 一样
+  /** 本机端口上的握手凭什么被信任（469：本机来的也要配对开着时要本机程序令牌或设备凭证）；都没有是 undefined */
+  const localUpgradeTrust = (req: http.IncomingMessage): Trust | undefined => {
+    if (!localNeedsPairing()) return { kind: "local" };
+    if (programToken(req)) return { kind: "local", program: true };
+    const device = pairing.authenticate(readCookie(req.headers.cookie, localCookies(localPort).device));
+    return device ? { kind: "device", device, local: true } : undefined;
+  };
   local.on("upgrade", (req, socket, head) => {
     if (!checkLocalRequest(req.headers, localPort).ok) return refuse(socket, "403 Forbidden");
+    const trust = localUpgradeTrust(req);
+    if (!trust) return refuse(socket, "401 Unauthorized");
     const pathname = pathnameOf(req);
-    if (options.apps.handles(pathname)) return options.apps.upgrade(req, socket, head, appContext(req, { kind: "local" }));
+    if (options.apps.handles(pathname)) return options.apps.upgrade(req, socket, head, appContext(req, trust));
     if (pathname !== "/ws") return refuse(socket, "404 Not Found");
-    accept(req, socket, head, undefined);
+    accept(req, socket, head, trust.kind === "device" ? trust.device.id : undefined);
   });
   external.on("upgrade", (req, socket, head) => {
     if (!checkExternalOrigin(req.headers).ok) return refuse(socket, "403 Forbidden");
-    const device = pairing.authenticate(readCookie(req.headers.cookie, DEVICE_COOKIE));
+    const device = pairing.authenticate(readCookie(req.headers.cookie, EXTERNAL_COOKIES.device));
     if (!device) return refuse(socket, "401 Unauthorized");
     const pathname = pathnameOf(req);
     if (options.apps.handles(pathname)) return options.apps.upgrade(req, socket, head, appContext(req, { kind: "device", device }));
@@ -506,6 +630,13 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     for (const c of connections) if (c.deviceId === deviceId) c.closeUnpaired(t("gateway.revoked"));
     options.apps.dropDevice(deviceId);
   });
+  // 本机来的也要配对打开了：本机端口上没凭证（靠端口被信任）的连接立即关掉（连同转发给本机服务的）；前端据此重新问
+  // 自己被不被信任，有凭证的（打开它的那个浏览器）接着连，没有的回到配对页。本机程序的连接一样断开，带着令牌重连照常
+  const offLocalPairing = localAccess?.setting.onChange((on) => {
+    if (!on) return;
+    for (const c of connections) if (c.deviceId === undefined) c.closeUnpaired(t("gateway.localPairingOn"));
+    options.apps.dropUnpaired();
+  });
   // 心跳：上一轮 ping 没回 pong 的（半开连接）断掉
   const heartbeat = setInterval(() => {
     for (const c of connections) c.heartbeat();
@@ -520,6 +651,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     offStream();
     offNotifications();
     offRevoked();
+    offLocalPairing?.();
     // 已经交给连接的帧先写出去再断开：长帧压了再发（452），压缩在别的线程上做完才写，当场断开会把它和排在它后面的丢在半路——
     // 停机前推的最后几条事件、刚办完的请求的响应（比如取消了最后一个在跑的任务，等空闲的重启随即开始）就到不了网页
     await Promise.all([...connections].map((c) => c.flush(CLOSE_FLUSH_MS)));

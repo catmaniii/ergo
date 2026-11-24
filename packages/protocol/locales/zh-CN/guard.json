@@ -328,7 +328,7 @@
   "guard.judge.areas.supervisorState": "服务管家的运行状态",
   "guard.judge.areas.supervisorSecrets": "服务管家的密钥区",
   "guard.judge.supervisor.useTools": "服务管家的事（看状态和日志、启停服务、重启二狗自己）请用服务管家工具，不要用命令行、接口或杀进程绕过它",
-  "guard.judge.supervisor.command": "{what}是服务管家或二狗自己的运维命令（lsm、ergo 的停止、重启、升级这类），用它能把二狗停掉",
+  "guard.judge.supervisor.command": "{what}是服务管家或二狗自己的运维命令（lsm、ergo 的停止、重启、升级这类，用它能把二狗停掉；还有 ergo local-pairing，关掉「本机来的也要配对」只能由用户自己来）",
   "guard.judge.supervisor.port": "{what}往服务管家的端口 {port} 发 {method} 请求：服务管家不验身份，发过去就能停掉二狗、改服务，这个端口只许查询（GET）",
   "guard.judge.supervisor.connect": "{what}连到服务管家的端口 {port}，能绕过它的接口发任何请求",
   "guard.judge.supervisor.page": "{what}用浏览器打开服务管家的页面（端口 {port}），上面能点停止、重启，先问用户",

@@ -47,7 +47,7 @@ export function PairingQrPanel() {
     const state = ui.cards[id];
     return state ? [state] : [];
   });
-  return <PairingQrContent view={view} error={error} local={access?.access === "local"} requests={requests} onCard={(id, action) => cardAction(id, action)} onSaveManual={saveManual} />;
+  return <PairingQrContent view={view} error={error} local={access?.access === "local" || (access?.access === "device" && access.local === true)} requests={requests} onCard={(id, action) => cardAction(id, action)} onSaveManual={saveManual} />;
 }
 
 export interface PairingQrContentProps {

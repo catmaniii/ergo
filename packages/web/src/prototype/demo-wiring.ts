@@ -6,7 +6,7 @@ import type { PairingApi } from "../app/pairing-flow.ts";
 import type { AccessInfo } from "../state/index.ts";
 import { startDemoDebug } from "./demo-debug.ts";
 import { localized, localizedFake } from "./fake-content.ts";
-import { FakeConnection } from "./fake-connection.ts";
+import { demoParam, FakeConnection } from "./fake-connection.ts";
 import { FAKE_ACCESS } from "./fake-data.ts";
 import { FakeDaemonHttp } from "./fake-http.ts";
 import { previewPairingApi } from "./preview-pairing.ts";
@@ -15,8 +15,10 @@ import { ProtoProvider } from "./proto-store.tsx";
 export interface DemoWiring {
   readonly connection: Connection;
   readonly http: DaemonHttp;
-  /** 假装是从已配对的一台手机上打开的：设置 · 已配对设备里标"就是这台" */
+  /** 假装是从已配对的一台手机上打开的：设置 · 已配对设备里标"就是这台"（?demo-local 时假装是这台电脑的本机端口，469） */
   access(): AccessInfo;
+  /** ?demo-local：配对页的预览按"这台电脑上的二狗打开了本机来的也要配对"显示（469） */
+  localPairingPreview(): boolean;
   pairingApi(): PairingApi;
   startDebug(): void;
   readonly ProtoProvider: typeof ProtoProvider;
@@ -28,7 +30,8 @@ export function demoWiring(): DemoWiring {
     connection: localizedFake(fake),
     // 原型的改工作日历交给假连接推事件
     http: localizedFake(new FakeDaemonHttp(fake)),
-    access: () => localized(FAKE_ACCESS),
+    access: () => (demoParam("demo-local") === null ? localized(FAKE_ACCESS) : { access: "local" }),
+    localPairingPreview: () => demoParam("demo-local") !== null,
     pairingApi: () => localizedFake(previewPairingApi(navigator.userAgent)),
     startDebug: startDemoDebug,
     ProtoProvider,

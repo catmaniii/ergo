@@ -4,6 +4,8 @@
 //   之后显示短码和十六进制短指纹，每隔两秒问一次批准了没有；批准后这台设备领到凭证（HttpOnly cookie，
 //   页面脚本看不到），进入二狗。请求过期、被拒以后回到说明页，要再点一次才重发。被吊销、凭证过期的设备
 //   说明页上写明原因（开场方式见 state/pairing-gate.ts）。鸿蒙 App 里是同一个页面。流程在 app/pairing-flow.ts；
+//   这台电脑上的二狗打开了"本机来的也要配对"时（469，/api/access 回 local），本机的浏览器也看到这一页：写明这是这台电脑上的二狗、
+//   要在已配对的设备上批准，被关在外面时怎么关掉这项设置；
 // - 批准页：在已信任的设备或 PC 本机上，显示同样的设备名、短码和短指纹供核对后批准；
 //   像网络上的自动访问的请求多一句醒目的提示。
 // 时长、位数都取共享协议包里的常量。
@@ -17,6 +19,7 @@ import {
   DEVICE_CREDENTIAL_TTL_MS,
   DEVICE_NAME_MAX_LENGTH,
   durationText,
+  LOCAL_PAIRING_OFF_COMMAND,
   normalizeDeviceName,
   PAIRING_REQUEST_TTL_MS,
   type PairingIntroNote,
@@ -27,6 +30,7 @@ import {
 } from "../state/index.ts";
 import { AutomatedHint, codeLabel, fingerprintLabel } from "../ui/cards/cards.tsx";
 import { TopBar, useNow } from "../ui/common.tsx";
+import { T } from "../ui/i18n.tsx";
 import { timeLabel } from "../util/time.ts";
 
 /** 新设备多久问一次批准了没有 */
@@ -59,9 +63,11 @@ export interface PairingWaitProps {
   opening?: PairingOpening;
   /** 用户点了"请求配对"（真实的：擦掉浏览器里"本设备已被吊销"的记号） */
   onReapply?: () => void;
+  /** 从这台电脑的本机端口打开的（本机来的也要配对开着）：说明页写明这是这台电脑上的二狗、在已配对的设备上批准、被关在外面的退路 */
+  local?: boolean;
 }
 
-export function PairingWait({ api, onPaired, onExit, opening = "new", onReapply }: PairingWaitProps) {
+export function PairingWait({ api, onPaired, onExit, opening = "new", onReapply, local = false }: PairingWaitProps) {
   const [flow] = useState(() => new PairingFlow(api));
   const app = pageNativeApp();
   const { loaded, request, busy, error } = useSyncExternalStore(flow.subscribe, flow.getState);
@@ -130,7 +136,9 @@ export function PairingWait({ api, onPaired, onExit, opening = "new", onReapply 
           </>
         ) : stage === "intro" || !request ? (
           <>
-            <p className="muted">{t("pages.pairing.intro", { label: requestLabel() })}</p>
+            <p className="muted">
+              {local ? <T k="pages.pairing.localNote" params={{ label: requestLabel(), command: <code>{LOCAL_PAIRING_OFF_COMMAND}</code> }} /> : t("pages.pairing.intro", { label: requestLabel() })}
+            </p>
             {note && (introNote(note).alert ? <div className="error">{introNote(note).text}</div> : <p className="muted">{introNote(note).text}</p>)}
             <DeviceNameField
               label={t("pages.pairing.nameLabelIntro")}
@@ -165,7 +173,7 @@ export function PairingWait({ api, onPaired, onExit, opening = "new", onReapply 
                 <b className="mono">{fingerprintLabel(request.fingerprint)}</b>
               </div>
             </div>
-            <p className="muted">{t("pages.pairing.waitingHint")}</p>
+            <p className="muted">{t(local ? "pages.pairing.waitingHintLocal" : "pages.pairing.waitingHint")}</p>
             {error && <div className="error">{error}</div>}
             {stage === "claiming" ? (
               <div className="pair-wait-row">
