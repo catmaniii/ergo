@@ -256,6 +256,7 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 - **备份的「另存到」各选各的文件夹。** 快照按日期放，几份选同一个文件夹会互相盖掉。
 - **一台电脑一个、各份一起用的：** 服务管家、语音合成服务（默认都连本机 8090 那一个）、ego 浏览器，以及这个 Windows 账号的 Claude Code、Codex 登录。
 - **公网入口**（[部署手册](../architecture/deployment.md)里的隧道）是按默认那份写的，另一份要从外面连，得另配一条隧道和端口：在那一份的 `config\ergo.json` 里写它自己的 `publicAccess`（自己的域名、VPS 上的隧道端口），在服务管家里另登记一条隧道（照 `ergo-tunnel` 改两头的端口），再对那一份运行部署命令（设 `ERGO_DATA_DIR` 指向它的文件夹）。部署命令按份写各自的 nginx 站点文件（默认那份 `ergo.conf`，别的份是登记 id，比如 `ergo-work.conf`），不会互相覆盖。
+- **各份的网页标题可以不一样。** 在那一份的 `config\ergo.json` 里写 `"webUi": { "title": "<标题>" }`，重启这一份（在它的文件夹里 `ergo restart`）后，浏览器标签页上显示这个标题，还没配对的设备看到的配对页也是。网页里面的名字不变（改助手的名字在设置向导或设置里）。
 - **各份的 agent** 不能用 ergo 命令看、管某一份（配置了多份时认不准是哪一份），也不能直接访问服务管家的端口；看服务管家里的状态和日志，跟二狗说就行（见上面的[让二狗替你开关服务](#让二狗替你开关服务)）。
 
 ## 用 npm 安装（已经有 Node 22 的）

@@ -284,6 +284,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 | `ports.local` / `ports.external` | 本机端口、外网端口（都只听 127.0.0.1） | 8810 / 8811 |
 | `guard.conversationApprovals` | 对话里有风险的事先问我（`"on"` / `"off"`） | `"off"` |
 | `pairing.localRequestsNeedPairing` | 本机来的也要配对（`true` / `false`；设置 · 设备配对里改了马上生效，`ergo local-pairing off` 关） | `false` |
+| `webUi.title` | 浏览器标签页上的标题（470，一行字，最多 60 个字；网关发页面时换掉 `<title>`，还没配对的设备看到的配对页也是它；网页里面的名字不变；改了重启生效） | 不换（构建出来的「二狗」） |
 | `tasks.maxRunning` | 最多几个任务同时执行 | 3 |
 | `tasks.thresholds` | 拉回几次停下、多久没进展算停滞、预算超几倍停下…… | 见样例 |
 | `agents.maxLive` | 同时存活的 agent 子进程上限 | 8 |

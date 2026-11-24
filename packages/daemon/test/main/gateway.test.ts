@@ -123,6 +123,41 @@ describe("本机端口", () => {
     expect((await get(url, "/nope")).status).toBe(404);
   });
 
+  it("配置里写了 webUi.title：发页面时换掉标签页上的标题（470），本机端口、外网端口上没配对的配对页、压缩了发的都换；写成纯文字；页面别处不动", async () => {
+    const { url, externalUrl } = await startTestDaemon({ config: { webUi: { title: " 记账<b>&co " } } });
+    const expected = TEST_PAGE.replace("<title>二狗测试页</title>", "<title>记账&lt;b&gt;&amp;co</title>");
+    const local = await getRaw(url, "/");
+    expect(local.status).toBe(200);
+    expect(local.body.toString("utf8")).toBe(expected);
+    expect((await getRaw(url, "/index.html")).body.toString("utf8")).toBe(expected);
+    // 外网端口上还没配对的新设备：拿到的配对页也是这个标题；压缩了发的解开一样
+    const viaTunnel = await getRaw(externalUrl, "/", "gzip");
+    expect(viaTunnel.headers["content-encoding"]).toBe("gzip");
+    expect(zlib.gunzipSync(viaTunnel.body).toString("utf8")).toBe(expected);
+  });
+
+  it("webUi.title 不写、写空是不换；写错了类型、写成多行、太长拒绝启动并说清楚", async () => {
+    const blank = await startTestDaemon({ config: { webUi: { title: "  " } } });
+    expect((await getRaw(blank.url, "/")).body.toString("utf8")).toBe(TEST_PAGE);
+    const { loadConfig } = await import("../../src/config/config.ts");
+    const { dataDirLayout } = await import("../../src/config/data-dir.ts");
+    const load = (webUi: unknown) => {
+      const dataDir = makeTempDir("ergo-webui-");
+      const file = dataDirLayout(dataDir).configFile;
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, JSON.stringify({ webUi }));
+      return () => loadConfig({ env: { ERGO_DATA_DIR: dataDir }, homeDir: makeTempDir("h-") }).webUi;
+    };
+    expect(load({})()).toEqual({});
+    expect(load({ title: null })()).toEqual({});
+    expect(load({ title: " 工具 " })()).toEqual({ title: "工具" });
+    expect(load("记账本")).toThrow("webUi 必须是一个对象");
+    expect(load({ title: 1 })).toThrow("webUi.title 必须是一行字");
+    expect(load({ title: "a\nb" })).toThrow("只能写一行");
+    expect(load({ title: "字".repeat(61) })).toThrow("太长了");
+    expect(load({ title: "字".repeat(60) })()).toEqual({ title: "字".repeat(60) });
+  });
+
   it("浏览器说收 gzip 时页面压缩了发（450：手机切回前台要重新下页面时少等几秒），解开和原文一字不差；不说的原样发；页面换了跟着换", async () => {
     const webRoot = makeTempDir("ergo-gzip-web-");
     const big = `<!doctype html><html><head><meta charset="utf-8"></head><body><div id="root"></div><script>${"const 二狗 = '把记忆还给你';\n".repeat(20_000)}</script></body></html>`;

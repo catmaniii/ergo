@@ -203,7 +203,20 @@ export interface ErgoConfig {
    * 别的程序时互相隔开），默认关（本机端口来的自动信任）。设置 · 设备配对里开关（writePairingConfig），`ergo local-pairing off` 关
    */
   pairing: PairingConfig;
+  /**
+   * 网页（470）。配置里写 webUi: { title: "…" } 换掉浏览器标签页上的标题（默认是构建出来的「二狗」），
+   * 一台电脑上几份各叫各的；网关发页面时换（配对页也是这一页），网页里面的名字不变。见 WebUiConfig
+   */
+  webUi: WebUiConfig;
 }
+
+/** 网页：见 ErgoConfig 的 webUi。title 去掉首尾空白，不写、写空是不换 */
+export interface WebUiConfig {
+  title?: string;
+}
+
+/** 网页标题最长多少字 */
+export const WEB_UI_TITLE_MAX = 60;
 
 /** 连接地址：见 ErgoConfig 的 connection */
 export interface ConnectionConfig {
@@ -520,7 +533,8 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgoConfig {
   const web = parseWeb(raw.web, file);
   const plugins = parsePlugins(raw.plugins, file);
   const pairing = parsePairing(raw.pairing, file);
-  return { dataDir, ports, media, models, timeZone, materials, memory, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, reminders, scheduledJobs, eventSources, tokenPrices, voice, toolCallDetails, guard, setup, connection, web, plugins, pairing };
+  const webUi = parseWebUi(raw.webUi, file);
+  return { dataDir, ports, media, models, timeZone, materials, memory, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, reminders, scheduledJobs, eventSources, tokenPrices, voice, toolCallDetails, guard, setup, connection, web, plugins, pairing, webUi };
 }
 
 /** 现读配置文件里的设备配对这一节（命令行 ergo local-pairing 看现在开没开用：不起守护进程、不读别的节）；文件不对时抛错 */
@@ -756,6 +770,20 @@ function parsePairing(value: unknown, file: string): PairingConfig {
   const on = value.localRequestsNeedPairing ?? DEFAULT_PAIRING_CONFIG.localRequestsNeedPairing;
   if (typeof on !== "boolean") throw new Error(`配置文件 ${file}：pairing.localRequestsNeedPairing 必须是 true 或 false（本机来的也要配对），实际是 ${JSON.stringify(on)}`);
   return { localRequestsNeedPairing: on };
+}
+
+/** webUi：title 是一行字，最长 WEB_UI_TITLE_MAX 个字；不写、写空是不换。写错了类型拒绝启动，说清楚怎么改 */
+function parseWebUi(value: unknown, file: string): WebUiConfig {
+  if (value === undefined) return {};
+  if (!isRecord(value)) throw new Error(`配置文件 ${file}：webUi 必须是一个对象（{ title }）`);
+  const raw = value.title;
+  if (raw === undefined || raw === null) return {};
+  if (typeof raw !== "string") throw new Error(`配置文件 ${file}：webUi.title 必须是一行字（浏览器标签页上的标题），实际是 ${JSON.stringify(raw)}`);
+  const title = raw.trim();
+  if (title === "") return {};
+  if (/[\r\n]/.test(title)) throw new Error(`配置文件 ${file}：webUi.title 只能写一行`);
+  if ([...title].length > WEB_UI_TITLE_MAX) throw new Error(`配置文件 ${file}：webUi.title 太长了，最多 ${WEB_UI_TITLE_MAX} 个字`);
+  return { title };
 }
 
 /** connection：手填的地址收拾一下，写坏了当没写（不挡启动） */

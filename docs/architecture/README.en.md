@@ -283,6 +283,7 @@ The config is optional, and without it everything uses defaults. To change somet
 | `ports.local` / `ports.external` | The local port and the external port (both listen only on 127.0.0.1) | 8810 / 8811 |
 | `guard.conversationApprovals` | Whether risky things in conversations ask you first (`"on"` / `"off"`) | `"off"` |
 | `pairing.localRequestsNeedPairing` | Require pairing on this computer too (`true` / `false`; changes in Settings · Device pairing take effect right away, `ergo local-pairing off` turns it off) | `false` |
+| `webUi.title` | The title on the browser tab (470; one line, at most 60 characters; the gateway swaps the page's `<title>` when serving it, so the pairing page an unpaired device sees has it too; names inside the page don't change; takes effect after a restart) | unchanged (the built-in "二狗") |
 | `tasks.maxRunning` | How many tasks can execute at once | 3 |
 | `tasks.thresholds` | How many pull-backs before stopping, how long without progress counts as stalled, how far over budget before stopping… | See the example |
 | `agents.maxLive` | Maximum agent child processes alive at once | 8 |
