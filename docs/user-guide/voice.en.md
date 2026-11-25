@@ -196,11 +196,13 @@ When the switch is off, the owner's updates come as text, and the secretary asks
 1. Click **+ Import reference voice**.
 2. Fill in **Name** and pick a **Reference recording** file.
 3. Click **Import**. The button changes to **Converting and transcribing…**; wait a moment.
-4. When it's done, it's listed below with its length and the recognized transcript.
+4. When it's done, it's listed below with its length and the recognized transcript. A recording over 30 seconds is trimmed automatically, and the line says something like **First 14.6s of a 2 min 10s recording**.
 
 ![Import reference voice](images/voice/09-import.png)
 
-**How to record well:** the recording has to be 1–30 seconds; 5–15 seconds is recommended, with one person speaking and no background music or noise. WAV, MP3, M4A, AAC, OPUS, OGG, FLAC and WebM all work, up to 20 MB. The transcript is recognized automatically; you don't need to write it.
+**How to record well:** one person speaking, with no background music or noise. WAV, MP3, M4A, AAC, OPUS, OGG, FLAC and WebM all work, up to 100 MB per file (enough for a recording of about ten minutes), and at least 1 second. The transcript is recognized automatically; you don't need to write it.
+
+**Long recordings are fine:** anything over 30 seconds is trimmed automatically: leading silence is removed and about 15 seconds are kept, cut at a pause in the speech (if there's no pause between 10 and 20 seconds, it's cut at 15 seconds). Only the trimmed part is stored, not the original recording, and the transcript is recognized from that part. To use a different part, trim it yourself before importing.
 
 **Managing:**
 

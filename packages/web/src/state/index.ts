@@ -59,6 +59,7 @@ export * from "./agent-roles.ts";
 export * from "./user-name.ts";
 export * from "./personal-files.ts";
 export * from "./voice-models.ts";
+export * from "./reference-voice.ts";
 export * from "./back-stack.ts";
 export * from "./detail-pane.ts";
 export * from "./detail-content.ts";

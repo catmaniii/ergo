@@ -155,11 +155,23 @@ export const VOICE_MODEL_STATUS_LABEL: Readonly<Record<(typeof VOICE_MODEL_STATU
   unloaded: "protocol.voice.model.unloaded",
 });
 
-/** 参考音色的录音：最短 1 秒、最长 30 秒（建议 5–15 秒干净的人声，经验上 15 秒以内最稳） */
+/**
+ * 参考音色的录音：最短 1 秒；克隆模型最长收 30 秒（经验上 15 秒以内最稳）。
+ * 长于 30 秒的不拒，导入时自动截一段当参考（守护进程的 voice/reference-trim.ts）：去掉开头的静音，从说话开始往后取，
+ * 目标 15 秒，在 10–20 秒之间找一处说话的停顿断开、挑离 15 秒最近的，找不到停顿就在 15 秒处硬截。只存截出来的那段
+ */
 export const REFERENCE_VOICE_MIN_MS = 1_000;
 export const REFERENCE_VOICE_MAX_MS = 30_000;
-/** 参考音色录音文件的上限：20 MB（30 秒 48 kHz 双声道 16 位的 WAV 约 5.5 MB） */
-export const REFERENCE_VOICE_MAX_BYTES = 20 * 1024 * 1024;
+/** 长录音自动截的目标长度 */
+export const REFERENCE_VOICE_TRIM_TARGET_MS = 15_000;
+/** 长录音自动截时，在说话开始后的这一段里找停顿断开 */
+export const REFERENCE_VOICE_TRIM_MIN_MS = 10_000;
+export const REFERENCE_VOICE_TRIM_MAX_MS = 20_000;
+/**
+ * 参考音色录音文件的上限：100 MB，放得下十分钟左右的常见录音（128 kbps 的 MP3、M4A 约 10 MB，
+ * 44.1 kHz 单声道 16 位的 WAV 约 53 MB，48 kHz 双声道的 WAV 约 9 分钟）。长的只留截出来的那段
+ */
+export const REFERENCE_VOICE_MAX_BYTES = 100 * 1024 * 1024;
 /** 参考音色的名字、逐字稿最长多少字 */
 export const REFERENCE_VOICE_NAME_MAX = 40;
 export const REFERENCE_VOICE_TEXT_MAX = 2_000;

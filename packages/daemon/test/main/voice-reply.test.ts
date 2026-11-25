@@ -45,7 +45,7 @@ import {
   SAMPLE_VOICE,
   startFakeSpeechService,
 } from "../helpers/tts.ts";
-import { fakeRecording, recognizerLog, sendVoice, voiceSettled } from "../helpers/voice.ts";
+import { fakeRecording, recognizerLog, sendVoice, setFakeAsrDefault, voiceSettled } from "../helpers/voice.ts";
 import { readWav } from "../../src/voice/wav.ts";
 import { fakeMp3, ffmpegLog } from "../helpers/audio.ts";
 
@@ -168,7 +168,7 @@ describe("设置里的参考音色", () => {
     expect(daemon.layout.voices).toBe(path.join(dataDir, "voices"));
   });
 
-  it("导入的规矩：1 到 30 秒按转换后的真实时长判、名字要有；不合的拒绝，什么都不写", async () => {
+  it("导入的规矩：不到 1 秒的按转换后的真实时长判、名字要有；不合的拒绝，什么都不写", async () => {
     const { url, dataDir } = await startTestDaemon({ reuse: dataDirWithoutReferenceVoices() });
     const reject = async (voice: { name: string; referenceText?: string; audio: Buffer }) => {
       const res = await referenceVoicesApi.import(url, voice);
@@ -177,7 +177,6 @@ describe("设置里的参考音色", () => {
     };
     expect(await reject({ name: "示例音色", referenceText: "你好", audio: Buffer.from("不是录音") })).toMatch(/转|音频/);
     expect(await reject({ name: "示例音色", referenceText: "你好", audio: makeWav(0.5) })).toMatch(/1 秒/);
-    expect(await reject({ name: "示例音色", referenceText: "你好", audio: makeWav(31) })).toMatch(/30 秒/);
     expect(await reject({ name: "示例音色", referenceText: "", audio: makeWav(3) })).toBeTruthy();
     expect(await reject({ name: "", referenceText: "你好", audio: makeWav(3) })).toBeTruthy();
     expect(voiceDirs(dataDir)).toEqual([]);
@@ -187,7 +186,7 @@ describe("设置里的参考音色", () => {
     expect(float.body.durationMs).toBe(2500);
   });
 
-  it("导入 mp3 这类常见音频：daemon 用本机的 ffmpeg 转成 16 kHz、单声道、PCM16 的 WAV 再存；1–30 秒按转换后的真实时长判", async () => {
+  it("导入 mp3 这类常见音频：daemon 用本机的 ffmpeg 转成 16 kHz、单声道、PCM16 的 WAV 再存；时长按转换后的真实时长判", async () => {
     const lines: string[] = [];
     const { url, dataDir, ffmpegLog: logFile } = await startTestDaemon({ log: (line) => lines.push(line) });
     const audio = fakeMp3({ seconds: 2.5, asr: { text: "这是一段自动识别出来的逐字稿。" } });
@@ -244,9 +243,8 @@ describe("设置里的参考音色", () => {
     const failed = await referenceVoicesApi.import(url, { name: "音色", audio: fakeMp3({ seconds: 2, asr: { error: "听不清" } }) });
     expect(failed.status).toBe(503);
     expect(failed.body.message).toMatch(/识别/);
-    // 太短、太长：按转换后的真实时长判
+    // 太短：按转换后的真实时长判（太长的不拒，自动截一段，见下一个用例）
     expect((await referenceVoicesApi.import(url, { name: "音色", audio: fakeMp3({ seconds: 0.5, asr: { text: "你好" } }) })).status).toBe(400);
-    expect((await referenceVoicesApi.import(url, { name: "音色", audio: fakeMp3({ seconds: 31, asr: { text: "你好" } }) })).status).toBe(400);
     // 一个目录都没留下，也没有半截的
     expect(voiceDirs(dataDir)).toEqual([]);
     const tmp = path.join(dataDir, "tmp");
@@ -262,6 +260,46 @@ describe("设置里的参考音色", () => {
     expect(ffmpegLog(logFile)).toHaveLength(conversions + 1);
     // 也没有 .importing-* 这类半截目录
     expect(fs.readdirSync(path.join(dataDir, "voices")).filter((name) => name.startsWith(".importing-") || name.startsWith(".installing-"))).toEqual([]);
+  });
+
+  it("参考录音太长不再报错（472）：长于 30 秒的自动截一段当参考，只存截出来的；逐字稿识别的是截出来的那段；交回、列出的带上原来多长", async () => {
+    const { url, dataDir, recognizerLog: logFile } = await startTestDaemon({ reuse: dataDirWithoutReferenceVoices() });
+    // 截出来的那段只有采样、带不了给假识别进程的指令：它照这一句回。整段录音（转换出来没截的）会回 mp3 里写的那句
+    setFakeAsrDefault(logFile, { text: "这是截出来那一段的逐字稿。" });
+
+    // 2 分 10 秒、开头 0.8 秒静音、说话开始后 14.3 秒有一处 0.6 秒的停顿：从 0.7 秒起截，断在停顿开头往后 0.2 秒，截了 14.6 秒
+    const long = await referenceVoicesApi.import(url, { name: "长录音", audio: fakeMp3({ seconds: 130, pauses: [[0, 0.8], [15.1, 15.7]], asr: { text: "整段录音的逐字稿，不该是它。" } }) });
+    expect(long.status).toBe(201);
+    expect(long.body).toMatchObject({ name: "长录音", referenceText: "这是截出来那一段的逐字稿。", durationMs: 14_600, trimmedFromMs: 130_000 });
+    // 识别进程拿到的是截出来的那段（14.6 秒的 WAV），不是转换出来的整段
+    const transcribed = recognizerLog(logFile).filter((entry) => entry.event === "transcribe");
+    expect(transcribed).toHaveLength(1);
+    expect(transcribed[0]!.wavMs).toBe(14_600);
+    // 存下的只有截出来的那段：16 kHz 单声道 PCM16 的 14.6 秒，voice.json 记下原来多长；原来的长录音不留，转换的临时文件清掉
+    const voiceDir = path.join(dataDir, "voices", long.body.id);
+    expect(readWav(fs.readFileSync(path.join(voiceDir, "reference.wav")))).toMatchObject({ sampleRate: 16000, channels: 1, bitsPerSample: 16, encoding: "pcm", durationMs: 14_600 });
+    expect(fs.readdirSync(voiceDir).toSorted()).toEqual(["reference.txt", "reference.wav", "voice.json"]);
+    expect(JSON.parse(fs.readFileSync(path.join(voiceDir, "voice.json"), "utf8"))).toMatchObject({ durationMs: 14_600, trimmedFromMs: 130_000 });
+    const tmp = path.join(dataDir, "tmp");
+    expect(fs.existsSync(tmp) ? fs.readdirSync(tmp).filter((name) => name.startsWith("ref-voice-")) : []).toEqual([]);
+
+    // 5 分钟、一处停顿都没有：说话开始后 15 秒处硬截
+    const flat = await referenceVoicesApi.import(url, { name: "没停顿", audio: fakeMp3({ seconds: 300, asr: { text: "整段的。" } }) });
+    expect(flat.status).toBe(201);
+    expect(flat.body).toMatchObject({ durationMs: 15_000, trimmedFromMs: 300_000, referenceText: "这是截出来那一段的逐字稿。" });
+
+    // 上传的文件可以比以前的 20 MB 大（十分钟左右的常见录音）：25 MB 的照样收
+    const big = Buffer.concat([fakeMp3({ seconds: 600, asr: { text: "大文件。" } }), Buffer.alloc(25 * 1024 * 1024)]);
+    const bigImport = await referenceVoicesApi.import(url, { name: "大文件", audio: big });
+    expect(bigImport.status).toBe(201);
+    expect(bigImport.body).toMatchObject({ durationMs: 15_000, trimmedFromMs: 600_000 });
+
+    // 列出来也带着；没截过的（30 秒以内）没有这个字段
+    const short = await referenceVoicesApi.import(url, { name: "短的", referenceText: "你好。", audio: makeWav(30) });
+    expect(short.status).toBe(201);
+    expect(short.body.durationMs).toBe(30_000);
+    expect(short.body).not.toHaveProperty("trimmedFromMs");
+    expect((await referenceVoicesApi.list(url)).body.voices).toEqual([long.body, flat.body, bigImport.body, short.body]);
   });
 });
 

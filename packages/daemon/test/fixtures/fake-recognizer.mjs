@@ -26,7 +26,10 @@
 //   exitAfterMs 加载好（回报之后）过这么多毫秒就退出（退出码 3），stderr 里留一句：模拟加载好就崩
 //   stallPing   已经加载好时再来的加载请求（重试前问一句识别进程还正不正常）不回：模拟进程活着却卡住了
 // 已经加载好时再来的加载请求照 recognizer.py 马上回报加载好的模型（不再照上面的指令加载），记成 ping。
-// 每件事往记录文件追加一行 JSON：start（pid、环境变量名、当前目录）、init、load、ping、transcribe（音频路径、语言、提示）、exit。
+// 文件里没有 FAKE-ASR 这一行（比如参考音色导入时从长录音里截出来的那段，只有采样）时，照记录文件旁边的
+// <记录文件>.default-asr.json 回（每次识别时现读；helpers/voice.ts 的 setFakeAsrDefault 写它），没有这个文件就是空文字。
+// 每件事往记录文件追加一行 JSON：start（pid、环境变量名、当前目录）、init、load、ping、
+// transcribe（音频路径、语言、提示，是 WAV 时按头量出的时长 wavMs）、exit。
 import fs from "node:fs";
 import readline from "node:readline";
 
@@ -45,12 +48,38 @@ let loaded;
 const queue = [];
 let busy = false;
 
+/** 没有 FAKE-ASR 这一行时照它回（<记录文件>.default-asr.json，没有是空文字） */
+function defaultDirective() {
+  const file = `${logFile}.default-asr.json`;
+  return logFile && fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : { text: "" };
+}
+
 function directiveOf(path) {
   const text = fs.readFileSync(path).toString("latin1");
   const at = text.indexOf("FAKE-ASR ");
-  if (at < 0) return { text: "" };
+  if (at < 0) return defaultDirective();
   const line = text.slice(at + "FAKE-ASR ".length).split("\n")[0];
   return JSON.parse(Buffer.from(line, "latin1").toString("utf8"));
+}
+
+/** 文件是 WAV 时按头量出的时长（毫秒，data 块的长度按头里写的）；不是 WAV、读不了时 undefined */
+function wavMs(path) {
+  let bytes;
+  try {
+    bytes = fs.readFileSync(path);
+  } catch {
+    return undefined;
+  }
+  if (bytes.length < 12 || bytes.toString("ascii", 0, 4) !== "RIFF" || bytes.toString("ascii", 8, 12) !== "WAVE") return undefined;
+  let byteRate;
+  for (let offset = 12; offset + 8 <= bytes.length; ) {
+    const id = bytes.toString("ascii", offset, offset + 4);
+    const size = bytes.readUInt32LE(offset + 4);
+    if (id === "fmt " && size >= 16) byteRate = bytes.readUInt32LE(offset + 16);
+    if (id === "data") return byteRate ? Math.round((Math.min(size, bytes.length - offset - 8) / byteRate) * 1000) : undefined;
+    offset += 8 + size + (size % 2);
+  }
+  return undefined;
 }
 
 /** 记录文件里这个文件识别过几次（含这一次） */
@@ -65,7 +94,8 @@ function timesTranscribed(path) {
 }
 
 async function transcribe(request) {
-  record({ event: "transcribe", path: request.path, language: request.language, initialPrompt: request.initialPrompt });
+  const ms = wavMs(request.path);
+  record({ event: "transcribe", path: request.path, language: request.language, initialPrompt: request.initialPrompt, ...(ms === undefined ? {} : { wavMs: ms }) });
   const d = directiveOf(request.path);
   const times = timesTranscribed(request.path);
   if (d.holdFile) while (!fs.existsSync(d.holdFile)) await sleep(20);

@@ -348,8 +348,18 @@ export class FakeDaemonHttp implements DaemonHttp {
   private memorySettingsValue: MemorySettingsView = { ...DEFAULT_MEMORY_SETTINGS };
   /** 原型里开着的访谈（点了记忆管理员对话里的"开始访谈"才有） */
   private fakeInterview: string | undefined;
-  /** 原型的参考音色（只在内存里） */
-  private voices: ReferenceVoice[] = [];
+  /** 原型的参考音色（只在内存里）：一开始有一条从长录音里自动截出来的（472，方便截图看"从 2 分 10 秒的录音里截了开头 14.6 秒"） */
+  private voices: ReferenceVoice[] = [
+    {
+      id: "v-proto-trimmed",
+      name: "示例音色（长录音）",
+      referenceText: "大家好，今天跟大家聊聊周末去爬山的事。天气特别好，山顶的风也不大，我们在上面待了快一个小时。",
+      durationMs: 14_600,
+      sha256: "",
+      importedAt: fakeDay(-3, 21, 30).toISOString(),
+      trimmedFromMs: 130_000,
+    },
+  ];
   private currentVoice: string | undefined;
   /** 原型的工具调用完整内容：编的一份，"现在就清理"后可清的清掉 */
   private storage: ToolCallStorageView = {

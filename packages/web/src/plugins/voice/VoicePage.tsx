@@ -17,9 +17,10 @@ import { useStore } from "../../app/store.tsx";
 import { toggleVoice, useVoicePlaying } from "../../app/page-voice.ts";
 import {
   COMPONENT_FEATURES,
-  REFERENCE_VOICE_MAX_MS,
-  REFERENCE_VOICE_MIN_MS,
   REFERENCE_VOICE_NAME_MAX,
+  referenceVoiceImportedNote,
+  referenceVoiceImportHint,
+  referenceVoiceTrimNote,
   type ReferenceVoice,
   type ReferenceVoiceList,
   type VoiceModelState,
@@ -127,7 +128,7 @@ export function VoicePage() {
           onClose={() => setImporting(false)}
           onImported={(voice) => {
             setImporting(false);
-            toast(t("pages.voice.imported", { name: voice.name }));
+            toast(referenceVoiceImportedNote(voice));
             load();
           }}
         />
@@ -187,7 +188,7 @@ function VoiceRow({ voice, current, onSelect, onRemove }: { voice: ReferenceVoic
           {current && <span className="chip chip-ok">{t("pages.voice.current")}</span>}
         </b>
         <div className="muted">
-          {voice.durationMs > 0 ? t("pages.voice.seconds", { seconds: (voice.durationMs / 1000).toFixed(1) }) : t("pages.voice.durationUnknown")}
+          {voice.durationMs > 0 ? (referenceVoiceTrimNote(voice) ?? t("pages.voice.seconds", { seconds: (voice.durationMs / 1000).toFixed(1) })) : t("pages.voice.durationUnknown")}
           {voice.importedAt ? ` · ${t("pages.voice.importedAt", { time: timeLabel(voice.importedAt) })}` : ""}
         </div>
         <div className="muted voice-ref-text">{t("pages.voice.transcriptLine", { text: voice.referenceText })}</div>
@@ -243,7 +244,7 @@ function ImportVoice({ onClose, onImported }: { onClose(): void; onImported(voic
         <input type="file" accept="audio/*,.wav,.mp3,.m4a,.aac,.opus,.ogg,.flac,.webm" onChange={(e) => setFile(e.target.files?.[0])} />
       </label>
       <div className="hint">
-        {t("pages.voice.importHint", { min: REFERENCE_VOICE_MIN_MS / 1000, max: REFERENCE_VOICE_MAX_MS / 1000 })}
+        {referenceVoiceImportHint()}
       </div>
       {error && <div className="sys-note">{error}</div>}
       <div className="auth-actions">
