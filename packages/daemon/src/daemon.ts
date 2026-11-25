@@ -3087,6 +3087,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         ...plugins.requests(),
       },
       webRoot: options.webRoot ?? DEFAULT_WEB_ROOT,
+      // 标签页上的标题（470）：配置里写了 webUi.title 才换
+      ...(config.webUi.title === undefined ? {} : { pageTitle: config.webUi.title }),
       // 插件：在运行的、配置里停用的、没装上的和原因；启用着的插件没装上算降级（status: degraded，照旧 200）
       health: () => {
         const s = secretary.health();

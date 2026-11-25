@@ -8,7 +8,8 @@
 //   只放 /healthz 这一个；项目的服务报事件、项目自动转的 MCP 自带 Bearer 凭证，交给接口自己认。打开的那一刻本机端口上没凭证的
 //   连接都断开；本机端口上靠端口被信任的浏览器去打开它时，先替这个浏览器配上对（/api/local-pairing），不把自己关在外面。
 // 两个端口提供同样的东西：
-// - Web UI 的静态文件（单文件构建产物 index.html，每次请求重新读，重新构建后不用重启；原样发出，不往页面里塞任何密钥或令牌）；
+// - Web UI 的静态文件（单文件构建产物 index.html，每次请求重新读，重新构建后不用重启；原样发出，不往页面里塞任何密钥或令牌，
+//   只有配置里写了 webUi.title 时换掉标签页上的标题，470）；
 //   浏览器说收 gzip 的压缩了发（450：页面近 4 MB，压完 1 MB 左右；手机经隧道切回前台、页面换了一版要重新下的时候白屏的那几秒
 //   主要花在下载上），页面没变就用上次压好的；
 //   视觉风格的字体在构建产物的 fonts/ 下，按 /fonts/ 提供（fonts.ts）；报告页预览 PDF 用的 pdf.js 在 pdfjs/ 下，
@@ -274,6 +275,8 @@ export interface GatewayOptions {
   requests: RequestHandlers;
   /** Web UI 构建产物所在的目录（里面有 index.html） */
   webRoot: string;
+  /** 浏览器标签页上的标题（470，配置里的 webUi.title）：发页面时换掉 <title>；不给照原样发 */
+  pageTitle?: string;
   /** 多久看一眼 index.html 换没换（毫秒），默认 2 秒 */
   webVersionPollMs?: number;
   /** 守护进程其他部分的健康状况，合进 /healthz */
@@ -344,6 +347,15 @@ const appContext = (req: http.IncomingMessage, trust: Trust): AppRequestContext 
   return { proto: proto === "https" ? "https" : "http", source: requestSource(req).source, deviceId: trust.device.id };
 };
 const isPage = (pathname: string) => pathname === "/" || pathname === "/index.html";
+/** 页面里的 <title>…</title>（第一个） */
+const TITLE_TAG = /<title>[^<]*<\/title>/i;
+/** 页面里第一个 <title>…</title> 换成给的标题（转义成纯文字）；没有 <title> 的原样 */
+export function withPageTitle(page: Buffer, title: string): Buffer {
+  const html = page.toString("utf8");
+  if (!TITLE_TAG.test(html)) return page;
+  const escaped = title.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  return Buffer.from(html.replace(TITLE_TAG, () => `<title>${escaped}</title>`), "utf8");
+}
 /**
  * 这是不是浏览器的一次页面导航：Accept 里有 text/html，或者 Sec-Fetch-Dest 是 document / iframe / frame。
  * 外网端口上没凭证时，这类请求一律给页面（前端显示配对页），不回 JSON 错误——原来只认首页，手机主屏上的快捷方式、
@@ -394,6 +406,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     } catch {
       return reply(res, 503, "text/plain; charset=utf-8", "Web UI 还没构建：在仓库根目录运行 npm run build:web\n"); // @i18n-ignore log：开发时才见得到
     }
+    if (options.pageTitle !== undefined) page = withPageTitle(page, options.pageTitle);
     if (!acceptsGzip(res.req.headers["accept-encoding"])) return reply(res, 200, "text/html; charset=utf-8", page, { Vary: "Accept-Encoding" });
     if (!gzipped || !gzipped.page.equals(page)) gzipped = { page, body: zlib.gzipSync(page) };
     reply(res, 200, "text/html; charset=utf-8", gzipped.body, { "Content-Encoding": "gzip", Vary: "Accept-Encoding" });
