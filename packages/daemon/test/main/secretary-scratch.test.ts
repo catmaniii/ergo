@@ -2,7 +2,7 @@
 // 草稿区里的写、改、删不落入任何关注类别，直接做、只记录；聊天里每次工具调用都有一条记录（工具名、参数摘要、
 // 命中的关注类别、判定、是否授权内、是否通用 bash），执行成功的进效果日志（效果摘要写执行后的效果）。
 // 秘书的围栏：草稿区外写被拒、项目档案只读、碰密钥区拒绝、写受保护区域永不。秘书能联网：联网的命令和用到联网库的
-// 脚本照常执行（测试里只连本机没人监听的端口），bash 不再设无效代理，浏览器的路径进 bash 的环境。
+// 脚本照常执行（测试里只连本机没人监听的端口），bash 不再设无效代理；466 起联网搜索用的浏览器的路径不再进 bash 的环境。
 import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, EVENT_TYPES, type MessageEnvelope, type MessageEventPayload, type MessagePart } from "@ergo/protocol";
@@ -239,7 +239,7 @@ describe("秘书能联网", () => {
     expect(seen).toContain("[toolResult] bash: quick");
   });
 
-  it("bash 起的进程：不设无效代理；浏览器的路径放进 AGENT_BROWSER_EXECUTABLE_PATH；环境里没有任何密钥", async () => {
+  it("bash 起的进程：不设无效代理；联网搜索用的浏览器找到了也不进环境，没有 AGENT_BROWSER_* 变量（466）；环境里没有任何密钥", async () => {
     const key = fakeSecret("sk-", "main-surface-0123456789abcdef");
     const browserPath = "D:\\假的浏览器\\chrome.exe";
     const test = await startTestDaemon({ secretary: [bash("env"), { kind: "echo_context" }], env: { DEEPSEEK_API_KEY: key }, browserPath });
@@ -247,8 +247,11 @@ describe("秘书能联网", () => {
     await frontend.subscribe({ [SECRETARY]: 0 });
     await tell(frontend, "看看环境变量");
     const seen = lastEcho(frontend);
+    // env 真跑了（固定带的变量在结果里）
+    expect(seen).toMatch(/\[toolResult\] bash: [\s\S]*PYTHONUTF8=1/);
     expect(seen).not.toContain(OFFLINE_PROXY);
-    expect(seen).toContain(`AGENT_BROWSER_EXECUTABLE_PATH=${browserPath}`);
+    expect(seen).not.toContain("AGENT_BROWSER_");
+    expect(seen).not.toContain(browserPath);
     expect(seen).not.toContain(key);
   });
 });

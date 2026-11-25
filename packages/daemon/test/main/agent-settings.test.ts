@@ -52,12 +52,13 @@ async function say1(frontend: TestFrontend, text: string, conversation: Conversa
 }
 
 /**
- * 回显里这一轮的系统提示（pi 在后面另接的工作目录、工具清单不算）：换了提示接着原会话时，pi 在会话中途记一条新的系统消息，
- * 后面的轮次按新的——取最后一条
+ * 回显里这一轮的系统提示（pi 在后面另接的 skill 清单、工作目录、工具清单不算）：换了提示接着原会话时，pi 在会话中途记一条新的系统消息，
+ * 后面的轮次按新的——取最后一条。pi 的系统提示按段记（提示本身、<skills>、<cwd>……），中途那条只带改了的段：
+ * skill 清单没变就不重发，开头那条里的照旧有效
  */
 const systemOf = (echo: string) => {
   const rest = echo.slice(echo.lastIndexOf("[system] "));
-  const end = rest.search(/\n\n<cwd>|\n\[(user|assistant|tool|system)\] /);
+  const end = rest.search(/\n\n<skills>\n|\n\n<cwd>|\n\[(user|assistant|tool|system)\] /);
   return end < 0 ? rest : rest.slice(0, end);
 };
 
@@ -72,7 +73,11 @@ describe("单独的提示词：存、读回、拼出实际的提示，下一轮�
     expect(before.body).toMatchObject({ agentId: "secretary", kind: "secretary", prompt: { state: "template", content: "", template: { id: "secretary" } }, clear: { how: "new_session", pending: false } });
     const template = before.body.prompt.effective;
     expect(template).toContain("用户叫你「二狗」");
-    expect(systemOf(await say1(frontend, "你好"))).toBe(`[system] ${template}`);
+    const first = await say1(frontend, "你好");
+    expect(systemOf(first)).toBe(`[system] ${template}`);
+    // 466：秘书默认勾着框架自带的 ego-browser（装没装 ego lite 都在，skill 里写了没装怎么办），pi 把它列在提示后面单独的 <skills> 段里
+    expect(first).toContain(`[system] ${template}\n\n<skills>\n`);
+    expect(first).toContain("<name>ego-browser</name>");
 
     // 追加：存在数据目录配置区，面板读回；占位符和通用模板一样能用
     const saved = await agentSettingsApi.savePrompt(url, "secretary", { mode: "append", content: "回答尽量短，{{名字}}只说要点。" });

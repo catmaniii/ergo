@@ -19,11 +19,12 @@ const textOf = (payload: MessageEventPayload) => payload.message.parts.map((p) =
 
 /**
  * faux 回显的上下文里生效的那条系统提示：换了系统提示接着会话时 pi 在中途记一条，生效的是最后一条。
- * 会话开头那条后面跟着工作目录和工具清单（<cwd>、[tool]），中途那条后面直接是用户消息
+ * 会话开头那条后面跟着 pi 另接的 skill 清单、工作目录和工具清单（<skills>、<cwd>、[tool]；466 起秘书默认有框架自带的
+ * ego-browser，开头那条总带 <skills>），这些不算；中途那条只带改了的段（pi 按段比对，skill 清单没变就不重发），后面直接是用户消息
  */
 function latestSystemPromptIn(seen: string): string {
   const latest = seen.slice(seen.lastIndexOf("[system] ") + "[system] ".length);
-  const ends = ["\n\n<cwd>", "\n[user]"].map((m) => latest.indexOf(m)).filter((i) => i >= 0);
+  const ends = ["\n\n<skills>\n", "\n\n<cwd>", "\n[user]"].map((m) => latest.indexOf(m)).filter((i) => i >= 0);
   return latest.slice(0, Math.min(...ends));
 }
 

@@ -3,7 +3,8 @@
 // 让常见的联网方式（curl、Python 的 requests、Node 的 fetch）连不上；子进程自己的环境不受影响。
 // 466：不再往 bash 的环境里放 AGENT_BROWSER_EXECUTABLE_PATH；找到了 ego 浏览器，给 agent 的那个目录在 agent 子进程 PATH 的最前面，
 // bash 里直接敲 ego-browser 就能跑——Windows 上找到的是二狗写在缓存区的薄 ego-browser（web/ego-shim.ts），它再把参数交给真的
-// （测试里"真的"由 node.exe 充当，只跑 --version，不碰真的 ego lite）；
+// （测试里"真的"由 node.exe 充当，只跑 --version，不碰真的 ego lite）；没找到就不加——测"没找到"时 agent 的 PATH 只留 Node 和系统目录，
+// 结果不看这台机器装没装 ego lite（473）；
 // grep、find 不再跟着联网开关去掉——pi 第一次用它们时找 rg、fd，找不到也不下载（子进程固定带 PI_OFFLINE=1）。
 // 模型 key 经 stdin 交给子进程，不进环境变量，所以 bash 里也看不到。
 import fs from "node:fs";
@@ -20,13 +21,29 @@ const KEY = fakeSecret("sk-", "contract-shell-env-0123456789abcdef");
 const PRINT_ENV = 'echo "proxy=$HTTPS_PROXY|$HTTP_PROXY|$ALL_PROXY node=$NODE_USE_ENV_PROXY browser=$AGENT_BROWSER_EXECUTABLE_PATH"; env';
 /** 假的浏览器路径（不存在也没关系：只看它进不进环境） */
 const FAKE_BROWSER = "D:\\假的浏览器\\chrome-131\\chrome.exe";
+/**
+ * 没装 ego 的机器上 agent 的 PATH：只留 Node 所在的目录和系统目录。开发机装了 ego lite 时，它的 active_version_dir 在用户 PATH 里，
+ * 之后起的进程（跑测试的这个也是）都带着；测试里守护进程的探测换成了假的"没找到"，PATH 却原样传给 agent，不换掉 bash 照样找得到真的
+ */
+const SYSTEM_ROOT = process.env["SystemRoot"] ?? "C:\\Windows";
+const PATH_WITHOUT_EGO = [path.dirname(process.execPath), SYSTEM_ROOT, path.join(SYSTEM_ROOT, "System32")].join(path.delimiter);
 
-async function runEnv(network: boolean | undefined, browserPath?: string, egoBrowser?: string, command = PRINT_ENV) {
-  return (await runEnvIn(network, browserPath, egoBrowser, command)).out;
+interface RunEnvOptions {
+  /** 联网搜索用的浏览器（假的路径） */
+  browserPath?: string;
+  /** 找到的 ego-browser（假的路径）；不填是没找到 */
+  egoBrowser?: string;
+  command?: string;
+  /** 显式给 agent 子进程的环境变量 */
+  env?: Record<string, string>;
+}
+
+async function runEnv(network: boolean | undefined, options: RunEnvOptions = {}) {
+  return (await runEnvIn(network, options)).out;
 }
 
 /** 同 runEnv，也回这次的数据目录 */
-async function runEnvIn(network: boolean | undefined, browserPath?: string, egoBrowser?: string, command = PRINT_ENV) {
+async function runEnvIn(network: boolean | undefined, { browserPath, egoBrowser, command = PRINT_ENV, env }: RunEnvOptions = {}) {
   const { daemon, dataDir } = await startTestDaemon({ ...(browserPath === undefined ? {} : { browserPath }), ...(egoBrowser === undefined ? {} : { egoBrowser }) });
   const { agent, log } = spawnTestAgent(daemon, {
     agentId: `contract-shell-env-${String(network)}`,
@@ -35,6 +52,7 @@ async function runEnvIn(network: boolean | undefined, browserPath?: string, egoB
     tools: ["bash"],
     credentials: { deepseek: KEY },
     ...(network === undefined ? {} : { network }),
+    ...(env === undefined ? {} : { env }),
   });
   await log.next("ready");
   agent.send({ type: "user_input", inputId: "in-1", text: "看看环境变量" });
@@ -64,12 +82,12 @@ describe("pi 契约：bash 起的进程的环境", () => {
     expect(out).not.toContain(KEY);
   });
 
-  it("466：联网搜索的浏览器找到了也不再放进 AGENT_BROWSER_EXECUTABLE_PATH；找到了 ego 浏览器：bash 里直接能跑 ego-browser（给 agent 的目录在 PATH 最前面），联网开关开着、关着都是", async () => {
-    expect(await runEnv(true, FAKE_BROWSER)).toContain("proxy=|| node= browser=\n");
+  it("466：联网搜索的浏览器找到了也不再放进 AGENT_BROWSER_EXECUTABLE_PATH；找到了 ego 浏览器：bash 里直接能跑 ego-browser（给 agent 的目录在 PATH 最前面），联网开关开着、关着都是；没找到：bash 里没有这个命令", async () => {
+    expect(await runEnv(true, { browserPath: FAKE_BROWSER })).toContain("proxy=|| node= browser=\n");
     const command = 'ego-browser --version; echo "where=$(cygpath -w "$(command -v ego-browser)")"; echo "ab=$(env | grep -c "^AGENT_BROWSER_")"';
     for (const network of [true, false]) {
       // "真的 ego-browser"由 node.exe 充当：--version 打出 Node 的版本（只看版本的不用 ego lite 开着，不碰真的 ego lite）
-      const { out, dataDir } = await runEnvIn(network, FAKE_BROWSER, process.execPath, command);
+      const { out, dataDir } = await runEnvIn(network, { browserPath: FAKE_BROWSER, egoBrowser: process.execPath, command });
       expect(out).toContain(process.version);
       // Git Bash 自己会在 PATH 前面加它的 mingw64、usr/bin；ego-browser 找到的是放进去的那个目录里的：
       // Windows 上是缓存区里二狗写的 shim，别的系统是 ego-browser 自己的目录
@@ -78,8 +96,8 @@ describe("pi 契约：bash 起的进程的环境", () => {
       expect(fs.realpathSync.native(path.dirname(where))).toBe(fs.realpathSync.native(expected));
       expect(out).toContain("ab=0");
     }
-    // 没找到 ego：bash 里没有这个命令
-    expect(await runEnv(true, undefined, undefined, "command -v ego-browser || echo 没有")).toContain("没有");
+    // 没找到 ego（PATH 上也没有它，像没装 ego lite 的机器）：二狗不加目录，bash 里没有这个命令
+    expect(await runEnv(true, { command: "command -v ego-browser || echo 没有", env: { PATH: PATH_WITHOUT_EGO } })).toContain("没有");
   });
 });
 

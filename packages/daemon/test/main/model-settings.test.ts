@@ -95,6 +95,8 @@ describe("设置里的模型", () => {
 
     expect((await modelSettingsApi.key(td.url)).body.apiKey.configured).toBe(false);
     expect(fs.existsSync(file)).toBe(false);
+    // 密钥区里原有的只有守护进程每次起来写的本机程序令牌（469）
+    expect(fs.readdirSync(td.daemon.layout.secrets)).toEqual([path.basename(td.daemon.layout.localTokenFile)]);
 
     // 填一个：写进密钥区的文件（就 key 一行），回的只有状态
     const saved = await modelSettingsApi.keySet(td.url, FILLED);
@@ -106,7 +108,8 @@ describe("设置里的模型", () => {
     });
     expect(JSON.stringify(saved.body)).not.toContain(FILLED);
     expect(fs.readFileSync(file, "utf8")).toBe(`${FILLED}\n`);
-    expect(fs.readdirSync(td.daemon.layout.secrets)).toEqual(["deepseek-api-key.txt"]);
+    // 只多了这一个文件（本机程序令牌照旧在）
+    expect(fs.readdirSync(td.daemon.layout.secrets).toSorted()).toEqual(["deepseek-api-key.txt", path.basename(td.daemon.layout.localTokenFile)].toSorted());
     expect((await modelSettingsApi.key(td.url)).body.apiKey.configured).toBe(true);
     // 联网设置里 DeepSeek 的 key 也跟着成"配了"（联网工具也从现在用的那一份取）
     expect((await webSettingsApi.view(td.url)).body.deepseekKey.configured).toBe(true);
