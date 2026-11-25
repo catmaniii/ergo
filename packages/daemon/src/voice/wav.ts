@@ -1,6 +1,7 @@
 // WAV：参考音色只收 WAV，audio.cpp 合成出来的也是 WAV。这里读 WAV 头量时长（导入参考音色时核对、
 // 合成出的语音记进语音对象），再从采样算出画气泡用的波形摘要。只认 PCM（8/16/24/32 位整数）和 32 位浮点。
 // 分段合成：各段依次拼成一条（joinWavs，段间留停顿、接缝做淡入淡出），各段在整条里的位置（wavOffsetsMs）。
+// 长的参考录音截一段（sliceWav，采样原样照抄）。
 
 export interface WavInfo {
   sampleRate: number;
@@ -129,6 +130,40 @@ export function sameWavFormat(a: WavInfo, b: WavInfo): boolean {
 /** 每帧（各声道各一个采样）几个字节 */
 const blockOf = (info: WavInfo) => info.channels * (info.bitsPerSample / 8);
 
+/** 在 out 开头写 44 字节的标准 WAV 头（格式照 format，data 块 dataLength 字节） */
+function writeWavHeader(out: Buffer, format: WavInfo, dataLength: number): void {
+  const block = blockOf(format);
+  out.write("RIFF", 0, "ascii");
+  out.writeUInt32LE(36 + dataLength, 4);
+  out.write("WAVE", 8, "ascii");
+  out.write("fmt ", 12, "ascii");
+  out.writeUInt32LE(16, 16);
+  out.writeUInt16LE(format.encoding === "float" ? WAVE_FORMAT_FLOAT : WAVE_FORMAT_PCM, 20);
+  out.writeUInt16LE(format.channels, 22);
+  out.writeUInt32LE(format.sampleRate, 24);
+  out.writeUInt32LE(format.sampleRate * block, 28);
+  out.writeUInt16LE(block, 32);
+  out.writeUInt16LE(format.bitsPerSample, 34);
+  out.write("data", 36, "ascii");
+  out.writeUInt32LE(dataLength, 40);
+}
+
+/**
+ * WAV 里的一段：第 fromFrame 帧到第 toFrame 帧（不含），格式不变、采样原样照抄（不淡入淡出），44 字节的标准头。
+ * 超出范围的截到边上
+ */
+export function sliceWav(bytes: Buffer, info: WavInfo, fromFrame: number, toFrame: number): Buffer {
+  const block = blockOf(info);
+  const frames = info.dataLength / block;
+  const from = Math.max(0, Math.min(frames, Math.floor(fromFrame)));
+  const to = Math.max(from, Math.min(frames, Math.floor(toFrame)));
+  const dataLength = (to - from) * block;
+  const out = Buffer.alloc(44 + dataLength);
+  writeWavHeader(out, info, dataLength);
+  bytes.copy(out, 44, info.dataOffset + from * block, info.dataOffset + to * block);
+  return out;
+}
+
 /** 段间的停顿有多少帧 */
 const gapFramesOf = (info: WavInfo, gapMs: number) => Math.round((gapMs * info.sampleRate) / 1000);
 
@@ -157,19 +192,7 @@ export function joinWavs(parts: ReadonlyArray<{ bytes: Buffer; info: WavInfo }>,
   const dataLength = parts.reduce((sum, p) => sum + p.info.dataLength, 0) + gapBytes * (parts.length - 1);
   // 8 位 PCM 的静音是 128，别的是 0
   const out = Buffer.alloc(44 + dataLength, format.encoding === "pcm" && format.bitsPerSample === 8 ? 128 : 0);
-  out.write("RIFF", 0, "ascii");
-  out.writeUInt32LE(36 + dataLength, 4);
-  out.write("WAVE", 8, "ascii");
-  out.write("fmt ", 12, "ascii");
-  out.writeUInt32LE(16, 16);
-  out.writeUInt16LE(format.encoding === "float" ? WAVE_FORMAT_FLOAT : WAVE_FORMAT_PCM, 20);
-  out.writeUInt16LE(format.channels, 22);
-  out.writeUInt32LE(format.sampleRate, 24);
-  out.writeUInt32LE(format.sampleRate * block, 28);
-  out.writeUInt16LE(block, 32);
-  out.writeUInt16LE(format.bitsPerSample, 34);
-  out.write("data", 36, "ascii");
-  out.writeUInt32LE(dataLength, 40);
+  writeWavHeader(out, format, dataLength);
   const fadeFrames = Math.round((options.fadeMs * format.sampleRate) / 1000);
   const bytesPerSample = format.bitsPerSample / 8;
   let offset = 44;

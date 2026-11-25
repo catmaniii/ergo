@@ -48,6 +48,8 @@ export const EN_HTTP: Phrases = {
   "原型里不能改我的名字": "Your name can't be changed in the demo",
   "原型里没有日历": "No calendar in the demo",
   "这是原型里自动识别出来的逐字稿。": "This is a transcript recognized automatically in the demo.",
+  "示例音色（长录音）": "Sample voice (long recording)",
+  "大家好，今天跟大家聊聊周末去爬山的事。天气特别好，山顶的风也不大，我们在上面待了快一个小时。": "Hi everyone, let me tell you about our hike last weekend. The weather was great, it wasn't too windy at the top, and we stayed up there for almost an hour.",
   "fun_asr_nano（audio.cpp/asr）": "fun_asr_nano (audio.cpp/asr)",
   "原型没有这条分支": "The demo doesn't have this branch",
   "{}\n\n（原型：这是按摘要编的假内容）": "{}\n\n(Demo: fake content made up from the summary)",

@@ -122,6 +122,16 @@ export function setFakeLoad(logFile: string, load: FakeLoad | undefined): void {
   else fs.writeFileSync(file, JSON.stringify(load));
 }
 
+/**
+ * 文件里没有给假识别进程的指令（FAKE-ASR 那一行）时它照这个回（undefined：回空文字）；logFile 是它的记录文件。
+ * 参考音色从长录音里截出来的那段只有采样、带不了指令，测它的逐字稿用这个
+ */
+export function setFakeAsrDefault(logFile: string, asr: FakeAsr | undefined): void {
+  const file = `${logFile}.default-asr.json`;
+  if (asr === undefined) fs.rmSync(file, { force: true });
+  else fs.writeFileSync(file, JSON.stringify(asr));
+}
+
 /** 假识别进程的记录 */
 export interface RecognizerLogEntry {
   event: "start" | "init" | "load" | "ping" | "transcribe" | "exit";
@@ -131,6 +141,8 @@ export interface RecognizerLogEntry {
   path?: string;
   language?: string;
   initialPrompt?: string;
+  /** 识别的文件是 WAV 时按头量出的时长（毫秒） */
+  wavMs?: number;
   primary?: { device: string; model: string; computeType: string };
   fallback?: { device: string; model: string; computeType: string } | null;
 }

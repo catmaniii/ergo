@@ -1,6 +1,6 @@
 // 参考音色导入的多格式转码："导入音频要支持更多类型：wav、mp3、m4a、opus 等等，大不了用本地 ffmpeg 转"。
 // - 用本机的 ffmpeg 把任意常见的音频（wav、mp3、m4a、aac、opus、ogg、flac、webm……）统一转成 16 kHz、单声道、PCM16 的 WAV
-//   （Fish 克隆只收 WAV）；1–30 秒的限制由调用方按转换后的真实时长判（时长只有转出来才准）；
+//   （Fish 克隆只收 WAV）；时长由调用方按转换后的真实时长判（时长只有转出来才准；太长的由调用方截一段，reference-trim.ts）；
 // - ffmpeg 的命令可注入（测试换成假的，不真跑 ffmpeg、不装依赖；正式运行就是 PATH 上的 ffmpeg）；程序本身不能替换、不下载；
 // - 输入写在数据目录临时区里的一个唯一目录里，输出也在那儿；转换成功时把交回的对象连同临时目录的位置一起给出（自动识别逐字稿要
 //   把转出来的文件交给识别进程），调用方用 conversion.cleanup() 删掉。失败、超时、ffmpeg 不在时这里已经删干净了；
@@ -16,7 +16,7 @@ import { t } from "@ergo/protocol";
 export interface ConvertedAudio {
   /** 转出来的 WAV 的内容（存成 reference.wav 的就是它） */
   wav: Buffer;
-  /** 转出来的文件在磁盘上的位置（自动识别逐字稿时交给识别进程）；用完调 cleanup 删掉 */
+  /** 转出来的文件在磁盘上的位置（自动识别逐字稿时交给识别进程；长录音截出来的那段写回这里再识别）；用完调 cleanup 删掉 */
   path: string;
   /** 删掉转换用的临时目录 */
   cleanup(): void;
@@ -41,7 +41,10 @@ export interface AudioConverter {
   convert(audio: Buffer): Promise<ConvertedAudio>;
 }
 
-/** 一次转换最多等多久（毫秒）：导入的是 30 秒以内的录音，转码本身很快，这么久还不出来就是卡住了 */
+/**
+ * 一次转换最多等多久（毫秒）：导入的录音最大 REFERENCE_VOICE_MAX_BYTES（100 MB），转码本身很快（实测两分钟的 MP3 不到 0.2 秒，
+ * 100 MB 的 MP3 一个多小时、也就十来秒），这么久还不出来就是卡住了
+ */
 export const AUDIO_CONVERT_TIMEOUT_MS = 60_000;
 /** 日志和原因里留 ffmpeg stderr 的最后多少字符 */
 const STDERR_TAIL = 500;

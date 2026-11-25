@@ -17,6 +17,8 @@ export function fakeFfmpegCommand(logFile: string): string[] {
 export interface FakeAudio {
   /** 转出来多长（秒）；不给按输入 WAV 的头算，不是 WAV 时 3 秒 */
   seconds?: number;
+  /** 转出来的 WAV 里哪几段是静音（[起, 止]，秒）：测长录音自动截在停顿处 */
+  pauses?: Array<[number, number]>;
   /** 给了就转码失败，stderr 写这句（模拟认不出的格式、坏文件） */
   fail?: string;
   /** 自动识别逐字稿时给假识别进程的指令（text、error……见 FakeAsr） */

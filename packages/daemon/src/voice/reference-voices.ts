@@ -2,7 +2,7 @@
 // 存在数据目录的 voices 区（不进仓库），文件就是真相，不进事件日志：
 //   voices/<id>/reference.wav   参考录音（导入的常见音频先经本机 ffmpeg 转成 16 kHz、单声道、PCM16 的 WAV 再存）
 //   voices/<id>/reference.txt   逐字稿（UTF-8；Fish 克隆要 voice_ref 和 reference_text 同时给；不给就自动识别）
-//   voices/<id>/voice.json      { format: 1, id, name, audioFile, referenceTextFile, durationMs, sha256, importedAt, builtin? }
+//   voices/<id>/voice.json      { format: 1, id, name, audioFile, referenceTextFile, durationMs, sha256, importedAt, builtin?, trimmedFromMs? }
 //   voices/current.json         { format: 1, voiceId }：设置里选的那一个
 // audio.cpp 读不了带中文的路径，所以目录和文件名都用英文 id（导入时生成 v-xxxxxxxx），显示名只在 voice.json 里。
 // 不列出也不引用 audio.cpp 自带的音色库：用户想用其中某个，就手动导入。
@@ -17,9 +17,13 @@
 // 语音回复用"现在的那个"：设置里选过的；没选过（或选的被删了）就用最早导入的（只有一个时就是它）。
 // "导入音频要支持更多类型……大不了用本地 ffmpeg 转""直接用语音转文本识别逐字稿"：
 // - 导入收 wav、mp3、m4a、aac、opus、ogg、flac、webm 等常见音频，转码在 audio-convert.ts（可注入，测试不真跑 ffmpeg）；
-// - 1–30 秒按转换后的真实时长判；转不了、ffmpeg 不在、识别为空或失败都给明确的原因，不建目录；
+// - 时长按转换后的真实时长判：不到 1 秒的拒；"参考录音如果太长，现在会报错，最长30秒，其实没必要"（472）：长于 30 秒
+//   （克隆模型收的上限）的不拒，自动截一段当参考（reference-trim.ts：去掉开头的静音，取 15 秒左右、断在说话的停顿处），
+//   只存截出来的那段、不留原来的长录音，voice.json 记下原来多长（trimmedFromMs）；
+// - 转不了、ffmpeg 不在、识别为空或失败都给明确的原因，不建目录；
 // - 请求里给了 referenceText 就照用（兼容旧调用、手工修正），不给就调识别进程的 transcribe()（和语音消息共用）；
-// - 日志只写 id、时长、识别不识别，不写音频内容和逐字稿正文。
+//   截过的一律识别截出来的那段（给的逐字稿对的是整段录音，和截出来的对不上）；
+// - 日志只写 id、时长、怎么截的、识别不识别，不写音频内容和逐字稿正文。
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -39,6 +43,7 @@ import { RequestRejected } from "../errors.ts";
 import { renameRetrying, renameRetryingAsync, writeFileAtomic } from "../util/atomic-file.ts";
 import type { AudioConverter } from "./audio-convert.ts";
 import { type Recognizer, RecognizerUnavailable } from "./recognizer.ts";
+import { type ReferenceTrim, trimReference } from "./reference-trim.ts";
 import { readWav } from "./wav.ts";
 
 /** voice.json 和 current.json 的格式版本 */
@@ -94,7 +99,8 @@ export interface ReferenceVoices {
   audioPath(voiceId: string): string | undefined;
   /**
    * 导入一个：同样的录音和名字已经导过就拿到那一个（created 为 false）。不合规矩的抛 RequestRejected；
-   * 录音收常见音频（先经本机 ffmpeg 转成 16 kHz 单声道 WAV），不给逐字稿就自动识别（抛 ReferenceVoiceTranscribeFailed）
+   * 录音收常见音频（先经本机 ffmpeg 转成 16 kHz 单声道 WAV），长于 REFERENCE_VOICE_MAX_MS 的自动截一段（只存截出来的，
+   * 交回的 trimmedFromMs 是原来多长），不给逐字稿（或者截过）就自动识别（抛 ReferenceVoiceTranscribeFailed）
    */
   import(input: ReferenceVoiceImport): Promise<{ voice: ReferenceVoice; created: boolean }>;
   /** 选它作为语音回复用的 */
@@ -140,7 +146,19 @@ interface StoredMeta {
   importedAt: string;
   /** 是开源版自带的默认音色（不是用户导入的）：显示名每次都按当时的语言现查 */
   builtin?: boolean;
+  /** 导入的录音太长、自动截了一段时，原来的录音有多长（毫秒）；durationMs 是截出来的那段 */
+  trimmedFromMs?: number;
 }
+
+/** 参考录音太短（转换后、截过以后都按它判） */
+const tooShort = () => new RequestRejected("bad_params", t("voice.reference.tooShort", { min: REFERENCE_VOICE_MIN_MS / 1000 }));
+
+/** 日志里怎么截的说法 */
+const CUT_LOG: Readonly<Record<ReferenceTrim["cut"], string>> = {
+  pause: "断在停顿处", // @i18n-ignore log
+  hard: "没找到停顿，硬截", // @i18n-ignore log
+  end: "留到结尾", // @i18n-ignore log
+};
 
 /** 只认单纯的文件名（voice.json 是个人数据，也不让它指到目录外面去） */
 function plainFile(name: unknown): name is string {
@@ -199,6 +217,7 @@ export function openReferenceVoices(options: ReferenceVoiceOptions): ReferenceVo
       sha256: typeof meta.sha256 === "string" ? meta.sha256 : "",
       importedAt: typeof meta.importedAt === "string" ? meta.importedAt : "",
       ...(meta.builtin === true ? { builtin: true as const } : {}),
+      ...(typeof meta.trimmedFromMs === "number" && meta.trimmedFromMs > 0 ? { trimmedFromMs: Math.round(meta.trimmedFromMs) } : {}),
       audioPath,
     };
   };
@@ -293,27 +312,47 @@ export function openReferenceVoices(options: ReferenceVoiceOptions): ReferenceVo
       const same = all().find((v) => v.sha256 === sha256 && v.name === name);
       if (same) return { voice: publicOf(same), created: false };
 
-      // 统一经本机 ffmpeg 转成 16 kHz、单声道、PCM16 的 WAV；1–30 秒按转换后的真实时长判
+      // 统一经本机 ffmpeg 转成 16 kHz、单声道、PCM16 的 WAV；时长按转换后的真实时长判
       const converted = await converter.convert(audio);
       try {
         const wav = readWav(converted.wav);
         if (!wav || wav.encoding !== "pcm" || wav.bitsPerSample !== 16 || wav.sampleRate !== 16000 || wav.channels !== 1) {
           throw new RequestRejected("bad_params", t("voice.reference.convertedBad"));
         }
-        if (wav.durationMs < REFERENCE_VOICE_MIN_MS) throw new RequestRejected("bad_params", t("voice.reference.tooShort", { min: REFERENCE_VOICE_MIN_MS / 1000 }));
-        if (wav.durationMs > REFERENCE_VOICE_MAX_MS) throw new RequestRejected("bad_params", t("voice.reference.tooLong", { max: REFERENCE_VOICE_MAX_MS / 1000 }));
-        // 逐字稿：给了照用（兼容旧调用、手工修正），不给就自动识别（识别的是转换后的 WAV）
-        const referenceText = givenText !== "" ? givenText : await transcribe(converted.path, wav.durationMs);
+        if (wav.durationMs < REFERENCE_VOICE_MIN_MS) throw tooShort();
+        // 长于克隆模型收的上限：不拒，截一段当参考。截出来的写回转换出来的那个临时文件——识别的、存的都是这一段，
+        // 原来的长录音随临时目录一起删掉
+        const trim = wav.durationMs > REFERENCE_VOICE_MAX_MS ? trimReference(converted.wav, wav) : undefined;
+        if (trim) {
+          if (trim.durationMs < REFERENCE_VOICE_MIN_MS) throw tooShort();
+          fs.writeFileSync(converted.path, trim.wav);
+        }
+        const reference = trim?.wav ?? converted.wav;
+        const durationMs = trim?.durationMs ?? wav.durationMs;
+        // 逐字稿：给了照用（兼容旧调用、手工修正），不给就自动识别（识别的是转换后的 WAV）；
+        // 截过的一律识别截出来的那段：给的逐字稿对的是整段录音，和参考录音对不上
+        const recognize = givenText === "" || trim !== undefined;
+        const referenceText = recognize ? await transcribe(converted.path, durationMs) : givenText;
         if (referenceText.length > REFERENCE_VOICE_TEXT_MAX) throw new RequestRejected("bad_params", t("voice.reference.badText", { max: REFERENCE_VOICE_TEXT_MAX }));
 
         const id = `v-${randomUUID().slice(0, 8)}`;
-        const meta: StoredMeta = { format: FORMAT, id, name, audioFile: AUDIO_FILE, referenceTextFile: TEXT_FILE, durationMs: wav.durationMs, sha256, importedAt: nowIso() };
+        const meta: StoredMeta = {
+          format: FORMAT,
+          id,
+          name,
+          audioFile: AUDIO_FILE,
+          referenceTextFile: TEXT_FILE,
+          durationMs,
+          sha256,
+          importedAt: nowIso(),
+          ...(trim ? { trimmedFromMs: wav.durationMs } : {}),
+        };
         // 先写进临时目录，写全了再改名：半截的目录不会被列出来
         fs.mkdirSync(dir, { recursive: true });
         const staging = path.join(dir, `.importing-${randomUUID()}`);
         fs.mkdirSync(staging);
         try {
-          fs.writeFileSync(path.join(staging, AUDIO_FILE), converted.wav);
+          fs.writeFileSync(path.join(staging, AUDIO_FILE), reference);
           fs.writeFileSync(path.join(staging, TEXT_FILE), referenceText, "utf8");
           fs.writeFileSync(path.join(staging, META_FILE), `${JSON.stringify(meta, null, 2)}\n`, "utf8");
           // 刚写的文件被杀毒扫着时整个目录改名等一会儿重试（异步等，不挡事件循环）
@@ -322,8 +361,10 @@ export function openReferenceVoices(options: ReferenceVoiceOptions): ReferenceVo
           fs.rmSync(staging, { recursive: true, force: true });
           throw err;
         }
-        // 日志只写 id、时长和是不是自动识别的，不写音频内容和逐字稿正文
-        log(`导入了参考音色 ${id}（${wav.durationMs} 毫秒${givenText === "" ? "，逐字稿是自动识别的" : ""}）`);
+        // 日志只写 id、时长、怎么截的和是不是自动识别的，不写音频内容和逐字稿正文
+        const trimmed = trim ? `，从 ${wav.durationMs} 毫秒的录音里截的：从第 ${trim.startMs} 毫秒起，${CUT_LOG[trim.cut]}` : ""; // @i18n-ignore log
+        const ignored = trim && givenText !== "" ? "，给的逐字稿对的是整段录音，改为识别截出来的这段" : ""; // @i18n-ignore log
+        log(`导入了参考音色 ${id}（${durationMs} 毫秒${trimmed}${recognize ? "，逐字稿是自动识别的" : ""}${ignored}）`);
         changed();
         return { voice: publicOf(existing(id)), created: true };
       } finally {

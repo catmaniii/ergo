@@ -236,11 +236,16 @@ export const ReferenceVoice = Type.Object({
   /** 参考录音的逐字稿 */
   referenceText: Type.String(),
   durationMs: Type.Integer({ minimum: 0 }),
-  /** 参考录音的 sha256 */
+  /** 导入时传上来的那份录音的 sha256（截过的也是原录音的：同样的录音和名字再导一次认得出来）；内置音色是素材录音的 */
   sha256: Type.String(),
   importedAt: Type.String(),
   /** 是开源版自带的默认音色（ADR-0036），不是用户导入的；显示名跟着界面语言变 */
   builtin: Type.Optional(Type.Boolean()),
+  /**
+   * 导入的录音长于 REFERENCE_VOICE_MAX_MS、自动截了一段时，原来的录音有多长（毫秒）；durationMs 是截出来的那段。
+   * 原来的长录音不存；没截过的没有这个值
+   */
+  trimmedFromMs: Type.Optional(Type.Integer({ minimum: 0 })),
 });
 export type ReferenceVoice = Static<typeof ReferenceVoice>;
 
@@ -253,7 +258,8 @@ export type ReferenceVoiceList = Static<typeof ReferenceVoiceList>;
 
 /**
  * 导入一个参考音色：名字、音频（base64，wav、mp3、m4a、aac、opus、ogg、flac、webm 等常见格式，服务端转成 WAV），
- * 可选的逐字稿（不给就自动识别；给了照用，兼容旧调用和手工修正）
+ * 可选的逐字稿（不给就自动识别；给了照用，兼容旧调用和手工修正）。录音长于 REFERENCE_VOICE_MAX_MS 时自动截一段当参考，
+ * 给的逐字稿对不上截出来的那段，改为识别截出来的那段
  */
 export const ImportReferenceVoiceBody = Type.Object({
   name: Type.String({ minLength: 1, maxLength: REFERENCE_VOICE_NAME_MAX }),

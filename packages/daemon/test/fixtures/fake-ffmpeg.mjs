@@ -4,6 +4,7 @@
 //   seconds      转出来的 WAV 有多长（秒）；不给时按输入 WAV 的头算，输入不是 WAV 时 3 秒
 //   sampleRate   转出来的采样率，默认 16000
 //   channels     转出来的声道数，默认 1
+//   pauses       转出来的 WAV 里哪几段是静音（[[起, 止], …]，秒；采样全是 0）：测长录音自动截在停顿处
 //   fail         转码失败：stderr 写这个原因、退出码 1（模拟认不出的格式、坏文件）
 //   asr          自动识别逐字稿时给假识别进程的指令（helpers/voice.ts 的 FakeAsr），原样写成输出后面的一行
 //                "FAKE-ASR <JSON>"，假识别进程从它读出这次识别回什么
@@ -60,13 +61,14 @@ function wavSeconds(bytes) {
   return dataLength / format.blockAlign / format.sampleRate;
 }
 
-/** 一段 16 位 PCM 的 WAV（正弦波，信噪比没有意义，只要头是对的） */
-function makeWav(seconds, sampleRate, channels) {
+/** 一段 16 位 PCM 的 WAV（正弦波，信噪比没有意义，只要头是对的）；pauses 里的几段是静音 */
+function makeWav(seconds, sampleRate, channels, pauses = []) {
   const frames = Math.max(0, Math.round(seconds * sampleRate));
   const block = channels * 2;
   const data = Buffer.alloc(frames * block);
+  const quiet = (i) => pauses.some(([from, to]) => i >= from * sampleRate && i < to * sampleRate);
   for (let i = 0; i < frames; i++) {
-    const value = Math.round(Math.sin((2 * Math.PI * 220 * i) / sampleRate) * 8000);
+    const value = quiet(i) ? 0 : Math.round(Math.sin((2 * Math.PI * 220 * i) / sampleRate) * 8000);
     for (let c = 0; c < channels; c++) data.writeInt16LE(value, i * block + c * 2);
   }
   const header = Buffer.alloc(44);
@@ -116,7 +118,7 @@ if (seconds === undefined) {
 }
 const sampleRate = typeof directive.sampleRate === "number" ? directive.sampleRate : 16000;
 const channels = typeof directive.channels === "number" ? directive.channels : 1;
-const wav = makeWav(seconds, sampleRate, channels);
+const wav = makeWav(seconds, sampleRate, channels, Array.isArray(directive.pauses) ? directive.pauses : []);
 // 自动识别逐字稿时把指令放进输出：假识别进程读它知道回什么（没有这一行就是空文字）
 const asr = directive.asr === undefined ? undefined : Buffer.from(`\nFAKE-ASR ${JSON.stringify(directive.asr)}\n`, "utf8");
 const out = asr === undefined ? wav : Buffer.concat([wav, asr]);
